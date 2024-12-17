@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use krilla::annotation::Annotation;
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
@@ -8,7 +9,6 @@ use krilla::surface::Surface;
 use krilla::validation::ValidationError;
 use krilla::version::PdfVersion;
 use krilla::{Document, PageSettings, SerializeSettings};
-use krilla::annotation::Annotation;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
@@ -48,7 +48,11 @@ pub fn convert(
     };
 
     let mut document = Document::new_with(settings);
-    let mut gc = GlobalContext::new(&typst_document, options, collect_named_destinations(typst_document, options));
+    let mut gc = GlobalContext::new(
+        typst_document,
+        options,
+        collect_named_destinations(typst_document, options),
+    );
 
     convert_pages(&mut gc, &mut document)?;
 
@@ -62,7 +66,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
     let mut skipped_pages = 0;
 
     for (i, typst_page) in gc.document.pages.iter().enumerate() {
-        if gc.options
+        if gc
+            .options
             .page_ranges
             .as_ref()
             .is_some_and(|ranges| !ranges.includes_page_index(i))
@@ -436,11 +441,14 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 let span = gc.image_spans.get(&i).unwrap();
                 bail!(*span, "failed to process image");
             }
-        }
+        },
     }
 }
 
-fn collect_named_destinations(document: &PagedDocument, options: &PdfOptions) -> HashMap<Location, NamedDestination> {
+fn collect_named_destinations(
+    document: &PagedDocument,
+    options: &PdfOptions,
+) -> HashMap<Location, NamedDestination> {
     let mut locs_to_names = HashMap::new();
 
     // Find all headings that have a label and are the first among other

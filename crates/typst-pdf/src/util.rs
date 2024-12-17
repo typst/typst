@@ -106,10 +106,7 @@ impl ColorExt for Color {
     /// Convert a color into a krilla RGB color and an alpha value.
     fn to_krilla_rgb(&self) -> (kr::Color, u8) {
         let components = self.to_space(ColorSpace::Srgb).to_vec4_u8();
-        (
-            kr::Color::new(components[0], components[1], components[2]).into(),
-            components[3],
-        )
+        (kr::Color::new(components[0], components[1], components[2]), components[3])
     }
 }
 
@@ -117,7 +114,7 @@ impl ColorExt for Color {
 pub(crate) fn display_font(font: &Font) -> String {
     let font_family = &font.info().family;
     let font_variant = font.info().variant;
-    format!("{} ({:?})", font_family, font_variant)
+    format!("{font_family} ({font_variant:?})")
 }
 
 /// Build a typst path using a path builder.

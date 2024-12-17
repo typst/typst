@@ -40,7 +40,7 @@ pub(crate) fn handle_text(
     surface.fill_glyphs(
         krilla::geom::Point::from_xy(0.0, 0.0),
         fill,
-        &glyphs,
+        glyphs,
         font.clone(),
         text,
         size.to_f32(),
@@ -58,7 +58,7 @@ pub(crate) fn handle_text(
         surface.stroke_glyphs(
             krilla::geom::Point::from_xy(0.0, 0.0),
             stroke,
-            &glyphs,
+            glyphs,
             font,
             text,
             size.to_f32(),

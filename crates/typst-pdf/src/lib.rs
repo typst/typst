@@ -1,7 +1,7 @@
 //! Exporting Typst documents to PDF.
 
-mod image;
 mod convert;
+mod image;
 mod link;
 mod metadata;
 mod outline;

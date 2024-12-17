@@ -50,7 +50,7 @@ pub(crate) fn convert_stroke(
         line_join: stroke.join.to_krilla(),
         line_cap: stroke.cap.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
-        dash: stroke.dash.as_ref().map(|d| convert_dash(d)),
+        dash: stroke.dash.as_ref().map(convert_dash),
     })
 }
 

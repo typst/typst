@@ -19,7 +19,7 @@ pub(crate) fn handle_shape(
         if let Some(paint) = &shape.fill {
             let fill = paint::convert_fill(
                 gc,
-                &paint,
+                paint,
                 shape.fill_rule,
                 false,
                 surface,
