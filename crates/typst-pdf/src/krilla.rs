@@ -4,7 +4,6 @@ use crate::page::PageLabelExt;
 use crate::util::{display_font, AbsExt, PointExt, SizeExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
-use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::{NamedDestination, XyzDestination};
@@ -21,7 +20,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
 use typst_library::diag::{bail, SourceResult};
-use typst_library::foundations::{Datetime, NativeElement};
+use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Point, Size, Transform,

@@ -1,8 +1,9 @@
 use ecow::EcoString;
 use krilla::metadata::Metadata;
-use typst_library::foundations::Datetime;
+use typst_library::foundations::{Datetime, Smart};
 
 use crate::krilla::GlobalContext;
+use crate::Timezone;
 
 pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
@@ -30,22 +31,29 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
         metadata = metadata.subject(ident.to_string());
     }
 
-    let tz = gc.document.info.date.is_auto();
-    if let Some(date) = gc
-        .document
-        .info
-        .date
-        .unwrap_or(gc.options.timestamp)
-        .and_then(|d| convert_date(d, tz))
-    {
+    // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
+    // (2) If the `document.date` is set to `auto` or not set, try to use the
+    //     date from the options.
+    // (3) Otherwise, we don't write date metadata.
+    let (date, tz) = match (gc.document.info.date, gc.options.timestamp) {
+        (Smart::Custom(date), _) => (date, None),
+        (Smart::Auto, Some(timestamp)) => {
+            (Some(timestamp.datetime), Some(timestamp.timezone))
+        }
+        _ => (None, None),
+    };
+
+    if let Some(date) = date.and_then(|d| convert_date(d, tz)) {
         metadata = metadata.modification_date(date).creation_date(date);
     }
 
     metadata
 }
 
-// TODO: Sync with recent PR
-fn convert_date(datetime: Datetime, tz: bool) -> Option<krilla::metadata::DateTime> {
+fn convert_date(
+    datetime: Datetime,
+    tz: Option<Timezone>,
+) -> Option<krilla::metadata::DateTime> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut krilla_date = krilla::metadata::DateTime::new(year);
@@ -70,8 +78,16 @@ fn convert_date(datetime: Datetime, tz: bool) -> Option<krilla::metadata::DateTi
         krilla_date = krilla_date.second(s);
     }
 
-    if tz {
-        krilla_date = krilla_date.utc_offset_hour(0).utc_offset_minute(0);
+    match tz {
+        Some(Timezone::UTC) => {
+            krilla_date = krilla_date.utc_offset_hour(0).utc_offset_minute(0)
+        }
+        Some(Timezone::Local { hour_offset, minute_offset }) => {
+            krilla_date = krilla_date
+                .utc_offset_hour(hour_offset)
+                .utc_offset_minute(minute_offset)
+        }
+        None => {}
     }
 
     Some(krilla_date)

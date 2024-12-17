@@ -17,7 +17,7 @@ use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::{PdfOptions, Validator};
+use typst_pdf::{PdfOptions, Timestamp, Validator};
 
 use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
@@ -261,11 +261,24 @@ fn export_paged(document: &PagedDocument, config: &CompileConfig) -> SourceResul
 
 /// Export to a PDF.
 fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+    // If the timestamp is provided through the CLI, use UTC suffix,
+    // else, use the current local time and timezone.
+    let timestamp = match config.creation_timestamp {
+        Some(timestamp) => convert_datetime(timestamp).map(Timestamp::new_utc),
+        None => {
+            let local_datetime = chrono::Local::now();
+            convert_datetime(local_datetime).and_then(|datetime| {
+                Timestamp::new_local(
+                    datetime,
+                    local_datetime.offset().local_minus_utc() / 60,
+                )
+            })
+        }
+    };
+
     let options = PdfOptions {
         ident: Smart::Auto,
-        timestamp: convert_datetime(
-            config.creation_timestamp.unwrap_or_else(chrono::Utc::now),
-        ),
+        timestamp,
         page_ranges: config.pages.clone(),
         pdf_version: config.pdf_version.map(|v| match v {
             PdfVersion::V_1_4 => typst_pdf::PdfVersion::Pdf14,
@@ -294,7 +307,9 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
 }
 
 /// Convert [`chrono::DateTime`] to [`Datetime`]
-fn convert_datetime(date_time: chrono::DateTime<chrono::Utc>) -> Option<Datetime> {
+fn convert_datetime<Tz: chrono::TimeZone>(
+    date_time: chrono::DateTime<Tz>,
+) -> Option<Datetime> {
     Datetime::from_ymd_hms(
         date_time.year(),
         date_time.month().try_into().ok()?,

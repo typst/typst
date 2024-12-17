@@ -8,8 +8,8 @@ use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Transform};
 use typst_library::visualize::{
-    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, Pattern,
-    RatioOrAngle, RelativeTo, WeightedColor,
+    Color, ColorSpace, DashPattern, FillRule, FixedStroke, Gradient, Paint, RatioOrAngle,
+    RelativeTo, Tiling, WeightedColor,
 };
 use typst_utils::Numeric;
 
@@ -94,13 +94,13 @@ fn paint(
             Ok((p, alpha))
         }
         Paint::Gradient(g) => Ok(convert_gradient(g, on_text, transforms)),
-        Paint::Pattern(p) => convert_pattern(gc, p, on_text, surface, transforms),
+        Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, transforms),
     }
 }
 
 pub(crate) fn convert_pattern(
     gc: &mut GlobalContext,
-    pattern: &Pattern,
+    pattern: &Tiling,
     on_text: bool,
     surface: &mut Surface,
     mut transforms: Transforms,
