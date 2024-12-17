@@ -1,6 +1,6 @@
 //! Convert paint types from typst to krilla.
 
-use crate::krilla::{process_frame, FrameContext, GlobalContext, Transforms};
+use crate::krilla::{handle_frame, FrameContext, GlobalContext, Transforms};
 use crate::util::{AbsExt, ColorExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 use krilla::geom::NormalizedF32;
 use krilla::paint::SpreadMethod;
@@ -127,7 +127,7 @@ pub(crate) fn convert_pattern(
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
     let mut fc = FrameContext::new(pattern.frame().size());
-    process_frame(&mut fc, pattern.frame(), None, &mut surface, gc)?;
+    handle_frame(&mut fc, pattern.frame(), None, &mut surface, gc)?;
     surface.finish();
     let stream = stream_builder.finish();
     let pattern = krilla::paint::Pattern {

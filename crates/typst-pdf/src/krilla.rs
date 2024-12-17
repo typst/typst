@@ -3,12 +3,12 @@ use crate::link::handle_link;
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
+use crate::shape::handle_shape;
 use crate::text::handle_text;
-use crate::util::{build_path, display_font, AbsExt, TransformExt};
+use crate::util::{convert_path, display_font, AbsExt, TransformExt};
 use crate::{paint, PdfOptions};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
-use krilla::geom::Rect;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
@@ -54,11 +54,11 @@ impl State {
         }
     }
 
-    pub fn size(&mut self, size: Size) {
+    pub(crate) fn size(&mut self, size: Size) {
         self.size = size;
     }
 
-    pub fn transform(&mut self, transform: Transform) {
+    pub(crate) fn transform(&mut self, transform: Transform) {
         self.transform = self.transform.pre_concat(transform);
         self.transform_chain = self.transform_chain.pre_concat(transform);
     }
@@ -68,7 +68,7 @@ impl State {
     }
 
     /// Creates the [`Transforms`] structure for the current item.
-    pub fn transforms(&self, size: Size) -> Transforms {
+    pub(crate) fn transforms(&self, size: Size) -> Transforms {
         Transforms {
             transform_chain_: self.transform_chain,
             container_transform_chain: self.container_transform_chain,
@@ -84,26 +84,26 @@ pub(crate) struct FrameContext {
 }
 
 impl FrameContext {
-    pub fn new(size: Size) -> Self {
+    pub(crate) fn new(size: Size) -> Self {
         Self {
             states: vec![State::new(size, Transform::identity(), Transform::identity())],
             annotations: vec![],
         }
     }
 
-    pub fn push(&mut self) {
+    pub(crate) fn push(&mut self) {
         self.states.push(self.states.last().unwrap().clone());
     }
 
-    pub fn pop(&mut self) {
+    pub(crate) fn pop(&mut self) {
         self.states.pop();
     }
 
-    pub fn state(&self) -> &State {
+    pub(crate) fn state(&self) -> &State {
         self.states.last().unwrap()
     }
 
-    pub fn state_mut(&mut self) -> &mut State {
+    pub(crate) fn state_mut(&mut self) -> &mut State {
         self.states.last_mut().unwrap()
     }
 }
@@ -112,16 +112,16 @@ impl FrameContext {
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Transforms {
     /// The full transform chain.
-    pub transform_chain_: Transform,
+    pub(crate) transform_chain_: Transform,
     /// The transform of first hard frame in the hierarchy.
-    pub container_transform_chain: Transform,
+    pub(crate) container_transform_chain: Transform,
     /// The size of the first hard frame in the hierarchy.
-    pub container_size: Size,
+    pub(crate) container_size: Size,
     /// The size of the item.
-    pub size: Size,
+    pub(crate) size: Size,
 }
 
-pub struct GlobalContext<'a> {
+pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
     pub(crate) fonts_forward: HashMap<Font, krilla::font::Font>,
     pub(crate) fonts_backward: HashMap<krilla::font::Font, Font>,
@@ -265,7 +265,7 @@ pub fn pdf(
             let mut page = document.start_page_with(settings);
             let mut surface = page.surface();
             let mut fc = FrameContext::new(typst_page.frame.size());
-            process_frame(
+            handle_frame(
                 &mut fc,
                 &typst_page.frame,
                 typst_page.fill_or_transparent(),
@@ -284,6 +284,82 @@ pub fn pdf(
     document.set_metadata(build_metadata(&gc));
 
     finish(document, gc)
+}
+
+pub(crate) fn handle_frame(
+    fc: &mut FrameContext,
+    frame: &Frame,
+    fill: Option<Paint>,
+    surface: &mut Surface,
+    gc: &mut GlobalContext,
+) -> SourceResult<()> {
+    fc.push();
+
+    if frame.kind().is_hard() {
+        fc.state_mut().set_container_transform();
+        fc.state_mut().size(frame.size());
+    }
+
+    if let Some(fill) = fill {
+        let shape = Geometry::Rect(frame.size()).filled(fill);
+        handle_shape(fc, &shape, surface, gc)?;
+    }
+
+    for (point, item) in frame.items() {
+        fc.push();
+        fc.state_mut().transform(Transform::translate(point.x, point.y));
+
+        match item {
+            FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
+            FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
+            FrameItem::Shape(s, _) => handle_shape(fc, s, surface, gc)?,
+            FrameItem::Image(image, size, span) => {
+                handle_image(gc, fc, image, *size, surface, *span)?
+            }
+            FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
+            FrameItem::Tag(_) => {}
+        }
+
+        fc.pop();
+    }
+
+    fc.pop();
+
+    Ok(())
+}
+
+pub(crate) fn handle_group(
+    fc: &mut FrameContext,
+    group: &GroupItem,
+    surface: &mut Surface,
+    context: &mut GlobalContext,
+) -> SourceResult<()> {
+    fc.push();
+    fc.state_mut().transform(group.transform);
+
+    let clip_path = group
+        .clip_path
+        .as_ref()
+        .and_then(|p| {
+            let mut builder = PathBuilder::new();
+            convert_path(p, &mut builder);
+            builder.finish()
+        })
+        .and_then(|p| p.transform(fc.state().transform.to_krilla()));
+
+    if let Some(clip_path) = &clip_path {
+        surface.push_clip_path(clip_path, &krilla::path::FillRule::NonZero);
+    }
+
+    handle_frame(fc, &group.frame, None, surface, context)?;
+
+    if clip_path.is_some() {
+        surface.pop();
+    }
+
+    fc.pop();
+
+    Ok(())
 }
 
 /// Finish a krilla document and handle export errors.
@@ -429,158 +505,4 @@ fn get_version(options: &PdfOptions) -> SourceResult<PdfVersion> {
             }
         }
     }
-}
-
-pub fn process_frame(
-    fc: &mut FrameContext,
-    frame: &Frame,
-    fill: Option<Paint>,
-    surface: &mut Surface,
-    gc: &mut GlobalContext,
-) -> SourceResult<()> {
-    fc.push();
-
-    if frame.kind().is_hard() {
-        fc.state_mut().set_container_transform();
-        fc.state_mut().size(frame.size());
-    }
-
-    if let Some(fill) = fill {
-        let shape = Geometry::Rect(frame.size()).filled(fill);
-        handle_shape(fc, &shape, surface, gc)?;
-    }
-
-    for (point, item) in frame.items() {
-        fc.push();
-        fc.state_mut().transform(Transform::translate(point.x, point.y));
-
-        match item {
-            FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
-            FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
-            FrameItem::Shape(s, _) => handle_shape(fc, s, surface, gc)?,
-            FrameItem::Image(image, size, span) => {
-                handle_image(gc, fc, image, *size, surface, *span)?
-            }
-            FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
-            FrameItem::Tag(_) => {}
-        }
-
-        fc.pop();
-    }
-
-    fc.pop();
-
-    Ok(())
-}
-
-pub fn handle_group(
-    fc: &mut FrameContext,
-    group: &GroupItem,
-    surface: &mut Surface,
-    context: &mut GlobalContext,
-) -> SourceResult<()> {
-    fc.push();
-    fc.state_mut().transform(group.transform);
-
-    let clip_path = group
-        .clip_path
-        .as_ref()
-        .and_then(|p| {
-            let mut builder = PathBuilder::new();
-            build_path(p, &mut builder);
-            builder.finish()
-        })
-        .and_then(|p| p.transform(fc.state().transform.to_krilla()));
-
-    if let Some(clip_path) = &clip_path {
-        surface.push_clip_path(clip_path, &krilla::path::FillRule::NonZero);
-    }
-
-    process_frame(fc, &group.frame, None, surface, context)?;
-
-    if clip_path.is_some() {
-        surface.pop();
-    }
-
-    fc.pop();
-
-    Ok(())
-}
-
-pub fn handle_shape(
-    fc: &mut FrameContext,
-    shape: &Shape,
-    surface: &mut Surface,
-    gc: &mut GlobalContext,
-) -> SourceResult<()> {
-    let mut path_builder = PathBuilder::new();
-
-    match &shape.geometry {
-        Geometry::Line(l) => {
-            path_builder.move_to(0.0, 0.0);
-            path_builder.line_to(l.x.to_f32(), l.y.to_f32());
-        }
-        Geometry::Rect(size) => {
-            let w = size.x.to_f32();
-            let h = size.y.to_f32();
-            let rect = if w < 0.0 || h < 0.0 {
-                // Skia doesn't normally allow for negative dimensions, but
-                // Typst supports them, so we apply a transform if needed
-                // Because this operation is expensive according to tiny-skia's
-                // docs, we prefer to not apply it if not needed
-                let transform =
-                    krilla::geom::Transform::from_scale(w.signum(), h.signum());
-                Rect::from_xywh(0.0, 0.0, w.abs(), h.abs())
-                    .and_then(|rect| rect.transform(transform))
-            } else {
-                Rect::from_xywh(0.0, 0.0, w, h)
-            };
-
-            if let Some(rect) = rect {
-                path_builder.push_rect(rect);
-            }
-        }
-        Geometry::Path(p) => {
-            build_path(p, &mut path_builder);
-        }
-    }
-
-    surface.push_transform(&fc.state().transform.to_krilla());
-
-    if let Some(path) = path_builder.finish() {
-        if let Some(paint) = &shape.fill {
-            let fill = paint::fill(
-                gc,
-                &paint,
-                shape.fill_rule,
-                false,
-                surface,
-                fc.state().transforms(shape.geometry.bbox_size()),
-            )?;
-            surface.fill_path(&path, fill);
-        }
-
-        let stroke = shape.stroke.as_ref().and_then(|stroke| {
-            if stroke.thickness.to_f32() > 0.0 {
-                Some(stroke)
-            } else {
-                None
-            }
-        });
-
-        if let Some(stroke) = &stroke {
-            let stroke = paint::stroke(
-                gc,
-                stroke,
-                false,
-                surface,
-                fc.state().transforms(shape.geometry.bbox_size()),
-            )?;
-            surface.stroke_path(&path, stroke);
-        }
-    }
-
-    surface.pop();
-
-    Ok(())
 }

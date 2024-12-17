@@ -7,6 +7,7 @@ mod metadata;
 mod outline;
 mod page;
 mod paint;
+mod shape;
 mod text;
 mod util;
 

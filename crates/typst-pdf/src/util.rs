@@ -121,7 +121,7 @@ pub(crate) fn display_font(font: &Font) -> String {
 }
 
 /// Build a typst path using a path builder.
-pub(crate) fn build_path(path: &Path, builder: &mut PathBuilder) {
+pub(crate) fn convert_path(path: &Path, builder: &mut PathBuilder) {
     for item in &path.0 {
         match item {
             PathItem::MoveTo(p) => builder.move_to(p.x.to_f32(), p.y.to_f32()),
