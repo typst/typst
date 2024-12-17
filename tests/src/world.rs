@@ -20,6 +20,7 @@ use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
 use typst::{Feature, Library, World};
+use typst_library::foundations::{Module, Scope};
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -195,6 +196,14 @@ fn library() -> Library {
     lib.global
         .scope_mut()
         .define("forest", Color::from_u8(0x43, 0xA1, 0x27, 0xFF));
+
+    let mut contains_deprecated = Module::new("contains-deprecated", Scope::new());
+    contains_deprecated.scope_mut().define_deprecated(
+        "deprecated",
+        NoneValue,
+        "this is deprecated",
+    );
+    lib.global.scope_mut().define_module(contains_deprecated);
 
     // Hook up default styles.
     lib.styles
