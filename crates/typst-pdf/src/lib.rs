@@ -7,6 +7,7 @@ mod metadata;
 mod outline;
 mod page;
 mod paint;
+mod text;
 mod util;
 
 use typst_library::diag::SourceResult;

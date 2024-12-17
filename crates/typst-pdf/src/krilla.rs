@@ -3,12 +3,11 @@ use crate::link::handle_link;
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
+use crate::text::handle_text;
 use crate::util::{build_path, display_font, AbsExt, TransformExt};
 use crate::{paint, PdfOptions};
-use bytemuck::TransparentWrapper;
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
-use krilla::font::{GlyphId, GlyphUnits};
 use krilla::geom::Rect;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
@@ -17,8 +16,6 @@ use krilla::validation::ValidationError;
 use krilla::version::PdfVersion;
 use krilla::{Document, PageSettings, SerializeSettings};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::ops::Range;
-use std::sync::Arc;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
@@ -26,10 +23,8 @@ use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::{Font, Glyph, Lang, TextItem};
-use typst_library::visualize::{
-    FillRule, Geometry, Paint, Shape,
-};
+use typst_library::text::{Font, Lang};
+use typst_library::visualize::{Geometry, Paint, Shape};
 use typst_syntax::Span;
 
 #[derive(Debug, Clone)]
@@ -126,40 +121,10 @@ pub(super) struct Transforms {
     pub size: Size,
 }
 
-#[derive(TransparentWrapper)]
-#[repr(transparent)]
-struct PdfGlyph(Glyph);
-
-impl krilla::font::Glyph for PdfGlyph {
-    fn glyph_id(&self) -> GlyphId {
-        GlyphId::new(self.0.id as u32)
-    }
-
-    fn text_range(&self) -> Range<usize> {
-        self.0.range.start as usize..self.0.range.end as usize
-    }
-
-    fn x_advance(&self) -> f32 {
-        self.0.x_advance.get() as f32
-    }
-
-    fn x_offset(&self) -> f32 {
-        self.0.x_offset.get() as f32
-    }
-
-    fn y_offset(&self) -> f32 {
-        0.0
-    }
-
-    fn y_advance(&self) -> f32 {
-        0.0
-    }
-}
-
 pub struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
-    fonts_forward: HashMap<Font, krilla::font::Font>,
-    fonts_backward: HashMap<krilla::font::Font, Font>,
+    pub(crate) fonts_forward: HashMap<Font, krilla::font::Font>,
+    pub(crate) fonts_backward: HashMap<krilla::font::Font, Font>,
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
@@ -538,87 +503,6 @@ pub fn handle_group(
     }
 
     fc.pop();
-
-    Ok(())
-}
-
-pub fn handle_text(
-    fc: &mut FrameContext,
-    t: &TextItem,
-    surface: &mut Surface,
-    gc: &mut GlobalContext,
-) -> SourceResult<()> {
-    let typst_font = t.font.clone();
-
-    let krilla_font = if let Some(font) = gc.fonts_forward.get(&typst_font) {
-        font.clone()
-    } else {
-        let font = match krilla::font::Font::new(
-            Arc::new(typst_font.data().clone()),
-            typst_font.index(),
-            true,
-        ) {
-            None => {
-                let font_str = display_font(&typst_font);
-                bail!(Span::detached(), "failed to process font {font_str}");
-            }
-            Some(f) => f,
-        };
-
-        gc.fonts_forward.insert(typst_font.clone(), font.clone());
-        gc.fonts_backward.insert(font.clone(), typst_font.clone());
-
-        font
-    };
-
-    *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
-
-    let fill = paint::fill(
-        gc,
-        &t.fill,
-        FillRule::NonZero,
-        true,
-        surface,
-        fc.state().transforms(Size::zero()),
-    )?;
-    let text = t.text.as_str();
-    let size = t.size;
-
-    let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
-
-    surface.push_transform(&fc.state().transform.to_krilla());
-
-    surface.fill_glyphs(
-        krilla::geom::Point::from_xy(0.0, 0.0),
-        fill,
-        &glyphs,
-        krilla_font.clone(),
-        text,
-        size.to_f32(),
-        GlyphUnits::Normalized,
-        false,
-    );
-
-    if let Some(stroke) = t
-        .stroke
-        .as_ref()
-        .map(|s| paint::stroke(gc, s, true, surface, fc.state().transforms(Size::zero())))
-    {
-        let stroke = stroke?;
-
-        surface.stroke_glyphs(
-            krilla::geom::Point::from_xy(0.0, 0.0),
-            stroke,
-            &glyphs,
-            krilla_font.clone(),
-            text,
-            size.to_f32(),
-            GlyphUnits::Normalized,
-            true,
-        );
-    }
-
-    surface.pop();
 
     Ok(())
 }
