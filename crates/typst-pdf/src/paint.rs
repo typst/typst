@@ -13,7 +13,7 @@ use typst_library::visualize::{
 };
 use typst_utils::Numeric;
 
-pub(crate) fn fill(
+pub(crate) fn convert_fill(
     gc: &mut GlobalContext,
     paint_: &Paint,
     fill_rule_: FillRule,
@@ -21,7 +21,7 @@ pub(crate) fn fill(
     surface: &mut Surface,
     transforms: Transforms,
 ) -> SourceResult<krilla::path::Fill> {
-    let (paint, opacity) = paint(gc, paint_, on_text, surface, transforms)?;
+    let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, transforms)?;
 
     Ok(krilla::path::Fill {
         paint,
@@ -30,14 +30,14 @@ pub(crate) fn fill(
     })
 }
 
-pub(crate) fn stroke(
+pub(crate) fn convert_stroke(
     fc: &mut GlobalContext,
     stroke: &FixedStroke,
     on_text: bool,
     surface: &mut Surface,
     transforms: Transforms,
 ) -> SourceResult<krilla::path::Stroke> {
-    let (paint, opacity) = paint(fc, &stroke.paint, on_text, surface, transforms)?;
+    let (paint, opacity) = convert_paint(fc, &stroke.paint, on_text, surface, transforms)?;
 
     Ok(krilla::path::Stroke {
         paint,
@@ -46,18 +46,18 @@ pub(crate) fn stroke(
         line_join: stroke.join.to_krilla(),
         line_cap: stroke.cap.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
-        dash: stroke.dash.as_ref().map(|d| dash(d)),
+        dash: stroke.dash.as_ref().map(|d| convert_dash(d)),
     })
 }
 
-fn dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
+fn convert_dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
     krilla::path::StrokeDash {
         array: dash.array.iter().map(|e| e.to_f32()).collect(),
         offset: dash.phase.to_f32(),
     }
 }
 
-fn paint(
+fn convert_paint(
     gc: &mut GlobalContext,
     paint: &Paint,
     on_text: bool,
@@ -65,40 +65,41 @@ fn paint(
     transforms: Transforms,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
     match paint {
-        Paint::Solid(c) => {
-            let (p, alpha) = match c.space() {
-                ColorSpace::D65Gray => {
-                    let components = c.to_vec4_u8();
-                    (krilla::color::luma::Color::new(components[0]).into(), components[3])
-                }
-                ColorSpace::Cmyk => {
-                    let components = c.to_vec4_u8();
-                    (
-                        krilla::color::cmyk::Color::new(
-                            components[0],
-                            components[1],
-                            components[2],
-                            components[3],
-                        )
-                        .into(),
-                        // Typst doesn't support alpha on CMYK colors.
-                        255,
-                    )
-                }
-                _ => {
-                    let (c, a) = c.to_krilla_rgb();
-                    (c.into(), a)
-                }
-            };
-
-            Ok((p, alpha))
-        }
+        Paint::Solid(c) => Ok(convert_solid(c)),
         Paint::Gradient(g) => Ok(convert_gradient(g, on_text, transforms)),
         Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, transforms),
     }
 }
 
-pub(crate) fn convert_pattern(
+fn convert_solid(color: &Color) -> (krilla::paint::Paint, u8) {
+    match color.space() {
+        ColorSpace::D65Gray => {
+            let components = color.to_vec4_u8();
+            (krilla::color::luma::Color::new(components[0]).into(), components[3])
+        }
+        ColorSpace::Cmyk => {
+            let components = color.to_vec4_u8();
+            (
+                krilla::color::cmyk::Color::new(
+                    components[0],
+                    components[1],
+                    components[2],
+                    components[3],
+                )
+                    .into(),
+                // Typst doesn't support alpha on CMYK colors.
+                255,
+            )
+        }
+        // Convert all remaining colors into RGB
+        _ => {
+            let (c, a) = color.to_krilla_rgb();
+            (c.into(), a)
+        }
+    }
+}
+
+fn convert_pattern(
     gc: &mut GlobalContext,
     pattern: &Tiling,
     on_text: bool,

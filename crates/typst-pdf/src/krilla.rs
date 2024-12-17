@@ -6,7 +6,7 @@ use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::text::handle_text;
 use crate::util::{convert_path, display_font, AbsExt, TransformExt};
-use crate::{paint, PdfOptions};
+use crate::PdfOptions;
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
@@ -24,19 +24,20 @@ use typst_library::layout::{
 };
 use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Lang};
-use typst_library::visualize::{Geometry, Paint, Shape};
+use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
+/// A state allowing us to keep track of transforms and container sizes,
+/// which is mainly needed to resolve gradients and patterns correctly.
 #[derive(Debug, Clone)]
 pub(crate) struct State {
+    pub(crate) transform: Transform,
     /// The full transform chain
     transform_chain: Transform,
-    /// The transform of the current item.
-    pub(crate) transform: Transform,
     /// The transform of first hard frame in the hierarchy.
     container_transform_chain: Transform,
     /// The size of the first hard frame in the hierarchy.
-    size: Size,
+    container_size: Size,
 }
 
 impl State {
@@ -50,21 +51,18 @@ impl State {
             transform_chain,
             transform: Transform::identity(),
             container_transform_chain,
-            size,
+            container_size: size,
         }
     }
 
-    pub(crate) fn size(&mut self, size: Size) {
-        self.size = size;
+    pub(crate) fn register_container(&mut self, size: Size) {
+        self.container_transform_chain = self.transform_chain;
+        self.container_size = size;
     }
 
-    pub(crate) fn transform(&mut self, transform: Transform) {
+    pub(crate) fn pre_concat(&mut self, transform: Transform) {
         self.transform = self.transform.pre_concat(transform);
         self.transform_chain = self.transform_chain.pre_concat(transform);
-    }
-
-    fn set_container_transform(&mut self) {
-        self.container_transform_chain = self.transform_chain;
     }
 
     /// Creates the [`Transforms`] structure for the current item.
@@ -72,7 +70,7 @@ impl State {
         Transforms {
             transform_chain_: self.transform_chain,
             container_transform_chain: self.container_transform_chain,
-            container_size: self.size,
+            container_size: self.container_size,
             size,
         }
     }
@@ -296,8 +294,7 @@ pub(crate) fn handle_frame(
     fc.push();
 
     if frame.kind().is_hard() {
-        fc.state_mut().set_container_transform();
-        fc.state_mut().size(frame.size());
+        fc.state_mut().register_container(frame.size());
     }
 
     if let Some(fill) = fill {
@@ -307,7 +304,7 @@ pub(crate) fn handle_frame(
 
     for (point, item) in frame.items() {
         fc.push();
-        fc.state_mut().transform(Transform::translate(point.x, point.y));
+        fc.state_mut().pre_concat(Transform::translate(point.x, point.y));
 
         match item {
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
@@ -335,7 +332,7 @@ pub(crate) fn handle_group(
     context: &mut GlobalContext,
 ) -> SourceResult<()> {
     fc.push();
-    fc.state_mut().transform(group.transform);
+    fc.state_mut().pre_concat(group.transform);
 
     let clip_path = group
         .clip_path

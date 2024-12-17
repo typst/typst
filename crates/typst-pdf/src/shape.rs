@@ -17,7 +17,7 @@ pub(crate) fn handle_shape(
 
     if let Some(path) = convert_geometry(&shape.geometry) {
         if let Some(paint) = &shape.fill {
-            let fill = paint::fill(
+            let fill = paint::convert_fill(
                 gc,
                 &paint,
                 shape.fill_rule,
@@ -38,7 +38,7 @@ pub(crate) fn handle_shape(
         });
 
         if let Some(stroke) = &stroke {
-            let stroke = paint::stroke(
+            let stroke = paint::convert_stroke(
                 gc,
                 stroke,
                 false,

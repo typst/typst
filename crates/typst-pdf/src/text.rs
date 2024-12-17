@@ -21,7 +21,7 @@ pub(crate) fn handle_text(
     *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
 
     let font = convert_font(gc, t.font.clone())?;
-    let fill = paint::fill(
+    let fill = paint::convert_fill(
         gc,
         &t.fill,
         FillRule::NonZero,
@@ -48,7 +48,7 @@ pub(crate) fn handle_text(
     if let Some(stroke) = t
         .stroke
         .as_ref()
-        .map(|s| paint::stroke(gc, s, true, surface, fc.state().transforms(Size::zero())))
+        .map(|s| paint::convert_stroke(gc, s, true, surface, fc.state().transforms(Size::zero())))
     {
         let stroke = stroke?;
 
