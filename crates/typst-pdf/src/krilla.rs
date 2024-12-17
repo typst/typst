@@ -32,10 +32,8 @@ use typst_syntax::Span;
 #[derive(Debug, Clone)]
 pub(crate) struct State {
     pub(crate) transform: Transform,
-    /// The full transform chain
-    transform_chain: Transform,
     /// The transform of first hard frame in the hierarchy.
-    container_transform_chain: Transform,
+    container_transform: Transform,
     /// The size of the first hard frame in the hierarchy.
     container_size: Size,
 }
@@ -44,32 +42,28 @@ impl State {
     /// Creates a new, clean state for a given `size`.
     fn new(
         size: Size,
-        transform_chain: Transform,
-        container_transform_chain: Transform,
     ) -> Self {
         Self {
-            transform_chain,
             transform: Transform::identity(),
-            container_transform_chain,
+            container_transform: Transform::identity(),
             container_size: size,
         }
     }
 
     pub(crate) fn register_container(&mut self, size: Size) {
-        self.container_transform_chain = self.transform_chain;
+        self.container_transform = self.transform;
         self.container_size = size;
     }
 
     pub(crate) fn pre_concat(&mut self, transform: Transform) {
         self.transform = self.transform.pre_concat(transform);
-        self.transform_chain = self.transform_chain.pre_concat(transform);
     }
 
     /// Creates the [`Transforms`] structure for the current item.
     pub(crate) fn transforms(&self, size: Size) -> Transforms {
         Transforms {
-            transform_chain_: self.transform_chain,
-            container_transform_chain: self.container_transform_chain,
+            transform_chain_: self.transform,
+            container_transform_chain: self.container_transform,
             container_size: self.container_size,
             size,
         }
@@ -84,7 +78,7 @@ pub(crate) struct FrameContext {
 impl FrameContext {
     pub(crate) fn new(size: Size) -> Self {
         Self {
-            states: vec![State::new(size, Transform::identity(), Transform::identity())],
+            states: vec![State::new(size)],
             annotations: vec![],
         }
     }
