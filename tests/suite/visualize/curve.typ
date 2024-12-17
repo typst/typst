@@ -80,17 +80,15 @@
     curve.close(mode: "line")
   ),
   curve(
-    close-mode: "line",
     curve.move((0pt, 0pt)),
     curve.quad((10pt, 0pt), (10pt, 10pt)),
     curve.quad(auto, (10pt, 10pt), relative: true),
-    curve.close()
+    curve.close(mode: "line")
   ),
   curve(
-    close-mode: "line",
     curve.quad((10pt, 0pt), (10pt, 10pt)),
     curve.quad(auto, (10pt, 10pt), relative: true),
-    curve.close()
+    curve.close(mode: "line")
   ),
 )
 

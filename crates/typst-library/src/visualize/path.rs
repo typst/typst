@@ -10,8 +10,6 @@ use crate::visualize::{FillRule, Paint, Stroke};
 
 /// A path through a list of points, connected by Bezier curves.
 ///
-/// This element is deprecated. The `curve` element should be used instead.
-///
 /// # Example
 /// ```example
 /// #path(
@@ -23,6 +21,9 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
+///
+/// # Deprecation
+/// This element is deprecated. The [`curve`] element should be used instead.
 #[elem(Show)]
 pub struct PathElem {
     /// How to fill the path.

@@ -9,9 +9,8 @@ use crate::foundations::{
 };
 use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
-use CurveComponent::*;
 
-/// A path through a list of points, connected by Bezier curves.
+/// A curve consists of movements, lines, and Bezier segments.
 ///
 /// # Example
 /// ```example
@@ -26,13 +25,13 @@ use CurveComponent::*;
 /// ```
 #[elem(scope, Show)]
 pub struct CurveElem {
-    /// How to fill the path.
+    /// How to fill the curve.
     ///
     /// When setting a fill, the default stroke disappears. To create a
     /// rectangle with both fill and stroke, you have to configure both.
     pub fill: Option<Paint>,
 
-    /// The drawing rule used to fill the path.
+    /// The drawing rule used to fill the curve.
     ///
     /// ```example
     /// // We use `.with` to get a new
@@ -54,7 +53,7 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the path. This can be:
+    /// How to [stroke] the curve. This can be:
     ///
     /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
@@ -62,11 +61,7 @@ pub struct CurveElem {
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// How to close the path.
-    #[default(Some(CloseMode::Curve))]
-    pub close_mode: Option<CloseMode>,
-
-    /// The components of the path.
+    /// The components of the curve.
     #[variadic]
     pub components: Vec<CurveComponent>,
 }
@@ -97,7 +92,7 @@ impl CurveElem {
     type CurveClose;
 }
 
-/// A component used for path creation.
+/// A component used for curve creation.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CurveComponent {
     Move(Packed<CurveMove>),
@@ -110,11 +105,11 @@ pub enum CurveComponent {
 cast! {
     CurveComponent,
     self => match self {
-        Move(element) => element.into_value(),
-        Line(element) => element.into_value(),
-        Quad(element) => element.into_value(),
-        Cubic(element) => element.into_value(),
-        Close(element) => element.into_value(),
+        Self::Move(element) => element.into_value(),
+        Self::Line(element) => element.into_value(),
+        Self::Quad(element) => element.into_value(),
+        Self::Cubic(element) => element.into_value(),
+        Self::Close(element) => element.into_value(),
     },
     v: Content => {
         v.try_into()?
@@ -123,6 +118,7 @@ cast! {
 
 impl TryFrom<Content> for CurveComponent {
     type Error = HintedString;
+
     fn try_from(value: Content) -> HintedStrResult<Self> {
         value
             .into_packed::<CurveMove>()
@@ -135,107 +131,107 @@ impl TryFrom<Content> for CurveComponent {
     }
 }
 
-/// An element used to start a new path component.
+/// Starts a new curve component.
 ///
-/// If no `path.move` element is provided, the component will
-/// start at `(0pt, 0pt)`.
-#[elem(name = "move", title = "Path Move Element")]
+/// If no `curve.move` element is passed, the curve will start at
+/// `{(0pt, 0pt)}`.
+#[elem(name = "move", title = "Curve Move")]
 pub struct CurveMove {
     /// The starting point for the new component.
     #[resolve]
     #[positional]
     pub start: Axes<Rel<Length>>,
 
-    /// Are the coordinates relative to the previous point?
+    /// Whether the coordinates are relative to the previous point.
     #[default(false)]
     pub relative: bool,
 }
 
-/// An element used to add a segment from the last point to
-/// the `end` point.
-#[elem(name = "line", title = "Path Line Element")]
+/// Adds a straight line from the current point to a following one.
+#[elem(name = "line", title = "Curve Line")]
 pub struct CurveLine {
+    /// The point at which the line shall end.
     #[resolve]
     #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates relative to the previous point?
+    /// Whether the coordinates are relative to the previous point.
     #[default(false)]
     pub relative: bool,
 }
 
-/// An element used to add a quadratic Bezier curve from the last
-/// point to `end`, using `control` as the control point.
-///
-/// If no control point is specified, it defaults to `end`, and
-/// the curve will be a straight line.
-///
-/// If set to `{auto}` and this curve follows an other quadratic Bezier curve,
-/// the previous control point will be mirrored.
-#[elem(name = "quad", title = "Path Quadratic Curve Element")]
+/// Add a quadratic Bezier curve segment from the last point to `end`, using
+/// `control` as the control point.
+#[elem(name = "quad", title = "Curve Quadratic Segment")]
 pub struct CurveQuad {
-    /// The control point of the Bezier curve.
+    /// The control point of the quadratic Bezier curve.
+    ///
+    /// - If `{auto}` and this segment follows another quadratic Bezier curve,
+    ///   the previous control point will be mirrored.
+    /// - If `{none}`, the control point defaults to `end`, and the curve will
+    ///   be a straight line.
     #[resolve]
     #[positional]
-    pub control: Option<Smart<Axes<Rel<Length>>>>,
+    pub control: Smart<Option<Axes<Rel<Length>>>>,
 
-    /// The end point.
+    /// The point at which the segment shall end.
     #[resolve]
     #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates of the `end` and `control` points relative to the
-    /// previous point?
+    /// Whether the `control` and `end` coordinates are relative to the previous
+    /// point.
     #[default(false)]
     pub relative: bool,
 }
 
-/// An element used to add a cubic Bezier curve from the last
-/// point to `end`, using `control-start` and `control-end` as the control
-/// points.
-#[elem(name = "cubic", title = "Path Cubic Curve Element")]
+/// Adds a cubic Bezier curve segment from the last point to `end`, using
+/// `control-start` and `control-end` as the control points.
+#[elem(name = "cubic", title = "Curve Cubic Segment")]
 pub struct CurveCubic {
     /// The first control point.
     ///
-    /// If set to `{none}`, the curve starting point is used.
-    ///
-    /// If set to `{auto}` and this element follows another `curve.cubic`
-    /// element, the last control point will be mirrored.
+    /// - If `{auto}` and this element follows another `curve.cubic` element,
+    ///   the last control point will be mirrored.
+    /// - If `{none}`, defaults to the curve's starting point.
     #[resolve]
     #[positional]
     pub control_start: Option<Smart<Axes<Rel<Length>>>>,
 
     /// The second control point.
     ///
-    /// If set to `{none}`, the end point is used.
+    /// If set to `{none}`, defaults to the curve's end point.
     #[resolve]
     #[positional]
     pub control_end: Option<Axes<Rel<Length>>>,
 
-    /// The end point.
+    /// The point at which the segment shall end.
     #[resolve]
     #[positional]
     pub end: Axes<Rel<Length>>,
 
-    /// Are the coordinates of the `end` and `control` points relative to the
-    /// previous point?
+    /// Whether the `control-start`, `control-end`, and `end` coordinates are
+    /// relative to the previous point.
     pub relative: bool,
 }
 
-/// An element used to close a component. A segment or a curve from last point
-/// to the last `curve.move` point will be added.
-#[elem(name = "close", title = "Path Close Element")]
+/// Closes the curve by adding a segment from the last point to the start of the
+/// curve (or the last preceding `curve.move` point).
+#[elem(name = "close", title = "Curve Close")]
 pub struct CurveClose {
-    /// How to close the path. If set to `{auto}`, use the `close-mode`
-    /// parameter of the path.
-    pub mode: Smart<Option<CloseMode>>,
+    /// How to close the curve.
+    pub mode: CloseMode,
 }
 
+/// How to close a curve.
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Cast)]
 pub enum CloseMode {
-    Line,
+    /// Close the curve with a curved line that takes into account the control
+    /// points at the start point.
     #[default]
     Curve,
+    /// Close the curve with a straight line.
+    Line,
 }
 
 /// A bezier path.

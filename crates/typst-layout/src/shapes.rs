@@ -240,20 +240,18 @@ impl PathBuilder {
         self.last_control_from = mirror_c(end, c2);
     }
 
-    fn close(&mut self, mode: Option<CloseMode>) {
+    fn close(&mut self, mode: CloseMode) {
         if self.is_started && !self.is_empty {
-            if let Some(mode) = mode {
-                if mode == CloseMode::Curve {
-                    self.cubic_to(
-                        self.last_control_from,
-                        self.start_control_into,
-                        self.start_point,
-                    );
-                }
-                self.path.close_path();
-                self.last_point = self.start_point;
-                self.last_control_from = self.start_point;
+            if mode == CloseMode::Curve {
+                self.cubic_to(
+                    self.last_control_from,
+                    self.start_control_into,
+                    self.start_point,
+                );
             }
+            self.path.close_path();
+            self.last_point = self.start_point;
+            self.last_control_from = self.start_point;
         }
         self.is_started = false;
         self.is_empty = true;
@@ -288,7 +286,6 @@ pub fn layout_curve(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let default_close_mode = elem.close_mode(styles);
     let mut builder = PathBuilder::new(region);
 
     for item in elem.components() {
@@ -309,11 +306,11 @@ pub fn layout_curve(
                 let relative = element.relative(styles);
                 let end = builder.resolve_point(element.end(styles), relative);
                 let control = match element.control(styles) {
-                    Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
-                    Some(Smart::Auto) => {
+                    Smart::Auto => {
                         control_c2q(builder.last_point, builder.last_control_from)
                     }
-                    None => end,
+                    Smart::Custom(Some(p)) => builder.resolve_point(p, relative),
+                    Smart::Custom(None) => end,
                 };
                 builder.quadratic_to(control, end);
             }
@@ -334,8 +331,7 @@ pub fn layout_curve(
             }
 
             CurveComponent::Close(element) => {
-                let mode = element.mode(styles);
-                builder.close(mode.unwrap_or(default_close_mode));
+                builder.close(element.mode(styles));
             }
         }
     }
