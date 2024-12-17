@@ -101,7 +101,7 @@ pub struct TextElem {
     /// or a dictionary with the following keys:
     ///
     /// - `name` (required): The font family name.
-    /// - `covers` (optional): A regex that defines the Unicode points
+    /// - `covers` (optional): A [regex] that defines the Unicode codepoints
     ///   supported by the font. Unicode codepoints that match this regex are
     ///   considered within the range and will be rendered using this font.
     ///   A special `"latin-in-cjk"` value can also be specified to cover all
