@@ -984,8 +984,10 @@ impl Resolve for TextSize {
     fn resolve(self, styles: StyleChain) -> Self::Output {
         let factor = match EquationElem::size_in(styles) {
             MathSize::Display | MathSize::Text => 1.0,
-            MathSize::Script => 0.7,
-            MathSize::ScriptScript => 0.5,
+            MathSize::Script => EquationElem::script_scale_in(styles) as f64 / 100.0,
+            MathSize::ScriptScript => {
+                EquationElem::sscript_scale_in(styles) as f64 / 100.0
+            }
         };
         factor * self.0.resolve(styles)
     }

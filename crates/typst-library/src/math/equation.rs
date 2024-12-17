@@ -135,6 +135,18 @@ pub struct EquationElem {
     #[internal]
     #[ghost]
     pub class: Option<MathClass>,
+
+    ///
+    #[internal]
+    #[default(70)]
+    #[ghost]
+    pub script_scale: i16,
+
+    ///
+    #[internal]
+    #[default(50)]
+    #[ghost]
+    pub sscript_scale: i16,
 }
 
 impl Synthesize for Packed<EquationElem> {
