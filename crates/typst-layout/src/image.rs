@@ -10,7 +10,7 @@ use typst_library::layout::{
 use typst_library::loading::Readable;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Image, ImageElem, ImageFit, ImageFormat, Curve, RasterFormat, VectorFormat,
+    Curve, Image, ImageElem, ImageFit, ImageFormat, RasterFormat, VectorFormat,
 };
 
 /// Layout the image.
