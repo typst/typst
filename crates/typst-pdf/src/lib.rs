@@ -1,8 +1,9 @@
-//! Exporting of Typst documents into PDFs.
+//! Exporting Typst documents to PDF.
 
 mod image;
 mod krilla;
 mod paint;
+mod page;
 mod util;
 mod outline;
 

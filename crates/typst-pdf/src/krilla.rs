@@ -1,4 +1,4 @@
-use crate::util::{font_to_str, AbsExt, PageLabelExt, PointExt, SizeExt, TransformExt};
+use crate::util::{display_font, AbsExt, PointExt, SizeExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
 use ecow::EcoString;
@@ -30,6 +30,7 @@ use typst_library::visualize::{
 };
 use typst_syntax::Span;
 use crate::outline::build_outline;
+use crate::page::PageLabelExt;
 
 #[derive(Debug, Clone)]
 pub(crate) struct State {
@@ -384,7 +385,7 @@ pub fn pdf(
         Ok(r) => Ok(r),
         Err(e) => match e {
             KrillaError::FontError(f, s) => {
-                let font_str = font_to_str(gc.fonts_backward.get(&f).unwrap());
+                let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
                 bail!(Span::detached(), "failed to process font {font_str} ({s})");
             }
             KrillaError::UserError(u) => {
@@ -698,7 +699,7 @@ pub fn handle_text(
             true,
         ) {
             None => {
-                let font_str = font_to_str(&typst_font);
+                let font_str = display_font(&typst_font);
                 bail!(Span::detached(), "failed to process font {font_str}");
             }
             Some(f) => f,
