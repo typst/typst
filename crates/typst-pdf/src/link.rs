@@ -44,7 +44,7 @@ pub(crate) fn handle_link(
 
     let pos = match dest {
         Destination::Url(u) => {
-            fc.annotations.push(
+            fc.push_annotation(
                 LinkAnnotation::new(
                     rect,
                     Target::Action(Action::Link(LinkAction::new(u.to_string()))),
@@ -58,7 +58,7 @@ pub(crate) fn handle_link(
             if let Some(nd) = gc.loc_to_named.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
-                fc.annotations.push(
+                fc.push_annotation(
                     LinkAnnotation::new(
                         rect,
                         Target::Destination(krilla::destination::Destination::Named(
@@ -76,7 +76,7 @@ pub(crate) fn handle_link(
 
     let page_index = pos.page.get() - 1;
     if !gc.page_excluded(page_index) {
-        fc.annotations.push(
+        fc.push_annotation(
             LinkAnnotation::new(
                 rect,
                 Target::Destination(krilla::destination::Destination::Xyz(

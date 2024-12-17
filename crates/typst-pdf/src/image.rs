@@ -146,6 +146,7 @@ impl CustomImage for PdfImage {
     }
 
     fn color_space(&self) -> ImageColorspace {
+        // Remember that we convert all images to either RGB or luma.
         if self.raster.dynamic().color().has_color() {
             ImageColorspace::Rgb
         } else {

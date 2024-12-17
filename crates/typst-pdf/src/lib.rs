@@ -15,6 +15,9 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::{PageRanges, PagedDocument};
 
+pub use ::krilla::validation::Validator;
+pub use ::krilla::version::PdfVersion;
+
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
@@ -22,9 +25,6 @@ use typst_library::layout::{PageRanges, PagedDocument};
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
     krilla::pdf(document, options)
 }
-
-pub use ::krilla::validation::Validator;
-pub use ::krilla::version::PdfVersion;
 
 /// Settings for PDF export.
 #[derive(Debug, Default)]

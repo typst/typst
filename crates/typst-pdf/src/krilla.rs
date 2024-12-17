@@ -1,12 +1,5 @@
-use crate::image::handle_image;
-use crate::link::handle_link;
-use crate::metadata::build_metadata;
-use crate::outline::build_outline;
-use crate::page::PageLabelExt;
-use crate::shape::handle_shape;
-use crate::text::handle_text;
-use crate::util::{convert_path, display_font, AbsExt, TransformExt};
-use crate::PdfOptions;
+use std::collections::{BTreeMap, HashMap, HashSet};
+
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
@@ -15,7 +8,7 @@ use krilla::surface::Surface;
 use krilla::validation::ValidationError;
 use krilla::version::PdfVersion;
 use krilla::{Document, PageSettings, SerializeSettings};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use krilla::annotation::Annotation;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
@@ -26,6 +19,104 @@ use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
+
+use crate::image::handle_image;
+use crate::link::handle_link;
+use crate::metadata::build_metadata;
+use crate::outline::build_outline;
+use crate::page::PageLabelExt;
+use crate::shape::handle_shape;
+use crate::text::handle_text;
+use crate::util::{convert_path, display_font, AbsExt, TransformExt};
+use crate::PdfOptions;
+
+#[typst_macros::time(name = "write pdf")]
+pub fn pdf(
+    typst_document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<Vec<u8>> {
+    let version = get_version(options)?;
+
+    let settings = SerializeSettings {
+        compress_content_streams: true,
+        no_device_cs: true,
+        ascii_compatible: false,
+        xmp_metadata: true,
+        cmyk_profile: None,
+        validator: options.validator,
+        enable_tagging: false,
+        pdf_version: version,
+    };
+
+    let mut document = Document::new_with(settings);
+    let mut gc = GlobalContext::new(&typst_document, options, collect_named_destinations(typst_document, options));
+
+    convert_pages(&mut gc, &mut document)?;
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc));
+
+    finish(document, gc)
+}
+
+fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
+    let mut skipped_pages = 0;
+
+    for (i, typst_page) in gc.document.pages.iter().enumerate() {
+        if gc.options
+            .page_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.includes_page_index(i))
+        {
+            // Don't export this page.
+            skipped_pages += 1;
+            continue;
+        } else {
+            let mut settings = PageSettings::new(
+                typst_page.frame.width().to_f32(),
+                typst_page.frame.height().to_f32(),
+            );
+
+            if let Some(label) = typst_page
+                .numbering
+                .as_ref()
+                .and_then(|num| PageLabel::generate(num, typst_page.number))
+                .or_else(|| {
+                    // When some pages were ignored from export, we show a page label with
+                    // the correct real (not logical) page number.
+                    // This is for consistency with normal output when pages have no numbering
+                    // and all are exported: the final PDF page numbers always correspond to
+                    // the real (not logical) page numbers. Here, the final PDF page number
+                    // will differ, but we can at least use labels to indicate what was
+                    // the corresponding real page number in the Typst document.
+                    (skipped_pages > 0).then(|| PageLabel::arabic(i + 1))
+                })
+            {
+                settings = settings.with_page_label(label);
+            }
+
+            let mut page = document.start_page_with(settings);
+            let mut surface = page.surface();
+            let mut fc = FrameContext::new(typst_page.frame.size());
+
+            handle_frame(
+                &mut fc,
+                &typst_page.frame,
+                typst_page.fill_or_transparent(),
+                &mut surface,
+                gc,
+            )?;
+
+            surface.finish();
+
+            for annotation in fc.annotations {
+                page.add_annotation(annotation);
+            }
+        }
+    }
+
+    Ok(())
+}
 
 /// A state allowing us to keep track of transforms and container sizes,
 /// which is mainly needed to resolve gradients and patterns correctly.
@@ -71,9 +162,10 @@ impl State {
     }
 }
 
+/// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     states: Vec<State>,
-    pub(crate) annotations: Vec<krilla::annotation::Annotation>,
+    annotations: Vec<Annotation>,
 }
 
 impl FrameContext {
@@ -99,16 +191,21 @@ impl FrameContext {
     pub(crate) fn state_mut(&mut self) -> &mut State {
         self.states.last_mut().unwrap()
     }
+
+    pub(crate) fn push_annotation(&mut self, annotation: Annotation) {
+        self.annotations.push(annotation);
+    }
 }
 
+/// Globally needed context for converting a typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
     pub(crate) fonts_forward: HashMap<Font, krilla::font::Font>,
     pub(crate) fonts_backward: HashMap<krilla::font::Font, Font>,
+    /// Mapping between images and their span.
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
-    /// Mapping between images and their span.
     pub(crate) image_spans: HashMap<krilla::image::Image, Span>,
     pub(crate) document: &'a PagedDocument,
     pub(crate) options: &'a PdfOptions<'a>,
@@ -119,7 +216,7 @@ pub(crate) struct GlobalContext<'a> {
 }
 
 impl<'a> GlobalContext<'a> {
-    pub fn new(
+    pub(crate) fn new(
         document: &'a PagedDocument,
         options: &'a PdfOptions,
         loc_to_named: HashMap<Location, NamedDestination>,
@@ -141,129 +238,6 @@ impl<'a> GlobalContext<'a> {
             .as_ref()
             .is_some_and(|ranges| !ranges.includes_page_index(page_index))
     }
-}
-
-// TODO: Change rustybuzz cluster behavior so it works with ActualText
-
-#[typst_macros::time(name = "write pdf")]
-pub fn pdf(
-    typst_document: &PagedDocument,
-    options: &PdfOptions,
-) -> SourceResult<Vec<u8>> {
-    let version = get_version(options)?;
-
-    let settings = SerializeSettings {
-        compress_content_streams: true,
-        no_device_cs: true,
-        ascii_compatible: false,
-        xmp_metadata: true,
-        cmyk_profile: None,
-        validator: options.validator,
-        enable_tagging: false,
-        pdf_version: version,
-    };
-
-    let mut locs_to_names = HashMap::new();
-    let mut seen = HashSet::new();
-
-    // Find all headings that have a label and are the first among other
-    // headings with the same label.
-    let mut matches: Vec<_> = typst_document
-        .introspector
-        .query(&HeadingElem::elem().select())
-        .iter()
-        .filter_map(|elem| elem.location().zip(elem.label()))
-        .filter(|&(_, label)| seen.insert(label))
-        .collect();
-
-    // Named destinations must be sorted by key.
-    matches.sort_by_key(|&(_, label)| label.resolve());
-
-    for (loc, label) in matches {
-        let pos = typst_document.introspector.position(loc);
-        let index = pos.page.get() - 1;
-        // We are subtracting 10 because the position of links e.g. to headings is always at the
-        // baseline and if you link directly to it, the text will not be visible
-        // because it is right above.
-        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-
-        // Only add named destination if page belonging to the position is exported.
-        if options
-            .page_ranges
-            .as_ref()
-            .is_some_and(|ranges| !ranges.includes_page_index(index))
-        {
-            let named = NamedDestination::new(
-                label.resolve().to_string(),
-                XyzDestination::new(
-                    index,
-                    krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
-                ),
-            );
-            locs_to_names.insert(loc, named);
-        }
-    }
-
-    let mut document = Document::new_with(settings);
-    let mut gc = GlobalContext::new(&typst_document, options, locs_to_names);
-
-    let mut skipped_pages = 0;
-
-    for (i, typst_page) in typst_document.pages.iter().enumerate() {
-        if options
-            .page_ranges
-            .as_ref()
-            .is_some_and(|ranges| !ranges.includes_page_index(i))
-        {
-            // Don't export this page.
-            skipped_pages += 1;
-            continue;
-        } else {
-            let mut settings = PageSettings::new(
-                typst_page.frame.width().to_f32(),
-                typst_page.frame.height().to_f32(),
-            );
-
-            if let Some(label) = typst_page
-                .numbering
-                .as_ref()
-                .and_then(|num| PageLabel::generate(num, typst_page.number))
-                .or_else(|| {
-                    // When some pages were ignored from export, we show a page label with
-                    // the correct real (not logical) page number.
-                    // This is for consistency with normal output when pages have no numbering
-                    // and all are exported: the final PDF page numbers always correspond to
-                    // the real (not logical) page numbers. Here, the final PDF page number
-                    // will differ, but we can at least use labels to indicate what was
-                    // the corresponding real page number in the Typst document.
-                    (skipped_pages > 0).then(|| PageLabel::arabic(i + 1))
-                })
-            {
-                settings = settings.with_page_label(label);
-            }
-
-            let mut page = document.start_page_with(settings);
-            let mut surface = page.surface();
-            let mut fc = FrameContext::new(typst_page.frame.size());
-            handle_frame(
-                &mut fc,
-                &typst_page.frame,
-                typst_page.fill_or_transparent(),
-                &mut surface,
-                &mut gc,
-            )?;
-            surface.finish();
-
-            for annotation in fc.annotations {
-                page.add_annotation(annotation);
-            }
-        }
-    }
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
-
-    finish(document, gc)
 }
 
 pub(crate) fn handle_frame(
@@ -443,12 +417,12 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                         bail!(Span::detached(), "{prefix} missing document language";
                             hint: "set the language of the document");
                     }
-                    // Needs to be set by Typst.
+                    // Needs to be set by typst-pdf.
                     ValidationError::MissingHeadingTitle => {
                         bail!(Span::detached(), "{prefix} missing heading title";
                             hint: "please report this as a bug");
                     }
-                    // Needs to be set by Typst.
+                    // Needs to be set by typst-pdf.
                     ValidationError::MissingDocumentOutline => {
                         bail!(Span::detached(), "{prefix} missing document outline";
                             hint: "please report this as a bug");
@@ -463,8 +437,52 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 let span = gc.image_spans.get(&i).unwrap();
                 bail!(*span, "failed to process image");
             }
-        },
+        }
     }
+}
+
+fn collect_named_destinations(document: &PagedDocument, options: &PdfOptions) -> HashMap<Location, NamedDestination> {
+    let mut locs_to_names = HashMap::new();
+
+    // Find all headings that have a label and are the first among other
+    // headings with the same label.
+    let matches: Vec<_> = {
+        let mut seen = HashSet::new();
+        document
+            .introspector
+            .query(&HeadingElem::elem().select())
+            .iter()
+            .filter_map(|elem| elem.location().zip(elem.label()))
+            .filter(|&(_, label)| seen.insert(label))
+            .collect()
+    };
+
+    for (loc, label) in matches {
+        let pos = document.introspector.position(loc);
+        let index = pos.page.get() - 1;
+        // We are subtracting 10 because the position of links e.g. to headings is always at the
+        // baseline and if you link directly to it, the text will not be visible
+        // because it is right above.
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
+        // Only add named destination if page belonging to the position is exported.
+        if options
+            .page_ranges
+            .as_ref()
+            .is_some_and(|ranges| !ranges.includes_page_index(index))
+        {
+            let named = NamedDestination::new(
+                label.resolve().to_string(),
+                XyzDestination::new(
+                    index,
+                    krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
+                ),
+            );
+            locs_to_names.insert(loc, named);
+        }
+    }
+
+    locs_to_names
 }
 
 fn get_version(options: &PdfOptions) -> SourceResult<PdfVersion> {
