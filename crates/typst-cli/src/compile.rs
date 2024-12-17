@@ -55,7 +55,7 @@ pub struct CompileConfig {
     pub output_format: OutputFormat,
     /// Which pages to export.
     pub pages: Option<PageRanges>,
-    /// The document's creation date formatted as a UNIX timestamp.
+    /// The document's creation date formatted as a UNIX timestamp, with UTC suffix.
     pub creation_timestamp: Option<DateTime<Utc>>,
     /// The format to emit diagnostics in.
     pub diagnostic_format: DiagnosticFormat,

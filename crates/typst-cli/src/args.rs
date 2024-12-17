@@ -245,9 +245,8 @@ pub struct CompileArgs {
     #[arg(long = "pdf-version")]
     pub pdf_version: Option<PdfVersion>,
 
-    /// A number of PDF standards that Typst will enforce
-    /// conformance with (currently, only one standard at a time
-    /// is supported).
+    /// One (or multiple comma-separated) PDF standards that Typst will enforce
+    /// conformance with.
     #[arg(long = "pdf-standard", value_delimiter = ',')]
     pub pdf_standard: Vec<PdfStandard>,
 
@@ -492,7 +491,7 @@ display_possible_values!(PdfVersion);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum PdfStandard {
-    /// PDF/A-2u.
+    /// PDF/A-1b.
     #[value(name = "a-1b")]
     A_1b,
     /// PDF/A-2b.
