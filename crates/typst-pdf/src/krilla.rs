@@ -1,7 +1,9 @@
+use crate::image::handle_image;
+use crate::link::handle_link;
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
-use crate::util::{display_font, AbsExt, PointExt, SizeExt, TransformExt};
+use crate::util::{build_path, display_font, AbsExt, PointExt, SizeExt, TransformExt};
 use crate::{paint, PdfOptions};
 use bytemuck::TransparentWrapper;
 use krilla::action::{Action, LinkAction};
@@ -37,7 +39,7 @@ pub(crate) struct State {
     /// The full transform chain
     transform_chain: Transform,
     /// The transform of the current item.
-    transform: Transform,
+    pub(crate) transform: Transform,
     /// The transform of first hard frame in the hierarchy.
     container_transform_chain: Transform,
     /// The size of the first hard frame in the hierarchy.
@@ -85,7 +87,7 @@ impl State {
 
 pub(crate) struct FrameContext {
     states: Vec<State>,
-    annotations: Vec<krilla::annotation::Annotation>,
+    pub(crate) annotations: Vec<krilla::annotation::Annotation>,
 }
 
 impl FrameContext {
@@ -164,11 +166,11 @@ pub struct GlobalContext<'a> {
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
     /// Mapping between images and their span.
-    image_spans: HashMap<krilla::image::Image, Span>,
+    pub(crate) image_spans: HashMap<krilla::image::Image, Span>,
     pub(crate) document: &'a PagedDocument,
     pub(crate) options: &'a PdfOptions<'a>,
     /// Mapping between locations in the document and named destinations.
-    loc_to_named: HashMap<Location, NamedDestination>,
+    pub(crate) loc_to_named: HashMap<Location, NamedDestination>,
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
 }
@@ -199,25 +201,6 @@ impl<'a> GlobalContext<'a> {
 }
 
 // TODO: Change rustybuzz cluster behavior so it works with ActualText
-
-fn get_version(options: &PdfOptions) -> SourceResult<PdfVersion> {
-    match options.pdf_version {
-        None => Ok(options.validator.recommended_version()),
-        Some(v) => {
-            if !options.validator.compatible_with_version(v) {
-                let v_string = v.as_str();
-                let s_string = options.validator.as_str();
-                let h_message = format!(
-                    "export using {} instead",
-                    options.validator.recommended_version().as_str()
-                );
-                bail!(Span::detached(), "{v_string} is not compatible with standard {s_string}"; hint: "{h_message}");
-            } else {
-                Ok(v)
-            }
-        }
-    }
-}
 
 #[typst_macros::time(name = "write pdf")]
 pub fn pdf(
@@ -278,7 +261,7 @@ pub fn pdf(
         }
     }
 
-    let mut document = krilla::Document::new_with(settings);
+    let mut document = Document::new_with(settings);
     let mut gc = GlobalContext::new(&typst_document, options, locs_to_names);
 
     let mut skipped_pages = 0;
@@ -340,6 +323,7 @@ pub fn pdf(
     finish(document, gc)
 }
 
+/// Finish a krilla document and handle export errors.
 fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
     match document.finish() {
         Ok(r) => Ok(r),
@@ -360,7 +344,8 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 );
                 match &ve[0] {
                     ValidationError::TooLongString => {
-                        bail!(Span::detached(), "{prefix} a PDF string longer than 32767 characters";
+                        bail!(Span::detached(), "{prefix} a PDF string longer \
+                        than 32767 characters";
                             hint: "make sure title and author names are short enough");
                     }
                     // Should in theory never occur, as krilla always trims font names
@@ -373,11 +358,13 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                             hint: "this can happen if you have a very long text in a single line");
                     }
                     ValidationError::TooLongDictionary => {
-                        bail!(Span::detached(), "{prefix} a PDF dictionary had more than 4095 entries";
+                        bail!(Span::detached(), "{prefix} a PDF dictionary had \
+                        more than 4095 entries";
                             hint: "try reducing the complexity of your document");
                     }
                     ValidationError::TooLargeFloat => {
-                        bail!(Span::detached(), "{prefix} a PDF float was larger than the allowed limit";
+                        bail!(Span::detached(), "{prefix} a PDF float was larger than \
+                        the allowed limit";
                             hint: "try exporting using a higher PDF version");
                     }
                     ValidationError::TooManyIndirectObjects => {
@@ -402,17 +389,23 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                             hint: "ensure all text can be displayed using an available font");
                     }
                     ValidationError::InvalidCodepointMapping(_, _) => {
-                        bail!(Span::detached(), "{prefix} the PDF contains the disallowed codepoints";
-                            hint: "make sure to not use the Unicode characters 0x0, 0xFEFF or 0xFFFE");
+                        bail!(Span::detached(), "{prefix} the PDF contains the \
+                        disallowed codepoints";
+                            hint: "make sure to not use the Unicode characters 0x0, \
+                            0xFEFF or 0xFFFE");
                     }
                     ValidationError::UnicodePrivateArea(_, _) => {
-                        bail!(Span::detached(), "{prefix} the PDF contains characters from the Unicode private area";
-                            hint: "remove the text containing codepoints from the Unicode private area");
+                        bail!(Span::detached(), "{prefix} the PDF contains characters from the \
+                        Unicode private area";
+                            hint: "remove the text containing codepoints \
+                            from the Unicode private area");
                     }
                     ValidationError::Transparency => {
                         bail!(Span::detached(), "{prefix} document contains transparency";
-                            hint: "remove any transparency from your document (e.g. fills with opacity)";
-                            hint: "you might have to convert certain SVGs into a bitmap image if they contain transparency";
+                            hint: "remove any transparency from your \
+                            document (e.g. fills with opacity)";
+                            hint: "you might have to convert certain SVGs into a bitmap image if \
+                            they contain transparency";
                             hint: "export using a different standard that supports transparency"
                         );
                     }
@@ -456,6 +449,25 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
     }
 }
 
+fn get_version(options: &PdfOptions) -> SourceResult<PdfVersion> {
+    match options.pdf_version {
+        None => Ok(options.validator.recommended_version()),
+        Some(v) => {
+            if !options.validator.compatible_with_version(v) {
+                let v_string = v.as_str();
+                let s_string = options.validator.as_str();
+                let h_message = format!(
+                    "export using {} instead",
+                    options.validator.recommended_version().as_str()
+                );
+                bail!(Span::detached(), "{v_string} is not compatible with standard {s_string}"; hint: "{h_message}");
+            } else {
+                Ok(v)
+            }
+        }
+    }
+}
+
 pub fn process_frame(
     fc: &mut FrameContext,
     frame: &Frame,
@@ -478,6 +490,7 @@ pub fn process_frame(
     for (point, item) in frame.items() {
         fc.push();
         fc.state_mut().transform(Transform::translate(point.x, point.y));
+
         match item {
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
@@ -485,7 +498,7 @@ pub fn process_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(d, s) => write_link(fc, gc, d, *s),
+            FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
             FrameItem::Tag(_) => {}
         }
 
@@ -495,85 +508,6 @@ pub fn process_frame(
     fc.pop();
 
     Ok(())
-}
-
-/// Save a link for later writing in the annotations dictionary.
-fn write_link(
-    fc: &mut FrameContext,
-    gc: &mut GlobalContext,
-    dest: &Destination,
-    size: Size,
-) {
-    let mut min_x = Abs::inf();
-    let mut min_y = Abs::inf();
-    let mut max_x = -Abs::inf();
-    let mut max_y = -Abs::inf();
-
-    let pos = Point::zero();
-
-    // Compute the bounding box of the transformed link.
-    for point in [
-        pos,
-        pos + Point::with_x(size.x),
-        pos + Point::with_y(size.y),
-        pos + size.to_point(),
-    ] {
-        let t = point.transform(fc.state().transform);
-        min_x.set_min(t.x);
-        min_y.set_min(t.y);
-        max_x.set_max(t.x);
-        max_y.set_max(t.y);
-    }
-
-    let x1 = min_x.to_f32();
-    let x2 = max_x.to_f32();
-    let y1 = min_y.to_f32();
-    let y2 = max_y.to_f32();
-
-    let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
-
-    let pos = match dest {
-        Destination::Url(u) => {
-            fc.annotations.push(
-                LinkAnnotation::new(
-                    rect,
-                    Target::Action(Action::Link(LinkAction::new(u.to_string()))),
-                )
-                .into(),
-            );
-            return;
-        }
-        Destination::Position(p) => *p,
-        Destination::Location(loc) => {
-            if let Some(named_dest) = gc.loc_to_named.get(loc) {
-                fc.annotations.push(
-                    LinkAnnotation::new(
-                        rect,
-                        Target::Destination(krilla::destination::Destination::Named(
-                            named_dest.clone(),
-                        )),
-                    )
-                    .into(),
-                );
-                return;
-            } else {
-                gc.document.introspector.position(*loc)
-            }
-        }
-    };
-
-    let page_index = pos.page.get() - 1;
-    if !gc.page_excluded(page_index) {
-        fc.annotations.push(
-            LinkAnnotation::new(
-                rect,
-                Target::Destination(krilla::destination::Destination::Xyz(
-                    XyzDestination::new(page_index, pos.point.to_krilla()),
-                )),
-            )
-            .into(),
-        );
-    }
 }
 
 pub fn handle_group(
@@ -590,7 +524,7 @@ pub fn handle_group(
         .as_ref()
         .and_then(|p| {
             let mut builder = PathBuilder::new();
-            convert_path(p, &mut builder);
+            build_path(p, &mut builder);
             builder.finish()
         })
         .and_then(|p| p.transform(fc.state().transform.to_krilla()));
@@ -691,46 +625,6 @@ pub fn handle_text(
     Ok(())
 }
 
-pub fn handle_image(
-    gc: &mut GlobalContext,
-    fc: &mut FrameContext,
-    image: &Image,
-    size: Size,
-    surface: &mut Surface,
-    span: Span,
-) -> SourceResult<()> {
-    surface.push_transform(&fc.state().transform.to_krilla());
-
-    match image.kind() {
-        ImageKind::Raster(raster) => {
-            let image = match crate::image::raster(raster.clone()) {
-                None => bail!(span, "failed to process image"),
-                Some(i) => i,
-            };
-
-            if gc.image_spans.contains_key(&image) {
-                gc.image_spans.insert(image.clone(), span);
-            }
-
-            surface.draw_image(image, size.to_krilla());
-        }
-        ImageKind::Svg(svg) => {
-            surface.draw_svg(
-                svg.tree(),
-                size.to_krilla(),
-                SvgSettings {
-                    embed_text: !svg.flatten_text(),
-                    ..Default::default()
-                },
-            );
-        }
-    }
-
-    surface.pop();
-
-    Ok(())
-}
-
 pub fn handle_shape(
     fc: &mut FrameContext,
     shape: &Shape,
@@ -765,7 +659,7 @@ pub fn handle_shape(
             }
         }
         Geometry::Path(p) => {
-            convert_path(p, &mut path_builder);
+            build_path(p, &mut path_builder);
         }
     }
 
@@ -807,22 +701,4 @@ pub fn handle_shape(
     surface.pop();
 
     Ok(())
-}
-
-pub fn convert_path(path: &Path, builder: &mut PathBuilder) {
-    for item in &path.0 {
-        match item {
-            PathItem::MoveTo(p) => builder.move_to(p.x.to_f32(), p.y.to_f32()),
-            PathItem::LineTo(p) => builder.line_to(p.x.to_f32(), p.y.to_f32()),
-            PathItem::CubicTo(p1, p2, p3) => builder.cubic_to(
-                p1.x.to_f32(),
-                p1.y.to_f32(),
-                p2.x.to_f32(),
-                p2.y.to_f32(),
-                p3.x.to_f32(),
-                p3.y.to_f32(),
-            ),
-            PathItem::ClosePath => builder.close(),
-        }
-    }
 }

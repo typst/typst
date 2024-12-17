@@ -3,10 +3,12 @@
 use krilla::color::rgb as kr;
 use krilla::geom as kg;
 use krilla::path as kp;
-
+use krilla::path::PathBuilder;
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;
-use typst_library::visualize::{Color, ColorSpace, FillRule, LineCap, LineJoin};
+use typst_library::visualize::{
+    Color, ColorSpace, FillRule, LineCap, LineJoin, Path, PathItem,
+};
 
 pub(crate) trait SizeExt {
     fn to_krilla(&self) -> kg::Size;
@@ -116,4 +118,23 @@ pub(crate) fn display_font(font: &Font) -> String {
     let font_family = &font.info().family;
     let font_variant = font.info().variant;
     format!("{} ({:?})", font_family, font_variant)
+}
+
+/// Build a typst path using a path builder.
+pub(crate) fn build_path(path: &Path, builder: &mut PathBuilder) {
+    for item in &path.0 {
+        match item {
+            PathItem::MoveTo(p) => builder.move_to(p.x.to_f32(), p.y.to_f32()),
+            PathItem::LineTo(p) => builder.line_to(p.x.to_f32(), p.y.to_f32()),
+            PathItem::CubicTo(p1, p2, p3) => builder.cubic_to(
+                p1.x.to_f32(),
+                p1.y.to_f32(),
+                p2.x.to_f32(),
+                p2.y.to_f32(),
+                p3.x.to_f32(),
+                p3.y.to_f32(),
+            ),
+            PathItem::ClosePath => builder.close(),
+        }
+    }
 }

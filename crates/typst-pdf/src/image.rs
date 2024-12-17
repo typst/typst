@@ -1,8 +1,57 @@
-use image::{DynamicImage, GenericImageView, Rgba};
-use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
-use typst_library::visualize::{RasterFormat, RasterImage};
+
+use image::{DynamicImage, GenericImageView, Rgba};
+use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
+use krilla::surface::Surface;
+use krilla::SvgSettings;
+use typst_library::diag::{bail, SourceResult};
+use typst_library::layout::Size;
+use typst_library::visualize::{Image, ImageKind, RasterFormat, RasterImage};
+use typst_syntax::Span;
+
+use crate::krilla::{FrameContext, GlobalContext};
+use crate::util::{SizeExt, TransformExt};
+
+pub(crate) fn handle_image(
+    gc: &mut GlobalContext,
+    fc: &mut FrameContext,
+    image: &Image,
+    size: Size,
+    surface: &mut Surface,
+    span: Span,
+) -> SourceResult<()> {
+    surface.push_transform(&fc.state().transform.to_krilla());
+
+    match image.kind() {
+        ImageKind::Raster(raster) => {
+            let image = match convert_raster(raster.clone()) {
+                None => bail!(span, "failed to process image"),
+                Some(i) => i,
+            };
+
+            if gc.image_spans.contains_key(&image) {
+                gc.image_spans.insert(image.clone(), span);
+            }
+
+            surface.draw_image(image, size.to_krilla());
+        }
+        ImageKind::Svg(svg) => {
+            surface.draw_svg(
+                svg.tree(),
+                size.to_krilla(),
+                SvgSettings {
+                    embed_text: !svg.flatten_text(),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
+    surface.pop();
+
+    Ok(())
+}
 
 /// A wrapper around RasterImage so that we can implement `CustomImage`.
 #[derive(Clone)]
@@ -106,13 +155,13 @@ impl CustomImage for PdfImage {
 }
 
 #[comemo::memoize]
-pub(crate) fn raster(raster: RasterImage) -> Option<krilla::image::Image> {
+fn convert_raster(raster: RasterImage) -> Option<krilla::image::Image> {
     match raster.format() {
         RasterFormat::Jpg => {
             if !raster.is_rotated() {
                 krilla::image::Image::from_jpeg(Arc::new(raster.data().clone()))
             } else {
-                // Can't embed original JPEG data if it needed to be rotated.
+                // Can't embed original JPEG data if it had to be rotated.
                 krilla::image::Image::from_custom(PdfImage::new(raster))
             }
         }

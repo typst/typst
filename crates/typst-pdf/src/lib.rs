@@ -2,6 +2,7 @@
 
 mod image;
 mod krilla;
+mod link;
 mod metadata;
 mod outline;
 mod page;
