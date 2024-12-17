@@ -116,8 +116,8 @@ use crate::text::TextElem;
 /// because just one `&` precedes it. Each alignment point simply alternates
 /// between right-aligned/left-aligned.
 ///
-/// By default, there is a gap of `1.5em` added between columns. You can
-/// modify this with the [`column-gap`]($math.equation.column-gap) parameter.
+/// By default, there is a gap of `1em` added between columns. You can modify
+/// this with the [`column-gap`]($math.equation.column-gap) parameter.
 ///
 /// ```example
 /// $ (3x + y) / 7 &= 9 && "given" \

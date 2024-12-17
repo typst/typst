@@ -18,7 +18,7 @@ use crate::math::{MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 
-const DEFAULT_COL_GAP: Em = Em::new(1.5);
+const DEFAULT_COL_GAP: Em = Em::new(1.0);
 
 /// A mathematical equation.
 ///
