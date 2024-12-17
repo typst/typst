@@ -157,15 +157,19 @@ impl krilla::font::Glyph for PdfGlyph {
 }
 
 pub struct GlobalContext<'a> {
+    /// Cache the conversion between krilla and Typst fonts (forward and backward).
     fonts_forward: HashMap<Font, krilla::font::Font>,
     fonts_backward: HashMap<krilla::font::Font, Font>,
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
+    /// Mapping between images and their span.
     image_spans: HashMap<krilla::image::Image, Span>,
     pub(crate) document: &'a PagedDocument,
     pub(crate) options: &'a PdfOptions<'a>,
+    /// Mapping between locations in the document and named destinations.
     loc_to_named: HashMap<Location, NamedDestination>,
+    /// The languages used throughout the document.
     languages: BTreeMap<Lang, usize>,
 }
 

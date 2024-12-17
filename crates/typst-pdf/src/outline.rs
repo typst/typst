@@ -1,13 +1,14 @@
 use std::num::NonZeroUsize;
+
 use krilla::destination::XyzDestination;
 use krilla::outline::{Outline, OutlineNode};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::layout::Abs;
 use typst_library::model::HeadingElem;
+
 use crate::krilla::GlobalContext;
 use crate::util::AbsExt;
 
-/// A heading in the outline panel.
 #[derive(Debug)]
 struct HeadingNode<'a> {
     element: &'a Packed<HeadingElem>,
@@ -27,6 +28,30 @@ impl<'a> HeadingNode<'a> {
             element,
             children: Vec::new(),
         }
+    }
+
+    fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
+        let loc = self.element.location().unwrap();
+        let title = self.element.body().plain_text().to_string();
+        let pos = gc.document.introspector.position(loc);
+        let page_index = pos.page.get() - 1;
+
+        if !gc.page_excluded(page_index) {
+            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+            let dest = XyzDestination::new(
+                page_index,
+                krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
+            );
+
+            let mut outline_node = OutlineNode::new(title, dest);
+            for child in convert_nodes(&self.children, gc) {
+                outline_node.push_child(child);
+            }
+
+            return Some(outline_node);
+        }
+
+        None
     }
 }
 
@@ -115,35 +140,13 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
 
     let mut outline = Outline::new();
 
-    for child in convert_heading_nodes(&tree, gc) {
+    for child in convert_nodes(&tree, gc) {
         outline.push_child(child);
     }
 
     outline
 }
 
-fn convert_heading_nodes(nodes: &[HeadingNode], gc: &GlobalContext) -> Vec<OutlineNode> {
-    nodes.iter().flat_map(|node| {
-        let loc = node.element.location().unwrap();
-        let title = node.element.body().plain_text().to_string();
-        let pos = gc.document.introspector.position(loc);
-        let page_index = pos.page.get() - 1;
-
-        if !gc.page_excluded(page_index) {
-            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-            let dest = XyzDestination::new(
-                page_index,
-                krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
-            );
-
-            let mut outline_node = OutlineNode::new(title, dest);
-            for child in convert_heading_nodes(&node.children, gc) {
-                outline_node.push_child(child);
-            }
-
-            return Some(outline_node);
-        }
-
-        None
-    }).collect()
+fn convert_nodes(nodes: &[HeadingNode], gc: &GlobalContext) -> Vec<OutlineNode> {
+    nodes.iter().flat_map(|node| node.to_krilla(gc)).collect()
 }
