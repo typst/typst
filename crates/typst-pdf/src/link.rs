@@ -5,7 +5,7 @@ use krilla::geom::Rect;
 use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 
-use crate::krilla::{FrameContext, GlobalContext};
+use crate::convert::{FrameContext, GlobalContext};
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) fn handle_link(

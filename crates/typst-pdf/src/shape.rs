@@ -1,4 +1,4 @@
-use crate::krilla::{FrameContext, GlobalContext};
+use crate::convert::{FrameContext, GlobalContext};
 use crate::paint;
 use crate::util::{convert_path, AbsExt, TransformExt};
 use krilla::geom::Rect;

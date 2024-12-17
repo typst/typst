@@ -30,8 +30,7 @@ use crate::text::handle_text;
 use crate::util::{convert_path, display_font, AbsExt, TransformExt};
 use crate::PdfOptions;
 
-#[typst_macros::time(name = "write pdf")]
-pub fn pdf(
+pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {

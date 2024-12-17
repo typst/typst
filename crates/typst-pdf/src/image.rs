@@ -10,7 +10,7 @@ use typst_library::layout::Size;
 use typst_library::visualize::{Image, ImageKind, RasterFormat, RasterImage};
 use typst_syntax::Span;
 
-use crate::krilla::{FrameContext, GlobalContext};
+use crate::convert::{FrameContext, GlobalContext};
 use crate::util::{SizeExt, TransformExt};
 
 pub(crate) fn handle_image(

@@ -2,7 +2,7 @@ use ecow::EcoString;
 use krilla::metadata::Metadata;
 use typst_library::foundations::{Datetime, Smart};
 
-use crate::krilla::GlobalContext;
+use crate::convert::GlobalContext;
 use crate::Timezone;
 
 pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {

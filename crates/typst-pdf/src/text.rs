@@ -10,7 +10,7 @@ use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
 
-use crate::krilla::{FrameContext, GlobalContext};
+use crate::convert::{FrameContext, GlobalContext};
 use crate::paint;
 use crate::util::{display_font, AbsExt, TransformExt};
 

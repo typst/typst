@@ -1,7 +1,7 @@
 //! Exporting Typst documents to PDF.
 
 mod image;
-mod krilla;
+mod convert;
 mod link;
 mod metadata;
 mod outline;
@@ -23,7 +23,7 @@ pub use ::krilla::version::PdfVersion;
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    krilla::pdf(document, options)
+    convert::convert(document, options)
 }
 
 /// Settings for PDF export.

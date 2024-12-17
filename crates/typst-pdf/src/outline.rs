@@ -6,7 +6,7 @@ use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::layout::Abs;
 use typst_library::model::HeadingElem;
 
-use crate::krilla::GlobalContext;
+use crate::convert::GlobalContext;
 use crate::util::AbsExt;
 
 pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
