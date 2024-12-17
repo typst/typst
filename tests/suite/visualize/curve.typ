@@ -93,7 +93,7 @@
 )
 
 --- curve-infinite-length ---
-// Error: 2-67 cannot create curve with infinite length
+// Error: 2-67 cannot create curve with infinite size
 #curve(curve.move((0pt, 0pt)), curve.line((float.inf * 1pt, 0pt)))
 
 --- issue-curve-in-sized-container ---

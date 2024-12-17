@@ -139,144 +139,6 @@ pub fn layout_path(
     Ok(frame)
 }
 
-struct CurveBuilder {
-    curve: Curve,
-    size: Size,
-    region: Region,
-    start_point: Point,
-    start_control_into: Point, // cubic
-    last_point: Point,
-    last_control_from: Point, // cubic
-    /// Has a new component be started?
-    /// This does not mean that something has been added to self.curve yet.
-    is_started: bool,
-    /// Has anything actually be added to self.curve for the current component?
-    is_empty: bool,
-}
-
-impl CurveBuilder {
-    fn new(region: Region) -> Self {
-        Self {
-            curve: Curve::new(),
-            size: Size::zero(),
-            region,
-            start_point: Default::default(),
-            start_control_into: Default::default(),
-            last_point: Default::default(),
-            last_control_from: Default::default(),
-            is_started: false,
-            is_empty: true,
-        }
-    }
-
-    fn adjust_bounds(&mut self, point: Point) {
-        self.size.x.set_max(point.x);
-        self.size.y.set_max(point.y);
-    }
-
-    fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
-        let p = point.zip_map(self.region.size, Rel::relative_to);
-        let mut p = Point::new(p.x, p.y);
-        if relative {
-            p += self.last_point;
-        }
-        p
-    }
-
-    /// Push the initial move of a new component to self.curve.
-    fn start_component(&mut self) {
-        self.curve.move_(self.start_point);
-        self.is_empty = false;
-        self.is_started = true;
-    }
-
-    fn move_(&mut self, point: Point) {
-        // Delay calling curve.move in case there is another move element
-        // before any actual drawing.
-        self.adjust_bounds(point);
-        self.start_point = point;
-        self.start_control_into = point;
-        self.last_point = point;
-        self.last_control_from = point;
-        self.is_started = true;
-    }
-
-    fn line(&mut self, point: Point) {
-        if self.is_empty {
-            self.start_component();
-            self.start_control_into = self.start_point;
-        }
-        self.curve.line(point);
-        self.adjust_bounds(point);
-        self.last_point = point;
-        self.last_control_from = point;
-    }
-
-    fn quad(&mut self, control: Point, end: Point) {
-        let c1 = control_q2c(self.last_point, control);
-        let c2 = control_q2c(end, control);
-        self.cubic(c1, c2, end);
-    }
-
-    fn cubic(&mut self, c1: Point, c2: Point, end: Point) {
-        if self.is_empty {
-            self.start_component();
-            self.start_control_into = mirror_c(self.start_point, c1);
-        }
-        self.curve.cubic(c1, c2, end);
-
-        fn to_kurbo(point: Point) -> kurbo::Point {
-            kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
-        }
-        let p0 = to_kurbo(self.last_point);
-        let p1 = to_kurbo(c1);
-        let p2 = to_kurbo(c2);
-        let p3 = to_kurbo(end);
-        let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
-        self.size.x.set_max(Abs::raw(extrema.x1));
-        self.size.y.set_max(Abs::raw(extrema.y1));
-
-        self.last_point = end;
-        self.last_control_from = mirror_c(end, c2);
-    }
-
-    fn close(&mut self, mode: CloseMode) {
-        if self.is_started && !self.is_empty {
-            if mode == CloseMode::Curve {
-                self.cubic(
-                    self.last_control_from,
-                    self.start_control_into,
-                    self.start_point,
-                );
-            }
-            self.curve.close();
-            self.last_point = self.start_point;
-            self.last_control_from = self.start_point;
-        }
-        self.is_started = false;
-        self.is_empty = true;
-    }
-
-    fn build(self) -> (Curve, Size) {
-        (self.curve, self.size)
-    }
-}
-
-/// Convert a cubic control point into a quadratic one.
-fn control_c2q(p: Point, c: Point) -> Point {
-    1.5 * c - 0.5 * p
-}
-
-/// Convert a quadratic control point into a cubic one.
-fn control_q2c(p: Point, c: Point) -> Point {
-    (p + 2. * c) / 3.
-}
-
-/// Mirror a control point.
-fn mirror_c(p: Point, c: Point) -> Point {
-    2. * p - c
-}
-
 /// Layout the curve.
 #[typst_macros::time(span = elem.span())]
 pub fn layout_curve(
@@ -336,13 +198,13 @@ pub fn layout_curve(
         }
     }
 
-    let (curve, size) = builder.build();
+    let (curve, size) = builder.finish();
     if curve.is_empty() {
         return Ok(Frame::soft(size));
     }
 
     if !size.is_finite() {
-        bail!(elem.span(), "cannot create curve with infinite length");
+        bail!(elem.span(), "cannot create curve with infinite size");
     }
 
     // Prepare fill and stroke.
@@ -363,6 +225,162 @@ pub fn layout_curve(
     };
     frame.push(Point::zero(), FrameItem::Shape(shape, elem.span()));
     Ok(frame)
+}
+
+/// Builds a `Curve` from a [`CurveElem`]'s parts.
+struct CurveBuilder {
+    /// The output curve.
+    curve: Curve,
+    /// The curve's bounds.
+    size: Size,
+    /// The region relative to which points are resolved.
+    region: Region,
+    /// The next start point.
+    start_point: Point,
+    /// Mirror of the first cubic start control point (for closing).
+    start_control_into: Point,
+    /// The point we previously ended on.
+    last_point: Point,
+    /// Mirror of the last cubic control point (for auto control points).
+    last_control_from: Point,
+    /// Whether a component has been start. This does not mean that something
+    /// has been added to `self.curve` yet.
+    is_started: bool,
+    /// Whether anything was added to `self.curve` for the current component.
+    is_empty: bool,
+}
+
+impl CurveBuilder {
+    /// Create a new curve builder.
+    fn new(region: Region) -> Self {
+        Self {
+            curve: Curve::new(),
+            size: Size::zero(),
+            region,
+            start_point: Point::zero(),
+            start_control_into: Point::zero(),
+            last_point: Point::zero(),
+            last_control_from: Point::zero(),
+            is_started: false,
+            is_empty: true,
+        }
+    }
+
+    /// Finish building, returning the curve and its bounding size.
+    fn finish(self) -> (Curve, Size) {
+        (self.curve, self.size)
+    }
+
+    /// Move to a point, starting a new segment.
+    fn move_(&mut self, point: Point) {
+        // Delay calling `curve.move` in case there is another move element
+        // before any actual drawing.
+        self.expand_bounds(point);
+        self.start_point = point;
+        self.start_control_into = point;
+        self.last_point = point;
+        self.last_control_from = point;
+        self.is_started = true;
+    }
+
+    /// Add a line segment.
+    fn line(&mut self, point: Point) {
+        if self.is_empty {
+            self.start_component();
+            self.start_control_into = self.start_point;
+        }
+        self.curve.line(point);
+        self.expand_bounds(point);
+        self.last_point = point;
+        self.last_control_from = point;
+    }
+
+    /// Add a quadratic curve segment.
+    fn quad(&mut self, control: Point, end: Point) {
+        let c1 = control_q2c(self.last_point, control);
+        let c2 = control_q2c(end, control);
+        self.cubic(c1, c2, end);
+    }
+
+    /// Add a cubic curve segment.
+    fn cubic(&mut self, c1: Point, c2: Point, end: Point) {
+        if self.is_empty {
+            self.start_component();
+            self.start_control_into = mirror_c(self.start_point, c1);
+        }
+        self.curve.cubic(c1, c2, end);
+
+        let p0 = point_to_kurbo(self.last_point);
+        let p1 = point_to_kurbo(c1);
+        let p2 = point_to_kurbo(c2);
+        let p3 = point_to_kurbo(end);
+        let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
+        self.size.x.set_max(Abs::raw(extrema.x1));
+        self.size.y.set_max(Abs::raw(extrema.y1));
+
+        self.last_point = end;
+        self.last_control_from = mirror_c(end, c2);
+    }
+
+    /// Close the curve if it was opened.
+    fn close(&mut self, mode: CloseMode) {
+        if self.is_started && !self.is_empty {
+            if mode == CloseMode::Curve {
+                self.cubic(
+                    self.last_control_from,
+                    self.start_control_into,
+                    self.start_point,
+                );
+            }
+            self.curve.close();
+            self.last_point = self.start_point;
+            self.last_control_from = self.start_point;
+        }
+        self.is_started = false;
+        self.is_empty = true;
+    }
+
+    /// Push the initial move component.
+    fn start_component(&mut self) {
+        self.curve.move_(self.start_point);
+        self.is_empty = false;
+        self.is_started = true;
+    }
+
+    /// Expand the curve's bounding box.
+    fn expand_bounds(&mut self, point: Point) {
+        self.size.x.set_max(point.x);
+        self.size.y.set_max(point.y);
+    }
+
+    /// Resolve the point relative to the region.
+    fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
+        let mut p = point.zip_map(self.region.size, Rel::relative_to).to_point();
+        if relative {
+            p += self.last_point;
+        }
+        p
+    }
+}
+
+/// Convert a cubic control point into a quadratic one.
+fn control_c2q(p: Point, c: Point) -> Point {
+    1.5 * c - 0.5 * p
+}
+
+/// Convert a quadratic control point into a cubic one.
+fn control_q2c(p: Point, c: Point) -> Point {
+    (p + 2.0 * c) / 3.0
+}
+
+/// Mirror a control point.
+fn mirror_c(p: Point, c: Point) -> Point {
+    2.0 * p - c
+}
+
+/// Convert a point to a `kurbo::Point`.
+fn point_to_kurbo(point: Point) -> kurbo::Point {
+    kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
 }
 
 /// Layout the polygon.
