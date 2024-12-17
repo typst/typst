@@ -29,7 +29,7 @@ pub use self::smartquote::*;
 pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
@@ -40,13 +40,14 @@ use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
 use typst_syntax::Spanned;
+use typst_utils::singleton;
 
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
     Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr,
-    Resolve, Scope, Set, Smart, StyleChain, Value,
+    Resolve, Scope, Set, Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
@@ -146,6 +147,8 @@ pub struct TextElem {
     ///   (name: "New Computer Modern", covers: regex("[0-9]")),
     ///   "Linbertinus Serif"
     /// ))
+    ///
+    /// This text contains 123.
     ///
     /// // Mix Latin and CJK fonts.
     /// #set text(font: (
@@ -789,24 +792,29 @@ impl PlainText for Packed<TextElem> {
     }
 }
 
+#[derive(Debug)]
+pub enum Covers {
+    LatinInCjk,
+    Regex(Regex),
+}
+
+cast! {
+    Covers,
+    self => self.into_value(),
+    string: EcoString => match &*string {
+        "latin-in-cjk" => Covers::LatinInCjk,
+        _ => bail!("unknown character set"),
+    },
+    regex: Regex => Covers::Regex(regex),
+}
+
 /// A lowercased font family like "arial".
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FontFamily {
+    // The name of the font family
     name: EcoString,
-    coverage: Option<Regex>,
-}
-
-impl Hash for FontFamily {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-        self.coverage_str().hash(state);
-    }
-}
-
-impl PartialEq for FontFamily {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.coverage_str() == other.coverage_str()
-    }
+    // A regex that defines the Unicode codepoints supported by the font.
+    covers: Option<Regex>,
 }
 
 impl FontFamily {
@@ -815,23 +823,19 @@ impl FontFamily {
         Self::new_with_coverage(string, None).unwrap()
     }
 
+    /// Create a font family by name and optionally unicode coverage
     pub fn new_with_coverage(
         string: &str,
-        coverage: Option<Value>,
+        covers: Option<Covers>,
     ) -> HintedStrResult<Self> {
-        let coverage = match coverage {
-            Some(Value::Str(name)) => {
-                if &*name == "latin-in-cjk" {
-                    static LATIN_IN_CJK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-                        Regex::new( "[^\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
-                    });
-                    Some(LATIN_IN_CJK_REGEX.clone())
-                } else {
-                    bail!("unknown character set");
-                }
+        let covers = match covers {
+            Some(Covers::LatinInCjk) => {
+                let latin_in_cjk_regex = singleton!(Regex, {
+                    Regex::new("[^\u{00B7}\u{2013}\u{2014}\u{2018}\u{2019}\u{201C}\u{201D}\u{2025}-\u{2027}\u{2E3A}]").unwrap()
+                });
+                Some(latin_in_cjk_regex.clone())
             }
-            Some(coverage) => {
-                let regex = coverage.cast::<Regex>()?;
+            Some(Covers::Regex(regex)) => {
                 let ast = regex_syntax::ast::parse::Parser::new()
                     .parse(regex.as_str())
                     .unwrap();
@@ -847,7 +851,7 @@ impl FontFamily {
             }
             None => None,
         };
-        Ok(Self { name: string.to_lowercase().into(), coverage })
+        Ok(Self { name: string.to_lowercase().into(), covers })
     }
 
     /// The lowercased family name.
@@ -856,12 +860,8 @@ impl FontFamily {
     }
 
     /// The user-set coverage of the font family.
-    pub fn coverage(&self) -> Option<&Regex> {
-        self.coverage.as_ref()
-    }
-
-    pub fn coverage_str(&self) -> Option<&str> {
-        self.coverage.as_ref().map(|r| r.as_str())
+    pub fn covers(&self) -> Option<&Regex> {
+        self.covers.as_ref()
     }
 }
 
@@ -872,7 +872,7 @@ cast! {
     mut v: Dict => {
         let ret = Self::new_with_coverage(
             &v.take("name")?.cast::<String>()?,
-            v.take("covers").ok()
+            v.take("covers").ok().map(|v| v.cast()).transpose()?
         )?;
         v.finish(&["name", "covers"])?;
         ret
@@ -905,7 +905,7 @@ cast! {
 
 /// Resolve a prioritized iterator over the font families.
 pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone {
-    static FALLBACKS: LazyLock<Vec<FontFamily>> = LazyLock::new(|| {
+    let fallbacks = singleton!(Vec<FontFamily>, {
         [
             "libertinus serif",
             "twitter color emoji",
@@ -918,7 +918,7 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone
         .collect()
     });
 
-    let tail = if TextElem::fallback_in(styles) { FALLBACKS.as_slice() } else { &[] };
+    let tail = if TextElem::fallback_in(styles) { fallbacks.as_slice() } else { &[] };
     TextElem::font_in(styles).into_iter().chain(tail.iter())
 }
 

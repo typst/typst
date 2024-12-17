@@ -463,13 +463,8 @@ impl<'a> ShapedText<'a> {
             None
         };
         let mut chain = families(self.styles)
-            .map(|family| {
-                family
-                    .coverage()
-                    .map_or(true, |c| c.is_match("-"))
-                    .then(|| book.select(family.as_str(), self.variant))
-                    .flatten()
-            })
+            .filter(|family| family.covers().map_or(true, |c| c.is_match("-")))
+            .map(|family| book.select(family.as_str(), self.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
@@ -739,14 +734,14 @@ fn shape_segment<'a>(
     let world = ctx.engine.world;
     let book = world.book();
     let mut selection = None;
-    let mut coverage = None;
+    let mut covers = None;
     for family in families.by_ref() {
         selection = book
             .select(family.as_str(), ctx.variant)
             .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font));
         if selection.is_some() {
-            coverage = family.coverage();
+            covers = family.covers();
             break;
         }
     }
@@ -814,7 +809,7 @@ fn shape_segment<'a>(
             .nth(1)
             .map(|(offset, _)| offset + char_start)
             .unwrap_or(text.len());
-        coverage.map_or(true, |cov| cov.is_match(&text[char_start..char_end]))
+        covers.map_or(true, |cov| cov.is_match(&text[char_start..char_end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
