@@ -249,7 +249,7 @@ pub struct TextElem {
             if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(
                     paint.span,
-                    "gradients and patterns on text must be relative to the parent";
+                    "gradients and tilings on text must be relative to the parent";
                     hint: "make sure to set `relative: auto` on your text fill"
                 );
             }

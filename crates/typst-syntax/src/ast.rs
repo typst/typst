@@ -163,7 +163,7 @@ pub enum Expr<'a> {
     Parenthesized(Parenthesized<'a>),
     /// An array: `(1, "hi", 12cm)`.
     Array(Array<'a>),
-    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
+    /// A dictionary: `(thickness: 3pt, dash: "solid")`.
     Dict(Dict<'a>),
     /// A unary operation: `-x`.
     Unary(Unary<'a>),
@@ -1195,7 +1195,7 @@ impl<'a> AstNode<'a> for ArrayItem<'a> {
 }
 
 node! {
-    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
+    /// A dictionary: `(thickness: 3pt, dash: "solid")`.
     Dict
 }
 

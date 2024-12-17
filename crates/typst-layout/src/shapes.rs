@@ -719,11 +719,7 @@ fn segment(
         false
     }
 
-    let solid = stroke
-        .dash
-        .as_ref()
-        .map(|pattern| pattern.array.is_empty())
-        .unwrap_or(true);
+    let solid = stroke.dash.as_ref().map(|dash| dash.array.is_empty()).unwrap_or(true);
 
     let use_fill = solid && fill_corners(start, end, corners);
     let shape = if use_fill {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tiny_skia as sk;
 use typst_library::layout::{Axes, Point, Ratio, Size};
-use typst_library::visualize::{Color, Gradient, Paint, Pattern, RelativeTo};
+use typst_library::visualize::{Color, Gradient, Paint, RelativeTo, Tiling};
 
 use crate::{AbsExt, State};
 
@@ -72,26 +72,26 @@ impl PaintSampler for GradientSampler<'_> {
     }
 }
 
-/// State used when sampling patterns for text.
+/// State used when sampling tilings for text.
 ///
 /// It caches the inverse transform to the parent, so that we can
 /// reuse it instead of recomputing it for each pixel.
 #[derive(Clone, Copy)]
-pub struct PatternSampler<'a> {
+pub struct TilingSampler<'a> {
     size: Size,
     transform_to_parent: sk::Transform,
     pixmap: &'a sk::Pixmap,
     pixel_per_pt: f32,
 }
 
-impl<'a> PatternSampler<'a> {
+impl<'a> TilingSampler<'a> {
     pub fn new(
-        pattern: &'a Pattern,
+        tilings: &'a Tiling,
         pixmap: &'a sk::Pixmap,
         state: &State,
         on_text: bool,
     ) -> Self {
-        let relative = pattern.unwrap_relative(on_text);
+        let relative = tilings.unwrap_relative(on_text);
         let fill_transform = match relative {
             RelativeTo::Self_ => sk::Transform::identity(),
             RelativeTo::Parent => state.container_transform.invert().unwrap(),
@@ -99,17 +99,17 @@ impl<'a> PatternSampler<'a> {
 
         Self {
             pixmap,
-            size: (pattern.size() + pattern.spacing()) * state.pixel_per_pt as f64,
+            size: (tilings.size() + tilings.spacing()) * state.pixel_per_pt as f64,
             transform_to_parent: fill_transform,
             pixel_per_pt: state.pixel_per_pt,
         }
     }
 }
 
-impl PaintSampler for PatternSampler<'_> {
+impl PaintSampler for TilingSampler<'_> {
     /// Samples a single point in a glyph.
     fn sample(self, (x, y): (u32, u32)) -> sk::PremultipliedColorU8 {
-        // Compute the point in the pattern's coordinate space.
+        // Compute the point in the tilings's coordinate space.
         let mut point = sk::Point { x: x as f32, y: y as f32 };
         self.transform_to_parent.map_point(&mut point);
 
@@ -118,7 +118,7 @@ impl PaintSampler for PatternSampler<'_> {
         let y =
             (point.y * self.pixel_per_pt).rem_euclid(self.size.y.to_f32()).floor() as u32;
 
-        // Sample the pattern
+        // Sample the tilings
         self.pixmap.pixel(x, y).unwrap()
     }
 }
@@ -218,8 +218,8 @@ pub fn to_sk_paint<'a>(
 
             sk_paint.anti_alias = gradient.anti_alias();
         }
-        Paint::Pattern(pattern) => {
-            let relative = pattern.unwrap_relative(on_text);
+        Paint::Tiling(tilings) => {
+            let relative = tilings.unwrap_relative(on_text);
 
             let fill_transform = match relative {
                 RelativeTo::Self_ => fill_transform.unwrap_or_default(),
@@ -228,7 +228,7 @@ pub fn to_sk_paint<'a>(
                     .post_concat(state.transform.invert().unwrap()),
             };
 
-            let canvas = render_pattern_frame(&state, pattern);
+            let canvas = render_tiling_frame(&state, tilings);
             *pixmap = Some(Arc::new(canvas));
 
             let offset = match relative {
@@ -265,17 +265,17 @@ pub fn to_sk_color_u8(color: Color) -> sk::ColorU8 {
     sk::ColorU8::from_rgba(r, g, b, a)
 }
 
-pub fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
-    let size = pattern.size() + pattern.spacing();
+pub fn render_tiling_frame(state: &State, tilings: &Tiling) -> sk::Pixmap {
+    let size = tilings.size() + tilings.spacing();
     let mut canvas = sk::Pixmap::new(
         (size.x.to_f32() * state.pixel_per_pt).round() as u32,
         (size.y.to_f32() * state.pixel_per_pt).round() as u32,
     )
     .unwrap();
 
-    // Render the pattern into a new canvas.
+    // Render the tilings into a new canvas.
     let ts = sk::Transform::from_scale(state.pixel_per_pt, state.pixel_per_pt);
-    let temp_state = State::new(pattern.size(), ts, state.pixel_per_pt);
-    crate::render_frame(&mut canvas, temp_state, pattern.frame());
+    let temp_state = State::new(tilings.size(), ts, state.pixel_per_pt);
+    crate::render_frame(&mut canvas, temp_state, tilings.frame());
     canvas
 }

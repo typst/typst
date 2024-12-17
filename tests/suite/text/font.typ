@@ -84,7 +84,7 @@ I
 
 --- issue-5499-text-fill-in-clip-block ---
 
-#let pat = pattern(
+#let t = tiling(
   size: (30pt, 30pt),
   relative: "parent",
   square(
@@ -101,7 +101,7 @@ I
   [ ]
   text(fill: gradient.linear(..color.map.rainbow), "Hello")
   [ ]
-  text(fill: pat, "Hello")
+  text(fill: t, "Hello")
 })
 #block(clip: true, height: 2em, {
   text(fill: blue, "Hello")
@@ -110,5 +110,5 @@ I
   [ ]
   text(fill: gradient.linear(..color.map.rainbow), "Hello")
   [ ]
-  text(fill: pat, "Hello")
+  text(fill: t, "Hello")
 })

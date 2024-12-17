@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::EcoString;
 
 use crate::foundations::{cast, Repr, Smart};
-use crate::visualize::{Color, Gradient, Pattern, RelativeTo};
+use crate::visualize::{Color, Gradient, RelativeTo, Tiling};
 
 /// How a fill or stroke should be painted.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -12,8 +12,8 @@ pub enum Paint {
     Solid(Color),
     /// A gradient.
     Gradient(Gradient),
-    /// A pattern.
-    Pattern(Pattern),
+    /// A tiling.
+    Tiling(Tiling),
 }
 
 impl Paint {
@@ -21,7 +21,7 @@ impl Paint {
     pub fn unwrap_solid(&self) -> Color {
         match self {
             Self::Solid(color) => *color,
-            Self::Gradient(_) | Self::Pattern(_) => panic!("expected solid color"),
+            Self::Gradient(_) | Self::Tiling(_) => panic!("expected solid color"),
         }
     }
 
@@ -30,7 +30,7 @@ impl Paint {
         match self {
             Self::Solid(_) => Smart::Auto,
             Self::Gradient(gradient) => gradient.relative(),
-            Self::Pattern(pattern) => pattern.relative(),
+            Self::Tiling(tiling) => tiling.relative(),
         }
     }
 
@@ -44,8 +44,8 @@ impl Paint {
             Self::Gradient(gradient) => {
                 Self::Gradient(gradient.clone().with_relative(RelativeTo::Parent))
             }
-            Self::Pattern(pattern) => {
-                Self::Pattern(pattern.clone().with_relative(RelativeTo::Parent))
+            Self::Tiling(tiling) => {
+                Self::Tiling(tiling.clone().with_relative(RelativeTo::Parent))
             }
         }
     }
@@ -56,14 +56,14 @@ impl Debug for Paint {
         match self {
             Self::Solid(v) => v.fmt(f),
             Self::Gradient(v) => v.fmt(f),
-            Self::Pattern(v) => v.fmt(f),
+            Self::Tiling(v) => v.fmt(f),
         }
     }
 }
 
-impl From<Pattern> for Paint {
-    fn from(pattern: Pattern) -> Self {
-        Self::Pattern(pattern)
+impl From<Tiling> for Paint {
+    fn from(tiling: Tiling) -> Self {
+        Self::Tiling(tiling)
     }
 }
 
@@ -72,7 +72,7 @@ impl Repr for Paint {
         match self {
             Self::Solid(color) => color.repr(),
             Self::Gradient(gradient) => gradient.repr(),
-            Self::Pattern(pattern) => pattern.repr(),
+            Self::Tiling(tiling) => tiling.repr(),
         }
     }
 }
@@ -94,9 +94,9 @@ cast! {
     self => match self {
         Self::Solid(color) => color.into_value(),
         Self::Gradient(gradient) => gradient.into_value(),
-        Self::Pattern(pattern) => pattern.into_value(),
+        Self::Tiling(tiling) => tiling.into_value(),
     },
     color: Color => Self::Solid(color),
     gradient: Gradient => Self::Gradient(gradient),
-    pattern: Pattern => Self::Pattern(pattern),
+    tiling: Tiling => Self::Tiling(tiling),
 }
