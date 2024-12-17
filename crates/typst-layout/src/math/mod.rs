@@ -644,10 +644,7 @@ fn layout_h(
 ) -> SourceResult<()> {
     if let Spacing::Rel(rel) = elem.amount() {
         if rel.rel.is_zero() {
-            ctx.push(MathFragment::Spacing(
-                rel.abs.at(TextElem::size_in(styles)),
-                elem.weak(styles),
-            ));
+            ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
         }
     }
     Ok(())

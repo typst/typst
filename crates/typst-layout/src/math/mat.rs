@@ -30,7 +30,7 @@ pub fn layout_vec(
         styles,
         elem.children(),
         elem.align(styles),
-        elem.gap(styles).at(TextElem::size_in(styles)),
+        elem.gap(styles),
         LeftRightAlternator::Right,
     )?;
 
@@ -73,9 +73,6 @@ pub fn layout_mat(
         }
     }
 
-    let font_size = TextElem::size_in(styles);
-    let column_gap = elem.column_gap(styles).at(font_size);
-    let row_gap = elem.row_gap(styles).at(font_size);
     let delim = elem.delim(styles);
     let frame = layout_mat_body(
         ctx,
@@ -83,7 +80,7 @@ pub fn layout_mat(
         rows,
         elem.align(styles),
         augment,
-        Axes::new(column_gap, row_gap),
+        Axes::new(elem.column_gap(styles), elem.row_gap(styles)),
         elem.span(),
     )?;
 
@@ -103,7 +100,7 @@ pub fn layout_cases(
         styles,
         elem.children(),
         FixedAlignment::Start,
-        elem.gap(styles).at(TextElem::size_in(styles)),
+        elem.gap(styles),
         LeftRightAlternator::None,
     )?;
 

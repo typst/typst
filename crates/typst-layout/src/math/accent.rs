@@ -1,8 +1,7 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain};
+use typst_library::foundations::{Packed, Resolve, StyleChain};
 use typst_library::layout::{Em, Frame, Point, Rel, Size};
 use typst_library::math::{Accent, AccentElem};
-use typst_library::text::TextElem;
 
 use super::{style_cramped, FrameFragment, GlyphFragment, MathContext, MathFragment};
 
@@ -31,7 +30,7 @@ pub fn layout_accent(
     let width = elem
         .size(styles)
         .unwrap_or(Rel::one())
-        .at(TextElem::size_in(styles))
+        .resolve(styles)
         .relative_to(base.width());
 
     let Accent(c) = elem.accent();
