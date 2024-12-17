@@ -10,7 +10,7 @@ use typst::visualize::Color;
 use typst::WorldExt;
 use typst_pdf::PdfOptions;
 
-use crate::collect::{FileSize, NoteKind, Test};
+use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
 use crate::world::TestWorld;
 
@@ -207,7 +207,9 @@ impl<'a> Runner<'a> {
                 let opts = oxipng::Options::max_compression();
                 let data = pixmap.encode_png().unwrap();
                 let ref_data = oxipng::optimize_from_memory(&data, &opts).unwrap();
-                if !self.test.large && ref_data.len() > crate::REF_LIMIT {
+                if !self.test.attrs.contains(&Attr::Large)
+                    && ref_data.len() > crate::REF_LIMIT
+                {
                     log!(self, "reference image would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
