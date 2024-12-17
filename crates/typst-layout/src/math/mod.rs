@@ -82,13 +82,12 @@ pub fn layout_equation_inline(
     for item in &mut items {
         let InlineItem::Frame(frame) = item else { continue };
 
-        let font_size = TextElem::size_in(styles);
         let slack = ParElem::leading_in(styles) * 0.7;
 
         let (t, b) = font.edges(
             TextElem::top_edge_in(styles),
             TextElem::bottom_edge_in(styles),
-            font_size,
+            TextElem::size_in(styles),
             TextEdgeBounds::Frame(frame),
         );
 
