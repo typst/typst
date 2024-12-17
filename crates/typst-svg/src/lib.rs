@@ -14,11 +14,11 @@ use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Ratio, Size,
     Transform,
 };
-use typst_library::visualize::{Geometry, Gradient, Pattern};
+use typst_library::visualize::{Geometry, Gradient, Tiling};
 use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
-use crate::paint::{GradientRef, PatternRef, SVGSubGradient};
+use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 
 /// Export a frame into a SVG file.
@@ -92,12 +92,12 @@ struct SVGRenderer {
     /// different transforms. Therefore this allows us to reuse the same gradient
     /// multiple times.
     gradient_refs: Deduplicator<GradientRef>,
-    /// Deduplicated patterns with transform matrices. They use a reference
-    /// (`href`) to a "source" pattern instead of being defined inline.
-    /// This saves a lot of space since patterns are often reused but with
+    /// Deduplicated tilings with transform matrices. They use a reference
+    /// (`href`) to a "source" tiling instead of being defined inline.
+    /// This saves a lot of space since tilings are often reused but with
     /// different transforms. Therefore this allows us to reuse the same gradient
     /// multiple times.
-    pattern_refs: Deduplicator<PatternRef>,
+    tiling_refs: Deduplicator<TilingRef>,
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
@@ -105,12 +105,12 @@ struct SVGRenderer {
     /// The `Ratio` is the aspect ratio of the gradient, this is used to correct
     /// the angle of the gradient.
     gradients: Deduplicator<(Gradient, Ratio)>,
-    /// These are the actual patterns being written in the SVG file.
-    /// These patterns are deduplicated because they do not contain the transform
+    /// These are the actual tilings being written in the SVG file.
+    /// These tilings are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
     ///
-    /// The `String` is the rendered pattern frame.
-    patterns: Deduplicator<Pattern>,
+    /// The `String` is the rendered tiling frame.
+    tilings: Deduplicator<Tiling>,
     /// These are the gradients that compose a conic gradient.
     conic_subgradients: Deduplicator<SVGSubGradient>,
 }
@@ -163,8 +163,8 @@ impl SVGRenderer {
             gradient_refs: Deduplicator::new('g'),
             gradients: Deduplicator::new('f'),
             conic_subgradients: Deduplicator::new('s'),
-            pattern_refs: Deduplicator::new('p'),
-            patterns: Deduplicator::new('t'),
+            tiling_refs: Deduplicator::new('p'),
+            tilings: Deduplicator::new('t'),
         }
     }
 
@@ -273,8 +273,8 @@ impl SVGRenderer {
         self.write_gradients();
         self.write_gradient_refs();
         self.write_subgradients();
-        self.write_patterns();
-        self.write_pattern_refs();
+        self.write_tilings();
+        self.write_tiling_refs();
         self.xml.end_document()
     }
 

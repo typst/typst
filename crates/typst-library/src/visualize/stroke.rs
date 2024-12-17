@@ -7,7 +7,7 @@ use crate::foundations::{
     Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Length};
-use crate::visualize::{Color, Gradient, Paint, Pattern};
+use crate::visualize::{Color, Gradient, Paint, Tiling};
 
 /// Defines how to draw a line.
 ///
@@ -219,9 +219,9 @@ impl<T: Numeric> Stroke<T> {
             thickness: self.thickness.map(&f),
             cap: self.cap,
             join: self.join,
-            dash: self.dash.map(|pattern| {
-                pattern.map(|pattern| DashPattern {
-                    array: pattern
+            dash: self.dash.map(|dash| {
+                dash.map(|dash| DashPattern {
+                    array: dash
                         .array
                         .into_iter()
                         .map(|l| match l {
@@ -229,7 +229,7 @@ impl<T: Numeric> Stroke<T> {
                             DashLength::LineWidth => DashLength::LineWidth,
                         })
                         .collect(),
-                    phase: f(pattern.phase),
+                    phase: f(dash.phase),
                 })
             }),
             miter_limit: self.miter_limit,
@@ -243,14 +243,10 @@ impl Stroke<Abs> {
         let thickness = self.thickness.unwrap_or(default.thickness);
         let dash = self
             .dash
-            .map(|pattern| {
-                pattern.map(|pattern| DashPattern {
-                    array: pattern
-                        .array
-                        .into_iter()
-                        .map(|l| l.finish(thickness))
-                        .collect(),
-                    phase: pattern.phase,
+            .map(|dash| {
+                dash.map(|dash| DashPattern {
+                    array: dash.array.into_iter().map(|l| l.finish(thickness)).collect(),
+                    phase: dash.phase,
                 })
             })
             .unwrap_or(default.dash);
@@ -378,8 +374,8 @@ cast! {
         paint: Smart::Custom(gradient.into()),
         ..Default::default()
     },
-    pattern: Pattern => Self {
-        paint: Smart::Custom(pattern.into()),
+    tiling: Tiling => Self {
+        paint: Smart::Custom(tiling.into()),
         ..Default::default()
     },
     mut dict: Dict => {

@@ -7,10 +7,10 @@ mod image;
 mod line;
 mod paint;
 mod path;
-mod pattern;
 mod polygon;
 mod shape;
 mod stroke;
+mod tiling;
 
 pub use self::color::*;
 pub use self::curve::*;
@@ -19,12 +19,12 @@ pub use self::image::*;
 pub use self::line::*;
 pub use self::paint::*;
 pub use self::path::*;
-pub use self::pattern::*;
 pub use self::polygon::*;
 pub use self::shape::*;
 pub use self::stroke::*;
+pub use self::tiling::*;
 
-use crate::foundations::{category, Category, Scope};
+use crate::foundations::{category, Category, Scope, Type};
 
 /// Drawing and data visualization.
 ///
@@ -39,7 +39,7 @@ pub(super) fn define(global: &mut Scope) {
     global.category(VISUALIZE);
     global.define_type::<Color>();
     global.define_type::<Gradient>();
-    global.define_type::<Pattern>();
+    global.define_type::<Tiling>();
     global.define_type::<Stroke>();
     global.define_elem::<ImageElem>();
     global.define_elem::<LineElem>();
@@ -50,4 +50,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<PolygonElem>();
     global.define_elem::<CurveElem>();
     global.define_elem::<PathElem>();
+
+    // Compatibility.
+    global.define("pattern", Type::of::<Tiling>());
 }

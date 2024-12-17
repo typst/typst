@@ -58,3 +58,21 @@ This is the first line \ #h(2cm, weak: true) A new line
 
 // Non-weak-spacing, on the other hand, is not removed.
 This is the first line \ #h(2cm, weak: false) A new line
+
+--- issue-5244-consecutive-weak-space ---
+#set par(linebreaks: "optimized")
+#{
+  [A]
+  h(0.3em, weak: true)
+  h(0.3em, weak: true)
+  [B]
+}
+
+--- issue-5244-consecutive-weak-space-heading ---
+#set par(justify: true)
+#set heading(numbering: "I.")
+
+= #h(0.3em, weak: true) test
+
+--- issue-5253-consecutive-weak-space-math ---
+$= thin thin$ a

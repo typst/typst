@@ -11,8 +11,8 @@ mod image;
 mod named_destination;
 mod outline;
 mod page;
-mod pattern;
 mod resources;
+mod tiling;
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -39,10 +39,10 @@ use crate::gradient::{write_gradients, PdfGradient};
 use crate::image::write_images;
 use crate::named_destination::{write_named_destinations, NamedDestinations};
 use crate::page::{alloc_page_refs, traverse_pages, write_page_tree, EncodedPage};
-use crate::pattern::{write_patterns, PdfPattern};
 use crate::resources::{
     alloc_resources_refs, write_resource_dictionaries, Resources, ResourcesRefs,
 };
+use crate::tiling::{write_tilings, PdfTiling};
 
 /// Export a document into a PDF file.
 ///
@@ -65,7 +65,7 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
                 color_fonts: builder.run(write_color_fonts)?,
                 images: builder.run(write_images)?,
                 gradients: builder.run(write_gradients)?,
-                patterns: builder.run(write_patterns)?,
+                tilings: builder.run(write_tilings)?,
                 ext_gs: builder.run(write_graphic_states)?,
             })
         })?
@@ -89,14 +89,59 @@ pub struct PdfOptions<'a> {
     /// `Auto`, a hash of the document's title and author is used instead (which
     /// is reasonably unique and stable).
     pub ident: Smart<&'a str>,
-    /// If not `None`, shall be the creation date of the document as a UTC
-    /// datetime. It will only be used if `set document(date: ..)` is `auto`.
-    pub timestamp: Option<Datetime>,
+    /// If not `None`, shall be the creation timestamp of the document. It will
+    /// only be used if `set document(date: ..)` is `auto`.
+    pub timestamp: Option<Timestamp>,
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
     pub page_ranges: Option<PageRanges>,
     /// A list of PDF standards that Typst will enforce conformance with.
     pub standards: PdfStandards,
+}
+
+/// A timestamp with timezone information.
+#[derive(Debug, Clone, Copy)]
+pub struct Timestamp {
+    /// The datetime of the timestamp.
+    pub(crate) datetime: Datetime,
+    /// The timezone of the timestamp.
+    pub(crate) timezone: Timezone,
+}
+
+impl Timestamp {
+    /// Create a new timestamp with a given datetime and UTC suffix.
+    pub fn new_utc(datetime: Datetime) -> Self {
+        Self { datetime, timezone: Timezone::UTC }
+    }
+
+    /// Create a new timestamp with a given datetime, and a local timezone offset.
+    pub fn new_local(datetime: Datetime, whole_minute_offset: i32) -> Option<Self> {
+        let hour_offset = (whole_minute_offset / 60).try_into().ok()?;
+        // Note: the `%` operator in Rust is the remainder operator, not the
+        // modulo operator. The remainder operator can return negative results.
+        // We can simply apply `abs` here because we assume the `minute_offset`
+        // will have the same sign as `hour_offset`.
+        let minute_offset = (whole_minute_offset % 60).abs().try_into().ok()?;
+        match (hour_offset, minute_offset) {
+            // Only accept valid timezone offsets with `-23 <= hours <= 23`,
+            // and `0 <= minutes <= 59`.
+            (-23..=23, 0..=59) => Some(Self {
+                datetime,
+                timezone: Timezone::Local { hour_offset, minute_offset },
+            }),
+            _ => None,
+        }
+    }
+}
+
+/// A timezone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Timezone {
+    /// The UTC timezone.
+    UTC,
+    /// The local timezone offset from UTC. And the `minute_offset` will have
+    /// same sign as `hour_offset`.
+    Local { hour_offset: i8, minute_offset: u8 },
 }
 
 /// Encapsulates a list of compatible PDF standards.
@@ -267,8 +312,8 @@ struct References {
     images: HashMap<Image, Ref>,
     /// The IDs of written gradients.
     gradients: HashMap<PdfGradient, Ref>,
-    /// The IDs of written patterns.
-    patterns: HashMap<PdfPattern, Ref>,
+    /// The IDs of written tilings.
+    tilings: HashMap<PdfTiling, Ref>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
 }
@@ -611,4 +656,42 @@ fn transform_to_array(ts: Transform) -> [f32; 6] {
         ts.tx.to_f32(),
         ts.ty.to_f32(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_timestamp_new_local() {
+        let dummy_datetime = Datetime::from_ymd_hms(2024, 12, 17, 10, 10, 10).unwrap();
+        let test = |whole_minute_offset, expect_timezone| {
+            assert_eq!(
+                Timestamp::new_local(dummy_datetime, whole_minute_offset)
+                    .unwrap()
+                    .timezone,
+                expect_timezone
+            );
+        };
+
+        // Valid timezone offsets
+        test(0, Timezone::Local { hour_offset: 0, minute_offset: 0 });
+        test(480, Timezone::Local { hour_offset: 8, minute_offset: 0 });
+        test(-480, Timezone::Local { hour_offset: -8, minute_offset: 0 });
+        test(330, Timezone::Local { hour_offset: 5, minute_offset: 30 });
+        test(-210, Timezone::Local { hour_offset: -3, minute_offset: 30 });
+        test(-720, Timezone::Local { hour_offset: -12, minute_offset: 0 }); // AoE
+
+        // Corner cases
+        test(315, Timezone::Local { hour_offset: 5, minute_offset: 15 });
+        test(-225, Timezone::Local { hour_offset: -3, minute_offset: 45 });
+        test(1439, Timezone::Local { hour_offset: 23, minute_offset: 59 });
+        test(-1439, Timezone::Local { hour_offset: -23, minute_offset: 59 });
+
+        // Invalid timezone offsets
+        assert!(Timestamp::new_local(dummy_datetime, 1440).is_none());
+        assert!(Timestamp::new_local(dummy_datetime, -1440).is_none());
+        assert!(Timestamp::new_local(dummy_datetime, i32::MAX).is_none());
+        assert!(Timestamp::new_local(dummy_datetime, i32::MIN).is_none());
+    }
 }
