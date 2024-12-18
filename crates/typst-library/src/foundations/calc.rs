@@ -992,7 +992,7 @@ pub fn div_euclid(
 /// #calc.rem-euclid(1.75, 0.5) \
 /// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Remainder")]
+#[func(title = "Euclidean Remainder", keywords = ["modulo", "modulus"])]
 pub fn rem_euclid(
     /// The callsite span.
     span: Span,
