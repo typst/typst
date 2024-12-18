@@ -89,15 +89,21 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
-                            let original = item.original_name();
                             let bound = item.bound_name();
-                            let scope = source.and_then(|(value, _)| value.scope());
-                            let span = scope
-                                .and_then(|s| s.get_span(&original))
-                                .unwrap_or(Span::detached())
-                                .or(bound.span());
 
-                            let value = scope.and_then(|s| s.get(&original));
+                            let (span, value) = item.path().iter().fold(
+                                (bound.span(), source.map(|(value, _)| value)),
+                                |(span, value), path_ident| {
+                                    let scope = value.and_then(|v| v.scope());
+                                    let span = scope
+                                        .and_then(|s| s.get_span(&path_ident))
+                                        .unwrap_or(Span::detached())
+                                        .or(span);
+                                    let value = scope.and_then(|s| s.get(&path_ident));
+                                    (span, value)
+                                },
+                            );
+
                             if let Some(res) =
                                 recv(NamedItem::Import(bound.get(), span, value))
                             {
@@ -314,5 +320,6 @@ mod tests {
     fn test_import_named_items() {
         // Cannot test much.
         assert!(has_named_items(r#"#import "foo.typ": a; #(a);"#, 24, "a"));
+        assert!(has_named_items(r#"#import "foo.typ": a.b; #(b);"#, 26, "b"));
     }
 }
