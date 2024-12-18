@@ -332,6 +332,10 @@ impl<'a> Runner<'a> {
         if diag.span.id().is_some_and(|id| id != self.test.source.id()) {
             return;
         }
+        // TODO: remove this once HTML export is stable
+        if diag.message == "html export is under active development and incomplete" {
+            return;
+        }
 
         let message = diag.message.replace("\\", "/");
         let range = self.world.range(diag.span);
