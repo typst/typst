@@ -77,9 +77,17 @@ Lריווח #h(1cm) R
 #"\u{30000}\u{30001}\u{30002}\u{30003}"
 
 --- issue-5490-bidi-invalid-range ---
-
 #set text(lang: "he")
 #set raw(lang: "python")
-#set page(width: 300pt)
+#set page(width: 240pt)
+בדיקה האם מספר מתחלק במספר אחר. לדוגמה `if a % 2 == 0`
 
-- בדיקה האם מספר מתחלק במספר אחר. לדוגמה `if a % 2 == 0`
+--- issue-5490-bidi-invalid-range-2 ---
+#table(
+  columns: (1fr, 1fr),
+  lines(6),
+  [
+    #text(lang: "ar")[مجرد نص مؤقت لأغراض العرض التوضيحي. ]
+    #text(lang: "ar")[سلام]
+  ],
+)
