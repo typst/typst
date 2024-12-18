@@ -521,11 +521,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Ident;
         if let Some(parent) = ctx.leaf.parent();
-        if parent.kind() == SyntaxKind::ImportItems;
+        if parent.kind() == SyntaxKind::ImportItemPath;
         if let Some(grand) = parent.parent();
-        if let Some(ast::Expr::Import(import)) = grand.get().cast();
+        if grand.kind() == SyntaxKind::ImportItems;
+        if let Some(great) = grand.parent();
+        if let Some(ast::Expr::Import(import)) = great.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
-        if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
+        if let Some(source) = great.children().find(|child| child.is::<ast::Expr>());
         then {
             ctx.from = ctx.leaf.offset();
             import_item_completions(ctx, items, &source);
@@ -1730,5 +1732,19 @@ mod tests {
             .must_apply("table", "table(\n  ${}\n),");
 
         test("#figure(cap)", -2).must_apply("caption", "caption: [${}]");
+    }
+
+    #[test]
+    fn test_autocomplete_import_items() {
+        let world = TestWorld::new("#import \"other.typ\": ")
+            .with_source("second.typ", "#import \"other.typ\": th")
+            .with_source("other.typ", "#let this = 1; #let that = 2");
+
+        test(&world, ("main.typ", 21))
+            .must_include(["*", "this", "that"])
+            .must_exclude(["figure"]);
+        test(&world, ("second.typ", 23))
+            .must_include(["this", "that"])
+            .must_exclude(["*", "figure"]);
     }
 }
