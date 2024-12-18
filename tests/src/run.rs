@@ -40,7 +40,7 @@ pub struct Runner<'a> {
     not_annotated: String,
 }
 
-trait OutputType {
+trait OutputType: Document {
     type Live;
     fn live_path(name: &EcoString) -> String;
     fn ref_path(name: &EcoString) -> String;
@@ -174,10 +174,10 @@ impl<'a> Runner<'a> {
         let html = self.test.attrs.contains(&Attr::Html);
         let render = !html || self.test.attrs.contains(&Attr::Render);
         if html {
-            self.run_bla::<HtmlDocument>();
+            self.run_test::<HtmlDocument>();
         }
         if render {
-            self.run_bla::<PagedDocument>();
+            self.run_test::<PagedDocument>();
         }
 
         self.handle_not_emitted();
@@ -186,7 +186,8 @@ impl<'a> Runner<'a> {
         self.result
     }
 
-    fn run_bla<D: Document + OutputType>(&mut self) {
+    /// Run test specific to document format.
+    fn run_test<D: OutputType>(&mut self) {
         let Warned { output, warnings } = typst::compile(&self.world);
         let (doc, errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
