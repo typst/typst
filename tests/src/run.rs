@@ -1,6 +1,5 @@
 use std::fmt::Write;
 use std::ops::Range;
-use std::path::Path;
 
 use ecow::{eco_vec, EcoString};
 use tiny_skia as sk;
@@ -250,10 +249,10 @@ impl<'a> Runner<'a> {
     fn check_output<D: OutputType>(&mut self, document: Option<&D>) {
         let live_path = D::live_path(&self.test.name);
         let ref_path = D::ref_path(&self.test.name);
-        let has_ref = Path::new(&ref_path).exists();
+        let ref_data = std::fs::read(&ref_path);
 
         let Some(document) = document else {
-            if has_ref {
+            if ref_data.is_ok() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {ref_path}");
             }
@@ -270,7 +269,7 @@ impl<'a> Runner<'a> {
 
         // Tests without visible output and no reference output don't need to be
         // compared.
-        if skippable && !has_ref {
+        if skippable && ref_data.is_ok() {
             std::fs::remove_file(&live_path).ok();
             return;
         }
@@ -280,11 +279,8 @@ impl<'a> Runner<'a> {
 
         document.save_live(&self.test.name, &live);
 
-        // Compare against reference image if available.
-        let equal = has_ref && {
-            let ref_data = std::fs::read(&ref_path).unwrap();
-            D::equals(&live, &ref_data)
-        };
+        // Compare against reference output if available.
+        let equal = ref_data.as_ref().map(|r| D::equals(&live, &r)).unwrap_or(false);
 
         // Test that is ok doesn't need to be updated.
         if equal {
@@ -319,7 +315,7 @@ impl<'a> Runner<'a> {
             }
         } else {
             self.result.mismatched_image = true;
-            if has_ref {
+            if ref_data.is_ok() {
                 log!(self, "mismatched rendering");
                 log!(self, "  live      | {live_path}");
                 log!(self, "  ref       | {ref_path}");
