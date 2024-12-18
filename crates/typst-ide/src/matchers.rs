@@ -123,6 +123,36 @@ pub fn named_items<T>(
                 }
             }
 
+            if let Some(v) = parent.cast::<ast::Closure>().filter(|v| {
+                // Check if the node is in the body of the closure.
+                let body = parent.find(v.body().span());
+                body.is_some_and(|n| n.find(node.span()).is_some())
+            }) {
+                for param in v.params().children() {
+                    match param {
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.bindings() {
+                                if let Some(t) = recv(NamedItem::Var(ident)) {
+                                    return Some(t);
+                                }
+                            }
+                        }
+                        ast::Param::Named(n) => {
+                            if let Some(t) = recv(NamedItem::Var(n.name())) {
+                                return Some(t);
+                            }
+                        }
+                        ast::Param::Spread(s) => {
+                            if let Some(sink_ident) = s.sink_ident() {
+                                if let Some(t) = recv(NamedItem::Var(sink_ident)) {
+                                    return Some(t);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             ancestor = Some(parent.clone());
             continue;
         }
@@ -267,6 +297,17 @@ mod tests {
 
         // Doesn't have named items
         assert!(!has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "b"));
+    }
+
+    #[test]
+    fn test_param_named_items() {
+        // Has named items
+        assert!(has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 12, "a"));
+        assert!(has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "a"));
+
+        // Doesn't have named items
+        assert!(!has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 19, "a"));
+        assert!(!has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "b"));
     }
 
     #[test]

@@ -67,8 +67,8 @@ impl SVGRenderer {
                 )
                 .post_concat(state.transform.invert().unwrap()),
             }
-        } else if let Paint::Pattern(pattern) = paint {
-            match pattern.unwrap_relative(false) {
+        } else if let Paint::Tiling(tiling) = paint {
+            match tiling.unwrap_relative(false) {
                 RelativeTo::Self_ => Transform::identity(),
                 RelativeTo::Parent => state.transform.invert().unwrap(),
             }
@@ -112,8 +112,8 @@ impl SVGRenderer {
                 let id = self.push_gradient(gradient, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
-            Paint::Pattern(pattern) => {
-                let id = self.push_pattern(pattern, size, fill_transform);
+            Paint::Tiling(tiling) => {
+                let id = self.push_tiling(tiling, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
         }
@@ -137,11 +137,11 @@ impl SVGRenderer {
         );
         self.xml
             .write_attribute("stroke-miterlimit", &stroke.miter_limit.get());
-        if let Some(pattern) = &stroke.dash {
-            self.xml.write_attribute("stroke-dashoffset", &pattern.phase.to_pt());
+        if let Some(dash) = &stroke.dash {
+            self.xml.write_attribute("stroke-dashoffset", &dash.phase.to_pt());
             self.xml.write_attribute(
                 "stroke-dasharray",
-                &pattern
+                &dash
                     .array
                     .iter()
                     .map(|dash| dash.to_pt().to_string())

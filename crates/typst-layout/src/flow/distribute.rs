@@ -17,7 +17,7 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
         regions,
         items: vec![],
         sticky: None,
-        stickable: false,
+        stickable: None,
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
@@ -42,9 +42,26 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
     /// the next region.
     sticky: Option<DistributionSnapshot<'a, 'b>>,
-    /// Whether there was at least one proper block. Otherwise, sticky blocks
-    /// are disabled (or else they'd keep being migrated).
-    stickable: bool,
+    /// Whether the current group of consecutive sticky blocks are still sticky
+    /// and may migrate with the attached frame. This is `None` while we aren't
+    /// processing sticky blocks. On the first sticky block, this will become
+    /// `Some(true)` if migrating sticky blocks as usual would make a
+    /// difference - this is given by `regions.may_progress()`. Otherwise, it
+    /// is set to `Some(false)`, which is usually the case when the first
+    /// sticky block in the group is at the very top of the page (then,
+    /// migrating it would just lead us back to the top of the page, leading
+    /// to an infinite loop). In that case, all sticky blocks of the group are
+    /// also disabled, until this is reset to `None` on the first non-sticky
+    /// frame we find.
+    ///
+    /// While this behavior of disabling stickiness of sticky blocks at the
+    /// very top of the page may seem non-ideal, it is only problematic (that
+    /// is, may lead to orphaned sticky blocks / headings) if the combination
+    /// of 'sticky blocks + attached frame' doesn't fit in one page, in which
+    /// case there is nothing Typst can do to improve the situation, as sticky
+    /// blocks are supposed to always be in the same page as the subsequent
+    /// frame, but that is impossible in that case, which is thus pathological.
+    stickable: Option<bool>,
 }
 
 /// A snapshot of the distribution state.
@@ -314,13 +331,31 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // If the frame is sticky and we haven't remembered a preceding
             // sticky element, make a checkpoint which we can restore should we
             // end on this sticky element.
-            if self.stickable && self.sticky.is_none() {
+            //
+            // The first sticky block within consecutive sticky blocks
+            // determines whether this group of sticky blocks has stickiness
+            // disabled or not.
+            //
+            // The criteria used here is: if migrating this group of sticky
+            // blocks together with the "attached" block can't improve the lack
+            // of space, since we're at the start of the region, then we don't
+            // do so, and stickiness is disabled (at least, for this region).
+            // Otherwise, migration is allowed.
+            //
+            // Note that, since the whole region is checked, this ensures sticky
+            // blocks at the top of a block - but not necessarily of the page -
+            // can still be migrated.
+            if self.sticky.is_none()
+                && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
+            {
                 self.sticky = Some(self.snapshot());
             }
         } else if !frame.is_empty() {
-            // If the frame isn't sticky, we can forget a previous snapshot.
-            self.stickable = true;
+            // If the frame isn't sticky, we can forget a previous snapshot. We
+            // interrupt a group of sticky blocks, if there was one, so we reset
+            // the saved stickable check for the next group of sticky blocks.
             self.sticky = None;
+            self.stickable = None;
         }
 
         // Handle footnotes.

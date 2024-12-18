@@ -17,7 +17,7 @@
 #table(columns: 3, stroke: none, fill: green, [A], [B], [C])
 
 --- table-fill-bad ---
-// Error: 14-19 expected color, gradient, pattern, none, array, or function, found string
+// Error: 14-19 expected color, gradient, tiling, none, array, or function, found string
 #table(fill: "hey")
 
 --- table-align-array ---

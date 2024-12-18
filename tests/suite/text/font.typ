@@ -84,7 +84,7 @@ I
 
 --- issue-5499-text-fill-in-clip-block ---
 
-#let pat = pattern(
+#let t = tiling(
   size: (30pt, 30pt),
   relative: "parent",
   square(
@@ -101,7 +101,7 @@ I
   [ ]
   text(fill: gradient.linear(..color.map.rainbow), "Hello")
   [ ]
-  text(fill: pat, "Hello")
+  text(fill: t, "Hello")
 })
 #block(clip: true, height: 2em, {
   text(fill: blue, "Hello")
@@ -110,5 +110,42 @@ I
   [ ]
   text(fill: gradient.linear(..color.map.rainbow), "Hello")
   [ ]
-  text(fill: pat, "Hello")
+  text(fill: t, "Hello")
 })
+
+--- text-font-types ---
+#let ubuntu = (name: "Ubuntu", covers: regex("[\u{20}-\u{FFFF}]"))
+#set text(font: ubuntu)
+#set text(font: (ubuntu, "Ubuntu"))
+
+--- text-font-covers-chinese ---
+// Without ranges, the quotation mark is using the Latin font.
+#set text(font: ("Ubuntu", "Noto Serif CJK SC"))
+分别设置“中文”和English字体
+
+// With ranges, the quotation mark is using the Chinese font.
+#set text(font: ((name: "Noto Serif CJK SC", covers: regex("[\u{00B7}-\u{3134F}]")), "Ubuntu"))
+分别设置“中文”和English字体
+
+// With "latin-in-cjk", the quotation mark is also using the Chinese font.
+#set text(font: ((name: "Ubuntu", covers: "latin-in-cjk"), "Noto Serif CJK SC"))
+分别设置“中文”和English字体
+
+--- text-font-covers-numbers ---
+// Change font only for numbers.
+#set text(font: (
+  (name: "PT Sans", covers: regex("[0-9]")),
+  "Libertinus Serif"
+))
+
+The number 123.
+
+--- text-font-covers-bad-1 ---
+// Error: 17-59 coverage regex may only use dot, letters, and character classes
+// Hint: 17-59 the regex is applied to each letter individually
+#set text(font: (name: "Ubuntu", covers: regex("20-FFFF")))
+
+--- text-font-covers-bad-2 ---
+// Error: 17-65 coverage regex may only use dot, letters, and character classes
+// Hint: 17-65 the regex is applied to each letter individually
+#set text(font: (name: "Ubuntu", covers: regex("\u{20}-\u{10}")))

@@ -122,8 +122,8 @@ impl HtmlTag {
         let bytes = string.as_bytes();
         let mut i = 0;
         while i < bytes.len() {
-            if !bytes[i].is_ascii_alphanumeric() {
-                panic!("constant tag name must be ASCII alphanumeric");
+            if !bytes[i].is_ascii() || !charsets::is_valid_in_tag_name(bytes[i] as char) {
+                panic!("not all characters are valid in a tag name");
             }
             i += 1;
         }
@@ -220,8 +220,10 @@ impl HtmlAttr {
         let bytes = string.as_bytes();
         let mut i = 0;
         while i < bytes.len() {
-            if !bytes[i].is_ascii_alphanumeric() {
-                panic!("constant attribute name must be ASCII alphanumeric");
+            if !bytes[i].is_ascii()
+                || !charsets::is_valid_in_attribute_name(bytes[i] as char)
+            {
+                panic!("not all characters are valid in an attribute name");
             }
             i += 1;
         }
@@ -621,5 +623,9 @@ pub mod attr {
         href
         name
         value
+        role
     }
+
+    #[allow(non_upper_case_globals)]
+    pub const aria_level: HtmlAttr = HtmlAttr::constant("aria-level");
 }

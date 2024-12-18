@@ -1,6 +1,6 @@
 //! Generic writer for PDF content.
 //!
-//! It is used to write page contents, color glyph instructions, and patterns.
+//! It is used to write page contents, color glyph instructions, and tilings.
 //!
 //! See also [`pdf_writer::Content`].
 
@@ -96,7 +96,7 @@ pub struct Encoded {
 /// objects only through resources.
 ///
 /// Content streams can be used for page contents, but also to describe color
-/// glyphs and patterns.
+/// glyphs and tilings.
 pub struct Builder<'a, R = ()> {
     /// Settings for PDF export.
     pub(crate) options: &'a PdfOptions<'a>,
@@ -187,7 +187,7 @@ impl State {
     }
 }
 
-/// Subset of the state used to calculate the transform of gradients and patterns.
+/// Subset of the state used to calculate the transform of gradients and tilings.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Transforms {
     /// The transform of the current item.
@@ -229,7 +229,7 @@ impl Builder<'_, ()> {
         let get_opacity = |paint: &Paint| {
             let color = match paint {
                 Paint::Solid(color) => *color,
-                Paint::Gradient(_) | Paint::Pattern(_) => return 255,
+                Paint::Gradient(_) | Paint::Tiling(_) => return 255,
             };
 
             color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
@@ -330,10 +330,10 @@ impl Builder<'_, ()> {
                 self.content.set_line_join(to_pdf_line_join(*join));
             }
             if self.state.stroke.as_ref().map(|s| &s.dash) != Some(dash) {
-                if let Some(pattern) = dash {
+                if let Some(dash) = dash {
                     self.content.set_dash_pattern(
-                        pattern.array.iter().map(|l| l.to_f32()),
-                        pattern.phase.to_f32(),
+                        dash.array.iter().map(|l| l.to_f32()),
+                        dash.phase.to_f32(),
                     );
                 } else {
                     self.content.set_dash_pattern([], 0.0);
