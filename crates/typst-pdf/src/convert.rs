@@ -385,10 +385,12 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                             hint: "ensure all text can be displayed using an available font");
                     }
                     ValidationError::InvalidCodepointMapping(_, _) => {
-                        bail!(Span::detached(), "{prefix} the PDF contains the \
-                        disallowed codepoints";
-                            hint: "make sure to not use the Unicode characters 0x0, \
-                            0xFEFF or 0xFFFE");
+                        bail!(Span::detached(), "{prefix} the PDF contains \
+                        disallowed codepoints or is missing codepoint mappings";
+                            hint: "make sure to not use the unicode characters 0x0, \
+                            0xFEFF or 0xFFFE";
+                            hint: "for complex scripts like indic or arabic, it might \
+                            not be possible to produce a compliant document");
                     }
                     ValidationError::UnicodePrivateArea(_, _) => {
                         bail!(Span::detached(), "{prefix} the PDF contains characters from the \
