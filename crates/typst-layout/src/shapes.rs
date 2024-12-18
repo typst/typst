@@ -148,26 +148,26 @@ pub fn layout_curve(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let mut builder = CurveBuilder::new(region);
+    let mut builder = CurveBuilder::new(region, styles);
 
     for item in elem.components() {
         match item {
             CurveComponent::Move(element) => {
                 let relative = element.relative(styles);
-                let point = builder.resolve_point(element.start(styles), relative);
+                let point = builder.resolve_point(element.start, relative);
                 builder.move_(point);
             }
 
             CurveComponent::Line(element) => {
                 let relative = element.relative(styles);
-                let point = builder.resolve_point(element.end(styles), relative);
+                let point = builder.resolve_point(element.end, relative);
                 builder.line(point);
             }
 
             CurveComponent::Quad(element) => {
                 let relative = element.relative(styles);
-                let end = builder.resolve_point(element.end(styles), relative);
-                let control = match element.control(styles) {
+                let end = builder.resolve_point(element.end, relative);
+                let control = match element.control {
                     Smart::Auto => {
                         control_c2q(builder.last_point, builder.last_control_from)
                     }
@@ -179,13 +179,13 @@ pub fn layout_curve(
 
             CurveComponent::Cubic(element) => {
                 let relative = element.relative(styles);
-                let end = builder.resolve_point(element.end(styles), relative);
-                let c1 = match element.control_start(styles) {
+                let end = builder.resolve_point(element.end, relative);
+                let c1 = match element.control_start {
                     Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
                     Some(Smart::Auto) => builder.last_control_from,
                     None => builder.last_point,
                 };
-                let c2 = match element.control_end(styles) {
+                let c2 = match element.control_end {
                     Some(p) => builder.resolve_point(p, relative),
                     None => end,
                 };
@@ -228,13 +228,15 @@ pub fn layout_curve(
 }
 
 /// Builds a `Curve` from a [`CurveElem`]'s parts.
-struct CurveBuilder {
+struct CurveBuilder<'a> {
     /// The output curve.
     curve: Curve,
     /// The curve's bounds.
     size: Size,
     /// The region relative to which points are resolved.
     region: Region,
+    /// The styles for the curve.
+    styles: StyleChain<'a>,
     /// The next start point.
     start_point: Point,
     /// Mirror of the first cubic start control point (for closing).
@@ -250,13 +252,14 @@ struct CurveBuilder {
     is_empty: bool,
 }
 
-impl CurveBuilder {
+impl<'a> CurveBuilder<'a> {
     /// Create a new curve builder.
-    fn new(region: Region) -> Self {
+    fn new(region: Region, styles: StyleChain<'a>) -> Self {
         Self {
             curve: Curve::new(),
             size: Size::zero(),
             region,
+            styles,
             start_point: Point::zero(),
             start_control_into: Point::zero(),
             last_point: Point::zero(),
@@ -354,8 +357,11 @@ impl CurveBuilder {
     }
 
     /// Resolve the point relative to the region.
-    fn resolve_point(&self, point: Axes<Rel<Abs>>, relative: bool) -> Point {
-        let mut p = point.zip_map(self.region.size, Rel::relative_to).to_point();
+    fn resolve_point(&self, point: Axes<Rel>, relative: bool) -> Point {
+        let mut p = point
+            .resolve(self.styles)
+            .zip_map(self.region.size, Rel::relative_to)
+            .to_point();
         if relative {
             p += self.last_point;
         }

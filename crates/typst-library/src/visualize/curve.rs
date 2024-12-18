@@ -138,8 +138,7 @@ impl TryFrom<Content> for CurveComponent {
 #[elem(name = "move", title = "Curve Move")]
 pub struct CurveMove {
     /// The starting point for the new component.
-    #[resolve]
-    #[positional]
+    #[required]
     pub start: Axes<Rel<Length>>,
 
     /// Whether the coordinates are relative to the previous point.
@@ -151,8 +150,7 @@ pub struct CurveMove {
 #[elem(name = "line", title = "Curve Line")]
 pub struct CurveLine {
     /// The point at which the line shall end.
-    #[resolve]
-    #[positional]
+    #[required]
     pub end: Axes<Rel<Length>>,
 
     /// Whether the coordinates are relative to the previous point.
@@ -170,13 +168,11 @@ pub struct CurveQuad {
     ///   the previous control point will be mirrored.
     /// - If `{none}`, the control point defaults to `end`, and the curve will
     ///   be a straight line.
-    #[resolve]
-    #[positional]
+    #[required]
     pub control: Smart<Option<Axes<Rel<Length>>>>,
 
     /// The point at which the segment shall end.
-    #[resolve]
-    #[positional]
+    #[required]
     pub end: Axes<Rel<Length>>,
 
     /// Whether the `control` and `end` coordinates are relative to the previous
@@ -194,24 +190,22 @@ pub struct CurveCubic {
     /// - If `{auto}` and this element follows another `curve.cubic` element,
     ///   the last control point will be mirrored.
     /// - If `{none}`, defaults to the curve's starting point.
-    #[resolve]
-    #[positional]
+    #[required]
     pub control_start: Option<Smart<Axes<Rel<Length>>>>,
 
     /// The second control point.
     ///
     /// If set to `{none}`, defaults to the curve's end point.
-    #[resolve]
-    #[positional]
+    #[required]
     pub control_end: Option<Axes<Rel<Length>>>,
 
     /// The point at which the segment shall end.
-    #[resolve]
-    #[positional]
+    #[required]
     pub end: Axes<Rel<Length>>,
 
     /// Whether the `control-start`, `control-end`, and `end` coordinates are
     /// relative to the previous point.
+    #[default(false)]
     pub relative: bool,
 }
 
