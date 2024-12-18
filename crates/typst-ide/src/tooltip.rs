@@ -274,10 +274,12 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
     use typst::syntax::Side;
 
     use super::{tooltip, Tooltip};
-    use crate::tests::{SourceExt, TestWorld};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = Option<Tooltip>;
 
@@ -308,21 +310,17 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: isize, side: Side) -> Response {
-        let world = TestWorld::new(text);
-        test_with_world(&world, cursor, side)
-    }
-
-    #[track_caller]
-    fn test_with_world(world: &TestWorld, cursor: isize, side: Side) -> Response {
-        let source = &world.main;
-        let doc = typst::compile(&world).output.ok();
-        tooltip(world, doc.as_ref(), source, source.cursor(cursor), side)
+    fn test(world: impl WorldLike, pos: impl FilePos, side: Side) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let (source, cursor) = pos.resolve(world);
+        let doc = typst::compile(world).output.ok();
+        tooltip(world, doc.as_ref(), &source, cursor, side)
     }
 
     #[test]
     fn test_tooltip() {
-        test("#let x = 1 + 2", 14, Side::After).must_be_none();
+        test("#let x = 1 + 2", -1, Side::After).must_be_none();
         test("#let x = 1 + 2", 5, Side::After).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
@@ -330,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_tooltip_empty_contextual() {
-        test("#{context}", 10, Side::Before).must_be_code("context()");
+        test("#{context}", -1, Side::Before).must_be_code("context()");
     }
 
     #[test]
@@ -358,8 +356,7 @@ mod tests {
     fn test_tooltip_star_import() {
         let world = TestWorld::new("#import \"other.typ\": *")
             .with_source("other.typ", "#let (a, b, c) = (1, 2, 3)");
-        test_with_world(&world, 21, Side::Before).must_be_none();
-        test_with_world(&world, 21, Side::After)
-            .must_be_text("This star imports `a`, `b`, and `c`");
+        test(&world, -2, Side::Before).must_be_none();
+        test(&world, -2, Side::After).must_be_text("This star imports `a`, `b`, and `c`");
     }
 }

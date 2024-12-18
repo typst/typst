@@ -266,53 +266,79 @@ pub enum DerefTarget<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
+    use ecow::EcoString;
     use typst::syntax::{LinkedNode, Side};
 
-    use crate::{named_items, tests::TestWorld};
+    use super::named_items;
+    use crate::tests::{FilePos, WorldLike};
+
+    type Response = Vec<EcoString>;
+
+    trait ResponseExt {
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+    }
+
+    impl ResponseExt for Response {
+        #[track_caller]
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self {
+            for item in includes {
+                assert!(
+                    self.iter().any(|v| v == item),
+                    "{item:?} was not contained in {self:?}",
+                );
+            }
+            self
+        }
+
+        #[track_caller]
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self {
+            for item in excludes {
+                assert!(
+                    !self.iter().any(|v| v == item),
+                    "{item:?} was wrongly contained in {self:?}",
+                );
+            }
+            self
+        }
+    }
 
     #[track_caller]
-    fn has_named_items(text: &str, cursor: usize, containing: &str) -> bool {
-        let world = TestWorld::new(text);
-
-        let src = world.main.clone();
-        let node = LinkedNode::new(src.root());
+    fn test(world: impl WorldLike, pos: impl FilePos) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let (source, cursor) = pos.resolve(world);
+        let node = LinkedNode::new(source.root());
         let leaf = node.leaf_at(cursor, Side::After).unwrap();
-
-        let res = named_items(&world, leaf, |s| {
-            if containing == s.name() {
-                return Some(true);
-            }
-
-            None
+        let mut items = vec![];
+        named_items(world, leaf, |s| {
+            items.push(s.name().clone());
+            None::<()>
         });
-
-        res.unwrap_or_default()
+        items
     }
 
     #[test]
-    fn test_simple_named_items() {
-        // Has named items
-        assert!(has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "a"));
-        assert!(has_named_items(r#"#let a = 1;#let b = 2;"#, 15, "a"));
-
-        // Doesn't have named items
-        assert!(!has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "b"));
+    fn test_named_items_simple() {
+        let s = "#let a = 1;#let b = 2;";
+        test(s, 8).must_include(["a"]).must_exclude(["b"]);
+        test(s, 15).must_include(["b"]);
     }
 
     #[test]
-    fn test_param_named_items() {
-        // Has named items
-        assert!(has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 12, "a"));
-        assert!(has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "a"));
+    fn test_named_items_param() {
+        let pos = "#let f(a) = 1;#let b = 2;";
+        test(pos, 12).must_include(["a"]);
+        test(pos, 19).must_include(["b", "f"]).must_exclude(["a"]);
 
-        // Doesn't have named items
-        assert!(!has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 19, "a"));
-        assert!(!has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "b"));
+        let named = "#let f(a: b) = 1;#let b = 2;";
+        test(named, 15).must_include(["a", "f"]).must_exclude(["b"]);
     }
 
     #[test]
-    fn test_import_named_items() {
-        // Cannot test much.
-        assert!(has_named_items(r#"#import "foo.typ": a; #(a);"#, 24, "a"));
+    fn test_named_items_import() {
+        test("#import \"foo.typ\": a; #(a);", 2).must_include(["a"]);
     }
 }
