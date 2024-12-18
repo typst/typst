@@ -270,7 +270,7 @@ impl<'a> Runner<'a> {
 
         // Tests without visible output and no reference output don't need to be
         // compared.
-        if skippable && ref_data.is_ok() {
+        if skippable && ref_data.is_err() {
             std::fs::remove_file(&live_path).ok();
             return;
         }
