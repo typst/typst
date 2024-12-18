@@ -15,7 +15,7 @@ use ecow::{eco_format, EcoString};
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
-use typst::diag::{bail, StrResult};
+use typst::diag::{bail, MaybeDeprecated, StrResult};
 use typst::foundations::{
     AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
     Scope, Smart, Type, Value, FOUNDATIONS,
@@ -46,7 +46,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
                 .module()
                 .scope()
                 .iter()
-                .filter(|(_, v, _)| matches!(v, Value::Func(_)))
+                .filter(|(_, v, _)| matches!(v.value(), Value::Func(_)))
                 .map(|(k, _, _)| k.clone())
                 .collect();
         }
@@ -277,7 +277,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
             continue;
         }
 
-        match value {
+        match value.into_inner() {
             Value::Func(func) => {
                 let name = func.name().unwrap();
 
@@ -475,7 +475,7 @@ fn scope_models(resolver: &dyn Resolver, name: &str, scope: &Scope) -> Vec<FuncM
     scope
         .iter()
         .filter_map(|(_, value, _)| {
-            let Value::Func(func) = value else { return None };
+            let Value::Func(func) = value.into_inner() else { return None };
             Some(func_model(resolver, func, &[name], true))
         })
         .collect()
@@ -552,7 +552,7 @@ fn group_page(
 
     let mut outline_items = vec![];
     for name in &group.filter {
-        let value = group.module().scope().get(name).unwrap();
+        let value = group.module().scope().get(name).unwrap().into_inner();
         let Ok(ref func) = value.clone().cast::<Func>() else { panic!("not a function") };
         let func = func_model(resolver, func, &path, true);
         let id_base = urlify(&eco_format!("functions-{}", func.name));
@@ -661,7 +661,7 @@ fn symbols_page(resolver: &dyn Resolver, parent: &str, group: &GroupData) -> Pag
 fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
     for (name, value, _) in group.module().scope().iter() {
-        let Value::Symbol(symbol) = value else { continue };
+        let Value::Symbol(symbol) = value.into_inner() else { continue };
         let complete = |variant: &str| {
             if variant.is_empty() {
                 name.clone()
@@ -701,7 +701,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 /// Extract a module from another module.
 #[track_caller]
 fn get_module<'a>(parent: &'a Module, name: &str) -> StrResult<&'a Module> {
-    match parent.scope().get(name) {
+    match parent.scope().get(name).map(MaybeDeprecated::into_inner) {
         Some(Value::Module(module)) => Ok(module),
         _ => bail!("module doesn't contain module `{name}`"),
     }

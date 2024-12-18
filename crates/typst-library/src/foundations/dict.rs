@@ -261,7 +261,13 @@ pub struct ToDict(Dict);
 
 cast! {
     ToDict,
-    v: Module => Self(v.scope().iter().map(|(k, v, _)| (Str::from(k.clone()), v.clone())).collect()),
+    v: Module => Self(
+        v
+            .scope()
+            .iter()
+            .map(|(k, v, _)| (Str::from(k.clone()), v.into_inner().clone()))
+            .collect()
+    ),
 }
 
 impl Debug for Dict {
