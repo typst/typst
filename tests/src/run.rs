@@ -78,7 +78,7 @@ impl OutputType for PagedDocument {
     }
 
     fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
-        let ref_pixmap = sk::Pixmap::decode_png(&ref_data).unwrap();
+        let ref_pixmap = sk::Pixmap::decode_png(ref_data).unwrap();
         approx_equal(live, &ref_pixmap)
     }
 
@@ -141,7 +141,7 @@ impl OutputType for HtmlDocument {
     }
 
     fn save_live(&self, name: &EcoString, live: &Self::Live) {
-        std::fs::write(Self::live_path(name), &live).unwrap();
+        std::fs::write(Self::live_path(name), live).unwrap();
     }
 
     fn save_ref(live: Self::Live) -> Vec<u8> {
@@ -281,7 +281,7 @@ impl<'a> Runner<'a> {
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
-        if ref_data.as_ref().map(|r| D::equals(&live, &r)).unwrap_or(false) {
+        if ref_data.as_ref().map(|r| D::equals(&live, r)).unwrap_or(false) {
             return;
         }
 
