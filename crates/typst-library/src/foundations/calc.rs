@@ -909,7 +909,7 @@ pub fn odd(
 /// #calc.rem(-7, -3) \
 /// #calc.rem(1.75, 0.5)
 /// ```
-#[func(title = "Remainder", keywords = ["modulo", "modulus"])]
+#[func(title = "Remainder")]
 pub fn rem(
     /// The span of the function call.
     span: Span,
@@ -992,7 +992,7 @@ pub fn div_euclid(
 /// #calc.rem-euclid(1.75, 0.5) \
 /// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Remainder")]
+#[func(title = "Euclidean Remainder", keywords = ["modulo", "modulus"])]
 pub fn rem_euclid(
     /// The callsite span.
     span: Span,

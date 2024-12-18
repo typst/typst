@@ -341,9 +341,9 @@ packages. For more details on this, see the
 ## Operators
 The following table lists all available unary and binary operators with effect,
 arity (unary, binary) and precedence level (higher binds stronger). Some
-operations, such as [modulus]($calc.rem), do not have a special syntax and can
-be achieved using functions from the [`calc`]($category/foundations/calc)
-module.
+operations, such as [modulus]($calc.rem-euclid), do not have a special syntax
+and can be achieved using functions from the
+[`calc`]($category/foundations/calc) module.
 
 | Operator   | Effect                          | Arity  | Precedence |
 |:----------:|---------------------------------|:------:|:----------:|
