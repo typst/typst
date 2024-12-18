@@ -18,9 +18,9 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   fill: blue.lighten(80%),
 ///   stroke: blue,
 ///   curve.move((0pt, 50pt)),
-///   curve.line((100%, 50pt)),
-///   curve.cubic(none, (50%+40pt, 0pt), (50%, 0pt)),
-///   curve.close(mode: "curve")
+///   curve.line((100pt, 50pt)),
+///   curve.cubic(auto, (90pt, 0pt), (50pt, 0pt)),
+///   curve.close(),
 /// )
 /// ```
 #[elem(scope, Show)]
@@ -44,7 +44,7 @@ pub struct CurveElem {
     ///   curve.line((50pt, 20pt)),
     ///   curve.line((0pt, 20pt)),
     ///   curve.line((40pt, 50pt)),
-    ///   curve.close()
+    ///   curve.close(),
     /// )
     ///
     /// #star(fill-rule: "non-zero")
@@ -57,11 +57,22 @@ pub struct CurveElem {
     ///
     /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
+    ///
+    /// ```example
+    /// #let down = curve.line((40pt, 40pt), relative: true)
+    /// #let up = curve.line((40pt, -40pt), relative: true)
+    ///
+    /// #curve(
+    ///   stroke: 4pt + gradient.linear(red, blue),
+    ///   down, up, down, up, down,
+    /// )
+    /// ```
     #[resolve]
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// The components of the curve.
+    /// The components of the curve, in the form of moves, line and bezier
+    /// segment, and closes.
     #[variadic]
     pub components: Vec<CurveComponent>,
 }
@@ -135,6 +146,23 @@ impl TryFrom<Content> for CurveComponent {
 ///
 /// If no `curve.move` element is passed, the curve will start at
 /// `{(0pt, 0pt)}`.
+///
+/// ```example
+/// #curve(
+///   fill: blue.lighten(80%),
+///   fill-rule: "even-odd",
+///   stroke: blue,
+///   curve.line((50pt, 0pt)),
+///   curve.line((50pt, 50pt)),
+///   curve.line((0pt, 50pt)),
+///   curve.close(),
+///   curve.move((10pt, 10pt)),
+///   curve.line((40pt, 10pt)),
+///   curve.line((40pt, 40pt)),
+///   curve.line((10pt, 40pt)),
+///   curve.close(),
+/// )
+/// ```
 #[elem(name = "move", title = "Curve Move")]
 pub struct CurveMove {
     /// The starting point for the new component.
@@ -147,6 +175,17 @@ pub struct CurveMove {
 }
 
 /// Adds a straight line from the current point to a following one.
+///
+/// ```example
+/// #curve(
+///   stroke: blue,
+///   curve.line((50pt, 0pt)),
+///   curve.line((50pt, 50pt)),
+///   curve.line((100pt, 50pt)),
+///   curve.line((100pt, 0pt)),
+///   curve.line((150pt, 0pt)),
+/// )
+/// ```
 #[elem(name = "line", title = "Curve Line")]
 pub struct CurveLine {
     /// The point at which the line shall end.
@@ -154,12 +193,39 @@ pub struct CurveLine {
     pub end: Axes<Rel<Length>>,
 
     /// Whether the coordinates are relative to the previous point.
+    ///
+    /// ```example
+    /// #curve(
+    ///   stroke: blue,
+    ///   curve.line((50pt, 0pt), relative: true),
+    ///   curve.line((0pt, 50pt), relative: true),
+    ///   curve.line((50pt, 0pt), relative: true),
+    ///   curve.line((0pt, -50pt), relative: true),
+    ///   curve.line((50pt, 0pt), relative: true),
+    /// )
+    /// ```
     #[default(false)]
     pub relative: bool,
 }
 
-/// Add a quadratic Bezier curve segment from the last point to `end`, using
+/// Adds a quadratic Bezier curve segment from the last point to `end`, using
 /// `control` as the control point.
+///
+/// ```example
+/// // Function to illustrate where the control point is.
+/// #let mark((x, y)) = place(
+///   dx: x - 1pt, dy: y - 1pt,
+///   circle(fill: aqua, radius: 2pt),
+/// )
+///
+/// #mark((20pt, 20pt))
+///
+/// #curve(
+///   stroke: blue,
+///   curve.move((0pt, 100pt)),
+///   curve.quad((20pt, 20pt), (100pt, 0pt)),
+/// )
+/// ```
 #[elem(name = "quad", title = "Curve Quadratic Segment")]
 pub struct CurveQuad {
     /// The control point of the quadratic Bezier curve.
@@ -168,6 +234,14 @@ pub struct CurveQuad {
     ///   the previous control point will be mirrored.
     /// - If `{none}`, the control point defaults to `end`, and the curve will
     ///   be a straight line.
+    ///
+    /// ```example
+    /// #curve(
+    ///   stroke: 2pt,
+    ///   curve.quad((20pt, 40pt), (40pt, 40pt), relative: true),
+    ///   curve.quad(auto, (40pt, -40pt), relative: true),
+    /// )
+    /// ```
     #[required]
     pub control: Smart<Option<Axes<Rel<Length>>>>,
 
@@ -183,23 +257,75 @@ pub struct CurveQuad {
 
 /// Adds a cubic Bezier curve segment from the last point to `end`, using
 /// `control-start` and `control-end` as the control points.
+///
+/// ```example
+/// // Function to illustrate where the control points are.
+/// #let handle(start, end) = place(
+///   line(stroke: red, start: start, end: end)
+/// )
+///
+/// #handle((0pt, 80pt), (10pt, 20pt))
+/// #handle((90pt, 60pt), (100pt, 0pt))
+///
+/// #curve(
+///   stroke: blue,
+///   curve.move((0pt, 80pt)),
+///   curve.cubic((10pt, 20pt), (90pt, 60pt), (100pt, 0pt)),
+/// )
+/// ```
 #[elem(name = "cubic", title = "Curve Cubic Segment")]
 pub struct CurveCubic {
-    /// The first control point.
+    /// The control point going out from the start of the curve segment.
     ///
     /// - If `{auto}` and this element follows another `curve.cubic` element,
     ///   the last control point will be mirrored.
-    /// - If `{none}`, defaults to the curve's starting point.
+    ///
+    /// - If `{none}`, the curve has no first control point, or equivalently,
+    ///   the control point defaults to the curve's starting point.
+    ///
+    /// ```example
+    /// #curve(
+    ///   stroke: blue,
+    ///   curve.move((0pt, 50pt)),
+    ///   // - No start control point
+    ///   // - End control point at `(20pt, 0pt)`
+    ///   // - End point at `(50pt, 0pt)`
+    ///   curve.cubic(none, (20pt, 0pt), (50pt, 0pt)),
+    ///   // - No start control point
+    ///   // - No end control point
+    ///   // - End point at `(50pt, 0pt)`
+    ///   curve.cubic(none, none, (100pt, 50pt)),
+    /// )
+    ///
+    /// #curve(
+    ///   stroke: blue,
+    ///   curve.move((0pt, 50pt)),
+    ///   curve.cubic(none, (20pt, 0pt), (50pt, 0pt)),
+    ///   // Passing `auto` instead of `none` means the start control point
+    ///   // mirrors the end control point of the previous curve. Mirror of
+    ///   // `(20pt, 0pt)` w.r.t `(50pt, 0pt)` is `(80pt, 0pt)`.
+    ///   curve.cubic(auto, none, (100pt, 50pt)),
+    /// )
+    ///
+    /// #curve(
+    ///   stroke: blue,
+    ///   curve.move((0pt, 50pt)),
+    ///   curve.cubic(none, (20pt, 0pt), (50pt, 0pt)),
+    ///   // `(80pt, 0pt)` is the same as `auto` in this case.
+    ///   curve.cubic((80pt, 0pt), none, (100pt, 50pt)),
+    /// )
+    /// ```
     #[required]
     pub control_start: Option<Smart<Axes<Rel<Length>>>>,
 
-    /// The second control point.
+    /// The control point going into the end point of the curve segment.
     ///
-    /// If set to `{none}`, defaults to the curve's end point.
+    /// If set to `{none}`, the curve has no end control point, or equivalently,
+    /// the control point defaults to the curve's end point.
     #[required]
     pub control_end: Option<Axes<Rel<Length>>>,
 
-    /// The point at which the segment shall end.
+    /// The point at which the curve segment shall end.
     #[required]
     pub end: Axes<Rel<Length>>,
 
@@ -211,6 +337,22 @@ pub struct CurveCubic {
 
 /// Closes the curve by adding a segment from the last point to the start of the
 /// curve (or the last preceding `curve.move` point).
+///
+/// ```example
+/// // We define a function to show the same shape with
+/// // both closing modes.
+/// #let shape(mode: "smooth") = curve(
+///   fill: blue.lighten(80%),
+///   stroke: blue,
+///   curve.move((0pt, 50pt)),
+///   curve.line((100pt, 50pt)),
+///   curve.cubic(auto, (90pt, 0pt), (50pt, 0pt)),
+///   curve.close(mode: mode),
+/// )
+///
+/// #shape(mode: "smooth")
+/// #shape(mode: "straight")
+/// ```
 #[elem(name = "close", title = "Curve Close")]
 pub struct CurveClose {
     /// How to close the curve.
@@ -220,8 +362,8 @@ pub struct CurveClose {
 /// How to close a curve.
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Cast)]
 pub enum CloseMode {
-    /// Close the curve with a curved line that takes into account the control
-    /// points at the start point.
+    /// Closes the curve with a smooth segment that takes into account the
+    /// control point opposite the start point.
     #[default]
     Smooth,
     /// Closes the curve with a straight line.
