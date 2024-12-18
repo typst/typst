@@ -133,7 +133,8 @@ impl OutputType for HtmlDocument {
     }
 
     fn make_live(&self) -> Self::Live {
-        typst_html::html(self).unwrap()
+        // convert CR-LF (Windows) to just LF (Unix)
+        typst_html::html(self).unwrap().replace("\r\n", "\n")
     }
 
     fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
