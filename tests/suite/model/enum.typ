@@ -71,6 +71,23 @@ a + 0.
 + First
   + Nested
 
+--- enum-numbering-reversed ---
+// Test reverse numbering.
+#set enum(reversed: true)
++ Coffee
++ Tea
++ Milk
+
+--- enum-numbering-reversed-overriden ---
+// Test reverse numbering with overriden numbers.
+#set enum(reversed: true)
++ A
++ B
++ C
+9. D
++ E
++ F
+
 --- enum-numbering-closure ---
 // Test numbering with closure.
 #enum(
@@ -163,3 +180,15 @@ a + 0.
 // Enum item (pre-emptive)
 #enum.item(none)[Hello]
 #enum.item(17)[Hello]
+
+--- issue-5503-enum-interrupted-by-par-align ---
+// `align` is block-level and should interrupt an enum
+// but not a `par`
++ a
++ b
+#par(leading: 5em)[+ par]
++ d
+#par[+ par]
++ f
+#align(right)[+ align]
++ h

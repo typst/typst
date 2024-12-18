@@ -8,14 +8,30 @@ use typst_syntax::Span;
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer { buf: String::new() };
+    let mut w = Writer { pretty: true, ..Writer::default() };
     w.buf.push_str("<!DOCTYPE html>");
+    write_indent(&mut w);
     write_element(&mut w, &document.root)?;
     Ok(w.buf)
 }
 
+#[derive(Default)]
 struct Writer {
     buf: String,
+    /// current indentation level
+    level: usize,
+    /// pretty printing enabled?
+    pretty: bool,
+}
+
+/// Write a newline and indent, if pretty printing is enabled.
+fn write_indent(w: &mut Writer) {
+    if w.pretty {
+        w.buf.push('\n');
+        for _ in 0..w.level {
+            w.buf.push_str("  ");
+        }
+    }
 }
 
 /// Encode an HTML node into the writer.
@@ -67,15 +83,41 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         return Ok(());
     }
 
-    for node in &element.children {
-        write_node(w, node)?;
+    let pretty = w.pretty;
+    if !element.children.is_empty() {
+        w.pretty &= is_pretty(element);
+        let mut indent = w.pretty;
+
+        w.level += 1;
+        for c in &element.children {
+            let pretty_child = match c {
+                HtmlNode::Tag(_) => continue,
+                HtmlNode::Element(element) => is_pretty(element),
+                HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
+            };
+
+            if core::mem::take(&mut indent) || pretty_child {
+                write_indent(w);
+            }
+            write_node(w, c)?;
+            indent = pretty_child;
+        }
+        w.level -= 1;
+
+        write_indent(w)
     }
+    w.pretty = pretty;
 
     w.buf.push_str("</");
     w.buf.push_str(&element.tag.resolve());
     w.buf.push('>');
 
     Ok(())
+}
+
+/// Whether the element should be pretty-printed.
+fn is_pretty(element: &HtmlElement) -> bool {
+    tag::is_block_by_default(element.tag) || matches!(element.tag, tag::meta)
 }
 
 /// Escape a character.

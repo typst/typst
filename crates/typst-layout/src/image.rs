@@ -54,7 +54,8 @@ pub fn layout_image(
         format,
         elem.alt(styles),
         engine.world,
-        &families(styles).collect::<Vec<_>>(),
+        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+        elem.flatten_text(styles),
     )
     .at(span)?;
 

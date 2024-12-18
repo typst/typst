@@ -33,8 +33,17 @@ pub fn layout_repeat(
     let fill = region.size.x;
     let width = piece.width();
 
-    // count * width + (count - 1) * gap = fill, but count is an integer so
-    // we need to round down and get the remainder.
+    // We need to fit the body N times, but the number of gaps is (N - 1):
+    // N * w + (N - 1) * g ≤ F
+    // where N - body count (count)
+    //       w - body width (width)
+    //       g - gap width (gap)
+    //       F - available space to fill (fill)
+    //
+    // N * w + N * g - g ≤ F
+    // N * (w + g) ≤ F + g
+    // N ≤ (F + g) / (w + g)
+    // N = ⌊(F + g) / (w + g)⌋
     let count = ((fill + gap) / (width + gap)).floor();
     let remaining = (fill + gap) % (width + gap);
 
@@ -52,7 +61,7 @@ pub fn layout_repeat(
     if width > Abs::zero() {
         for _ in 0..(count as usize).min(1000) {
             frame.push_frame(Point::with_x(offset), piece.clone());
-            offset += piece.width() + gap;
+            offset += width + gap;
         }
     }
 

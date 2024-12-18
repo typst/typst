@@ -226,7 +226,7 @@ applications, while academic applications tend to use strokes instead.
 To add zebra stripes to a table, we use the `table` function's `fill` argument.
 It can take three kinds of arguments:
 
-- A single color (this can also be a gradient or a pattern) to fill all cells
+- A single color (this can also be a gradient or a tiling) to fill all cells
   with. Because we want some cells to have another color, this is not useful if
   we want to build zebra tables.
 - An array with colors which Typst cycles through for each column. We can use an
@@ -828,7 +828,7 @@ line appears because there is no `top` line that could suppress it.
 
 ### How to achieve a double line? { #double-stroke }
 Typst does not yet have a native way to draw double strokes, but there are
-multiple ways to emulate them, for example with [patterns]($pattern). We will
+multiple ways to emulate them, for example with [tilings]($tiling). We will
 show a different workaround in this section: Table gutters.
 
 Tables can space their cells apart using the `gutter` argument. When a gutter is

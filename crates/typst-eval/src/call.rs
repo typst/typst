@@ -593,14 +593,8 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn test(text: &str, result: &[&str]) {
-        let mut scopes = Scopes::new(None);
-        scopes.top.define("f", 0);
-        scopes.top.define("x", 0);
-        scopes.top.define("y", 0);
-        scopes.top.define("z", 0);
-
-        let mut visitor = CapturesVisitor::new(Some(&scopes), Capturer::Function);
+    fn test(scopes: &Scopes, text: &str, result: &[&str]) {
+        let mut visitor = CapturesVisitor::new(Some(scopes), Capturer::Function);
         let root = parse(text);
         visitor.visit(&root);
 
@@ -613,44 +607,95 @@ mod tests {
 
     #[test]
     fn test_captures() {
+        let mut scopes = Scopes::new(None);
+        scopes.top.define("f", 0);
+        scopes.top.define("x", 0);
+        scopes.top.define("y", 0);
+        scopes.top.define("z", 0);
+        let s = &scopes;
+
         // Let binding and function definition.
-        test("#let x = x", &["x"]);
-        test("#let x; #(x + y)", &["y"]);
-        test("#let f(x, y) = x + y", &[]);
-        test("#let f(x, y) = f", &[]);
-        test("#let f = (x, y) => f", &["f"]);
+        test(s, "#let x = x", &["x"]);
+        test(s, "#let x; #(x + y)", &["y"]);
+        test(s, "#let f(x, y) = x + y", &[]);
+        test(s, "#let f(x, y) = f", &[]);
+        test(s, "#let f = (x, y) => f", &["f"]);
 
         // Closure with different kinds of params.
-        test("#((x, y) => x + z)", &["z"]);
-        test("#((x: y, z) => x + z)", &["y"]);
-        test("#((..x) => x + y)", &["y"]);
-        test("#((x, y: x + z) => x + y)", &["x", "z"]);
-        test("#{x => x; x}", &["x"]);
+        test(s, "#((x, y) => x + z)", &["z"]);
+        test(s, "#((x: y, z) => x + z)", &["y"]);
+        test(s, "#((..x) => x + y)", &["y"]);
+        test(s, "#((x, y: x + z) => x + y)", &["x", "z"]);
+        test(s, "#{x => x; x}", &["x"]);
 
         // Show rule.
-        test("#show y: x => x", &["y"]);
-        test("#show y: x => x + z", &["y", "z"]);
-        test("#show x: x => x", &["x"]);
+        test(s, "#show y: x => x", &["y"]);
+        test(s, "#show y: x => x + z", &["y", "z"]);
+        test(s, "#show x: x => x", &["x"]);
 
         // For loop.
-        test("#for x in y { x + z }", &["y", "z"]);
-        test("#for (x, y) in y { x + y }", &["y"]);
-        test("#for x in y {} #x", &["x", "y"]);
+        test(s, "#for x in y { x + z }", &["y", "z"]);
+        test(s, "#for (x, y) in y { x + y }", &["y"]);
+        test(s, "#for x in y {} #x", &["x", "y"]);
 
         // Import.
-        test("#import z: x, y", &["z"]);
-        test("#import x + y: x, y, z", &["x", "y"]);
+        test(s, "#import z: x, y", &["z"]);
+        test(s, "#import x + y: x, y, z", &["x", "y"]);
 
         // Blocks.
-        test("#{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
-        test("#[#let x = 1]#x", &["x"]);
+        test(s, "#{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
+        test(s, "#[#let x = 1]#x", &["x"]);
 
         // Field access.
-        test("#foo(body: 1)", &[]);
-        test("#(body: 1)", &[]);
-        test("#(body = 1)", &[]);
-        test("#(body += y)", &["y"]);
-        test("#{ (body, a) = (y, 1) }", &["y"]);
-        test("#(x.at(y) = 5)", &["x", "y"])
+        test(s, "#x.y.f(z)", &["x", "z"]);
+
+        // Parenthesized expressions.
+        test(s, "#f(x: 1)", &["f"]);
+        test(s, "#(x: 1)", &[]);
+        test(s, "#(x = 1)", &["x"]);
+        test(s, "#(x += y)", &["x", "y"]);
+        test(s, "#{ (x, z) = (y, 1) }", &["x", "y", "z"]);
+        test(s, "#(x.at(y) = 5)", &["x", "y"]);
+    }
+
+    #[test]
+    fn test_captures_in_math() {
+        let mut scopes = Scopes::new(None);
+        scopes.top.define("f", 0);
+        scopes.top.define("x", 0);
+        scopes.top.define("y", 0);
+        scopes.top.define("z", 0);
+        // Multi-letter variables are required for math.
+        scopes.top.define("foo", 0);
+        scopes.top.define("bar", 0);
+        scopes.top.define("x-bar", 0);
+        scopes.top.define("x_bar", 0);
+        let s = &scopes;
+
+        // Basic math identifier differences.
+        test(s, "$ x f(z) $", &[]); // single letters not captured.
+        test(s, "$ #x #f(z) $", &["f", "x", "z"]);
+        test(s, "$ foo f(bar) $", &["bar", "foo"]);
+        test(s, "$ #foo[#$bar$] $", &["bar", "foo"]);
+        test(s, "$ #let foo = x; foo $", &["x"]);
+
+        // Math idents don't have dashes/underscores
+        test(s, "$ x-y x_y foo-x x_bar $", &["bar", "foo"]);
+        test(s, "$ #x-bar #x_bar $", &["x-bar", "x_bar"]);
+
+        // Named-params.
+        test(s, "$ foo(bar: y) $", &["foo"]);
+        // This should be updated when we improve named-param parsing:
+        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["bar", "foo"]);
+
+        // Field access in math.
+        test(s, "$ foo.bar $", &["foo"]);
+        test(s, "$ foo.x $", &["foo"]);
+        test(s, "$ x.foo $", &["foo"]);
+        test(s, "$ foo . bar $", &["bar", "foo"]);
+        test(s, "$ foo.x.y.bar(z) $", &["foo"]);
+        test(s, "$ foo.x-bar $", &["bar", "foo"]);
+        test(s, "$ foo.x_bar $", &["bar", "foo"]);
+        test(s, "$ #x_bar.x-bar $", &["x_bar"]);
     }
 }
