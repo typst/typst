@@ -280,10 +280,8 @@ impl<'a> Runner<'a> {
         document.save_live(&self.test.name, &live);
 
         // Compare against reference output if available.
-        let equal = ref_data.as_ref().map(|r| D::equals(&live, &r)).unwrap_or(false);
-
         // Test that is ok doesn't need to be updated.
-        if equal {
+        if ref_data.as_ref().map(|r| D::equals(&live, &r)).unwrap_or(false) {
             return;
         }
 
