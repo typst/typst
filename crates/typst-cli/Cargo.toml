@@ -21,7 +21,7 @@ doc = false
 typst = { workspace = true }
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
-typst-kit = { workspace = true }
+typst-kit = { workspace = true, features = ["downloads_http"] }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }

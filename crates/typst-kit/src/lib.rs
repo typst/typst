@@ -10,18 +10,15 @@
 //!   - For text: Libertinus Serif, New Computer Modern
 //!   - For math: New Computer Modern Math
 //!   - For code: Deja Vu Sans Mono
-//! - [download] contains functionality for making simple web requests with
-//!   status reporting, useful for downloading packages from package registries.
-//!   It is enabled by the `downloads` feature flag, additionally the
-//!   `vendor-openssl` can be used on operating systems other than macOS and
-//!   Windows to vendor OpenSSL when building.
+//! - [package_downloads] contains functionality for handling package downloading
+//!   It is enabled by the `downloads` feature flag.
 //! - [package] contains package storage and downloading functionality based on
-//!   [download]. It is enabled by the `packages` feature flag and implies the
+//!   [package_downloads]. It is enabled by the `packages` feature flag and implies the
 //!   `downloads` feature flag.
 
-#[cfg(feature = "downloads")]
-pub mod download;
 #[cfg(feature = "fonts")]
 pub mod fonts;
 #[cfg(feature = "packages")]
 pub mod package;
+#[cfg(feature = "downloads")]
+pub mod package_downloads;
