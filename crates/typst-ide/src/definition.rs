@@ -147,8 +147,8 @@ mod tests {
 
     #[test]
     fn test_definition_let() {
-        test("#let x; #x", 9, Side::After).must_be_at("main.typ", 5..6);
-        test("#let x() = {}; #x", 16, Side::After).must_be_at("main.typ", 5..6);
+        test("#let x; #x", -2, Side::After).must_be_at("main.typ", 5..6);
+        test("#let x() = {}; #x", -2, Side::After).must_be_at("main.typ", 5..6);
     }
 
     #[test]
@@ -158,14 +158,14 @@ mod tests {
 
         // The span is at the args here because that's what the function value's
         // span is. Not ideal, but also not too big of a big deal.
-        test_with_world(world, -1, Side::Before).must_be_at("other.typ", 8..11);
+        test_with_world(world, -2, Side::Before).must_be_at("other.typ", 8..11);
     }
 
     #[test]
     fn test_definition_cross_file() {
         let world = TestWorld::new("#import \"other.typ\": x; #x")
             .with_source("other.typ", "#let x = 1");
-        test_with_world(world, -1, Side::After).must_be_at("other.typ", 5..6);
+        test_with_world(world, -2, Side::After).must_be_at("other.typ", 5..6);
     }
 
     #[test]
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_definition_ref() {
-        test("#figure[] <hi> See @hi", 21, Side::After).must_be_at("main.typ", 1..9);
+        test("#figure[] <hi> See @hi", -2, Side::After).must_be_at("main.typ", 1..9);
     }
 
     #[test]

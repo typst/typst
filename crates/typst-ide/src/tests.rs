@@ -142,7 +142,7 @@ pub trait SourceExt {
 impl SourceExt for Source {
     fn cursor(&self, cursor: isize) -> usize {
         if cursor < 0 {
-            self.len_bytes().checked_add_signed(cursor).unwrap()
+            self.len_bytes().checked_add_signed(cursor + 1).unwrap()
         } else {
             cursor as usize
         }

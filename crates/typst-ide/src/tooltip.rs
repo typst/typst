@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_tooltip() {
-        test("#let x = 1 + 2", 14, Side::After).must_be_none();
+        test("#let x = 1 + 2", -1, Side::After).must_be_none();
         test("#let x = 1 + 2", 5, Side::After).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_tooltip_empty_contextual() {
-        test("#{context}", 10, Side::Before).must_be_code("context()");
+        test("#{context}", -1, Side::Before).must_be_code("context()");
     }
 
     #[test]
@@ -358,8 +358,8 @@ mod tests {
     fn test_tooltip_star_import() {
         let world = TestWorld::new("#import \"other.typ\": *")
             .with_source("other.typ", "#let (a, b, c) = (1, 2, 3)");
-        test_with_world(&world, 21, Side::Before).must_be_none();
-        test_with_world(&world, 21, Side::After)
+        test_with_world(&world, -2, Side::Before).must_be_none();
+        test_with_world(&world, -2, Side::After)
             .must_be_text("This star imports `a`, `b`, and `c`");
     }
 }

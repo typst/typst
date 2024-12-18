@@ -1614,29 +1614,29 @@ mod tests {
 
     #[test]
     fn test_autocomplete_hash_expr() {
-        test("#i", 2).must_include(["int", "if conditional"]);
+        test("#i", -1).must_include(["int", "if conditional"]);
     }
 
     #[test]
     fn test_autocomplete_array_method() {
-        test("#().", 4).must_include(["insert", "remove", "len", "all"]);
-        test("#{ let x = (1, 2, 3); x. }", -2).must_include(["at", "push", "pop"]);
+        test("#().", -1).must_include(["insert", "remove", "len", "all"]);
+        test("#{ let x = (1, 2, 3); x. }", -3).must_include(["at", "push", "pop"]);
     }
 
     /// Test that extra space before '.' is handled correctly.
     #[test]
     fn test_autocomplete_whitespace() {
-        test("#() .", 5).must_exclude(["insert", "remove", "len", "all"]);
-        test("#{() .}", 6).must_include(["insert", "remove", "len", "all"]);
-        test("#() .a", 6).must_exclude(["insert", "remove", "len", "all"]);
-        test("#{() .a}", 7).must_include(["at", "any", "all"]);
+        test("#() .", -1).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .}", -2).must_include(["insert", "remove", "len", "all"]);
+        test("#() .a", -1).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .a}", -2).must_include(["at", "any", "all"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
     fn test_autocomplete_before_window_char_boundary() {
-        test("😀😀     #text(font: \"\")", -2);
+        test("😀😀     #text(font: \"\")", -3);
     }
 
     /// Ensure that autocompletion for `#cite(|)` completes bibligraphy labels,
@@ -1653,7 +1653,7 @@ mod tests {
         let end = world.main.len_bytes();
         world.main.edit(end..end, " #cite()");
 
-        test_full(&world, &world.main, doc.as_ref(), -1)
+        test_full(&world, &world.main, doc.as_ref(), -2)
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
     }
@@ -1677,13 +1677,13 @@ mod tests {
     #[test]
     fn test_autocomplete_positional_param() {
         // No string given yet.
-        test("#numbering()", -1).must_include(["string", "integer"]);
+        test("#numbering()", -2).must_include(["string", "integer"]);
         // String is already given.
-        test("#numbering(\"foo\", )", -1)
+        test("#numbering(\"foo\", )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
         // Integer is already given, but numbering is variadic.
-        test("#numbering(\"foo\", 1, )", -1)
+        test("#numbering(\"foo\", 1, )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
     }
@@ -1698,14 +1698,14 @@ mod tests {
                 "#let clrs = (a: red, b: blue); #let nums = (a: 1, b: 2)",
             );
 
-        test_with_world(&world, -1)
+        test_with_world(&world, -2)
             .must_include(["clrs", "aqua"])
             .must_exclude(["nums", "a", "b"]);
     }
 
     #[test]
     fn test_autocomplete_packages() {
-        test("#import \"@\"", -1).must_include([q!("@preview/example:0.1.0")]);
+        test("#import \"@\"", -2).must_include([q!("@preview/example:0.1.0")]);
     }
 
     #[test]
@@ -1719,28 +1719,28 @@ mod tests {
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
 
-        test_with_path(&world, "main.typ", -1)
+        test_with_path(&world, "main.typ", -2)
             .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
             .must_exclude([q!("assets/tiger.jpg")]);
 
-        test_with_path(&world, "content/c.typ", -1)
+        test_with_path(&world, "content/c.typ", -2)
             .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
             .must_exclude([q!("c.typ")]);
 
-        test_with_path(&world, "content/a.typ", -1)
+        test_with_path(&world, "content/a.typ", -2)
             .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
             .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
 
-        test_with_path(&world, "content/b.typ", -2)
+        test_with_path(&world, "content/b.typ", -3)
             .must_include([q!("../data/example.csv")]);
     }
 
     #[test]
     fn test_autocomplete_figure_snippets() {
-        test("#figure()", -1)
+        test("#figure()", -2)
             .must_apply("image", "image(\"${}\"),")
             .must_apply("table", "table(\n  ${}\n),");
 
-        test("#figure(cap)", -1).must_apply("caption", "caption: [${}]");
+        test("#figure(cap)", -2).must_apply("caption", "caption: [${}]");
     }
 }
