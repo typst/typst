@@ -237,7 +237,7 @@ fn find_math_font(
     let variant = variant(styles);
     let world = engine.world;
     let Some(font) = families(styles).find_map(|family| {
-        let id = world.book().select(family, variant)?;
+        let id = world.book().select(family.as_str(), variant)?;
         let font = world.font(id)?;
         let _ = font.ttf().tables().math?.constants?;
         Some(font)

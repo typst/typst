@@ -137,10 +137,6 @@ pub struct OutlineElem {
     ///   `{n => n * 2em}` would be equivalent to just specifying `{2em}`, while
     ///   `{n => [→ ] * n}` would indent with one arrow per nesting level.
     ///
-    /// *Migration hints:*  Specifying `{true}` (equivalent to `{auto}`) or
-    /// `{false}` (equivalent to `{none}`) for this option is deprecated and
-    /// will be removed in a future release.
-    ///
     /// ```example
     /// #set heading(numbering: "1.a.")
     ///
@@ -294,7 +290,6 @@ pub trait Outlinable: Refable {
 /// Defines how an outline is indented.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OutlineIndent {
-    Bool(bool),
     Rel(Rel<Length>),
     Func(Func),
 }
@@ -310,10 +305,10 @@ impl OutlineIndent {
     ) -> SourceResult<()> {
         match indent {
             // 'none' | 'false' => no indenting
-            None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
+            None => {}
 
             // 'auto' | 'true' => use numbering alignment for indenting
-            Some(Smart::Auto | Smart::Custom(OutlineIndent::Bool(true))) => {
+            Some(Smart::Auto) => {
                 // Add hidden ancestors numberings to realize the indent.
                 let mut hidden = Content::empty();
                 for ancestor in ancestors {
@@ -368,11 +363,9 @@ impl OutlineIndent {
 cast! {
     OutlineIndent,
     self => match self {
-        Self::Bool(v) => v.into_value(),
         Self::Rel(v) => v.into_value(),
         Self::Func(v) => v.into_value()
     },
-    v: bool => OutlineIndent::Bool(v),
     v: Rel<Length> => OutlineIndent::Rel(v),
     v: Func => OutlineIndent::Func(v),
 }

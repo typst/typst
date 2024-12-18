@@ -20,7 +20,7 @@ use crate::foundations::{
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::text::{RawContent, RawElem, TextElem};
-use crate::visualize::{Color, Gradient, Pattern};
+use crate::visualize::{Color, Gradient, Tiling};
 
 /// A computational value.
 #[derive(Default, Clone)]
@@ -50,8 +50,8 @@ pub enum Value {
     Color(Color),
     /// A gradient value: `gradient.linear(...)`.
     Gradient(Gradient),
-    /// A pattern fill: `pattern(...)`.
-    Pattern(Pattern),
+    /// A tiling fill: `tiling(...)`.
+    Tiling(Tiling),
     /// A symbol: `arrow.l`.
     Symbol(Symbol),
     /// A version.
@@ -130,7 +130,7 @@ impl Value {
             Self::Fraction(_) => Type::of::<Fr>(),
             Self::Color(_) => Type::of::<Color>(),
             Self::Gradient(_) => Type::of::<Gradient>(),
-            Self::Pattern(_) => Type::of::<Pattern>(),
+            Self::Tiling(_) => Type::of::<Tiling>(),
             Self::Symbol(_) => Type::of::<Symbol>(),
             Self::Version(_) => Type::of::<Version>(),
             Self::Str(_) => Type::of::<Str>(),
@@ -244,7 +244,7 @@ impl Debug for Value {
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Gradient(v) => Debug::fmt(v, f),
-            Self::Pattern(v) => Debug::fmt(v, f),
+            Self::Tiling(v) => Debug::fmt(v, f),
             Self::Symbol(v) => Debug::fmt(v, f),
             Self::Version(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
@@ -282,7 +282,7 @@ impl Repr for Value {
             Self::Fraction(v) => v.repr(),
             Self::Color(v) => v.repr(),
             Self::Gradient(v) => v.repr(),
-            Self::Pattern(v) => v.repr(),
+            Self::Tiling(v) => v.repr(),
             Self::Symbol(v) => v.repr(),
             Self::Version(v) => v.repr(),
             Self::Str(v) => v.repr(),
@@ -333,7 +333,7 @@ impl Hash for Value {
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
             Self::Gradient(v) => v.hash(state),
-            Self::Pattern(v) => v.hash(state),
+            Self::Tiling(v) => v.hash(state),
             Self::Symbol(v) => v.hash(state),
             Self::Version(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
@@ -640,7 +640,7 @@ primitive! { Rel<Length>:  "relative length",
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { Gradient: "gradient", Gradient }
-primitive! { Pattern: "pattern", Pattern }
+primitive! { Tiling: "tiling", Tiling }
 primitive! { Symbol: "symbol", Symbol }
 primitive! { Version: "version", Version }
 primitive! {

@@ -3,74 +3,18 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
 
-use comemo::{Track, Tracked};
+use comemo::Tracked;
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
 
-use crate::diag::{warning, SourceResult, Trace, Tracepoint};
+use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Content, Context, Element, Func, NativeElement, Packed, Repr,
-    Selector, Show,
+    cast, ty, Content, Context, Element, Func, NativeElement, Repr, Selector,
 };
-use crate::introspection::Locatable;
 use crate::text::{FontFamily, FontList, TextElem};
-
-/// Provides access to active styles.
-///
-/// **Deprecation planned.** Use [context] instead.
-///
-/// ```example
-/// #let thing(body) = style(styles => {
-///   let size = measure(body, styles)
-///   [Width of "#body" is #size.width]
-/// })
-///
-/// #thing[Hey] \
-/// #thing[Welcome]
-/// ```
-#[func]
-pub fn style(
-    /// The engine.
-    engine: &mut Engine,
-    /// The call site span.
-    span: Span,
-    /// A function to call with the styles. Its return value is displayed
-    /// in the document.
-    ///
-    /// This function is called once for each time the content returned by
-    /// `style` appears in the document. That makes it possible to generate
-    /// content that depends on the style context it appears in.
-    func: Func,
-) -> Content {
-    engine.sink.warn(warning!(
-        span, "`style` is deprecated";
-        hint: "use a `context` expression instead"
-    ));
-
-    StyleElem::new(func).pack().spanned(span)
-}
-
-/// Executes a style access.
-#[elem(Locatable, Show)]
-struct StyleElem {
-    /// The function to call with the styles.
-    #[required]
-    func: Func,
-}
-
-impl Show for Packed<StyleElem> {
-    #[typst_macros::time(name = "style", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let context = Context::new(self.location(), Some(styles));
-        Ok(self
-            .func()
-            .call(engine, context.track(), [styles.to_map()])?
-            .display())
-    }
-}
 
 /// A list of style properties.
 #[ty(cast)]

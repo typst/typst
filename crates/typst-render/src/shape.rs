@@ -168,11 +168,11 @@ pub fn to_sk_line_join(join: LineJoin) -> sk::LineJoin {
     }
 }
 
-pub fn to_sk_dash_pattern(pattern: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
+pub fn to_sk_dash_pattern(dash: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
     // tiny-skia only allows dash patterns with an even number of elements,
     // while pdf allows any number.
-    let pattern_len = pattern.array.len();
+    let pattern_len = dash.array.len();
     let len = if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
-    let dash_array = pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
-    sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
+    let dash_array = dash.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+    sk::StrokeDash::new(dash_array, dash.phase.to_f32())
 }

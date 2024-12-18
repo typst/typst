@@ -165,7 +165,7 @@ impl SVGRenderer {
                 )
                 .post_concat(state.transform.invert().unwrap()),
             },
-            Paint::Pattern(pattern) => match pattern.unwrap_relative(true) {
+            Paint::Tiling(tiling) => match tiling.unwrap_relative(true) {
                 RelativeTo::Self_ => Transform::identity(),
                 RelativeTo::Parent => state.transform.invert().unwrap(),
             },

@@ -1,5 +1,5 @@
---- grid-stroke-pattern ---
-#let double-line = pattern(size: (1.5pt, 1.5pt), {
+--- grid-stroke-tiling ---
+#let double-line = tiling(size: (1.5pt, 1.5pt), {
   place(line(stroke: .6pt, start: (0%, 50%), end: (100%, 50%)))
 })
 

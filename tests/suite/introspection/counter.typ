@@ -102,6 +102,14 @@ B
 #set page(numbering: "1 / 1", margin: (bottom: 20pt))
 #counter(page).update(5)
 
+--- counter-page-display ---
+// Counter display should use numbering from style chain.
+#set page(
+  numbering: "A",
+  margin: (bottom: 20pt),
+  footer: context align(center, counter(page).display())
+)
+
 --- counter-figure ---
 // Count figures.
 #figure(numbering: "A", caption: [Four 'A's], kind: image, supplement: "Figure")[_AAAA!_]
