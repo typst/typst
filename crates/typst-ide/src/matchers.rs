@@ -266,11 +266,13 @@ pub enum DerefTarget<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
     use ecow::EcoString;
     use typst::syntax::{LinkedNode, Side};
 
     use super::named_items;
-    use crate::tests::{SourceExt, TestWorld};
+    use crate::tests::{SourceExt, WorldLike};
 
     type Response = Vec<EcoString>;
 
@@ -304,13 +306,14 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: isize) -> Response {
-        let world = TestWorld::new(text);
+    fn test(world: impl WorldLike, cursor: isize) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
         let source = world.main.clone();
         let node = LinkedNode::new(source.root());
         let leaf = node.leaf_at(source.cursor(cursor), Side::After).unwrap();
         let mut items = vec![];
-        named_items(&world, leaf, |s| {
+        named_items(world, leaf, |s| {
             items.push(s.name().clone());
             None::<()>
         });

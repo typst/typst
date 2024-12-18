@@ -1504,6 +1504,7 @@ impl BracketMode {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
     use typst::layout::PagedDocument;
@@ -1511,7 +1512,7 @@ mod tests {
     use typst::World;
 
     use super::{autocomplete, Completion};
-    use crate::tests::{SourceExt, TestWorld};
+    use crate::tests::{SourceExt, TestWorld, WorldLike};
 
     /// Quote a string.
     macro_rules! q {
@@ -1583,14 +1584,10 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: isize) -> Response {
-        let world = TestWorld::new(text);
-        test_with_world(&world, cursor)
-    }
-
-    #[track_caller]
-    fn test_with_world(world: &TestWorld, cursor: isize) -> Response {
-        let doc = typst::compile(&world).output.ok();
+    fn test(world: impl WorldLike, cursor: isize) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc = typst::compile(world).output.ok();
         test_full(world, &world.main, doc.as_ref(), cursor)
     }
 
@@ -1698,7 +1695,7 @@ mod tests {
                 "#let clrs = (a: red, b: blue); #let nums = (a: 1, b: 2)",
             );
 
-        test_with_world(&world, -2)
+        test(&world, -2)
             .must_include(["clrs", "aqua"])
             .must_exclude(["nums", "a", "b"]);
     }

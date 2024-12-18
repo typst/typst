@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 use ecow::EcoString;
@@ -13,6 +14,7 @@ use typst::{Library, World};
 use crate::IdeWorld;
 
 /// A world for IDE testing.
+#[derive(Clone)]
 pub struct TestWorld {
     pub main: Source,
     assets: HashMap<FileId, Bytes>,
@@ -133,22 +135,6 @@ impl IdeWorld for TestWorld {
     }
 }
 
-/// Extra methods for [`Source`].
-pub trait SourceExt {
-    /// Negative cursors index from the back.
-    fn cursor(&self, cursor: isize) -> usize;
-}
-
-impl SourceExt for Source {
-    fn cursor(&self, cursor: isize) -> usize {
-        if cursor < 0 {
-            self.len_bytes().checked_add_signed(cursor + 1).unwrap()
-        } else {
-            cursor as usize
-        }
-    }
-}
-
 /// Shared foundation of all test worlds.
 struct TestBase {
     library: LazyHash<Library>,
@@ -185,4 +171,43 @@ fn library() -> Library {
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
     lib
+}
+
+/// The input to a test: Either just a string or a full `TestWorld`.
+pub trait WorldLike {
+    type World: Borrow<TestWorld>;
+
+    fn acquire(self) -> Self::World;
+}
+
+impl<'a> WorldLike for &'a TestWorld {
+    type World = &'a TestWorld;
+
+    fn acquire(self) -> Self::World {
+        self
+    }
+}
+
+impl WorldLike for &str {
+    type World = TestWorld;
+
+    fn acquire(self) -> Self::World {
+        TestWorld::new(self)
+    }
+}
+
+/// Extra methods for [`Source`].
+pub trait SourceExt {
+    /// Negative cursors index from the back.
+    fn cursor(&self, cursor: isize) -> usize;
+}
+
+impl SourceExt for Source {
+    fn cursor(&self, cursor: isize) -> usize {
+        if cursor < 0 {
+            self.len_bytes().checked_add_signed(cursor + 1).unwrap()
+        } else {
+            cursor as usize
+        }
+    }
 }
