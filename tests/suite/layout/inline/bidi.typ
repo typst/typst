@@ -75,3 +75,11 @@ Lריווח #h(1cm) R
 #"\u{590}\u{591}\u{592}\u{593}"
 
 #"\u{30000}\u{30001}\u{30002}\u{30003}"
+
+--- issue-5490-bidi-invalid-range ---
+
+#set text(lang: "he")
+#set raw(lang: "python")
+#set page(width: 300pt)
+
+- בדיקה האם מספר מתחלק במספר אחר. לדוגמה `if a % 2 == 0`
