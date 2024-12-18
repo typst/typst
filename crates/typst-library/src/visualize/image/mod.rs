@@ -95,9 +95,9 @@ pub struct ImageElem {
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
 
-    /// Whether text in SVG images should be converted into paths before
-    /// embedding. This will result in the text becoming unselectable in
-    /// the output.
+    /// Whether text in SVG images should be converted into curves before
+    /// embedding. This will result in the text becoming unselectable in the
+    /// output.
     #[default(false)]
     pub flatten_text: bool,
 }

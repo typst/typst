@@ -1,6 +1,7 @@
 //! Drawing and visualization.
 
 mod color;
+mod curve;
 mod gradient;
 mod image;
 mod line;
@@ -12,6 +13,7 @@ mod stroke;
 mod tiling;
 
 pub use self::color::*;
+pub use self::curve::*;
 pub use self::gradient::*;
 pub use self::image::*;
 pub use self::line::*;
@@ -46,6 +48,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<EllipseElem>();
     global.define_elem::<CircleElem>();
     global.define_elem::<PolygonElem>();
+    global.define_elem::<CurveElem>();
     global.define_elem::<PathElem>();
 
     // Compatibility.

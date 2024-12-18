@@ -61,9 +61,9 @@
 )
 
 --- tiling-zero-sized ---
-// Error: 15-51 tile size must be non-zero
-// Hint: 15-51 try setting the size manually
-#line(stroke: tiling(path((0pt, 0pt), (1em, 0pt))))
+// Error: 15-52 tile size must be non-zero
+// Hint: 15-52 try setting the size manually
+#line(stroke: tiling(curve(curve.move((1em, 0pt)))))
 
 --- tiling-spacing-negative ---
 // Test with spacing set to `(-10pt, -10pt)`
