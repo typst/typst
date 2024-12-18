@@ -20,7 +20,8 @@ pub struct RasterImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     format: RasterFormat,
-    dynamic: image::DynamicImage,
+    dynamic: Arc<image::DynamicImage>,
+    is_rotated: bool,
     icc: Option<Vec<u8>>,
     dpi: Option<f64>,
 }
@@ -51,15 +52,24 @@ impl RasterImage {
             .read_from_container(&mut std::io::Cursor::new(&data))
             .ok();
 
+        let mut is_rotated = false;
         // Apply rotation from EXIF metadata.
         if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
             apply_rotation(&mut dynamic, rotation);
+            is_rotated = true;
         }
 
         // Extract pixel density.
         let dpi = determine_dpi(&data, exif.as_ref());
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            format,
+            is_rotated,
+            dynamic: Arc::new(dynamic),
+            icc,
+            dpi,
+        })))
     }
 
     /// The raw image data.
@@ -77,6 +87,11 @@ impl RasterImage {
         self.dynamic().width()
     }
 
+    /// Whether the image has been rotated due to EXIF metadata.
+    pub fn is_rotated(&self) -> bool {
+        self.0.is_rotated
+    }
+
     /// The image's pixel height.
     pub fn height(&self) -> u32 {
         self.dynamic().height()
@@ -88,8 +103,8 @@ impl RasterImage {
     }
 
     /// Access the underlying dynamic image.
-    pub fn dynamic(&self) -> &image::DynamicImage {
-        &self.0.dynamic
+    pub fn dynamic(&self) -> Arc<image::DynamicImage> {
+        self.0.dynamic.clone()
     }
 
     /// Access the ICC profile, if any.
