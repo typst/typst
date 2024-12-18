@@ -279,7 +279,7 @@ mod tests {
     use typst::syntax::Side;
 
     use super::{tooltip, Tooltip};
-    use crate::tests::{SourceExt, TestWorld, WorldLike};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = Option<Tooltip>;
 
@@ -310,12 +310,12 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(world: impl WorldLike, cursor: isize, side: Side) -> Response {
+    fn test(world: impl WorldLike, pos: impl FilePos, side: Side) -> Response {
         let world = world.acquire();
         let world = world.borrow();
-        let source = &world.main;
+        let (source, cursor) = pos.resolve(world);
         let doc = typst::compile(world).output.ok();
-        tooltip(world, doc.as_ref(), source, source.cursor(cursor), side)
+        tooltip(world, doc.as_ref(), &source, cursor, side)
     }
 
     #[test]

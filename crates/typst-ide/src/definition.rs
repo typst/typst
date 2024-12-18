@@ -94,7 +94,7 @@ mod tests {
     use typst::WorldExt;
 
     use super::{definition, Definition};
-    use crate::tests::{SourceExt, TestWorld, WorldLike};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = (TestWorld, Option<Definition>);
 
@@ -133,12 +133,12 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(world: impl WorldLike, cursor: isize, side: Side) -> Response {
+    fn test(world: impl WorldLike, pos: impl FilePos, side: Side) -> Response {
         let world = world.acquire();
         let world = world.borrow();
         let doc = typst::compile(world).output.ok();
-        let source = &world.main;
-        let def = definition(world, doc.as_ref(), source, source.cursor(cursor), side);
+        let (source, cursor) = pos.resolve(world);
+        let def = definition(world, doc.as_ref(), &source, cursor, side);
         (world.clone(), def)
     }
 

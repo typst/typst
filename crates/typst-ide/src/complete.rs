@@ -1508,11 +1508,9 @@ mod tests {
     use std::collections::BTreeSet;
 
     use typst::layout::PagedDocument;
-    use typst::syntax::{FileId, Source, VirtualPath};
-    use typst::World;
 
     use super::{autocomplete, Completion};
-    use crate::tests::{SourceExt, TestWorld, WorldLike};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     /// Quote a string.
     macro_rules! q {
@@ -1584,29 +1582,23 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(world: impl WorldLike, cursor: isize) -> Response {
+    fn test(world: impl WorldLike, pos: impl FilePos) -> Response {
         let world = world.acquire();
         let world = world.borrow();
         let doc = typst::compile(world).output.ok();
-        test_full(world, &world.main, doc.as_ref(), cursor)
+        test_with_doc(world, pos, doc.as_ref())
     }
 
     #[track_caller]
-    fn test_with_path(world: &TestWorld, path: &str, cursor: isize) -> Response {
-        let doc = typst::compile(&world).output.ok();
-        let id = FileId::new(None, VirtualPath::new(path));
-        let source = world.source(id).unwrap();
-        test_full(world, &source, doc.as_ref(), cursor)
-    }
-
-    #[track_caller]
-    fn test_full(
-        world: &TestWorld,
-        source: &Source,
+    fn test_with_doc(
+        world: impl WorldLike,
+        pos: impl FilePos,
         doc: Option<&PagedDocument>,
-        cursor: isize,
     ) -> Response {
-        autocomplete(world, doc, source, source.cursor(cursor), true)
+        let world = world.acquire();
+        let world = world.borrow();
+        let (source, cursor) = pos.resolve(world);
+        autocomplete(world, doc, &source, cursor, true)
     }
 
     #[test]
@@ -1650,7 +1642,7 @@ mod tests {
         let end = world.main.len_bytes();
         world.main.edit(end..end, " #cite()");
 
-        test_full(&world, &world.main, doc.as_ref(), -2)
+        test_with_doc(&world, -2, doc.as_ref())
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
     }
@@ -1716,20 +1708,19 @@ mod tests {
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
 
-        test_with_path(&world, "main.typ", -2)
+        test(&world, -2)
             .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
             .must_exclude([q!("assets/tiger.jpg")]);
 
-        test_with_path(&world, "content/c.typ", -2)
+        test(&world, ("content/c.typ", -2))
             .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
             .must_exclude([q!("c.typ")]);
 
-        test_with_path(&world, "content/a.typ", -2)
+        test(&world, ("content/a.typ", -2))
             .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
             .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
 
-        test_with_path(&world, "content/b.typ", -3)
-            .must_include([q!("../data/example.csv")]);
+        test(&world, ("content/b.typ", -3)).must_include([q!("../data/example.csv")]);
     }
 
     #[test]

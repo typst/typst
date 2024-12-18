@@ -202,18 +202,34 @@ impl WorldLike for &str {
     }
 }
 
-/// Extra methods for [`Source`].
-pub trait SourceExt {
-    /// Negative cursors index from the back.
-    fn cursor(&self, cursor: isize) -> usize;
+/// Specifies a position in a file for a test.
+pub trait FilePos {
+    fn resolve(self, world: &TestWorld) -> (Source, usize);
 }
 
-impl SourceExt for Source {
-    fn cursor(&self, cursor: isize) -> usize {
-        if cursor < 0 {
-            self.len_bytes().checked_add_signed(cursor + 1).unwrap()
-        } else {
-            cursor as usize
-        }
+impl FilePos for isize {
+    #[track_caller]
+    fn resolve(self, world: &TestWorld) -> (Source, usize) {
+        (world.main.clone(), cursor(&world.main, self))
+    }
+}
+
+impl FilePos for (&str, isize) {
+    #[track_caller]
+    fn resolve(self, world: &TestWorld) -> (Source, usize) {
+        let id = FileId::new(None, VirtualPath::new(self.0));
+        let source = world.source(id).unwrap();
+        let cursor = cursor(&source, self.1);
+        (source, cursor)
+    }
+}
+
+/// Resolve a signed index (negative from the back) to a unsigned index.
+#[track_caller]
+fn cursor(source: &Source, cursor: isize) -> usize {
+    if cursor < 0 {
+        source.len_bytes().checked_add_signed(cursor + 1).unwrap()
+    } else {
+        cursor as usize
     }
 }

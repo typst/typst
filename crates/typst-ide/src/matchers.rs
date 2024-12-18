@@ -272,7 +272,7 @@ mod tests {
     use typst::syntax::{LinkedNode, Side};
 
     use super::named_items;
-    use crate::tests::{SourceExt, WorldLike};
+    use crate::tests::{FilePos, WorldLike};
 
     type Response = Vec<EcoString>;
 
@@ -306,12 +306,12 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(world: impl WorldLike, cursor: isize) -> Response {
+    fn test(world: impl WorldLike, pos: impl FilePos) -> Response {
         let world = world.acquire();
         let world = world.borrow();
-        let source = world.main.clone();
+        let (source, cursor) = pos.resolve(world);
         let node = LinkedNode::new(source.root());
-        let leaf = node.leaf_at(source.cursor(cursor), Side::After).unwrap();
+        let leaf = node.leaf_at(cursor, Side::After).unwrap();
         let mut items = vec![];
         named_items(world, leaf, |s| {
             items.push(s.name().clone());
