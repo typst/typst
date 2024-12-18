@@ -223,9 +223,9 @@ pub enum CloseMode {
     /// Close the curve with a curved line that takes into account the control
     /// points at the start point.
     #[default]
-    Curve,
-    /// Close the curve with a straight line.
-    Line,
+    Smooth,
+    /// Closes the curve with a straight line.
+    Straight,
 }
 
 /// A curve consisting of movements, lines, and Bezier segments.

@@ -328,7 +328,7 @@ impl<'a> CurveBuilder<'a> {
     /// Close the curve if it was opened.
     fn close(&mut self, mode: CloseMode) {
         if self.is_started && !self.is_empty {
-            if mode == CloseMode::Curve {
+            if mode == CloseMode::Smooth {
                 self.cubic(
                     self.last_control_from,
                     self.start_control_into,
