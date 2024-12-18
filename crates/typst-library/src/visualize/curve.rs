@@ -10,7 +10,24 @@ use crate::foundations::{
 use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
 
-/// A curve consisting of movements, lines, and Bezier segments.
+/// A curve consisting of movements, lines, and Beziér segments.
+///
+/// At any point in time, there is a conceptual pen or cursor.
+/// - Move elements move the cursor without drawing.
+/// - Line/Quadratic/Cubic elements draw a segment from the cursor to a new
+///   position, potentially with control point for a Beziér curve.
+/// - Close elements draw a straight or smooth line back to the start of the
+///   curve or the latest preceding move segment.
+///
+/// For layout purposes, the bounding box of the curve is a tight rectangle
+/// containing all segments as well as the point `{(0pt, 0pt)}`.
+///
+/// Positions may be specified absolutely (i.e. relatively to `{(0pt, 0pt)}`),
+/// or relative to the current pen/cursor position, that is, the position where
+/// the previous segment ended.
+///
+/// Beziér curve control points can be skipped by passing `{none}` or
+/// automatically mirrored from the preceding segment by passing `{auto}`.
 ///
 /// # Example
 /// ```example
@@ -19,7 +36,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   stroke: blue,
 ///   curve.move((0pt, 50pt)),
 ///   curve.line((100pt, 50pt)),
-///   curve.cubic(auto, (90pt, 0pt), (50pt, 0pt)),
+///   curve.cubic(none, (90pt, 0pt), (50pt, 0pt)),
 ///   curve.close(),
 /// )
 /// ```
@@ -71,7 +88,7 @@ pub struct CurveElem {
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// The components of the curve, in the form of moves, line and bezier
+    /// The components of the curve, in the form of moves, line and Beziér
     /// segment, and closes.
     #[variadic]
     pub components: Vec<CurveComponent>,
@@ -208,7 +225,7 @@ pub struct CurveLine {
     pub relative: bool,
 }
 
-/// Adds a quadratic Bezier curve segment from the last point to `end`, using
+/// Adds a quadratic Beziér curve segment from the last point to `end`, using
 /// `control` as the control point.
 ///
 /// ```example
@@ -228,9 +245,9 @@ pub struct CurveLine {
 /// ```
 #[elem(name = "quad", title = "Curve Quadratic Segment")]
 pub struct CurveQuad {
-    /// The control point of the quadratic Bezier curve.
+    /// The control point of the quadratic Beziér curve.
     ///
-    /// - If `{auto}` and this segment follows another quadratic Bezier curve,
+    /// - If `{auto}` and this segment follows another quadratic Beziér curve,
     ///   the previous control point will be mirrored.
     /// - If `{none}`, the control point defaults to `end`, and the curve will
     ///   be a straight line.
@@ -255,7 +272,7 @@ pub struct CurveQuad {
     pub relative: bool,
 }
 
-/// Adds a cubic Bezier curve segment from the last point to `end`, using
+/// Adds a cubic Beziér curve segment from the last point to `end`, using
 /// `control-start` and `control-end` as the control points.
 ///
 /// ```example
@@ -278,7 +295,8 @@ pub struct CurveCubic {
     /// The control point going out from the start of the curve segment.
     ///
     /// - If `{auto}` and this element follows another `curve.cubic` element,
-    ///   the last control point will be mirrored.
+    ///   the last control point will be mirrored. In SVG terms, this makes
+    ///   `curve.cubic` behave like the `S` operator instead of the `C` operator.
     ///
     /// - If `{none}`, the curve has no first control point, or equivalently,
     ///   the control point defaults to the curve's starting point.
@@ -370,7 +388,7 @@ pub enum CloseMode {
     Straight,
 }
 
-/// A curve consisting of movements, lines, and Bezier segments.
+/// A curve consisting of movements, lines, and Beziér segments.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Curve(pub Vec<CurveItem>);
 
