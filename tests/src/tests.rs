@@ -188,7 +188,7 @@ fn run_parser_test(
     let mut result = TestResult {
         errors: String::new(),
         infos: String::new(),
-        mismatched_image: false,
+        mismatched_output: false,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));

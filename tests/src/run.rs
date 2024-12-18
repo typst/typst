@@ -159,7 +159,7 @@ impl<'a> Runner<'a> {
             result: TestResult {
                 errors: String::new(),
                 infos: String::new(),
-                mismatched_image: false,
+                mismatched_output: false,
             },
             not_annotated: String::new(),
         }
@@ -312,7 +312,7 @@ impl<'a> Runner<'a> {
                 );
             }
         } else {
-            self.result.mismatched_image = true;
+            self.result.mismatched_output = true;
             if ref_data.is_ok() {
                 log!(self, "mismatched rendering");
                 log!(self, "  live      | {live_path}");
