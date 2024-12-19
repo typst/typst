@@ -43,8 +43,9 @@ $
 
 --- math-attach-followed-by-func-call ---
 // Test function call after subscript.
-$pi_1(Y), a_f(x), a^zeta (x), a^abs(b)_sqrt(c) \
- a^subset.eq (x), a_(zeta(x)), pi_(1(Y)), a^(abs(b))_(sqrt(c))$
+$pi_1(Y), a_f(x), f_1(x), a^Gamma(x) \
+a^zeta (x), a^abs(b)_sqrt(c), a^subset.eq (x) \
+a_(zeta(x)), pi_(1(Y)), a^(abs(b))_(sqrt(c))$
 
 --- math-attach-nested ---
 // Test associativity and scaling.
