@@ -31,17 +31,22 @@ $ func5(m: a) $
 $ func5(m: sigma : f) $
 $ func5(m: sigma:pi) $
 
+--- math-call-named-args-no-expr ---
+#let func(m: none) = m
+// Error: 10 expected expression
+$ func(m: ) $
+
 --- math-call-named-args-duplicate ---
 #let func(my: none) = my
 // Error: 15-17 duplicate argument: my
 $ func(my: a, my: b) $
 
---- math-call-named-arg-shorthand-clash-1 ---
+--- math-call-named-args-shorthand-clash-1 ---
 #let func(m: none) = m
 // Error: 18-21 unexpected argument
 $func(m: =) func(m:=)$
 
---- math-call-named-arg-shorthand-clash-2 ---
+--- math-call-named-args-shorthand-clash-2 ---
 #let func(m: none) = m
 // Error: 41-45 unexpected argument
 $func(m::) func(m: :=) func(m:: =) func(m::=)$

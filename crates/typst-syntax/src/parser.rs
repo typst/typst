@@ -551,6 +551,11 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
     let arg = p.marker();
     let count = math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
     if count == 0 {
+        // Named argument requires a value.
+        if !positional {
+            p.expected("expression");
+        }
+
         // Flush trivia so that the new empty Math node will be wrapped _inside_
         // any `SyntaxKind::Array` elements created in `math_args`.
         // (And if we don't follow by wrapping in an array, it has no effect.)
