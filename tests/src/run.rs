@@ -138,12 +138,7 @@ impl OutputType for HtmlDocument {
     }
 
     fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
-        let eq = live.as_bytes() == ref_data;
-        if !eq {
-            dbg!(live.as_bytes());
-            dbg!(ref_data);
-        }
-        eq
+        live.as_bytes() == ref_data
     }
 
     fn save_live(&self, name: &EcoString, live: &Self::Live) {
