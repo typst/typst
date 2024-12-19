@@ -53,6 +53,12 @@ Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
 #rect()
 #block(height: 1fr, line(length: 100%, angle: 90deg))
 
+--- block-negative-height-flow ---
+#set page(height: 60pt)
+a
+#block(height: -25pt)[b]
+c
+
 --- block-multiple-pages ---
 // Test block over multiple pages.
 #set page(height: 60pt)
