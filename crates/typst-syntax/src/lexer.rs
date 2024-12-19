@@ -692,18 +692,18 @@ impl Lexer<'_> {
     }
 
     /// Handle named arguments in math function call.
-    pub fn is_math_named_arg(&mut self, start: usize) -> Option<SyntaxNode> {
+    pub fn maybe_math_named_arg(&mut self, start: usize) -> Option<SyntaxNode> {
         let cursor = self.s.cursor();
         self.s.jump(start);
         if self.s.eat_if(is_id_start) {
             self.s.eat_while(is_id_continue);
-            // Check that a colon directly proceeds the identifier.
+            // Check that a colon directly follows the identifier.
             if self.s.at(':') {
                 // Check that the identifier is not just `_`.
                 let node = if self.s.from(start) != "_" {
                     SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start))
                 } else {
-                    let msg = SyntaxError::new("expected identifier, got underscore");
+                    let msg = SyntaxError::new("expected identifier, found underscore");
                     SyntaxNode::error(msg, self.s.from(start))
                 };
                 return Some(node);
@@ -714,7 +714,7 @@ impl Lexer<'_> {
     }
 
     /// Handle spread arguments in math function call.
-    pub fn is_math_spread_arg(&mut self, start: usize) -> Option<SyntaxNode> {
+    pub fn maybe_math_spread_arg(&mut self, start: usize) -> Option<SyntaxNode> {
         let cursor = self.s.cursor();
         self.s.jump(start);
         if self.s.eat_if("..") {
