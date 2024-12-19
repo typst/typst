@@ -360,6 +360,16 @@ struct LineNumberConfig {
     /// Where line numbers are reset.
     scope: LineNumberingScope,
     /// The default clearance for `auto`.
+    ///
+    /// This value should be relative to the page's width, such that the
+    /// clearance between line numbers and text is small when the page is,
+    /// itself, small. However, that could cause the clearance to be too small
+    /// or too large when considering the current text size; in particular, a
+    /// larger text size would require more clearance to be able to tell line
+    /// numbers apart from text, whereas a smaller text size requires less
+    /// clearance so they aren't way too far apart. Therefore, the default
+    /// value is a percentage of the page width clamped between `0.75em` and
+    /// `2.5em`.
     default_clearance: Abs,
 }
 

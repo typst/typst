@@ -364,6 +364,11 @@ fn breakable_pod<'a>(
 
 /// Distribute a fixed height spread over existing regions into a new first
 /// height and a new backlog.
+///
+/// Note that, if the given height fits within the first region, no backlog is
+/// generated and the first region's height shrinks to fit exactly the given
+/// height. In particular, negative heights are clamped towards zero so that
+/// blocks with negative height do not occupy any actual region height.
 fn distribute<'a>(
     height: Abs,
     mut regions: Regions,
