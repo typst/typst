@@ -136,13 +136,15 @@ pub struct EquationElem {
     #[ghost]
     pub class: Option<MathClass>,
 
-    ///
+    /// Value of `scriptPercentScaleDown` in the current font's MathConstants
+    /// table.
     #[internal]
     #[default(70)]
     #[ghost]
     pub script_scale: i16,
 
-    ///
+    /// Value of `scriptScriptPercentScaleDown` in the current font's
+    /// MathConstants table.
     #[internal]
     #[default(50)]
     #[ghost]
