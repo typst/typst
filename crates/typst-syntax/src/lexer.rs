@@ -697,8 +697,9 @@ impl Lexer<'_> {
         self.s.jump(start);
         if self.s.eat_if(is_id_start) {
             self.s.eat_while(is_id_continue);
-            // Check that a colon directly follows the identifier.
-            if self.s.at(':') {
+            // Check that a colon directly follows the identifier, and not the
+            // `:=` or `::=` math shorthands.
+            if self.s.at(':') && !self.s.at(":=") && !self.s.at("::=") {
                 // Check that the identifier is not just `_`.
                 let node = if self.s.from(start) != "_" {
                     SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start))

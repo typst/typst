@@ -36,6 +36,16 @@ $ func5(m: sigma:pi) $
 // Error: 15-17 duplicate argument: my
 $ func(my: a, my: b) $
 
+--- math-call-named-arg-shorthand-clash-1 ---
+#let func(m: none) = m
+// Error: 18-21 unexpected argument
+$func(m: =) func(m:=)$
+
+--- math-call-named-arg-shorthand-clash-2 ---
+#let func(m: none) = m
+// Error: 41-45 unexpected argument
+$func(m::) func(m: :=) func(m:: =) func(m::=)$
+
 --- math-call-named-single-underscore ---
 #let func(x) = x
 // Error: 8-9 expected identifier, found underscore
@@ -72,6 +82,10 @@ $args(..a + b)$
 #let args(..body) = body
 // Error: 8-10 unexpected dots
 $args(#..range(1, 5).chunks(2))$
+
+--- math-call-spread-shorthand-clash ---
+#let func(body) = body
+$func(...)$
 
 --- math-call-spread-repr ---
 #let args(..body) = body
