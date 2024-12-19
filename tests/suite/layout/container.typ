@@ -53,12 +53,6 @@ Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
 #rect()
 #block(height: 1fr, line(length: 100%, angle: 90deg))
 
---- block-negative-height-flow ---
-#set page(height: 60pt)
-a
-#block(height: -25pt)[b]
-c
-
 --- block-multiple-pages ---
 // Test block over multiple pages.
 #set page(height: 60pt)
@@ -317,3 +311,10 @@ b
 --- issue-5262-block-negative-height-implicit ---
 #set page(height: 10pt, margin: (top: 9pt))
 #block(height: 100%)[]
+
+--- issue-5262-block-negative-height-in-flow ---
+// The contents after the block should be pushed upwards.
+#set page(height: 60pt)
+a
+#block(height: -25pt)[b]
+c

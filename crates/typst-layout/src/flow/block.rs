@@ -367,18 +367,27 @@ fn breakable_pod<'a>(
 ///
 /// Note that, if the given height fits within the first region, no backlog is
 /// generated and the first region's height shrinks to fit exactly the given
-/// height. In particular, negative heights are clamped towards zero so that
-/// blocks with negative height do not occupy any actual region height.
+/// height. In particular, negative and zero heights always fit in any region,
+/// so such heights are always directly returned as the new first region
+/// height.
 fn distribute<'a>(
     height: Abs,
     mut regions: Regions,
     buf: &'a mut SmallVec<[Abs; 2]>,
 ) -> (Abs, &'a mut [Abs]) {
     // Build new region heights from old regions.
-    let mut remaining = height.max(Abs::zero());
+    let mut remaining = height;
+
+    // Negative and zero heights always fit, so just keep them.
+    // No backlog is generated.
+    if remaining <= Abs::zero() {
+        buf.push(remaining);
+        return (buf[0], &mut buf[1..]);
+    }
+
     loop {
         // This clamp is safe (min <= max), as 'remaining' won't be negative
-        // due to '.max(0)' above (on the first iteration) and due to
+        // due to the initial check above (on the first iteration) and due to
         // stopping on 'remaining.approx_empty()' below (for the second
         // iteration onwards).
         let limited = regions.size.y.clamp(Abs::zero(), remaining);
