@@ -4,7 +4,7 @@ use crate::foundations::{
     elem, Cast, Content, NativeElement, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{Abs, BlockElem, Corners, Length, Point, Rel, Sides, Size, Sizing};
-use crate::visualize::{FixedStroke, Paint, Path, Stroke};
+use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 
 /// A rectangle with optional content.
 ///
@@ -395,7 +395,7 @@ pub struct Shape {
     pub stroke: Option<FixedStroke>,
 }
 
-/// A path filling rule.
+/// A fill rule for curve drawing.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum FillRule {
     /// Specifies that "inside" is computed by a non-zero sum of signed edge crossings.
@@ -412,8 +412,8 @@ pub enum Geometry {
     Line(Point),
     /// A rectangle with its origin in the topleft corner.
     Rect(Size),
-    /// A bezier path.
-    Path(Path),
+    /// A curve consisting of movements, lines, and Bezier segments.
+    Curve(Curve),
 }
 
 impl Geometry {
@@ -441,8 +441,8 @@ impl Geometry {
     pub fn bbox_size(&self) -> Size {
         match self {
             Self::Line(line) => Size::new(line.x, line.y),
-            Self::Rect(s) => *s,
-            Self::Path(p) => p.bbox_size(),
+            Self::Rect(rect) => *rect,
+            Self::Curve(curve) => curve.bbox_size(),
         }
     }
 }
