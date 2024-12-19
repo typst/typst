@@ -19,6 +19,7 @@ default = [
     "typst",
     "typst-assets",
     "typst-dev-assets",
+    "typst-html",
     "typst-library",
     "typst-pdf",
     "typst-render",
@@ -33,6 +34,7 @@ typst-syntax = { workspace = true }
 typst = { workspace = true, optional = true }
 typst-assets = { workspace = true, features = ["fonts"], optional = true }
 typst-dev-assets = { workspace = true, optional = true }
+typst-html = { workspace = true, optional = true }
 typst-library = { workspace = true, optional = true }
 typst-pdf = { workspace = true, optional = true }
 typst-render = { workspace = true, optional = true }
