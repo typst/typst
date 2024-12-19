@@ -203,8 +203,14 @@ pub(crate) fn layout_flow(
                 } else {
                     PageElem::width_in(shared)
                 };
-                (0.026 * width.unwrap_or_default())
-                    .clamp(Em::new(0.75).resolve(shared), Em::new(2.5).resolve(shared))
+
+                // Clamp below is safe (min <= max): if the font size is
+                // negative, we set min = max = 0; otherwise,
+                // `0.75 * size <= 2.5 * size` for zero and positive sizes.
+                (0.026 * width.unwrap_or_default()).clamp(
+                    Em::new(0.75).resolve(shared).max(Abs::zero()),
+                    Em::new(2.5).resolve(shared).max(Abs::zero()),
+                )
             },
         }),
     };
