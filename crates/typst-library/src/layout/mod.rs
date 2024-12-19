@@ -23,6 +23,7 @@ mod pad;
 mod page;
 mod place;
 mod point;
+pub mod raster;
 mod ratio;
 mod regions;
 mod rel;

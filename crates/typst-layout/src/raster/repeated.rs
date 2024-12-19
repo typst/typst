@@ -1,51 +1,12 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
+use typst_library::layout::raster::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::GridLayouter;
 use super::rowspans::UnbreakableRowGroup;
+use super::Layouter;
 
-/// A repeatable grid header. Starts at the first row.
-pub struct Header {
-    /// The index after the last row included in this header.
-    pub end: usize,
-}
-
-/// A repeatable grid footer. Stops at the last row.
-pub struct Footer {
-    /// The first row included in this footer.
-    pub start: usize,
-}
-
-/// A possibly repeatable grid object.
-/// It still exists even when not repeatable, but must not have additional
-/// considerations by grid layout, other than for consistency (such as making
-/// a certain group of rows unbreakable).
-pub enum Repeatable<T> {
-    Repeated(T),
-    NotRepeated(T),
-}
-
-impl<T> Repeatable<T> {
-    /// Gets the value inside this repeatable, regardless of whether
-    /// it repeats.
-    pub fn unwrap(&self) -> &T {
-        match self {
-            Self::Repeated(repeated) => repeated,
-            Self::NotRepeated(not_repeated) => not_repeated,
-        }
-    }
-
-    /// Returns `Some` if the value is repeated, `None` otherwise.
-    pub fn as_repeated(&self) -> Option<&T> {
-        match self {
-            Self::Repeated(repeated) => Some(repeated),
-            Self::NotRepeated(_) => None,
-        }
-    }
-}
-
-impl GridLayouter<'_> {
+impl Layouter<'_> {
     /// Layouts the header's rows.
     /// Skips regions as necessary.
     pub fn layout_header(
@@ -71,7 +32,7 @@ impl GridLayouter<'_> {
         // It will be re-calculated when laying out each header row.
         self.header_height = Abs::zero();
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+        if let Some(Repeatable::Repeated(footer)) = &self.raster.footer {
             if skipped_region {
                 // Simulate the footer again; the region's 'full' might have
                 // changed.
@@ -159,9 +120,9 @@ impl GridLayouter<'_> {
         // anyway, so this is mostly for correctness.
         self.regions.size.y += self.footer_height;
 
-        let footer_len = self.grid.rows.len() - footer.start;
+        let footer_len = self.raster.rows.len() - footer.start;
         self.unbreakable_rows_left += footer_len;
-        for y in footer.start..self.grid.rows.len() {
+        for y in footer.start..self.raster.rows.len() {
             self.layout_row(y, engine, disambiguator)?;
         }
 
@@ -183,7 +144,7 @@ impl GridLayouter<'_> {
         // in the footer will be precisely the rows in the footer.
         self.simulate_unbreakable_row_group(
             footer.start,
-            Some(self.grid.rows.len() - footer.start),
+            Some(self.raster.rows.len() - footer.start),
             regions,
             engine,
             disambiguator,

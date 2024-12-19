@@ -1,41 +1,11 @@
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
+use typst_library::layout::raster::{Line, Raster, Repeatable};
 use typst_library::layout::Abs;
 use typst_library::visualize::Stroke;
 
-use super::{CellGrid, LinePosition, Repeatable, RowPiece};
-
-/// Represents an explicit grid line (horizontal or vertical) specified by the
-/// user.
-pub struct Line {
-    /// The index of the track after this line. This will be the index of the
-    /// row a horizontal line is above of, or of the column right after a
-    /// vertical line.
-    ///
-    /// Must be within `0..=tracks.len()` (where `tracks` is either `grid.cols`
-    /// or `grid.rows`, ignoring gutter tracks, as appropriate).
-    pub index: usize,
-    /// The index of the track at which this line starts being drawn.
-    /// This is the first column a horizontal line appears in, or the first row
-    /// a vertical line appears in.
-    ///
-    /// Must be within `0..tracks.len()` minus gutter tracks.
-    pub start: usize,
-    /// The index after the last track through which the line is drawn.
-    /// Thus, the line is drawn through tracks `start..end` (note that `end` is
-    /// exclusive).
-    ///
-    /// Must be within `1..=tracks.len()` minus gutter tracks.
-    /// `None` indicates the line should go all the way to the end.
-    pub end: Option<NonZeroUsize>,
-    /// The line's stroke. This is `None` when the line is explicitly used to
-    /// override a previously specified line.
-    pub stroke: Option<Arc<Stroke<Abs>>>,
-    /// The line's position in relation to the track with its index.
-    pub position: LinePosition,
-}
+use super::RowPiece;
 
 /// Indicates which priority a particular grid line segment should have, based
 /// on the highest priority configuration that defined the segment's stroke.
@@ -107,7 +77,7 @@ pub struct LineSegment {
 /// vertical lines, for instance, `tracks` would describe the rows in the
 /// current region, as pairs (row index, row height).
 pub fn generate_line_segments<'grid, F, I, L>(
-    grid: &'grid CellGrid,
+    grid: &'grid Raster,
     tracks: I,
     index: usize,
     lines: L,
@@ -115,7 +85,7 @@ pub fn generate_line_segments<'grid, F, I, L>(
 ) -> impl Iterator<Item = LineSegment> + 'grid
 where
     F: Fn(
-            &CellGrid,
+            &Raster,
             usize,
             usize,
             Option<Option<Arc<Stroke<Abs>>>>,
@@ -302,7 +272,7 @@ where
 /// The priority associated with the returned stroke follows the rules
 /// described in the docs for `generate_line_segment`.
 pub fn vline_stroke_at_row(
-    grid: &CellGrid,
+    grid: &Raster,
     x: usize,
     y: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
@@ -422,7 +392,7 @@ pub fn vline_stroke_at_row(
 /// This function assumes columns are sorted by increasing `x`, and rows are
 /// sorted by increasing `y`.
 pub fn hline_stroke_at_column(
-    grid: &CellGrid,
+    grid: &Raster,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
     in_last_region: bool,
@@ -588,13 +558,13 @@ pub fn hline_stroke_at_column(
 
 #[cfg(test)]
 mod test {
+    use std::num::NonZeroUsize;
     use typst_library::foundations::Content;
     use typst_library::introspection::Locator;
+    use typst_library::layout::raster::{Cell, Entry, LinePosition};
     use typst_library::layout::{Axes, Sides, Sizing};
     use typst_utils::NonZeroExt;
 
-    use super::super::cells::Entry;
-    use super::super::Cell;
     use super::*;
 
     fn sample_cell() -> Cell<'static> {
@@ -623,7 +593,7 @@ mod test {
         }
     }
 
-    fn sample_grid_for_vlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_vlines(gutters: bool) -> Raster<'static> {
         const COLS: usize = 4;
         const ROWS: usize = 6;
         let entries = vec![
@@ -658,7 +628,7 @@ mod test {
             Entry::Cell(cell_with_colspan_rowspan(2, 1)),
             Entry::Merged { parent: 22 },
         ];
-        CellGrid::new_internal(
+        Raster::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
                 Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
@@ -1146,7 +1116,7 @@ mod test {
         }
     }
 
-    fn sample_grid_for_hlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_hlines(gutters: bool) -> Raster<'static> {
         const COLS: usize = 4;
         const ROWS: usize = 9;
         let entries = vec![
@@ -1196,7 +1166,7 @@ mod test {
             Entry::Merged { parent: 30 },
             Entry::Merged { parent: 30 },
         ];
-        CellGrid::new_internal(
+        Raster::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
                 Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
