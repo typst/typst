@@ -304,3 +304,17 @@ b
 #block(sticky: true)[*A*]
 
 b
+
+--- issue-5262-block-negative-height ---
+#block(height: -1pt)[]
+
+--- issue-5262-block-negative-height-implicit ---
+#set page(height: 10pt, margin: (top: 9pt))
+#block(height: 100%)[]
+
+--- issue-5262-block-negative-height-in-flow ---
+// The contents after the block should be pushed upwards.
+#set page(height: 60pt)
+a
+#block(height: -25pt)[b]
+c
