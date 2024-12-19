@@ -1,16 +1,16 @@
 use std::fmt::Write;
 use std::ops::Range;
-use std::path::Path;
 
-use ecow::eco_vec;
+use ecow::{eco_vec, EcoString};
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, Warned};
+use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, Page, PagedDocument, Transform};
 use typst::visualize::Color;
-use typst::WorldExt;
+use typst::{Document, WorldExt};
 use typst_pdf::PdfOptions;
 
-use crate::collect::{FileSize, NoteKind, Test};
+use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
 use crate::world::TestWorld;
 
@@ -40,6 +40,116 @@ pub struct Runner<'a> {
     not_annotated: String,
 }
 
+trait OutputType: Document {
+    type Live;
+    fn live_path(name: &EcoString) -> String;
+    fn ref_path(name: &EcoString) -> String;
+    fn is_skippable(&self) -> Result<bool, ()> {
+        Ok(false)
+    }
+    fn make_live(&self) -> Self::Live;
+    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool;
+    fn save_live(&self, name: &EcoString, live: &Self::Live);
+    fn save_ref(live: Self::Live) -> Vec<u8>;
+    fn check_custom(_runner: &mut Runner, _doc: Option<&Self>) {}
+}
+
+impl OutputType for PagedDocument {
+    type Live = tiny_skia::Pixmap;
+
+    fn live_path(name: &EcoString) -> String {
+        format!("{}/render/{}.png", crate::STORE_PATH, name)
+    }
+
+    fn ref_path(name: &EcoString) -> String {
+        format!("{}/{}.png", crate::REF_PATH, name)
+    }
+
+    fn is_skippable(&self) -> Result<bool, ()> {
+        match self.pages.as_slice() {
+            [] => Err(()),
+            [page] => Ok(skippable(page)),
+            _ => Ok(false),
+        }
+    }
+
+    fn make_live(&self) -> Self::Live {
+        render(self, 1.0)
+    }
+
+    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
+        let ref_pixmap = sk::Pixmap::decode_png(ref_data).unwrap();
+        approx_equal(live, &ref_pixmap)
+    }
+
+    fn save_live(&self, name: &EcoString, live: &Self::Live) {
+        // Save live version, possibly rerendering if different scale is
+        // requested.
+        let mut pixmap_live = live;
+        let slot;
+        let scale = crate::ARGS.scale;
+        if scale != 1.0 {
+            slot = render(self, scale);
+            pixmap_live = &slot;
+        }
+        let data: Vec<u8> = pixmap_live.encode_png().unwrap();
+        std::fs::write(Self::live_path(name), data).unwrap();
+
+        // Write PDF if requested.
+        if crate::ARGS.pdf() {
+            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, name);
+            let pdf = typst_pdf::pdf(self, &PdfOptions::default()).unwrap();
+            std::fs::write(pdf_path, pdf).unwrap();
+        }
+
+        // Write SVG if requested.
+        if crate::ARGS.svg() {
+            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, name);
+            let svg = typst_svg::svg_merged(self, Abs::pt(5.0));
+            std::fs::write(svg_path, svg).unwrap();
+        }
+    }
+
+    fn save_ref(live: Self::Live) -> Vec<u8> {
+        let opts = oxipng::Options::max_compression();
+        let data = live.encode_png().unwrap();
+        oxipng::optimize_from_memory(&data, &opts).unwrap()
+    }
+
+    fn check_custom(runner: &mut Runner, doc: Option<&Self>) {
+        runner.check_custom(doc);
+    }
+}
+
+impl OutputType for HtmlDocument {
+    type Live = String;
+
+    fn live_path(name: &EcoString) -> String {
+        format!("{}/html/{}.html", crate::STORE_PATH, name)
+    }
+
+    fn ref_path(name: &EcoString) -> String {
+        format!("{}/html/{}.html", crate::REF_PATH, name)
+    }
+
+    fn make_live(&self) -> Self::Live {
+        // convert CR-LF (Windows) to just LF (Unix)
+        typst_html::html(self).unwrap().replace("\r\n", "\n")
+    }
+
+    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
+        live.as_bytes() == ref_data
+    }
+
+    fn save_live(&self, name: &EcoString, live: &Self::Live) {
+        std::fs::write(Self::live_path(name), live).unwrap();
+    }
+
+    fn save_ref(live: Self::Live) -> Vec<u8> {
+        live.into_bytes()
+    }
+}
+
 impl<'a> Runner<'a> {
     /// Create a new test runner.
     fn new(test: &'a Test) -> Self {
@@ -50,7 +160,7 @@ impl<'a> Runner<'a> {
             result: TestResult {
                 errors: String::new(),
                 infos: String::new(),
-                mismatched_image: false,
+                mismatched_output: false,
             },
             not_annotated: String::new(),
         }
@@ -62,6 +172,23 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
+        let html = self.test.attrs.contains(&Attr::Html);
+        let render = !html || self.test.attrs.contains(&Attr::Render);
+        if html {
+            self.run_test::<HtmlDocument>();
+        }
+        if render {
+            self.run_test::<PagedDocument>();
+        }
+
+        self.handle_not_emitted();
+        self.handle_not_annotated();
+
+        self.result
+    }
+
+    /// Run test specific to document format.
+    fn run_test<D: OutputType>(&mut self) {
         let Warned { output, warnings } = typst::compile(&self.world);
         let (doc, errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
@@ -72,8 +199,8 @@ impl<'a> Runner<'a> {
             log!(self, "no document, but also no errors");
         }
 
-        self.check_custom(doc.as_ref());
-        self.check_document(doc.as_ref());
+        D::check_custom(self, doc.as_ref());
+        self.check_output(doc.as_ref());
 
         for error in &errors {
             self.check_diagnostic(NoteKind::Error, error);
@@ -82,11 +209,6 @@ impl<'a> Runner<'a> {
         for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning);
         }
-
-        self.handle_not_emitted();
-        self.handle_not_annotated();
-
-        self.result
     }
 
     /// Handle errors that weren't annotated.
@@ -126,73 +248,42 @@ impl<'a> Runner<'a> {
     }
 
     /// Check that the document output is correct.
-    fn check_document(&mut self, document: Option<&PagedDocument>) {
-        let live_path = format!("{}/render/{}.png", crate::STORE_PATH, self.test.name);
-        let ref_path = format!("{}/{}.png", crate::REF_PATH, self.test.name);
-        let has_ref = Path::new(&ref_path).exists();
+    fn check_output<D: OutputType>(&mut self, document: Option<&D>) {
+        let live_path = D::live_path(&self.test.name);
+        let ref_path = D::ref_path(&self.test.name);
+        let ref_data = std::fs::read(&ref_path);
 
         let Some(document) = document else {
-            if has_ref {
+            if ref_data.is_ok() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {ref_path}");
             }
             return;
         };
 
-        let skippable = match document.pages.as_slice() {
-            [] => {
+        let skippable = match D::is_skippable(document) {
+            Ok(skippable) => skippable,
+            Err(()) => {
                 log!(self, "document has zero pages");
                 return;
             }
-            [page] => skippable(page),
-            _ => false,
         };
 
-        // Tests without visible output and no reference image don't need to be
+        // Tests without visible output and no reference output don't need to be
         // compared.
-        if skippable && !has_ref {
+        if skippable && ref_data.is_err() {
             std::fs::remove_file(&live_path).ok();
             return;
         }
 
         // Render the live version.
-        let pixmap = render(document, 1.0);
+        let live = document.make_live();
 
-        // Save live version, possibly rerendering if different scale is
-        // requested.
-        let mut pixmap_live = &pixmap;
-        let slot;
-        let scale = crate::ARGS.scale;
-        if scale != 1.0 {
-            slot = render(document, scale);
-            pixmap_live = &slot;
-        }
-        let data = pixmap_live.encode_png().unwrap();
-        std::fs::write(&live_path, data).unwrap();
+        document.save_live(&self.test.name, &live);
 
-        // Write PDF if requested.
-        if crate::ARGS.pdf() {
-            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, self.test.name);
-            let pdf = typst_pdf::pdf(document, &PdfOptions::default()).unwrap();
-            std::fs::write(pdf_path, pdf).unwrap();
-        }
-
-        // Write SVG if requested.
-        if crate::ARGS.svg() {
-            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, self.test.name);
-            let svg = typst_svg::svg_merged(document, Abs::pt(5.0));
-            std::fs::write(svg_path, svg).unwrap();
-        }
-
-        // Compare against reference image if available.
-        let equal = has_ref && {
-            let ref_data = std::fs::read(&ref_path).unwrap();
-            let ref_pixmap = sk::Pixmap::decode_png(&ref_data).unwrap();
-            approx_equal(&pixmap, &ref_pixmap)
-        };
-
+        // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
-        if equal {
+        if ref_data.as_ref().map(|r| D::equals(&live, r)).unwrap_or(false) {
             return;
         }
 
@@ -201,35 +292,35 @@ impl<'a> Runner<'a> {
                 std::fs::remove_file(&ref_path).unwrap();
                 log!(
                     into: self.result.infos,
-                    "removed reference image ({ref_path})"
+                    "removed reference output ({ref_path})"
                 );
             } else {
-                let opts = oxipng::Options::max_compression();
-                let data = pixmap.encode_png().unwrap();
-                let ref_data = oxipng::optimize_from_memory(&data, &opts).unwrap();
-                if !self.test.large && ref_data.len() > crate::REF_LIMIT {
-                    log!(self, "reference image would exceed maximum size");
+                let ref_data = D::save_ref(live);
+                if !self.test.attrs.contains(&Attr::Large)
+                    && ref_data.len() > crate::REF_LIMIT
+                {
+                    log!(self, "reference output would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
                     log!(self, "please try to minimize the size of the test (smaller pages, less text, etc.)");
-                    log!(self, "if you think the test cannot be reasonably minimized, mark it as `// LARGE`");
+                    log!(self, "if you think the test cannot be reasonably minimized, mark it as `large`");
                     return;
                 }
                 std::fs::write(&ref_path, &ref_data).unwrap();
                 log!(
                     into: self.result.infos,
-                    "updated reference image ({ref_path}, {})",
+                    "updated reference output ({ref_path}, {})",
                     FileSize(ref_data.len()),
                 );
             }
         } else {
-            self.result.mismatched_image = true;
-            if has_ref {
-                log!(self, "mismatched rendering");
+            self.result.mismatched_output = true;
+            if ref_data.is_ok() {
+                log!(self, "mismatched output");
                 log!(self, "  live      | {live_path}");
                 log!(self, "  ref       | {ref_path}");
             } else {
-                log!(self, "missing reference image");
+                log!(self, "missing reference output");
                 log!(self, "  live      | {live_path}");
             }
         }
@@ -240,6 +331,10 @@ impl<'a> Runner<'a> {
     fn check_diagnostic(&mut self, kind: NoteKind, diag: &SourceDiagnostic) {
         // Ignore diagnostics from other sources than the test file itself.
         if diag.span.id().is_some_and(|id| id != self.test.source.id()) {
+            return;
+        }
+        // TODO: remove this once HTML export is stable
+        if diag.message == "html export is under active development and incomplete" {
             return;
         }
 

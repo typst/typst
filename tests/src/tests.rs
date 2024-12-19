@@ -62,7 +62,7 @@ fn setup() {
     std::env::set_current_dir("..").unwrap();
 
     // Create the storage.
-    for ext in ["render", "pdf", "svg"] {
+    for ext in ["html", "render", "pdf", "svg"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(ext)).unwrap();
     }
 
@@ -188,7 +188,7 @@ fn run_parser_test(
     let mut result = TestResult {
         errors: String::new(),
         infos: String::new(),
-        mismatched_image: false,
+        mismatched_output: false,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
