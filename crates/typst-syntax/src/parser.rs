@@ -473,7 +473,6 @@ fn math_args(p: &mut Parser) {
     p.convert_and_eat(SyntaxKind::LeftParen);
 
     let mut positional = true;
-    let mut array_last = true;
     let mut has_arrays = false;
 
     let mut maybe_array_start = p.marker();
@@ -501,20 +500,13 @@ fn math_args(p: &mut Parser) {
                 maybe_array_start = p.marker();
                 has_arrays = true;
             }
-            SyntaxKind::End | SyntaxKind::Dollar | SyntaxKind::RightParen => {
-                // Check if we have reached the end, after the last argument.
-                if has_arrays && positional {
-                    p.wrap(maybe_array_start, SyntaxKind::Array);
-                    // So we don't wrap as an array twice after the loop.
-                    array_last = false;
-                }
-            }
+            SyntaxKind::End | SyntaxKind::Dollar | SyntaxKind::RightParen => {}
             _ => p.unexpected(),
         }
     }
 
     // Check if we need to wrap the preceding arguments in an array.
-    if array_last && maybe_array_start != p.marker() && has_arrays && positional {
+    if maybe_array_start != p.marker() && has_arrays && positional {
         p.wrap(maybe_array_start, SyntaxKind::Array);
     }
 
