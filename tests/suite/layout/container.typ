@@ -304,3 +304,10 @@ b
 #block(sticky: true)[*A*]
 
 b
+
+--- issue-5262-block-negative-height ---
+#block(height: -1pt)[]
+
+--- issue-5262-block-negative-height-implicit ---
+#set page(height: 10pt, margin: (top: 9pt))
+#block(height: 100%)[]

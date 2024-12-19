@@ -370,8 +370,12 @@ fn distribute<'a>(
     buf: &'a mut SmallVec<[Abs; 2]>,
 ) -> (Abs, &'a mut [Abs]) {
     // Build new region heights from old regions.
-    let mut remaining = height;
+    let mut remaining = height.max(Abs::zero());
     loop {
+        // This clamp is safe (min <= max), as 'remaining' won't be negative
+        // due to '.max(0)' above (on the first iteration) and due to
+        // stopping on 'remaining.approx_empty()' below (for the second
+        // iteration onwards).
         let limited = regions.size.y.clamp(Abs::zero(), remaining);
         buf.push(limited);
         remaining -= limited;
