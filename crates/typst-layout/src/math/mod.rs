@@ -28,8 +28,7 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    families, features, variant, Font, LinebreakElem, SpaceElem, TextEdgeBounds,
-    TextElem, TextSize,
+    families, features, variant, Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem,
 };
 use typst_library::World;
 use typst_syntax::Span;
@@ -58,12 +57,20 @@ pub fn layout_equation_inline(
 
     let mut locator = locator.split();
     let mut ctx = MathContext::new(engine, &mut locator, styles, region, &font);
+
+    let local = [
+        EquationElem::set_script_scale(ctx.constants.script_percent_scale_down()),
+        EquationElem::set_sscript_scale(ctx.constants.script_script_percent_scale_down()),
+    ]
+    .map(|p| p.wrap());
+    let styles = styles.chain(&local);
+
     let run = ctx.layout_into_run(&elem.body, styles)?;
 
     let mut items = if run.row_count() == 1 {
         run.into_par_items()
     } else {
-        vec![InlineItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
+        vec![InlineItem::Frame(run.into_fragment(styles).into_frame())]
     };
 
     // An empty equation should have a height, so we still create a frame
@@ -75,13 +82,12 @@ pub fn layout_equation_inline(
     for item in &mut items {
         let InlineItem::Frame(frame) = item else { continue };
 
-        let font_size = scaled_font_size(&ctx, styles);
         let slack = ParElem::leading_in(styles) * 0.7;
 
         let (t, b) = font.edges(
             TextElem::top_edge_in(styles),
             TextElem::bottom_edge_in(styles),
-            font_size,
+            TextElem::size_in(styles),
             TextEdgeBounds::Frame(frame),
         );
 
@@ -110,9 +116,17 @@ pub fn layout_equation_block(
 
     let mut locator = locator.split();
     let mut ctx = MathContext::new(engine, &mut locator, styles, regions.base(), &font);
+
+    let local = [
+        EquationElem::set_script_scale(ctx.constants.script_percent_scale_down()),
+        EquationElem::set_sscript_scale(ctx.constants.script_script_percent_scale_down()),
+    ]
+    .map(|p| p.wrap());
+    let styles = styles.chain(&local);
+
     let full_equation_builder = ctx
         .layout_into_run(&elem.body, styles)?
-        .multiline_frame_builder(&ctx, styles);
+        .multiline_frame_builder(styles);
     let width = full_equation_builder.size.x;
 
     let equation_builders = if BlockElem::breakable_in(styles) {
@@ -469,7 +483,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         elem: &Content,
         styles: StyleChain,
     ) -> SourceResult<MathFragment> {
-        Ok(self.layout_into_run(elem, styles)?.into_fragment(self, styles))
+        Ok(self.layout_into_run(elem, styles)?.into_fragment(styles))
     }
 
     /// Layout the given element and return the result as a [`Frame`].
@@ -502,7 +516,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             // Hack because the font is fixed in math.
             if styles != outer && TextElem::font_in(styles) != TextElem::font_in(outer) {
                 let frame = layout_external(elem, self, styles)?;
-                self.push(FrameFragment::new(self, styles, frame).with_spaced(true));
+                self.push(FrameFragment::new(styles, frame).with_spaced(true));
                 continue;
             }
 
@@ -522,7 +536,7 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        let font_size = scaled_font_size(ctx, styles);
+        let font_size = TextElem::size_in(styles);
         ctx.push(MathFragment::Space(ctx.space_width.at(font_size)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
@@ -595,7 +609,7 @@ fn layout_realized(
             frame.set_baseline(frame.height() / 2.0 + axis);
         }
         ctx.push(
-            FrameFragment::new(ctx, styles, frame)
+            FrameFragment::new(styles, frame)
                 .with_spaced(true)
                 .with_ignorant(elem.is::<PlaceElem>()),
         );
@@ -610,15 +624,14 @@ fn layout_box(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let local = TextElem::set_size(TextSize(scaled_font_size(ctx, styles).into())).wrap();
     let frame = (ctx.engine.routines.layout_box)(
         elem,
         ctx.engine,
         ctx.locator.next(&elem.span()),
-        styles.chain(&local),
+        styles,
         ctx.region.size,
     )?;
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
+    ctx.push(FrameFragment::new(styles, frame).with_spaced(true));
     Ok(())
 }
 
@@ -630,10 +643,7 @@ fn layout_h(
 ) -> SourceResult<()> {
     if let Spacing::Rel(rel) = elem.amount() {
         if rel.rel.is_zero() {
-            ctx.push(MathFragment::Spacing(
-                rel.abs.at(scaled_font_size(ctx, styles)),
-                elem.weak(styles),
-            ));
+            ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
         }
     }
     Ok(())
@@ -668,7 +678,7 @@ fn layout_op(
     let text_like = fragment.is_text_like();
 
     ctx.push(
-        FrameFragment::new(ctx, styles, fragment.into_frame())
+        FrameFragment::new(styles, fragment.into_frame())
             .with_class(MathClass::Large)
             .with_italics_correction(italics)
             .with_accent_attach(accent_attach)
@@ -688,12 +698,11 @@ fn layout_external(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<Frame> {
-    let local = TextElem::set_size(TextSize(scaled_font_size(ctx, styles).into())).wrap();
     (ctx.engine.routines.layout_frame)(
         ctx.engine,
         content,
         ctx.locator.next(&content.span()),
-        styles.chain(&local),
+        styles,
         ctx.region,
     )
 }

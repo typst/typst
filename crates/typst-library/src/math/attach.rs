@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content, Packed, Smart};
+use crate::foundations::{elem, Content, Packed};
 use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, Mathy};
 
@@ -152,5 +152,7 @@ pub struct StretchElem {
 
     /// The size to stretch to, relative to the maximum size of the glyph and
     /// its attachments.
-    pub size: Smart<Rel<Length>>,
+    #[resolve]
+    #[default(Rel::one())]
+    pub size: Rel<Length>,
 }

@@ -7,8 +7,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    scaled_font_size, style_for_denominator, style_for_numerator, FrameFragment,
-    GlyphFragment, MathContext, DELIM_SHORT_FALL,
+    style_for_denominator, style_for_numerator, FrameFragment, GlyphFragment,
+    MathContext, DELIM_SHORT_FALL,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -49,7 +49,7 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let font_size = scaled_font_size(ctx, styles);
+    let font_size = TextElem::size_in(styles);
     let short_fall = DELIM_SHORT_FALL.at(font_size);
     let axis = scaled!(ctx, styles, axis_height);
     let thickness = scaled!(ctx, styles, fraction_rule_thickness);
@@ -111,7 +111,7 @@ fn layout_frac_like(
             .stretch_vertical(ctx, height, short_fall);
         left.center_on_axis(ctx);
         ctx.push(left);
-        ctx.push(FrameFragment::new(ctx, styles, frame));
+        ctx.push(FrameFragment::new(styles, frame));
         let mut right = GlyphFragment::new(ctx, styles, ')', span)
             .stretch_vertical(ctx, height, short_fall);
         right.center_on_axis(ctx);
@@ -129,7 +129,7 @@ fn layout_frac_like(
                 span,
             ),
         );
-        ctx.push(FrameFragment::new(ctx, styles, frame));
+        ctx.push(FrameFragment::new(styles, frame));
     }
 
     Ok(())

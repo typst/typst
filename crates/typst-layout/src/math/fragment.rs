@@ -17,7 +17,7 @@ use typst_library::visualize::Paint;
 use typst_syntax::Span;
 use unicode_math_class::MathClass;
 
-use super::{scaled_font_size, stretch_glyph, MathContext, Scaled};
+use super::{stretch_glyph, MathContext, Scaled};
 
 #[derive(Debug, Clone)]
 pub enum MathFragment {
@@ -292,7 +292,7 @@ impl GlyphFragment {
             region: TextElem::region_in(styles),
             fill: TextElem::fill_in(styles).as_decoration(),
             shift: TextElem::baseline_in(styles),
-            font_size: scaled_font_size(ctx, styles),
+            font_size: TextElem::size_in(styles),
             math_size: EquationElem::size_in(styles),
             width: Abs::zero(),
             ascent: Abs::zero(),
@@ -512,12 +512,12 @@ pub struct FrameFragment {
 }
 
 impl FrameFragment {
-    pub fn new(ctx: &MathContext, styles: StyleChain, frame: Frame) -> Self {
+    pub fn new(styles: StyleChain, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
         let accent_attach = frame.width() / 2.0;
         Self {
             frame: frame.post_processed(styles),
-            font_size: scaled_font_size(ctx, styles),
+            font_size: TextElem::size_in(styles),
             class: EquationElem::class_in(styles).unwrap_or(MathClass::Normal),
             math_size: EquationElem::size_in(styles),
             limits: Limits::Never,

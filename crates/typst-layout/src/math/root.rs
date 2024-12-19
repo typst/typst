@@ -38,7 +38,7 @@ pub fn layout_root(
         let styles = styles.chain(&cramped);
         let run = ctx.layout_into_run(radicand, styles)?;
         let multiline = run.is_multiline();
-        let mut radicand = run.into_fragment(ctx, styles).into_frame();
+        let mut radicand = run.into_fragment(styles).into_frame();
         if multiline {
             // Align the frame center line with the math axis.
             radicand.set_baseline(
@@ -120,7 +120,7 @@ pub fn layout_root(
     );
 
     frame.push_frame(radicand_pos, radicand);
-    ctx.push(FrameFragment::new(ctx, styles, frame));
+    ctx.push(FrameFragment::new(styles, frame));
 
     Ok(())
 }
