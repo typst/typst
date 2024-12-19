@@ -321,7 +321,7 @@ impl<'a> Runner<'a> {
         } else {
             self.result.mismatched_output = true;
             if ref_data.is_ok() {
-                log!(self, "mismatched rendering");
+                log!(self, "mismatched output");
                 log!(self, "  live      | {live_path}");
                 log!(self, "  ref       | {ref_path}");
             } else {
