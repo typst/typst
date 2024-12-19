@@ -10,7 +10,7 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
 use typst_utils::Static;
 
-use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
+use crate::diag::{bail, HintedStrResult, HintedString, MaybeDeprecated, StrResult};
 use crate::foundations::{
     Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
     NativeType, Type, Value,
@@ -47,14 +47,14 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
+    pub fn get(&self, var: &str) -> HintedStrResult<MaybeDeprecated<&Value>> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
                 self.base.and_then(|base| match base.global.scope().get(var) {
                     Some(value) => Some(value),
-                    None if var == "std" => Some(&base.std),
+                    None if var == "std" => Some(MaybeDeprecated::ok(&base.std)),
                     None => None,
                 })
             })
@@ -62,14 +62,14 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably in math.
-    pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
+    pub fn get_in_math(&self, var: &str) -> HintedStrResult<MaybeDeprecated<&Value>> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
                 self.base.and_then(|base| match base.math.scope().get(var) {
                     Some(value) => Some(value),
-                    None if var == "std" => Some(&base.std),
+                    None if var == "std" => Some(MaybeDeprecated::ok(&base.std)),
                     None => None,
                 })
             })
@@ -188,10 +188,35 @@ impl Scope {
         self.define_spanned(name, value, Span::detached())
     }
 
+    /// Bind a value to a name and mark it as deprecated with a deprecation
+    /// message.
+    pub fn define_deprecated(
+        &mut self,
+        name: impl Into<EcoString>,
+        value: impl IntoValue,
+        message: impl Into<EcoString>,
+    ) {
+        self.define_spanned_maybe_deprecated(
+            name,
+            MaybeDeprecated::deprecated(value.into_value(), message),
+            Span::detached(),
+        )
+    }
+
     /// Bind a value to a name defined by an identifier.
     #[track_caller]
     pub fn define_ident(&mut self, ident: ast::Ident, value: impl IntoValue) {
         self.define_spanned(ident.get().clone(), value, ident.span())
+    }
+
+    /// Bind a possibly deprecated value to a name defined by an identifier.
+    #[track_caller]
+    pub fn define_ident_maybe_deprecated(
+        &mut self,
+        ident: ast::Ident,
+        value: MaybeDeprecated<Value>,
+    ) {
+        self.define_spanned_maybe_deprecated(ident.get().clone(), value, ident.span())
     }
 
     /// Bind a value to a name.
@@ -202,6 +227,21 @@ impl Scope {
         value: impl IntoValue,
         span: Span,
     ) {
+        self.define_spanned_maybe_deprecated(
+            name,
+            MaybeDeprecated::ok(value.into_value()),
+            span,
+        )
+    }
+
+    /// Bind a possibly deprecated value to a name.
+    #[track_caller]
+    pub fn define_spanned_maybe_deprecated(
+        &mut self,
+        name: impl Into<EcoString>,
+        value: MaybeDeprecated<Value>,
+        span: Span,
+    ) {
         let name = name.into();
 
         #[cfg(debug_assertions)]
@@ -209,23 +249,21 @@ impl Scope {
             panic!("duplicate definition: {name}");
         }
 
-        self.map.insert(
-            name,
-            Slot::new(value.into_value(), span, Kind::Normal, self.category),
-        );
+        self.map
+            .insert(name, Slot::new(value, span, Kind::Normal, self.category));
     }
 
     /// Define a captured, immutable binding.
     pub fn define_captured(
         &mut self,
         name: EcoString,
-        value: Value,
+        value: MaybeDeprecated<Value>,
         capturer: Capturer,
         span: Span,
     ) {
         self.map.insert(
             name,
-            Slot::new(value.into_value(), span, Kind::Captured(capturer), self.category),
+            Slot::new(value, span, Kind::Captured(capturer), self.category),
         );
     }
 
@@ -258,7 +296,7 @@ impl Scope {
     }
 
     /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> Option<&Value> {
+    pub fn get(&self, var: &str) -> Option<MaybeDeprecated<&Value>> {
         self.map.get(var).map(Slot::read)
     }
 
@@ -281,7 +319,9 @@ impl Scope {
     }
 
     /// Iterate over all definitions.
-    pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Value, Span)> {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&EcoString, MaybeDeprecated<&Value>, Span)> {
         self.map.iter().map(|(k, v)| (k, v.read(), v.span))
     }
 }
@@ -316,10 +356,10 @@ pub trait NativeScope {
 }
 
 /// A slot where a value is stored.
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 struct Slot {
     /// The stored value.
-    value: Value,
+    value: MaybeDeprecated<Value>,
     /// The kind of slot, determines how the value can be accessed.
     kind: Kind,
     /// A span associated with the stored value.
@@ -348,19 +388,24 @@ pub enum Capturer {
 
 impl Slot {
     /// Create a new slot.
-    fn new(value: Value, span: Span, kind: Kind, category: Option<Category>) -> Self {
+    fn new(
+        value: MaybeDeprecated<Value>,
+        span: Span,
+        kind: Kind,
+        category: Option<Category>,
+    ) -> Self {
         Self { value, span, kind, category }
     }
 
     /// Read the value.
-    fn read(&self) -> &Value {
-        &self.value
+    fn read(&self) -> MaybeDeprecated<&Value> {
+        self.value.as_ref()
     }
 
     /// Try to write to the value.
     fn write(&mut self) -> StrResult<&mut Value> {
         match self.kind {
-            Kind::Normal => Ok(&mut self.value),
+            Kind::Normal => Ok(self.value.value_mut()),
             Kind::Captured(capturer) => {
                 bail!(
                     "variables from outside the {} are \
@@ -368,7 +413,7 @@ impl Slot {
                     match capturer {
                         Capturer::Function => "function",
                         Capturer::Context => "context expression",
-                    }
+                    },
                 )
             }
         }

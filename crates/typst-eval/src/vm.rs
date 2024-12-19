@@ -1,5 +1,5 @@
 use comemo::Tracked;
-use typst_library::diag::warning;
+use typst_library::diag::{warning, MaybeDeprecated};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Context, IntoValue, Scopes, Value};
 use typst_library::World;
@@ -59,6 +59,14 @@ impl<'a> Vm<'a> {
             ));
         }
         self.scopes.top.define_ident(var, value);
+    }
+
+    /// Imports a variable to the current scope.
+    pub fn import(&mut self, ident: ast::Ident, value: MaybeDeprecated<Value>) {
+        if self.inspected == Some(ident.span()) {
+            self.trace(value.value().clone());
+        }
+        self.scopes.top.define_ident_maybe_deprecated(ident, value);
     }
 
     /// Trace a value.

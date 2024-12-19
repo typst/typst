@@ -158,6 +158,7 @@
 ]))
 
 --- tiling-pattern-compatibility ---
+// Warning: 2:10-2:17 the name `pattern` is deprecated, use `tiling` instead
 #set page(width: auto, height: auto, margin: 0pt)
 #let t = pattern(size: (10pt, 10pt), line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
 #rect(width: 50pt, height: 50pt, fill: t)

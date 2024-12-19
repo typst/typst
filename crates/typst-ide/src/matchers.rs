@@ -1,4 +1,5 @@
 use ecow::EcoString;
+use typst::diag::MaybeDeprecated;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind, SyntaxNode};
@@ -77,7 +78,11 @@ pub fn named_items<T>(
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source.and_then(|(value, _)| value.scope()) {
                             for (name, value, span) in scope.iter() {
-                                let item = NamedItem::Import(name, span, Some(value));
+                                let item = NamedItem::Import(
+                                    name,
+                                    span,
+                                    Some(value.into_inner()),
+                                );
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -98,9 +103,11 @@ pub fn named_items<T>(
                                 .or(bound.span());
 
                             let value = scope.and_then(|s| s.get(&original));
-                            if let Some(res) =
-                                recv(NamedItem::Import(bound.get(), span, value))
-                            {
+                            if let Some(res) = recv(NamedItem::Import(
+                                bound.get(),
+                                span,
+                                value.map(MaybeDeprecated::into_inner),
+                            )) {
                                 return Some(res);
                             }
                         }
