@@ -10,15 +10,11 @@ $ pi(a,b,) $
 
 --- math-call-unclosed-func ---
 #let func(x) = x
-// Error: 1-2 unclosed delimiter
 // Error: 6-7 unclosed delimiter
-// Error: 8-9 unexpected dollar sign
 $func(a$
 
 --- math-call-unclosed-non-func ---
-// Error: 1-2 unclosed delimiter
 // Error: 5-6 unclosed delimiter
-// Error: 7-8 unexpected dollar sign
 $sin(x$
 
 --- math-call-named-args ---
@@ -42,7 +38,7 @@ $ func(my: a, my: b) $
 
 --- math-call-named-single-underscore ---
 #let func(x) = x
-// Error: 8-9 expected identifier, got underscore
+// Error: 8-9 expected identifier, found underscore
 $ func(_: a) $
 
 --- math-call-named-single-char-error ---

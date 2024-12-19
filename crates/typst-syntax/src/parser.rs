@@ -524,14 +524,14 @@ fn math_args(p: &mut Parser) {
 
 /// Parses a single argument in a math argument list.
 ///
-/// Returns whether the argument parsed was positional or not.
+/// Returns whether the parsed argument was positional or not.
 fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
     let m = p.marker();
     let start = p.current_start();
 
     if p.at(SyntaxKind::Dot) {
         // Parses a spread argument: `..args`.
-        if let Some(spread) = p.lexer.is_math_spread_arg(start) {
+        if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
             p.token.node = spread;
             p.eat();
             math_expr(p);
@@ -543,7 +543,7 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
     let mut positional = true;
     if p.at_set(syntax_set!(Text, MathIdent, Underscore)) {
         // Parses a named argument: `thickness: #12pt`.
-        if let Some(named) = p.lexer.is_math_named_arg(start) {
+        if let Some(named) = p.lexer.maybe_math_named_arg(start) {
             p.token.node = named;
             let text = p.current_text();
             p.eat();
@@ -555,22 +555,9 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
         }
     }
 
-    // Parses a normal position argument.
+    // Parses a normal positional argument.
     let arg = p.marker();
-    let count = math_exprs(p, syntax_set!(End, Comma, Semicolon, RightParen));
-    let named = if positional { None } else { Some(m) };
-    maybe_wrap_in_math(p, arg, count, named);
-
-    positional
-}
-
-/// Wrap math function arguments to join adjacent math content or create an
-/// empty 'Math' node for when we have 0 args.
-///
-/// We don't wrap when `count == 1`, since wrapping would change the type of the
-/// expression from potentially non-content to content. Ex: `$ func(#12pt) $`
-/// would change the type from size to content if wrapped.
-fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, count: usize, named: Option<Marker>) {
+    let count = math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
     if count == 0 {
         // Flush trivia so that the new empty Math node will be wrapped _inside_
         // any `SyntaxKind::Array` elements created in `math_args`.
@@ -582,13 +569,19 @@ fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, count: usize, named: Option<M
         p.flush_trivia();
     }
 
+    // Wrap math function arguments to join adjacent math content or create an
+    // empty 'Math' node for when we have 0 args. We don't wrap when
+    // `count == 1`, since wrapping would change the type of the expression
+    // from potentially non-content to content. Ex: `$ func(#12pt) $` would
+    // change the type from size to content if wrapped.
     if count != 1 {
         p.wrap(arg, SyntaxKind::Math);
     }
 
-    if let Some(m) = named {
+    if !positional {
         p.wrap(m, SyntaxKind::Named);
     }
+    positional
 }
 
 /// Parses the contents of a code block.
