@@ -8,6 +8,8 @@ use unicode_math_class::MathClass;
 use crate::set::{syntax_set, SyntaxSet};
 use crate::{ast, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
 
+const MIN_PRECEDENCE_BOUND: usize = 3;
+
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
@@ -244,9 +246,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         // The lexer manages creating full FieldAccess nodes if needed.
         SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
             continuable = true;
+            let is_single_char =
+                matches!(math_class(p.current_text()), Some(MathClass::Alphabetic));
             p.eat();
             // Parse a function call for an identifier or field access.
-            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
+            if (!is_single_char || min_prec < MIN_PRECEDENCE_BOUND)
+                && p.directly_at(SyntaxKind::Text)
+                && p.current_text() == "("
             {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
@@ -271,7 +277,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Root => {
-            if min_prec < 3 {
+            if min_prec < MIN_PRECEDENCE_BOUND {
                 p.eat();
                 let m2 = p.marker();
                 math_expr_prec(p, 2, stop);
@@ -295,7 +301,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         _ => p.expected("expression"),
     }
 
-    if continuable && min_prec < 3 && !p.had_trivia() && maybe_delimited(p) {
+    if continuable
+        && min_prec < MIN_PRECEDENCE_BOUND
+        && !p.had_trivia()
+        && maybe_delimited(p)
+    {
         p.wrap(m, SyntaxKind::Math);
     }
 
@@ -369,10 +379,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
