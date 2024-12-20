@@ -161,7 +161,7 @@ fn stretch_size(
 ) -> Option<Smart<Rel<Length>>> {
     // Extract from an EquationElem.
     let mut base = elem.base();
-    if let Some(equation) = base.to_packed::<EquationElem>() {
+    while let Some(equation) = base.to_packed::<EquationElem>() {
         base = equation.body();
     }
 
