@@ -231,7 +231,7 @@ impl Symbol {
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
                 bail!(
                     span, "duplicate modifier within variant: {}", ms[0].repr();
-                    hint: "the modifiers of a variant constitute a set, repetition does not matter"
+                    hint: "modifiers are not ordered, so each one may appear only once"
                 )
             }
 
@@ -245,7 +245,7 @@ impl Symbol {
                 } else {
                     bail!(
                         span, "duplicate variant: {}", v.0.repr();
-                        hint: "the modifiers of a variant constitute a set, order does not matter"
+                        hint: "variants with the same modifiers are identical, regardless of their order"
                     )
                 }
             }
