@@ -114,3 +114,41 @@ Inline $2 baz(x,y,baz(u, v))$.
 $ 2 foo(alpha, (M+foo(a, b))) $
 $ 2 bar(alpha, (M+foo(a, b))) $
 $ 2 baz(x,y,baz(u, v)) $
+
+--- math-size-resolve ---
+#let length = context repr(measure("--").width)
+$ a length a ^ length $
+
+--- math-size-arbitrary-content ---
+// Test sizing of both relative and absolute non math content in math sizes.
+#let stuff = square(inset: 0pt)[hello]
+#let square = square(size: 5pt)
+$ stuff sum^stuff_square square $
+
+--- math-size-math-content-1 ---
+// Nested math content has styles overwritten by the inner equation.
+// Ideally the widths would match the actual length of the arrows.
+#let arrow = $stretch(->)^"much text"$
+$ arrow A^arrow A^A^arrow $
+#let width = context measure(arrow).width
+$ width A^width A^A^width $
+
+--- math-size-math-content-2 ---
+// Nested math content has styles overwritten by the inner equation.
+// Ideally the heights would match the actual height of the sums.
+#let sum = $sum^2$
+#let height(x) = context measure(x).height
+$sum = height(sum) $
+$ sum != height(sum) $
+
+--- math-size-math-content-3 ---
+// Sum doesn't get wrapped in math as it is a single expr.
+// Ideally the height would match the actual height of the sum.
+#let height(x) = context measure(x).height
+$ sum != height(sum) $
+
+--- math-text-size ---
+// Values retrieved from function are not resolved at the moment.
+// Ideally the left size would match the right size.
+#let size = context [#text.size.to-absolute() #1em.to-absolute()]
+$ size x^size x^x^size $
