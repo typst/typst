@@ -141,6 +141,14 @@ $ width A^width A^A^width $
 $sum = height(sum) $
 $ sum != height(sum) $
 
+--- math-size-math-content-3 ---
+// Sum doesn't get wrapped in math as it is a single expr.
+// So when the heights match the actual height of the sums, they will be
+// different.
+#let height(x) = context measure(x).height
+#let sum1 = $sum$
+$ height(sum) != height(sum1) $
+
 --- math-text-size ---
 // Values retrieved from function are not resolved at the moment.
 // Ideally the left size would match the right size.
