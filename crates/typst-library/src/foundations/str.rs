@@ -577,9 +577,10 @@ impl Str {
     /// of the resulting parts.
     ///
     /// When the empty string is used as a separator, it separates every
-    /// character in the string, along with the beginning and end of the
-    /// string. In practice, this means that the resulting list of parts
-    /// will contain the empty string at the start and end of the list.
+    /// character (i.e., Unicode code point) in the string, along with the
+    /// beginning and end of the string. In practice, this means that the
+    /// resulting list of parts will contain the empty string at the start
+    /// and end of the list.
     #[func]
     pub fn split(
         &self,
