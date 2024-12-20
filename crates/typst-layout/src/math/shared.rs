@@ -88,6 +88,15 @@ pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_numerator(styles), EquationElem::set_cramped(true).wrap()]
 }
 
+/// Styles to add font constants to the style chain.
+pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
+    EquationElem::set_script_scale((
+        ctx.constants.script_percent_scale_down(),
+        ctx.constants.script_script_percent_scale_down(),
+    ))
+    .wrap()
+}
+
 /// How a delimieter should be aligned when scaling.
 pub fn delimiter_alignment(delimiter: char) -> VAlignment {
     match delimiter {
