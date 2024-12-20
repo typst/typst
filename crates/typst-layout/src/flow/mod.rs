@@ -203,8 +203,14 @@ pub(crate) fn layout_flow(
                 } else {
                     PageElem::width_in(shared)
                 };
-                (0.026 * width.unwrap_or_default())
-                    .clamp(Em::new(0.75).resolve(shared), Em::new(2.5).resolve(shared))
+
+                // Clamp below is safe (min <= max): if the font size is
+                // negative, we set min = max = 0; otherwise,
+                // `0.75 * size <= 2.5 * size` for zero and positive sizes.
+                (0.026 * width.unwrap_or_default()).clamp(
+                    Em::new(0.75).resolve(shared).max(Abs::zero()),
+                    Em::new(2.5).resolve(shared).max(Abs::zero()),
+                )
             },
         }),
     };
@@ -354,6 +360,16 @@ struct LineNumberConfig {
     /// Where line numbers are reset.
     scope: LineNumberingScope,
     /// The default clearance for `auto`.
+    ///
+    /// This value should be relative to the page's width, such that the
+    /// clearance between line numbers and text is small when the page is,
+    /// itself, small. However, that could cause the clearance to be too small
+    /// or too large when considering the current text size; in particular, a
+    /// larger text size would require more clearance to be able to tell line
+    /// numbers apart from text, whereas a smaller text size requires less
+    /// clearance so they aren't way too far apart. Therefore, the default
+    /// value is a percentage of the page width clamped between `0.75em` and
+    /// `2.5em`.
     default_clearance: Abs,
 }
 
