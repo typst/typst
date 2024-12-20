@@ -48,7 +48,7 @@ impl Packed<AttachElem> {
     pub fn merge_base(&self) -> Option<Self> {
         // Extract from an EquationElem.
         let mut base = self.base();
-        if let Some(equation) = base.to_packed::<EquationElem>() {
+        while let Some(equation) = base.to_packed::<EquationElem>() {
             base = equation.body();
         }
 
