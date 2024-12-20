@@ -58,11 +58,11 @@ pub fn layout_equation_inline(
     let mut locator = locator.split();
     let mut ctx = MathContext::new(engine, &mut locator, styles, region, &font);
 
-    let local = [
-        EquationElem::set_script_scale(ctx.constants.script_percent_scale_down()),
-        EquationElem::set_sscript_scale(ctx.constants.script_script_percent_scale_down()),
-    ]
-    .map(|p| p.wrap());
+    let local = EquationElem::set_script_scale((
+        ctx.constants.script_percent_scale_down(),
+        ctx.constants.script_script_percent_scale_down(),
+    ))
+    .wrap();
     let styles = styles.chain(&local);
 
     let run = ctx.layout_into_run(&elem.body, styles)?;
@@ -117,11 +117,11 @@ pub fn layout_equation_block(
     let mut locator = locator.split();
     let mut ctx = MathContext::new(engine, &mut locator, styles, regions.base(), &font);
 
-    let local = [
-        EquationElem::set_script_scale(ctx.constants.script_percent_scale_down()),
-        EquationElem::set_sscript_scale(ctx.constants.script_script_percent_scale_down()),
-    ]
-    .map(|p| p.wrap());
+    let local = EquationElem::set_script_scale((
+        ctx.constants.script_percent_scale_down(),
+        ctx.constants.script_script_percent_scale_down(),
+    ))
+    .wrap();
     let styles = styles.chain(&local);
 
     let full_equation_builder = ctx

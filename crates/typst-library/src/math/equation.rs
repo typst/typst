@@ -136,19 +136,12 @@ pub struct EquationElem {
     #[ghost]
     pub class: Option<MathClass>,
 
-    /// Value of `scriptPercentScaleDown` in the current font's MathConstants
-    /// table.
+    /// Values of `scriptPercentScaleDown` and `scriptScriptPercentScaleDown`
+    /// respectively in the current font's MathConstants table.
     #[internal]
-    #[default(70)]
+    #[default((70, 50))]
     #[ghost]
-    pub script_scale: i16,
-
-    /// Value of `scriptScriptPercentScaleDown` in the current font's
-    /// MathConstants table.
-    #[internal]
-    #[default(50)]
-    #[ghost]
-    pub sscript_scale: i16,
+    pub script_scale: (i16, i16),
 }
 
 impl Synthesize for Packed<EquationElem> {
