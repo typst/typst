@@ -6,7 +6,7 @@ Code Lens buttons will appear above every test's name:
 
 - View: Opens the output and reference image of a test to the side.
 - Run: Runs the test and shows the results to the side.
-- Save: Runs the test with `--update` to save the reference image.
+- Save: Runs the test with `--update` to save the reference output.
 - Terminal: Runs the test in the integrated terminal.
 
 In the side panel opened by the Code Lens buttons, there are a few menu buttons
@@ -14,7 +14,7 @@ at the top right:
 
 - Refresh: Reloads the panel to reflect changes to the images.
 - Run: Runs the test and shows the results.
-- Save: Runs the test with `--update` to save the reference image.
+- Save: Runs the test with `--update` to save the reference output.
 
 ## Installation
 In order for VS Code to run the extension with its built-in
