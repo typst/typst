@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::layout::raster::{Cell, LinePosition, Raster, Repeatable};
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,
@@ -12,15 +13,16 @@ use typst_library::visualize::Geometry;
 use typst_syntax::Span;
 use typst_utils::{MaybeReverseIter, Numeric};
 
+use super::layout_cell;
 use super::{
-    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Cell, CellGrid,
-    LinePosition, LineSegment, Repeatable, Rowspan, UnbreakableRowGroup,
+    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LineSegment,
+    Rowspan, UnbreakableRowGroup,
 };
 
-/// Performs grid layout.
-pub struct GridLayouter<'a> {
-    /// The grid of cells.
-    pub(super) grid: &'a CellGrid<'a>,
+/// Performs raster layout.
+pub struct Layouter<'a> {
+    /// The raster of cells.
+    pub(super) raster: &'a Raster<'a>,
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
     /// The inherited styles.
@@ -91,12 +93,12 @@ impl Row {
     }
 }
 
-impl<'a> GridLayouter<'a> {
-    /// Create a new grid layouter.
+impl<'a> Layouter<'a> {
+    /// Create a new raster layouter.
     ///
-    /// This prepares grid layout by unifying content and gutter tracks.
+    /// This prepares raster layout by unifying content and gutter tracks.
     pub fn new(
-        grid: &'a CellGrid<'a>,
+        raster: &'a Raster<'a>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -107,10 +109,10 @@ impl<'a> GridLayouter<'a> {
         regions.expand = Axes::new(true, false);
 
         Self {
-            grid,
+            raster,
             regions,
             styles,
-            rcols: vec![Abs::zero(); grid.cols.len()],
+            rcols: vec![Abs::zero(); raster.cols.len()],
             width: Abs::zero(),
             rrows: vec![],
             lrows: vec![],
@@ -129,18 +131,18 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+        if let Some(Repeatable::Repeated(footer)) = &self.raster.footer {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
-            if matches!(self.grid.header, None | Some(Repeatable::NotRepeated(_))) {
+            if matches!(self.raster.header, None | Some(Repeatable::NotRepeated(_))) {
                 // No repeatable header, so we won't subtract it later.
                 self.regions.size.y -= self.footer_height;
             }
         }
 
-        for y in 0..self.grid.rows.len() {
-            if let Some(Repeatable::Repeated(header)) = &self.grid.header {
+        for y in 0..self.raster.rows.len() {
+            if let Some(Repeatable::Repeated(header)) = &self.raster.header {
                 if y < header.end {
                     if y == 0 {
                         self.layout_header(header, engine, 0)?;
@@ -151,7 +153,7 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            if let Some(Repeatable::Repeated(footer)) = &self.raster.footer {
                 if y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
@@ -193,7 +195,7 @@ impl<'a> GridLayouter<'a> {
         // Skip to next region if current one is full, but only for content
         // rows, not for gutter rows, and only if we aren't laying out an
         // unbreakable group of rows.
-        let is_content_row = !self.grid.is_gutter_track(y);
+        let is_content_row = !self.raster.is_gutter_track(y);
         if self.unbreakable_rows_left == 0 && self.regions.is_full() && is_content_row {
             self.finish_region(engine, false)?;
         }
@@ -206,7 +208,7 @@ impl<'a> GridLayouter<'a> {
 
         // Don't layout gutter rows at the top of a region.
         if is_content_row || !self.lrows.is_empty() {
-            match self.grid.rows[y] {
+            match self.raster.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, disambiguator, y)?,
                 Sizing::Rel(v) => {
                     self.layout_relative_row(engine, disambiguator, v, y)?
@@ -254,7 +256,7 @@ impl<'a> GridLayouter<'a> {
             // there's gutter, so we must check for it to ensure we don't give
             // it the same treatment as a line before a gutter track.
             let expected_line_position = |index, is_max_index: bool| {
-                if self.grid.is_gutter_track(index) && !is_max_index {
+                if self.raster.is_gutter_track(index) && !is_max_index {
                     LinePosition::After
                 } else {
                     LinePosition::Before
@@ -265,13 +267,13 @@ impl<'a> GridLayouter<'a> {
             // Render them first so horizontal lines have priority later.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
-                let is_end_border = x == self.grid.cols.len();
+                let is_end_border = x == self.raster.cols.len();
                 let expected_vline_position = expected_line_position(x, is_end_border);
 
                 let vlines_at_column = self
-                    .grid
+                    .raster
                     .vlines
-                    .get(if !self.grid.has_gutter {
+                    .get(if !self.raster.has_gutter {
                         x
                     } else if is_end_border {
                         // The end border has its own vector of lines, but
@@ -309,7 +311,7 @@ impl<'a> GridLayouter<'a> {
                 // segment, if it happens to cross a colspan (over which it
                 // must not be drawn).
                 let segments = generate_line_segments(
-                    self.grid,
+                    self.raster,
                     tracks,
                     x,
                     vlines_at_column,
@@ -346,14 +348,14 @@ impl<'a> GridLayouter<'a> {
             let hline_indices = rows
                 .iter()
                 .map(|piece| piece.y)
-                .chain(std::iter::once(self.grid.rows.len()));
+                .chain(std::iter::once(self.raster.rows.len()));
 
             // Converts a row to the corresponding index in the vector of
             // hlines.
             let hline_index_of_row = |y: usize| {
-                if !self.grid.has_gutter {
+                if !self.raster.has_gutter {
                     y
-                } else if y == self.grid.rows.len() {
+                } else if y == self.raster.rows.len() {
                     y / 2 + 1
                 } else {
                     // Check the vlines loop for an explanation regarding
@@ -363,7 +365,7 @@ impl<'a> GridLayouter<'a> {
             };
 
             let get_hlines_at = |y| {
-                self.grid
+                self.raster
                     .hlines
                     .get(hline_index_of_row(y))
                     .map(Vec::as_slice)
@@ -377,7 +379,7 @@ impl<'a> GridLayouter<'a> {
                     .map(|prev_y| {
                         expected_line_position(
                             prev_y + 1,
-                            prev_y + 1 == self.grid.rows.len(),
+                            prev_y + 1 == self.raster.rows.len(),
                         )
                     })
                     .unwrap_or(LinePosition::Before);
@@ -389,7 +391,7 @@ impl<'a> GridLayouter<'a> {
                 // accurate either, since they will also trigger when some rows
                 // have been removed between the header and what's below it.
                 let is_under_repeated_header = self
-                    .grid
+                    .raster
                     .header
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
@@ -415,7 +417,7 @@ impl<'a> GridLayouter<'a> {
                         prev_y + 1 != y
                             && (!is_under_repeated_header
                                 || self
-                                    .grid
+                                    .raster
                                     .header
                                     .as_ref()
                                     .and_then(Repeatable::as_repeated)
@@ -425,7 +427,7 @@ impl<'a> GridLayouter<'a> {
                     .unwrap_or(&[]);
 
                 let expected_hline_position =
-                    expected_line_position(y, y == self.grid.rows.len());
+                    expected_line_position(y, y == self.raster.rows.len());
 
                 let hlines_at_y = get_hlines_at(y)
                     .iter()
@@ -441,12 +443,12 @@ impl<'a> GridLayouter<'a> {
 
                 let mut expected_header_line_position = LinePosition::Before;
                 let header_hlines = if let Some((Repeatable::Repeated(header), prev_y)) =
-                    self.grid.header.as_ref().zip(prev_y)
+                    self.raster.header.as_ref().zip(prev_y)
                 {
                     if is_under_repeated_header
-                        && (!self.grid.has_gutter
+                        && (!self.raster.has_gutter
                             || matches!(
-                                self.grid.rows[prev_y],
+                                self.raster.rows[prev_y],
                                 Sizing::Rel(length) if length.is_zero()
                             ))
                     {
@@ -468,7 +470,7 @@ impl<'a> GridLayouter<'a> {
                         // case, we still repeat the line under the gutter.
                         expected_header_line_position = expected_line_position(
                             header.end,
-                            header.end == self.grid.rows.len(),
+                            header.end == self.raster.rows.len(),
                         );
                         get_hlines_at(header.end)
                     } else {
@@ -519,7 +521,7 @@ impl<'a> GridLayouter<'a> {
                 // Determine all different line segments we have to draw in
                 // this row, and convert them to points and shapes.
                 let segments = generate_line_segments(
-                    self.grid,
+                    self.raster,
                     tracks,
                     y,
                     hlines_at_row,
@@ -598,7 +600,7 @@ impl<'a> GridLayouter<'a> {
                     // gutter row. That's why we use
                     // 'effective_parent_cell_position'.
                     let parent = self
-                        .grid
+                        .raster
                         .effective_parent_cell_position(x, row.y)
                         .filter(|parent| {
                             // Ensure this is the first column spanned by the
@@ -627,10 +629,10 @@ impl<'a> GridLayouter<'a> {
                         });
 
                     if let Some(parent) = parent {
-                        let cell = self.grid.cell(parent.x, parent.y).unwrap();
+                        let cell = self.raster.cell(parent.x, parent.y).unwrap();
                         let fill = cell.fill.clone();
                         if let Some(fill) = fill {
-                            let rowspan = self.grid.effective_rowspan_of_cell(cell);
+                            let rowspan = self.raster.effective_rowspan_of_cell(cell);
                             let height = if rowspan == 1 {
                                 row.height
                             } else {
@@ -687,7 +689,7 @@ impl<'a> GridLayouter<'a> {
 
         // Resolve the size of all relative columns and compute the sum of all
         // fractional tracks.
-        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.raster.cols.iter().zip(&mut self.rcols) {
             match col {
                 Sizing::Auto => {}
                 Sizing::Rel(v) => {
@@ -725,7 +727,7 @@ impl<'a> GridLayouter<'a> {
     /// Total width spanned by the cell (among resolved columns).
     /// Includes spanned gutter columns.
     pub(super) fn cell_spanned_width(&self, cell: &Cell, x: usize) -> Abs {
-        let colspan = self.grid.effective_colspan_of_cell(cell);
+        let colspan = self.raster.effective_colspan_of_cell(cell);
         self.rcols.iter().skip(x).take(colspan).sum()
     }
 
@@ -738,7 +740,7 @@ impl<'a> GridLayouter<'a> {
         let mut auto = Abs::zero();
         let mut count = 0;
         let all_frac_cols = self
-            .grid
+            .raster
             .cols
             .iter()
             .enumerate()
@@ -748,26 +750,26 @@ impl<'a> GridLayouter<'a> {
 
         // Determine size of auto columns by laying out all cells in those
         // columns, measuring them and finding the largest one.
-        for (x, &col) in self.grid.cols.iter().enumerate() {
+        for (x, &col) in self.raster.cols.iter().enumerate() {
             if col != Sizing::Auto {
                 continue;
             }
 
             let mut resolved = Abs::zero();
-            for y in 0..self.grid.rows.len() {
+            for y in 0..self.raster.rows.len() {
                 // We get the parent cell in case this is a merged position.
-                let Some(parent) = self.grid.parent_cell_position(x, y) else {
+                let Some(parent) = self.raster.parent_cell_position(x, y) else {
                     continue;
                 };
                 if parent.y != y {
                     // Don't check the width of rowspans more than once.
                     continue;
                 }
-                let cell = self.grid.cell(parent.x, parent.y).unwrap();
-                let colspan = self.grid.effective_colspan_of_cell(cell);
+                let cell = self.raster.cell(parent.x, parent.y).unwrap();
+                let colspan = self.raster.effective_colspan_of_cell(cell);
                 if colspan > 1 {
                     let last_spanned_auto_col = self
-                        .grid
+                        .raster
                         .cols
                         .iter()
                         .enumerate()
@@ -804,9 +806,9 @@ impl<'a> GridLayouter<'a> {
                 // Sum the heights of spanned rows to find the expected
                 // available height for the cell, unless it spans a fractional
                 // or auto column.
-                let rowspan = self.grid.effective_rowspan_of_cell(cell);
+                let rowspan = self.raster.effective_rowspan_of_cell(cell);
                 let height = self
-                    .grid
+                    .raster
                     .rows
                     .iter()
                     .skip(y)
@@ -843,7 +845,8 @@ impl<'a> GridLayouter<'a> {
 
                 let size = Size::new(available, height);
                 let pod = Region::new(size, Axes::splat(false));
-                let frame = cell.layout(engine, 0, self.styles, pod.into())?.into_frame();
+                let frame =
+                    layout_cell(cell, engine, 0, self.styles, pod.into())?.into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -861,7 +864,7 @@ impl<'a> GridLayouter<'a> {
             return;
         }
 
-        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.raster.cols.iter().zip(&mut self.rcols) {
             if let Sizing::Fr(v) = col {
                 *rcol = v.share(fr, remaining);
             }
@@ -882,7 +885,7 @@ impl<'a> GridLayouter<'a> {
             last = fair;
             fair = redistribute / (overlarge as f64);
 
-            for (&col, &rcol) in self.grid.cols.iter().zip(&self.rcols) {
+            for (&col, &rcol) in self.raster.cols.iter().zip(&self.rcols) {
                 // Remove an auto column if it is not overlarge (rcol <= fair),
                 // but also hasn't already been removed (rcol > last).
                 if col == Sizing::Auto && rcol <= fair && rcol > last {
@@ -894,7 +897,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Redistribute space fairly among overlarge columns.
-        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.raster.cols.iter().zip(&mut self.rcols) {
             if col == Sizing::Auto && *rcol > fair {
                 *rcol = fair;
             }
@@ -945,7 +948,7 @@ impl<'a> GridLayouter<'a> {
             self.push_row(frame, y, true);
 
             if self
-                .grid
+                .raster
                 .header
                 .as_ref()
                 .and_then(Repeatable::as_repeated)
@@ -1016,7 +1019,7 @@ impl<'a> GridLayouter<'a> {
 
         for x in 0..self.rcols.len() {
             // Get the parent cell in case this is a merged position.
-            let Some(parent) = self.grid.parent_cell_position(x, y) else {
+            let Some(parent) = self.raster.parent_cell_position(x, y) else {
                 // Skip gutter columns.
                 continue;
             };
@@ -1025,12 +1028,12 @@ impl<'a> GridLayouter<'a> {
                 continue;
             }
             // The parent cell is never a gutter or merged position.
-            let cell = self.grid.cell(parent.x, parent.y).unwrap();
-            let rowspan = self.grid.effective_rowspan_of_cell(cell);
+            let cell = self.raster.cell(parent.x, parent.y).unwrap();
+            let rowspan = self.raster.effective_rowspan_of_cell(cell);
 
             if rowspan > 1 {
                 let last_spanned_auto_row = self
-                    .grid
+                    .raster
                     .rows
                     .iter()
                     .enumerate()
@@ -1086,7 +1089,7 @@ impl<'a> GridLayouter<'a> {
             };
 
             let frames =
-                cell.layout(engine, disambiguator, self.styles, pod)?.into_frames();
+                layout_cell(cell, engine, disambiguator, self.styles, pod)?.into_frames();
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
@@ -1185,7 +1188,7 @@ impl<'a> GridLayouter<'a> {
         let frame = self.layout_single_row(engine, disambiguator, resolved, y)?;
 
         if self
-            .grid
+            .raster
             .header
             .as_ref()
             .and_then(Repeatable::as_repeated)
@@ -1207,7 +1210,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region(engine, false)?;
 
             // Don't skip multiple regions for gutter and don't push a row.
-            if self.grid.is_gutter_track(y) {
+            if self.raster.is_gutter_track(y) {
                 return Ok(());
             }
         }
@@ -1238,13 +1241,13 @@ impl<'a> GridLayouter<'a> {
 
         // Reverse the column order when using RTL.
         for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
-            if let Some(cell) = self.grid.cell(x, y) {
+            if let Some(cell) = self.raster.cell(x, y) {
                 // Rowspans have a separate layout step
                 if cell.rowspan.get() == 1 {
                     let width = self.cell_spanned_width(cell, x);
                     let size = Size::new(width, height);
                     let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
-                    if self.grid.rows[y] == Sizing::Auto
+                    if self.raster.rows[y] == Sizing::Auto
                         && self.unbreakable_rows_left == 0
                     {
                         // Cells at breakable auto rows have lengths relative
@@ -1252,9 +1255,9 @@ impl<'a> GridLayouter<'a> {
                         // rows.
                         pod.full = self.regions.full;
                     }
-                    let frame = cell
-                        .layout(engine, disambiguator, self.styles, pod)?
-                        .into_frame();
+                    let frame =
+                        layout_cell(cell, engine, disambiguator, self.styles, pod)?
+                            .into_frame();
                     let mut pos = pos;
                     if self.is_rtl {
                         // In the grid, cell colspans expand to the right,
@@ -1302,7 +1305,7 @@ impl<'a> GridLayouter<'a> {
         // Layout the row.
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
-            if let Some(cell) = self.grid.cell(x, y) {
+            if let Some(cell) = self.raster.cell(x, y) {
                 // Rowspans have a separate layout step
                 if cell.rowspan.get() == 1 {
                     let width = self.cell_spanned_width(cell, x);
@@ -1310,7 +1313,7 @@ impl<'a> GridLayouter<'a> {
 
                     // Push the layouted frames into the individual output frames.
                     let fragment =
-                        cell.layout(engine, disambiguator, self.styles, pod)?;
+                        layout_cell(cell, engine, disambiguator, self.styles, pod)?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = pos;
                         if self.is_rtl {
@@ -1346,7 +1349,7 @@ impl<'a> GridLayouter<'a> {
         if self
             .lrows
             .last()
-            .is_some_and(|row| self.grid.is_gutter_track(row.index()))
+            .is_some_and(|row| self.raster.is_gutter_track(row.index()))
         {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
@@ -1362,16 +1365,16 @@ impl<'a> GridLayouter<'a> {
                 self.header_height + self.footer_height,
             )
             && self
-                .grid
+                .raster
                 .footer
                 .as_ref()
                 .and_then(Repeatable::as_repeated)
                 .is_some_and(|footer| footer.start != 0);
 
-        if let Some(Repeatable::Repeated(header)) = &self.grid.header {
-            if self.grid.rows.len() > header.end
+        if let Some(Repeatable::Repeated(header)) = &self.raster.header {
+            if self.raster.rows.len() > header.end
                 && self
-                    .grid
+                    .raster
                     .footer
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
@@ -1390,7 +1393,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         let mut laid_out_footer_start = None;
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+        if let Some(Repeatable::Repeated(footer)) = &self.raster.footer {
             // Don't layout the footer if it would be alone with the header in
             // the page, and don't layout it twice.
             if !footer_would_be_orphan
@@ -1529,11 +1532,11 @@ impl<'a> GridLayouter<'a> {
 
         if !last {
             let disambiguator = self.finished.len();
-            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            if let Some(Repeatable::Repeated(footer)) = &self.raster.footer {
                 self.prepare_footer(footer, engine, disambiguator)?;
             }
 
-            if let Some(Repeatable::Repeated(header)) = &self.grid.header {
+            if let Some(Repeatable::Repeated(header)) = &self.raster.header {
                 // Add a header to the new region.
                 self.layout_header(header, engine, disambiguator)?;
             }
