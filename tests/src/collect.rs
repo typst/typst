@@ -23,17 +23,9 @@ pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
 pub struct Test {
     pub pos: FilePos,
     pub name: EcoString,
+    pub attrs: Vec<Attr>,
     pub source: Source,
     pub notes: Vec<Note>,
-    pub attrs: Vec<Attr>,
-}
-
-/// A test attribute, given after the test name.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Attr {
-    Html,
-    Render,
-    Large,
 }
 
 impl Display for Test {
@@ -63,6 +55,14 @@ impl Display for FilePos {
             write!(f, "{}", self.path.display())
         }
     }
+}
+
+/// A test attribute, given after the test name.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Attr {
+    Html,
+    Render,
+    Large,
 }
 
 /// The size of a file.
@@ -236,24 +236,7 @@ impl<'a> Parser<'a> {
                 } else if !is_ident(&name) {
                     self.error(format!("test name `{name}` is not a valid identifier"));
                 } else {
-                    while !self.s.eat_if("---") {
-                        let attr = match self.s.eat_until(char::is_whitespace) {
-                            "large" => Attr::Large,
-                            "html" => Attr::Html,
-                            "render" => Attr::Render,
-                            found => {
-                                self.error(format!(
-                                    "expected attribute or closing ---, found `{found}`"
-                                ));
-                                break;
-                            }
-                        };
-                        if attrs.contains(&attr) {
-                            self.error(format!("duplicate attribute {attr:?}"));
-                        }
-                        attrs.push(attr);
-                        self.s.eat_while(' ');
-                    }
+                    attrs = self.parse_attrs();
                 }
             } else {
                 self.error("expected opening ---");
@@ -307,6 +290,29 @@ impl<'a> Parser<'a> {
 
             self.collector.tests.push(Test { pos, name, source, notes, attrs });
         }
+    }
+
+    fn parse_attrs(&mut self) -> Vec<Attr> {
+        let mut attrs = vec![];
+        while !self.s.eat_if("---") {
+            let attr = match self.s.eat_until(char::is_whitespace) {
+                "large" => Attr::Large,
+                "html" => Attr::Html,
+                "render" => Attr::Render,
+                found => {
+                    self.error(format!(
+                        "expected attribute or closing ---, found `{found}`"
+                    ));
+                    break;
+                }
+            };
+            if attrs.contains(&attr) {
+                self.error(format!("duplicate attribute {attr:?}"));
+            }
+            attrs.push(attr);
+            self.s.eat_while(' ');
+        }
+        attrs
     }
 
     /// Skips the preamble of a test.

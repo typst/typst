@@ -62,7 +62,7 @@ fn setup() {
     std::env::set_current_dir("..").unwrap();
 
     // Create the storage.
-    for ext in ["html", "render", "pdf", "svg"] {
+    for ext in ["render", "html", "pdf", "svg"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(ext)).unwrap();
     }
 

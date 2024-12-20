@@ -40,116 +40,6 @@ pub struct Runner<'a> {
     not_annotated: String,
 }
 
-trait OutputType: Document {
-    type Live;
-    fn live_path(name: &EcoString) -> String;
-    fn ref_path(name: &EcoString) -> String;
-    fn is_skippable(&self) -> Result<bool, ()> {
-        Ok(false)
-    }
-    fn make_live(&self) -> Self::Live;
-    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool;
-    fn save_live(&self, name: &EcoString, live: &Self::Live);
-    fn save_ref(live: Self::Live) -> Vec<u8>;
-    fn check_custom(_runner: &mut Runner, _doc: Option<&Self>) {}
-}
-
-impl OutputType for PagedDocument {
-    type Live = tiny_skia::Pixmap;
-
-    fn live_path(name: &EcoString) -> String {
-        format!("{}/render/{}.png", crate::STORE_PATH, name)
-    }
-
-    fn ref_path(name: &EcoString) -> String {
-        format!("{}/{}.png", crate::REF_PATH, name)
-    }
-
-    fn is_skippable(&self) -> Result<bool, ()> {
-        match self.pages.as_slice() {
-            [] => Err(()),
-            [page] => Ok(skippable(page)),
-            _ => Ok(false),
-        }
-    }
-
-    fn make_live(&self) -> Self::Live {
-        render(self, 1.0)
-    }
-
-    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
-        let ref_pixmap = sk::Pixmap::decode_png(ref_data).unwrap();
-        approx_equal(live, &ref_pixmap)
-    }
-
-    fn save_live(&self, name: &EcoString, live: &Self::Live) {
-        // Save live version, possibly rerendering if different scale is
-        // requested.
-        let mut pixmap_live = live;
-        let slot;
-        let scale = crate::ARGS.scale;
-        if scale != 1.0 {
-            slot = render(self, scale);
-            pixmap_live = &slot;
-        }
-        let data: Vec<u8> = pixmap_live.encode_png().unwrap();
-        std::fs::write(Self::live_path(name), data).unwrap();
-
-        // Write PDF if requested.
-        if crate::ARGS.pdf() {
-            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, name);
-            let pdf = typst_pdf::pdf(self, &PdfOptions::default()).unwrap();
-            std::fs::write(pdf_path, pdf).unwrap();
-        }
-
-        // Write SVG if requested.
-        if crate::ARGS.svg() {
-            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, name);
-            let svg = typst_svg::svg_merged(self, Abs::pt(5.0));
-            std::fs::write(svg_path, svg).unwrap();
-        }
-    }
-
-    fn save_ref(live: Self::Live) -> Vec<u8> {
-        let opts = oxipng::Options::max_compression();
-        let data = live.encode_png().unwrap();
-        oxipng::optimize_from_memory(&data, &opts).unwrap()
-    }
-
-    fn check_custom(runner: &mut Runner, doc: Option<&Self>) {
-        runner.check_custom(doc);
-    }
-}
-
-impl OutputType for HtmlDocument {
-    type Live = String;
-
-    fn live_path(name: &EcoString) -> String {
-        format!("{}/html/{}.html", crate::STORE_PATH, name)
-    }
-
-    fn ref_path(name: &EcoString) -> String {
-        format!("{}/html/{}.html", crate::REF_PATH, name)
-    }
-
-    fn make_live(&self) -> Self::Live {
-        // convert CR-LF (Windows) to just LF (Unix)
-        typst_html::html(self).unwrap().replace("\r\n", "\n")
-    }
-
-    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
-        live.as_bytes() == ref_data
-    }
-
-    fn save_live(&self, name: &EcoString, live: &Self::Live) {
-        std::fs::write(Self::live_path(name), live).unwrap();
-    }
-
-    fn save_ref(live: Self::Live) -> Vec<u8> {
-        live.into_bytes()
-    }
-}
-
 impl<'a> Runner<'a> {
     /// Create a new test runner.
     fn new(test: &'a Test) -> Self {
@@ -441,6 +331,116 @@ impl<'a> Runner<'a> {
         } else {
             "oob".into()
         }
+    }
+}
+
+trait OutputType: Document {
+    type Live;
+    fn live_path(name: &EcoString) -> String;
+    fn ref_path(name: &EcoString) -> String;
+    fn is_skippable(&self) -> Result<bool, ()> {
+        Ok(false)
+    }
+    fn make_live(&self) -> Self::Live;
+    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool;
+    fn save_live(&self, name: &EcoString, live: &Self::Live);
+    fn save_ref(live: Self::Live) -> Vec<u8>;
+    fn check_custom(_runner: &mut Runner, _doc: Option<&Self>) {}
+}
+
+impl OutputType for PagedDocument {
+    type Live = tiny_skia::Pixmap;
+
+    fn live_path(name: &EcoString) -> String {
+        format!("{}/render/{}.png", crate::STORE_PATH, name)
+    }
+
+    fn ref_path(name: &EcoString) -> String {
+        format!("{}/{}.png", crate::REF_PATH, name)
+    }
+
+    fn is_skippable(&self) -> Result<bool, ()> {
+        match self.pages.as_slice() {
+            [] => Err(()),
+            [page] => Ok(skippable(page)),
+            _ => Ok(false),
+        }
+    }
+
+    fn make_live(&self) -> Self::Live {
+        render(self, 1.0)
+    }
+
+    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
+        let ref_pixmap = sk::Pixmap::decode_png(ref_data).unwrap();
+        approx_equal(live, &ref_pixmap)
+    }
+
+    fn save_live(&self, name: &EcoString, live: &Self::Live) {
+        // Save live version, possibly rerendering if different scale is
+        // requested.
+        let mut pixmap_live = live;
+        let slot;
+        let scale = crate::ARGS.scale;
+        if scale != 1.0 {
+            slot = render(self, scale);
+            pixmap_live = &slot;
+        }
+        let data: Vec<u8> = pixmap_live.encode_png().unwrap();
+        std::fs::write(Self::live_path(name), data).unwrap();
+
+        // Write PDF if requested.
+        if crate::ARGS.pdf() {
+            let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, name);
+            let pdf = typst_pdf::pdf(self, &PdfOptions::default()).unwrap();
+            std::fs::write(pdf_path, pdf).unwrap();
+        }
+
+        // Write SVG if requested.
+        if crate::ARGS.svg() {
+            let svg_path = format!("{}/svg/{}.svg", crate::STORE_PATH, name);
+            let svg = typst_svg::svg_merged(self, Abs::pt(5.0));
+            std::fs::write(svg_path, svg).unwrap();
+        }
+    }
+
+    fn save_ref(live: Self::Live) -> Vec<u8> {
+        let opts = oxipng::Options::max_compression();
+        let data = live.encode_png().unwrap();
+        oxipng::optimize_from_memory(&data, &opts).unwrap()
+    }
+
+    fn check_custom(runner: &mut Runner, doc: Option<&Self>) {
+        runner.check_custom(doc);
+    }
+}
+
+impl OutputType for HtmlDocument {
+    type Live = String;
+
+    fn live_path(name: &EcoString) -> String {
+        format!("{}/html/{}.html", crate::STORE_PATH, name)
+    }
+
+    fn ref_path(name: &EcoString) -> String {
+        format!("{}/html/{}.html", crate::REF_PATH, name)
+    }
+
+    fn make_live(&self) -> Self::Live {
+        // convert CR-LF (Windows) to just LF (Unix)
+        typst_html::html(self).unwrap().replace("\r\n", "\n")
+    }
+
+    fn equals(live: &Self::Live, ref_data: &[u8]) -> bool {
+        live.as_bytes() == ref_data
+    }
+
+    fn save_live(&self, name: &EcoString, live: &Self::Live) {
+        std::fs::write(Self::live_path(name), live).unwrap();
+    }
+
+    fn save_ref(live: Self::Live) -> Vec<u8> {
+        live.into_bytes()
     }
 }
 

@@ -1,6 +1,6 @@
 // Test hyperlinking.
 
---- link-basic html render ---
+--- link-basic render html ---
 // Link syntax.
 https://example.com/
 
