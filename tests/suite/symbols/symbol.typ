@@ -41,7 +41,7 @@
 
 --- symbol-constructor-duplicate-modifier ---
 // Error: 2:3-2:31 duplicate modifier within variant: "duplicate"
-// Hint: 2:3-2:31 the modifiers of a variant constitute a set, meaning repetition does not matter
+// Hint: 2:3-2:31 the modifiers of a variant constitute a set, repetition does not matter
 #symbol(
   ("duplicate.duplicate", "x"),
 )
@@ -76,7 +76,7 @@
 
 --- symbol-constructor-duplicate-variant-different-order ---
 // Error: 3:3-3:29 duplicate variant: "variant.duplicate"
-// Hint: 3:3-3:29 the modifiers of a variant constitute a set, meaning order does not matter
+// Hint: 3:3-3:29 the modifiers of a variant constitute a set, order does not matter
 #symbol(
   ("duplicate.variant", "x"),
   ("variant.duplicate", "y"),

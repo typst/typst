@@ -1,13 +1,15 @@
-use crate::diag::{bail, SourceResult, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
-use ecow::{eco_format, EcoString};
-use serde::{Serialize, Serializer};
 use std::cmp::Reverse;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
+
+use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 use typst_syntax::{is_ident, Span, Spanned};
 use typst_utils::hash128;
+
+use crate::diag::{bail, SourceResult, StrResult};
+use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
 
 /// A Unicode symbol.
 ///
@@ -197,50 +199,62 @@ impl Symbol {
         #[variadic]
         variants: Vec<Spanned<SymbolVariant>>,
     ) -> SourceResult<Symbol> {
-        let mut list = Vec::<(EcoString, _)>::new();
-        // A list of all previous variants. Each variant is represented by a
-        // sorted list of unique modifiers.
-        let mut previous = Vec::<u128>::new();
         if variants.is_empty() {
             bail!(span, "expected at least one variant");
         }
-        for Spanned { v, span } in variants {
+
+        // Maps from canonicalized 128-bit hashes to indices of variants we've
+        // seen before.
+        let mut seen = HashMap::<u128, usize>::new();
+
+        // A list of modifiers, cleared & reused in each iteration.
+        let mut modifiers = Vec::new();
+
+        // Validate the variants.
+        for (i, &Spanned { ref v, span }) in variants.iter().enumerate() {
+            modifiers.clear();
+
             if !v.0.is_empty() {
+                // Collect all modifiers.
                 for modifier in v.0.split('.') {
                     if !is_ident(modifier) {
                         bail!(span, "invalid symbol modifier: {}", modifier.repr());
                     }
+                    modifiers.push(modifier);
                 }
             }
-            let mut unique_modifiers = parts(&v.0).collect::<Vec<_>>();
-            unique_modifiers.sort();
-            if let Some(ms) = unique_modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
+
+            // Canonicalize the modifier order.
+            modifiers.sort();
+
+            // Ensure that there are no duplicate modifiers.
+            if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
                 bail!(
                     span, "duplicate modifier within variant: {}", ms[0].repr();
-                    hint: "the modifiers of a variant constitute a set, meaning repetition does not matter"
+                    hint: "the modifiers of a variant constitute a set, repetition does not matter"
                 )
             }
-            unique_modifiers.dedup();
-            let h = hash128(&unique_modifiers);
-            if let Some(i) = previous.iter().position(|prev| prev == &h) {
-                let (prev, _) = &list[i];
-                if same_modifiers(prev, &v.0) {
-                    if v.0.is_empty() {
-                        bail!(span, "duplicate default variant");
-                    } else if &v.0 == prev {
-                        bail!(span, "duplicate variant: {}", v.0.repr());
-                    } else {
-                        bail!(
-                            span, "duplicate variant: {}", v.0.repr();
-                            hint: "the modifiers of a variant constitute a set, meaning order does not matter"
-                        )
-                    }
+
+            // Check whether we had this set of modifiers before.
+            let hash = hash128(&modifiers);
+            if let Some(&i) = seen.get(&hash) {
+                if v.0.is_empty() {
+                    bail!(span, "duplicate default variant");
+                } else if v.0 == variants[i].v.0 {
+                    bail!(span, "duplicate variant: {}", v.0.repr());
+                } else {
+                    bail!(
+                        span, "duplicate variant: {}", v.0.repr();
+                        hint: "the modifiers of a variant constitute a set, order does not matter"
+                    )
                 }
             }
-            list.push((v.0, v.1));
-            previous.push(h);
+
+            seen.insert(hash, i);
         }
-        Ok(Symbol::runtime(list.into_boxed_slice()))
+
+        let list = variants.into_iter().map(|s| (s.v.0, s.v.1)).collect();
+        Ok(Symbol::runtime(list))
     }
 }
 
@@ -411,12 +425,4 @@ fn parts(modifiers: &str) -> impl Iterator<Item = &str> {
 /// Whether the modifier string contains the modifier `m`.
 fn contained(modifiers: &str, m: &str) -> bool {
     parts(modifiers).any(|part| part == m)
-}
-
-/// Tests whether two variants contain the same modifiers.
-///
-/// This function has a quadratic complexity, and should therefore be used as a
-/// last resort.
-fn same_modifiers(left: &str, right: &str) -> bool {
-    parts(left).all(|m| contained(right, m)) && parts(right).all(|m| contained(left, m))
 }
