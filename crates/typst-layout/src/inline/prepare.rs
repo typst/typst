@@ -154,9 +154,16 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
         .filter(|(_, x)| !matches!(x, Item::Tag(_)))
         .peekable();
 
-    let mut prev: Option<&ShapedGlyph> = None;
+    let mut prev: Option<&mut ShapedGlyph> = None;
+    let mut prev_is_skip = false;
     while let Some((_, item)) = items.next() {
+        if let Item::Skip(_) = item {
+            prev_is_skip = true;
+            prev = None;
+            continue;
+        };
         let Some(text) = item.text_mut() else {
+            prev_is_skip = false;
             prev = None;
             continue;
         };
@@ -183,7 +190,9 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
             }
 
             // Case 2: Latin followed by a CJ character
-            if glyph.is_cj_script() && prev.is_some_and(|g| g.is_letter_or_number()) {
+            if glyph.is_cj_script()
+                && (prev_is_skip || prev.is_some_and(|g| g.is_letter_or_number()))
+            {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
@@ -191,6 +200,20 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
             }
 
             prev = Some(glyph);
+            prev_is_skip = false
+        }
+
+        if let Some(ref mut glyph) = prev {
+            if glyph.is_cj_script()
+                && items.peek().is_some_and(|(_, i)| match i {
+                    Item::Skip(_) => true,
+                    _ => false,
+                })
+            {
+                glyph.x_advance += Em::new(0.25);
+                glyph.adjustability.shrinkability.1 += Em::new(0.125);
+                text.width += Em::new(0.25).at(text.size);
+            }
         }
     }
 }
