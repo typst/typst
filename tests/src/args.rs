@@ -23,7 +23,7 @@ pub struct CliArguments {
     /// Lists what tests will be run, without actually running them.
     #[arg(long, group = "action")]
     pub list: bool,
-    /// Updates the reference images of non-passing tests.
+    /// Updates the reference output of non-passing tests.
     #[arg(short, long, group = "action")]
     pub update: bool,
     /// The scaling factor to render the output image with.
@@ -100,6 +100,6 @@ impl CliArguments {
 pub enum Command {
     /// Clears the on-disk test artifact store.
     Clean,
-    /// Deletes all dangling reference images.
+    /// Deletes all dangling reference output.
     Undangle,
 }

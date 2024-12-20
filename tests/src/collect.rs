@@ -162,7 +162,7 @@ impl Collector {
         }
     }
 
-    /// Walks through all reference images and ensure that a test exists for
+    /// Walks through all reference output and ensures that a test exists for
     /// each one.
     fn walk_references(&mut self) {
         for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
@@ -178,7 +178,7 @@ impl Collector {
             let Some((pos, attrs)) = self.seen.get(name) else {
                 self.errors.push(TestParseError {
                     pos: FilePos::new(path, 0),
-                    message: "dangling reference image".into(),
+                    message: "dangling reference output".into(),
                 });
                 continue;
             };
@@ -188,7 +188,7 @@ impl Collector {
                 self.errors.push(TestParseError {
                     pos: pos.clone(),
                     message: format!(
-                        "reference image size exceeds {}, but the test is not marked as `large`",
+                        "reference output size exceeds {}, but the test is not marked as `large`",
                         FileSize(crate::REF_LIMIT),
                     ),
                 });

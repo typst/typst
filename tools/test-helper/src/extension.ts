@@ -143,7 +143,7 @@ class TestHelper {
         }),
         new vscode.CodeLens(line.range, {
           title: "Save",
-          tooltip: "Run and view the test and save the reference image",
+          tooltip: "Run and view the test and save the reference output",
           command: "typst-test-helper.saveFromLens",
           arguments: [name],
         }),

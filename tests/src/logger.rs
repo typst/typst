@@ -103,7 +103,7 @@ impl<'a> Logger<'a> {
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");
 
         if self.mismatched_output {
-            eprintln!("  pass the --update flag to update the reference images");
+            eprintln!("  pass the --update flag to update the reference output");
         }
 
         self.failed == 0
