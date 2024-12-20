@@ -4,7 +4,6 @@ use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
 use typst_library::math::{EquationElem, MathSize, MEDIUM, THICK, THIN};
 use typst_library::model::ParElem;
-use typst_library::text::TextElem;
 use unicode_math_class::MathClass;
 
 use super::{alignments, FrameFragment, MathFragment};
@@ -198,7 +197,7 @@ impl MathRun {
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
             ParElem::leading_in(styles)
         } else {
-            TIGHT_LEADING.at(TextElem::size_in(styles))
+            TIGHT_LEADING.resolve(styles)
         };
 
         let align = AlignElem::alignment_in(styles).resolve(styles).x;

@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{BinomElem, FracElem};
 use typst_library::text::TextElem;
@@ -49,8 +49,7 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let font_size = TextElem::size_in(styles);
-    let short_fall = DELIM_SHORT_FALL.at(font_size);
+    let short_fall = DELIM_SHORT_FALL.resolve(styles);
     let axis = scaled!(ctx, styles, axis_height);
     let thickness = scaled!(ctx, styles, fraction_rule_thickness);
     let shift_up = scaled!(
@@ -86,7 +85,7 @@ fn layout_frac_like(
         styles.chain(&denom_style),
     )?;
 
-    let around = FRAC_AROUND.at(font_size);
+    let around = FRAC_AROUND.resolve(styles);
     let num_gap = (shift_up - (axis + thickness / 2.0) - num.descent()).max(num_min);
     let denom_gap =
         (shift_down + (axis - thickness / 2.0) - denom.ascent()).max(denom_min);

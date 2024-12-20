@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use typst_library::math::{
     OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem,
@@ -281,7 +281,7 @@ fn layout_underoverspreader(
     position: Position,
     span: Span,
 ) -> SourceResult<()> {
-    let gap = gap.at(TextElem::size_in(styles));
+    let gap = gap.resolve(styles);
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(styles);

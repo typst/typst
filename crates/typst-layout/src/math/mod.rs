@@ -528,8 +528,7 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        let font_size = TextElem::size_in(styles);
-        ctx.push(MathFragment::Space(ctx.space_width.at(font_size)));
+        ctx.push(MathFragment::Space(ctx.space_width.resolve(styles)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
     } else if let Some(elem) = elem.to_packed::<HElem>() {
