@@ -143,11 +143,9 @@ $ sum != height(sum) $
 
 --- math-size-math-content-3 ---
 // Sum doesn't get wrapped in math as it is a single expr.
-// So when the heights match the actual height of the sums, they will be
-// different.
+// Ideally the height would match the actual height of the sum.
 #let height(x) = context measure(x).height
-#let sum1 = $sum$
-$ height(sum) != height(sum1) $
+$ sum != height(sum) $
 
 --- math-text-size ---
 // Values retrieved from function are not resolved at the moment.
