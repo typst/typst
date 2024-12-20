@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use typst::utils::format_duration;
-use typst_kit::download::{DownloadState, Downloader, Progress};
+use typst_kit::package_downloads::{DownloadState, Downloader, Progress};
 
 use crate::terminal::{self, TermOut};
 use crate::ARGS;
@@ -43,11 +43,7 @@ impl<T: Display> Progress for PrintDownload<T> {
 
 /// Returns a new downloader.
 pub fn downloader() -> Downloader {
-    let user_agent = concat!("typst/", env!("CARGO_PKG_VERSION"));
-    match ARGS.cert.clone() {
-        Some(cert) => Downloader::with_path(user_agent, cert),
-        None => Downloader::new(user_agent),
-    }
+    Downloader::new(ARGS.cert.clone())
 }
 
 /// Compile and format several download statistics and make and attempt at

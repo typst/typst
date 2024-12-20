@@ -7,12 +7,12 @@ use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
 use typst::diag::{bail, StrResult};
-use typst_kit::download::Downloader;
+use typst_kit::package_downloads::http::HttpDownloader;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::{self, PrintDownload};
+use crate::download::PrintDownload;
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -91,7 +91,8 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
     fs::copy(current_exe, &backup_path)
         .map_err(|err| eco_format!("failed to create backup ({err})"))?;
 
-    let downloader = download::downloader();
+    //no certificate is needed to download from GitHub
+    let downloader = HttpDownloader::new(HttpDownloader::default_user_agent());
 
     let release = Release::from_tag(command.version.as_ref(), &downloader)?;
     if !update_needed(&release)? && !command.force {
@@ -133,7 +134,7 @@ impl Release {
     /// Typst repository.
     pub fn from_tag(
         tag: Option<&Version>,
-        downloader: &Downloader,
+        downloader: &HttpDownloader,
     ) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
@@ -144,7 +145,7 @@ impl Release {
             ),
         };
 
-        match downloader.download(&url) {
+        match downloader.perform_download(&url) {
             Ok(response) => response.into_json().map_err(|err| {
                 eco_format!("failed to parse release information ({err})")
             }),
@@ -161,7 +162,7 @@ impl Release {
     pub fn download_binary(
         &self,
         asset_name: &str,
-        downloader: &Downloader,
+        downloader: &HttpDownloader,
     ) -> StrResult<Vec<u8>> {
         let asset = self.assets.iter().find(|a| a.name.starts_with(asset_name)).ok_or(
             eco_format!(
