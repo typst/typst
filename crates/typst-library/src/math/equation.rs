@@ -11,12 +11,14 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    AlignElem, Alignment, BlockElem, InlineElem, OuterHAlignment, SpecificAlignment,
-    VAlignment,
+    AlignElem, Alignment, BlockElem, Em, InlineElem, Length, OuterHAlignment,
+    SpecificAlignment, VAlignment,
 };
 use crate::math::{MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
+
+const DEFAULT_COL_GAP: Em = Em::new(1.0);
 
 /// A mathematical equation.
 ///
@@ -98,6 +100,17 @@ pub struct EquationElem {
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
     pub supplement: Smart<Option<Supplement>>,
+
+    /// The gap between columns.
+    ///
+    /// ```example
+    /// #set math.equation(column-gap: 3em)
+    /// $ 4   &= 4 & &"yes" \
+    ///   0   &= 0 & &"no" \
+    ///   1+1 &= 2 & &"maybe" $
+    /// ```
+    #[default(DEFAULT_COL_GAP.into())]
+    pub column_gap: Length,
 
     /// The contents of the equation.
     #[required]
@@ -181,6 +194,7 @@ impl ShowSet for Packed<EquationElem> {
             out.set(BlockElem::set_breakable(false));
             out.set(ParLine::set_numbering(None));
             out.set(EquationElem::set_size(MathSize::Display));
+            out.set(EquationElem::set_column_gap(self.column_gap(styles)));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
         }
