@@ -1,11 +1,12 @@
 use std::cmp::Reverse;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 use typst_syntax::{is_ident, Span, Spanned};
+use typst_utils::hash128;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
@@ -198,24 +199,62 @@ impl Symbol {
         #[variadic]
         variants: Vec<Spanned<SymbolVariant>>,
     ) -> SourceResult<Symbol> {
-        let mut list = Vec::new();
         if variants.is_empty() {
             bail!(span, "expected at least one variant");
         }
-        for Spanned { v, span } in variants {
-            if list.iter().any(|(prev, _)| &v.0 == prev) {
-                bail!(span, "duplicate variant");
-            }
+
+        // Maps from canonicalized 128-bit hashes to indices of variants we've
+        // seen before.
+        let mut seen = HashMap::<u128, usize>::new();
+
+        // A list of modifiers, cleared & reused in each iteration.
+        let mut modifiers = Vec::new();
+
+        // Validate the variants.
+        for (i, &Spanned { ref v, span }) in variants.iter().enumerate() {
+            modifiers.clear();
+
             if !v.0.is_empty() {
+                // Collect all modifiers.
                 for modifier in v.0.split('.') {
                     if !is_ident(modifier) {
                         bail!(span, "invalid symbol modifier: {}", modifier.repr());
                     }
+                    modifiers.push(modifier);
                 }
             }
-            list.push((v.0, v.1));
+
+            // Canonicalize the modifier order.
+            modifiers.sort();
+
+            // Ensure that there are no duplicate modifiers.
+            if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
+                bail!(
+                    span, "duplicate modifier within variant: {}", ms[0].repr();
+                    hint: "modifiers are not ordered, so each one may appear only once"
+                )
+            }
+
+            // Check whether we had this set of modifiers before.
+            let hash = hash128(&modifiers);
+            if let Some(&i) = seen.get(&hash) {
+                if v.0.is_empty() {
+                    bail!(span, "duplicate default variant");
+                } else if v.0 == variants[i].v.0 {
+                    bail!(span, "duplicate variant: {}", v.0.repr());
+                } else {
+                    bail!(
+                        span, "duplicate variant: {}", v.0.repr();
+                        hint: "variants with the same modifiers are identical, regardless of their order"
+                    )
+                }
+            }
+
+            seen.insert(hash, i);
         }
-        Ok(Symbol::runtime(list.into_boxed_slice()))
+
+        let list = variants.into_iter().map(|s| (s.v.0, s.v.1)).collect();
+        Ok(Symbol::runtime(list))
     }
 }
 
