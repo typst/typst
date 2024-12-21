@@ -20,6 +20,7 @@ mod reference;
 mod strong;
 mod table;
 mod terms;
+mod title;
 
 pub use self::bibliography::*;
 pub use self::cite::*;
@@ -39,6 +40,7 @@ pub use self::reference::*;
 pub use self::strong::*;
 pub use self::table::*;
 pub use self::terms::*;
+pub use self::title::*;
 
 use crate::foundations::{category, Category, Scope};
 
@@ -57,6 +59,7 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<RefElem>();
     global.define_elem::<LinkElem>();
     global.define_elem::<OutlineElem>();
+    global.define_elem::<TitleElem>();
     global.define_elem::<HeadingElem>();
     global.define_elem::<FigureElem>();
     global.define_elem::<FootnoteElem>();
