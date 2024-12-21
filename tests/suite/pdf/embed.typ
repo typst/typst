@@ -11,9 +11,9 @@
 #pdf.embed("/assets/text/hello.txt", name: "blub.foo", description: "A test file", mime-type: "text/plain", relationship: "test")
 
 --- embed-raw-basic-document ---
-#let raw_file = read("/assets/text/hello.txt")
-#pdf.embed.decode(raw_file, "hello.txt")
+#let raw-file = read("/assets/text/hello.txt")
+#pdf.embed.decode(raw-file, "hello.txt")
 
 --- embed-raw-document ---
-#let raw_file = read("/assets/text/hello.txt")
-#pdf.embed.decode(raw_file, "a_file_name.txt", name: "a_file_name.txt", description: "A description", mime-type: "text/plain", relationship: "supplement")
+#let raw-file = read("/assets/text/hello.txt")
+#pdf.embed.decode(raw-file, "a_file_name.txt", name: "a_file_name.txt", description: "A description", mime-type: "text/plain", relationship: "supplement")
