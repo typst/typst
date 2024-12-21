@@ -29,9 +29,11 @@ pub fn write_embedded_files(
     let mut embedded_files = HashMap::default();
     for elem in elements.iter() {
         let embed = elem.to_packed::<EmbedElem>().unwrap();
-        if let Some(name) = embed.name(StyleChain::default()) {
-            embedded_files.insert(name.clone(), embed_file(ctx, &mut chunk, &embed));
-        }
+        let name = embed
+            .name(StyleChain::default())
+            .as_ref()
+            .unwrap_or(&embed.resolved_path);
+        embedded_files.insert(name.clone(), embed_file(ctx, &mut chunk, embed));
     }
 
     Ok((chunk, embedded_files))
@@ -60,10 +62,11 @@ fn embed_file(
     }
     embedded_file.finish();
 
+    let path = embed.resolved_path().replace("\\", "/");
     let mut file_spec = chunk.file_spec(file_spec_dict_ref);
     file_spec
-        .path(Str(embed.path().as_bytes()))
-        .unic_file(TextStr(embed.path().as_str()))
+        .path(Str(path.as_bytes()))
+        .unic_file(TextStr(&path))
         .insert(Name(b"EF"))
         .dict()
         .pair(Name(b"F"), embedded_file_stream_ref)

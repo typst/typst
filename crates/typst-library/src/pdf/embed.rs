@@ -28,6 +28,12 @@ pub struct EmbedElem {
     #[borrowed]
     pub path: EcoString,
 
+    /// The resolved rootless path.
+    #[internal]
+    #[required]
+    #[parse(EcoString::from(id.vpath().as_rootless_path().to_string_lossy()))]
+    pub resolved_path: EcoString,
+
     /// The raw file data.
     #[internal]
     #[required]
@@ -79,7 +85,7 @@ impl EmbedElem {
         #[named]
         relationship: Option<Option<EmbeddedFileRelationship>>,
     ) -> StrResult<Content> {
-        let mut elem = EmbedElem::new(path, data);
+        let mut elem = EmbedElem::new(path.clone(), path, data);
         if let Some(name) = name {
             elem.push_name(name);
         }
