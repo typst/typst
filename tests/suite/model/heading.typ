@@ -115,3 +115,24 @@ Not in heading
 // Error: 1:19-1:25 cannot reference heading without numbering
 // Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
 Cannot be used as @intro
+
+--- heading-html-basic html ---
+// level 1 => h2
+// ...
+// level 5 => h6
+// level 6 => div with role=heading and aria-level=7
+//  ...
+
+= Level 1
+== Level 2
+=== Level 3
+==== Level 4
+===== Level 5
+// Warning: 1-15 heading of level 6 was transformed to <div role="heading" aria-level="7">, which is not supported by all assistive technology
+// Hint: 1-15 HTML only supports <h1> to <h6>, not <h7>
+// Hint: 1-15 you may want to restructure your document so that it doesn't contain deep headings
+====== Level 6
+// Warning: 1-16 heading of level 7 was transformed to <div role="heading" aria-level="8">, which is not supported by all assistive technology
+// Hint: 1-16 HTML only supports <h1> to <h6>, not <h8>
+// Hint: 1-16 you may want to restructure your document so that it doesn't contain deep headings
+======= Level 7
