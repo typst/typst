@@ -62,10 +62,6 @@ impl World for FuzzWorld {
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         None
     }
-
-    fn last_modified(&self, _id: FileId) -> FileResult<Option<Datetime>> {
-        Ok(None)
-    }
 }
 
 fuzz_target!(|text: &str| {

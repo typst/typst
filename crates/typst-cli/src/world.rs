@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{eco_format, EcoString};
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -244,10 +244,6 @@ impl World for SystemWorld {
             with_offset.day().try_into().ok()?,
         )
     }
-
-    fn last_modified(&self, id: FileId) -> FileResult<Option<Datetime>> {
-        self.slot(id, |slot| slot.last_modified(&self.root, &self.package_storage))
-    }
 }
 
 impl SystemWorld {
@@ -271,19 +267,12 @@ struct FileSlot {
     source: SlotCell<Source>,
     /// The lazily loaded raw byte buffer.
     file: SlotCell<Bytes>,
-    /// The lazily loaded last modified time of the slot's file
-    last_modified: SlotCell<Option<Datetime>>,
 }
 
 impl FileSlot {
     /// Create a new file slot.
     fn new(id: FileId) -> Self {
-        Self {
-            id,
-            file: SlotCell::new(),
-            source: SlotCell::new(),
-            last_modified: SlotCell::new(),
-        }
+        Self { id, file: SlotCell::new(), source: SlotCell::new() }
     }
 
     /// Whether the file was accessed in the ongoing compilation.
@@ -327,20 +316,6 @@ impl FileSlot {
         self.file.get_or_init(
             || read(self.id, project_root, package_storage),
             |(data, _), _| Ok(data.into()),
-        )
-    }
-
-    /// Retrieve the file's modification datetime.
-    fn last_modified(
-        &mut self,
-        project_root: &Path,
-        package_storage: &PackageStorage,
-    ) -> FileResult<Option<Datetime>> {
-        self.last_modified.get_or_init(
-            || read(self.id, project_root, package_storage),
-            |(_, modified), _| {
-                Ok(modified.and_then(|system| convert_datetime(system.into())))
-            },
         )
     }
 }
@@ -513,15 +488,4 @@ impl From<WorldCreationError> for EcoString {
     fn from(err: WorldCreationError) -> Self {
         eco_format!("{err}")
     }
-}
-
-fn convert_datetime(date_time: DateTime<Utc>) -> Option<Datetime> {
-    Datetime::from_ymd_hms(
-        date_time.year(),
-        date_time.month().try_into().ok()?,
-        date_time.day().try_into().ok()?,
-        date_time.hour().try_into().ok()?,
-        date_time.minute().try_into().ok()?,
-        date_time.second().try_into().ok()?,
-    )
 }
