@@ -13,7 +13,7 @@ struct CliResolver<'a> {
     base: &'a str,
 }
 
-impl<'a> Resolver for CliResolver<'a> {
+impl Resolver for CliResolver<'_> {
     fn commits(&self, from: &str, to: &str) -> Vec<typst_docs::Commit> {
         if self.verbose {
             eprintln!("commits({from}, {to})");

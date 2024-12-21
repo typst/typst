@@ -1,7 +1,7 @@
 use tiny_skia as sk;
 use typst_library::layout::{Abs, Axes, Point, Ratio, Size};
 use typst_library::visualize::{
-    DashPattern, FillRule, FixedStroke, Geometry, LineCap, LineJoin, Path, PathItem,
+    Curve, CurveItem, DashPattern, FillRule, FixedStroke, Geometry, LineCap, LineJoin,
     Shape,
 };
 
@@ -10,7 +10,7 @@ use crate::{paint, AbsExt, State};
 /// Render a geometrical shape into the canvas.
 pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<()> {
     let ts = state.transform;
-    let path = match shape.geometry {
+    let path = match &shape.geometry {
         Geometry::Line(target) => {
             let mut builder = sk::PathBuilder::new();
             builder.line_to(target.x.to_f32(), target.y.to_f32());
@@ -33,7 +33,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
 
             sk::PathBuilder::from_rect(rect)
         }
-        Geometry::Path(ref path) => convert_path(path)?,
+        Geometry::Curve(curve) => convert_curve(curve)?,
     };
 
     if let Some(fill) = &shape.fill {
@@ -119,18 +119,18 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
     Some(())
 }
 
-/// Convert a Typst path into a tiny-skia path.
-pub fn convert_path(path: &Path) -> Option<sk::Path> {
+/// Convert a Typst curve into a tiny-skia path.
+pub fn convert_curve(curve: &Curve) -> Option<sk::Path> {
     let mut builder = sk::PathBuilder::new();
-    for elem in &path.0 {
+    for elem in &curve.0 {
         match elem {
-            PathItem::MoveTo(p) => {
+            CurveItem::Move(p) => {
                 builder.move_to(p.x.to_f32(), p.y.to_f32());
             }
-            PathItem::LineTo(p) => {
+            CurveItem::Line(p) => {
                 builder.line_to(p.x.to_f32(), p.y.to_f32());
             }
-            PathItem::CubicTo(p1, p2, p3) => {
+            CurveItem::Cubic(p1, p2, p3) => {
                 builder.cubic_to(
                     p1.x.to_f32(),
                     p1.y.to_f32(),
@@ -140,7 +140,7 @@ pub fn convert_path(path: &Path) -> Option<sk::Path> {
                     p3.y.to_f32(),
                 );
             }
-            PathItem::ClosePath => {
+            CurveItem::Close => {
                 builder.close();
             }
         };
@@ -168,11 +168,11 @@ pub fn to_sk_line_join(join: LineJoin) -> sk::LineJoin {
     }
 }
 
-pub fn to_sk_dash_pattern(pattern: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
+pub fn to_sk_dash_pattern(dash: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
     // tiny-skia only allows dash patterns with an even number of elements,
     // while pdf allows any number.
-    let pattern_len = pattern.array.len();
+    let pattern_len = dash.array.len();
     let len = if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
-    let dash_array = pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
-    sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
+    let dash_array = dash.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+    sk::StrokeDash::new(dash_array, dash.phase.to_f32())
 }

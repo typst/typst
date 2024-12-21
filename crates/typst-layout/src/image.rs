@@ -10,7 +10,7 @@ use typst_library::layout::{
 use typst_library::loading::Readable;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Image, ImageElem, ImageFit, ImageFormat, Path, RasterFormat, VectorFormat,
+    Curve, Image, ImageElem, ImageFit, ImageFormat, RasterFormat, VectorFormat,
 };
 
 /// Layout the image.
@@ -54,7 +54,8 @@ pub fn layout_image(
         format,
         elem.alt(styles),
         engine.world,
-        &families(styles).collect::<Vec<_>>(),
+        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+        elem.flatten_text(styles),
     )
     .at(span)?;
 
@@ -112,7 +113,7 @@ pub fn layout_image(
 
     // Create a clipping group if only part of the image should be visible.
     if fit == ImageFit::Cover && !target.fits(fitted) {
-        frame.clip(Path::rect(frame.size()));
+        frame.clip(Curve::rect(frame.size()));
     }
 
     Ok(frame)

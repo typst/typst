@@ -9,10 +9,10 @@ use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
 use typst_library::text::Lang;
 use typst_syntax::Span;
-use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
+use xmp_writer::{DateTime, LangId, RenditionClass, XmpWriter};
 
 use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, TextStrExt, WithEverything};
+use crate::{hash_base64, outline, TextStrExt, Timezone, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -87,8 +87,17 @@ pub fn write_catalog(
         xmp.pdf_keywords(&joined);
     }
 
-    let date = ctx.document.info.date.unwrap_or(ctx.options.timestamp);
-    let tz = ctx.document.info.date.is_auto();
+    // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
+    // (2) If the `document.date` is set to `auto` or not set, try to use the
+    //     date from the options.
+    // (3) Otherwise, we don't write date metadata.
+    let (date, tz) = match (ctx.document.info.date, ctx.options.timestamp) {
+        (Smart::Custom(date), _) => (date, None),
+        (Smart::Auto, Some(timestamp)) => {
+            (Some(timestamp.datetime), Some(timestamp.timezone))
+        }
+        _ => (None, None),
+    };
     if let Some(date) = date {
         if let Some(pdf_date) = pdf_date(date, tz) {
             info.creation_date(pdf_date);
@@ -300,7 +309,7 @@ pub(crate) fn write_page_labels(
 }
 
 /// Converts a datetime to a pdf-writer date.
-pub fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
+pub fn pdf_date(datetime: Datetime, tz: Option<Timezone>) -> Option<pdf_writer::Date> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut pdf_date = pdf_writer::Date::new(year);
@@ -325,16 +334,36 @@ pub fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
         pdf_date = pdf_date.second(s);
     }
 
-    if tz {
-        pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0);
+    match tz {
+        Some(Timezone::UTC) => {
+            pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0)
+        }
+        Some(Timezone::Local { hour_offset, minute_offset }) => {
+            pdf_date =
+                pdf_date.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset)
+        }
+        None => {}
     }
 
     Some(pdf_date)
 }
 
 /// Converts a datetime to an xmp-writer datetime.
-fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
+fn xmp_date(
+    datetime: Datetime,
+    timezone: Option<Timezone>,
+) -> Option<xmp_writer::DateTime> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
+    let timezone = timezone.map(|tz| match tz {
+        Timezone::UTC => xmp_writer::Timezone::Utc,
+        Timezone::Local { hour_offset, minute_offset } => {
+            // The xmp-writer use signed integers for the minute offset, which
+            // can be buggy if the minute offset is negative. And because our
+            // minute_offset is ensured to be `0 <= minute_offset < 60`, we can
+            // safely cast it to a signed integer.
+            xmp_writer::Timezone::Local { hour: hour_offset, minute: minute_offset as i8 }
+        }
+    });
     Some(DateTime {
         year,
         month: datetime.month(),
@@ -342,6 +371,6 @@ fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
         hour: datetime.hour(),
         minute: datetime.minute(),
         second: datetime.second(),
-        timezone: if tz { Some(Timezone::Utc) } else { None },
+        timezone,
     })
 }

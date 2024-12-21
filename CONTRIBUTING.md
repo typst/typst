@@ -37,8 +37,8 @@ Below are some signs of a good PR:
 - Adds/changes as little code and as few interfaces as possible. Should changes
   to larger-scale abstractions be necessary, these should be discussed
   throughout the implementation process.
-- Adds tests if appropriate (with reference images for visual tests). See the
-  [testing] readme for more details.
+- Adds tests if appropriate (with reference output for visual/HTML tests). See
+  the [testing] readme for more details.
 - Contains documentation comments on all new Rust types.
 - Comes with brief documentation for all new Typst definitions
   (elements/functions), ideally with a concise example that fits into ~5-10

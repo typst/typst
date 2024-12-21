@@ -222,7 +222,7 @@ impl PaintEncode for Paint {
         match self {
             Self::Solid(c) => c.set_as_fill(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_fill(ctx, on_text, transforms),
-            Self::Pattern(pattern) => pattern.set_as_fill(ctx, on_text, transforms),
+            Self::Tiling(tiling) => tiling.set_as_fill(ctx, on_text, transforms),
         }
     }
 
@@ -235,7 +235,7 @@ impl PaintEncode for Paint {
         match self {
             Self::Solid(c) => c.set_as_stroke(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_stroke(ctx, on_text, transforms),
-            Self::Pattern(pattern) => pattern.set_as_stroke(ctx, on_text, transforms),
+            Self::Tiling(tiling) => tiling.set_as_stroke(ctx, on_text, transforms),
         }
     }
 }

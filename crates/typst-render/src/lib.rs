@@ -93,7 +93,7 @@ struct State<'a> {
     size: Size,
 }
 
-impl<'a> State<'a> {
+impl State<'_> {
     fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
         Self {
             size,
@@ -193,8 +193,8 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
 
     let mut mask = state.mask;
     let storage;
-    if let Some(clip_path) = group.clip_path.as_ref() {
-        if let Some(path) = shape::convert_path(clip_path)
+    if let Some(clip_curve) = group.clip.as_ref() {
+        if let Some(path) = shape::convert_curve(clip_curve)
             .and_then(|path| path.transform(state.transform))
         {
             if let Some(mask) = mask {

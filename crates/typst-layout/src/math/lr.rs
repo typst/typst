@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::layout::{Abs, Axis, Length, Rel};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::layout::{Abs, Axis, Rel};
 use typst_library::math::{EquationElem, LrElem, MidElem};
 use unicode_math_class::MathClass;
 
@@ -22,7 +22,7 @@ pub fn layout_lr(
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size(styles).is_auto() {
+        if lr.size(styles).is_one() {
             body = lr.body();
         }
     }
@@ -128,7 +128,7 @@ fn scale(
     styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
-    height: Smart<Rel<Length>>,
+    height: Rel<Abs>,
     apply: Option<MathClass>,
 ) {
     if matches!(

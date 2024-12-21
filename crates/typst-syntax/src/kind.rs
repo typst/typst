@@ -224,7 +224,7 @@ pub enum SyntaxKind {
     Parenthesized,
     /// An array: `(1, "hi", 12cm)`.
     Array,
-    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
+    /// A dictionary: `(thickness: 3pt, dash: "solid")`.
     Dict,
     /// A named pair: `thickness: 3pt`.
     Named,

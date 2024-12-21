@@ -2,7 +2,7 @@ use ecow::EcoString;
 use ttf_parser::OutlineBuilder;
 use typst_library::layout::{Abs, Ratio, Size, Transform};
 use typst_library::visualize::{
-    FixedStroke, Geometry, LineCap, LineJoin, Paint, Path, PathItem, RelativeTo, Shape,
+    Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
 
 use crate::paint::ColorEncode;
@@ -67,8 +67,8 @@ impl SVGRenderer {
                 )
                 .post_concat(state.transform.invert().unwrap()),
             }
-        } else if let Paint::Pattern(pattern) = paint {
-            match pattern.unwrap_relative(false) {
+        } else if let Paint::Tiling(tiling) = paint {
+            match tiling.unwrap_relative(false) {
                 RelativeTo::Self_ => Transform::identity(),
                 RelativeTo::Parent => state.transform.invert().unwrap(),
             }
@@ -112,8 +112,8 @@ impl SVGRenderer {
                 let id = self.push_gradient(gradient, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
-            Paint::Pattern(pattern) => {
-                let id = self.push_pattern(pattern, size, fill_transform);
+            Paint::Tiling(tiling) => {
+                let id = self.push_tiling(tiling, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
         }
@@ -137,11 +137,11 @@ impl SVGRenderer {
         );
         self.xml
             .write_attribute("stroke-miterlimit", &stroke.miter_limit.get());
-        if let Some(pattern) = &stroke.dash {
-            self.xml.write_attribute("stroke-dashoffset", &pattern.phase.to_pt());
+        if let Some(dash) = &stroke.dash {
+            self.xml.write_attribute("stroke-dashoffset", &dash.phase.to_pt());
             self.xml.write_attribute(
                 "stroke-dasharray",
-                &pattern
+                &dash
                     .array
                     .iter()
                     .map(|dash| dash.to_pt().to_string())
@@ -166,22 +166,18 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
             let y = rect.y.to_pt() as f32;
             builder.rect(x, y);
         }
-        Geometry::Path(p) => return convert_path(p),
+        Geometry::Curve(p) => return convert_curve(p),
     };
     builder.0
 }
 
-pub fn convert_path(path: &Path) -> EcoString {
+pub fn convert_curve(curve: &Curve) -> EcoString {
     let mut builder = SvgPathBuilder::default();
-    for item in &path.0 {
+    for item in &curve.0 {
         match item {
-            PathItem::MoveTo(m) => {
-                builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32)
-            }
-            PathItem::LineTo(l) => {
-                builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32)
-            }
-            PathItem::CubicTo(c1, c2, t) => builder.curve_to(
+            CurveItem::Move(m) => builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32),
+            CurveItem::Line(l) => builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32),
+            CurveItem::Cubic(c1, c2, t) => builder.curve_to(
                 c1.x.to_pt() as f32,
                 c1.y.to_pt() as f32,
                 c2.x.to_pt() as f32,
@@ -189,7 +185,7 @@ pub fn convert_path(path: &Path) -> EcoString {
                 t.x.to_pt() as f32,
                 t.y.to_pt() as f32,
             ),
-            PathItem::ClosePath => builder.close(),
+            CurveItem::Close => builder.close(),
         }
     }
     builder.0

@@ -246,7 +246,7 @@ fn warn_or_error_for_html(
     } else {
         bail!(
             Span::detached(),
-            "html export is only available when `--feature html` is passed";
+            "html export is only available when `--features html` is passed";
             hint: "html export is under active development and incomplete";
             hint: "see {ISSUE} for more information"
         );
@@ -348,6 +348,7 @@ pub static ROUTINES: Routines = Routines {
     layout_repeat: typst_layout::layout_repeat,
     layout_pad: typst_layout::layout_pad,
     layout_line: typst_layout::layout_line,
+    layout_curve: typst_layout::layout_curve,
     layout_path: typst_layout::layout_path,
     layout_polygon: typst_layout::layout_polygon,
     layout_rect: typst_layout::layout_rect,

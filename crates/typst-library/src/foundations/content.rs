@@ -211,9 +211,10 @@ impl Content {
     /// instead.
     pub fn get_by_name(&self, name: &str) -> Result<Value, FieldAccessError> {
         if name == "label" {
-            if let Some(label) = self.label() {
-                return Ok(label.into_value());
-            }
+            return self
+                .label()
+                .map(|label| label.into_value())
+                .ok_or(FieldAccessError::Unknown);
         }
         let id = self.elem().field_id(name).ok_or(FieldAccessError::Unknown)?;
         self.get(id, None)

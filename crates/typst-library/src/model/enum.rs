@@ -9,7 +9,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
     Styles, TargetElem,
 };
-use crate::html::{attr, tag, HtmlElem};
+use crate::html::{attr, tag, HtmlAttr, HtmlElem};
 use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem};
 
@@ -127,8 +127,7 @@ pub struct EnumElem {
     ///   [Ahead],
     /// )
     /// ```
-    #[default(1)]
-    pub start: usize,
+    pub start: Smart<usize>,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -143,6 +142,17 @@ pub struct EnumElem {
     /// ```
     #[default(false)]
     pub full: bool,
+
+    /// Whether to reverse the numbering for this enumeration.
+    ///
+    /// ```example
+    /// #set enum(reversed: true)
+    /// + Coffee
+    /// + Tea
+    /// + Milk
+    /// ```
+    #[default(false)]
+    pub reversed: bool,
 
     /// The indentation of each item.
     #[resolve]
@@ -217,7 +227,12 @@ impl EnumElem {
 impl Show for Packed<EnumElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::ol)
+            let mut elem = HtmlElem::new(tag::ol);
+            if self.reversed(styles) {
+                elem =
+                    elem.with_attr(const { HtmlAttr::constant("reversed") }, "reversed");
+            }
+            return Ok(elem
                 .with_body(Some(Content::sequence(self.children.iter().map(|item| {
                     let mut li = HtmlElem::new(tag::li);
                     if let Some(nr) = item.number(styles) {

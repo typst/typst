@@ -161,7 +161,7 @@ impl<'a> Locator<'a> {
     ///
     /// Should typically only be created at the document level, though there
     /// are a few places where we use it as well that just don't support
-    /// introspection (e.g. drawable patterns).
+    /// introspection (e.g. tilings).
     pub fn root() -> Self {
         Self { local: 0, outer: None }
     }
@@ -203,6 +203,7 @@ impl<'a> Locator<'a> {
 }
 
 #[comemo::track]
+#[allow(clippy::needless_lifetimes)]
 impl<'a> Locator<'a> {
     /// Resolves the locator based on its local and the outer information.
     fn resolve(&self) -> Resolved {

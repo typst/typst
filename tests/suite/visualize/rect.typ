@@ -55,7 +55,7 @@
 #rect(width: 20pt, height: 20pt, stroke: (thickness: 5pt, join: "round"))
 
 --- red-stroke-bad-type ---
-// Error: 15-21 expected length, color, gradient, pattern, dictionary, stroke, none, or auto, found array
+// Error: 15-21 expected length, color, gradient, tiling, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))
 
 --- rect-fill-stroke ---
@@ -105,3 +105,9 @@
 #align(right, rect(width: -1cm, fill: gradient.linear(red, blue))[Reverse right])
 
 #align(right, rect(width: 1cm, fill: gradient.linear(red, blue))[Right])
+
+--- rect-size-beyond-default ---
+// Test that setting a rectangle's height beyond its default sizes it correctly.
+#rect()
+#rect(height: 60pt)
+#rect(width: 60pt)

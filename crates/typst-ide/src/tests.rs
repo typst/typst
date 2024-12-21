@@ -1,4 +1,6 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use ecow::EcoString;
 use typst::diag::{FileError, FileResult};
@@ -13,10 +15,10 @@ use typst::{Library, World};
 use crate::IdeWorld;
 
 /// A world for IDE testing.
+#[derive(Clone)]
 pub struct TestWorld {
     pub main: Source,
-    assets: HashMap<FileId, Bytes>,
-    sources: HashMap<FileId, Source>,
+    files: Arc<TestFiles>,
     base: &'static TestBase,
 }
 
@@ -29,8 +31,7 @@ impl TestWorld {
         let main = Source::new(Self::main_id(), text.into());
         Self {
             main,
-            assets: HashMap::new(),
-            sources: HashMap::new(),
+            files: Arc::new(TestFiles::default()),
             base: singleton!(TestBase, TestBase::default()),
         }
     }
@@ -39,7 +40,7 @@ impl TestWorld {
     pub fn with_source(mut self, path: &str, text: &str) -> Self {
         let id = FileId::new(None, VirtualPath::new(path));
         let source = Source::new(id, text.into());
-        self.sources.insert(id, source);
+        Arc::make_mut(&mut self.files).sources.insert(id, source);
         self
     }
 
@@ -55,7 +56,7 @@ impl TestWorld {
         let id = FileId::new(None, VirtualPath::new(path));
         let data = typst_dev_assets::get_by_name(filename).unwrap();
         let bytes = Bytes::from_static(data);
-        self.assets.insert(id, bytes);
+        Arc::make_mut(&mut self.files).assets.insert(id, bytes);
         self
     }
 
@@ -81,7 +82,7 @@ impl World for TestWorld {
     fn source(&self, id: FileId) -> FileResult<Source> {
         if id == self.main.id() {
             Ok(self.main.clone())
-        } else if let Some(source) = self.sources.get(&id) {
+        } else if let Some(source) = self.files.sources.get(&id) {
             Ok(source.clone())
         } else {
             Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
@@ -89,7 +90,7 @@ impl World for TestWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        match self.assets.get(&id) {
+        match self.files.assets.get(&id) {
             Some(bytes) => Ok(bytes.clone()),
             None => Err(FileError::NotFound(id.vpath().as_rootless_path().into())),
         }
@@ -115,8 +116,8 @@ impl IdeWorld for TestWorld {
 
     fn files(&self) -> Vec<FileId> {
         std::iter::once(self.main.id())
-            .chain(self.sources.keys().copied())
-            .chain(self.assets.keys().copied())
+            .chain(self.files.sources.keys().copied())
+            .chain(self.files.assets.keys().copied())
             .collect()
     }
 
@@ -137,20 +138,11 @@ impl IdeWorld for TestWorld {
     }
 }
 
-/// Extra methods for [`Source`].
-pub trait SourceExt {
-    /// Negative cursors index from the back.
-    fn cursor(&self, cursor: isize) -> usize;
-}
-
-impl SourceExt for Source {
-    fn cursor(&self, cursor: isize) -> usize {
-        if cursor < 0 {
-            self.len_bytes().checked_add_signed(cursor).unwrap()
-        } else {
-            cursor as usize
-        }
-    }
+/// Test-specific files.
+#[derive(Default, Clone)]
+struct TestFiles {
+    assets: HashMap<FileId, Bytes>,
+    sources: HashMap<FileId, Source>,
 }
 
 /// Shared foundation of all test worlds.
@@ -189,4 +181,59 @@ fn library() -> Library {
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
     lib
+}
+
+/// The input to a test: Either just a string or a full `TestWorld`.
+pub trait WorldLike {
+    type World: Borrow<TestWorld>;
+
+    fn acquire(self) -> Self::World;
+}
+
+impl<'a> WorldLike for &'a TestWorld {
+    type World = &'a TestWorld;
+
+    fn acquire(self) -> Self::World {
+        self
+    }
+}
+
+impl WorldLike for &str {
+    type World = TestWorld;
+
+    fn acquire(self) -> Self::World {
+        TestWorld::new(self)
+    }
+}
+
+/// Specifies a position in a file for a test.
+pub trait FilePos {
+    fn resolve(self, world: &TestWorld) -> (Source, usize);
+}
+
+impl FilePos for isize {
+    #[track_caller]
+    fn resolve(self, world: &TestWorld) -> (Source, usize) {
+        (world.main.clone(), cursor(&world.main, self))
+    }
+}
+
+impl FilePos for (&str, isize) {
+    #[track_caller]
+    fn resolve(self, world: &TestWorld) -> (Source, usize) {
+        let id = FileId::new(None, VirtualPath::new(self.0));
+        let source = world.source(id).unwrap();
+        let cursor = cursor(&source, self.1);
+        (source, cursor)
+    }
+}
+
+/// Resolve a signed index (negative from the back) to a unsigned index.
+#[track_caller]
+fn cursor(source: &Source, cursor: isize) -> usize {
+    if cursor < 0 {
+        source.len_bytes().checked_add_signed(cursor + 1).unwrap()
+    } else {
+        cursor as usize
+    }
 }

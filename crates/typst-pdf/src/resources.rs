@@ -23,7 +23,7 @@ use crate::color_font::ColorFontMap;
 use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
-use crate::pattern::PatternRemapper;
+use crate::tiling::TilingRemapper;
 use crate::{PdfChunk, Renumber, WithEverything, WithResources};
 
 /// All the resources that have been collected when traversing the document.
@@ -31,16 +31,16 @@ use crate::{PdfChunk, Renumber, WithEverything, WithResources};
 /// This does not allocate references to resources, only track what was used
 /// and deduplicate what can be deduplicated.
 ///
-/// You may notice that this structure is a tree: [`PatternRemapper`] and
+/// You may notice that this structure is a tree: [`TilingRemapper`] and
 /// [`ColorFontMap`] (that are present in the fields of [`Resources`]),
 /// themselves contain [`Resources`] (that will be called "sub-resources" from
-/// now on). Because color glyphs and patterns are defined using content
+/// now on). Because color glyphs and tilings are defined using content
 /// streams, just like pages, they can refer to resources too, which are tracked
 /// by the respective sub-resources.
 ///
 /// Each instance of this structure will become a `/Resources` dictionary in
 /// the final PDF. It is not possible to use a single shared dictionary for all
-/// pages, patterns and color fonts, because if a resource is listed in its own
+/// pages, tilings and color fonts, because if a resource is listed in its own
 /// `/Resources` dictionary, some PDF readers will fail to open the document.
 ///
 /// Because we need to lazily initialize sub-resources (we don't know how deep
@@ -66,8 +66,8 @@ pub struct Resources<R = Ref> {
     pub deferred_images: HashMap<usize, (Deferred<StrResult<EncodedImage>>, Span)>,
     /// Deduplicates gradients used across the document.
     pub gradients: Remapper<PdfGradient>,
-    /// Deduplicates patterns used across the document.
-    pub patterns: Option<Box<PatternRemapper<R>>>,
+    /// Deduplicates tilings used across the document.
+    pub tilings: Option<Box<TilingRemapper<R>>>,
     /// Deduplicates external graphics states used across the document.
     pub ext_gs: Remapper<ExtGState>,
     /// Deduplicates color glyphs.
@@ -107,8 +107,8 @@ impl<R: Renumber> Renumber for Resources<R> {
             color_fonts.resources.renumber(offset);
         }
 
-        if let Some(patterns) = &mut self.patterns {
-            patterns.resources.renumber(offset);
+        if let Some(tilings) = &mut self.tilings {
+            tilings.resources.renumber(offset);
         }
     }
 }
@@ -122,7 +122,7 @@ impl Default for Resources<()> {
             images: Remapper::new("Im"),
             deferred_images: HashMap::new(),
             gradients: Remapper::new("Gr"),
-            patterns: None,
+            tilings: None,
             ext_gs: Remapper::new("Gs"),
             color_fonts: None,
             languages: BTreeMap::new(),
@@ -144,9 +144,9 @@ impl Resources<()> {
             images: self.images,
             deferred_images: self.deferred_images,
             gradients: self.gradients,
-            patterns: self
-                .patterns
-                .zip(refs.patterns.as_ref())
+            tilings: self
+                .tilings
+                .zip(refs.tilings.as_ref())
                 .map(|(p, r)| Box::new(p.with_refs(r))),
             ext_gs: self.ext_gs,
             color_fonts: self
@@ -172,8 +172,8 @@ impl<R> Resources<R> {
         if let Some(color_fonts) = &self.color_fonts {
             color_fonts.resources.traverse(process)?;
         }
-        if let Some(patterns) = &self.patterns {
-            patterns.resources.traverse(process)?;
+        if let Some(tilings) = &self.tilings {
+            tilings.resources.traverse(process)?;
         }
         Ok(())
     }
@@ -186,7 +186,7 @@ impl<R> Resources<R> {
 pub struct ResourcesRefs {
     pub reference: Ref,
     pub color_fonts: Option<Box<ResourcesRefs>>,
-    pub patterns: Option<Box<ResourcesRefs>>,
+    pub tilings: Option<Box<ResourcesRefs>>,
 }
 
 impl Renumber for ResourcesRefs {
@@ -195,8 +195,8 @@ impl Renumber for ResourcesRefs {
         if let Some(color_fonts) = &mut self.color_fonts {
             color_fonts.renumber(offset);
         }
-        if let Some(patterns) = &mut self.patterns {
-            patterns.renumber(offset);
+        if let Some(tilings) = &mut self.tilings {
+            tilings.renumber(offset);
         }
     }
 }
@@ -214,8 +214,8 @@ pub fn alloc_resources_refs(
                 .color_fonts
                 .as_ref()
                 .map(|c| Box::new(refs_for(&c.resources, chunk))),
-            patterns: resources
-                .patterns
+            tilings: resources
+                .tilings
                 .as_ref()
                 .map(|p| Box::new(refs_for(&p.resources, chunk))),
         }
@@ -231,7 +231,7 @@ pub fn alloc_resources_refs(
 /// to the root node of the page tree because using the resource inheritance
 /// feature breaks PDF merging with Apple Preview.
 ///
-/// Also write resource dictionaries for Type3 fonts and patterns.
+/// Also write resource dictionaries for Type3 fonts and PDF patterns.
 pub fn write_resource_dictionaries(ctx: &WithEverything) -> SourceResult<(PdfChunk, ())> {
     let mut chunk = PdfChunk::new();
     let mut used_color_spaces = ColorSpaces::default();
@@ -266,8 +266,8 @@ pub fn write_resource_dictionaries(ctx: &WithEverything) -> SourceResult<(PdfChu
         resources
             .gradients
             .write(&ctx.references.gradients, &mut patterns_dict);
-        if let Some(p) = &resources.patterns {
-            p.remapper.write(&ctx.references.patterns, &mut patterns_dict);
+        if let Some(p) = &resources.tilings {
+            p.remapper.write(&ctx.references.tilings, &mut patterns_dict);
         }
         patterns_dict.finish();
 

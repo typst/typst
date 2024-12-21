@@ -15,7 +15,7 @@ use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_syntax::Span;
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, Numeric};
 
 use super::{distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Stop, Work};
 
@@ -214,6 +214,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     }
 
     /// Lay out the inner contents of a column.
+    ///
+    /// Pending floats and footnotes are also laid out at this step. For those,
+    /// however, we forbid footnote migration (moving the frame containing the
+    /// footnote reference if the corresponding entry doesn't fit), allowing
+    /// the footnote invariant to be broken, as it would require handling a
+    /// [`Stop::Finish`] at this point, but that is exclusively handled by the
+    /// distributor.
     fn column_contents(&mut self, regions: Regions) -> FlowResult<Frame> {
         // Process pending footnotes.
         for note in std::mem::take(&mut self.work.footnotes) {
@@ -222,7 +229,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Process pending floats.
         for placed in std::mem::take(&mut self.work.floats) {
-            self.float(placed, &regions, false)?;
+            self.float(placed, &regions, false, false)?;
         }
 
         distribute(self, regions)
@@ -236,13 +243,21 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// (depending on `placed.scope`).
     ///
     /// When the float does not fit, it is queued into `work.floats`. The
-    /// value of `clearance` that between the float and flow content is needed
-    /// --- it is set if there are already distributed items.
+    /// value of `clearance` indicates that between the float and flow content
+    /// is needed --- it is set if there are already distributed items.
+    ///
+    /// The value of `migratable` determines whether footnotes within the float
+    /// should be allowed to prompt its migration if they don't fit in order to
+    /// respect the footnote invariant (entries in the same page as the
+    /// references), triggering [`Stop::Finish`]. This is usually `true` within
+    /// the distributor, as it can handle that particular flow event, and
+    /// `false` elsewhere.
     pub fn float(
         &mut self,
         placed: &'b PlacedChild<'a>,
         regions: &Regions,
         clearance: bool,
+        migratable: bool,
     ) -> FlowResult<()> {
         // If the float is already processed, skip it.
         let loc = placed.location();
@@ -291,7 +306,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Handle footnotes in the float.
-        self.footnotes(regions, &frame, need, false)?;
+        self.footnotes(regions, &frame, need, false, migratable)?;
 
         // Determine the float's vertical alignment. We can unwrap the inner
         // `Option` because `Custom(None)` is checked for during collection.
@@ -326,12 +341,19 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lays out footnotes in the `frame` if this is the root flow and there are
     /// any. The value of `breakable` indicates whether the element that
     /// produced the frame is breakable. If not, the frame is treated as atomic.
+    ///
+    /// The value of `migratable` indicates whether footnote migration should be
+    /// possible (at least for the first footnote found in the frame, as it is
+    /// forbidden for the second footnote onwards). It is usually `true` within
+    /// the distributor and `false` elsewhere, as the distributor can handle
+    /// [`Stop::Finish`] which is returned when migration is requested.
     pub fn footnotes(
         &mut self,
         regions: &Regions,
         frame: &Frame,
         flow_need: Abs,
         breakable: bool,
+        migratable: bool,
     ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
         if !self.config.root {
@@ -352,7 +374,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let mut relayout = false;
         let mut regions = *regions;
-        let mut migratable = !breakable && regions.may_progress();
+
+        // The first footnote's origin frame should be migratable if the region
+        // may progress (already checked by the footnote function) and if the
+        // origin frame isn't breakable (checked here).
+        let mut migratable = migratable && !breakable;
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the
@@ -442,11 +468,35 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // If the first frame is empty, then none of its content fit. If
         // possible, we then migrate the origin frame to the next region to
         // uphold the footnote invariant (that marker and entry are on the same
-        // page). If not, we just queue the footnote for the next page.
+        // page). If not, we just queue the footnote for the next page, but
+        // only if that would actually make a difference (that is, if the
+        // footnote isn't alone in the page after not fitting in any previous
+        // pages, as it probably won't ever fit then).
+        //
+        // Note that a non-zero flow need also indicates that queueing would
+        // make a difference, because the flow need is subtracted from the
+        // available height in the entry's pod even if what caused that need
+        // wasn't considered for the input `regions`. For example, floats just
+        // pass the `regions` they received along to their footnotes, which
+        // don't take into account the space occupied by the floats themselves,
+        // but they do indicate their footnotes have a non-zero flow need, so
+        // queueing them can matter as, in the following pages, the flow need
+        // will be set to zero and the footnote will be alone in the page.
+        // Then, `may_progress()` will also be false (this time, correctly) and
+        // the footnote is laid out, as queueing wouldn't improve the lack of
+        // space anymore and would result in an infinite loop.
+        //
+        // However, it is worth noting that migration does take into account
+        // the original region, before inserting what prompted the flow need.
+        // Logically, if moving the original frame can't improve the lack of
+        // space, then migration should be inhibited. The space occupied by the
+        // original frame is not relevant for that check. Therefore,
+        // `regions.may_progress()` must still be checked separately for
+        // migration, regardless of the presence of flow need.
         if first.is_empty() && exist_non_empty_frame {
-            if migratable {
+            if migratable && regions.may_progress() {
                 return Err(Stop::Finish(false));
-            } else {
+            } else if regions.may_progress() || !flow_need.is_zero() {
                 self.footnote_queue.push(elem);
                 return Ok(());
             }
@@ -470,7 +520,20 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Lay out nested footnotes.
         for (_, note) in nested {
-            self.footnote(note, regions, flow_need, migratable)?;
+            match self.footnote(note, regions, flow_need, migratable) {
+                // This footnote was already processed or queued.
+                Ok(_) => {}
+                // Footnotes always request a relayout when processed for the
+                // first time, so we ignore a relayout request since we're
+                // about to do so afterwards. Without this check, the first
+                // inner footnote interrupts processing of the following ones.
+                Err(Stop::Relayout(_)) => {}
+                // Either of
+                // - A `Stop::Finish` indicating that the frame's origin element
+                //   should migrate to uphold the footnote invariant.
+                // - A fatal error.
+                err => return err,
+            }
         }
 
         // Since we laid out a footnote, we need a relayout.

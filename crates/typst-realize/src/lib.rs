@@ -823,7 +823,7 @@ static PAR: GroupingRule = GroupingRule {
                 RealizationKind::HtmlDocument(_) | RealizationKind::HtmlFragment
             ) && content
                 .to_packed::<HtmlElem>()
-                .is_some_and(|elem| tag::is_inline(elem.tag)))
+                .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
     },
     inner: |content| content.elem() == SpaceElem::elem(),
     interrupt: |elem| elem == ParElem::elem() || elem == AlignElem::elem(),
@@ -836,7 +836,9 @@ static CITES: GroupingRule = GroupingRule {
     tags: false,
     trigger: |content, _| content.elem() == CiteElem::elem(),
     inner: |content| content.elem() == SpaceElem::elem(),
-    interrupt: |elem| elem == CiteGroup::elem(),
+    interrupt: |elem| {
+        elem == CiteGroup::elem() || elem == ParElem::elem() || elem == AlignElem::elem()
+    },
     finish: finish_cites,
 };
 
@@ -859,7 +861,7 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
             let elem = content.elem();
             elem == SpaceElem::elem() || elem == ParbreakElem::elem()
         },
-        interrupt: |elem| elem == T::elem(),
+        interrupt: |elem| elem == T::elem() || elem == AlignElem::elem(),
         finish: finish_list_like::<T>,
     }
 }

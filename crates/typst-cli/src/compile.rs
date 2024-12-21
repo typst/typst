@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -16,12 +17,14 @@ use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::{PdfOptions, PdfStandards};
+use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
-    PdfStandard,
+    PdfStandard, WatchCommand,
 };
+#[cfg(feature = "http-server")]
+use crate::server::HtmlServer;
 use crate::timings::Timer;
 
 use crate::watch::Status;
@@ -33,15 +36,17 @@ type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
 pub fn compile(timer: &mut Timer, command: &CompileCommand) -> StrResult<()> {
-    let mut config = CompileConfig::new(&command.args)?;
+    let mut config = CompileConfig::new(command)?;
     let mut world =
         SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
             .map_err(|err| eco_format!("{err}"))?;
-    timer.record(&mut world, |world| compile_once(world, &mut config, false))?
+    timer.record(&mut world, |world| compile_once(world, &mut config))?
 }
 
 /// A preprocessed `CompileCommand`.
 pub struct CompileConfig {
+    /// Whether we are watching.
+    pub watching: bool,
     /// Path to input Typst file or stdin.
     pub input: Input,
     /// Path to output file (PDF, PNG, SVG, or HTML).
@@ -50,7 +55,7 @@ pub struct CompileConfig {
     pub output_format: OutputFormat,
     /// Which pages to export.
     pub pages: Option<PageRanges>,
-    /// The document's creation date formatted as a UNIX timestamp.
+    /// The document's creation date formatted as a UNIX timestamp, with UTC suffix.
     pub creation_timestamp: Option<DateTime<Utc>>,
     /// The format to emit diagnostics in.
     pub diagnostic_format: DiagnosticFormat,
@@ -64,11 +69,28 @@ pub struct CompileConfig {
     pub make_deps: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
     pub ppi: f32,
+    /// The export cache for images, used for caching output files in `typst
+    /// watch` sessions with images.
+    pub export_cache: ExportCache,
+    /// Server for `typst watch` to HTML.
+    #[cfg(feature = "http-server")]
+    pub server: Option<HtmlServer>,
 }
 
 impl CompileConfig {
     /// Preprocess a `CompileCommand`, producing a compilation config.
-    pub fn new(args: &CompileArgs) -> StrResult<Self> {
+    pub fn new(command: &CompileCommand) -> StrResult<Self> {
+        Self::new_impl(&command.args, None)
+    }
+
+    /// Preprocess a `WatchCommand`, producing a compilation config.
+    pub fn watching(command: &WatchCommand) -> StrResult<Self> {
+        Self::new_impl(&command.args, Some(command))
+    }
+
+    /// The shared implementation of [`CompileConfig::new`] and
+    /// [`CompileConfig::watching`].
+    fn new_impl(args: &CompileArgs, watch: Option<&WatchCommand>) -> StrResult<Self> {
         let input = args.input.clone();
 
         let output_format = if let Some(specified) = args.format {
@@ -120,7 +142,18 @@ impl CompileConfig {
             PdfStandards::new(&list)?
         };
 
+        #[cfg(feature = "http-server")]
+        let server = match watch {
+            Some(command)
+                if output_format == OutputFormat::Html && !command.server.no_serve =>
+            {
+                Some(HtmlServer::new(&input, &command.server)?)
+            }
+            _ => None,
+        };
+
         Ok(Self {
+            watching: watch.is_some(),
             input,
             output,
             output_format,
@@ -131,6 +164,9 @@ impl CompileConfig {
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
+            export_cache: ExportCache::new(),
+            #[cfg(feature = "http-server")]
+            server,
         })
     }
 }
@@ -142,21 +178,20 @@ impl CompileConfig {
 pub fn compile_once(
     world: &mut SystemWorld,
     config: &mut CompileConfig,
-    watching: bool,
 ) -> StrResult<()> {
     let start = std::time::Instant::now();
-    if watching {
+    if config.watching {
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, warnings } = compile_and_export(world, config, watching);
+    let Warned { output, warnings } = compile_and_export(world, config);
 
     match output {
         // Export the PDF / PNG.
         Ok(()) => {
             let duration = start.elapsed();
 
-            if watching {
+            if config.watching {
                 if warnings.is_empty() {
                     Status::Success(duration).print(config).unwrap();
                 } else {
@@ -168,19 +203,14 @@ pub fn compile_once(
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             write_make_deps(world, config)?;
-
-            if let Some(open) = config.open.take() {
-                if let Output::Path(file) = &config.output {
-                    open_file(open.as_deref(), file)?;
-                }
-            }
+            open_output(config)?;
         }
 
         // Print diagnostics.
         Err(errors) => {
             set_failed();
 
-            if watching {
+            if config.watching {
                 Status::Error.print(config).unwrap();
             }
 
@@ -192,48 +222,49 @@ pub fn compile_once(
     Ok(())
 }
 
+/// Compile and then export the document.
 fn compile_and_export(
     world: &mut SystemWorld,
     config: &mut CompileConfig,
-    watching: bool,
 ) -> Warned<SourceResult<()>> {
     match config.output_format {
         OutputFormat::Html => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
-            let result = output.and_then(|document| {
-                config
-                    .output
-                    .write(typst_html::html(&document)?.as_bytes())
-                    .map_err(|err| eco_format!("failed to write HTML file ({err})"))
-                    .at(Span::detached())
-            });
+            let result = output.and_then(|document| export_html(&document, config));
             Warned { output: result, warnings }
         }
         _ => {
             let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output
-                .and_then(|document| export_paged(world, &document, config, watching));
+            let result = output.and_then(|document| export_paged(&document, config));
             Warned { output: result, warnings }
         }
     }
 }
 
-/// Export into the target format.
-fn export_paged(
-    world: &mut SystemWorld,
-    document: &PagedDocument,
-    config: &CompileConfig,
-    watching: bool,
-) -> SourceResult<()> {
+/// Export to HTML.
+fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<()> {
+    let html = typst_html::html(document)?;
+    let result = config.output.write(html.as_bytes());
+
+    #[cfg(feature = "http-server")]
+    if let Some(server) = &config.server {
+        server.update(html);
+    }
+
+    result
+        .map_err(|err| eco_format!("failed to write HTML file ({err})"))
+        .at(Span::detached())
+}
+
+/// Export to a paged target format.
+fn export_paged(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
     match config.output_format {
         OutputFormat::Pdf => export_pdf(document, config),
         OutputFormat::Png => {
-            export_image(world, document, config, watching, ImageExportFormat::Png)
-                .at(Span::detached())
+            export_image(document, config, ImageExportFormat::Png).at(Span::detached())
         }
         OutputFormat::Svg => {
-            export_image(world, document, config, watching, ImageExportFormat::Svg)
-                .at(Span::detached())
+            export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
         }
         OutputFormat::Html => unreachable!(),
     }
@@ -241,11 +272,23 @@ fn export_paged(
 
 /// Export to a PDF.
 fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+    // If the timestamp is provided through the CLI, use UTC suffix,
+    // else, use the current local time and timezone.
+    let timestamp = match config.creation_timestamp {
+        Some(timestamp) => convert_datetime(timestamp).map(Timestamp::new_utc),
+        None => {
+            let local_datetime = chrono::Local::now();
+            convert_datetime(local_datetime).and_then(|datetime| {
+                Timestamp::new_local(
+                    datetime,
+                    local_datetime.offset().local_minus_utc() / 60,
+                )
+            })
+        }
+    };
     let options = PdfOptions {
         ident: Smart::Auto,
-        timestamp: convert_datetime(
-            config.creation_timestamp.unwrap_or_else(chrono::Utc::now),
-        ),
+        timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
     };
@@ -259,7 +302,9 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
 }
 
 /// Convert [`chrono::DateTime`] to [`Datetime`]
-fn convert_datetime(date_time: chrono::DateTime<chrono::Utc>) -> Option<Datetime> {
+fn convert_datetime<Tz: chrono::TimeZone>(
+    date_time: chrono::DateTime<Tz>,
+) -> Option<Datetime> {
     Datetime::from_ymd_hms(
         date_time.year(),
         date_time.month().try_into().ok()?,
@@ -279,10 +324,8 @@ enum ImageExportFormat {
 
 /// Export to one or multiple images.
 fn export_image(
-    world: &mut SystemWorld,
     document: &PagedDocument,
     config: &CompileConfig,
-    watching: bool,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
     // Determine whether we have indexable templates in output
@@ -314,8 +357,6 @@ fn export_image(
         bail!("cannot export multiple images {err}");
     }
 
-    let cache = world.export_cache();
-
     // The results are collected in a `Vec<()>` which does not allocate.
     exported_pages
         .par_iter()
@@ -338,7 +379,10 @@ fn export_image(
                     // If we are not watching, don't use the cache.
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
-                    if watching && cache.is_cached(*i, &page.frame) && path.exists() {
+                    if config.watching
+                        && config.export_cache.is_cached(*i, &page.frame)
+                        && path.exists()
+                    {
                         return Ok(());
                     }
 
@@ -532,21 +576,37 @@ fn write_make_deps(world: &mut SystemWorld, config: &CompileConfig) -> StrResult
         })
 }
 
-/// Opens the given file using:
-/// - The default file viewer if `open` is `None`.
-/// - The given viewer provided by `open` if it is `Some`.
-///
-/// If the file could not be opened, an error is returned.
-fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+/// Opens the output if desired.
+fn open_output(config: &mut CompileConfig) -> StrResult<()> {
+    let Some(viewer) = config.open.take() else { return Ok(()) };
+
+    #[cfg(feature = "http-server")]
+    if let Some(server) = &config.server {
+        let url = format!("http://{}", server.addr());
+        return open_path(OsStr::new(&url), viewer.as_deref());
+    }
+
+    // Can't open stdout.
+    let Output::Path(path) = &config.output else { return Ok(()) };
+
     // Some resource openers require the path to be canonicalized.
     let path = path
         .canonicalize()
         .map_err(|err| eco_format!("failed to canonicalize path ({err})"))?;
-    if let Some(app) = open {
-        open::with_detached(&path, app)
-            .map_err(|err| eco_format!("failed to open file with {} ({})", app, err))
+
+    open_path(path.as_os_str(), viewer.as_deref())
+}
+
+/// Opens the given file using:
+///
+/// - The default file viewer if `app` is `None`.
+/// - The given viewer provided by `app` if it is `Some`.
+fn open_path(path: &OsStr, viewer: Option<&str>) -> StrResult<()> {
+    if let Some(viewer) = viewer {
+        open::with_detached(path, viewer)
+            .map_err(|err| eco_format!("failed to open file with {} ({})", viewer, err))
     } else {
-        open::that_detached(&path).map_err(|err| {
+        open::that_detached(path).map_err(|err| {
             let openers = open::commands(path)
                 .iter()
                 .map(|command| command.get_program().to_string_lossy())
