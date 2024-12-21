@@ -141,7 +141,7 @@ pub fn write_catalog(
     }
 
     // Assert dominance.
-    if ctx.options.standards.pdfa {
+    if let Some((part, conformance)) = ctx.options.standards.part {
         let mut extension_schemas = xmp.extension_schemas();
         extension_schemas
             .xmp_media_management()
@@ -149,8 +149,8 @@ pub fn write_catalog(
             .describe_instance_id();
         extension_schemas.pdf().properties().describe_all();
         extension_schemas.finish();
-        xmp.pdfa_part(if ctx.options.standards.embedded_files { 3 } else { 2 });
-        xmp.pdfa_conformance("B");
+        xmp.pdfa_part(part);
+        xmp.pdfa_conformance(conformance);
     }
 
     let xmp_buf = xmp.finish(None);

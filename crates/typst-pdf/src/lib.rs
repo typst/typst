@@ -157,6 +157,8 @@ pub struct PdfStandards {
     /// Whether the standard allows for embedding any kind of file into the PDF.
     /// We disallow this for PDF/A-2, since it only allows embedding other PDF/A-2 documents.
     pub(crate) embedded_files: bool,
+    /// Part of the PDF standard.
+    pub(crate) part: Option<(i32, &'static str)>,
 }
 
 impl PdfStandards {
@@ -166,11 +168,14 @@ impl PdfStandards {
         if list.contains(&PdfStandard::A_2b) && list.contains(&PdfStandard::A_3b) {
             bail!("PDF can not conform to A-2B and A-3B at the same time")
         }
+        let pdfa = list.contains(&PdfStandard::A_2b) || list.contains(&PdfStandard::A_3b);
 
         Ok(Self {
-            pdfa: list.contains(&PdfStandard::A_2b) || list.contains(&PdfStandard::A_3b),
+            pdfa,
             embedded_files: list.contains(&PdfStandard::A_3b)
                 || list.contains(&PdfStandard::V_1_7),
+            part: pdfa
+                .then_some((if list.contains(&PdfStandard::A_2b) { 2 } else { 3 }, "B")),
         })
     }
 }
@@ -184,7 +189,7 @@ impl Debug for PdfStandards {
 #[allow(clippy::derivable_impls)]
 impl Default for PdfStandards {
     fn default() -> Self {
-        Self { pdfa: false, embedded_files: false }
+        Self { pdfa: false, embedded_files: false, part: None }
     }
 }
 
