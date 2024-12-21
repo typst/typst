@@ -1,4 +1,4 @@
-use crate::catalog::pdf_date;
+use crate::catalog::{document_date, pdf_date};
 use crate::{PdfChunk, WithGlobalRefs};
 use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
@@ -49,13 +49,8 @@ fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref 
     if let Some(mime_type) = embed.mime_type() {
         embedded_file.subtype(Name(mime_type.as_bytes()));
     }
-    let date = ctx
-        .document
-        .info
-        .date
-        .unwrap_or(ctx.options.timestamp)
-        .and_then(|date| pdf_date(date, ctx.document.info.date.is_auto()));
-    if let Some(pdf_date) = date {
+    let (date, tz) = document_date(ctx.document.info.date, ctx.options.timestamp);
+    if let Some(pdf_date) = date.and_then(|date| pdf_date(date, tz)) {
         embedded_file.params().modification_date(pdf_date).finish();
     }
     embedded_file.finish();

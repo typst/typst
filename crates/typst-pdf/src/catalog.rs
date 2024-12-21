@@ -12,7 +12,7 @@ use typst_syntax::Span;
 use xmp_writer::{DateTime, LangId, RenditionClass, XmpWriter};
 
 use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, TextStrExt, Timezone, WithEverything};
+use crate::{hash_base64, outline, TextStrExt, Timestamp, Timezone, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -86,23 +86,10 @@ pub fn write_catalog(
         info.keywords(TextStr::trimmed(&joined));
         xmp.pdf_keywords(&joined);
     }
-
-    // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
-    // (2) If the `document.date` is set to `auto` or not set, try to use the
-    //     date from the options.
-    // (3) Otherwise, we don't write date metadata.
-    let (date, tz) = match (ctx.document.info.date, ctx.options.timestamp) {
-        (Smart::Custom(date), _) => (date, None),
-        (Smart::Auto, Some(timestamp)) => {
-            (Some(timestamp.datetime), Some(timestamp.timezone))
-        }
-        _ => (None, None),
-    };
-    if let Some(date) = date {
-        if let Some(pdf_date) = pdf_date(date, tz) {
-            info.creation_date(pdf_date);
-            info.modified_date(pdf_date);
-        }
+    let (date, tz) = document_date(ctx.document.info.date, ctx.options.timestamp);
+    if let Some(pdf_date) = date.and_then(|date| pdf_date(date, tz)) {
+        info.creation_date(pdf_date);
+        info.modified_date(pdf_date);
     }
 
     info.finish();
@@ -306,6 +293,25 @@ pub(crate) fn write_page_labels(
     }
 
     result
+}
+
+/// Resolve the document date.
+///
+/// (1) If the `document.date` is set to specific `datetime` or `none`, use it.
+/// (2) If the `document.date` is set to `auto` or not set, try to use the
+///     date from the options.
+/// (3) Otherwise, we don't write date metadata.
+pub fn document_date(
+    document_date: Smart<Option<Datetime>>,
+    timestamp: Option<Timestamp>,
+) -> (Option<Datetime>, Option<Timezone>) {
+    match (document_date, timestamp) {
+        (Smart::Custom(date), _) => (date, None),
+        (Smart::Auto, Some(timestamp)) => {
+            (Some(timestamp.datetime), Some(timestamp.timezone))
+        }
+        _ => (None, None),
+    }
 }
 
 /// Converts a datetime to a pdf-writer date.
