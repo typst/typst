@@ -4,8 +4,8 @@ use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use std::collections::HashMap;
 use typst_library::diag::{bail, SourceResult};
-use typst_library::foundations::NativeElement;
-use typst_library::pdf::embed::{Embed, EmbedElem};
+use typst_library::foundations::{NativeElement, Packed, StyleChain};
+use typst_library::pdf::embed::EmbedElem;
 
 /// Query for all [`EmbedElem`] and write them and their file specifications.
 ///
@@ -28,25 +28,30 @@ pub fn write_embedded_files(
 
     let mut embedded_files = HashMap::default();
     for elem in elements.iter() {
-        let packed_elem = elem.to_packed::<EmbedElem>().unwrap();
-        let embed = Embed::from_element(packed_elem);
-        embedded_files.insert(embed.name().clone(), embed_file(ctx, &mut chunk, &embed));
+        let embed = elem.to_packed::<EmbedElem>().unwrap();
+        if let Some(name) = embed.name(StyleChain::default()) {
+            embedded_files.insert(name.clone(), embed_file(ctx, &mut chunk, &embed));
+        }
     }
 
     Ok((chunk, embedded_files))
 }
 
 /// Write the embedded file stream and its file specification.
-fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref {
+fn embed_file(
+    ctx: &WithGlobalRefs,
+    chunk: &mut PdfChunk,
+    embed: &Packed<EmbedElem>,
+) -> Ref {
     let embedded_file_stream_ref = chunk.alloc.bump();
     let file_spec_dict_ref = chunk.alloc.bump();
 
-    let length = embed.data().len();
+    let length = embed.data().as_slice().len();
 
     let mut embedded_file =
-        chunk.embedded_file(embedded_file_stream_ref, embed.data().as_ref());
+        chunk.embedded_file(embedded_file_stream_ref, embed.data().as_slice());
     embedded_file.pair(Name(b"Length"), length as i32);
-    if let Some(mime_type) = embed.mime_type() {
+    if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
         embedded_file.subtype(Name(mime_type.as_bytes()));
     }
     let (date, tz) = document_date(ctx.document.info.date, ctx.options.timestamp);
@@ -63,14 +68,14 @@ fn embed_file(ctx: &WithGlobalRefs, chunk: &mut PdfChunk, embed: &Embed) -> Ref 
         .dict()
         .pair(Name(b"F"), embedded_file_stream_ref)
         .pair(Name(b"UF"), embedded_file_stream_ref);
-    if let Some(relationship) = embed.relationship() {
+    if let Some(relationship) = embed.relationship(StyleChain::default()) {
         if ctx.options.standards.pdfa {
             let name = relationship.name();
             // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
             file_spec.pair(Name(b"AFRelationship"), Name(name.as_bytes()));
         }
     }
-    if let Some(description) = embed.description() {
+    if let Some(description) = embed.description(StyleChain::default()) {
         file_spec.description(TextStr(description));
     }
     file_spec.finish();

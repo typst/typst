@@ -1,13 +1,10 @@
-use std::sync::Arc;
-
 use ecow::EcoString;
 use typst_macros::{elem, scope, Cast};
 use typst_syntax::Spanned;
-use typst_utils::LazyHash;
 
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{func, Bytes, Content, NativeElement, Packed, Show, StyleChain};
+use crate::foundations::{func, Content, NativeElement, Packed, Show, StyleChain};
 use crate::introspection::Locatable;
 use crate::loading::Readable;
 use crate::text::LocalName;
@@ -148,91 +145,5 @@ impl EmbeddedFileRelationship {
             EmbeddedFileRelationship::Schema => "Schema",
             EmbeddedFileRelationship::Unspecified => "Unspecified",
         }
-    }
-}
-
-/// A loaded file to be embedded.
-///
-/// Values of this type are cheap to clone and hash.
-#[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Embed(Arc<LazyHash<Repr>>);
-
-/// The internal representation of a file embedding.
-#[derive(Hash)]
-pub struct Repr {
-    /// The raw file data.
-    data: Bytes,
-    /// Path of this embedding.
-    path: EcoString,
-    /// Name of this embedding.
-    name: EcoString,
-    /// Name of this embedding.
-    description: Option<EcoString>,
-    /// Name of this embedding.
-    mime_type: Option<EcoString>,
-    /// Name of this embedding.
-    relationship: Option<EmbeddedFileRelationship>,
-}
-
-impl Embed {
-    /// Create a file embedding from a packed [`EmbedElem`].
-    pub fn from_element(element: &Packed<EmbedElem>) -> Self {
-        let repr = Repr {
-            data: element.data.clone().into(),
-            path: element.path.clone(),
-            name: if let Some(Some(name)) = element.name.as_ref() {
-                name.clone()
-            } else {
-                element.path.clone()
-            },
-            description: if let Some(Some(description)) = element.description.as_ref() {
-                Some(description.clone())
-            } else {
-                None
-            },
-            mime_type: if let Some(Some(mime_type)) = element.mime_type.as_ref() {
-                Some(mime_type.clone())
-            } else {
-                None
-            },
-            relationship: if let Some(Some(relationship)) = element.relationship.as_ref()
-            {
-                Some(*relationship)
-            } else {
-                None
-            },
-        };
-
-        Embed(Arc::new(LazyHash::new(repr)))
-    }
-
-    /// The raw file data.
-    pub fn data(&self) -> &Bytes {
-        &self.0.data
-    }
-
-    /// The name of the file embedding.
-    pub fn name(&self) -> &EcoString {
-        &self.0.name
-    }
-
-    /// The path of the file embedding.
-    pub fn path(&self) -> &EcoString {
-        &self.0.path
-    }
-
-    /// The description of the file embedding.
-    pub fn description(&self) -> Option<&str> {
-        self.0.description.as_deref()
-    }
-
-    /// The mime type of the embedded file.
-    pub fn mime_type(&self) -> Option<&str> {
-        self.0.mime_type.as_deref()
-    }
-
-    /// The relationship of the file with the document.
-    pub fn relationship(&self) -> Option<&EmbeddedFileRelationship> {
-        self.0.relationship.as_ref()
     }
 }
