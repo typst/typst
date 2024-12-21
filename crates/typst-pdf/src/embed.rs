@@ -81,7 +81,6 @@ fn embed_file(
     if let Some(description) = embed.description(StyleChain::default()) {
         file_spec.description(TextStr(description));
     }
-    file_spec.finish();
 
     file_spec_dict_ref
 }
