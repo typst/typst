@@ -214,17 +214,43 @@ impl FromStr for NumberingPattern {
     type Err = &'static str;
 
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
-        let mut pieces = EcoVec::new();
+        let mut chars = pattern.char_indices();
         let mut handled = 0;
+        let mut start_name = 0;
+        let mut pieces = EcoVec::new();
+        let mut verbose = false;
 
-        for (i, c) in pattern.char_indices() {
-            let Some(kind) = NumberingKind::from_char(c) else {
-                continue;
-            };
+        while let Some((i, c)) = chars.next() {
+            match c {
+                '{' if !verbose => {
+                    pieces.clear();
+                    handled = 0;
+                    chars = pattern.char_indices();
+                    verbose = true;
+                }
+                '{' => {
+                    start_name = i;
+                }
+                '}' => {
+                    let name: EcoString = pattern[start_name + 1..i].into();
+                    let Some(kind) = NumberingKind::from_name(&name) else {
+                        continue;
+                    };
+                    let prefix = pattern[handled..start_name].into();
+                    pieces.push((prefix, kind));
+                    handled = i + 1;
+                }
+                _ if !verbose => {
+                    let Some(kind) = NumberingKind::from_char(c) else {
+                        continue;
+                    };
 
-            let prefix = pattern[handled..i].into();
-            pieces.push((prefix, kind));
-            handled = c.len_utf8() + i;
+                    let prefix = pattern[handled..i].into();
+                    pieces.push((prefix, kind));
+                    handled = c.len_utf8() + i;
+                }
+                _ => continue,
+            }
         }
 
         let suffix = pattern[handled..].into();
@@ -242,7 +268,7 @@ cast! {
         let mut pat = EcoString::new();
         for (prefix, kind) in &self.pieces {
             pat.push_str(prefix);
-            pat.push(kind.to_char());
+            pat.push_str(kind.to_name());
         }
         pat.push_str(&self.suffix);
         pat.into_value()
@@ -253,6 +279,12 @@ cast! {
 /// Different kinds of numberings.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum NumberingKind {
+    Adlam,
+    ArabicIndic,
+    ArabicAbjad,
+    Kashmiri,
+    MaghrebiAbjad,
+    Persian,
     /// Arabic numerals (1, 2, 3, etc.).
     Arabic,
     /// Lowercase Latin letters (a, b, c, etc.). Items beyond z use base-26.
@@ -273,22 +305,12 @@ pub enum NumberingKind {
     /// Hebrew numerals, including Geresh/Gershayim.
     Hebrew,
     /// Simplified Chinese standard numerals. This corresponds to the
-    /// `ChineseCase::Lower` variant.
     LowerSimplifiedChinese,
     /// Simplified Chinese "banknote" numerals. This corresponds to the
-    /// `ChineseCase::Upper` variant.
     UpperSimplifiedChinese,
-    // TODO: Pick the numbering pattern based on languages choice.
-    // As the first character of Simplified and Traditional Chinese numbering
-    // are the same, we are unable to determine if the context requires
-    // Simplified or Traditional by only looking at this character.
-    #[allow(unused)]
     /// Traditional Chinese standard numerals. This corresponds to the
-    /// `ChineseCase::Lower` variant.
     LowerTraditionalChinese,
-    #[allow(unused)]
     /// Traditional Chinese "banknote" numerals. This corresponds to the
-    /// `ChineseCase::Upper` variant.
     UpperTraditionalChinese,
     /// Hiragana in the gojūon order. Includes n but excludes wi and we.
     HiraganaAiueo,
@@ -302,14 +324,6 @@ pub enum NumberingKind {
     KoreanJamo,
     /// Korean syllables (가, 나, 다, etc.).
     KoreanSyllable,
-    /// Eastern Arabic numerals, used in some Arabic-speaking countries.
-    EasternArabic,
-    /// The variant of Eastern Arabic numerals used in Persian and Urdu.
-    EasternArabicPersian,
-    /// Devanagari numerals.
-    DevanagariNumber,
-    /// Bengali numerals.
-    BengaliNumber,
     /// Bengali letters (ক, খ, গ, ...কক, কখ etc.).
     BengaliLetter,
     /// Circled numbers (①, ②, ③, etc.), up to 50.
@@ -339,10 +353,6 @@ impl NumberingKind {
             'イ' => NumberingKind::KatakanaIroha,
             'ㄱ' => NumberingKind::KoreanJamo,
             '가' => NumberingKind::KoreanSyllable,
-            '\u{0661}' => NumberingKind::EasternArabic,
-            '\u{06F1}' => NumberingKind::EasternArabicPersian,
-            '\u{0967}' => NumberingKind::DevanagariNumber,
-            '\u{09E7}' => NumberingKind::BengaliNumber,
             '\u{0995}' => NumberingKind::BengaliLetter,
             '①' => NumberingKind::CircledNumber,
             '⓵' => NumberingKind::DoubleCircledNumber,
@@ -350,71 +360,133 @@ impl NumberingKind {
         })
     }
 
-    /// The representative character for this numbering kind.
-    pub fn to_char(self) -> char {
+    /// Create a numbering kind from a name.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "adlam" => NumberingKind::Adlam,
+            "arabic-indic" => NumberingKind::ArabicIndic,
+            "arabic-abjad" => NumberingKind::ArabicAbjad,
+            "kashmiri" => NumberingKind::Kashmiri,
+            "maghrebi-abjad" => NumberingKind::MaghrebiAbjad,
+            "persian" => NumberingKind::Persian,
+            "arabic" => NumberingKind::Arabic,
+            "latin" => NumberingKind::LowerLatin,
+            "Latin" => NumberingKind::UpperLatin,
+            "roman" => NumberingKind::LowerRoman,
+            "Roman" => NumberingKind::UpperRoman,
+            "greek" => NumberingKind::LowerGreek,
+            "Greek" => NumberingKind::UpperGreek,
+            "symbol" => NumberingKind::Symbol,
+            "hebrew" => NumberingKind::Hebrew,
+            "chinese-simplified" => NumberingKind::LowerSimplifiedChinese,
+            "Chinese-simplified" => NumberingKind::UpperSimplifiedChinese,
+            "chinese-traditional" => NumberingKind::LowerTraditionalChinese,
+            "Chinese-traditional" => NumberingKind::UpperTraditionalChinese,
+            "hiragana" => NumberingKind::HiraganaAiueo,
+            "hiragana-iroha" => NumberingKind::HiraganaIroha,
+            "katakana" => NumberingKind::KatakanaAiueo,
+            "katakana-iroha" => NumberingKind::KatakanaIroha,
+            "korean" => NumberingKind::KoreanJamo,
+            "korean-syllable" => NumberingKind::KoreanSyllable,
+            "bengali-letter" => NumberingKind::BengaliLetter,
+            "circled-number" => NumberingKind::CircledNumber,
+            "circled-number-double" => NumberingKind::DoubleCircledNumber,
+            _ => return None,
+        })
+    }
+
+    /// The name for this numbering kind.
+    pub fn to_name(self) -> &'static str {
         match self {
-            Self::Arabic => '1',
-            Self::LowerLatin => 'a',
-            Self::UpperLatin => 'A',
-            Self::LowerRoman => 'i',
-            Self::UpperRoman => 'I',
-            Self::LowerGreek => 'α',
-            Self::UpperGreek => 'Α',
-            Self::Symbol => '*',
-            Self::Hebrew => 'א',
-            Self::LowerSimplifiedChinese | Self::LowerTraditionalChinese => '一',
-            Self::UpperSimplifiedChinese | Self::UpperTraditionalChinese => '壹',
-            Self::HiraganaAiueo => 'あ',
-            Self::HiraganaIroha => 'い',
-            Self::KatakanaAiueo => 'ア',
-            Self::KatakanaIroha => 'イ',
-            Self::KoreanJamo => 'ㄱ',
-            Self::KoreanSyllable => '가',
-            Self::EasternArabic => '\u{0661}',
-            Self::EasternArabicPersian => '\u{06F1}',
-            Self::DevanagariNumber => '\u{0967}',
-            Self::BengaliNumber => '\u{09E7}',
-            Self::BengaliLetter => '\u{0995}',
-            Self::CircledNumber => '①',
-            Self::DoubleCircledNumber => '⓵',
+            Self::Adlam => "adlam",
+            Self::ArabicIndic => "arabic-indic",
+            Self::ArabicAbjad => "arabic-abjad",
+            Self::Kashmiri => "kashmiri",
+            Self::MaghrebiAbjad => "maghrebi-abjad",
+            Self::Persian => "persian",
+            Self::Arabic => "arabic",
+            Self::LowerLatin => "latin",
+            Self::UpperLatin => "Latin",
+            Self::LowerRoman => "roman",
+            Self::UpperRoman => "Roman",
+            Self::LowerGreek => "greek",
+            Self::UpperGreek => "Greek",
+            Self::Symbol => "symbol",
+            Self::Hebrew => "hebrew",
+            Self::LowerSimplifiedChinese => "chinese-simplified",
+            Self::UpperSimplifiedChinese => "Chinese-simplified",
+            Self::LowerTraditionalChinese => "chinese-traditional",
+            Self::UpperTraditionalChinese => "Chinese-traditional",
+            Self::HiraganaAiueo => "hiragana",
+            Self::HiraganaIroha => "hiragana-iroha",
+            Self::KatakanaAiueo => "katakana",
+            Self::KatakanaIroha => "katakana-iroha",
+            Self::KoreanJamo => "korean",
+            Self::KoreanSyllable => "korean-syllable",
+            Self::BengaliLetter => "bengali-letter",
+            Self::CircledNumber => "circled-number",
+            Self::DoubleCircledNumber => "circled-number-double",
         }
     }
 
     /// Apply the numbering to the given number.
     pub fn apply(self, n: usize) -> EcoString {
         match self {
-            Self::Arabic => eco_format!("{n}"),
+            Self::Adlam => numeric(['𞥐', '𞥑', '𞥒', '𞥓', '𞥔', '𞥕', '𞥖', '𞥗', '𞥘', '𞥙'], n),
+            Self::ArabicIndic => {
+                numeric(['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'], n)
+            }
+            Self::ArabicAbjad => fixed(
+                [
+                    'ا', 'ب', 'ج', 'د', 'ه', 'و', 'ز', 'ح', 'ط', 'ي', 'ك', 'ل', 'م', 'ن',
+                    'س', 'ع', 'ف', 'ص', 'ق', 'ر', 'ش', 'ت', 'ث', 'خ', 'ذ', 'ض', 'ظ', 'غ',
+                ],
+                n,
+            ),
+            Self::Kashmiri => alphabetic(
+                [
+                    'ا', 'آ', 'ب', 'پ', 'ت', 'ٹ', 'ث', 'ج', 'چ', 'ح', 'خ', 'د', 'ڈ', 'ذ',
+                    'ر', 'ڑ', 'ز', 'ژ', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق',
+                    'ک', 'گ', 'ل', 'م', 'ن', 'ں', 'و', 'ہ', 'ھ', 'ء', 'ی', 'ے', 'ۄ', 'ؠ',
+                ],
+                n,
+            ),
+            Self::MaghrebiAbjad => fixed(
+                [
+                    'ا', 'ب', 'ج', 'د', 'ه', 'و', 'ز', 'ح', 'ط', 'ي', 'ك', 'ل', 'م', 'ن',
+                    'ص', 'ع', 'ف', 'ض', 'ق', 'ر', 'س', 'ت', 'ث', 'خ', 'ذ', 'ظ', 'غ', 'ش',
+                ],
+                n,
+            ),
+            Self::Persian => {
+                numeric(['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'], n)
+            }
+            Self::Arabic => {
+                numeric(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
+            }
             Self::LowerRoman => roman_numeral(n, Case::Lower),
             Self::UpperRoman => roman_numeral(n, Case::Upper),
             Self::LowerGreek => greek_numeral(n, Case::Lower),
             Self::UpperGreek => greek_numeral(n, Case::Upper),
-            Self::Symbol => {
-                if n == 0 {
-                    return '-'.into();
-                }
+            Self::Symbol => symbolic(['*', '†', '‡', '§', '¶', '‖'], n),
 
-                const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
-                let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
-                let amount = ((n - 1) / SYMBOLS.len()) + 1;
-                std::iter::repeat(symbol).take(amount).collect()
-            }
             Self::Hebrew => hebrew_numeral(n),
 
-            Self::LowerLatin => zeroless(
+            Self::LowerLatin => alphabetic(
                 [
                     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
                     'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
                 ],
                 n,
             ),
-            Self::UpperLatin => zeroless(
+            Self::UpperLatin => alphabetic(
                 [
                     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
                     'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
                 ],
                 n,
             ),
-            Self::HiraganaAiueo => zeroless(
+            Self::HiraganaAiueo => alphabetic(
                 [
                     'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ',
                     'し', 'す', 'せ', 'そ', 'た', 'ち', 'つ', 'て', 'と', 'な', 'に',
@@ -424,7 +496,7 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::HiraganaIroha => zeroless(
+            Self::HiraganaIroha => alphabetic(
                 [
                     'い', 'ろ', 'は', 'に', 'ほ', 'へ', 'と', 'ち', 'り', 'ぬ', 'る',
                     'を', 'わ', 'か', 'よ', 'た', 'れ', 'そ', 'つ', 'ね', 'な', 'ら',
@@ -434,7 +506,7 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::KatakanaAiueo => zeroless(
+            Self::KatakanaAiueo => alphabetic(
                 [
                     'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ',
                     'シ', 'ス', 'セ', 'ソ', 'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ',
@@ -444,7 +516,7 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::KatakanaIroha => zeroless(
+            Self::KatakanaIroha => alphabetic(
                 [
                     'イ', 'ロ', 'ハ', 'ニ', 'ホ', 'ヘ', 'ト', 'チ', 'リ', 'ヌ', 'ル',
                     'ヲ', 'ワ', 'カ', 'ヨ', 'タ', 'レ', 'ソ', 'ツ', 'ネ', 'ナ', 'ラ',
@@ -454,21 +526,21 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::KoreanJamo => zeroless(
+            Self::KoreanJamo => alphabetic(
                 [
                     'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
                     'ㅌ', 'ㅍ', 'ㅎ',
                 ],
                 n,
             ),
-            Self::KoreanSyllable => zeroless(
+            Self::KoreanSyllable => alphabetic(
                 [
                     '가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카',
                     '타', '파', '하',
                 ],
                 n,
             ),
-            Self::BengaliLetter => zeroless(
+            Self::BengaliLetter => alphabetic(
                 [
                     'ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট', 'ঠ', 'ড', 'ঢ',
                     'ণ', 'ত', 'থ', 'দ', 'ধ', 'ন', 'প', 'ফ', 'ব', 'ভ', 'ম', 'য', 'র', 'ল',
@@ -476,7 +548,7 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::CircledNumber => zeroless(
+            Self::CircledNumber => alphabetic(
                 [
                     '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭',
                     '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕', '㉖',
@@ -487,7 +559,7 @@ impl NumberingKind {
                 n,
             ),
             Self::DoubleCircledNumber => {
-                zeroless(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
+                alphabetic(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
             }
 
             Self::LowerSimplifiedChinese => {
@@ -504,11 +576,6 @@ impl NumberingKind {
                 usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
                     .into()
             }
-
-            Self::EasternArabic => decimal('\u{0660}', n),
-            Self::EasternArabicPersian => decimal('\u{06F0}', n),
-            Self::DevanagariNumber => decimal('\u{0966}', n),
-            Self::BengaliNumber => decimal('\u{09E6}', n),
         }
     }
 }
@@ -756,57 +823,38 @@ fn greek_numeral(n: usize, case: Case) -> EcoString {
     fmt
 }
 
-/// Stringify a number using a base-N counting system with no zero digit.
-///
-/// This is best explained by example. Suppose our digits are 'A', 'B', and 'C'.
-/// We would get the following:
-///
-/// ```text
-///  1 =>   "A"
-///  2 =>   "B"
-///  3 =>   "C"
-///  4 =>  "AA"
-///  5 =>  "AB"
-///  6 =>  "AC"
-///  7 =>  "BA"
-///  8 =>  "BB"
-///  9 =>  "BC"
-/// 10 =>  "CA"
-/// 11 =>  "CB"
-/// 12 =>  "CC"
-/// 13 => "AAA"
-///    etc.
-/// ```
-///
-/// You might be familiar with this scheme from the way spreadsheet software
-/// tends to label its columns.
-fn zeroless<const N_DIGITS: usize>(
-    alphabet: [char; N_DIGITS],
+fn alphabetic<const N_DIGITS: usize>(
+    symbols: [char; N_DIGITS],
     mut n: usize,
 ) -> EcoString {
-    if n == 0 {
-        return '-'.into();
-    }
-    let mut cs = EcoString::new();
-    while n > 0 {
+    let mut s = EcoString::new();
+    while n != 0 {
         n -= 1;
-        cs.push(alphabet[n % N_DIGITS]);
+        s.push(symbols[n % N_DIGITS]);
         n /= N_DIGITS;
     }
-    cs.chars().rev().collect()
+    s.chars().rev().collect()
 }
 
-/// Stringify a number using a base-10 counting system with a zero digit.
-///
-/// This function assumes that the digits occupy contiguous codepoints.
-fn decimal(start: char, mut n: usize) -> EcoString {
+fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: usize) -> EcoString {
+    if n - 1 > N_DIGITS {
+        return "{n}".into();
+    }
+    symbols[n - 1].into()
+}
+
+fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: usize) -> EcoString {
     if n == 0 {
-        return start.into();
+        return symbols[0].into();
     }
-    let mut cs = EcoString::new();
-    while n > 0 {
-        cs.push(char::from_u32((start as u32) + ((n % 10) as u32)).unwrap());
-        n /= 10;
+    let mut s = EcoString::new();
+    while n != 0 {
+        s.push(symbols[n % N_DIGITS]);
+        n /= N_DIGITS;
     }
-    cs.chars().rev().collect()
+    s.chars().rev().collect()
+}
+
+fn symbolic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: usize) -> EcoString {
+    EcoString::from(symbols[(n - 1) % N_DIGITS]).repeat((n).div_ceil(N_DIGITS))
 }
