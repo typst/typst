@@ -4,7 +4,7 @@ use chinese_number::{
     from_usize_to_chinese_ten_thousand as usize_to_chinese, ChineseCase, ChineseVariant,
 };
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -285,22 +285,39 @@ pub enum NumberingKind {
     Kashmiri,
     MaghrebiAbjad,
     Persian,
-    /// Arabic numerals (1, 2, 3, etc.).
+
     Arabic,
-    /// Lowercase Latin letters (a, b, c, etc.). Items beyond z use base-26.
     LowerLatin,
-    /// Uppercase Latin letters (A, B, C, etc.). Items beyond Z use base-26.
     UpperLatin,
-    /// Lowercase Roman numerals (i, ii, iii, etc.).
     LowerRoman,
-    /// Uppercase Roman numerals (I, II, III, etc.).
     UpperRoman,
-    /// Lowercase Greek numerals (Α, Β, Γ, etc.).
+
+    /// Greek
+    GreekLowerModern,
+    GreekUpperModern,
+    GreekLowerAncient,
+    GreekUpperAncient,
     LowerGreek,
-    /// Uppercase Greek numerals (α, β, γ, etc.).
     UpperGreek,
-    /// Paragraph/note-like symbols: *, †, ‡, §, ¶, and ‖. Further items use
-    /// repeated symbols.
+
+    /// Cyrillic
+    LowerBelorussian,
+    UpperBelorussian,
+    LowerBulgarian,
+    UpperBulgarian,
+    LowerMacedonian,
+    UpperMacedonian,
+    LowerRussian,
+    UpperRussian,
+    LowerRussianFull,
+    UpperRussianFull,
+    LowerSerbian,
+    UpperSerbian,
+    LowerUkrainian,
+    UpperUkrainian,
+    LowerUkrainianFull,
+    UpperUkrainianFull,
+
     Symbol,
     /// Hebrew numerals, including Geresh/Gershayim.
     Hebrew,
@@ -369,13 +386,37 @@ impl NumberingKind {
             "kashmiri" => NumberingKind::Kashmiri,
             "maghrebi-abjad" => NumberingKind::MaghrebiAbjad,
             "persian" => NumberingKind::Persian,
+
             "arabic" => NumberingKind::Arabic,
             "latin" => NumberingKind::LowerLatin,
             "Latin" => NumberingKind::UpperLatin,
             "roman" => NumberingKind::LowerRoman,
             "Roman" => NumberingKind::UpperRoman,
-            "greek" => NumberingKind::LowerGreek,
-            "Greek" => NumberingKind::UpperGreek,
+
+            "greek-lower-modern" => NumberingKind::GreekLowerModern,
+            "greek-upper-modern" => NumberingKind::GreekUpperModern,
+            "greek-lower-ancient" => NumberingKind::GreekLowerAncient,
+            "greek-upper-ancient" => NumberingKind::GreekUpperAncient,
+            "lower-greek" => NumberingKind::LowerGreek,
+            "upper-greek" => NumberingKind::UpperGreek,
+
+            "lower-belorussian" => NumberingKind::LowerBelorussian,
+            "upper-belorussian" => NumberingKind::UpperBelorussian,
+            "lower-bulgarian" => NumberingKind::LowerBulgarian,
+            "upper-bulgarian" => NumberingKind::UpperBulgarian,
+            "lower-macedonian" => NumberingKind::LowerMacedonian,
+            "upper-macedonian" => NumberingKind::UpperMacedonian,
+            "lower-russian" => NumberingKind::LowerRussian,
+            "upper-russian" => NumberingKind::UpperRussian,
+            "lower-russian-full" => NumberingKind::LowerRussianFull,
+            "upper-russian-full" => NumberingKind::UpperRussianFull,
+            "lower-serbian" => NumberingKind::LowerSerbian,
+            "upper-serbian" => NumberingKind::UpperSerbian,
+            "lower-ukrainian" => NumberingKind::LowerUkrainian,
+            "upper-ukrainian" => NumberingKind::UpperUkrainian,
+            "lower-ukrainian-full" => NumberingKind::LowerUkrainianFull,
+            "upper-ukrainian-full" => NumberingKind::UpperUkrainianFull,
+
             "symbol" => NumberingKind::Symbol,
             "hebrew" => NumberingKind::Hebrew,
             "chinese-simplified" => NumberingKind::LowerSimplifiedChinese,
@@ -404,13 +445,37 @@ impl NumberingKind {
             Self::Kashmiri => "kashmiri",
             Self::MaghrebiAbjad => "maghrebi-abjad",
             Self::Persian => "persian",
+
             Self::Arabic => "arabic",
             Self::LowerLatin => "latin",
             Self::UpperLatin => "Latin",
             Self::LowerRoman => "roman",
             Self::UpperRoman => "Roman",
-            Self::LowerGreek => "greek",
-            Self::UpperGreek => "Greek",
+
+            Self::GreekLowerModern => "greek-lower-modern",
+            Self::GreekUpperModern => "greek-upper-modern",
+            Self::GreekLowerAncient => "greek-lower-ancient",
+            Self::GreekUpperAncient => "greek-upper-ancient",
+            Self::LowerGreek => "lower-greek",
+            Self::UpperGreek => "upper-greek",
+
+            Self::LowerBelorussian => "lower-belorussian",
+            Self::UpperBelorussian => "upper-belorussian",
+            Self::LowerBulgarian => "lower-bulgarian",
+            Self::UpperBulgarian => "upper-bulgarian",
+            Self::LowerMacedonian => "lower-macedonian",
+            Self::UpperMacedonian => "upper-macedonian",
+            Self::LowerRussian => "lower-russian",
+            Self::UpperRussian => "upper-russian",
+            Self::LowerRussianFull => "lower-russian-full",
+            Self::UpperRussianFull => "upper-russian-full",
+            Self::LowerSerbian => "lower-serbian",
+            Self::UpperSerbian => "upper-serbian",
+            Self::LowerUkrainian => "lower-ukrainian",
+            Self::UpperUkrainian => "upper-ukrainian",
+            Self::LowerUkrainianFull => "lower-ukrainian-full",
+            Self::UpperUkrainianFull => "upper-ukrainian-full",
+
             Self::Symbol => "symbol",
             Self::Hebrew => "hebrew",
             Self::LowerSimplifiedChinese => "chinese-simplified",
@@ -464,13 +529,345 @@ impl NumberingKind {
             Self::Arabic => {
                 numeric(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
             }
-            Self::LowerRoman => roman_numeral(n, Case::Lower),
-            Self::UpperRoman => roman_numeral(n, Case::Upper),
-            Self::LowerGreek => greek_numeral(n, Case::Lower),
-            Self::UpperGreek => greek_numeral(n, Case::Upper),
+            Self::LowerRoman => additive(
+                [
+                    (&"m", 1000),
+                    (&"cm", 900),
+                    (&"d", 500),
+                    (&"cd", 400),
+                    (&"c", 100),
+                    (&"xc", 90),
+                    (&"l", 50),
+                    (&"xl", 40),
+                    (&"x", 10),
+                    (&"ix", 9),
+                    (&"v", 5),
+                    (&"iv", 4),
+                    (&"i", 1),
+                ],
+                n,
+            ),
+            Self::UpperRoman => additive(
+                [
+                    (&"M", 1000),
+                    (&"CM", 900),
+                    (&"D", 500),
+                    (&"CD", 400),
+                    (&"C", 100),
+                    (&"XC", 90),
+                    (&"L", 50),
+                    (&"XL", 40),
+                    (&"X", 10),
+                    (&"IX", 9),
+                    (&"V", 5),
+                    (&"IV", 4),
+                    (&"I", 1),
+                ],
+                n,
+            ),
+            Self::GreekLowerModern => additive(
+                [
+                    (&"ϡ", 900),
+                    (&"ω", 800),
+                    (&"ψ", 700),
+                    (&"χ", 600),
+                    (&"φ", 500),
+                    (&"υ", 400),
+                    (&"τ", 300),
+                    (&"σ", 200),
+                    (&"ρ", 100),
+                    (&"ϟ", 90),
+                    (&"π", 80),
+                    (&"ο", 70),
+                    (&"ξ", 60),
+                    (&"ν", 50),
+                    (&"μ", 40),
+                    (&"λ", 30),
+                    (&"κ", 20),
+                    (&"ι", 10),
+                    (&"θ", 9),
+                    (&"η", 8),
+                    (&"ζ", 7),
+                    (&"στ", 6),
+                    (&"ε", 5),
+                    (&"δ", 4),
+                    (&"γ", 3),
+                    (&"β", 2),
+                    (&"α", 1),
+                ],
+                n,
+            ),
+            Self::GreekUpperModern => additive(
+                [
+                    (&"Ϡ", 900),
+                    (&"Ω", 800),
+                    (&"Ψ", 700),
+                    (&"Χ", 600),
+                    (&"Φ", 500),
+                    (&"Υ", 400),
+                    (&"Τ", 300),
+                    (&"Σ", 200),
+                    (&"Ρ", 100),
+                    (&"Ϟ", 90),
+                    (&"Π", 80),
+                    (&"Ο", 70),
+                    (&"Ξ", 60),
+                    (&"Ν", 50),
+                    (&"Μ", 40),
+                    (&"Λ", 30),
+                    (&"Κ", 20),
+                    (&"Ι", 10),
+                    (&"Θ", 9),
+                    (&"Η", 8),
+                    (&"Ζ", 7),
+                    (&"ΣΤ", 6),
+                    (&"Ε", 5),
+                    (&"Δ", 4),
+                    (&"Γ", 3),
+                    (&"Β", 2),
+                    (&"Α", 1),
+                ],
+                n,
+            ),
+            Self::GreekLowerAncient => additive(
+                [
+                    (&"ϡ", 900),
+                    (&"ω", 800),
+                    (&"ψ", 700),
+                    (&"χ", 600),
+                    (&"φ", 500),
+                    (&"υ", 400),
+                    (&"τ", 300),
+                    (&"σ", 200),
+                    (&"ρ", 100),
+                    (&"ϟ", 90),
+                    (&"π", 80),
+                    (&"ο", 70),
+                    (&"ξ", 60),
+                    (&"ν", 50),
+                    (&"μ", 40),
+                    (&"λ", 30),
+                    (&"κ", 20),
+                    (&"ι", 10),
+                    (&"θ", 9),
+                    (&"η", 8),
+                    (&"ζ", 7),
+                    (&"ϛ", 6),
+                    (&"ε", 5),
+                    (&"δ", 4),
+                    (&"γ", 3),
+                    (&"β", 2),
+                    (&"α", 1),
+                ],
+                n,
+            ),
+            Self::GreekUpperAncient => additive(
+                [
+                    (&"Ϡ", 900),
+                    (&"Ω", 800),
+                    (&"Ψ", 700),
+                    (&"Χ", 600),
+                    (&"Φ", 500),
+                    (&"Υ", 400),
+                    (&"Τ", 300),
+                    (&"Σ", 200),
+                    (&"Ρ", 100),
+                    (&"Ϟ", 90),
+                    (&"Π", 80),
+                    (&"Ο", 70),
+                    (&"Ξ", 60),
+                    (&"Ν", 50),
+                    (&"Μ", 40),
+                    (&"Λ", 30),
+                    (&"Κ", 20),
+                    (&"Ι", 10),
+                    (&"Θ", 9),
+                    (&"Η", 8),
+                    (&"Ζ", 7),
+                    (&"Ϛ", 6),
+                    (&"Ε", 5),
+                    (&"Δ", 4),
+                    (&"Γ", 3),
+                    (&"Β", 2),
+                    (&"Α", 1),
+                ],
+                n,
+            ),
+            Self::LowerGreek => alphabetic(
+                [
+                    'α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ',
+                    'ο', 'π', 'ρ', 'σ', 'τ', 'υ', 'φ', 'χ', 'ψ', 'ω',
+                ],
+                n,
+            ),
+            Self::UpperGreek => alphabetic(
+                [
+                    'Α', 'Β', 'Γ', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ',
+                    'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω',
+                ],
+                n,
+            ),
+
+            Self::LowerBelorussian => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'і', 'й', 'к', 'л', 'м',
+                    'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ў', 'ф', 'х', 'ц', 'ч', 'ш', 'ы',
+                    'ь', 'э', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperBelorussian => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё', 'Ж', 'З', 'І', 'Й', 'К', 'Л', 'М',
+                    'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ў', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Ы',
+                    'Ь', 'Э', 'Ю', 'Я',
+                ],
+                n,
+            ),
+            Self::LowerBulgarian => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н',
+                    'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ', 'ь',
+                    'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperBulgarian => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н',
+                    'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ъ', 'Ь',
+                    'Ю', 'Я',
+                ],
+                n,
+            ),
+            Self::LowerMacedonian => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'ѓ', 'е', 'ж', 'з', 'ѕ', 'и', 'ј', 'к', 'л',
+                    'љ', 'м', 'н', 'њ', 'о', 'п', 'р', 'с', 'т', 'ќ', 'у', 'ф', 'х', 'ц',
+                    'ч', 'џ', 'ш',
+                ],
+                n,
+            ),
+            Self::UpperMacedonian => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Ѓ', 'Е', 'Ж', 'З', 'Ѕ', 'И', 'Ј', 'К', 'Л',
+                    'Љ', 'М', 'Н', 'Њ', 'О', 'П', 'Р', 'С', 'Т', 'Ќ', 'У', 'Ф', 'Х', 'Ц',
+                    'Ч', 'Џ', 'Ш',
+                ],
+                n,
+            ),
+            Self::LowerRussian => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'к', 'л', 'м', 'н', 'о',
+                    'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'э', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperRussian => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И', 'К', 'Л', 'М', 'Н', 'О',
+                    'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Э', 'Ю', 'Я',
+                ],
+                n,
+            ),
+            Self::LowerRussianFull => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м',
+                    'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ',
+                    'ы', 'ь', 'э', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperRussianFull => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё', 'Ж', 'З', 'И', 'Й', 'К', 'Л', 'М',
+                    'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ъ',
+                    'Ы', 'Ь', 'Э', 'Ю', 'Я',
+                ],
+                n,
+            ),
+            Self::LowerSerbian => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'ђ', 'е', 'ж', 'з', 'и', 'ј', 'к', 'л', 'љ',
+                    'м', 'н', 'њ', 'о', 'п', 'р', 'с', 'т', 'ћ', 'у', 'ф', 'х', 'ц', 'ч',
+                    'џ', 'ш',
+                ],
+                n,
+            ),
+            Self::UpperSerbian => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Ђ', 'Е', 'Ж', 'З', 'И', 'Ј', 'К', 'Л', 'Љ',
+                    'М', 'Н', 'Њ', 'О', 'П', 'Р', 'С', 'Т', 'Ћ', 'У', 'Ф', 'Х', 'Ц', 'Ч',
+                    'Џ', 'Ш',
+                ],
+                n,
+            ),
+            Self::LowerUkrainian => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'є', 'ж', 'з', 'и', 'і', 'к', 'л', 'м',
+                    'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperUkrainian => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є', 'Ж', 'З', 'И', 'І', 'К', 'Л', 'М',
+                    'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Ю', 'Я',
+                ],
+                n,
+            ),
+            Self::LowerUkrainianFull => alphabetic(
+                [
+                    'а', 'б', 'в', 'г', 'ґ', 'д', 'е', 'є', 'ж', 'з', 'и', 'і', 'ї', 'й',
+                    'к', 'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч',
+                    'ш', 'щ', 'ь', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperUkrainianFull => alphabetic(
+                [
+                    'А', 'Б', 'В', 'Г', 'Ґ', 'Д', 'Е', 'Є', 'Ж', 'З', 'И', 'І', 'Ї', 'Й',
+                    'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч',
+                    'Ш', 'Щ', 'Ь', 'Ю', 'Я',
+                ],
+                n,
+            ),
+
             Self::Symbol => symbolic(['*', '†', '‡', '§', '¶', '‖'], n),
 
-            Self::Hebrew => hebrew_numeral(n),
+            Self::Hebrew => additive(
+                [
+                    (&"א׳", 1000),
+                    (&"ת", 400),
+                    (&"ש", 300),
+                    (&"ר", 200),
+                    (&"ק", 100),
+                    (&"צ", 90),
+                    (&"פ", 80),
+                    (&"ע", 70),
+                    (&"ס", 60),
+                    (&"נ", 50),
+                    (&"מ", 40),
+                    (&"ל", 30),
+                    (&"כ", 20),
+                    (&"יט", 19),
+                    (&"יח", 18),
+                    (&"יז", 17),
+                    (&"טז", 16),
+                    (&"טו", 15),
+                    (&"י", 10),
+                    (&"ט", 9),
+                    (&"ח", 8),
+                    (&"ז", 7),
+                    (&"ו", 6),
+                    (&"ה", 5),
+                    (&"ד", 4),
+                    (&"ג", 3),
+                    (&"ב", 2),
+                    (&"א", 1),
+                ],
+                n,
+            ),
 
             Self::LowerLatin => alphabetic(
                 [
@@ -559,7 +956,7 @@ impl NumberingKind {
                 n,
             ),
             Self::DoubleCircledNumber => {
-                alphabetic(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
+                fixed(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
             }
 
             Self::LowerSimplifiedChinese => {
@@ -580,247 +977,36 @@ impl NumberingKind {
     }
 }
 
-/// Stringify an integer to a Hebrew number.
-fn hebrew_numeral(mut n: usize) -> EcoString {
+fn additive<const N_DIGITS: usize>(
+    symbols: [(&str, usize); N_DIGITS],
+    mut n: usize,
+) -> EcoString {
     if n == 0 {
-        return '-'.into();
-    }
-    let mut fmt = EcoString::new();
-    'outer: for (name, value) in [
-        ('ת', 400),
-        ('ש', 300),
-        ('ר', 200),
-        ('ק', 100),
-        ('צ', 90),
-        ('פ', 80),
-        ('ע', 70),
-        ('ס', 60),
-        ('נ', 50),
-        ('מ', 40),
-        ('ל', 30),
-        ('כ', 20),
-        ('י', 10),
-        ('ט', 9),
-        ('ח', 8),
-        ('ז', 7),
-        ('ו', 6),
-        ('ה', 5),
-        ('ד', 4),
-        ('ג', 3),
-        ('ב', 2),
-        ('א', 1),
-    ] {
-        while n >= value {
-            match n {
-                15 => fmt.push_str("ט״ו"),
-                16 => fmt.push_str("ט״ז"),
-                _ => {
-                    let append_geresh = n == value && fmt.is_empty();
-                    if n == value && !fmt.is_empty() {
-                        fmt.push('״');
-                    }
-                    fmt.push(name);
-                    if append_geresh {
-                        fmt.push('׳');
-                    }
-
-                    n -= value;
-                    continue;
-                }
-            }
-            break 'outer;
-        }
-    }
-    fmt
-}
-
-/// Stringify an integer to a Roman numeral.
-fn roman_numeral(mut n: usize, case: Case) -> EcoString {
-    if n == 0 {
-        return match case {
-            Case::Lower => 'n'.into(),
-            Case::Upper => 'N'.into(),
-        };
-    }
-
-    // Adapted from Yann Villessuzanne's roman.rs under the
-    // Unlicense, at https://github.com/linfir/roman.rs/
-    let mut fmt = EcoString::new();
-    for &(name, value) in &[
-        ("M̅", 1000000),
-        ("D̅", 500000),
-        ("C̅", 100000),
-        ("L̅", 50000),
-        ("X̅", 10000),
-        ("V̅", 5000),
-        ("I̅V̅", 4000),
-        ("M", 1000),
-        ("CM", 900),
-        ("D", 500),
-        ("CD", 400),
-        ("C", 100),
-        ("XC", 90),
-        ("L", 50),
-        ("XL", 40),
-        ("X", 10),
-        ("IX", 9),
-        ("V", 5),
-        ("IV", 4),
-        ("I", 1),
-    ] {
-        while n >= value {
-            n -= value;
-            for c in name.chars() {
-                match case {
-                    Case::Lower => fmt.extend(c.to_lowercase()),
-                    Case::Upper => fmt.push(c),
-                }
+        for (symbol, weight) in symbols {
+            if weight == 0 {
+                return (*symbol).into();
+            } else {
+                return '0'.into();
             }
         }
     }
 
-    fmt
-}
-
-/// Stringify an integer to Greek numbers.
-///
-/// Greek numbers use the Greek Alphabet to represent numbers; it is based on 10
-/// (decimal). Here we implement the single digit M power representation from
-/// [The Greek Number Converter][convert] and also described in
-/// [Greek Numbers][numbers].
-///
-/// [converter]: https://www.russellcottrell.com/greek/utilities/GreekNumberConverter.htm
-/// [numbers]: https://mathshistory.st-andrews.ac.uk/HistTopics/Greek_numbers/
-fn greek_numeral(n: usize, case: Case) -> EcoString {
-    let thousands = [
-        ["͵α", "͵Α"],
-        ["͵β", "͵Β"],
-        ["͵γ", "͵Γ"],
-        ["͵δ", "͵Δ"],
-        ["͵ε", "͵Ε"],
-        ["͵ϛ", "͵Ϛ"],
-        ["͵ζ", "͵Ζ"],
-        ["͵η", "͵Η"],
-        ["͵θ", "͵Θ"],
-    ];
-    let hundreds = [
-        ["ρ", "Ρ"],
-        ["σ", "Σ"],
-        ["τ", "Τ"],
-        ["υ", "Υ"],
-        ["φ", "Φ"],
-        ["χ", "Χ"],
-        ["ψ", "Ψ"],
-        ["ω", "Ω"],
-        ["ϡ", "Ϡ"],
-    ];
-    let tens = [
-        ["ι", "Ι"],
-        ["κ", "Κ"],
-        ["λ", "Λ"],
-        ["μ", "Μ"],
-        ["ν", "Ν"],
-        ["ξ", "Ξ"],
-        ["ο", "Ο"],
-        ["π", "Π"],
-        ["ϙ", "Ϟ"],
-    ];
-    let ones = [
-        ["α", "Α"],
-        ["β", "Β"],
-        ["γ", "Γ"],
-        ["δ", "Δ"],
-        ["ε", "Ε"],
-        ["ϛ", "Ϛ"],
-        ["ζ", "Ζ"],
-        ["η", "Η"],
-        ["θ", "Θ"],
-    ];
-
-    if n == 0 {
-        // Greek Zero Sign
-        return '𐆊'.into();
-    }
-
-    let mut fmt = EcoString::new();
-    let case = match case {
-        Case::Lower => 0,
-        Case::Upper => 1,
-    };
-
-    // Extract a list of decimal digits from the number
-    let mut decimal_digits: Vec<usize> = Vec::new();
-    let mut n = n;
-    while n > 0 {
-        decimal_digits.push(n % 10);
-        n /= 10;
-    }
-
-    // Pad the digits with leading zeros to ensure we can form groups of 4
-    while decimal_digits.len() % 4 != 0 {
-        decimal_digits.push(0);
-    }
-    decimal_digits.reverse();
-
-    let mut m_power = decimal_digits.len() / 4;
-
-    // M are used to represent 10000, M_power = 2 means 10000^2 = 10000 0000
-    // The prefix of M is also made of Greek numerals but only be single digits, so it is 9 at max. This enables us
-    // to represent up to (10000)^(9 + 1) - 1 = 10^40 -1  (9,999,999,999,999,999,999,999,999,999,999,999,999,999)
-    let get_m_prefix = |m_power: usize| {
-        if m_power == 0 {
-            None
-        } else {
-            assert!(m_power <= 9);
-            // the prefix of M is a single digit lowercase
-            Some(ones[m_power - 1][0])
-        }
-    };
-
-    let mut previous_has_number = false;
-    for chunk in decimal_digits.chunks_exact(4) {
-        // chunk must be exact 4 item
-        assert_eq!(chunk.len(), 4);
-
-        m_power = m_power.saturating_sub(1);
-
-        // `th`ousan, `h`undred, `t`en and `o`ne
-        let (th, h, t, o) = (chunk[0], chunk[1], chunk[2], chunk[3]);
-        if th + h + t + o == 0 {
+    let mut s = EcoString::new();
+    for (symbol, weight) in symbols {
+        if weight == 0 || weight > n {
             continue;
         }
-
-        if previous_has_number {
-            fmt.push_str(", ");
+        let reps = n / weight;
+        for _ in 0..reps {
+            s.push_str(symbol);
         }
 
-        if let Some(m_prefix) = get_m_prefix(m_power) {
-            fmt.push_str(m_prefix);
-            fmt.push_str("Μ");
+        n -= weight * reps;
+        if n == 0 {
+            return s;
         }
-        if th != 0 {
-            let thousand_digit = thousands[th - 1][case];
-            fmt.push_str(thousand_digit);
-        }
-        if h != 0 {
-            let hundred_digit = hundreds[h - 1][case];
-            fmt.push_str(hundred_digit);
-        }
-        if t != 0 {
-            let ten_digit = tens[t - 1][case];
-            fmt.push_str(ten_digit);
-        }
-        if o != 0 {
-            let one_digit = ones[o - 1][case];
-            fmt.push_str(one_digit);
-        }
-        // if we do not have thousan, we need to append 'ʹ' at the end.
-        if th == 0 {
-            fmt.push_str("ʹ");
-        }
-        previous_has_number = true;
     }
-    fmt
+    s
 }
 
 fn alphabetic<const N_DIGITS: usize>(
@@ -856,5 +1042,5 @@ fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: usize) -> Ec
 }
 
 fn symbolic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: usize) -> EcoString {
-    EcoString::from(symbols[(n - 1) % N_DIGITS]).repeat((n).div_ceil(N_DIGITS))
+    EcoString::from(symbols[(n - 1) % N_DIGITS]).repeat(n.div_ceil(N_DIGITS))
 }
