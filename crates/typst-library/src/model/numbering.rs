@@ -1035,6 +1035,9 @@ fn alphabetic<const N_DIGITS: usize>(
     symbols: [char; N_DIGITS],
     mut n: usize,
 ) -> EcoString {
+    if n == 0 {
+        return '-'.into();
+    }
     let mut s = EcoString::new();
     while n != 0 {
         n -= 1;
@@ -1064,5 +1067,8 @@ fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: usize) -> Ec
 }
 
 fn symbolic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: usize) -> EcoString {
+    if n == 0 {
+        return '-'.into();
+    }
     EcoString::from(symbols[(n - 1) % N_DIGITS]).repeat(n.div_ceil(N_DIGITS))
 }
