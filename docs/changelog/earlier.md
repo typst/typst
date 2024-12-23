@@ -83,7 +83,7 @@ description: Changes in early, unversioned Typst
 
 - New [`measure`] function
   - Measure the layouted size of elements
-  - To be used in combination with the new [`style`] function that lets you
+  - To be used in combination with the new `style` function that lets you
     generate different content based on the style context something is inserted
     into (because that affects the measured size of content)
 

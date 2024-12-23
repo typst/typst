@@ -6,15 +6,13 @@ use typst_library::foundations::{Packed, StyleChain, StyleVec};
 use typst_library::layout::{Abs, Size};
 use typst_library::math::{EquationElem, MathSize, MathVariant};
 use typst_library::text::{
-    BottomEdge, BottomEdgeMetric, TextElem, TextSize, TopEdge, TopEdgeMetric,
+    BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
 use typst_syntax::{is_newline, Span};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{
-    scaled_font_size, FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun,
-};
+use super::{FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun};
 
 /// Lays out a [`TextElem`].
 pub fn layout_text(
@@ -70,13 +68,12 @@ pub fn layout_text(
             let c = styled_char(styles, c, false);
             fragments.push(GlyphFragment::new(ctx, styles, c, span).into());
         }
-        let frame = MathRun::new(fragments).into_frame(ctx, styles);
-        FrameFragment::new(ctx, styles, frame).with_text_like(true).into()
+        let frame = MathRun::new(fragments).into_frame(styles);
+        FrameFragment::new(styles, frame).with_text_like(true).into()
     } else {
         let local = [
             TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
             TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
-            TextElem::set_size(TextSize(scaled_font_size(ctx, styles).into())),
         ]
         .map(|p| p.wrap());
 
@@ -94,10 +91,10 @@ pub fn layout_text(
                     fragments.push(layout_complex_text(piece, ctx, span, styles)?.into());
                 }
             }
-            let mut frame = MathRun::new(fragments).into_frame(ctx, styles);
+            let mut frame = MathRun::new(fragments).into_frame(styles);
             let axis = scaled!(ctx, styles, axis_height);
             frame.set_baseline(frame.height() / 2.0 + axis);
-            FrameFragment::new(ctx, styles, frame).into()
+            FrameFragment::new(styles, frame).into()
         } else {
             layout_complex_text(&text, ctx, span, styles)?.into()
         }
@@ -131,7 +128,7 @@ fn layout_complex_text(
     )?
     .into_frame();
 
-    Ok(FrameFragment::new(ctx, styles, frame)
+    Ok(FrameFragment::new(styles, frame)
         .with_class(MathClass::Alphabetic)
         .with_text_like(true)
         .with_spaced(spaced))

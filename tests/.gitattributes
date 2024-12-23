@@ -1,0 +1,1 @@
+*.html text eol=lf

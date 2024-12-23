@@ -28,7 +28,7 @@
       },
       {
         "command": "typst-test-helper.saveFromPreview",
-        "title": "Run and save reference image",
+        "title": "Run and save reference output",
         "category": "Typst Test Helper",
         "icon": "$(save)",
         "enablement": "typst-test-helper.runButtonEnabled"
@@ -102,4 +102,3 @@
     "vscode": "^1.88.0"
   }
 }
-

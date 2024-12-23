@@ -25,7 +25,7 @@ pub struct LineElem {
     #[resolve]
     pub start: Axes<Rel<Length>>,
 
-    /// The offset from `start` where the line ends.
+    /// The point where the line ends.
     #[resolve]
     pub end: Option<Axes<Rel<Length>>>,
 

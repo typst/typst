@@ -7,8 +7,7 @@ forms a "block" with flush edges at both sides.
 
 First line indents and hyphenation play nicely with justified text.
 
---- justify-knuth-story ---
-// LARGE
+--- justify-knuth-story large ---
 #set page(width: auto, height: auto)
 #set par(leading: 4pt, justify: true)
 #set text(font: "New Computer Modern")

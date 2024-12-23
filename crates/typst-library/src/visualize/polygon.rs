@@ -35,7 +35,7 @@ pub struct PolygonElem {
 
     /// The drawing rule used to fill the polygon.
     ///
-    /// See the [path documentation]($path.fill-rule) for an example.
+    /// See the [curve documentation]($curve.fill-rule) for an example.
     #[default]
     pub fill_rule: FillRule,
 

@@ -279,3 +279,42 @@ First!
 // Test box in 100% width block.
 #block(width: 100%, fill: red, box("a box"))
 #block(width: 100%, fill: red, [#box("a box") #box()])
+
+--- issue-5296-block-sticky-in-block-at-top ---
+#set page(height: 3cm)
+#v(1.6cm)
+#block(height: 2cm, breakable: true)[
+  #block(sticky: true)[*A*]
+
+  b
+]
+
+--- issue-5296-block-sticky-spaced-from-top-of-page ---
+#set page(height: 3cm)
+#v(2cm)
+
+#block(sticky: true)[*A*]
+
+b
+
+--- issue-5296-block-sticky-weakly-spaced-from-top-of-page ---
+#set page(height: 3cm)
+#v(2cm, weak: true)
+
+#block(sticky: true)[*A*]
+
+b
+
+--- issue-5262-block-negative-height ---
+#block(height: -1pt)[]
+
+--- issue-5262-block-negative-height-implicit ---
+#set page(height: 10pt, margin: (top: 9pt))
+#block(height: 100%)[]
+
+--- issue-5262-block-negative-height-in-flow ---
+// The contents after the block should be pushed upwards.
+#set page(height: 60pt)
+a
+#block(height: -25pt)[b]
+c

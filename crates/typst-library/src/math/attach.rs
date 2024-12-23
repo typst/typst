@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content, Packed, Smart};
+use crate::foundations::{elem, Content, Packed};
 use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, Mathy};
 
@@ -48,7 +48,7 @@ impl Packed<AttachElem> {
     pub fn merge_base(&self) -> Option<Self> {
         // Extract from an EquationElem.
         let mut base = self.base();
-        if let Some(equation) = base.to_packed::<EquationElem>() {
+        while let Some(equation) = base.to_packed::<EquationElem>() {
             base = equation.body();
         }
 
@@ -152,5 +152,7 @@ pub struct StretchElem {
 
     /// The size to stretch to, relative to the maximum size of the glyph and
     /// its attachments.
-    pub size: Smart<Rel<Length>>,
+    #[resolve]
+    #[default(Rel::one())]
+    pub size: Rel<Length>,
 }
