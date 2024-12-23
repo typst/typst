@@ -4,7 +4,7 @@ use chinese_number::{
     from_usize_to_chinese_ten_thousand as usize_to_chinese, ChineseCase, ChineseVariant,
 };
 use comemo::Tracked;
-use ecow::{EcoString, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -436,7 +436,7 @@ impl NumberingKind {
 
             "circled-decimal" => NumberingKind::CircledDecimal,
             "decimal" => NumberingKind::Decimal,
-            "doubled-circled-decimal" => NumberingKind::DoubleCircledDecimal,
+            "double-circled-decimal" => NumberingKind::DoubleCircledDecimal,
             "filled-circled-decimal" => NumberingKind::FilledCircledDecimal,
             "tally-mark" => NumberingKind::TallyMark,
             _ => return None,
@@ -1045,10 +1045,10 @@ fn alphabetic<const N_DIGITS: usize>(
 }
 
 fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: usize) -> EcoString {
-    if n - 1 > N_DIGITS {
-        return "{n}".into();
+    if n - 1 < N_DIGITS {
+        return symbols[n - 1].into();
     }
-    symbols[n - 1].into()
+    eco_format!("{n}")
 }
 
 fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: usize) -> EcoString {
