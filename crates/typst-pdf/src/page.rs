@@ -226,7 +226,7 @@ pub(crate) struct PdfPageLabel {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PdfPageLabelStyle {
     /// Decimal arabic numerals (1, 2, 3).
-    Arabic,
+    Decimal,
     /// Lowercase roman numerals (i, ii, iii).
     LowerRoman,
     /// Uppercase roman numerals (I, II, III).
@@ -255,7 +255,7 @@ impl PdfPageLabel {
             use typst_library::model::NumberingKind as Kind;
             use PdfPageLabelStyle as Style;
             match kind {
-                Kind::Arabic => Some(Style::Arabic),
+                Kind::Decimal => Some(Style::Decimal),
                 Kind::LowerRoman => Some(Style::LowerRoman),
                 Kind::UpperRoman => Some(Style::UpperRoman),
                 Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
@@ -285,7 +285,7 @@ impl PdfPageLabel {
     fn arabic(number: usize) -> PdfPageLabel {
         PdfPageLabel {
             prefix: None,
-            style: Some(PdfPageLabelStyle::Arabic),
+            style: Some(PdfPageLabelStyle::Decimal),
             offset: NonZeroUsize::new(number),
         }
     }
@@ -294,7 +294,7 @@ impl PdfPageLabel {
 impl PdfPageLabelStyle {
     pub fn to_pdf_numbering_style(self) -> NumberingStyle {
         match self {
-            PdfPageLabelStyle::Arabic => NumberingStyle::Arabic,
+            PdfPageLabelStyle::Decimal => NumberingStyle::Arabic,
             PdfPageLabelStyle::LowerRoman => NumberingStyle::LowerRoman,
             PdfPageLabelStyle::UpperRoman => NumberingStyle::UpperRoman,
             PdfPageLabelStyle::LowerAlpha => NumberingStyle::LowerAlpha,

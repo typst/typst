@@ -9,7 +9,6 @@ use ecow::{EcoString, EcoVec};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, func, Context, Func, Str, Value};
-use crate::text::Case;
 
 /// Applies a numbering to a sequence of numbers.
 ///
@@ -279,14 +278,16 @@ cast! {
 /// Different kinds of numberings.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum NumberingKind {
+    /// Adlam
     Adlam,
+
+    /// Arabic
     ArabicIndic,
     ArabicAbjad,
     Kashmiri,
     MaghrebiAbjad,
     Persian,
 
-    Arabic,
     LowerLatin,
     UpperLatin,
     LowerRoman,
@@ -343,17 +344,20 @@ pub enum NumberingKind {
     KoreanSyllable,
     /// Bengali letters (ক, খ, গ, ...কক, কখ etc.).
     BengaliLetter,
-    /// Circled numbers (①, ②, ③, etc.), up to 50.
-    CircledNumber,
-    /// Double-circled numbers (⓵, ⓶, ⓷, etc.), up to 10.
-    DoubleCircledNumber,
+
+    /// European Digits, Roman, etc.
+    CircledDecimal,
+    Decimal,
+    DoubleCircledDecimal,
+    FilledCircledDecimal,
+    TallyMark,
 }
 
 impl NumberingKind {
     /// Create a numbering kind from a representative character.
     pub fn from_char(c: char) -> Option<Self> {
         Some(match c {
-            '1' => NumberingKind::Arabic,
+            '1' => NumberingKind::Decimal,
             'a' => NumberingKind::LowerLatin,
             'A' => NumberingKind::UpperLatin,
             'i' => NumberingKind::LowerRoman,
@@ -371,8 +375,8 @@ impl NumberingKind {
             'ㄱ' => NumberingKind::KoreanJamo,
             '가' => NumberingKind::KoreanSyllable,
             '\u{0995}' => NumberingKind::BengaliLetter,
-            '①' => NumberingKind::CircledNumber,
-            '⓵' => NumberingKind::DoubleCircledNumber,
+            '①' => NumberingKind::CircledDecimal,
+            '⓵' => NumberingKind::DoubleCircledDecimal,
             _ => return None,
         })
     }
@@ -387,7 +391,6 @@ impl NumberingKind {
             "maghrebi-abjad" => NumberingKind::MaghrebiAbjad,
             "persian" => NumberingKind::Persian,
 
-            "arabic" => NumberingKind::Arabic,
             "latin" => NumberingKind::LowerLatin,
             "Latin" => NumberingKind::UpperLatin,
             "roman" => NumberingKind::LowerRoman,
@@ -430,8 +433,12 @@ impl NumberingKind {
             "korean" => NumberingKind::KoreanJamo,
             "korean-syllable" => NumberingKind::KoreanSyllable,
             "bengali-letter" => NumberingKind::BengaliLetter,
-            "circled-number" => NumberingKind::CircledNumber,
-            "circled-number-double" => NumberingKind::DoubleCircledNumber,
+
+            "circled-decimal" => NumberingKind::CircledDecimal,
+            "decimal" => NumberingKind::Decimal,
+            "doubled-circled-decimal" => NumberingKind::DoubleCircledDecimal,
+            "filled-circled-decimal" => NumberingKind::FilledCircledDecimal,
+            "tally-mark" => NumberingKind::TallyMark,
             _ => return None,
         })
     }
@@ -446,7 +453,6 @@ impl NumberingKind {
             Self::MaghrebiAbjad => "maghrebi-abjad",
             Self::Persian => "persian",
 
-            Self::Arabic => "arabic",
             Self::LowerLatin => "latin",
             Self::UpperLatin => "Latin",
             Self::LowerRoman => "roman",
@@ -489,8 +495,12 @@ impl NumberingKind {
             Self::KoreanJamo => "korean",
             Self::KoreanSyllable => "korean-syllable",
             Self::BengaliLetter => "bengali-letter",
-            Self::CircledNumber => "circled-number",
-            Self::DoubleCircledNumber => "circled-number-double",
+
+            Self::CircledDecimal => "circled-decimal",
+            Self::Decimal => "decimal",
+            Self::DoubleCircledDecimal => "doubled-circled-decimal",
+            Self::FilledCircledDecimal => "filled-circled-decimal",
+            Self::TallyMark => "tally-mark",
         }
     }
 
@@ -525,9 +535,6 @@ impl NumberingKind {
             ),
             Self::Persian => {
                 numeric(['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'], n)
-            }
-            Self::Arabic => {
-                numeric(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
             }
             Self::LowerRoman => additive(
                 [
@@ -945,19 +952,6 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::CircledNumber => alphabetic(
-                [
-                    '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭',
-                    '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕', '㉖',
-                    '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱', '㊲',
-                    '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼', '㊽',
-                    '㊾', '㊿',
-                ],
-                n,
-            ),
-            Self::DoubleCircledNumber => {
-                fixed(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
-            }
 
             Self::LowerSimplifiedChinese => {
                 usize_to_chinese(ChineseVariant::Simple, ChineseCase::Lower, n).into()
@@ -973,6 +967,31 @@ impl NumberingKind {
                 usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
                     .into()
             }
+
+            Self::CircledDecimal => fixed(
+                [
+                    '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭',
+                    '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕', '㉖',
+                    '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱', '㊲',
+                    '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼', '㊽',
+                    '㊾', '㊿',
+                ],
+                n,
+            ),
+            Self::Decimal => {
+                numeric(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
+            }
+            Self::DoubleCircledDecimal => {
+                fixed(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
+            }
+            Self::FilledCircledDecimal => fixed(
+                [
+                    '❶', '❷', '❸', '❹', '❺', '❻', '❼', '❽', '❾', '❿', '⓫', '⓬', '⓭', '⓮',
+                    '⓯', '⓰', '⓱', '⓲', '⓳', '⓴',
+                ],
+                n,
+            ),
+            Self::TallyMark => additive([(&"𝍸", 5), (&"𝍷", 1)], n),
         }
     }
 }
