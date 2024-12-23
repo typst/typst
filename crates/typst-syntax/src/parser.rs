@@ -501,7 +501,7 @@ fn math_args(p: &mut Parser) {
                 has_arrays = true;
             }
             SyntaxKind::End | SyntaxKind::Dollar | SyntaxKind::RightParen => {}
-            _ => p.unexpected(),
+            _ => p.expected("comma or semicolon"),
         }
     }
 

@@ -80,7 +80,7 @@ $args(..(a + b))$
 
 --- math-call-spread-multiple-exprs ---
 #let args(..body) = body
-// Error: 11-12 unexpected text
+// Error: 10 expected comma or semicolon
 $args(..a + b)$
 
 --- math-call-spread-unexpected-dots ---
