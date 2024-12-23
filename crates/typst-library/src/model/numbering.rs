@@ -601,6 +601,7 @@ impl NumberingKind {
                     (&"γ", 3),
                     (&"β", 2),
                     (&"α", 1),
+                    (&"𐆊", 0),
                 ],
                 n,
             ),
@@ -633,6 +634,7 @@ impl NumberingKind {
                     (&"Γ", 3),
                     (&"Β", 2),
                     (&"Α", 1),
+                    (&"𐆊", 0),
                 ],
                 n,
             ),
@@ -665,6 +667,7 @@ impl NumberingKind {
                     (&"γ", 3),
                     (&"β", 2),
                     (&"α", 1),
+                    (&"𐆊", 0),
                 ],
                 n,
             ),
@@ -697,6 +700,7 @@ impl NumberingKind {
                     (&"Γ", 3),
                     (&"Β", 2),
                     (&"Α", 1),
+                    (&"𐆊", 0),
                 ],
                 n,
             ),
@@ -1004,10 +1008,9 @@ fn additive<const N_DIGITS: usize>(
         for (symbol, weight) in symbols {
             if weight == 0 {
                 return (*symbol).into();
-            } else {
-                return '0'.into();
             }
         }
+        return '0'.into();
     }
 
     let mut s = EcoString::new();
