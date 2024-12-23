@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
-use typst_library::layout::cellgrid::{Cell, CellGrid, LinePosition, Repeatable};
+use typst_library::layout::grid::resolved::{Cell, CellGrid, LinePosition, Repeatable};
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,

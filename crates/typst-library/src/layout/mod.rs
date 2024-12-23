@@ -4,7 +4,6 @@ mod abs;
 mod align;
 mod angle;
 mod axes;
-pub mod cellgrid;
 mod columns;
 mod container;
 mod corners;
@@ -13,7 +12,7 @@ mod em;
 mod fr;
 mod fragment;
 mod frame;
-mod grid;
+pub mod grid;
 mod hide;
 #[path = "layout.rs"]
 mod layout_;

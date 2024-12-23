@@ -1,3 +1,5 @@
+pub mod resolved;
+
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 

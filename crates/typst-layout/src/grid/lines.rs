@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
-use typst_library::layout::cellgrid::{CellGrid, Line, Repeatable};
+use typst_library::layout::grid::resolved::{CellGrid, Line, Repeatable};
 use typst_library::layout::Abs;
 use typst_library::visualize::Stroke;
 
@@ -561,7 +561,7 @@ mod test {
     use std::num::NonZeroUsize;
     use typst_library::foundations::Content;
     use typst_library::introspection::Locator;
-    use typst_library::layout::cellgrid::{Cell, Entry, LinePosition};
+    use typst_library::layout::grid::resolved::{Cell, Entry, LinePosition};
     use typst_library::layout::{Axes, Sides, Sizing};
     use typst_utils::NonZeroExt;
 
