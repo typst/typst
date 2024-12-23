@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::layout::{Abs, Axis, Corner, Frame, Length, Point, Rel, Size};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
 use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
 };
@@ -121,7 +121,7 @@ pub fn layout_primes(
                     prime.clone(),
                 )
             }
-            ctx.push(FrameFragment::new(ctx, styles, frame).with_text_like(true));
+            ctx.push(FrameFragment::new(styles, frame).with_text_like(true));
         }
     }
     Ok(())
@@ -154,14 +154,11 @@ pub fn layout_limits(
     Ok(())
 }
 
-/// Get the size to stretch the base to, if the attach argument is true.
-fn stretch_size(
-    styles: StyleChain,
-    elem: &Packed<AttachElem>,
-) -> Option<Smart<Rel<Length>>> {
+/// Get the size to stretch the base to.
+fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs>> {
     // Extract from an EquationElem.
     let mut base = elem.base();
-    if let Some(equation) = base.to_packed::<EquationElem>() {
+    while let Some(equation) = base.to_packed::<EquationElem>() {
         base = equation.body();
     }
 
@@ -277,7 +274,7 @@ fn layout_attachments(
     layout!(b, b_x, b_y); // lower-limit
 
     // Done! Note that we retain the class of the base.
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
+    ctx.push(FrameFragment::new(styles, frame).with_class(base_class));
 
     Ok(())
 }

@@ -19,7 +19,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
-use typst::{Library, World};
+use typst::{Feature, Library, World};
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -180,7 +180,9 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::default();
+    let mut lib = Library::builder()
+        .with_features([Feature::Html].into_iter().collect())
+        .build();
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();

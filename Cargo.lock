@@ -3076,6 +3076,7 @@ dependencies = [
  "typst",
  "typst-assets",
  "typst-dev-assets",
+ "typst-html",
  "typst-library",
  "typst-pdf",
  "typst-render",
