@@ -258,8 +258,8 @@ impl PdfPageLabel {
                 Kind::Decimal => Some(Style::Decimal),
                 Kind::LowerRoman => Some(Style::LowerRoman),
                 Kind::UpperRoman => Some(Style::UpperRoman),
-                Kind::LowerLatin if number <= 26 => Some(Style::LowerAlpha),
-                Kind::LowerLatin if number <= 26 => Some(Style::UpperAlpha),
+                Kind::LowerAlpha if number <= 26 => Some(Style::LowerAlpha),
+                Kind::UpperAlpha if number <= 26 => Some(Style::UpperAlpha),
                 _ => None,
             }
         } else {
