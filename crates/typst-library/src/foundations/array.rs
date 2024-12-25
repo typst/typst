@@ -838,14 +838,16 @@ impl Array {
         /// The callsite span.
         span: Span,
         /// If given, applies this function to the elements in the array to
-        /// determine the keys to sort by.
+        /// determine the keys to sort by. Mutually exclusive with `compare`.
         #[named]
         key: Option<Func>,
         /// If given, uses this function to compare elements in the array.
+        /// Mutually exclusive with `key`.
         ///
-        /// This function should return an integer, whose sign is
-        /// used to determine the relative order of two given
-        /// elements.
+        /// This function should return an integer, whose sign is used to
+        /// determine the relative order of two given elements: Negative if the
+        /// first element is smaller, positive if the second element is smaller.
+        /// If `{0}` is returned, the order of the elements is not modified.
         #[named]
         compare: Option<Func>,
     ) -> SourceResult<Array> {
