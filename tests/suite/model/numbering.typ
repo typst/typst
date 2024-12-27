@@ -4,10 +4,16 @@
 #test(numbering("1", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "12345678910")
 
 --- numbering-shorthand-prefix ---
-#test(numbering("p1", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "p1p2p3p4p5p6p7p8p9p10")
+#test(numbering("p1", 1, 2, 3), "p1p2p3")
+
+--- numbering-shorthand-prefix-suffix ---
+#test(numbering("p1.a.is", 1, 3, 5), "p1.c.vs")
 
 --- numbering-verbose-prefix ---
 #test(numbering("prefix{decimal}", 1, 2, 3), "prefix1prefix2prefix3")
+
+--- numbering-verbose-prefix-suffix ---
+#test(numbering("prefix{circled-decimal}.{double-circled-decimal}.{filled-circled-decimal}suffix", 1, 1, 1), "prefix①.⓵.❶suffix")
 
 --- numbering-additive ---
 #test(numbering("{greek-upper-modern}", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "𐆊ΑΒΓΔΕΣΤΖΗΘΙ")
