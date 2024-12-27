@@ -86,6 +86,13 @@
 // Error: 2-28 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
+--- str-normalize ---
+// Test the `normalize` method.
+#test("e\u{0301}".normalize("NFC"), "é")
+#test("é".normalize("NFD"), "e\u{0301}")
+#test("ſ\u{0301}".normalize("NFKC"), "ś")
+#test("ſ\u{0301}".normalize("NFKD"), "s\u{0301}")
+
 --- string-len ---
 // Test the `len` method.
 #test("Hello World!".len(), 12)
