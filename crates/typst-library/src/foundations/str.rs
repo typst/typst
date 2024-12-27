@@ -290,7 +290,7 @@ impl Str {
 
     /// Normalizes the string to the given Unicode Normalization Form. This is useful when
     /// manipulating strings containing combining Unicode characters.
-    /// 
+    ///
     /// ```example
     /// #"é".normalize("NFD") \ // "e\u{0301}"
     /// #"ſ́".normalize("NFKC") // "ś", = "\u{015b}"
