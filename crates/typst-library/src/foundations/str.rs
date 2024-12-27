@@ -302,14 +302,11 @@ impl Str {
         /// Form](https://unicode.org/reports/tr15/#Norm_Forms) to use. If set to `auto`, NFC is used.
         form: Smart<UnicodeNormalForm>,
     ) -> Str {
-        match form {
-            Smart::Auto => self.nfc().collect(),
-            Smart::Custom(nf) => match nf {
-                UnicodeNormalForm::Nfc => self.nfc().collect(),
-                UnicodeNormalForm::Nfd => self.nfd().collect(),
-                UnicodeNormalForm::Nfkc => self.nfkc().collect(),
-                UnicodeNormalForm::Nfkd => self.nfkd().collect(),
-            },
+        match form.unwrap_or(UnicodeNormalForm::Nfc) {
+            UnicodeNormalForm::Nfc => self.nfc().collect(),
+            UnicodeNormalForm::Nfd => self.nfd().collect(),
+            UnicodeNormalForm::Nfkc => self.nfkc().collect(),
+            UnicodeNormalForm::Nfkd => self.nfkd().collect(),
         }
     }
 
