@@ -128,6 +128,7 @@ unicode-bidi = "0.3.18"
 unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-script = "0.5"
+unicode-normalization = "0.1.24"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }

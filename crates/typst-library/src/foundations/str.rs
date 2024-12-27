@@ -6,14 +6,16 @@ use std::ops::{Add, AddAssign, Deref, Range};
 use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
+use typst_macros::Cast;
 use typst_syntax::{Span, Spanned};
+use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
-    IntoValue, Label, Repr, Type, Value, Version,
+    IntoValue, Label, Repr, Smart, Type, Value, Version,
 };
 use crate::layout::Alignment;
 
@@ -284,6 +286,31 @@ impl Str {
             .try_into()
             .map_err(|_| eco_format!("{value:#x} is not a valid codepoint"))?;
         Ok(c.into())
+    }
+
+    /// Normalizes the string to the given Unicode Normalization Form. This is useful when
+    /// manipulating strings containing combining Unicode characters.
+    /// 
+    /// ```example
+    /// #"é".normalize("NFD") \ // "e\u{0301}"
+    /// #"ſ́".normalize("NFKC") // "ś", = "\u{015b}"
+    /// ```
+    #[func]
+    pub fn normalize(
+        &self,
+        /// One of `"NFC"`, `"NFD"`, `"NFKC"`, or `"NFKD"`, specifiying the [Unicode Normalization
+        /// Form](https://unicode.org/reports/tr15/#Norm_Forms) to use. If set to `auto`, NFC is used.
+        form: Smart<UnicodeNormalForm>,
+    ) -> Str {
+        match form {
+            Smart::Auto => self.nfc().collect(),
+            Smart::Custom(nf) => match nf {
+                UnicodeNormalForm::Nfc => self.nfc().collect(),
+                UnicodeNormalForm::Nfd => self.nfd().collect(),
+                UnicodeNormalForm::Nfkc => self.nfkc().collect(),
+                UnicodeNormalForm::Nfkd => self.nfkd().collect(),
+            },
+        }
     }
 
     /// Whether the string contains the specified pattern.
@@ -791,6 +818,18 @@ cast! {
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
+}
+
+#[derive(PartialEq, Cast)]
+pub enum UnicodeNormalForm {
+    #[string("NFC")]
+    Nfc,
+    #[string("NFD")]
+    Nfd,
+    #[string("NFKC")]
+    Nfkc,
+    #[string("NFKD")]
+    Nfkd,
 }
 
 /// Convert an item of std's `match_indices` to a dictionary.
