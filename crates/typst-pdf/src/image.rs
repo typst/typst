@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::io::Cursor;
 
 use ecow::eco_format;
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{DynamicImage, GenericImageView, LumaA, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
 use typst_library::visualize::{
-    ColorSpace, Image, ImageKind, ImageScaling, RasterFormat, SvgImage,
+    ColorSpace, Image, ImageKind, ImageScaling, RasterFormat, RasterImage, SvgImage,
 };
 use typst_utils::Deferred;
 
@@ -139,71 +138,75 @@ pub fn deferred_image(
     let interpolate = image.scaling() == ImageScaling::Smooth && !pdfa;
 
     let deferred = Deferred::new(move || match image.kind() {
+        ImageKind::Raster(raster) if raster.format() == RasterFormat::Jpg => {
+            Ok(encode_raster_jpeg(raster, interpolate))
+        }
         ImageKind::Raster(raster) => {
-            let format = if raster.format() == RasterFormat::Jpg {
-                EncodeFormat::DctDecode
-            } else {
-                EncodeFormat::Flate
-            };
-            Ok(encode_raster_image(
-                raster.dynamic(),
-                raster.icc_profile(),
-                format,
-                interpolate,
-            ))
+            Ok(encode_raster_flate(raster.dynamic(), raster.icc_profile(), interpolate))
         }
         ImageKind::Svg(svg) => {
             let (chunk, id) = encode_svg(svg, pdfa)
                 .map_err(|err| eco_format!("failed to convert SVG to PDF: {err}"))?;
             Ok(EncodedImage::Svg(chunk, id))
         }
-        ImageKind::Pixmap(pixmap) => Ok(encode_raster_image(
-            &pixmap.to_image(),
-            pixmap.icc_profile(),
-            EncodeFormat::Flate,
-            interpolate,
-        )),
+        ImageKind::Pixmap(pixmap) => {
+            Ok(encode_raster_flate(&pixmap.to_image(), pixmap.icc_profile(), interpolate))
+        }
     });
 
     (deferred, color_space)
 }
 
-/// Encode an image with a suitable filter.
-#[typst_macros::time(name = "encode raster image")]
-fn encode_raster_image(
+/// Include the source image's JPEG data without re-encoding.
+fn encode_raster_jpeg(raster: &RasterImage, interpolate: bool) -> EncodedImage {
+    let image = raster.dynamic();
+
+    let color_type = image.color();
+    let color_space = to_color_space(color_type);
+    let bits_per_component = bits_per_component(color_type);
+
+    let compressed_icc = raster.icc_profile().map(deflate);
+    let alpha = encode_alpha(image);
+
+    EncodedImage::Raster {
+        data: raster.data().to_vec(),
+        filter: Filter::DctDecode,
+        color_space,
+        bits_per_component,
+        width: image.width(),
+        height: image.height(),
+        compressed_icc,
+        alpha,
+        interpolate,
+    }
+}
+
+/// Encode an arbitrary raster image with a suitable filter.
+#[typst_macros::time(name = "encode raster image flate")]
+fn encode_raster_flate(
     image: &DynamicImage,
     icc_profile: Option<&[u8]>,
-    format: EncodeFormat,
     interpolate: bool,
 ) -> EncodedImage {
     let color_space = to_color_space(image.color());
+    let bits_per_component = bits_per_component(image.color());
 
-    let (filter, data, bits_per_component) = match format {
-        EncodeFormat::DctDecode => {
-            let mut data = Cursor::new(vec![]);
-            image.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-            (Filter::DctDecode, data.into_inner(), 8)
-        }
-        EncodeFormat::Flate => {
-            // TODO: Encode flate streams with PNG-predictor?
-            let (data, bits_per_component) = match (image, color_space) {
-                (DynamicImage::ImageRgb8(rgb), _) => (deflate(rgb.as_raw()), 8),
-                // Grayscale image
-                (DynamicImage::ImageLuma8(luma), _) => (deflate(luma.as_raw()), 8),
-                (_, ColorSpace::D65Gray) => (deflate(image.to_luma8().as_raw()), 8),
-                // Anything else
-                _ => (deflate(image.to_rgb8().as_raw()), 8),
-            };
-            (Filter::FlateDecode, data, bits_per_component)
-        }
+    // TODO: Encode flate streams with PNG-predictor?
+    let data = match (image, color_space) {
+        (DynamicImage::ImageRgb8(rgb), _) => deflate(rgb.as_raw()),
+        // Grayscale image
+        (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
+        (_, ColorSpace::D65Gray) => deflate(image.to_luma8().as_raw()),
+        // Anything else
+        _ => deflate(image.to_rgb8().as_raw()),
     };
 
     let compressed_icc = icc_profile.map(deflate);
-    let alpha = image.color().has_alpha().then(|| encode_alpha(image));
+    let alpha = encode_alpha(image);
 
     EncodedImage::Raster {
         data,
-        filter,
+        filter: Filter::FlateDecode,
         color_space,
         bits_per_component,
         width: image.width(),
@@ -224,11 +227,40 @@ fn to_color_space(color: image::ColorType) -> ColorSpace {
     }
 }
 
+/// How many bits does each component take up?
+fn bits_per_component(color: image::ColorType) -> u8 {
+    use image::ColorType::*;
+    match color {
+        Rgb8 | Rgba8 | L8 | La8 => 8,
+        Rgb16 | Rgba16 | L16 | La16 => 16,
+        Rgb32F | Rgba32F => 32,
+        _ => unimplemented!(),
+    }
+}
+
 /// Encode an image's alpha channel if present.
 #[typst_macros::time(name = "encode alpha")]
-fn encode_alpha(image: &DynamicImage) -> (Vec<u8>, Filter) {
-    let pixels: Vec<_> = image.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
-    (deflate(&pixels), Filter::FlateDecode)
+fn encode_alpha(image: &DynamicImage) -> Option<(Vec<u8>, Filter)> {
+    if !image.color().has_alpha() {
+        return None;
+    }
+
+    // Encode the alpha channel as big-endian.
+    let alpha: Vec<u8> = match image {
+        DynamicImage::ImageLumaA8(buf) => buf.pixels().map(|&LumaA([_, a])| a).collect(),
+        DynamicImage::ImageLumaA16(buf) => {
+            buf.pixels().flat_map(|&LumaA([_, a])| a.to_be_bytes()).collect()
+        }
+        DynamicImage::ImageRgba16(buf) => {
+            buf.pixels().flat_map(|&Rgba([_, _, _, a])| a.to_be_bytes()).collect()
+        }
+        DynamicImage::ImageRgba32F(buf) => {
+            buf.pixels().flat_map(|&Rgba([_, _, _, a])| a.to_be_bytes()).collect()
+        }
+        // Everything else is encoded as RGBA8.
+        _ => image.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect(),
+    };
+    Some((deflate(&alpha), Filter::FlateDecode))
 }
 
 /// Encode an SVG into a chunk of PDF objects.
@@ -274,10 +306,4 @@ pub enum EncodedImage {
     ///
     /// The chunk is the SVG converted to PDF objects.
     Svg(Chunk, Ref),
-}
-
-/// How the raster image should be encoded.
-enum EncodeFormat {
-    DctDecode,
-    Flate,
 }
