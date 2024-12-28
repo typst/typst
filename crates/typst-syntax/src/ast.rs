@@ -28,7 +28,7 @@ pub trait AstNode<'a>: Sized {
 }
 
 macro_rules! node {
-    ($(#[$attr:meta])* $name:ident) => {
+    ($(#[$attr:meta])* struct $name:ident) => {
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
         #[repr(transparent)]
         $(#[$attr])*
@@ -63,7 +63,7 @@ macro_rules! node {
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
-    Markup
+    struct Markup
 }
 
 impl<'a> Markup<'a> {
@@ -405,7 +405,7 @@ impl Default for Expr<'_> {
 
 node! {
     /// Plain text without markup.
-    Text
+    struct Text
 }
 
 impl<'a> Text<'a> {
@@ -418,22 +418,22 @@ impl<'a> Text<'a> {
 node! {
     /// Whitespace in markup or math. Has at most one newline in markup, as more
     /// indicate a paragraph break.
-    Space
+    struct Space
 }
 
 node! {
     /// A forced line break: `\`.
-    Linebreak
+    struct Linebreak
 }
 
 node! {
     /// A paragraph break, indicated by one or multiple blank lines.
-    Parbreak
+    struct Parbreak
 }
 
 node! {
     /// An escape sequence: `\#`, `\u{1F5FA}`.
-    Escape
+    struct Escape
 }
 
 impl Escape<'_> {
@@ -456,7 +456,7 @@ impl Escape<'_> {
 node! {
     /// A shorthand for a unicode codepoint. For example, `~` for a non-breaking
     /// space or `-?` for a soft hyphen.
-    Shorthand
+    struct Shorthand
 }
 
 impl Shorthand<'_> {
@@ -482,7 +482,7 @@ impl Shorthand<'_> {
 
 node! {
     /// A smart quote: `'` or `"`.
-    SmartQuote
+    struct SmartQuote
 }
 
 impl SmartQuote<'_> {
@@ -494,7 +494,7 @@ impl SmartQuote<'_> {
 
 node! {
     /// Strong content: `*Strong*`.
-    Strong
+    struct Strong
 }
 
 impl<'a> Strong<'a> {
@@ -506,7 +506,7 @@ impl<'a> Strong<'a> {
 
 node! {
     /// Emphasized content: `_Emphasized_`.
-    Emph
+    struct Emph
 }
 
 impl<'a> Emph<'a> {
@@ -518,7 +518,7 @@ impl<'a> Emph<'a> {
 
 node! {
     /// Raw text with optional syntax highlighting: `` `...` ``.
-    Raw
+    struct Raw
 }
 
 impl<'a> Raw<'a> {
@@ -551,7 +551,7 @@ impl<'a> Raw<'a> {
 
 node! {
     /// A language tag at the start of raw element: ``typ ``.
-    RawLang
+    struct RawLang
 }
 
 impl<'a> RawLang<'a> {
@@ -563,12 +563,12 @@ impl<'a> RawLang<'a> {
 
 node! {
     /// A raw delimiter in single or 3+ backticks: `` ` ``.
-    RawDelim
+    struct RawDelim
 }
 
 node! {
     /// A hyperlink: `https://typst.org`.
-    Link
+    struct Link
 }
 
 impl<'a> Link<'a> {
@@ -580,7 +580,7 @@ impl<'a> Link<'a> {
 
 node! {
     /// A label: `<intro>`.
-    Label
+    struct Label
 }
 
 impl<'a> Label<'a> {
@@ -592,7 +592,7 @@ impl<'a> Label<'a> {
 
 node! {
     /// A reference: `@target`, `@target[..]`.
-    Ref
+    struct Ref
 }
 
 impl<'a> Ref<'a> {
@@ -613,7 +613,7 @@ impl<'a> Ref<'a> {
 
 node! {
     /// A section heading: `= Introduction`.
-    Heading
+    struct Heading
 }
 
 impl<'a> Heading<'a> {
@@ -634,7 +634,7 @@ impl<'a> Heading<'a> {
 
 node! {
     /// An item in a bullet list: `- ...`.
-    ListItem
+    struct ListItem
 }
 
 impl<'a> ListItem<'a> {
@@ -646,7 +646,7 @@ impl<'a> ListItem<'a> {
 
 node! {
     /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
-    EnumItem
+    struct EnumItem
 }
 
 impl<'a> EnumItem<'a> {
@@ -666,7 +666,7 @@ impl<'a> EnumItem<'a> {
 
 node! {
     /// An item in a term list: `/ Term: Details`.
-    TermItem
+    struct TermItem
 }
 
 impl<'a> TermItem<'a> {
@@ -683,7 +683,7 @@ impl<'a> TermItem<'a> {
 
 node! {
     /// A mathematical equation: `$x$`, `$ x^2 $`.
-    Equation
+    struct Equation
 }
 
 impl<'a> Equation<'a> {
@@ -703,7 +703,7 @@ impl<'a> Equation<'a> {
 
 node! {
     /// The contents of a mathematical equation: `x^2 + 1`.
-    Math
+    struct Math
 }
 
 impl<'a> Math<'a> {
@@ -715,7 +715,7 @@ impl<'a> Math<'a> {
 
 node! {
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
-    MathText
+    struct MathText
 }
 
 /// The underlying text kind.
@@ -743,7 +743,7 @@ impl<'a> MathText<'a> {
 
 node! {
     /// An identifier in math: `pi`.
-    MathIdent
+    struct MathIdent
 }
 
 impl<'a> MathIdent<'a> {
@@ -770,7 +770,7 @@ impl Deref for MathIdent<'_> {
 
 node! {
     /// A shorthand for a unicode codepoint in math: `a <= b`.
-    MathShorthand
+    struct MathShorthand
 }
 
 impl MathShorthand<'_> {
@@ -828,12 +828,12 @@ impl MathShorthand<'_> {
 
 node! {
     /// An alignment point in math: `&`.
-    MathAlignPoint
+    struct MathAlignPoint
 }
 
 node! {
     /// Matched delimiters in math: `[x + y]`.
-    MathDelimited
+    struct MathDelimited
 }
 
 impl<'a> MathDelimited<'a> {
@@ -855,7 +855,7 @@ impl<'a> MathDelimited<'a> {
 
 node! {
     /// A base with optional attachments in math: `a_1^2`.
-    MathAttach
+    struct MathAttach
 }
 
 impl<'a> MathAttach<'a> {
@@ -892,7 +892,7 @@ impl<'a> MathAttach<'a> {
 
 node! {
     /// Grouped primes in math: `a'''`.
-    MathPrimes
+    struct MathPrimes
 }
 
 impl MathPrimes<'_> {
@@ -907,7 +907,7 @@ impl MathPrimes<'_> {
 
 node! {
     /// A fraction in math: `x/2`
-    MathFrac
+    struct MathFrac
 }
 
 impl<'a> MathFrac<'a> {
@@ -924,7 +924,7 @@ impl<'a> MathFrac<'a> {
 
 node! {
     /// A root in math: `√x`, `∛x` or `∜x`.
-    MathRoot
+    struct MathRoot
 }
 
 impl<'a> MathRoot<'a> {
@@ -946,7 +946,7 @@ impl<'a> MathRoot<'a> {
 
 node! {
     /// An identifier: `it`.
-    Ident
+    struct Ident
 }
 
 impl<'a> Ident<'a> {
@@ -973,17 +973,17 @@ impl Deref for Ident<'_> {
 
 node! {
     /// The `none` literal.
-    None
+    struct None
 }
 
 node! {
     /// The `auto` literal.
-    Auto
+    struct Auto
 }
 
 node! {
     /// A boolean: `true`, `false`.
-    Bool
+    struct Bool
 }
 
 impl Bool<'_> {
@@ -995,7 +995,7 @@ impl Bool<'_> {
 
 node! {
     /// An integer: `120`.
-    Int
+    struct Int
 }
 
 impl Int<'_> {
@@ -1017,7 +1017,7 @@ impl Int<'_> {
 
 node! {
     /// A floating-point number: `1.2`, `10e-4`.
-    Float
+    struct Float
 }
 
 impl Float<'_> {
@@ -1029,7 +1029,7 @@ impl Float<'_> {
 
 node! {
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
-    Numeric
+    struct Numeric
 }
 
 impl Numeric<'_> {
@@ -1086,7 +1086,7 @@ pub enum Unit {
 
 node! {
     /// A quoted string: `"..."`.
-    Str
+    struct Str
 }
 
 impl Str<'_> {
@@ -1136,7 +1136,7 @@ impl Str<'_> {
 
 node! {
     /// A code block: `{ let x = 1; x + 2 }`.
-    CodeBlock
+    struct CodeBlock
 }
 
 impl<'a> CodeBlock<'a> {
@@ -1148,7 +1148,7 @@ impl<'a> CodeBlock<'a> {
 
 node! {
     /// The body of a code block.
-    Code
+    struct Code
 }
 
 impl<'a> Code<'a> {
@@ -1160,7 +1160,7 @@ impl<'a> Code<'a> {
 
 node! {
     /// A content block: `[*Hi* there!]`.
-    ContentBlock
+    struct ContentBlock
 }
 
 impl<'a> ContentBlock<'a> {
@@ -1172,7 +1172,7 @@ impl<'a> ContentBlock<'a> {
 
 node! {
     /// A grouped expression: `(1 + 2)`.
-    Parenthesized
+    struct Parenthesized
 }
 
 impl<'a> Parenthesized<'a> {
@@ -1193,7 +1193,7 @@ impl<'a> Parenthesized<'a> {
 
 node! {
     /// An array: `(1, "hi", 12cm)`.
-    Array
+    struct Array
 }
 
 impl<'a> Array<'a> {
@@ -1230,7 +1230,7 @@ impl<'a> AstNode<'a> for ArrayItem<'a> {
 
 node! {
     /// A dictionary: `(thickness: 3pt, dash: "solid")`.
-    Dict
+    struct Dict
 }
 
 impl<'a> Dict<'a> {
@@ -1272,7 +1272,7 @@ impl<'a> AstNode<'a> for DictItem<'a> {
 
 node! {
     /// A named pair: `thickness: 3pt`.
-    Named
+    struct Named
 }
 
 impl<'a> Named<'a> {
@@ -1300,7 +1300,7 @@ impl<'a> Named<'a> {
 
 node! {
     /// A keyed pair: `"spacy key": true`.
-    Keyed
+    struct Keyed
 }
 
 impl<'a> Keyed<'a> {
@@ -1320,7 +1320,7 @@ impl<'a> Keyed<'a> {
 
 node! {
     /// A spread: `..x` or `..x.at(0)`.
-    Spread
+    struct Spread
 }
 
 impl<'a> Spread<'a> {
@@ -1351,7 +1351,7 @@ impl<'a> Spread<'a> {
 
 node! {
     /// A unary operation: `-x`.
-    Unary
+    struct Unary
 }
 
 impl<'a> Unary<'a> {
@@ -1411,7 +1411,7 @@ impl UnOp {
 
 node! {
     /// A binary operation: `a + b`.
-    Binary
+    struct Binary
 }
 
 impl<'a> Binary<'a> {
@@ -1598,7 +1598,7 @@ pub enum Assoc {
 
 node! {
     /// A field access: `properties.age`.
-    FieldAccess
+    struct FieldAccess
 }
 
 impl<'a> FieldAccess<'a> {
@@ -1615,7 +1615,7 @@ impl<'a> FieldAccess<'a> {
 
 node! {
     /// An invocation of a function or method: `f(x, y)`.
-    FuncCall
+    struct FuncCall
 }
 
 impl<'a> FuncCall<'a> {
@@ -1632,7 +1632,7 @@ impl<'a> FuncCall<'a> {
 
 node! {
     /// A function call's argument list: `(12pt, y)`.
-    Args
+    struct Args
 }
 
 impl<'a> Args<'a> {
@@ -1683,7 +1683,7 @@ impl<'a> AstNode<'a> for Arg<'a> {
 
 node! {
     /// A closure: `(x, y) => z`.
-    Closure
+    struct Closure
 }
 
 impl<'a> Closure<'a> {
@@ -1707,7 +1707,7 @@ impl<'a> Closure<'a> {
 
 node! {
     /// A closure's parameters: `(x, y)`.
-    Params
+    struct Params
 }
 
 impl<'a> Params<'a> {
@@ -1799,12 +1799,12 @@ impl Default for Pattern<'_> {
 
 node! {
     /// An underscore: `_`
-    Underscore
+    struct Underscore
 }
 
 node! {
     /// A destructuring pattern: `x` or `(x, _, ..y)`.
-    Destructuring
+    struct Destructuring
 }
 
 impl<'a> Destructuring<'a> {
@@ -1858,7 +1858,7 @@ impl<'a> AstNode<'a> for DestructuringItem<'a> {
 
 node! {
     /// A let binding: `let x = 1`.
-    LetBinding
+    struct LetBinding
 }
 
 /// The kind of a let binding, either a normal one or a closure.
@@ -1905,7 +1905,7 @@ impl<'a> LetBinding<'a> {
 
 node! {
     /// An assignment expression `(x, y) = (1, 2)`.
-    DestructAssignment
+    struct DestructAssignment
 }
 
 impl<'a> DestructAssignment<'a> {
@@ -1922,7 +1922,7 @@ impl<'a> DestructAssignment<'a> {
 
 node! {
     /// A set rule: `set text(...)`.
-    SetRule
+    struct SetRule
 }
 
 impl<'a> SetRule<'a> {
@@ -1947,7 +1947,7 @@ impl<'a> SetRule<'a> {
 
 node! {
     /// A show rule: `show heading: it => emph(it.body)`.
-    ShowRule
+    struct ShowRule
 }
 
 impl<'a> ShowRule<'a> {
@@ -1968,7 +1968,7 @@ impl<'a> ShowRule<'a> {
 
 node! {
     /// A contextual expression: `context text.lang`.
-    Contextual
+    struct Contextual
 }
 
 impl<'a> Contextual<'a> {
@@ -1980,7 +1980,7 @@ impl<'a> Contextual<'a> {
 
 node! {
     /// An if-else conditional: `if x { y } else { z }`.
-    Conditional
+    struct Conditional
 }
 
 impl<'a> Conditional<'a> {
@@ -2006,7 +2006,7 @@ impl<'a> Conditional<'a> {
 
 node! {
     /// A while loop: `while x { y }`.
-    WhileLoop
+    struct WhileLoop
 }
 
 impl<'a> WhileLoop<'a> {
@@ -2023,7 +2023,7 @@ impl<'a> WhileLoop<'a> {
 
 node! {
     /// A for loop: `for x in y { z }`.
-    ForLoop
+    struct ForLoop
 }
 
 impl<'a> ForLoop<'a> {
@@ -2049,7 +2049,7 @@ impl<'a> ForLoop<'a> {
 
 node! {
     /// A module import: `import "utils.typ": a, b, c`.
-    ModuleImport
+    struct ModuleImport
 }
 
 impl<'a> ModuleImport<'a> {
@@ -2135,7 +2135,7 @@ pub enum Imports<'a> {
 
 node! {
     /// Items to import from a module: `a, b, c`.
-    ImportItems
+    struct ImportItems
 }
 
 impl<'a> ImportItems<'a> {
@@ -2151,7 +2151,7 @@ impl<'a> ImportItems<'a> {
 
 node! {
     /// A path to a submodule's imported name: `a.b.c`.
-    ImportItemPath
+    struct ImportItemPath
 }
 
 impl<'a> ImportItemPath<'a> {
@@ -2207,7 +2207,7 @@ impl<'a> ImportItem<'a> {
 
 node! {
     /// A renamed import item: `a as d`
-    RenamedImportItem
+    struct RenamedImportItem
 }
 
 impl<'a> RenamedImportItem<'a> {
@@ -2233,7 +2233,7 @@ impl<'a> RenamedImportItem<'a> {
 
 node! {
     /// A module include: `include "chapter1.typ"`.
-    ModuleInclude
+    struct ModuleInclude
 }
 
 impl<'a> ModuleInclude<'a> {
@@ -2245,17 +2245,17 @@ impl<'a> ModuleInclude<'a> {
 
 node! {
     /// A break from a loop: `break`.
-    LoopBreak
+    struct LoopBreak
 }
 
 node! {
     /// A continue in a loop: `continue`.
-    LoopContinue
+    struct LoopContinue
 }
 
 node! {
     /// A return from a function: `return`, `return x + 1`.
-    FuncReturn
+    struct FuncReturn
 }
 
 impl<'a> FuncReturn<'a> {
