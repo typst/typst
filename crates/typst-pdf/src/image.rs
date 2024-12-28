@@ -67,17 +67,17 @@ pub fn write_images(
 
                     // Add a second gray-scale image containing the alpha values if
                     // this image has an alpha channel.
-                    if let Some((alpha_data, alpha_filter)) = alpha {
+                    if let Some(alpha) = alpha {
                         let mask_ref = chunk.alloc.bump();
                         image.s_mask(mask_ref);
                         image.finish();
 
-                        let mut mask = chunk.image_xobject(mask_ref, alpha_data);
-                        mask.filter(*alpha_filter);
+                        let mut mask = chunk.image_xobject(mask_ref, &alpha.data);
+                        mask.filter(alpha.filter);
                         mask.width(*width as i32);
                         mask.height(*height as i32);
                         mask.color_space().device_gray();
-                        mask.bits_per_component(i32::from(*bits_per_component));
+                        mask.bits_per_component(i32::from(alpha.bits_per_component));
                         mask.interpolate(*interpolate);
                     } else {
                         image.finish();
@@ -159,7 +159,10 @@ fn encode_raster_jpeg(image: &RasterImage, interpolate: bool) -> EncodedImage {
 
     let color_type = dynamic.color();
     let color_space = to_color_space(color_type);
-    let bits_per_component = bits_per_component(color_type);
+
+    let bits_per_component = (raster.source_color_type().bits_per_pixel()
+        / u16::from(raster.source_color_type().channel_count()))
+        as u8;
 
     let compressed_icc = image.icc().map(|bytes| deflate(bytes.as_ref()));
     let alpha = encode_alpha(dynamic);
@@ -183,15 +186,19 @@ fn encode_raster_flate(image: &RasterImage, interpolate: bool) -> EncodedImage {
     let dynamic = image.dynamic();
     let color_space = to_color_space(dynamic.color());
     let bits_per_component = bits_per_component(dynamic.color());
+fn encode_raster_flate(raster: &RasterImage, interpolate: bool) -> EncodedImage {
+    let image = raster.dynamic();
+    let color_space = to_color_space(image.color());
+    let bits_per_component = bits_per_component(image.color());
 
     // TODO: Encode flate streams with PNG-predictor?
-    let data = match (dynamic, color_space) {
-        (DynamicImage::ImageRgb8(rgb), _) => deflate(rgb.as_raw()),
+    let (bits_per_component, data) = match (image, color_space) {
+        (DynamicImage::ImageRgb8(rgb), _) => (8, deflate(rgb.as_raw())),
         // Grayscale image
-        (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
-        (_, ColorSpace::D65Gray) => deflate(dynamic.to_luma8().as_raw()),
+        (DynamicImage::ImageLuma8(luma), _) => (8, deflate(luma.as_raw())),
+        (_, ColorSpace::D65Gray) => (8, deflate(image.to_luma8().as_raw())),
         // Anything else
-        _ => deflate(dynamic.to_rgb8().as_raw()),
+        _ => (8, deflate(image.to_rgb8().as_raw())),
     };
 
     let compressed_icc = image.icc().map(|bytes| deflate(bytes.as_ref()));
@@ -210,12 +217,31 @@ fn encode_raster_flate(image: &RasterImage, interpolate: bool) -> EncodedImage {
     }
 }
 
+/// Matches an [`image::ColorType`] to [`ColorSpace`].
+fn to_color_space(color: image::ColorType) -> ColorSpace {
+    use image::ColorType::*;
+    match color {
+        L8 | La8 | L16 | La16 => ColorSpace::D65Gray,
+        Rgb8 | Rgba8 | Rgb16 | Rgba16 | Rgb32F | Rgba32F => ColorSpace::Srgb,
+        _ => unimplemented!(),
+    }
+}
+
 /// Encode an image's alpha channel if present.
 #[typst_macros::time(name = "encode alpha")]
-fn encode_alpha(image: &DynamicImage) -> Option<(Vec<u8>, Filter)> {
+fn encode_alpha(image: &DynamicImage) -> Option<AlphaChannel> {
     if !image.color().has_alpha() {
         return None;
     }
+
+    let bits_per_component = match image.color() {
+        image::ColorType::La8 => 8,
+        image::ColorType::Rgba8 => 8,
+        image::ColorType::La16 => 16,
+        image::ColorType::Rgba16 => 16,
+        image::ColorType::Rgba32F => 32,
+        _ => 8,
+    };
 
     // Encode the alpha channel as big-endian.
     let alpha: Vec<u8> = match image {
@@ -232,7 +258,11 @@ fn encode_alpha(image: &DynamicImage) -> Option<(Vec<u8>, Filter)> {
         // Everything else is encoded as RGBA8.
         _ => image.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect(),
     };
-    Some((deflate(&alpha), Filter::FlateDecode))
+    Some(AlphaChannel {
+        data: deflate(&alpha),
+        filter: Filter::FlateDecode,
+        bits_per_component,
+    })
 }
 
 /// Encode an SVG into a chunk of PDF objects.
@@ -287,7 +317,7 @@ pub enum EncodedImage {
         /// The image's ICC profile, deflated, if any.
         compressed_icc: Option<Vec<u8>>,
         /// The alpha channel of the image, pre-deflated, if any.
-        alpha: Option<(Vec<u8>, Filter)>,
+        alpha: Option<AlphaChannel>,
         /// Whether image interpolation should be enabled.
         interpolate: bool,
     },
@@ -295,4 +325,14 @@ pub enum EncodedImage {
     ///
     /// The chunk is the SVG converted to PDF objects.
     Svg(Chunk, Ref),
+}
+
+/// The alpha channel data.
+pub struct AlphaChannel {
+    /// The raw alpha channel, encoded using the given filter.
+    data: Vec<u8>,
+    /// The filter used for the alpha channel.
+    filter: Filter,
+    /// The number of bits the alpha component is encoded in.
+    bits_per_component: u8,
 }
