@@ -300,7 +300,7 @@ pub enum Expr<'a> {
 impl<'a> Expr<'a> {
     fn cast_with_space(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Space => node.cast().map(Self::Space),
+            SyntaxKind::Space => Some(Self::Space(Space(node))),
             _ => Self::from_untyped(node),
         }
     }
@@ -309,64 +309,68 @@ impl<'a> Expr<'a> {
 impl<'a> AstNode<'a> for Expr<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
-            SyntaxKind::Parbreak => node.cast().map(Self::Parbreak),
-            SyntaxKind::Text => node.cast().map(Self::Text),
-            SyntaxKind::Escape => node.cast().map(Self::Escape),
-            SyntaxKind::Shorthand => node.cast().map(Self::Shorthand),
-            SyntaxKind::SmartQuote => node.cast().map(Self::SmartQuote),
-            SyntaxKind::Strong => node.cast().map(Self::Strong),
-            SyntaxKind::Emph => node.cast().map(Self::Emph),
-            SyntaxKind::Raw => node.cast().map(Self::Raw),
-            SyntaxKind::Link => node.cast().map(Self::Link),
-            SyntaxKind::Label => node.cast().map(Self::Label),
-            SyntaxKind::Ref => node.cast().map(Self::Ref),
-            SyntaxKind::Heading => node.cast().map(Self::Heading),
-            SyntaxKind::ListItem => node.cast().map(Self::ListItem),
-            SyntaxKind::EnumItem => node.cast().map(Self::EnumItem),
-            SyntaxKind::TermItem => node.cast().map(Self::TermItem),
-            SyntaxKind::Equation => node.cast().map(Self::Equation),
-            SyntaxKind::Math => node.cast().map(Self::Math),
-            SyntaxKind::MathText => node.cast().map(Self::MathText),
-            SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
-            SyntaxKind::MathShorthand => node.cast().map(Self::MathShorthand),
-            SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
-            SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
-            SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
-            SyntaxKind::MathPrimes => node.cast().map(Self::MathPrimes),
-            SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
-            SyntaxKind::MathRoot => node.cast().map(Self::MathRoot),
-            SyntaxKind::Ident => node.cast().map(Self::Ident),
-            SyntaxKind::None => node.cast().map(Self::None),
-            SyntaxKind::Auto => node.cast().map(Self::Auto),
-            SyntaxKind::Bool => node.cast().map(Self::Bool),
-            SyntaxKind::Int => node.cast().map(Self::Int),
-            SyntaxKind::Float => node.cast().map(Self::Float),
-            SyntaxKind::Numeric => node.cast().map(Self::Numeric),
-            SyntaxKind::Str => node.cast().map(Self::Str),
-            SyntaxKind::CodeBlock => node.cast().map(Self::CodeBlock),
-            SyntaxKind::ContentBlock => node.cast().map(Self::ContentBlock),
-            SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
-            SyntaxKind::Array => node.cast().map(Self::Array),
-            SyntaxKind::Dict => node.cast().map(Self::Dict),
-            SyntaxKind::Unary => node.cast().map(Self::Unary),
-            SyntaxKind::Binary => node.cast().map(Self::Binary),
-            SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
-            SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
-            SyntaxKind::Closure => node.cast().map(Self::Closure),
-            SyntaxKind::LetBinding => node.cast().map(Self::LetBinding),
-            SyntaxKind::DestructAssignment => node.cast().map(Self::DestructAssignment),
-            SyntaxKind::SetRule => node.cast().map(Self::SetRule),
-            SyntaxKind::ShowRule => node.cast().map(Self::ShowRule),
-            SyntaxKind::Contextual => node.cast().map(Self::Contextual),
-            SyntaxKind::Conditional => node.cast().map(Self::Conditional),
-            SyntaxKind::WhileLoop => node.cast().map(Self::WhileLoop),
-            SyntaxKind::ForLoop => node.cast().map(Self::ForLoop),
-            SyntaxKind::ModuleImport => node.cast().map(Self::ModuleImport),
-            SyntaxKind::ModuleInclude => node.cast().map(Self::ModuleInclude),
-            SyntaxKind::LoopBreak => node.cast().map(Self::LoopBreak),
-            SyntaxKind::LoopContinue => node.cast().map(Self::LoopContinue),
-            SyntaxKind::FuncReturn => node.cast().map(Self::FuncReturn),
+            SyntaxKind::Linebreak => Some(Self::Linebreak(Linebreak(node))),
+            SyntaxKind::Parbreak => Some(Self::Parbreak(Parbreak(node))),
+            SyntaxKind::Text => Some(Self::Text(Text(node))),
+            SyntaxKind::Escape => Some(Self::Escape(Escape(node))),
+            SyntaxKind::Shorthand => Some(Self::Shorthand(Shorthand(node))),
+            SyntaxKind::SmartQuote => Some(Self::SmartQuote(SmartQuote(node))),
+            SyntaxKind::Strong => Some(Self::Strong(Strong(node))),
+            SyntaxKind::Emph => Some(Self::Emph(Emph(node))),
+            SyntaxKind::Raw => Some(Self::Raw(Raw(node))),
+            SyntaxKind::Link => Some(Self::Link(Link(node))),
+            SyntaxKind::Label => Some(Self::Label(Label(node))),
+            SyntaxKind::Ref => Some(Self::Ref(Ref(node))),
+            SyntaxKind::Heading => Some(Self::Heading(Heading(node))),
+            SyntaxKind::ListItem => Some(Self::ListItem(ListItem(node))),
+            SyntaxKind::EnumItem => Some(Self::EnumItem(EnumItem(node))),
+            SyntaxKind::TermItem => Some(Self::TermItem(TermItem(node))),
+            SyntaxKind::Equation => Some(Self::Equation(Equation(node))),
+            SyntaxKind::Math => Some(Self::Math(Math(node))),
+            SyntaxKind::MathText => Some(Self::MathText(MathText(node))),
+            SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
+            SyntaxKind::MathShorthand => Some(Self::MathShorthand(MathShorthand(node))),
+            SyntaxKind::MathAlignPoint => {
+                Some(Self::MathAlignPoint(MathAlignPoint(node)))
+            }
+            SyntaxKind::MathDelimited => Some(Self::MathDelimited(MathDelimited(node))),
+            SyntaxKind::MathAttach => Some(Self::MathAttach(MathAttach(node))),
+            SyntaxKind::MathPrimes => Some(Self::MathPrimes(MathPrimes(node))),
+            SyntaxKind::MathFrac => Some(Self::MathFrac(MathFrac(node))),
+            SyntaxKind::MathRoot => Some(Self::MathRoot(MathRoot(node))),
+            SyntaxKind::Ident => Some(Self::Ident(Ident(node))),
+            SyntaxKind::None => Some(Self::None(None(node))),
+            SyntaxKind::Auto => Some(Self::Auto(Auto(node))),
+            SyntaxKind::Bool => Some(Self::Bool(Bool(node))),
+            SyntaxKind::Int => Some(Self::Int(Int(node))),
+            SyntaxKind::Float => Some(Self::Float(Float(node))),
+            SyntaxKind::Numeric => Some(Self::Numeric(Numeric(node))),
+            SyntaxKind::Str => Some(Self::Str(Str(node))),
+            SyntaxKind::CodeBlock => Some(Self::CodeBlock(CodeBlock(node))),
+            SyntaxKind::ContentBlock => Some(Self::ContentBlock(ContentBlock(node))),
+            SyntaxKind::Parenthesized => Some(Self::Parenthesized(Parenthesized(node))),
+            SyntaxKind::Array => Some(Self::Array(Array(node))),
+            SyntaxKind::Dict => Some(Self::Dict(Dict(node))),
+            SyntaxKind::Unary => Some(Self::Unary(Unary(node))),
+            SyntaxKind::Binary => Some(Self::Binary(Binary(node))),
+            SyntaxKind::FieldAccess => Some(Self::FieldAccess(FieldAccess(node))),
+            SyntaxKind::FuncCall => Some(Self::FuncCall(FuncCall(node))),
+            SyntaxKind::Closure => Some(Self::Closure(Closure(node))),
+            SyntaxKind::LetBinding => Some(Self::LetBinding(LetBinding(node))),
+            SyntaxKind::DestructAssignment => {
+                Some(Self::DestructAssignment(DestructAssignment(node)))
+            }
+            SyntaxKind::SetRule => Some(Self::SetRule(SetRule(node))),
+            SyntaxKind::ShowRule => Some(Self::ShowRule(ShowRule(node))),
+            SyntaxKind::Contextual => Some(Self::Contextual(Contextual(node))),
+            SyntaxKind::Conditional => Some(Self::Conditional(Conditional(node))),
+            SyntaxKind::WhileLoop => Some(Self::WhileLoop(WhileLoop(node))),
+            SyntaxKind::ForLoop => Some(Self::ForLoop(ForLoop(node))),
+            SyntaxKind::ModuleImport => Some(Self::ModuleImport(ModuleImport(node))),
+            SyntaxKind::ModuleInclude => Some(Self::ModuleInclude(ModuleInclude(node))),
+            SyntaxKind::LoopBreak => Some(Self::LoopBreak(LoopBreak(node))),
+            SyntaxKind::LoopContinue => Some(Self::LoopContinue(LoopContinue(node))),
+            SyntaxKind::FuncReturn => Some(Self::FuncReturn(FuncReturn(node))),
             _ => Option::None,
         }
     }
@@ -1304,7 +1308,7 @@ pub enum ArrayItem<'a> {
 impl<'a> AstNode<'a> for ArrayItem<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Spread => node.cast().map(Self::Spread),
+            SyntaxKind::Spread => Some(Self::Spread(Spread(node))),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1343,9 +1347,9 @@ pub enum DictItem<'a> {
 impl<'a> AstNode<'a> for DictItem<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Keyed => node.cast().map(Self::Keyed),
-            SyntaxKind::Spread => node.cast().map(Self::Spread),
+            SyntaxKind::Named => Some(Self::Named(Named(node))),
+            SyntaxKind::Keyed => Some(Self::Keyed(Keyed(node))),
+            SyntaxKind::Spread => Some(Self::Spread(Spread(node))),
             _ => Option::None,
         }
     }
@@ -1755,8 +1759,8 @@ pub enum Arg<'a> {
 impl<'a> AstNode<'a> for Arg<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast().map(Self::Spread),
+            SyntaxKind::Named => Some(Self::Named(Named(node))),
+            SyntaxKind::Spread => Some(Self::Spread(Spread(node))),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1820,8 +1824,8 @@ pub enum Param<'a> {
 impl<'a> AstNode<'a> for Param<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast().map(Self::Spread),
+            SyntaxKind::Named => Some(Self::Named(Named(node))),
+            SyntaxKind::Spread => Some(Self::Spread(Spread(node))),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1851,9 +1855,9 @@ pub enum Pattern<'a> {
 impl<'a> AstNode<'a> for Pattern<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
-            SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
-            SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
+            SyntaxKind::Underscore => Some(Self::Placeholder(Underscore(node))),
+            SyntaxKind::Parenthesized => Some(Self::Parenthesized(Parenthesized(node))),
+            SyntaxKind::Destructuring => Some(Self::Destructuring(Destructuring(node))),
             _ => node.cast().map(Self::Normal),
         }
     }
@@ -1930,8 +1934,8 @@ pub enum DestructuringItem<'a> {
 impl<'a> AstNode<'a> for DestructuringItem<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast().map(Self::Spread),
+            SyntaxKind::Named => Some(Self::Named(Named(node))),
+            SyntaxKind::Spread => Some(Self::Spread(Spread(node))),
             _ => node.cast().map(Self::Pattern),
         }
     }
