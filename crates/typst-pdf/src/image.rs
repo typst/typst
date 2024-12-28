@@ -36,7 +36,7 @@ pub fn write_images(
                     bits_per_component,
                     width,
                     height,
-                    icc_profile,
+                    compressed_icc,
                     alpha,
                     interpolate,
                 } => {
@@ -52,7 +52,7 @@ pub fn write_images(
 
                     let mut icc_ref = None;
                     let space = image.color_space();
-                    if icc_profile.is_some() {
+                    if compressed_icc.is_some() {
                         let id = chunk.alloc.bump();
                         space.icc_based(id);
                         icc_ref = Some(id);
@@ -82,8 +82,10 @@ pub fn write_images(
                         image.finish();
                     }
 
-                    if let (Some(icc_profile), Some(icc_ref)) = (icc_profile, icc_ref) {
-                        let mut stream = chunk.icc_profile(icc_ref, icc_profile);
+                    if let (Some(compressed_icc), Some(icc_ref)) =
+                        (compressed_icc, icc_ref)
+                    {
+                        let mut stream = chunk.icc_profile(icc_ref, compressed_icc);
                         stream.filter(Filter::FlateDecode);
                         match color_space {
                             ColorSpace::Srgb => {
@@ -206,7 +208,7 @@ fn encode_raster_image(
         bits_per_component,
         width: image.width(),
         height: image.height(),
-        icc_profile: compressed_icc,
+        compressed_icc,
         alpha,
         interpolate,
     }
@@ -261,8 +263,8 @@ pub enum EncodedImage {
         width: u32,
         /// The image's height.
         height: u32,
-        /// The image's ICC profile, pre-deflated, if any.
-        icc_profile: Option<Vec<u8>>,
+        /// The image's ICC profile, deflated, if any.
+        compressed_icc: Option<Vec<u8>>,
         /// The alpha channel of the image, pre-deflated, if any.
         alpha: Option<(Vec<u8>, Filter)>,
         /// Whether image interpolation should be enabled.
