@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ecow::eco_format;
-use image::{DynamicImage, GenericImageView, LumaA, Rgba};
+use image::{DynamicImage, GenericImageView, LumaA, Pixel, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
 use typst_library::foundations::Smart;
@@ -160,8 +160,8 @@ fn encode_raster_jpeg(image: &RasterImage, interpolate: bool) -> EncodedImage {
     let color_type = dynamic.color();
     let color_space = to_color_space(color_type);
 
-    let bits_per_component = (raster.source_color_type().bits_per_pixel()
-        / u16::from(raster.source_color_type().channel_count()))
+    let bits_per_component = (image.source_color_type().bits_per_pixel()
+        / u16::from(image.source_color_type().channel_count()))
         as u8;
 
     let compressed_icc = image.icc().map(|bytes| deflate(bytes.as_ref()));
@@ -185,20 +185,52 @@ fn encode_raster_jpeg(image: &RasterImage, interpolate: bool) -> EncodedImage {
 fn encode_raster_flate(image: &RasterImage, interpolate: bool) -> EncodedImage {
     let dynamic = image.dynamic();
     let color_space = to_color_space(dynamic.color());
-    let bits_per_component = bits_per_component(dynamic.color());
-fn encode_raster_flate(raster: &RasterImage, interpolate: bool) -> EncodedImage {
-    let image = raster.dynamic();
-    let color_space = to_color_space(image.color());
-    let bits_per_component = bits_per_component(image.color());
 
+    // Encode image data in big-endian. The alpha channel is excluded.
     // TODO: Encode flate streams with PNG-predictor?
-    let (bits_per_component, data) = match (image, color_space) {
-        (DynamicImage::ImageRgb8(rgb), _) => (8, deflate(rgb.as_raw())),
-        // Grayscale image
-        (DynamicImage::ImageLuma8(luma), _) => (8, deflate(luma.as_raw())),
-        (_, ColorSpace::D65Gray) => (8, deflate(image.to_luma8().as_raw())),
+    let (bits_per_component, data) = match dynamic {
+        DynamicImage::ImageLuma8(buf) => (8, deflate(buf.as_raw())),
+        DynamicImage::ImageLumaA8(_) => (8, deflate(dynamic.to_luma8().as_raw())),
+        DynamicImage::ImageLuma16(buf) => {
+            let encoded: Vec<u8> =
+                buf.as_raw().iter().flat_map(|&c| c.to_be_bytes()).collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageLumaA16(buf) => {
+            let encoded: Vec<u8> =
+                buf.pixels().flat_map(|&LumaA([l, _])| l.to_be_bytes()).collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageRgb8(buf) => (8, deflate(buf.as_raw())),
+        DynamicImage::ImageRgba8(_) => (8, deflate(dynamic.to_rgb8().as_raw())),
+        DynamicImage::ImageRgb16(buf) => {
+            let encoded: Vec<u8> =
+                buf.as_raw().iter().flat_map(|&c| c.to_be_bytes()).collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageRgba16(buf) => {
+            let encoded: Vec<u8> = buf
+                .pixels()
+                .flat_map(|px| px.to_rgb().0)
+                .flat_map(|c| c.to_be_bytes())
+                .collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageRgb32F(buf) => {
+            let encoded: Vec<u8> =
+                buf.as_raw().iter().flat_map(|&c| c.to_be_bytes()).collect();
+            (32, deflate(&encoded))
+        }
+        DynamicImage::ImageRgba32F(buf) => {
+            let encoded: Vec<u8> = buf
+                .pixels()
+                .flat_map(|px| px.to_rgb().0)
+                .flat_map(|c| c.to_be_bytes())
+                .collect();
+            (32, deflate(&encoded))
+        }
         // Anything else
-        _ => (8, deflate(image.to_rgb8().as_raw())),
+        _ => (8, deflate(dynamic.to_rgb8().as_raw())),
     };
 
     let compressed_icc = image.icc().map(|bytes| deflate(bytes.as_ref()));
@@ -275,27 +307,6 @@ fn encode_svg(
         svg.tree(),
         svg2pdf::ConversionOptions { pdfa, ..Default::default() },
     )
-}
-
-/// Matches an [`image::ColorType`] to [`ColorSpace`].
-fn to_color_space(color: image::ColorType) -> ColorSpace {
-    use image::ColorType::*;
-    match color {
-        L8 | La8 | L16 | La16 => ColorSpace::D65Gray,
-        Rgb8 | Rgba8 | Rgb16 | Rgba16 | Rgb32F | Rgba32F => ColorSpace::Srgb,
-        _ => unimplemented!(),
-    }
-}
-
-/// How many bits does each component take up?
-fn bits_per_component(color: image::ColorType) -> u8 {
-    use image::ColorType::*;
-    match color {
-        Rgb8 | Rgba8 | L8 | La8 => 8,
-        Rgb16 | Rgba16 | L16 | La16 => 16,
-        Rgb32F | Rgba32F => 32,
-        _ => unimplemented!(),
-    }
 }
 
 /// A pre-encoded image.
