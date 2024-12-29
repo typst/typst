@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ecow::eco_format;
-use image::{DynamicImage, GenericImageView, LumaA, Rgba};
+use image::{DynamicImage, GenericImageView, LumaA, Pixel, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
 use typst_library::visualize::{
@@ -193,12 +193,49 @@ fn encode_raster_flate(
 ) -> EncodedImage {
     let color_space = to_color_space(image.color());
 
+    // Encode image data in big-endian. The alpha channel is excluded.
     // TODO: Encode flate streams with PNG-predictor?
-    let (bits_per_component, data) = match (image, color_space) {
-        (DynamicImage::ImageRgb8(rgb), _) => (8, deflate(rgb.as_raw())),
-        // Grayscale image
-        (DynamicImage::ImageLuma8(luma), _) => (8, deflate(luma.as_raw())),
-        (_, ColorSpace::D65Gray) => (8, deflate(image.to_luma8().as_raw())),
+    let (bits_per_component, data) = match image {
+        DynamicImage::ImageLuma8(buf) => (8, deflate(buf.as_raw())),
+        DynamicImage::ImageLumaA8(_) => (8, deflate(image.to_luma8().as_raw())),
+        DynamicImage::ImageLuma16(buf) => {
+            let encoded: Vec<u8> =
+                buf.as_raw().iter().flat_map(|&c| c.to_be_bytes()).collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageLumaA16(buf) => {
+            let encoded: Vec<u8> =
+                buf.pixels().flat_map(|&LumaA([l, _])| l.to_be_bytes()).collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageRgb8(buf) => (8, deflate(buf.as_raw())),
+        DynamicImage::ImageRgba8(_) => (8, deflate(image.to_rgb8().as_raw())),
+        DynamicImage::ImageRgb16(buf) => {
+            let encoded: Vec<u8> =
+                buf.as_raw().iter().flat_map(|&c| c.to_be_bytes()).collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageRgba16(buf) => {
+            let encoded: Vec<u8> = buf
+                .pixels()
+                .flat_map(|px| px.to_rgb().0)
+                .flat_map(|c| c.to_be_bytes())
+                .collect();
+            (16, deflate(&encoded))
+        }
+        DynamicImage::ImageRgb32F(buf) => {
+            let encoded: Vec<u8> =
+                buf.as_raw().iter().flat_map(|&c| c.to_be_bytes()).collect();
+            (32, deflate(&encoded))
+        }
+        DynamicImage::ImageRgba32F(buf) => {
+            let encoded: Vec<u8> = buf
+                .pixels()
+                .flat_map(|px| px.to_rgb().0)
+                .flat_map(|c| c.to_be_bytes())
+                .collect();
+            (32, deflate(&encoded))
+        }
         // Anything else
         _ => (8, deflate(image.to_rgb8().as_raw())),
     };
