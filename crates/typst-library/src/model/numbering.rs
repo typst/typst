@@ -157,6 +157,38 @@ pub struct NumberingPattern {
 }
 
 impl NumberingPattern {
+    /// Parse braced pattern. i.e "{1}" or "{arabic}" to NumberingKind::Arabic
+    fn from_braced_str(pattern: &str) -> Option<Self> {
+        let mut pieces = EcoVec::new();
+        let mut handled = 0;
+        let mut cursor = 0;
+
+        for (i, c) in pattern.char_indices() {
+            if i < cursor {
+                continue;
+            }
+
+            if let Some((kind, consumed)) =
+                NumberingKind::from_braced_numbering_pattern_str(&pattern[cursor..])
+            {
+                let prefix = pattern[handled..i].into();
+                pieces.push((prefix, kind));
+                cursor += consumed;
+                handled = cursor;
+                continue;
+            };
+
+            cursor += c.len_utf8();
+        }
+
+        let suffix = pattern[handled..].into();
+        if pieces.is_empty() {
+            return None;
+        }
+
+        Some(Self { pieces, suffix, trimmed: false })
+    }
+
     /// Apply the pattern to the given number.
     pub fn apply(&self, numbers: &[usize]) -> EcoString {
         let mut fmt = EcoString::new();
@@ -213,7 +245,16 @@ impl NumberingPattern {
 impl FromStr for NumberingPattern {
     type Err = &'static str;
 
+    /// Parse freehand one-character pattern. i.e "1" to NumberingKind::Arabic
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
+        // if pattern contains curly-braces, prioritize parsing braced numbering pattern such as "{arabic}" or "{1}",
+        // otherwise fallback to brace-less parsing .
+        if pattern.contains('{') {
+            if let Some(result) = Self::from_braced_str(pattern) {
+                return Ok(result);
+            }
+        }
+
         let mut pieces = EcoVec::new();
         let mut handled = 0;
 
