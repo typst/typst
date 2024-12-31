@@ -64,6 +64,34 @@ pub fn numbering(
     /// `①`, and `⓵`. They are replaced by the number in the sequence,
     /// preserving the original case.
     ///
+    /// The counting symbols can also be specified using braces, either with the symbol
+    /// itself or with a descriptive name. Here is the complete list of available formats:
+    ///
+    /// - Arabic numerals (1, 2, 3, etc.): `1` or `{1}` or `{arabic}`
+    /// - Lowercase Latin letters (a, b, c, etc.): `a` or `{a}` or `{latin}`
+    /// - Uppercase Latin letters (A, B, C, etc.): `A` or `{A}` or `{Latin}`
+    /// - Lowercase Roman numerals (i, ii, iii, etc.): `i` or `{i}` or `{roman}`
+    /// - Uppercase Roman numerals (I, II, III, etc.): `I` or `{I}` or `{Roman}`
+    /// - Lowercase Greek numerals (α, β, γ, etc.): `α` or `{α}` or `{greek}`
+    /// - Uppercase Greek numerals (Α, Β, Γ, etc.): `Α` or `{Α}` or `{Greek}`
+    /// - Symbols (*, †, ‡, §, ¶, ‖): `*` or `{*}` or `{symbols}`
+    /// - Hebrew numerals with Geresh/Gershayim: `א` or `{א}` or `{hebrew}`
+    /// - Simplified Chinese standard numerals: `一` or `{一}` or `{chinese}` or `{lowercase-chinese}`
+    /// - Simplified Chinese "banknote" numerals: `壹` or `{壹}` or `{Chinese}` or `{uppercase-chinese}`
+    /// - Hiragana in gojūon order: `あ` or `{あ}` or `{hiragana}` or `{hiragana-aiueo}`
+    /// - Hiragana in iroha order: `い` or `{い}` or `{hiragana-iroha}`
+    /// - Katakana in gojūon order: `ア` or `{ア}` or `{katakana}` or `{katakana-aiueo}`
+    /// - Katakana in iroha order: `イ` or `{イ}` or `{katakana-iroha}`
+    /// - Korean jamo (ㄱ, ㄴ, ㄷ, etc.): `ㄱ` or `{ㄱ}` or `{korean-jamo}`
+    /// - Korean syllables (가, 나, 다, etc.): `가` or `{가}` or `{korean}` or `{korean-syllable}`
+    /// - Eastern Arabic numerals: `١` or `{١}` or `{eastern-arabic}`
+    /// - Eastern Arabic numerals (Persian/Urdu): `۱` or `{۱}` or `{persian}` or `{eastern-arabic-persian}`
+    /// - Devanagari numerals: `१` or `{१}` or `{devanagari}`
+    /// - Bengali numerals: `১` or `{১}` or `{bengali}`
+    /// - Bengali letters (ক, খ, গ, etc.): `ক` or `{ক}` or `{bengali-letter}`
+    /// - Circled numbers (①, ②, ③, etc.): `①` or `{①}` or `{circled}`
+    /// - Double-circled numbers (⓵, ⓶, ⓷, etc.): `⓵` or `{⓵}` or `{double-circled}`
+    ///
     /// The `*` character means that symbols should be used to count, in the
     /// order of `*`, `†`, `‡`, `§`, `¶`, `‖`. If there are more than six
     /// items, the number is represented using repeated symbols.
