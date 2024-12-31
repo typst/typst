@@ -108,3 +108,11 @@
 --- numbering-negative ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
+
+--- numbering-braced-format ---
+#numbering("1", 13) \
+#numbering("{1}", 13) \
+#numbering("{arabic}", 13) \
+#numbering("article {1}", 13) \
+#numbering("article {arabic}", 13) \
+#numbering("prefix {arabic} suffix", 13)
