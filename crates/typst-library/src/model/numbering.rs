@@ -421,6 +421,56 @@ impl NumberingKind {
         }
     }
 
+    fn from_numbering_pattern_str(s: &str) -> Option<Self> {
+        if s.chars().count() == 1 {
+            return Self::from_char(s.chars().next().unwrap());
+        }
+
+        Some(match s {
+            "arabic" => Self::Arabic,
+            "latin" => Self::LowerLatin,
+            "Latin" => Self::UpperLatin,
+            "roman" => Self::LowerRoman,
+            "Roman" => Self::UpperRoman,
+            "greek" => Self::LowerGreek,
+            "Greek" => Self::UpperGreek,
+            "symbols" => Self::Symbol,
+            "hebrew" => Self::Hebrew,
+            "chinese" | "lowercase-chinese" => Self::LowerSimplifiedChinese,
+            "Chinese" | "uppercase-chinese" => Self::UpperSimplifiedChinese,
+            "hiragana" | "hiragana-aiueo" => Self::HiraganaAiueo,
+            "hiragana-iroha" => Self::HiraganaIroha,
+            "katakana" | "katakana-aiueo" => Self::KatakanaAiueo,
+            "katakana-iroha" => Self::KatakanaIroha,
+            "korean-jamo" => Self::KoreanJamo,
+            "korean" | "korean-syllable" => Self::KoreanSyllable,
+            "eastern-arabic" => Self::EasternArabic,
+            "persian" | "eastern-arabic-persian" => Self::EasternArabicPersian,
+            "devanagari" => Self::DevanagariNumber,
+            "bengali" => Self::BengaliNumber,
+            "bengali-letter" => Self::BengaliLetter,
+            "circled" => Self::CircledNumber,
+            "double-circled" => Self::DoubleCircledNumber,
+            _ => return None,
+        })
+    }
+
+    /// Parse a braced long-form numbering kind like "{arabic}" from a character slice.
+    /// Returns (kind, consumed_chars) if successful, None if not a valid braced string.
+    fn from_braced_numbering_pattern_str(s: &str) -> Option<(Self, usize)> {
+        // Need at least "{x}" (3 bytes minimum for UTF-8)
+        if s.len() < 3 || s.as_bytes()[0] != b'{' {
+            return None;
+        }
+
+        let end_byte_idx = s.find('}')?;
+        if end_byte_idx < 2 {
+            return None;
+        }
+
+        Some((Self::from_numbering_pattern_str(&s[1..end_byte_idx])?, end_byte_idx + 1))
+    }
+
     /// Apply the numbering to the given number.
     pub fn apply(self, n: usize) -> EcoString {
         match self {
