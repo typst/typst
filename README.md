@@ -187,6 +187,9 @@ the community:
 
 If you had a bad experience in our community, please [reach out to us][contact].
 
+### language community 
+- 🇮🇷 fa [telegram](https://t.me/typst_fa)
+
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
 feel free to open an issue. If you would like to implement a new feature or bug
