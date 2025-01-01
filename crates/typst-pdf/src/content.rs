@@ -1,6 +1,6 @@
 //! Generic writer for PDF content.
 //!
-//! It is used to write page contents, color glyph instructions, and patterns.
+//! It is used to write page contents, color glyph instructions, and tilings.
 //!
 //! See also [`pdf_writer::Content`].
 
@@ -19,7 +19,7 @@ use typst_library::model::Destination;
 use typst_library::text::color::should_outline;
 use typst_library::text::{Font, Glyph, TextItem, TextItemView};
 use typst_library::visualize::{
-    FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem,
+    Curve, CurveItem, FillRule, FixedStroke, Geometry, Image, LineCap, LineJoin, Paint,
     Shape,
 };
 use typst_syntax::Span;
@@ -96,7 +96,7 @@ pub struct Encoded {
 /// objects only through resources.
 ///
 /// Content streams can be used for page contents, but also to describe color
-/// glyphs and patterns.
+/// glyphs and tilings.
 pub struct Builder<'a, R = ()> {
     /// Settings for PDF export.
     pub(crate) options: &'a PdfOptions<'a>,
@@ -187,7 +187,7 @@ impl State {
     }
 }
 
-/// Subset of the state used to calculate the transform of gradients and patterns.
+/// Subset of the state used to calculate the transform of gradients and tilings.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Transforms {
     /// The transform of the current item.
@@ -229,7 +229,7 @@ impl Builder<'_, ()> {
         let get_opacity = |paint: &Paint| {
             let color = match paint {
                 Paint::Solid(color) => *color,
-                Paint::Gradient(_) | Paint::Pattern(_) => return 255,
+                Paint::Gradient(_) | Paint::Tiling(_) => return 255,
             };
 
             color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
@@ -330,10 +330,10 @@ impl Builder<'_, ()> {
                 self.content.set_line_join(to_pdf_line_join(*join));
             }
             if self.state.stroke.as_ref().map(|s| &s.dash) != Some(dash) {
-                if let Some(pattern) = dash {
+                if let Some(dash) = dash {
                     self.content.set_dash_pattern(
-                        pattern.array.iter().map(|l| l.to_f32()),
-                        pattern.phase.to_f32(),
+                        dash.array.iter().map(|l| l.to_f32()),
+                        dash.phase.to_f32(),
                     );
                 } else {
                     self.content.set_dash_pattern([], 0.0);
@@ -404,8 +404,8 @@ fn write_group(ctx: &mut Builder, pos: Point, group: &GroupItem) -> SourceResult
     }
 
     ctx.transform(translation.pre_concat(group.transform));
-    if let Some(clip_path) = &group.clip_path {
-        write_path(ctx, 0.0, 0.0, clip_path);
+    if let Some(clip_curve) = &group.clip {
+        write_curve(ctx, 0.0, 0.0, clip_curve);
         ctx.content.clip_nonzero();
         ctx.content.end_path();
     }
@@ -667,7 +667,7 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()>
 
     ctx.set_opacities(stroke, shape.fill.as_ref());
 
-    match shape.geometry {
+    match &shape.geometry {
         Geometry::Line(target) => {
             let dx = target.x.to_f32();
             let dy = target.y.to_f32();
@@ -681,8 +681,8 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()>
                 ctx.content.rect(x, y, w, h);
             }
         }
-        Geometry::Path(ref path) => {
-            write_path(ctx, x, y, path);
+        Geometry::Curve(curve) => {
+            write_curve(ctx, x, y, curve);
         }
     }
 
@@ -698,17 +698,13 @@ fn write_shape(ctx: &mut Builder, pos: Point, shape: &Shape) -> SourceResult<()>
     Ok(())
 }
 
-/// Encode a bezier path into the content stream.
-fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
-    for elem in &path.0 {
+/// Encode a curve into the content stream.
+fn write_curve(ctx: &mut Builder, x: f32, y: f32, curve: &Curve) {
+    for elem in &curve.0 {
         match elem {
-            PathItem::MoveTo(p) => {
-                ctx.content.move_to(x + p.x.to_f32(), y + p.y.to_f32())
-            }
-            PathItem::LineTo(p) => {
-                ctx.content.line_to(x + p.x.to_f32(), y + p.y.to_f32())
-            }
-            PathItem::CubicTo(p1, p2, p3) => ctx.content.cubic_to(
+            CurveItem::Move(p) => ctx.content.move_to(x + p.x.to_f32(), y + p.y.to_f32()),
+            CurveItem::Line(p) => ctx.content.line_to(x + p.x.to_f32(), y + p.y.to_f32()),
+            CurveItem::Cubic(p1, p2, p3) => ctx.content.cubic_to(
                 x + p1.x.to_f32(),
                 y + p1.y.to_f32(),
                 x + p2.x.to_f32(),
@@ -716,7 +712,7 @@ fn write_path(ctx: &mut Builder, x: f32, y: f32, path: &Path) {
                 x + p3.x.to_f32(),
                 y + p3.y.to_f32(),
             ),
-            PathItem::ClosePath => ctx.content.close_path(),
+            CurveItem::Close => ctx.content.close_path(),
         };
     }
 }

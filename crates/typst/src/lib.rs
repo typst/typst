@@ -348,6 +348,7 @@ pub static ROUTINES: Routines = Routines {
     layout_repeat: typst_layout::layout_repeat,
     layout_pad: typst_layout::layout_pad,
     layout_line: typst_layout::layout_line,
+    layout_curve: typst_layout::layout_curve,
     layout_path: typst_layout::layout_path,
     layout_polygon: typst_layout::layout_polygon,
     layout_rect: typst_layout::layout_rect,

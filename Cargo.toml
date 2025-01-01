@@ -94,6 +94,7 @@ qcms = "0.3.0"
 quote = "1"
 rayon = "1.7.0"
 regex = "1"
+regex-syntax = "0.8"
 resvg = { version = "0.43", default-features = false, features = ["raster-images"] }
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
@@ -123,7 +124,7 @@ toml = { version = "0.8", default-features = false, features = ["parse", "displa
 ttf-parser = "0.24.1"
 two-face = { version = "0.4.0", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
-unicode-bidi = "0.3.13"
+unicode-bidi = "0.3.18"
 unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-script = "0.5"

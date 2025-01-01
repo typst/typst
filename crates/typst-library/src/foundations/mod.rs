@@ -119,7 +119,6 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
-    global.define_func::<style>();
     if features.is_enabled(Feature::Html) {
         global.define_func::<target>();
     }

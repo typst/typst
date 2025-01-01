@@ -3,14 +3,6 @@
 #test(type(ltr), direction)
 #test(type(10 / 3), float)
 
---- type-string-compatibility ---
-#test(type(10), int)
-#test(type(10), "integer")
-#test("is " + type(10), "is integer")
-#test(int in ("integer", "string"), true)
-#test(int in "integers or strings", true)
-#test(str in "integers or strings", true)
-
 --- issue-3110-type-constructor ---
 // Let the error message report the type name.
 // Error: 2-9 type content does not have a constructor

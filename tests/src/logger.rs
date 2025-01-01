@@ -9,8 +9,8 @@ pub struct TestResult {
     pub errors: String,
     /// The info log for this test.
     pub infos: String,
-    /// Whether the image was mismatched.
-    pub mismatched_image: bool,
+    /// Whether the output was mismatched.
+    pub mismatched_output: bool,
 }
 
 /// Receives status updates by individual test runs.
@@ -19,7 +19,7 @@ pub struct Logger<'a> {
     passed: usize,
     failed: usize,
     skipped: usize,
-    mismatched_image: bool,
+    mismatched_output: bool,
     active: Vec<&'a Test>,
     last_change: Instant,
     temp_lines: usize,
@@ -34,7 +34,7 @@ impl<'a> Logger<'a> {
             passed: 0,
             failed: 0,
             skipped,
-            mismatched_image: false,
+            mismatched_output: false,
             active: vec![],
             temp_lines: 0,
             last_change: Instant::now(),
@@ -73,7 +73,7 @@ impl<'a> Logger<'a> {
             self.failed += 1;
         }
 
-        self.mismatched_image |= result.mismatched_image;
+        self.mismatched_output |= result.mismatched_output;
         self.last_change = Instant::now();
 
         self.print(move |out| {
@@ -102,8 +102,8 @@ impl<'a> Logger<'a> {
         eprintln!("{passed} passed, {failed} failed, {skipped} skipped");
         assert_eq!(selected, passed + failed, "not all tests were executed successfully");
 
-        if self.mismatched_image {
-            eprintln!("  pass the --update flag to update the reference images");
+        if self.mismatched_output {
+            eprintln!("  pass the --update flag to update the reference output");
         }
 
         self.failed == 0

@@ -39,13 +39,111 @@
   ("invalid. id!", "x")
 )
 
+--- symbol-constructor-duplicate-modifier ---
+// Error: 2:3-2:31 duplicate modifier within variant: "duplicate"
+// Hint: 2:3-2:31 modifiers are not ordered, so each one may appear only once
+#symbol(
+  ("duplicate.duplicate", "x"),
+)
+
+--- symbol-constructor-duplicate-default-variant ---
+// Error: 3:3-3:6 duplicate default variant
+#symbol(
+  "x",
+  "y",
+)
+
+--- symbol-constructor-duplicate-empty-variant ---
+// Error: 3:3-3:12 duplicate default variant
+#symbol(
+  ("", "x"),
+  ("", "y"),
+)
+
+--- symbol-constructor-default-and-empty-variants ---
+// Error: 3:3-3:12 duplicate default variant
+#symbol(
+  "x",
+  ("", "y"),
+)
+
 --- symbol-constructor-duplicate-variant ---
-// Error: 3:3-3:29 duplicate variant
+// Error: 3:3-3:29 duplicate variant: "duplicate.variant"
 #symbol(
   ("duplicate.variant", "x"),
   ("duplicate.variant", "y"),
 )
 
+--- symbol-constructor-duplicate-variant-different-order ---
+// Error: 3:3-3:29 duplicate variant: "variant.duplicate"
+// Hint: 3:3-3:29 variants with the same modifiers are identical, regardless of their order
+#symbol(
+  ("duplicate.variant", "x"),
+  ("variant.duplicate", "y"),
+)
+
 --- symbol-unknown-modifier ---
 // Error: 13-20 unknown symbol modifier
 #emoji.face.garbage
+
+--- symbol-repr ---
+#test(
+  repr(sym.amp),
+  `symbol("&", ("inv", "⅋"))`.text,
+)
+#test(
+  repr(sym.amp.inv),
+  `symbol("⅋")`.text,
+)
+#test(
+  repr(sym.arrow.double.r),
+  ```
+  symbol(
+    "⇒",
+    ("bar", "⤇"),
+    ("long", "⟹"),
+    ("long.bar", "⟾"),
+    ("not", "⇏"),
+    ("l", "⇔"),
+    ("l.long", "⟺"),
+    ("l.not", "⇎"),
+  )
+  ```.text,
+)
+#test(repr(sym.smash), "symbol(\"⨳\")")
+
+#let envelope = symbol(
+  "🖂",
+  ("stamped", "🖃"),
+  ("stamped.pen", "🖆"),
+  ("lightning", "🖄"),
+  ("fly", "🖅"),
+)
+#test(
+  repr(envelope),
+  ```
+  symbol(
+    "🖂",
+    ("stamped", "🖃"),
+    ("stamped.pen", "🖆"),
+    ("lightning", "🖄"),
+    ("fly", "🖅"),
+  )
+  ```.text,
+)
+#test(
+  repr(envelope.stamped),
+  `symbol("🖃", ("pen", "🖆"))`.text,
+)
+#test(
+  repr(envelope.stamped.pen),
+  `symbol("🖆")`.text,
+)
+#test(
+  repr(envelope.lightning),
+  `symbol("🖄")`.text,
+)
+#test(
+  repr(envelope.fly),
+  `symbol("🖅")`.text,
+)

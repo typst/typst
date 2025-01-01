@@ -43,8 +43,6 @@ A
 #set outline(fill: none)
 
 #context test(outline.indent, none)
-#outline(indent: false)
-#outline(indent: true)
 #outline(indent: none)
 #outline(indent: auto)
 #outline(indent: 2em)
@@ -62,8 +60,6 @@ A
 #show heading: none
 #set outline(fill: none)
 
-#outline(indent: false)
-#outline(indent: true)
 #outline(indent: none)
 #outline(indent: auto)
 #outline(indent: n => 2em * n)

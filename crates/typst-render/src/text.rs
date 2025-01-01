@@ -8,7 +8,7 @@ use typst_library::text::color::{glyph_frame, should_outline};
 use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
-use crate::paint::{self, GradientSampler, PaintSampler, PatternSampler};
+use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
 use crate::{shape, AbsExt, State};
 
 /// Render a text run into the canvas.
@@ -145,9 +145,9 @@ fn render_outline_glyph(
                 paint::to_sk_color_u8(*color).premultiply(),
             )?;
         }
-        Paint::Pattern(pattern) => {
-            let pixmap = paint::render_pattern_frame(&state, pattern);
-            let sampler = PatternSampler::new(pattern, &pixmap, &state, true);
+        Paint::Tiling(tiling) => {
+            let pixmap = paint::render_tiling_frame(&state, tiling);
+            let sampler = TilingSampler::new(tiling, &pixmap, &state, true);
             write_bitmap(canvas, &bitmap, &state, sampler)?;
         }
     }

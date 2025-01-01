@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 use ttf_parser::OutlineBuilder;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
-use typst_library::visualize::{Color, FillRule, Gradient, Paint, Pattern, RatioOrAngle};
+use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
 use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
@@ -17,7 +17,7 @@ const CONIC_SEGMENT: usize = 360;
 
 impl SVGRenderer {
     /// Render a frame to a string.
-    pub(super) fn render_pattern_frame(
+    pub(super) fn render_tiling_frame(
         &mut self,
         state: State,
         ts: Transform,
@@ -44,8 +44,8 @@ impl SVGRenderer {
                 let id = self.push_gradient(gradient, size, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
-            Paint::Pattern(pattern) => {
-                let id = self.push_pattern(pattern, size, ts);
+            Paint::Tiling(tiling) => {
+                let id = self.push_tiling(tiling, size, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
         }
@@ -86,32 +86,31 @@ impl SVGRenderer {
             })
     }
 
-    pub(super) fn push_pattern(
+    pub(super) fn push_tiling(
         &mut self,
-        pattern: &Pattern,
+        tiling: &Tiling,
         size: Size,
         ts: Transform,
     ) -> Id {
-        let pattern_size = pattern.size() + pattern.spacing();
+        let tiling_size = tiling.size() + tiling.spacing();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
-        self.render_pattern_frame(
-            State::new(pattern_size, Transform::identity()),
+        self.render_tiling_frame(
+            State::new(tiling_size, Transform::identity()),
             Transform::identity(),
-            pattern.frame(),
+            tiling.frame(),
         );
 
-        let pattern_id = self.patterns.insert_with(hash128(pattern), || pattern.clone());
-        self.pattern_refs
-            .insert_with(hash128(&(pattern_id, ts)), || PatternRef {
-                id: pattern_id,
-                transform: ts,
-                ratio: Axes::new(
-                    Ratio::new(pattern_size.x.to_pt() / size.x.to_pt()),
-                    Ratio::new(pattern_size.y.to_pt() / size.y.to_pt()),
-                ),
-            })
+        let tiling_id = self.tilings.insert_with(hash128(tiling), || tiling.clone());
+        self.tiling_refs.insert_with(hash128(&(tiling_id, ts)), || TilingRef {
+            id: tiling_id,
+            transform: ts,
+            ratio: Axes::new(
+                Ratio::new(tiling_size.x.to_pt() / size.x.to_pt()),
+                Ratio::new(tiling_size.y.to_pt() / size.y.to_pt()),
+            ),
+        })
     }
 
     /// Write the raw gradients (without transform) to the SVG file.
@@ -188,12 +187,12 @@ impl SVGRenderer {
                         // Create the path for the segment.
                         let mut builder = SvgPathBuilder::default();
                         builder.move_to(
-                            correct_pattern_pos(center.0),
-                            correct_pattern_pos(center.1),
+                            correct_tiling_pos(center.0),
+                            correct_tiling_pos(center.1),
                         );
                         builder.line_to(
-                            correct_pattern_pos(-2.0 * (theta1 + angle).cos() + center.0),
-                            correct_pattern_pos(2.0 * (theta1 + angle).sin() + center.1),
+                            correct_tiling_pos(-2.0 * (theta1 + angle).cos() + center.0),
+                            correct_tiling_pos(2.0 * (theta1 + angle).sin() + center.1),
                         );
                         builder.arc(
                             (2.0, 2.0),
@@ -201,10 +200,10 @@ impl SVGRenderer {
                             0,
                             1,
                             (
-                                correct_pattern_pos(
+                                correct_tiling_pos(
                                     -2.0 * (theta2 + angle).cos() + center.0,
                                 ),
-                                correct_pattern_pos(
+                                correct_tiling_pos(
                                     2.0 * (theta2 + angle).sin() + center.1,
                                 ),
                             ),
@@ -370,19 +369,19 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
-    /// Write the raw gradients (without transform) to the SVG file.
-    pub(super) fn write_patterns(&mut self) {
-        if self.patterns.is_empty() {
+    /// Write the raw tilings (without transform) to the SVG file.
+    pub(super) fn write_tilings(&mut self) {
+        if self.tilings.is_empty() {
             return;
         }
 
         self.xml.start_element("defs");
-        self.xml.write_attribute("id", "patterns");
+        self.xml.write_attribute("id", "tilings");
 
-        for (id, pattern) in
-            self.patterns.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
+        for (id, tiling) in
+            self.tilings.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
-            let size = pattern.size() + pattern.spacing();
+            let size = tiling.size() + tiling.spacing();
             self.xml.start_element("pattern");
             self.xml.write_attribute("id", &id);
             self.xml.write_attribute("width", &size.x.to_pt());
@@ -396,7 +395,7 @@ impl SVGRenderer {
             // Render the frame.
             let state = State::new(size, Transform::identity());
             let ts = Transform::identity();
-            self.render_frame(state, ts, pattern.frame());
+            self.render_frame(state, ts, tiling.frame());
 
             self.xml.end_element();
         }
@@ -404,28 +403,28 @@ impl SVGRenderer {
         self.xml.end_element()
     }
 
-    /// Writes the references to the deduplicated patterns for each usage site.
-    pub(super) fn write_pattern_refs(&mut self) {
-        if self.pattern_refs.is_empty() {
+    /// Writes the references to the deduplicated tilings for each usage site.
+    pub(super) fn write_tiling_refs(&mut self) {
+        if self.tiling_refs.is_empty() {
             return;
         }
 
         self.xml.start_element("defs");
-        self.xml.write_attribute("id", "pattern-refs");
-        for (id, pattern_ref) in self.pattern_refs.iter() {
+        self.xml.write_attribute("id", "tilings-refs");
+        for (id, tiling_ref) in self.tiling_refs.iter() {
             self.xml.start_element("pattern");
             self.xml
-                .write_attribute("patternTransform", &SvgMatrix(pattern_ref.transform));
+                .write_attribute("patternTransform", &SvgMatrix(tiling_ref.transform));
 
             self.xml.write_attribute("id", &id);
 
             // Writing the href attribute to the "reference" pattern.
             self.xml
-                .write_attribute_fmt("href", format_args!("#{}", pattern_ref.id));
+                .write_attribute_fmt("href", format_args!("#{}", tiling_ref.id));
 
             // Also writing the xlink:href attribute for compatibility.
             self.xml
-                .write_attribute_fmt("xlink:href", format_args!("#{}", pattern_ref.id));
+                .write_attribute_fmt("xlink:href", format_args!("#{}", tiling_ref.id));
             self.xml.end_element();
         }
 
@@ -433,15 +432,15 @@ impl SVGRenderer {
     }
 }
 
-/// A reference to a deduplicated pattern, with a transform matrix.
+/// A reference to a deduplicated tiling, with a transform matrix.
 ///
-/// Allows patterns to be reused across multiple invocations,
-/// simply by changing the transform matrix.
+/// Allows tilings to be reused across multiple invocations, simply by changing
+/// the transform matrix.
 #[derive(Hash)]
-pub struct PatternRef {
+pub struct TilingRef {
     /// The ID of the deduplicated gradient
     id: Id,
-    /// The transform matrix to apply to the pattern.
+    /// The transform matrix to apply to the tiling.
     transform: Transform,
     /// The ratio of the size of the cell to the size of the filled area.
     ratio: Axes<Ratio>,
@@ -587,7 +586,7 @@ impl ColorEncode for Color {
     }
 }
 
-/// Maps a coordinate in a unit size square to a coordinate in the pattern.
-pub fn correct_pattern_pos(x: f32) -> f32 {
+/// Maps a coordinate in a unit size square to a coordinate in the tiling.
+pub fn correct_tiling_pos(x: f32) -> f32 {
     (x + 0.5) / 2.0
 }
