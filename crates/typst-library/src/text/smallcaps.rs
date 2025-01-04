@@ -12,11 +12,11 @@ use crate::text::TextElem;
 /// ```
 ///
 /// # Smallcaps fonts
-/// By default, this enables the OpenType `smcp` feature for the font. Not all
-/// fonts support this feature. Sometimes smallcaps are part of a dedicated
-/// font. This is, for example, the case for the _Latin Modern_ family of fonts.
-/// In those cases, you can use a show-set rule to customize the appearance of
-/// the text in smallcaps:
+/// By default, this uses the `smcp` and `c2sc` OpenType features on the font.
+/// Not all fonts support this feature. Sometimes, smallcaps are part of a
+/// dedicated font. This is, for example, the case for the _Latin Modern_ family
+/// of fonts. In those cases, you can use a show-set rule to customize the
+/// appearance of the text in smallcaps:
 ///
 /// ```typ
 /// #show smallcaps: set text(font: "Latin Modern Roman Caps")
@@ -45,6 +45,18 @@ use crate::text::TextElem;
 /// ```
 #[elem(title = "Small Capitals", Show)]
 pub struct SmallcapsElem {
+    /// Whether to turn uppercase letters into small capitals.
+    ///
+    /// Unless overridden by a show rule, this enables the `c2sc` OpenType
+    /// feature.
+    #[default(false)]
+    pub uppercase: bool,
+    /// Whether to turn lowercase letters into small capitals.
+    ///
+    /// Unless overridden by a show rule, this enables the `smcp` OpenType
+    /// feature.
+    #[default(true)]
+    pub lowercase: bool,
     /// The content to display in small capitals.
     #[required]
     pub body: Content,
@@ -52,7 +64,11 @@ pub struct SmallcapsElem {
 
 impl Show for Packed<SmallcapsElem> {
     #[typst_macros::time(name = "smallcaps", span = self.span())]
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_smallcaps(true)))
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self
+            .body()
+            .clone()
+            .styled(TextElem::set_smallcaps_from_caps(self.uppercase(styles)))
+            .styled(TextElem::set_smallcaps(self.lowercase(styles))))
     }
 }
