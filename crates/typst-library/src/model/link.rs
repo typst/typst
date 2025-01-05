@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use ecow::{eco_format, EcoString};
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, warning, At, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -121,11 +121,13 @@ impl Show for Packed<LinkElem> {
             }
         } else {
             let linked = match self.dest() {
-                LinkTarget::Dest(dest) => body.linked(dest.clone()),
+                LinkTarget::Dest(dest) => {
+                    body.styled(LinkElem::set_dests(smallvec![dest.clone()]))
+                }
                 LinkTarget::Label(label) => {
                     let elem = engine.introspector.query_label(*label).at(self.span())?;
                     let dest = Destination::Location(elem.location().unwrap());
-                    body.clone().linked(dest)
+                    body.styled(LinkElem::set_dests(smallvec![dest]))
                 }
             };
 

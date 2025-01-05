@@ -33,8 +33,8 @@ use crate::layout::{
     Sizing, TrackSizings, VElem,
 };
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem,
-    LinkTarget, ParElem, Url,
+    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
+    Url,
 };
 use crate::routines::{EvalMode, Routines};
 use crate::text::{
@@ -851,9 +851,7 @@ impl<'a> Generator<'a> {
                         renderer.display_elem_child(elem, &mut None, false)?;
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
                         let dest = Destination::Location(*location);
-                        content = LinkElem::new(LinkTarget::Dest(dest), content)
-                            .pack()
-                            .spanned(renderer.span);
+                        content = content.linked(dest);
                     }
                     StrResult::Ok(content)
                 })
@@ -988,9 +986,7 @@ impl ElemRenderer<'_> {
         if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta {
             if let Some(location) = (self.link)(i) {
                 let dest = Destination::Location(location);
-                content = LinkElem::new(LinkTarget::Dest(dest), content)
-                    .pack()
-                    .spanned(self.span);
+                content = content.linked(dest);
             }
         }
 
