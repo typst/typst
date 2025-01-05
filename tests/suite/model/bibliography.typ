@@ -65,3 +65,16 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 @Zee04
 
 #bibliography("/assets/bib/works_too.bib")
+
+--- issue-5614-bibliography-link-styling ---
+#show cite: set text(green)
+#show link: it => {
+  if type(it.dest) == str {
+    underline(it)
+  } else {
+    it
+  }
+}
+
+@issue201 @glacier-melt #cite(label("DBLP:books/lib/Knuth86a"))
+#bibliography("/assets/bib/works.bib")
