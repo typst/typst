@@ -135,10 +135,10 @@ impl Show for Packed<LinkElem> {
 }
 
 fn body_from_url(url: &Url) -> Content {
-    let mut text = url.as_str();
-    for prefix in ["mailto:", "tel:"] {
-        text = text.trim_start_matches(prefix);
-    }
+    let text = ["mailto:", "tel:"]
+        .into_iter()
+        .find_map(|prefix| url.strip_prefix(prefix))
+        .unwrap_or(url);
     let shorter = text.len() < url.len();
     TextElem::packed(if shorter { text.into() } else { (**url).clone() })
 }
