@@ -120,7 +120,7 @@ You can use the underscore to discard elements in a destructuring pattern:
 The y coordinate is #y.
 ```
 
-Destructuring also work in argument lists of functions ...
+Destructuring also works in argument lists of functions ...
 
 ```example
 #let left = (2, 4, 5)
@@ -145,7 +145,7 @@ swap variables among other things.
 ## Conditionals
 With a conditional, you can display or compute different things depending on
 whether some condition is fulfilled. Typst supports `{if}`, `{else if}` and
-`{else}` expression. When the condition evaluates to `{true}`, the conditional
+`{else}` expressions. When the condition evaluates to `{true}`, the conditional
 yields the value resulting from the if's body, otherwise yields the value
 resulting from the else's body.
 
@@ -166,8 +166,8 @@ Each branch can have a code or content block as its body.
 
 ## Loops
 With loops, you can repeat content or compute something iteratively. Typst
-supports two types of loops: `{for}` and `{while}` loops. The former iterate
-over a specified collection whereas the latter iterate as long as a condition
+supports two types of loops: `{for}` and `{while}` loops. The former iterates
+over a specified collection whereas the latter iterates as long as a condition
 stays fulfilled. Just like blocks, loops _join_ the results from each iteration
 into one value.
 
@@ -269,7 +269,7 @@ the following two equivalent ways:
 
 The structure of a method call is `{value.method(..args)}` and its equivalent
 full function call is `{type(value).method(value, ..args)}`. The documentation
-of each type lists it's scoped functions. You cannot currently define your own
+of each type lists its scoped functions. You cannot currently define your own
 methods.
 
 ```example
