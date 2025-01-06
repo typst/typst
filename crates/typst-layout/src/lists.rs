@@ -4,7 +4,7 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
 use typst_library::introspection::Locator;
-use typst_library::layout::grid::resolved::{Cell, CellGrid};
+use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem};
 use typst_library::text::TextElem;

@@ -1,7 +1,7 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
-use typst_library::layout::grid::resolved::Repeatable;
+use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 use typst_utils::MaybeReverseIter;
 

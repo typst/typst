@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::layout::grid::resolved::{Footer, Header, Repeatable};
+use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
 use super::layouter::GridLayouter;

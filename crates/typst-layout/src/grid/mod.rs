@@ -9,7 +9,7 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
-use typst_library::layout::grid::resolved::{grid_to_cellgrid, table_to_cellgrid, Cell};
+use typst_library::layout::grid::resolve::{grid_to_cellgrid, table_to_cellgrid, Cell};
 use typst_library::layout::{Fragment, GridElem, Regions};
 use typst_library::model::TableElem;
 
