@@ -141,7 +141,7 @@
 #{
   let save(..args) = {
     test(type(args), arguments)
-    test(repr(args), "(three: true, 1, 2)")
+    test(repr(args), "arguments(three: true, 1, 2)")
   }
 
   save(1, 2, three: true)
@@ -159,7 +159,7 @@
 #{
   let more = (c: 3, d: 4)
   let tostr(..args) = repr(args)
-  test(tostr(a: 1, ..more, b: 2), "(a: 1, c: 3, d: 4, b: 2)")
+  test(tostr(a: 1, ..more, b: 2), "arguments(a: 1, c: 3, d: 4, b: 2)")
 }
 
 --- call-args-spread-none ---
