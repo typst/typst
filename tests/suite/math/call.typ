@@ -11,11 +11,11 @@ $ pi(a,b,) $
 --- math-call-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a)$, "([a])")
-#check($args(a,)$, "([a])")
-#check($args(a,b)$, "([a], [b])")
-#check($args(a,b,)$, "([a], [b])")
-#check($args(,a,b,,,)$, "([], [a], [b], [], [])")
+#check($args(a)$, "arguments([a])")
+#check($args(a,)$, "arguments([a])")
+#check($args(a,b)$, "arguments([a], [b])")
+#check($args(a,b,)$, "arguments([a], [b])")
+#check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
 --- math-call-2d-non-func ---
 // Error: 6-7 expected content, found array
@@ -31,21 +31,21 @@ $ mat(#"code"; "wins") $
 --- math-call-2d-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a;b)$, "(([a],), ([b],))")
-#check($args(a,b;c)$, "(([a], [b]), ([c],))")
-#check($args(a,b;c,d;e,f)$, "(([a], [b]), ([c], [d]), ([e], [f]))")
+#check($args(a;b)$, "arguments(([a],), ([b],))")
+#check($args(a,b;c)$, "arguments(([a], [b]), ([c],))")
+#check($args(a,b;c,d;e,f)$, "arguments(([a], [b]), ([c], [d]), ([e], [f]))")
 
 --- math-call-2d-repr-structure ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args( a; b; )$, "(([a],), ([b],))")
-#check($args(a;  ; c)$, "(([a],), ([],), ([c],))")
-#check($args(a b,/**/; b)$, "((sequence([a], [ ], [b]), []), ([b],))")
-#check($args(a/**/b, ; b)$, "((sequence([a], [b]), []), ([b],))")
-#check($args( ;/**/a/**/b/**/; )$, "(([],), (sequence([a], [b]),))")
-#check($args( ; , ; )$, "(([],), ([], []))")
+#check($args( a; b; )$, "arguments(([a],), ([b],))")
+#check($args(a;  ; c)$, "arguments(([a],), ([],), ([c],))")
+#check($args(a b,/**/; b)$, "arguments((sequence([a], [ ], [b]), []), ([b],))")
+#check($args(a/**/b, ; b)$, "arguments((sequence([a], [b]), []), ([b],))")
+#check($args( ;/**/a/**/b/**/; )$, "arguments(([],), (sequence([a], [b]),))")
+#check($args( ; , ; )$, "arguments(([],), ([], []))")
 #check($args(/**/; // funky whitespace/trivia
-    ,   /**/  ;/**/)$, "(([],), ([], []))")
+    ,   /**/  ;/**/)$, "arguments(([],), ([], []))")
 
 --- math-call-empty-args-non-func ---
 // Trailing commas and empty args introduce blank content in math
@@ -56,9 +56,9 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 --- math-call-empty-args-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(,x,,y,,)$, "([], [x], [], [y], [])")
+#check($args(,x,,y,,)$, "arguments([], [x], [], [y], [])")
 // with whitespace/trivia:
-#check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "([], [x], [], [y], [], [])")
+#check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "arguments([], [x], [], [y], [], [])")
 
 --- math-call-value-non-func ---
 $ sin(1) $

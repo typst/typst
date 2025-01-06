@@ -366,7 +366,7 @@ impl Debug for Args {
 impl Repr for Args {
     fn repr(&self) -> EcoString {
         let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
-        repr::pretty_array_like(&pieces, false).into()
+        eco_format!("arguments{}", repr::pretty_array_like(&pieces, false))
     }
 }
 
