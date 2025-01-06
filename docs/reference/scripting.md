@@ -166,8 +166,8 @@ Each branch can have a code or content block as its body.
 
 ## Loops
 With loops, you can repeat content or compute something iteratively. Typst
-supports two types of loops: `{for}` and `{while}` loops. The former iterates
-over a specified collection whereas the latter iterates as long as a condition
+supports two types of loops: `{for}` and `{while}` loops. The former iterate
+over a specified collection whereas the latter iterate as long as a condition
 stays fulfilled. Just like blocks, loops _join_ the results from each iteration
 into one value.
 
