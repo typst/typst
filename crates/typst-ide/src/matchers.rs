@@ -89,15 +89,21 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
-                            let original = item.original_name();
                             let bound = item.bound_name();
-                            let scope = source.and_then(|(value, _)| value.scope());
-                            let span = scope
-                                .and_then(|s| s.get_span(&original))
-                                .unwrap_or(Span::detached())
-                                .or(bound.span());
 
-                            let value = scope.and_then(|s| s.get(&original));
+                            let (span, value) = item.path().iter().fold(
+                                (bound.span(), source.map(|(value, _)| value)),
+                                |(span, value), path_ident| {
+                                    let scope = value.and_then(|v| v.scope());
+                                    let span = scope
+                                        .and_then(|s| s.get_span(&path_ident))
+                                        .unwrap_or(Span::detached())
+                                        .or(span);
+                                    let value = scope.and_then(|s| s.get(&path_ident));
+                                    (span, value)
+                                },
+                            );
+
                             if let Some(res) =
                                 recv(NamedItem::Import(bound.get(), span, value))
                             {
@@ -269,16 +275,18 @@ mod tests {
     use std::borrow::Borrow;
 
     use ecow::EcoString;
+    use typst::foundations::Value;
     use typst::syntax::{LinkedNode, Side};
 
     use super::named_items;
-    use crate::tests::{FilePos, WorldLike};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
-    type Response = Vec<EcoString>;
+    type Response = Vec<(EcoString, Option<Value>)>;
 
     trait ResponseExt {
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_include_value(&self, name_value: (&str, Option<&Value>)) -> &Self;
     }
 
     impl ResponseExt for Response {
@@ -286,7 +294,7 @@ mod tests {
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self {
             for item in includes {
                 assert!(
-                    self.iter().any(|v| v == item),
+                    self.iter().any(|v| v.0 == item),
                     "{item:?} was not contained in {self:?}",
                 );
             }
@@ -297,10 +305,19 @@ mod tests {
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self {
             for item in excludes {
                 assert!(
-                    !self.iter().any(|v| v == item),
+                    !self.iter().any(|v| v.0 == item),
                     "{item:?} was wrongly contained in {self:?}",
                 );
             }
+            self
+        }
+
+        #[track_caller]
+        fn must_include_value(&self, name_value: (&str, Option<&Value>)) -> &Self {
+            assert!(
+                self.iter().any(|v| (v.0.as_str(), v.1.as_ref()) == name_value),
+                "{name_value:?} was not contained in {self:?}",
+            );
             self
         }
     }
@@ -314,7 +331,7 @@ mod tests {
         let leaf = node.leaf_at(cursor, Side::After).unwrap();
         let mut items = vec![];
         named_items(world, leaf, |s| {
-            items.push(s.name().clone());
+            items.push((s.name().clone(), s.value().clone()));
             None::<()>
         });
         items
@@ -340,5 +357,10 @@ mod tests {
     #[test]
     fn test_named_items_import() {
         test("#import \"foo.typ\": a; #(a);", 2).must_include(["a"]);
+
+        let world = TestWorld::new("#import \"foo.typ\": a.b; #(b);")
+            .with_source("foo.typ", "#import \"a.typ\"")
+            .with_source("a.typ", "#let b = 1;");
+        test(&world, 2).must_include_value(("b", Some(&Value::Int(1))));
     }
 }
