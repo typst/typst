@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Add;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use typst_syntax::{Span, Spanned};
@@ -373,6 +374,21 @@ impl Repr for Args {
 impl PartialEq for Args {
     fn eq(&self, other: &Self) -> bool {
         self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
+    }
+}
+
+impl Add for Args {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.items.retain(|item| {
+            !item.name.as_ref().is_some_and(|name| {
+                rhs.items.iter().any(|a| a.name.as_ref() == Some(name))
+            })
+        });
+        self.items.extend(rhs.items);
+        self.span = Span::detached();
+        self
     }
 }
 
