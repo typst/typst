@@ -276,28 +276,19 @@ impl Show for Packed<TableElem> {
             });
             let mut rows: Vec<_> = rows.collect();
 
-            let footer_start =
-                grid.footer.map_or(rows.len(), |footer| footer.unwrap().start);
-            let header_end = grid.header.map_or(0, |footer| footer.unwrap().end);
-            let footer: Vec<_> = rows.drain(footer_start..).collect();
-            let body: Vec<_> = rows.drain(header_end..).collect();
-            let header = rows;
+            let footer = grid.footer.map(|ft| {
+                elem(tag::tfoot, Content::sequence(rows.drain(ft.unwrap().start..)))
+            });
+            let header = grid.header.map(|hd| {
+                elem(tag::thead, Content::sequence(rows.drain(..hd.unwrap().end)))
+            });
 
-            let mut content = Vec::new();
-
-            let only_body = header.is_empty() && footer.is_empty();
-            if !header.is_empty() {
-                content.push(elem(tag::thead, Content::sequence(header)));
-            }
-            if only_body {
-                content = body;
-            } else {
-                content.push(elem(tag::tbody, Content::sequence(body)));
-            }
-            if !footer.is_empty() {
-                content.push(elem(tag::tfoot, Content::sequence(footer)));
+            let mut body = Content::sequence(rows);
+            if header.is_some() || footer.is_some() {
+                body = elem(tag::tbody, body);
             }
 
+            let content = header.into_iter().chain(core::iter::once(body)).chain(footer);
             elem(tag::table, Content::sequence(content))
         } else {
             BlockElem::multi_layouter(self.clone(), engine.routines.layout_table).pack()
