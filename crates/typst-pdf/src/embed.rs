@@ -76,7 +76,11 @@ fn embed_file(
     if let Some(pdf_date) = date.and_then(|date| pdf_date(date, tz)) {
         params.modification_date(pdf_date);
     } else if ctx.options.standards.pdfa {
-        bail!(embed.span(), "embedded files must have a modification date in PDF/A-3");
+        bail!(
+            embed.span(),
+            "the document must have a date when embedding files in PDF/A-3";
+            hint: "`set document(date: none)` must not be used in this case"
+        );
     }
 
     params.finish();
