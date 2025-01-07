@@ -56,7 +56,6 @@ fn embed_file(
 
     let mut embedded_file =
         chunk.embedded_file(embedded_file_stream_ref, embed.data().as_slice());
-    embedded_file.pair(Name(b"Length"), length as i32);
     if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
         embedded_file.subtype(Name(mime_type.as_bytes()));
     }
