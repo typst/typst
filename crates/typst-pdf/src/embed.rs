@@ -8,7 +8,7 @@ use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
 
 use crate::catalog::{document_date, pdf_date};
-use crate::{deflate, PdfChunk, WithGlobalRefs};
+use crate::{deflate, NameExt, PdfChunk, StrExt, TextStrExt, WithGlobalRefs};
 
 /// Query for all [`EmbedElem`] and write them and their file specifications.
 ///
@@ -33,10 +33,12 @@ pub fn write_embedded_files(
         }
 
         let embed = elem.to_packed::<EmbedElem>().unwrap();
-        if embedded_files
-            .insert(embed.resolved_path.clone(), embed_file(ctx, &mut chunk, embed)?)
-            .is_some()
-        {
+        if embed.resolved_path.len() > Str::PDFA_LIMIT {
+            bail!(embed.span(), "embedded file path is too long");
+        }
+
+        let id = embed_file(ctx, &mut chunk, embed)?;
+        if embedded_files.insert(embed.resolved_path.clone(), id).is_some() {
             bail!(
                 elem.span(),
                 "duplicate embedded file for path `{}`", embed.resolved_path;
@@ -64,6 +66,9 @@ fn embed_file(
     embedded_file.filter(Filter::FlateDecode);
 
     if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
+        if mime_type.len() > Name::PDFA_LIMIT {
+            bail!(embed.span(), "MIME type is too long");
+        }
         embedded_file.subtype(Name(mime_type.as_bytes()));
     } else if ctx.options.standards.pdfa {
         bail!(embed.span(), "embedded files must have a MIME type in PDF/A-3");
@@ -87,9 +92,9 @@ fn embed_file(
     embedded_file.finish();
 
     let mut file_spec = chunk.file_spec(file_spec_dict_ref);
+    file_spec.path(Str::trimmed(embed.resolved_path.as_bytes()));
+    file_spec.unic_file(TextStr::trimmed(&embed.resolved_path));
     file_spec
-        .path(Str(embed.resolved_path.as_bytes()))
-        .unic_file(TextStr(&embed.resolved_path))
         .insert(Name(b"EF"))
         .dict()
         .pair(Name(b"F"), embedded_file_stream_ref)
@@ -107,7 +112,10 @@ fn embed_file(
     }
 
     if let Some(description) = embed.description(StyleChain::default()) {
-        file_spec.description(TextStr(description));
+        if description.len() > Str::PDFA_LIMIT {
+            bail!(embed.span(), "embedded file description is too long");
+        }
+        file_spec.description(TextStr::trimmed(description));
     }
 
     Ok(file_spec_dict_ref)
