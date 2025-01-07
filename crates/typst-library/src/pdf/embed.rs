@@ -79,7 +79,7 @@ pub struct EmbedElem {
 
     /// The relationship of the embedded file to the document.
     ///
-    /// Required for PDF/A-3, ignored otherwise.
+    /// Ignored if export doesn't target PDF/A-3.
     #[borrowed]
     pub relationship: Option<EmbeddedFileRelationship>,
 }
@@ -143,6 +143,4 @@ pub enum EmbeddedFileRelationship {
     Alternative,
     /// Additional resources for this document.
     Supplement,
-    /// There is no clear relationship or it is not known.
-    Unspecified,
 }

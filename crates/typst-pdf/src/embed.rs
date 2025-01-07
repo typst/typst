@@ -86,18 +86,14 @@ fn embed_file(
         .pair(Name(b"UF"), embedded_file_stream_ref);
 
     if ctx.options.standards.pdfa {
-        if let Some(relationship) = embed.relationship(StyleChain::default()) {
-            // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
-            file_spec.association_kind(match relationship {
-                EmbeddedFileRelationship::Source => AssociationKind::Source,
-                EmbeddedFileRelationship::Data => AssociationKind::Data,
-                EmbeddedFileRelationship::Alternative => AssociationKind::Alternative,
-                EmbeddedFileRelationship::Supplement => AssociationKind::Supplement,
-                EmbeddedFileRelationship::Unspecified => AssociationKind::Unspecified,
-            });
-        } else {
-            bail!(embed.span(), "embedded files must have a relationship in PDF/A-3")
-        }
+        // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3.
+        file_spec.association_kind(match embed.relationship(StyleChain::default()) {
+            Some(EmbeddedFileRelationship::Source) => AssociationKind::Source,
+            Some(EmbeddedFileRelationship::Data) => AssociationKind::Data,
+            Some(EmbeddedFileRelationship::Alternative) => AssociationKind::Alternative,
+            Some(EmbeddedFileRelationship::Supplement) => AssociationKind::Supplement,
+            None => AssociationKind::Unspecified,
+        });
     }
 
     if let Some(description) = embed.description(StyleChain::default()) {
