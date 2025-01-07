@@ -35,7 +35,7 @@ pub fn write_embedded_files(
             .name(StyleChain::default())
             .as_ref()
             .unwrap_or(&embed.resolved_path);
-        embedded_files.insert(name.clone(), embed_file(ctx, &mut chunk, embed));
+        embedded_files.insert(name.clone(), embed_file(ctx, &mut chunk, embed)?);
     }
 
     Ok((chunk, embedded_files))
@@ -46,7 +46,7 @@ fn embed_file(
     ctx: &WithGlobalRefs,
     chunk: &mut PdfChunk,
     embed: &Packed<EmbedElem>,
-) -> Ref {
+) -> SourceResult<Ref> {
     let embedded_file_stream_ref = chunk.alloc.bump();
     let file_spec_dict_ref = chunk.alloc.bump();
 
@@ -66,6 +66,8 @@ fn embed_file(
     let (date, tz) = document_date(ctx.document.info.date, ctx.options.timestamp);
     if let Some(pdf_date) = date.and_then(|date| pdf_date(date, tz)) {
         params.modification_date(pdf_date);
+    } else if ctx.options.standards.pdfa {
+        bail!(embed.span(), "embedded files must have a modification date in PDF/A-3");
     }
 
     params.finish();
@@ -80,8 +82,9 @@ fn embed_file(
         .dict()
         .pair(Name(b"F"), embedded_file_stream_ref)
         .pair(Name(b"UF"), embedded_file_stream_ref);
-    if let Some(relationship) = embed.relationship(StyleChain::default()) {
-        if ctx.options.standards.pdfa {
+
+    if ctx.options.standards.pdfa {
+        if let Some(relationship) = embed.relationship(StyleChain::default()) {
             // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
             file_spec.association_kind(match relationship {
                 EmbeddedFileRelationship::Source => AssociationKind::Source,
@@ -90,11 +93,14 @@ fn embed_file(
                 EmbeddedFileRelationship::Supplement => AssociationKind::Supplement,
                 EmbeddedFileRelationship::Unspecified => AssociationKind::Unspecified,
             });
+        } else {
+            bail!(embed.span(), "embedded files must have a relationship in PDF/A-3")
         }
     }
+
     if let Some(description) = embed.description(StyleChain::default()) {
         file_spec.description(TextStr(description));
     }
 
-    file_spec_dict_ref
+    Ok(file_spec_dict_ref)
 }
