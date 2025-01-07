@@ -268,14 +268,37 @@ impl Show for Packed<TableElem> {
             // TODO: This is a hack, it is not clear whether the locator is actually used by HTML.
             // How can we find out whether locator is actually used?
             let locator = Locator::root();
+            let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
             let grid = table_to_cellgrid(self, engine, locator, styles)?;
             let rows = grid.entries.chunks(grid.cols.len()).map(|row| {
-                let row =
-                    row.iter().flat_map(|entry| Some(entry.as_cell()?.body.clone()));
-                HtmlElem::new(tag::tr).with_body(Some(Content::sequence(row))).pack()
+                let row = row.iter().flat_map(|entry| entry.as_cell());
+                elem(tag::tr, Content::sequence(row.map(|cell| cell.body.clone())))
             });
-            let content = Content::sequence(rows);
-            HtmlElem::new(tag::table).with_body(Some(content)).pack()
+            let mut rows: Vec<_> = rows.collect();
+
+            let footer_start =
+                grid.footer.map_or(rows.len(), |footer| footer.unwrap().start);
+            let header_end = grid.header.map_or(0, |footer| footer.unwrap().end);
+            let footer: Vec<_> = rows.drain(footer_start..).collect();
+            let body: Vec<_> = rows.drain(header_end..).collect();
+            let header = rows;
+
+            let mut content = Vec::new();
+
+            let only_body = header.is_empty() && footer.is_empty();
+            if !header.is_empty() {
+                content.push(elem(tag::thead, Content::sequence(header)));
+            }
+            if only_body {
+                content = body;
+            } else {
+                content.push(elem(tag::tbody, Content::sequence(body)));
+            }
+            if !footer.is_empty() {
+                content.push(elem(tag::tfoot, Content::sequence(footer)));
+            }
+
+            elem(tag::table, Content::sequence(content))
         } else {
             BlockElem::multi_layouter(self.clone(), engine.routines.layout_table).pack()
         }

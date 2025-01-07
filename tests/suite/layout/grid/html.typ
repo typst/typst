@@ -4,10 +4,13 @@
   rows: 3,
 
   table.header(
-  [The],
-  [first],
-  [row],
-  table.hline(stroke: red)
+    [The],
+    [first],
+    [and],
+    [the],
+    [second],
+    [row],
+    table.hline(stroke: red)
   ),
 
   table.cell(x: 1, rowspan: 2)[Baz],
@@ -20,4 +23,10 @@
 
   table.cell(colspan: 2)[3],
   [4],
+
+  table.footer(
+    [The],
+    [last],
+    [row],
+  ),
 )
