@@ -1,23 +1,24 @@
-pub mod embed;
+//! PDF-specific functionality.
 
-use crate::foundations::Scope;
-use crate::foundations::{Category, Module};
-use crate::pdf::embed::EmbedElem;
-use typst_macros::category;
+mod embed;
 
-/// Hook up the pdf module and category.
+pub use self::embed::*;
+
+use crate::foundations::{category, Category, Module, Scope};
+
+/// PDF-specific functionality.
+#[category]
+pub static PDF: Category;
+
+/// Hook up the `pdf` module.
 pub(super) fn define(global: &mut Scope) {
     global.category(PDF);
     global.define_module(module());
 }
 
-/// PDF specific functionality.
-#[category]
-pub static PDF: Category;
-
-/// Hook up the pdf definitions.
+/// Hook up all `pdf` definitions.
 pub fn module() -> Module {
-    let mut pdf = Scope::deduplicating();
-    pdf.define_elem::<EmbedElem>();
-    Module::new("pdf", pdf)
+    let mut scope = Scope::deduplicating();
+    scope.define_elem::<EmbedElem>();
+    Module::new("pdf", scope)
 }

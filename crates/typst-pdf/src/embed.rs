@@ -1,11 +1,13 @@
-use crate::catalog::{document_date, pdf_date};
-use crate::{PdfChunk, WithGlobalRefs};
+use std::collections::HashMap;
+
 use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
-use std::collections::HashMap;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
-use typst_library::pdf::embed::EmbedElem;
+use typst_library::pdf::EmbedElem;
+
+use crate::catalog::{document_date, pdf_date};
+use crate::{PdfChunk, WithGlobalRefs};
 
 /// Query for all [`EmbedElem`] and write them and their file specifications.
 ///

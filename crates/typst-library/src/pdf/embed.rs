@@ -1,14 +1,14 @@
 use ecow::EcoString;
-use typst_macros::{elem, scope, Cast};
-use typst_syntax::Spanned;
+use typst_syntax::{Span, Spanned};
 
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{func, Content, NativeElement, Packed, Show, StyleChain};
+use crate::foundations::{
+    elem, func, scope, Cast, Content, NativeElement, Packed, Show, StyleChain,
+};
 use crate::introspection::Locatable;
 use crate::loading::Readable;
-use crate::text::LocalName;
-use crate::{Span, World};
+use crate::World;
 
 /// A file that will be embedded into the output PDF.
 /// This element is ignored by other export formats.
