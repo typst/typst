@@ -65,6 +65,8 @@ fn embed_file(
 
     if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
         embedded_file.subtype(Name(mime_type.as_bytes()));
+    } else if ctx.options.standards.pdfa {
+        bail!(embed.span(), "embedded files must have a MIME type in PDF/A-3");
     }
 
     let mut params = embedded_file.params();
