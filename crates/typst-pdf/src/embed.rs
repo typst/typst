@@ -17,19 +17,20 @@ pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
 ) -> SourceResult<(PdfChunk, BTreeMap<EcoString, Ref>)> {
     let mut chunk = PdfChunk::new();
+    let mut embedded_files = BTreeMap::default();
 
     let elements = ctx.document.introspector.query(&EmbedElem::elem().select());
-    if !ctx.options.standards.embedded_files {
-        if let Some(element) = elements.first() {
+    for elem in &elements {
+        if !ctx.options.standards.embedded_files {
+            // PDF/A-2 requires embedded files to be PDF/A-1 or PDF/A-2,
+            // which we don't currently check.
             bail!(
-                element.span(),
-                "file embeddings are currently only supported for PDF/A-3"
+                elem.span(),
+                "file embeddings are not currently supported for PDF/A-2";
+                hint: "PDF/A-3 supports arbitrary embedded files"
             );
         }
-    }
 
-    let mut embedded_files = BTreeMap::default();
-    for elem in elements.iter() {
         let embed = elem.to_packed::<EmbedElem>().unwrap();
         let name = embed
             .name(StyleChain::default())
