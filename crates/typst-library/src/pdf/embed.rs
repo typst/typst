@@ -4,7 +4,7 @@ use typst_syntax::{Span, Spanned};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, Cast, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    elem, func, scope, Cast, Content, NativeElement, Packed, Show, StyleChain,
 };
 use crate::introspection::Locatable;
 use crate::loading::Readable;
@@ -23,7 +23,6 @@ use crate::World;
 /// ```typ
 /// #pdf.embed(
 ///   "experiment.csv",
-///   name: "O2 readings",
 ///   description: "Raw Oxygen readings from the Arctic experiment",
 ///   mime-type: "text/csv",
 ///   relationship: "supplement",
@@ -54,7 +53,7 @@ pub struct EmbedElem {
     /// The resolved project-relative path.
     #[internal]
     #[required]
-    #[parse(EcoString::from(id.vpath().as_rootless_path().to_string_lossy()))]
+    #[parse(EcoString::from(id.vpath().as_rootless_path().to_string_lossy().replace("\\", "/")))]
     pub resolved_path: EcoString,
 
     /// The raw file data.
@@ -62,12 +61,6 @@ pub struct EmbedElem {
     #[required]
     #[parse(Readable::Bytes(data))]
     pub data: Readable,
-
-    /// The name of the embedded file.
-    ///
-    /// If no name is provided, the path is used instead.
-    #[borrowed]
-    pub name: Smart<EcoString>,
 
     /// A description for the embedded file.
     #[borrowed]
@@ -91,14 +84,11 @@ impl EmbedElem {
     fn decode(
         /// The call span of this function.
         span: Span,
+        /// The path that will be written into the PDF. Typst will not read from
+        /// this path since the data is provided in the following argument.
+        path: EcoString,
         /// The data to embed as a file.
         data: Readable,
-        /// The path metadata that will be written into the PDF. Typst will not
-        /// read from this path since the data is already provided.
-        path: EcoString,
-        /// The name of the attached file.
-        #[named]
-        name: Option<Smart<EcoString>>,
         /// A description for the attached file.
         #[named]
         description: Option<Option<EcoString>>,
@@ -110,9 +100,6 @@ impl EmbedElem {
         relationship: Option<Option<EmbeddedFileRelationship>>,
     ) -> StrResult<Content> {
         let mut elem = EmbedElem::new(path.clone(), path, data);
-        if let Some(name) = name {
-            elem.push_name(name);
-        }
         if let Some(description) = description {
             elem.push_description(description);
         }

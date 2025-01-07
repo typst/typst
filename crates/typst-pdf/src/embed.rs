@@ -33,11 +33,16 @@ pub fn write_embedded_files(
         }
 
         let embed = elem.to_packed::<EmbedElem>().unwrap();
-        let name = embed
-            .name(StyleChain::default())
-            .as_ref()
-            .unwrap_or(&embed.resolved_path);
-        embedded_files.insert(name.clone(), embed_file(ctx, &mut chunk, embed)?);
+        if embedded_files
+            .insert(embed.resolved_path.clone(), embed_file(ctx, &mut chunk, embed)?)
+            .is_some()
+        {
+            bail!(
+                elem.span(),
+                "duplicate embedded file for path `{}`", embed.resolved_path;
+                hint: "embedded file paths must be unique",
+            );
+        }
     }
 
     Ok((chunk, embedded_files))
@@ -75,11 +80,10 @@ fn embed_file(
     params.finish();
     embedded_file.finish();
 
-    let path = embed.resolved_path().replace("\\", "/");
     let mut file_spec = chunk.file_spec(file_spec_dict_ref);
     file_spec
-        .path(Str(path.as_bytes()))
-        .unic_file(TextStr(&path))
+        .path(Str(embed.resolved_path.as_bytes()))
+        .unic_file(TextStr(&embed.resolved_path))
         .insert(Name(b"EF"))
         .dict()
         .pair(Name(b"F"), embedded_file_stream_ref)
