@@ -62,19 +62,19 @@ pub struct EmbedElem {
     #[parse(Readable::Bytes(data))]
     pub data: Readable,
 
-    /// A description for the embedded file.
-    #[borrowed]
-    pub description: Option<EcoString>,
-
-    /// The MIME type of the embedded file.
-    #[borrowed]
-    pub mime_type: Option<EcoString>,
-
     /// The relationship of the embedded file to the document.
     ///
     /// Ignored if export doesn't target PDF/A-3.
     #[borrowed]
     pub relationship: Option<EmbeddedFileRelationship>,
+
+    /// The MIME type of the embedded file.
+    #[borrowed]
+    pub mime_type: Option<EcoString>,
+
+    /// A description for the embedded file.
+    #[borrowed]
+    pub description: Option<EcoString>,
 }
 
 #[scope]
@@ -89,15 +89,15 @@ impl EmbedElem {
         path: EcoString,
         /// The data to embed as a file.
         data: Readable,
-        /// A description for the attached file.
-        #[named]
-        description: Option<Option<EcoString>>,
-        /// The MIME type of the embedded file.
-        #[named]
-        mime_type: Option<Option<EcoString>>,
         /// The relationship of the embedded file to the document.
         #[named]
         relationship: Option<Option<EmbeddedFileRelationship>>,
+        /// The MIME type of the embedded file.
+        #[named]
+        mime_type: Option<Option<EcoString>>,
+        /// A description for the attached file.
+        #[named]
+        description: Option<Option<EcoString>>,
     ) -> StrResult<Content> {
         let mut elem = EmbedElem::new(path.clone(), path, data);
         if let Some(description) = description {

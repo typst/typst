@@ -1,19 +1,29 @@
 // Test embeddings.
 
---- embed-basic-document ---
+--- pdf-embed ---
 #pdf.embed("/assets/text/hello.txt")
+#pdf.embed(
+  "/assets/data/details.toml",
+  relationship: "supplement",
+  mime-type: "application/toml",
+  description: "Information about a secret project",
+)
 
---- embed-document ---
-#pdf.embed("/assets/text/hello.txt", name: "blub.foo", description: "A test file", mime-type: "text/plain", relationship: "supplement")
+--- pdf-embed-invalid-relationship ---
+#pdf.embed(
+  "/assets/text/hello.txt",
+  // Error: 17-23 expected "source", "data", "alternative", "supplement", or none
+  relationship: "test",
+  mime-type: "text/plain",
+  description: "A test file",
+)
 
---- embed-invalid-relationship ---
-// Error: 123-129 expected "source", "data", "alternative", "supplement", "encrypted-payload", "form-data", "schema", "unspecified", or none
-#pdf.embed("/assets/text/hello.txt", name: "blub.foo", description: "A test file", mime-type: "text/plain", relationship: "test")
-
---- embed-raw-basic-document ---
-#let raw-file = read("/assets/text/hello.txt")
-#pdf.embed.decode(raw-file, "hello.txt")
-
---- embed-raw-document ---
-#let raw-file = read("/assets/text/hello.txt")
-#pdf.embed.decode(raw-file, "a_file_name.txt", name: "a_file_name.txt", description: "A description", mime-type: "text/plain", relationship: "supplement")
+--- pdf-embed-decode ---
+#pdf.embed.decode("hello.txt", read("/assets/text/hello.txt"))
+#pdf.embed.decode(
+  "a_file_name.txt",
+  read("/assets/text/hello.txt"),
+  relationship: "supplement",
+  mime-type: "text/plain",
+  description: "A description",
+)
