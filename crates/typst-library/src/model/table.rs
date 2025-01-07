@@ -7,7 +7,11 @@ use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    TargetElem,
 };
+use crate::html::{tag, HtmlAttr, HtmlAttrs, HtmlElem};
+use crate::introspection::Locator;
+use crate::layout::grid::resolve::table_to_cellgrid;
 use crate::layout::{
     show_grid_cell, Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine,
     GridHeader, GridVLine, Length, OuterHAlignment, OuterVAlignment, Rel, Sides,
@@ -259,10 +263,23 @@ impl TableElem {
 }
 
 impl Show for Packed<TableElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_table)
-            .pack()
-            .spanned(self.span()))
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(if TargetElem::target_in(styles).is_html() {
+            // TODO: This is a hack, it is not clear whether the locator is actually used by HTML.
+            // How can we find out whether locator is actually used?
+            let locator = Locator::root();
+            let grid = table_to_cellgrid(self, engine, locator, styles)?;
+            let rows = grid.entries.chunks(grid.cols.len()).map(|row| {
+                let row =
+                    row.iter().flat_map(|entry| Some(entry.as_cell()?.body.clone()));
+                HtmlElem::new(tag::tr).with_body(Some(Content::sequence(row))).pack()
+            });
+            let content = Content::sequence(rows);
+            HtmlElem::new(tag::table).with_body(Some(content)).pack()
+        } else {
+            BlockElem::multi_layouter(self.clone(), engine.routines.layout_table).pack()
+        }
+        .spanned(self.span()))
     }
 }
 
@@ -706,7 +723,20 @@ cast! {
 
 impl Show for Packed<TableCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+        if TargetElem::target_in(styles).is_html() {
+            let mut attrs = HtmlAttrs::default();
+            let span = |n: NonZeroUsize| (n != NonZeroUsize::MIN).then(|| n.to_string());
+            if let Some(colspan) = span(self.colspan(styles)) {
+                attrs.push(HtmlAttr::constant("colspan"), colspan);
+            }
+            if let Some(rowspan) = span(self.rowspan(styles)) {
+                attrs.push(HtmlAttr::constant("rowspan"), rowspan);
+            }
+            let body = Some(self.body.clone());
+            Ok(HtmlElem::new(tag::td).with_body(body).with_attrs(attrs).pack())
+        } else {
+            show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+        }
     }
 }
 
