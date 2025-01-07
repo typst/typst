@@ -15,7 +15,7 @@ mod page;
 mod resources;
 mod tiling;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
@@ -339,8 +339,8 @@ struct References {
     tilings: HashMap<PdfTiling, Ref>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
-    /// The names and references for embedded files
-    embedded_files: HashMap<EcoString, Ref>,
+    /// The names and references for embedded files.
+    embedded_files: BTreeMap<EcoString, Ref>,
 }
 
 /// At this point, the references have been assigned to all resources. The page
@@ -499,6 +499,14 @@ impl<R: Renumber> Renumber for Vec<R> {
 }
 
 impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
+    fn renumber(&mut self, offset: i32) {
+        for v in self.values_mut() {
+            v.renumber(offset);
+        }
+    }
+}
+
+impl<T: Ord, R: Renumber> Renumber for BTreeMap<T, R> {
     fn renumber(&mut self, offset: i32) {
         for v in self.values_mut() {
             v.renumber(offset);

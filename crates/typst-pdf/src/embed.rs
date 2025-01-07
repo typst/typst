@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
@@ -15,7 +15,7 @@ use crate::{PdfChunk, WithGlobalRefs};
 /// catalog's name dictionary.
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
-) -> SourceResult<(PdfChunk, HashMap<EcoString, Ref>)> {
+) -> SourceResult<(PdfChunk, BTreeMap<EcoString, Ref>)> {
     let mut chunk = PdfChunk::new();
 
     let elements = ctx.document.introspector.query(&EmbedElem::elem().select());
@@ -28,7 +28,7 @@ pub fn write_embedded_files(
         }
     }
 
-    let mut embedded_files = HashMap::default();
+    let mut embedded_files = BTreeMap::default();
     for elem in elements.iter() {
         let embed = elem.to_packed::<EmbedElem>().unwrap();
         let name = embed
