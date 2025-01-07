@@ -165,17 +165,18 @@ impl PdfStandards {
     /// Validates a list of PDF standards for compatibility and returns their
     /// encapsulated representation.
     pub fn new(list: &[PdfStandard]) -> StrResult<Self> {
-        if list.contains(&PdfStandard::A_2b) && list.contains(&PdfStandard::A_3b) {
-            bail!("PDF can not conform to A-2B and A-3B at the same time")
-        }
-        let pdfa = list.contains(&PdfStandard::A_2b) || list.contains(&PdfStandard::A_3b);
+        let a2b = list.contains(&PdfStandard::A_2b);
+        let a3b = list.contains(&PdfStandard::A_3b);
 
+        if a2b && a3b {
+            bail!("PDF cannot conform to A-2B and A-3B at the same time")
+        }
+
+        let pdfa = a2b || a3b;
         Ok(Self {
             pdfa,
-            embedded_files: list.contains(&PdfStandard::A_3b)
-                || list.contains(&PdfStandard::V_1_7),
-            part: pdfa
-                .then_some((if list.contains(&PdfStandard::A_2b) { 2 } else { 3 }, "B")),
+            embedded_files: !a2b,
+            part: pdfa.then_some((if a2b { 2 } else { 3 }, "B")),
         })
     }
 }
@@ -186,10 +187,9 @@ impl Debug for PdfStandards {
     }
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for PdfStandards {
     fn default() -> Self {
-        Self { pdfa: false, embedded_files: false, part: None }
+        Self { pdfa: false, embedded_files: true, part: None }
     }
 }
 
