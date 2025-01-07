@@ -51,11 +51,12 @@ fn embed_file(
     let embedded_file_stream_ref = chunk.alloc.bump();
     let file_spec_dict_ref = chunk.alloc.bump();
 
-    let length = embed.data().as_slice().len();
     let data = embed.data().as_slice();
+    let compressed = deflate(data);
 
-    let mut embedded_file =
-        chunk.embedded_file(embedded_file_stream_ref, embed.data().as_slice());
+    let mut embedded_file = chunk.embedded_file(embedded_file_stream_ref, &compressed);
+    embedded_file.filter(Filter::FlateDecode);
+
     if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
         embedded_file.subtype(Name(mime_type.as_bytes()));
     }
