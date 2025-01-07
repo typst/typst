@@ -51,6 +51,7 @@ fn embed_file(
     let file_spec_dict_ref = chunk.alloc.bump();
 
     let length = embed.data().as_slice().len();
+    let data = embed.data().as_slice();
 
     let mut embedded_file =
         chunk.embedded_file(embedded_file_stream_ref, embed.data().as_slice());
@@ -58,10 +59,16 @@ fn embed_file(
     if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
         embedded_file.subtype(Name(mime_type.as_bytes()));
     }
+
+    let mut params = embedded_file.params();
+    params.size(data.len() as i32);
+
     let (date, tz) = document_date(ctx.document.info.date, ctx.options.timestamp);
     if let Some(pdf_date) = date.and_then(|date| pdf_date(date, tz)) {
-        embedded_file.params().modification_date(pdf_date).finish();
+        params.modification_date(pdf_date);
     }
+
+    params.finish();
     embedded_file.finish();
 
     let path = embed.resolved_path().replace("\\", "/");
