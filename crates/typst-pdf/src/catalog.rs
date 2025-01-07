@@ -169,32 +169,37 @@ pub fn write_catalog(
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
-    // Write the named destination tree if there are any entries.
-    if !ctx.references.named_destinations.dests.is_empty() {
-        let mut name_dict = catalog.names();
-        let mut dests_name_tree = name_dict.destinations();
-        let mut names = dests_name_tree.names();
-        for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
-            names.insert(Str(name.resolve().as_bytes()), dest_ref);
-        }
-    }
+    let has_dests = !ctx.references.named_destinations.dests.is_empty();
+    let has_embeddings = !ctx.references.embedded_files.is_empty();
 
-    if !ctx.references.embedded_files.is_empty() {
-        {
-            let mut name_dict = catalog.names();
+    // Write the `/Names` dictionary.
+    if has_dests || has_embeddings {
+        // Write the named destination tree if there are any entries.
+        let mut name_dict = catalog.names();
+        if has_dests {
+            let mut dests_name_tree = name_dict.destinations();
+            let mut names = dests_name_tree.names();
+            for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
+                names.insert(Str(name.resolve().as_bytes()), dest_ref);
+            }
+        }
+
+        if has_embeddings {
             let mut embedded_files = name_dict.embedded_files();
             let mut names = embedded_files.names();
             for (name, file_ref) in &ctx.references.embedded_files {
                 names.insert(Str(name.as_bytes()), *file_ref);
             }
+            names.finish();
+            embedded_files.finish();
         }
+    }
 
-        if ctx.options.standards.pdfa {
-            // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
-            let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
-            for (_, file_ref) in ctx.references.embedded_files {
-                associated_files.item(file_ref).finish();
-            }
+    if has_embeddings && ctx.options.standards.pdfa {
+        // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
+        let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
+        for (_, file_ref) in ctx.references.embedded_files {
+            associated_files.item(file_ref).finish();
         }
     }
 
