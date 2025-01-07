@@ -4,7 +4,7 @@ use typst_syntax::{Span, Spanned};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, Cast, Content, NativeElement, Packed, Show, StyleChain,
+    elem, func, scope, Cast, Content, NativeElement, Packed, Show, Smart, StyleChain,
 };
 use crate::introspection::Locatable;
 use crate::loading::Readable;
@@ -44,7 +44,7 @@ pub struct EmbedElem {
     ///
     /// If no name is given, the path is used instead.
     #[borrowed]
-    pub name: Option<EcoString>,
+    pub name: Smart<EcoString>,
 
     /// A description for the attached file.
     #[borrowed]
@@ -74,7 +74,7 @@ impl EmbedElem {
         ///
         /// If no name is given, the path is used instead.
         #[named]
-        name: Option<Option<EcoString>>,
+        name: Option<Smart<EcoString>>,
         /// A description for the attached file.
         #[named]
         description: Option<Option<EcoString>>,
