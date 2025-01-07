@@ -1,12 +1,12 @@
-use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
-use ecow::{eco_format, EcoString};
-use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
-use std::time::SystemTime;
 use std::{fmt, fs, io, mem};
+
+use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
+use ecow::{eco_format, EcoString};
+use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -285,7 +285,7 @@ impl FileSlot {
     ) -> FileResult<Source> {
         self.source.get_or_init(
             || read(self.id, project_root, package_storage),
-            |(data, _), prev| {
+            |data, prev| {
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
@@ -305,7 +305,7 @@ impl FileSlot {
     ) -> FileResult<Bytes> {
         self.file.get_or_init(
             || read(self.id, project_root, package_storage),
-            |(data, _), _| Ok(data.into()),
+            |data, _| Ok(data.into()),
         )
     }
 }
@@ -340,8 +340,8 @@ impl<T: Clone> SlotCell<T> {
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
-        load: impl FnOnce() -> FileResult<(Vec<u8>, Option<SystemTime>)>,
-        f: impl FnOnce((Vec<u8>, Option<SystemTime>), Option<T>) -> FileResult<T>,
+        load: impl FnOnce() -> FileResult<Vec<u8>>,
+        f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
         if mem::replace(&mut self.accessed, true) {
@@ -398,22 +398,21 @@ fn read(
     id: FileId,
     project_root: &Path,
     package_storage: &PackageStorage,
-) -> FileResult<(Vec<u8>, Option<SystemTime>)> {
+) -> FileResult<Vec<u8>> {
     if id == *STDIN_ID {
-        Ok((read_from_stdin()?, None))
+        read_from_stdin()
     } else {
         read_from_disk(&system_path(project_root, id, package_storage)?)
     }
 }
 
 /// Read a file from disk.
-fn read_from_disk(path: &Path) -> FileResult<(Vec<u8>, Option<SystemTime>)> {
+fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    let metadata = fs::metadata(path).map_err(f)?;
-    if metadata.is_dir() {
+    if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        Ok((fs::read(path).map_err(f)?, metadata.modified().ok()))
+        fs::read(path).map_err(f)
     }
 }
 
