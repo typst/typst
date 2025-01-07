@@ -474,7 +474,7 @@ function getWebviewContent(
             data-vscode-context='{"webviewSection":"png"}'
             src="${webViewSrcs.png}"
             alt="Placeholder"
-          />
+          >
         </div>
 
         <div>
@@ -484,7 +484,7 @@ function getWebviewContent(
             data-vscode-context='{"webviewSection":"ref"}'
             src="${webViewSrcs.ref}"
             alt="Placeholder"
-          />
+          >
         </div>
       </div>
       ${stdoutHtml}
