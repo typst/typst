@@ -151,11 +151,12 @@ pub enum Timezone {
 /// Encapsulates a list of compatible PDF standards.
 #[derive(Clone)]
 pub struct PdfStandards {
-    /// For now, we simplify to just PDF/A. But
-    /// it can be more fine-grained in the future.
+    /// For now, we simplify to just PDF/A. But it can be more fine-grained in
+    /// the future.
     pub(crate) pdfa: bool,
     /// Whether the standard allows for embedding any kind of file into the PDF.
-    /// We disallow this for PDF/A-2, since it only allows embedding other PDF/A-2 documents.
+    /// We disallow this for PDF/A-2, since it only allows embedding other
+    /// PDF/A-2 documents.
     pub(crate) embedded_files: bool,
     /// Part of the PDF standard.
     pub(crate) part: Option<(i32, &'static str)>,

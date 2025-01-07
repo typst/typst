@@ -190,13 +190,11 @@ pub fn write_catalog(
             for (name, file_ref) in &ctx.references.embedded_files {
                 names.insert(Str(name.as_bytes()), *file_ref);
             }
-            names.finish();
-            embedded_files.finish();
         }
     }
 
     if has_embeddings && ctx.options.standards.pdfa {
-        // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
+        // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3.
         let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
         for (_, file_ref) in ctx.references.embedded_files {
             associated_files.item(file_ref).finish();

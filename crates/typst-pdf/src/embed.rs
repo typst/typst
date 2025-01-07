@@ -1,18 +1,19 @@
 use std::collections::BTreeMap;
 
 use ecow::EcoString;
-use pdf_writer::{Finish, Name, Ref, Str, TextStr};
+use pdf_writer::types::AssociationKind;
+use pdf_writer::{Filter, Finish, Name, Ref, Str, TextStr};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
 
 use crate::catalog::{document_date, pdf_date};
-use crate::{PdfChunk, WithGlobalRefs};
+use crate::{deflate, PdfChunk, WithGlobalRefs};
 
 /// Query for all [`EmbedElem`] and write them and their file specifications.
 ///
-/// This returns a map of embedding names and references so that we can later add them to the
-/// catalog's name dictionary.
+/// This returns a map of embedding names and references so that we can later
+/// add them to the catalog's name dictionary.
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
 ) -> SourceResult<(PdfChunk, BTreeMap<EcoString, Ref>)> {
