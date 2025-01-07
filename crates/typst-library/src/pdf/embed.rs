@@ -12,7 +12,7 @@ use crate::World;
 
 /// A file that will be embedded into the output PDF.
 /// This element is ignored by other export formats.
-#[elem(scope, Show, LocalName, Locatable)]
+#[elem(scope, Show, Locatable)]
 pub struct EmbedElem {
     /// Path to a file to be embedded.
     ///
@@ -101,10 +101,6 @@ impl EmbedElem {
 
         Ok(elem.pack().spanned(span))
     }
-}
-
-impl LocalName for Packed<EmbedElem> {
-    const KEY: &'static str = "embedding";
 }
 
 impl Show for Packed<EmbedElem> {
