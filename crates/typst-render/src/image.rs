@@ -4,7 +4,7 @@ use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use typst_library::layout::Size;
-use typst_library::visualize::{Image, ImageKind};
+use typst_library::visualize::{Image, ImageKind, ImageScaling};
 
 use crate::{AbsExt, State};
 
@@ -34,7 +34,7 @@ pub fn render_image(
     let w = (scale_x * view_width.max(aspect * view_height)).ceil() as u32;
     let h = ((w as f32) / aspect).ceil() as u32;
 
-    let pixmap = scaled_texture(image, w, h)?;
+    let pixmap = build_texture(image, w, h)?;
     let paint_scale_x = view_width / pixmap.width() as f32;
     let paint_scale_y = view_height / pixmap.height() as f32;
 
@@ -57,29 +57,53 @@ pub fn render_image(
 
 /// Prepare a texture for an image at a scaled size.
 #[comemo::memoize]
-fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
-    let mut pixmap = sk::Pixmap::new(w, h)?;
+fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     match image.kind() {
-        ImageKind::Raster(raster) => {
-            let downscale = w < raster.width();
-            let filter =
-                if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
-            let buf = raster.dynamic().resize(w, h, filter);
-            for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
-                let Rgba([r, g, b, a]) = src;
-                *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
-            }
+        ImageKind::Raster(raster) => scale_image(raster.dynamic(), image.scaling(), w, h),
+        ImageKind::Pixmap(raster) => {
+            scale_image(&raster.to_image(), image.scaling(), w, h)
         }
         // Safety: We do not keep any references to tree nodes beyond the scope
         // of `with`.
         ImageKind::Svg(svg) => {
+            let mut pixmap = sk::Pixmap::new(w, h)?;
             let tree = svg.tree();
             let ts = tiny_skia::Transform::from_scale(
                 w as f32 / tree.size().width(),
                 h as f32 / tree.size().height(),
             );
-            resvg::render(tree, ts, &mut pixmap.as_mut())
+            resvg::render(tree, ts, &mut pixmap.as_mut());
+            Some(Arc::new(pixmap))
         }
+    }
+}
+
+/// Scale a rastered image to a given size and return texture.
+fn scale_image(
+    image: &image::DynamicImage,
+    scaling: ImageScaling,
+    w: u32,
+    h: u32,
+) -> Option<Arc<sk::Pixmap>> {
+    let mut pixmap = sk::Pixmap::new(w, h)?;
+    let buf;
+    let resized = if (w, h) == (image.width(), image.height()) {
+        // Small optimization to not allocate in case image is not resized.
+        image
+    } else {
+        let upscale = w > image.width();
+        let filter = match scaling {
+            ImageScaling::Auto if upscale => FilterType::CatmullRom,
+            ImageScaling::Smooth if upscale => FilterType::CatmullRom,
+            ImageScaling::Pixelated => FilterType::Nearest,
+            _ => FilterType::Lanczos3, // downscale
+        };
+        buf = image.resize_exact(w, h, filter);
+        &buf
+    };
+    for ((_, _, src), dest) in resized.pixels().zip(pixmap.pixels_mut()) {
+        let Rgba([r, g, b, a]) = src;
+        *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
     }
     Some(Arc::new(pixmap))
 }

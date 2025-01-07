@@ -7,7 +7,9 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
-use image::{guess_format, DynamicImage, ImageDecoder, ImageResult, Limits};
+use image::{
+    guess_format, DynamicImage, ExtendedColorType, ImageDecoder, ImageResult, Limits,
+};
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Bytes, Cast};
@@ -21,7 +23,8 @@ struct Repr {
     data: Bytes,
     format: RasterFormat,
     dynamic: image::DynamicImage,
-    icc: Option<Vec<u8>>,
+    icc_profile: Option<Vec<u8>>,
+    source_color_type: ExtendedColorType,
     dpi: Option<f64>,
 }
 
@@ -31,16 +34,20 @@ impl RasterImage {
     pub fn new(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
         fn decode_with<T: ImageDecoder>(
             decoder: ImageResult<T>,
-        ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
+        ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>, ExtendedColorType)>
+        {
             let mut decoder = decoder?;
-            let icc = decoder.icc_profile().ok().flatten().filter(|icc| !icc.is_empty());
             decoder.set_limits(Limits::default())?;
+
+            let icc = decoder.icc_profile().ok().flatten().filter(|icc| !icc.is_empty());
+            let color_type = decoder.original_color_type();
             let dynamic = image::DynamicImage::from_decoder(decoder)?;
-            Ok((dynamic, icc))
+
+            Ok((dynamic, icc, color_type))
         }
 
         let cursor = io::Cursor::new(&data);
-        let (mut dynamic, icc) = match format {
+        let (mut dynamic, icc_profile, source_color_type) = match format {
             RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
             RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
             RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
@@ -59,7 +66,14 @@ impl RasterImage {
         // Extract pixel density.
         let dpi = determine_dpi(&data, exif.as_ref());
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            format,
+            dynamic,
+            icc_profile,
+            dpi,
+            source_color_type,
+        })))
     }
 
     /// The raw image data.
@@ -87,14 +101,21 @@ impl RasterImage {
         self.0.dpi
     }
 
+    /// The color type the image was encoded in.
+    ///
+    /// Note that this is not the same thing as `self.dynamic().color_type()`.
+    pub fn source_color_type(&self) -> ExtendedColorType {
+        self.0.source_color_type
+    }
+
     /// Access the underlying dynamic image.
     pub fn dynamic(&self) -> &image::DynamicImage {
         &self.0.dynamic
     }
 
     /// Access the ICC profile, if any.
-    pub fn icc(&self) -> Option<&[u8]> {
-        self.0.icc.as_deref()
+    pub fn icc_profile(&self) -> Option<&[u8]> {
+        self.0.icc_profile.as_deref()
     }
 }
 
