@@ -278,6 +278,7 @@ cast! {
 /// Different kinds of numberings.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum NumberingKind {
+    Adlam,
     Afar,
     Agaw,
     AncientTamil,
@@ -489,6 +490,7 @@ impl NumberingKind {
     /// Create a numbering kind from a name.
     pub fn from_name(name: &str) -> Option<Self> {
         Some(match name {
+            "adlam" => NumberingKind::Adlam,
             "afar" => NumberingKind::Afar,
             "agaw" => NumberingKind::Agaw,
             "ancient-tamil" => NumberingKind::AncientTamil,
@@ -672,6 +674,7 @@ impl NumberingKind {
     /// The name for this numbering kind.
     pub fn to_name(self) -> &'static str {
         match self {
+            Self::Adlam => "{adlam}",
             Self::Afar => "{afar}",
             Self::Agaw => "{agaw}",
             Self::AncientTamil => "{ancient-tamil}",
@@ -852,6 +855,21 @@ impl NumberingKind {
     /// Apply the numbering to the given number.
     pub fn apply(self, n: usize) -> EcoString {
         match self {
+            Self::Adlam => numeric(
+                [
+                    '\u{01E950}',
+                    '\u{01E951}',
+                    '\u{01E952}',
+                    '\u{01E953}',
+                    '\u{01E954}',
+                    '\u{01E955}',
+                    '\u{01E956}',
+                    '\u{01E957}',
+                    '\u{01E958}',
+                    '\u{01E959}',
+                ],
+                n,
+            ),
             Self::Afar => alphabetic(
                 [
                     '\u{1200}', '\u{1208}', '\u{1210}', '\u{1218}', '\u{1228}',
