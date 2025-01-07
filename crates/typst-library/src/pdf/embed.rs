@@ -112,40 +112,14 @@ impl Show for Packed<EmbedElem> {
 /// The relationship of an embedded file with the relevant document content.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum EmbeddedFileRelationship {
-    /// The embedded file is the original source material of the document content.
+    /// The PDF document was created from this source file.
     Source,
-    /// The embedded file represents information used to derive a visual presentation – such
-    /// as for a table or a graph.
+    /// This file was used to derive a visual presentation in the PDF.
     Data,
-    /// The embedded file is an alternative representation of document content.
+    /// An alternative representation of this document.
     Alternative,
-    /// The embedded file is a supplemental representation of document content.
+    /// Additional resources for this document.
     Supplement,
-    /// The embedded file is encrypted and should be displayed to the user if
-    /// the PDF processor has the cryptographic filter needed to
-    /// decrypt the document.
-    EncryptedPayload,
-    /// The embedded file is data associated with an AcroForm.
-    FormData,
-    /// The embedded file is a schema definition.
-    Schema,
-    /// The embedded file has an unknown relationship to the document or the relationship cannot be
-    /// described by the other variants.
+    /// There is no clear relationship or it is not known.
     Unspecified,
-}
-
-impl EmbeddedFileRelationship {
-    /// Corresponding values of AFRelationship according to ISO 32000-2 7.11.3
-    pub fn name(&self) -> &'static str {
-        match self {
-            EmbeddedFileRelationship::Source => "Source",
-            EmbeddedFileRelationship::Data => "Data",
-            EmbeddedFileRelationship::Alternative => "Alternative",
-            EmbeddedFileRelationship::Supplement => "Supplement",
-            EmbeddedFileRelationship::EncryptedPayload => "EncryptedPayload",
-            EmbeddedFileRelationship::FormData => "FormData",
-            EmbeddedFileRelationship::Schema => "Schema",
-            EmbeddedFileRelationship::Unspecified => "Unspecified",
-        }
-    }
 }

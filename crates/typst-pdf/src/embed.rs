@@ -4,7 +4,7 @@ use ecow::EcoString;
 use pdf_writer::{Finish, Name, Ref, Str, TextStr};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
-use typst_library::pdf::EmbedElem;
+use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
 
 use crate::catalog::{document_date, pdf_date};
 use crate::{PdfChunk, WithGlobalRefs};
@@ -75,9 +75,14 @@ fn embed_file(
         .pair(Name(b"UF"), embedded_file_stream_ref);
     if let Some(relationship) = embed.relationship(StyleChain::default()) {
         if ctx.options.standards.pdfa {
-            let name = relationship.name();
             // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3
-            file_spec.pair(Name(b"AFRelationship"), Name(name.as_bytes()));
+            file_spec.association_kind(match relationship {
+                EmbeddedFileRelationship::Source => AssociationKind::Source,
+                EmbeddedFileRelationship::Data => AssociationKind::Data,
+                EmbeddedFileRelationship::Alternative => AssociationKind::Alternative,
+                EmbeddedFileRelationship::Supplement => AssociationKind::Supplement,
+                EmbeddedFileRelationship::Unspecified => AssociationKind::Unspecified,
+            });
         }
     }
     if let Some(description) = embed.description(StyleChain::default()) {
