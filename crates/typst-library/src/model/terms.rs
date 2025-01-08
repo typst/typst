@@ -65,9 +65,8 @@ pub struct TermsElem {
     ///
     /// / Colon: A nice separator symbol.
     /// ```
-    #[default(HElem::new(Em::new(0.6).into()).with_weak(true).pack())]
     #[borrowed]
-    pub separator: Content,
+    pub separator: Option<Content>,
 
     /// The indentation of each item.
     pub indent: Length,
@@ -120,7 +119,10 @@ impl Show for Packed<TermsElem> {
 
         if TargetElem::target_in(styles).is_html() {
             let body = Content::sequence(self.children.iter().flat_map(|item| {
-                let term = Content::sequence([item.term.clone(), separator.clone()]);
+                let mut term = item.term.clone();
+                if let Some(separator) = separator {
+                    term = Content::sequence([term, separator.clone()]);
+                }
                 let desc = item.description.clone();
                 let dt = HtmlElem::new(tag::dt).with_body(Some(term)).pack();
                 let dd = HtmlElem::new(tag::dd).with_body(Some(desc)).pack();
@@ -128,6 +130,10 @@ impl Show for Packed<TermsElem> {
             }));
             return Ok(HtmlElem::new(tag::dl).with_body(Some(body)).pack());
         }
+
+        let separator = separator
+            .clone()
+            .unwrap_or_else(|| HElem::new(Em::new(0.6).into()).with_weak(true).pack());
 
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
@@ -148,7 +154,7 @@ impl Show for Packed<TermsElem> {
             let mut seq = vec![];
             seq.extend(unpad.clone());
             seq.push(child.term().clone().strong());
-            seq.push((*separator).clone());
+            seq.push(separator.clone());
             seq.push(child.description().clone());
             children.push(StackChild::Block(Content::sequence(seq)));
         }
