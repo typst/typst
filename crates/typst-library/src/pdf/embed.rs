@@ -12,28 +12,27 @@ use crate::World;
 
 /// A file that will be embedded into the output PDF.
 ///
-/// This can be used to distribute multiple files that are related to the PDF
+/// This can be used to distribute additional files that are related to the PDF
 /// within it. PDF readers will display the files in a file listing.
 ///
 /// Some international standards use this mechanism to embed machine-readable
-/// data (e.g., ZUGFeRD/Facture-X for invoices) that mirrors the visual content
+/// data (e.g., ZUGFeRD/Factur-X for invoices) that mirrors the visual content
 /// of the PDF.
 ///
 /// # Example
 /// ```typ
 /// #pdf.embed(
 ///   "experiment.csv",
-///   description: "Raw Oxygen readings from the Arctic experiment",
-///   mime-type: "text/csv",
 ///   relationship: "supplement",
+///   mime-type: "text/csv",
+///   description: "Raw Oxygen readings from the Arctic experiment",
 /// )
 /// ```
 ///
 /// # Notes
-/// This element is ignored if exporting to a format other than PDF.
-///
-/// File embeddings are not currently supported for PDF/A-2, even if the
-/// embedded file conforms to PDF/A-1 or PDF/A-2.
+/// - This element is ignored if exporting to a format other than PDF.
+/// - File embeddings are not currently supported for PDF/A-2, even if the
+///   embedded file conforms to PDF/A-1 or PDF/A-2.
 #[elem(scope, Show, Locatable)]
 pub struct EmbedElem {
     /// Path to a file to be embedded.
@@ -53,7 +52,7 @@ pub struct EmbedElem {
     /// The resolved project-relative path.
     #[internal]
     #[required]
-    #[parse(EcoString::from(id.vpath().as_rootless_path().to_string_lossy().replace("\\", "/")))]
+    #[parse(id.vpath().as_rootless_path().to_string_lossy().replace("\\", "/").into())]
     pub resolved_path: EcoString,
 
     /// The raw file data.
@@ -65,7 +64,6 @@ pub struct EmbedElem {
     /// The relationship of the embedded file to the document.
     ///
     /// Ignored if export doesn't target PDF/A-3.
-    #[borrowed]
     pub relationship: Option<EmbeddedFileRelationship>,
 
     /// The MIME type of the embedded file.
@@ -95,7 +93,7 @@ impl EmbedElem {
         /// The MIME type of the embedded file.
         #[named]
         mime_type: Option<Option<EcoString>>,
-        /// A description for the attached file.
+        /// A description for the embedded file.
         #[named]
         description: Option<Option<EcoString>>,
     ) -> StrResult<Content> {
@@ -119,15 +117,15 @@ impl Show for Packed<EmbedElem> {
     }
 }
 
-/// The relationship of an embedded file with the relevant document content.
+/// The relationship of an embedded file with the document.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum EmbeddedFileRelationship {
-    /// The PDF document was created from this source file.
+    /// The PDF document was created from the source file.
     Source,
-    /// This file was used to derive a visual presentation in the PDF.
+    /// The file was used to derive a visual presentation in the PDF.
     Data,
-    /// An alternative representation of this document.
+    /// An alternative representation of the document.
     Alternative,
-    /// Additional resources for this document.
+    /// Additional resources for the document.
     Supplement,
 }

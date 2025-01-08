@@ -8,12 +8,12 @@ use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
 
 use crate::catalog::{document_date, pdf_date};
-use crate::{deflate, NameExt, PdfChunk, StrExt, TextStrExt, WithGlobalRefs};
+use crate::{deflate, NameExt, PdfChunk, StrExt, WithGlobalRefs};
 
 /// Query for all [`EmbedElem`] and write them and their file specifications.
 ///
 /// This returns a map of embedding names and references so that we can later
-/// add them to the catalog's name dictionary.
+/// add them to the catalog's `/Names` dictionary.
 pub fn write_embedded_files(
     ctx: &WithGlobalRefs,
 ) -> SourceResult<(PdfChunk, BTreeMap<EcoString, Ref>)> {
@@ -67,7 +67,7 @@ fn embed_file(
 
     if let Some(mime_type) = embed.mime_type(StyleChain::default()) {
         if mime_type.len() > Name::PDFA_LIMIT {
-            bail!(embed.span(), "MIME type is too long");
+            bail!(embed.span(), "embedded file MIME type is too long");
         }
         embedded_file.subtype(Name(mime_type.as_bytes()));
     } else if ctx.options.standards.pdfa {
@@ -92,8 +92,8 @@ fn embed_file(
     embedded_file.finish();
 
     let mut file_spec = chunk.file_spec(file_spec_dict_ref);
-    file_spec.path(Str::trimmed(embed.resolved_path.as_bytes()));
-    file_spec.unic_file(TextStr::trimmed(&embed.resolved_path));
+    file_spec.path(Str(embed.resolved_path.as_bytes()));
+    file_spec.unic_file(TextStr(&embed.resolved_path));
     file_spec
         .insert(Name(b"EF"))
         .dict()
@@ -115,7 +115,7 @@ fn embed_file(
         if description.len() > Str::PDFA_LIMIT {
             bail!(embed.span(), "embedded file description is too long");
         }
-        file_spec.description(TextStr::trimmed(description));
+        file_spec.description(TextStr(description));
     }
 
     Ok(file_spec_dict_ref)

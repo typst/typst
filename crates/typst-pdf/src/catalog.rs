@@ -141,7 +141,7 @@ pub fn write_catalog(
     }
 
     // Assert dominance.
-    if let Some((part, conformance)) = ctx.options.standards.part {
+    if let Some((part, conformance)) = ctx.options.standards.pdfa_part {
         let mut extension_schemas = xmp.extension_schemas();
         extension_schemas
             .xmp_media_management()

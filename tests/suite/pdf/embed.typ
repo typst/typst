@@ -1,4 +1,5 @@
-// Test embeddings.
+// Test file embeddings. The tests here so far are unsatisfactory because we
+// have no PDF testing infrastructure. That should be improved in the future.
 
 --- pdf-embed ---
 #pdf.embed("/assets/text/hello.txt")

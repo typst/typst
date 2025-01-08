@@ -155,11 +155,11 @@ pub struct PdfStandards {
     /// the future.
     pub(crate) pdfa: bool,
     /// Whether the standard allows for embedding any kind of file into the PDF.
-    /// We disallow this for PDF/A-2, since it only allows embedding other
-    /// PDF/A-2 documents.
+    /// We disallow this for PDF/A-2, since it only allows embedding
+    /// PDF/A-1 and PDF/A-2 documents.
     pub(crate) embedded_files: bool,
-    /// Part of the PDF standard.
-    pub(crate) part: Option<(i32, &'static str)>,
+    /// Part of the PDF/A standard.
+    pub(crate) pdfa_part: Option<(i32, &'static str)>,
 }
 
 impl PdfStandards {
@@ -177,7 +177,7 @@ impl PdfStandards {
         Ok(Self {
             pdfa,
             embedded_files: !a2b,
-            part: pdfa.then_some((if a2b { 2 } else { 3 }, "B")),
+            pdfa_part: pdfa.then_some((if a2b { 2 } else { 3 }, "B")),
         })
     }
 }
@@ -190,7 +190,7 @@ impl Debug for PdfStandards {
 
 impl Default for PdfStandards {
     fn default() -> Self {
-        Self { pdfa: false, embedded_files: true, part: None }
+        Self { pdfa: false, embedded_files: true, pdfa_part: None }
     }
 }
 
