@@ -116,26 +116,19 @@ impl TermsElem {
 impl Show for Packed<TermsElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
+        let separator = self.separator(styles);
+
         if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::dl)
-                .with_body(Some(Content::sequence(self.children.iter().flat_map(
-                    |item| {
-                        [
-                            HtmlElem::new(tag::dt)
-                                .with_body(Some(item.term.clone()))
-                                .pack()
-                                .spanned(item.term.span()),
-                            HtmlElem::new(tag::dd)
-                                .with_body(Some(item.description.clone()))
-                                .pack()
-                                .spanned(item.description.span()),
-                        ]
-                    },
-                ))))
-                .pack());
+            let body = Content::sequence(self.children.iter().flat_map(|item| {
+                let term = Content::sequence([item.term.clone(), separator.clone()]);
+                let desc = item.description.clone();
+                let dt = HtmlElem::new(tag::dt).with_body(Some(term)).pack();
+                let dd = HtmlElem::new(tag::dd).with_body(Some(desc)).pack();
+                [dt.spanned(item.term.span()), dd.spanned(item.description.span())]
+            }));
+            return Ok(HtmlElem::new(tag::dl).with_body(Some(body)).pack());
         }
 
-        let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
         let gutter = self.spacing(styles).unwrap_or_else(|| {
