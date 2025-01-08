@@ -33,15 +33,15 @@ pub fn write_embedded_files(
         }
 
         let embed = elem.to_packed::<EmbedElem>().unwrap();
-        if embed.resolved_path.len() > Str::PDFA_LIMIT {
+        if embed.path.derived.len() > Str::PDFA_LIMIT {
             bail!(embed.span(), "embedded file path is too long");
         }
 
         let id = embed_file(ctx, &mut chunk, embed)?;
-        if embedded_files.insert(embed.resolved_path.clone(), id).is_some() {
+        if embedded_files.insert(embed.path.derived.clone(), id).is_some() {
             bail!(
                 elem.span(),
-                "duplicate embedded file for path `{}`", embed.resolved_path;
+                "duplicate embedded file for path `{}`", embed.path.derived;
                 hint: "embedded file paths must be unique",
             );
         }
@@ -92,8 +92,8 @@ fn embed_file(
     embedded_file.finish();
 
     let mut file_spec = chunk.file_spec(file_spec_dict_ref);
-    file_spec.path(Str(embed.resolved_path.as_bytes()));
-    file_spec.unic_file(TextStr(&embed.resolved_path));
+    file_spec.path(Str(embed.path.derived.as_bytes()));
+    file_spec.unic_file(TextStr(&embed.path.derived));
     file_spec
         .insert(Name(b"EF"))
         .dict()

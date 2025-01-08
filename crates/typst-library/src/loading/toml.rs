@@ -4,8 +4,7 @@ use typst_syntax::{is_newline, Spanned};
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a TOML file.
 ///
@@ -31,32 +30,34 @@ use crate::World;
 pub fn toml(
     /// The engine.
     engine: &mut Engine,
-    /// Path to a TOML file.
+    /// A path to a TOML file or raw TOML bytes.
     ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    toml::decode(Spanned::new(Readable::Bytes(data), span))
+    let data = source.load(engine.world)?;
+    let raw = std::str::from_utf8(data.as_slice())
+        .map_err(|_| "file is not valid utf-8")
+        .at(source.span)?;
+    ::toml::from_str(raw)
+        .map_err(|err| format_toml_error(err, raw))
+        .at(source.span)
 }
 
 #[scope]
 impl toml {
     /// Reads structured data from a TOML string/bytes.
+    ///
+    /// This function is deprecated. The [`toml`] function now accepts bytes
+    /// directly.
     #[func(title = "Decode TOML")]
     pub fn decode(
+        /// The engine.
+        engine: &mut Engine,
         /// TOML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        let raw = std::str::from_utf8(data.as_slice())
-            .map_err(|_| "file is not valid utf-8")
-            .at(span)?;
-        ::toml::from_str(raw)
-            .map_err(|err| format_toml_error(err, raw))
-            .at(span)
+        toml(engine, data.map(Readable::into_source))
     }
 
     /// Encodes structured data into a TOML string.

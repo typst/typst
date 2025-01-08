@@ -13,7 +13,9 @@ use typst_syntax::{Span, Spanned};
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
-use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
+use crate::foundations::{
+    array, repr, Fold, NativeElement, Packed, Repr, Str, Type, Value,
+};
 
 /// Determine details of a type.
 ///
@@ -496,4 +498,59 @@ cast! {
     "binary" => MathClass::Binary,
     /// An operator that can be both unary or binary like `+`.
     "vary" => MathClass::Vary,
+}
+
+/// A type that contains a user-visible source portion and something that is
+/// derived from it, but not user-visible.
+///
+/// An example usage would be `source` being a `DataSource` and `derived` a
+/// TextMate theme parsed from it. With `Derived`, we can store both parts in
+/// the `RawElem::theme` field and get automatic nice `Reflect` and `IntoValue`
+/// impls.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Derived<S, D> {
+    /// The source portion.
+    pub source: S,
+    /// The derived portion.
+    pub derived: D,
+}
+
+impl<S, D> Derived<S, D> {
+    /// Create a new instance from the `source` and the `derived` data.
+    pub fn new(source: S, derived: D) -> Self {
+        Self { source, derived }
+    }
+}
+
+impl<S: Reflect, D> Reflect for Derived<S, D> {
+    fn input() -> CastInfo {
+        S::input()
+    }
+
+    fn output() -> CastInfo {
+        S::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        S::castable(value)
+    }
+
+    fn error(found: &Value) -> HintedString {
+        S::error(found)
+    }
+}
+
+impl<S: IntoValue, D> IntoValue for Derived<S, D> {
+    fn into_value(self) -> Value {
+        self.source.into_value()
+    }
+}
+
+impl<S: Fold, D: Fold> Fold for Derived<S, D> {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            source: self.source.fold(outer.source),
+            derived: self.derived.fold(outer.derived),
+        }
+    }
 }
