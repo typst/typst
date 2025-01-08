@@ -50,7 +50,7 @@ pub fn layout_image(
 
     // Construct the image itself.
     let image = Image::with_fonts(
-        data.clone().into(),
+        data.clone().into_bytes(),
         format,
         elem.alt(styles),
         engine.world,

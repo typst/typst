@@ -1,5 +1,6 @@
-use std::borrow::Cow;
+use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
@@ -39,18 +40,44 @@ use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value
 /// #str(data.slice(1, 4))
 /// ```
 #[ty(scope, cast)]
-#[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Bytes(Arc<LazyHash<Cow<'static, [u8]>>>);
+#[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
+pub struct Bytes(Arc<LazyHash<dyn Bytelike>>);
 
 impl Bytes {
-    /// Create a buffer from a static byte slice.
-    pub fn from_static(slice: &'static [u8]) -> Self {
-        Self(Arc::new(LazyHash::new(Cow::Borrowed(slice))))
+    /// Create `Bytes` from anything byte-like.
+    ///
+    /// The `data` type will directly back this bytes object. This means you can
+    /// e.g. pass `&'static [u8]` or `[u8; 8]` and no extra vector will be
+    /// allocated.
+    ///
+    /// If the type is `Vec<u8>` and the `Bytes` are unique (i.e. not cloned),
+    /// the vector will be reused when mutating to the `Bytes`.
+    ///
+    /// If your source type is a string, prefer [`Bytes::from_string`] to
+    /// directly use the UTF-8 encoded string data without any copying.
+    pub fn new<T>(data: T) -> Self
+    where
+        T: AsRef<[u8]> + Send + Sync + 'static,
+    {
+        Self(Arc::new(LazyHash::new(data)))
+    }
+
+    /// Create `Bytes` from anything string-like, implicitly viewing the UTF-8
+    /// representation.
+    ///
+    /// The `data` type will directly back this bytes object. This means you can
+    /// e.g. pass `String` or `EcoString` without any copying.
+    pub fn from_string<T>(data: T) -> Self
+    where
+        T: AsRef<str> + Send + Sync + 'static,
+    {
+        Self(Arc::new(LazyHash::new(StrWrapper(data))))
     }
 
     /// Return `true` if the length is 0.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.as_slice().is_empty()
     }
 
     /// Return a view into the buffer.
@@ -60,7 +87,7 @@ impl Bytes {
 
     /// Return a copy of the buffer as a vector.
     pub fn to_vec(&self) -> Vec<u8> {
-        self.0.to_vec()
+        self.as_slice().to_vec()
     }
 
     /// Resolve an index or throw an out of bounds error.
@@ -72,12 +99,10 @@ impl Bytes {
     ///
     /// `index == len` is considered in bounds.
     fn locate_opt(&self, index: i64) -> Option<usize> {
+        let len = self.as_slice().len();
         let wrapped =
-            if index >= 0 { Some(index) } else { (self.len() as i64).checked_add(index) };
-
-        wrapped
-            .and_then(|v| usize::try_from(v).ok())
-            .filter(|&v| v <= self.0.len())
+            if index >= 0 { Some(index) } else { (len as i64).checked_add(index) };
+        wrapped.and_then(|v| usize::try_from(v).ok()).filter(|&v| v <= len)
     }
 }
 
@@ -106,7 +131,7 @@ impl Bytes {
     /// The length in bytes.
     #[func(title = "Length")]
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.as_slice().len()
     }
 
     /// Returns the byte at the specified index. Returns the default value if
@@ -122,13 +147,13 @@ impl Bytes {
         default: Option<Value>,
     ) -> StrResult<Value> {
         self.locate_opt(index)
-            .and_then(|i| self.0.get(i).map(|&b| Value::Int(b.into())))
+            .and_then(|i| self.as_slice().get(i).map(|&b| Value::Int(b.into())))
             .or(default)
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
-    /// Extracts a subslice of the bytes. Fails with an error if the start or end
-    /// index is out of bounds.
+    /// Extracts a subslice of the bytes. Fails with an error if the start or
+    /// end index is out of bounds.
     #[func]
     pub fn slice(
         &self,
@@ -148,9 +173,17 @@ impl Bytes {
         if end.is_none() {
             end = count.map(|c: i64| start + c);
         }
+
         let start = self.locate(start)?;
         let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
-        Ok(self.0[start..end].into())
+        let slice = &self.as_slice()[start..end];
+
+        // We could hold a view into the original bytes here instead of
+        // making a copy, but it's unclear when that's worth it. Java
+        // originally did that for strings, but went back on it because a
+        // very small view into a very large buffer would be a sort of
+        // memory leak.
+        Ok(Bytes::new(slice.to_vec()))
     }
 }
 
@@ -170,25 +203,21 @@ impl Deref for Bytes {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_bytes()
+    }
+}
+
+impl Eq for Bytes {}
+
+impl PartialEq for Bytes {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
     }
 }
 
 impl AsRef<[u8]> for Bytes {
     fn as_ref(&self) -> &[u8] {
         self
-    }
-}
-
-impl From<&[u8]> for Bytes {
-    fn from(slice: &[u8]) -> Self {
-        Self(Arc::new(LazyHash::new(slice.to_vec().into())))
-    }
-}
-
-impl From<Vec<u8>> for Bytes {
-    fn from(vec: Vec<u8>) -> Self {
-        Self(Arc::new(LazyHash::new(vec.into())))
     }
 }
 
@@ -207,10 +236,12 @@ impl AddAssign for Bytes {
             // Nothing to do
         } else if self.is_empty() {
             *self = rhs;
-        } else if Arc::strong_count(&self.0) == 1 && matches!(**self.0, Cow::Owned(_)) {
-            Arc::make_mut(&mut self.0).to_mut().extend_from_slice(&rhs);
+        } else if let Some(vec) = Arc::get_mut(&mut self.0)
+            .and_then(|unique| unique.as_any_mut().downcast_mut::<Vec<u8>>())
+        {
+            vec.extend_from_slice(&rhs);
         } else {
-            *self = Self::from([self.as_slice(), rhs.as_slice()].concat());
+            *self = Self::new([self.as_slice(), rhs.as_slice()].concat());
         }
     }
 }
@@ -228,20 +259,61 @@ impl Serialize for Bytes {
     }
 }
 
+/// Any type that can back a byte buffer.
+trait Bytelike: Send + Sync {
+    fn as_bytes(&self) -> &[u8];
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T> Bytelike for T
+where
+    T: AsRef<[u8]> + Send + Sync + 'static,
+{
+    fn as_bytes(&self) -> &[u8] {
+        self.as_ref()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+impl Hash for dyn Bytelike {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_bytes().hash(state);
+    }
+}
+
+/// Makes string-like objects usable with `Bytes`.
+struct StrWrapper<T>(T);
+
+impl<T> Bytelike for StrWrapper<T>
+where
+    T: AsRef<str> + Send + Sync + 'static,
+{
+    fn as_bytes(&self) -> &[u8] {
+        self.0.as_ref().as_bytes()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 /// A value that can be cast to bytes.
 pub struct ToBytes(Bytes);
 
 cast! {
     ToBytes,
-    v: Str => Self(v.as_bytes().into()),
+    v: Str => Self(Bytes::from_string(v)),
     v: Array => Self(v.iter()
         .map(|item| match item {
             Value::Int(byte @ 0..=255) => Ok(*byte as u8),
             Value::Int(_) => bail!("number must be between 0 and 255"),
             value => Err(<u8 as Reflect>::error(value)),
         })
-        .collect::<Result<Vec<u8>, _>>()?
-        .into()
+        .collect::<Result<Vec<u8>, _>>()
+        .map(Bytes::new)?
     ),
     v: Bytes => Self(v),
 }

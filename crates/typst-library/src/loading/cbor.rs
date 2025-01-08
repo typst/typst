@@ -55,7 +55,7 @@ impl cbor {
         let Spanned { v: value, span } = value;
         let mut res = Vec::new();
         ciborium::into_writer(&value, &mut res)
-            .map(|_| res.into())
+            .map(|_| Bytes::new(res))
             .map_err(|err| eco_format!("failed to encode value as CBOR ({err})"))
             .at(span)
     }

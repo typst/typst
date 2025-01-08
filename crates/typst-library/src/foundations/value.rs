@@ -459,15 +459,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     fn visit_bytes<E: Error>(self, v: &[u8]) -> Result<Self::Value, E> {
-        Ok(Bytes::from(v).into_value())
+        Ok(Bytes::new(v.to_vec()).into_value())
     }
 
     fn visit_borrowed_bytes<E: Error>(self, v: &'de [u8]) -> Result<Self::Value, E> {
-        Ok(Bytes::from(v).into_value())
+        Ok(Bytes::new(v.to_vec()).into_value())
     }
 
     fn visit_byte_buf<E: Error>(self, v: Vec<u8>) -> Result<Self::Value, E> {
-        Ok(Bytes::from(v).into_value())
+        Ok(Bytes::new(v).into_value())
     }
 
     fn visit_none<E: Error>(self) -> Result<Self::Value, E> {

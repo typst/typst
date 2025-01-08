@@ -293,7 +293,7 @@ impl Plugin {
             _ => bail!("plugin did not respect the protocol"),
         };
 
-        Ok(output.into())
+        Ok(Bytes::new(output))
     }
 
     /// An iterator over all the function names defined by the plugin.
