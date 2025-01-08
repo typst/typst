@@ -119,10 +119,8 @@ impl Show for Packed<TermsElem> {
 
         if TargetElem::target_in(styles).is_html() {
             let body = Content::sequence(self.children.iter().flat_map(|item| {
-                let mut term = item.term.clone();
-                if let Some(separator) = separator {
-                    term = Content::sequence([term, separator.clone()]);
-                }
+                let term = item.term.clone();
+                let term = Content::sequence([term].into_iter().chain(separator.clone()));
                 let desc = item.description.clone();
                 let dt = HtmlElem::new(tag::dt).with_body(Some(term)).pack();
                 let dd = HtmlElem::new(tag::dd).with_body(Some(desc)).pack();
