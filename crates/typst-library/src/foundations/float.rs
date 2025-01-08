@@ -163,18 +163,14 @@ impl f64 {
         size: u32,
     ) -> StrResult<Bytes> {
         Ok(match size {
-            8 => match endian {
+            8 => Bytes::new(match endian {
                 Endianness::Little => self.to_le_bytes(),
                 Endianness::Big => self.to_be_bytes(),
-            }
-            .as_slice()
-            .into(),
-            4 => match endian {
+            }),
+            4 => Bytes::new(match endian {
                 Endianness::Little => (self as f32).to_le_bytes(),
                 Endianness::Big => (self as f32).to_be_bytes(),
-            }
-            .as_slice()
-            .into(),
+            }),
             _ => bail!("size must be either 4 or 8"),
         })
     }

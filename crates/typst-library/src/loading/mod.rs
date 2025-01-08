@@ -56,15 +56,22 @@ pub enum Readable {
 impl Readable {
     pub fn as_slice(&self) -> &[u8] {
         match self {
-            Readable::Bytes(v) => v,
-            Readable::Str(v) => v.as_bytes(),
+            Self::Bytes(v) => v,
+            Self::Str(v) => v.as_bytes(),
         }
     }
 
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            Readable::Str(v) => Some(v.as_str()),
-            Readable::Bytes(v) => std::str::from_utf8(v).ok(),
+            Self::Str(v) => Some(v.as_str()),
+            Self::Bytes(v) => std::str::from_utf8(v).ok(),
+        }
+    }
+
+    pub fn into_bytes(self) -> Bytes {
+        match self {
+            Self::Bytes(v) => v,
+            Self::Str(v) => Bytes::from_string(v),
         }
     }
 }
@@ -77,13 +84,4 @@ cast! {
     },
     v: Str => Self::Str(v),
     v: Bytes => Self::Bytes(v),
-}
-
-impl From<Readable> for Bytes {
-    fn from(value: Readable) -> Self {
-        match value {
-            Readable::Bytes(v) => v,
-            Readable::Str(v) => v.as_bytes().into(),
-        }
-    }
 }

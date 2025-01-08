@@ -77,7 +77,7 @@ static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
 static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
     let fonts: Vec<_> = typst_assets::fonts()
         .chain(typst_dev_assets::fonts())
-        .flat_map(|data| Font::iter(Bytes::from_static(data)))
+        .flat_map(|data| Font::iter(Bytes::new(data)))
         .collect();
     let book = FontBook::from_fonts(&fonts);
     (LazyHash::new(book), fonts)
