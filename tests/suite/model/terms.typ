@@ -32,6 +32,12 @@
 #set terms(hanging-indent: 30pt)
 / Second list: #lorem(5)
 
+--- terms-separator html ---
+#set terms(separator: [ is: ])
+
+/ Mario: A famous plumber.
+/ Luigi: Mario's brother. Also a plumber.
+
 --- terms-rtl ---
 // Test RTL.
 #set text(8pt, dir: rtl)
