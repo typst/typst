@@ -64,14 +64,14 @@ $ func(m : a) $
 --- math-call-named-args-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(_a: a)$, "(_a: [a])")
-#check($args(_a-b: a)$, "(_a-b: [a])")
-#check($args(a-b: a)$, "(a-b: [a])")
-#check($args(a-b-c: a)$, "(a-b-c: [a])")
-#check($args(a--c: a)$, "(a--c: [a])")
-#check($args(a: a-b)$, "(a: sequence([a], [−], [b]))")
-#check($args(a-b: a-b)$, "(a-b: sequence([a], [−], [b]))")
-#check($args(a-b)$, "(sequence([a], [−], [b]))")
+#check($args(_a: a)$, "arguments(_a: [a])")
+#check($args(_a-b: a)$, "arguments(_a-b: [a])")
+#check($args(a-b: a)$, "arguments(a-b: [a])")
+#check($args(a-b-c: a)$, "arguments(a-b-c: [a])")
+#check($args(a--c: a)$, "arguments(a--c: [a])")
+#check($args(a: a-b)$, "arguments(a: sequence([a], [−], [b]))")
+#check($args(a-b: a-b)$, "arguments(a-b: sequence([a], [−], [b]))")
+#check($args(a-b)$, "arguments(sequence([a], [−], [b]))")
 
 --- math-call-spread-content-error ---
 #let args(..body) = body
@@ -95,24 +95,24 @@ $func(...)$
 --- math-call-spread-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(..#range(0, 4).chunks(2))$, "((0, 1), (2, 3))")
-#check($#args(range(1, 5).chunks(2))$, "(((1, 2), (3, 4)))")
-#check($#args(..range(1, 5).chunks(2))$, "((1, 2), (3, 4))")
-#check($args(#(..range(2, 6).chunks(2)))$, "(((2, 3), (4, 5)))")
+#check($args(..#range(0, 4).chunks(2))$, "arguments((0, 1), (2, 3))")
+#check($#args(range(1, 5).chunks(2))$, "arguments(((1, 2), (3, 4)))")
+#check($#args(..range(1, 5).chunks(2))$, "arguments((1, 2), (3, 4))")
+#check($args(#(..range(2, 6).chunks(2)))$, "arguments(((2, 3), (4, 5)))")
 #let nums = range(0, 4).chunks(2)
-#check($args(..nums)$, "((0, 1), (2, 3))")
-#check($args(..nums;)$, "(((0, 1), (2, 3)))")
-#check($args(..nums, ..nums)$, "((0, 1), (2, 3), (0, 1), (2, 3))")
-#check($args(..nums, 4, 5)$, "((0, 1), (2, 3), [4], [5])")
-#check($args(..nums, ..#range(4, 6))$, "((0, 1), (2, 3), 4, 5)")
-#check($args(..nums, #range(4, 6))$, "((0, 1), (2, 3), (4, 5))")
-#check($args(..nums, 1, 2; 3, 4)$, "(((0, 1), (2, 3), [1], [2]), ([3], [4]))")
-#check($args(1, 2; ..nums)$, "(([1], [2]), ((0, 1), (2, 3)))")
-#check($args(1, 2; 3, 4)$, "(([1], [2]), ([3], [4]))")
-#check($args(1, 2; 3, 4; ..#range(5, 7))$, "(([1], [2]), ([3], [4]), (5, 6))")
-#check($args(1, 2; 3, 4, ..#range(5, 7))$, "(([1], [2]), ([3], [4], 5, 6))")
-#check($args(1, 2; 3, 4, ..#range(5, 7);)$, "(([1], [2]), ([3], [4], 5, 6))")
-#check($args(1, 2; 3, 4, ..#range(5, 7),)$, "(([1], [2]), ([3], [4], 5, 6))")
+#check($args(..nums)$, "arguments((0, 1), (2, 3))")
+#check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
+#check($args(..nums, ..nums)$, "arguments((0, 1), (2, 3), (0, 1), (2, 3))")
+#check($args(..nums, 4, 5)$, "arguments((0, 1), (2, 3), [4], [5])")
+#check($args(..nums, ..#range(4, 6))$, "arguments((0, 1), (2, 3), 4, 5)")
+#check($args(..nums, #range(4, 6))$, "arguments((0, 1), (2, 3), (4, 5))")
+#check($args(..nums, 1, 2; 3, 4)$, "arguments(((0, 1), (2, 3), [1], [2]), ([3], [4]))")
+#check($args(1, 2; ..nums)$, "arguments(([1], [2]), ((0, 1), (2, 3)))")
+#check($args(1, 2; 3, 4)$, "arguments(([1], [2]), ([3], [4]))")
+#check($args(1, 2; 3, 4; ..#range(5, 7))$, "arguments(([1], [2]), ([3], [4]), (5, 6))")
+#check($args(1, 2; 3, 4, ..#range(5, 7))$, "arguments(([1], [2]), ([3], [4], 5, 6))")
+#check($args(1, 2; 3, 4, ..#range(5, 7);)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
+#check($args(1, 2; 3, 4, ..#range(5, 7),)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 
 --- math-call-repr ---
 #let args(..body) = body
@@ -160,14 +160,14 @@ $ mat(#"code"; "wins") $
 --- math-call-2d-escape-repr ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a\;b)$, "(sequence([a], [;], [b]))")
-#check($args(a\,b;c)$, "((sequence([a], [,], [b]),), ([c],))")
-#check($args(b\;c\,d;e)$, "((sequence([b], [;], [c], [,], [d]),), ([e],))")
-#check($args(a\: b)$, "(sequence([a], [:], [ ], [b]))")
-#check($args(a : b)$, "(sequence([a], [ ], [:], [ ], [b]))")
-#check($args(\..a)$, "(sequence([.], [.], [a]))")
-#check($args(.. a)$, "(sequence([.], [.], [ ], [a]))")
-#check($args(a..b)$, "(sequence([a], [.], [.], [b]))")
+#check($args(a\;b)$, "arguments(sequence([a], [;], [b]))")
+#check($args(a\,b;c)$, "arguments((sequence([a], [,], [b]),), ([c],))")
+#check($args(b\;c\,d;e)$, "arguments((sequence([b], [;], [c], [,], [d]),), ([e],))")
+#check($args(a\: b)$, "arguments(sequence([a], [:], [ ], [b]))")
+#check($args(a : b)$, "arguments(sequence([a], [ ], [:], [ ], [b]))")
+#check($args(\..a)$, "arguments(sequence([.], [.], [a]))")
+#check($args(.. a)$, "arguments(sequence([.], [.], [ ], [a]))")
+#check($args(a..b)$, "arguments(sequence([a], [.], [.], [b]))")
 
 --- math-call-2d-repr-structure ---
 #let args(..body) = body
