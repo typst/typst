@@ -2,6 +2,7 @@ use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
+use std::str::Utf8Error;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
@@ -80,14 +81,35 @@ impl Bytes {
         self.as_slice().is_empty()
     }
 
-    /// Return a view into the buffer.
+    /// Return a view into the bytes.
     pub fn as_slice(&self) -> &[u8] {
         self
     }
 
-    /// Return a copy of the buffer as a vector.
+    /// Try to view the bytes as an UTF-8 string.
+    ///
+    /// If these bytes were created via `Bytes::from_string`, UTF-8 validation
+    /// is skipped.
+    pub fn as_str(&self) -> Result<&str, Utf8Error> {
+        self.inner().as_str()
+    }
+
+    /// Return a copy of the bytes as a vector.
     pub fn to_vec(&self) -> Vec<u8> {
         self.as_slice().to_vec()
+    }
+
+    /// Try to turn the bytes into a `Str`.
+    ///
+    /// - If these bytes were created via `Bytes::from_string::<Str>`, the
+    ///   string is cloned directly.
+    /// - If these bytes were created via `Bytes::from_string`, but from a
+    ///   different type of string, UTF-8 validation is still skipped.
+    pub fn to_str(&self) -> Result<Str, Utf8Error> {
+        match self.inner().as_any().downcast_ref::<Str>() {
+            Some(string) => Ok(string.clone()),
+            None => self.as_str().map(Into::into),
+        }
     }
 
     /// Resolve an index or throw an out of bounds error.
@@ -103,6 +125,11 @@ impl Bytes {
         let wrapped =
             if index >= 0 { Some(index) } else { (len as i64).checked_add(index) };
         wrapped.and_then(|v| usize::try_from(v).ok()).filter(|&v| v <= len)
+    }
+
+    /// Access the inner `dyn Bytelike`.
+    fn inner(&self) -> &dyn Bytelike {
+        &**self.0
     }
 }
 
@@ -203,7 +230,7 @@ impl Deref for Bytes {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_bytes()
+        self.inner().as_bytes()
     }
 }
 
@@ -262,6 +289,8 @@ impl Serialize for Bytes {
 /// Any type that can back a byte buffer.
 trait Bytelike: Send + Sync {
     fn as_bytes(&self) -> &[u8];
+    fn as_str(&self) -> Result<&str, Utf8Error>;
+    fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
@@ -271,6 +300,14 @@ where
 {
     fn as_bytes(&self) -> &[u8] {
         self.as_ref()
+    }
+
+    fn as_str(&self) -> Result<&str, Utf8Error> {
+        std::str::from_utf8(self.as_ref())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
@@ -293,6 +330,14 @@ where
 {
     fn as_bytes(&self) -> &[u8] {
         self.0.as_ref().as_bytes()
+    }
+
+    fn as_str(&self) -> Result<&str, Utf8Error> {
+        Ok(self.0.as_ref())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {

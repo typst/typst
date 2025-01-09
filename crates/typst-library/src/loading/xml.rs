@@ -65,9 +65,7 @@ pub fn xml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    let text = std::str::from_utf8(data.as_slice())
-        .map_err(FileError::from)
-        .at(source.span)?;
+    let text = data.as_str().map_err(FileError::from).at(source.span)?;
     let document = roxmltree::Document::parse_with_options(
         text,
         ParsingOptions { allow_dtd: true, ..Default::default() },

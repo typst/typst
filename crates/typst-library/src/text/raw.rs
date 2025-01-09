@@ -552,7 +552,7 @@ impl RawSyntax {
     #[comemo::memoize]
     #[typst_macros::time(name = "load syntaxes")]
     fn decode(source: &DataSource, data: &Bytes) -> StrResult<RawSyntax> {
-        let src = std::str::from_utf8(data).map_err(FileError::from)?;
+        let src = data.as_str().map_err(FileError::from)?;
         let syntax = SyntaxDefinition::load_from_str(src, false, None).map_err(
             |err| match source {
                 DataSource::Path(path) => {

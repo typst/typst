@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 use typst_syntax::{is_newline, Spanned};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, FileError, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -36,9 +36,7 @@ pub fn toml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    let raw = std::str::from_utf8(data.as_slice())
-        .map_err(|_| "file is not valid utf-8")
-        .at(source.span)?;
+    let raw = data.as_str().map_err(FileError::from).at(source.span)?;
     ::toml::from_str(raw)
         .map_err(|err| format_toml_error(err, raw))
         .at(source.span)

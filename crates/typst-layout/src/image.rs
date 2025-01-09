@@ -36,7 +36,7 @@ pub fn layout_image(
     // because the svg could also be encoded, but that's an edge case.
     if format == ImageFormat::Vector(VectorFormat::Svg) {
         let has_foreign_object =
-            std::str::from_utf8(data).is_ok_and(|s| s.contains("<foreignObject"));
+            data.as_str().is_ok_and(|s| s.contains("<foreignObject"));
 
         if has_foreign_object {
             engine.sink.warn(warning!(

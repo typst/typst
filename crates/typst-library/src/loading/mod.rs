@@ -131,20 +131,6 @@ pub enum Readable {
 }
 
 impl Readable {
-    pub fn as_slice(&self) -> &[u8] {
-        match self {
-            Self::Bytes(v) => v,
-            Self::Str(v) => v.as_bytes(),
-        }
-    }
-
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Self::Str(v) => Some(v.as_str()),
-            Self::Bytes(v) => std::str::from_utf8(v).ok(),
-        }
-    }
-
     pub fn into_bytes(self) -> Bytes {
         match self {
             Self::Bytes(v) => v,

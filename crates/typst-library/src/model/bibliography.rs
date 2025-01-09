@@ -347,7 +347,7 @@ impl Debug for Bibliography {
 
 /// Decode on library from one data source.
 fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
-    let src = std::str::from_utf8(data).map_err(FileError::from)?;
+    let src = data.as_str().map_err(FileError::from)?;
 
     if let DataSource::Path(path) = source {
         // If we got a path, use the extension to determine whether it is
@@ -460,7 +460,7 @@ impl CslStyle {
     /// Load a CSL style from file contents.
     #[comemo::memoize]
     pub fn from_data(data: Bytes) -> StrResult<CslStyle> {
-        let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from)?;
+        let text = data.as_str().map_err(FileError::from)?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| {
                 Self(Arc::new(ManuallyHash::new(
