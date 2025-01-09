@@ -2,8 +2,9 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
-    StyleChain, Styles,
+    StyleChain, Styles, TargetElem,
 };
+use crate::html::{tag, HtmlElem};
 use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,
@@ -158,6 +159,7 @@ impl Show for Packed<QuoteElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         let block = self.block(styles);
+        let html = TargetElem::target_in(styles).is_html();
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
             let quotes = SmartQuotes::get(
@@ -171,49 +173,51 @@ impl Show for Packed<QuoteElem> {
             let Depth(depth) = QuoteElem::depth_in(styles);
             let double = depth % 2 == 0;
 
-            // Add zero-width weak spacing to make the quotes "sticky".
-            let hole = HElem::hole().pack();
+            if !html {
+                // Add zero-width weak spacing to make the quotes "sticky".
+                let hole = HElem::hole().pack();
+                realized = Content::sequence([hole.clone(), realized, hole]);
+            }
             realized = Content::sequence([
                 TextElem::packed(quotes.open(double)),
-                hole.clone(),
                 realized,
-                hole,
                 TextElem::packed(quotes.close(double)),
             ])
             .styled(QuoteElem::set_depth(Depth(1)));
         }
 
         if block {
-            realized = BlockElem::new()
-                .with_body(Some(BlockBody::Content(realized)))
-                .pack()
-                .spanned(self.span());
+            realized = if html {
+                HtmlElem::new(tag::blockquote).with_body(Some(realized)).pack()
+            } else {
+                BlockElem::new().with_body(Some(BlockBody::Content(realized))).pack()
+            }
+            .spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
-                let mut seq = vec![TextElem::packed('—'), SpaceElem::shared().clone()];
+                let attribution = match attribution {
+                    Attribution::Content(content) => content.clone(),
+                    Attribution::Label(label) => CiteElem::new(*label)
+                        .with_form(Some(CitationForm::Prose))
+                        .pack()
+                        .spanned(self.span()),
+                };
+                let attribution =
+                    [TextElem::packed('—'), SpaceElem::shared().clone(), attribution];
 
-                match attribution {
-                    Attribution::Content(content) => {
-                        seq.push(content.clone());
-                    }
-                    Attribution::Label(label) => {
-                        seq.push(
-                            CiteElem::new(*label)
-                                .with_form(Some(CitationForm::Prose))
-                                .pack()
-                                .spanned(self.span()),
-                        );
-                    }
+                if !html {
+                    // Use v(0.9em, weak: true) to bring the attribution closer
+                    // to the quote.
+                    let gap = Spacing::Rel(Em::new(0.9).into());
+                    let v = VElem::new(gap).with_weak(true).pack();
+                    realized += v;
                 }
-
-                // Use v(0.9em, weak: true) bring the attribution closer to the
-                // quote.
-                let gap = Spacing::Rel(Em::new(0.9).into());
-                let v = VElem::new(gap).with_weak(true).pack();
-                realized += v + Content::sequence(seq).aligned(Alignment::END);
+                realized += Content::sequence(attribution).aligned(Alignment::END);
             }
 
-            realized = PadElem::new(realized).pack();
+            if !html {
+                realized = PadElem::new(realized).pack();
+            }
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
             realized += SpaceElem::shared().clone()
                 + CiteElem::new(*label).pack().spanned(self.span());
