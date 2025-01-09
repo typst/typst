@@ -555,6 +555,7 @@ pub struct TextElem {
     /// #lorem(10)
     /// ```
     #[fold]
+    #[ghost]
     pub costs: Costs,
 
     /// Whether to apply kerning.
@@ -1429,5 +1430,15 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                 family.as_str(),
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_text_elem_size() {
+        assert_eq!(std::mem::size_of::<TextElem>(), std::mem::size_of::<EcoString>());
     }
 }
