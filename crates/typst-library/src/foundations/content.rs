@@ -9,7 +9,6 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
-use smallvec::smallvec;
 use typst_syntax::Span;
 use typst_utils::{fat, singleton, LazyHash, SmallBitSet};
 
@@ -22,7 +21,7 @@ use crate::foundations::{
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
+use crate::model::{Destination, EmphElem, LinkElem, LinkTarget, StrongElem};
 use crate::text::UnderlineElem;
 
 /// A piece of document content.
@@ -500,7 +499,8 @@ impl Content {
 
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
-        self.styled(LinkElem::set_dests(smallvec![dest]))
+        let span = self.span;
+        LinkElem::new(LinkTarget::Dest(dest), self).pack().spanned(span)
     }
 
     /// Set alignments for this content.
