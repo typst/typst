@@ -9,7 +9,7 @@ use wasmi::{AsContext, AsContextMut};
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Bytes};
-use crate::World;
+use crate::loading::{DataSource, Load};
 
 /// A WebAssembly plugin.
 ///
@@ -154,15 +154,13 @@ impl Plugin {
     pub fn construct(
         /// The engine.
         engine: &mut Engine,
-        /// Path to a WebAssembly file.
+        /// A path to a WebAssembly file or raw WebAssembly bytes.
         ///
-        /// For more details, see the [Paths section]($syntax/#paths).
-        path: Spanned<EcoString>,
+        /// For more details about paths, see the [Paths section]($syntax/#paths).
+        source: Spanned<DataSource>,
     ) -> SourceResult<Plugin> {
-        let Spanned { v: path, span } = path;
-        let id = span.resolve_path(&path).at(span)?;
-        let data = engine.world.file(id).at(span)?;
-        Plugin::new(data).at(span)
+        let data = source.load(engine.world)?;
+        Plugin::new(data).at(source.span)
     }
 }
 

@@ -15,6 +15,10 @@ mod xml_;
 #[path = "yaml.rs"]
 mod yaml_;
 
+use comemo::Tracked;
+use ecow::EcoString;
+use typst_syntax::Spanned;
+
 pub use self::cbor_::*;
 pub use self::csv_::*;
 pub use self::json_::*;
@@ -23,7 +27,10 @@ pub use self::toml_::*;
 pub use self::xml_::*;
 pub use self::yaml_::*;
 
+use crate::diag::{At, SourceResult};
+use crate::foundations::OneOrMultiple;
 use crate::foundations::{cast, category, Bytes, Category, Scope, Str};
+use crate::World;
 
 /// Data loading from external files.
 ///
@@ -44,6 +51,76 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<xml>();
 }
 
+/// Something we can retrieve byte data from.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum DataSource {
+    /// A path to a file.
+    Path(EcoString),
+    /// Raw bytes.
+    Bytes(Bytes),
+}
+
+cast! {
+    DataSource,
+    self => match self {
+        Self::Path(v) => v.into_value(),
+        Self::Bytes(v) => v.into_value(),
+    },
+    v: EcoString => Self::Path(v),
+    v: Bytes => Self::Bytes(v),
+}
+
+/// Loads data from a path or provided bytes.
+pub trait Load {
+    /// Bytes or a list of bytes (if there are multiple sources).
+    type Output;
+
+    /// Load the bytes.
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output>;
+}
+
+impl Load for Spanned<DataSource> {
+    type Output = Bytes;
+
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Bytes> {
+        self.as_ref().load(world)
+    }
+}
+
+impl Load for Spanned<&DataSource> {
+    type Output = Bytes;
+
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Bytes> {
+        match &self.v {
+            DataSource::Path(path) => {
+                let file_id = self.span.resolve_path(path).at(self.span)?;
+                world.file(file_id).at(self.span)
+            }
+            DataSource::Bytes(bytes) => Ok(bytes.clone()),
+        }
+    }
+}
+
+impl Load for Spanned<OneOrMultiple<DataSource>> {
+    type Output = Vec<Bytes>;
+
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Vec<Bytes>> {
+        self.as_ref().load(world)
+    }
+}
+
+impl Load for Spanned<&OneOrMultiple<DataSource>> {
+    type Output = Vec<Bytes>;
+
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Vec<Bytes>> {
+        self.v
+            .0
+            .iter()
+            .map(|source| Spanned::new(source, self.span).load(world))
+            .collect()
+    }
+}
+
 /// A value that can be read from a file.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Readable {
@@ -54,25 +131,15 @@ pub enum Readable {
 }
 
 impl Readable {
-    pub fn as_slice(&self) -> &[u8] {
-        match self {
-            Self::Bytes(v) => v,
-            Self::Str(v) => v.as_bytes(),
-        }
-    }
-
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Self::Str(v) => Some(v.as_str()),
-            Self::Bytes(v) => std::str::from_utf8(v).ok(),
-        }
-    }
-
     pub fn into_bytes(self) -> Bytes {
         match self {
             Self::Bytes(v) => v,
             Self::Str(v) => Bytes::from_string(v),
         }
+    }
+
+    pub fn into_source(self) -> DataSource {
+        DataSource::Bytes(self.into_bytes())
     }
 }
 

@@ -10,6 +10,16 @@
   description: "Information about a secret project",
 )
 
+--- pdf-embed-bytes ---
+#pdf.embed("hello.txt", read("/assets/text/hello.txt", encoding: none))
+#pdf.embed(
+  "a_file_name.txt",
+  read("/assets/text/hello.txt", encoding: none),
+  relationship: "supplement",
+  mime-type: "text/plain",
+  description: "A description",
+)
+
 --- pdf-embed-invalid-relationship ---
 #pdf.embed(
   "/assets/text/hello.txt",
@@ -17,14 +27,4 @@
   relationship: "test",
   mime-type: "text/plain",
   description: "A test file",
-)
-
---- pdf-embed-decode ---
-#pdf.embed.decode("hello.txt", read("/assets/text/hello.txt"))
-#pdf.embed.decode(
-  "a_file_name.txt",
-  read("/assets/text/hello.txt"),
-  relationship: "supplement",
-  mime-type: "text/plain",
-  description: "A description",
 )
