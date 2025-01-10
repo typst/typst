@@ -59,7 +59,7 @@ fn embed_file(
     let embedded_file_stream_ref = chunk.alloc.bump();
     let file_spec_dict_ref = chunk.alloc.bump();
 
-    let data = embed.data().as_slice();
+    let data = embed.data.as_slice();
     let compressed = deflate(data);
 
     let mut embedded_file = chunk.embedded_file(embedded_file_stream_ref, &compressed);

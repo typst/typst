@@ -638,7 +638,7 @@ impl<'a> Generator<'a> {
         for elem in &self.groups {
             let group = elem.to_packed::<CiteGroup>().unwrap();
             let location = elem.location().unwrap();
-            let children = group.children();
+            let children = &group.children;
 
             // Groups should never be empty.
             let Some(first) = children.first() else { continue };
@@ -650,12 +650,11 @@ impl<'a> Generator<'a> {
 
             // Create infos and items for each child in the group.
             for child in children {
-                let key = *child.key();
-                let Some(entry) = database.get(key) else {
+                let Some(entry) = database.get(child.key) else {
                     errors.push(error!(
                         child.span(),
                         "key `{}` does not exist in the bibliography",
-                        key.resolve()
+                        child.key.resolve()
                     ));
                     continue;
                 };
@@ -682,7 +681,7 @@ impl<'a> Generator<'a> {
                 };
 
                 normal &= special_form.is_none();
-                subinfos.push(CiteInfo { key, supplement, hidden });
+                subinfos.push(CiteInfo { key: child.key, supplement, hidden });
                 items.push(CitationItem::new(entry, locator, None, hidden, special_form));
             }
 

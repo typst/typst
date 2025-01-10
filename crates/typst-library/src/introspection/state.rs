@@ -245,7 +245,7 @@ impl State {
 
         for elem in introspector.query(&self.selector()) {
             let elem = elem.to_packed::<StateUpdateElem>().unwrap();
-            match elem.update() {
+            match &elem.update {
                 StateUpdate::Set(value) => state = value.clone(),
                 StateUpdate::Func(func) => {
                     state = func.call(&mut engine, Context::none().track(), [state])?

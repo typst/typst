@@ -143,7 +143,7 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => match v.to_packed::<TextElem>() {
-        Some(elem) => Value::Str(elem.text().clone().into()).cast()?,
+        Some(elem) => Value::Str(elem.text.clone().into()).cast()?,
         None => bail!("expected text"),
     },
 }

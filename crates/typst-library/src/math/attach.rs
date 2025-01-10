@@ -47,9 +47,9 @@ impl Packed<AttachElem> {
     /// base AttachElem where possible.
     pub fn merge_base(&self) -> Option<Self> {
         // Extract from an EquationElem.
-        let mut base = self.base();
+        let mut base = &self.base;
         while let Some(equation) = base.to_packed::<EquationElem>() {
-            base = equation.body();
+            base = &equation.body;
         }
 
         // Move attachments from elem into base where possible.
