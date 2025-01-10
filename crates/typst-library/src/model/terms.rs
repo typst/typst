@@ -66,7 +66,7 @@ pub struct TermsElem {
     /// / Colon: A nice separator symbol.
     /// ```
     #[borrowed]
-    pub separator: Option<Content>,
+    pub separator: Smart<Content>,
 
     /// The indentation of each item.
     pub indent: Length,
@@ -115,7 +115,7 @@ impl TermsElem {
 impl Show for Packed<TermsElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
-        let separator = self.separator(styles);
+        let separator = self.separator(styles).as_ref().custom().cloned();
 
         if TargetElem::target_in(styles).is_html() {
             let body = Content::sequence(self.children.iter().flat_map(|item| {
