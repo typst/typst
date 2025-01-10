@@ -315,7 +315,7 @@ impl Packed<RawElem> {
     #[comemo::memoize]
     fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
-        let lines = preprocess(elem.text(), styles, self.span());
+        let lines = preprocess(&elem.text, styles, self.span());
 
         let count = lines.len() as i64;
         let lang = elem
@@ -490,7 +490,7 @@ impl Figurable for Packed<RawElem> {}
 
 impl PlainText for Packed<RawElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text().get());
+        text.push_str(&self.text.get());
     }
 }
 
@@ -638,13 +638,13 @@ pub struct RawLine {
 impl Show for Packed<RawLine> {
     #[typst_macros::time(name = "raw.line", span = self.span())]
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone())
+        Ok(self.body.clone())
     }
 }
 
 impl PlainText for Packed<RawLine> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text);
     }
 }
 

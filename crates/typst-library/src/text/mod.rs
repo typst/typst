@@ -794,7 +794,7 @@ impl Construct for TextElem {
 
 impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text);
     }
 }
 

@@ -13,17 +13,16 @@ pub fn layout_lr(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut body = elem.body();
-
     // Extract from an EquationElem.
+    let mut body = &elem.body;
     if let Some(equation) = body.to_packed::<EquationElem>() {
-        body = equation.body();
+        body = &equation.body;
     }
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
         if lr.size(styles).is_one() {
-            body = lr.body();
+            body = &lr.body;
         }
     }
 
@@ -100,7 +99,7 @@ pub fn layout_mid(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut fragments = ctx.layout_into_fragments(elem.body(), styles)?;
+    let mut fragments = ctx.layout_into_fragments(&elem.body, styles)?;
 
     for fragment in &mut fragments {
         match fragment {
