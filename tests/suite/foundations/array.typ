@@ -447,7 +447,7 @@
 #([Hi], [There]).sorted()
 
 --- array-sorted-uncomparable-lengths ---
-// Error: 2-26 cannot compare 2pt with 3em
+// Error: 2-26 cannot compare 3em with 2pt
 #(1pt, 2pt, 3em).sorted()
 
 --- array-sorted-key-function-positional-2 ---

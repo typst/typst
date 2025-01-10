@@ -874,7 +874,9 @@ impl Array {
                 None => ops::compare(&x, &y).at(span),
             }
         };
-        sort(vec.make_mut(), |a, b| {
+        // We use `glidesort` instead of the standard library sorting algorithm
+        // to prevent panics (see https://github.com/typst/typst/pull/5627).
+        glidesort::sort_by(vec.make_mut(), |a, b| {
             // Until we get `try` blocks :)
             compare(a.clone(), b.clone()).unwrap_or_else(|err| {
                 if result.is_ok() {
@@ -1159,115 +1161,4 @@ fn out_of_bounds_no_default(index: i64, len: usize) -> EcoString {
         "array index out of bounds (index: {index}, len: {len}) \
          and no default value was specified",
     )
-}
-
-/// Sorts a slice according to a comparison function. This sort is stable.
-///
-/// As opposed to [`<[T]>::sort_by`], this does not panic.
-///
-/// This is implemented with an in-place stable insertion sort.
-fn sort<T>(array: &mut [T], mut cmp: impl FnMut(&T, &T) -> Ordering) {
-    for i in 0..array.len() {
-        for j in (0..i).rev() {
-            if cmp(&array[j], &array[j + 1]) == Ordering::Greater {
-                array.swap(j, j + 1);
-            } else {
-                break;
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sort_empty() {
-        let mut array = [];
-        sort(&mut array, Ordering::cmp);
-        assert_eq!(array, []);
-    }
-
-    #[test]
-    fn sort_singleton() {
-        let mut array = [0];
-        sort(&mut array, |x, y| x.cmp(y));
-        assert_eq!(array, [0]);
-    }
-
-    #[test]
-    fn sort_pair() {
-        let mut array = [0, 1];
-        sort(&mut array, |x, y| x.cmp(y));
-        assert_eq!(array, [0, 1]);
-
-        let mut array = [1, 0];
-        sort(&mut array, |x, y| x.cmp(y));
-        assert_eq!(array, [0, 1]);
-    }
-
-    #[test]
-    fn sort_triplet() {
-        let arrays = [[0, 1, 2], [1, 0, 2], [0, 2, 1], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
-
-        for mut array in arrays {
-            sort(&mut array, |x, y| x.cmp(y));
-            assert_eq!(array, [0, 1, 2]);
-        }
-    }
-
-    #[test]
-    fn sort_quadruplet() {
-        let arrays = [
-            [0, 1, 2, 3],
-            [1, 0, 2, 3],
-            [0, 2, 1, 3],
-            [1, 2, 0, 3],
-            [2, 0, 1, 3],
-            [2, 1, 0, 3],
-            [0, 1, 3, 2],
-            [1, 0, 3, 2],
-            [0, 2, 3, 1],
-            [1, 2, 3, 0],
-            [2, 0, 3, 1],
-            [2, 1, 3, 0],
-            [0, 3, 1, 2],
-            [1, 3, 0, 2],
-            [0, 3, 2, 1],
-            [1, 3, 2, 0],
-            [2, 3, 0, 1],
-            [2, 3, 1, 0],
-            [3, 0, 1, 2],
-            [3, 1, 0, 2],
-            [3, 0, 2, 1],
-            [3, 1, 2, 0],
-            [3, 2, 0, 1],
-            [3, 2, 1, 0],
-        ];
-
-        for mut array in arrays {
-            sort(&mut array, |x, y| x.cmp(y));
-            assert_eq!(array, [0, 1, 2, 3]);
-        }
-    }
-
-    fn compare_first<T: Ord, U>(x: &(T, U), y: &(T, U)) -> Ordering {
-        x.0.cmp(&y.0)
-    }
-
-    #[test]
-    fn random() {
-        for m in 0..=u8::MAX {
-            // Generates a sort of "pseudorandom" array.
-            // Xoring with `k` prevents the array from being sorted by default.
-            let k = 0b01010101;
-            let mut array: [_; 100] =
-                std::array::from_fn(|i| ((i as u8 ^ k) & m, i as u8 ^ k ^ m));
-            let mut copy = array;
-            sort(&mut array, compare_first);
-            copy.sort_by(compare_first);
-            assert_eq!(array, copy);
-        }
-    }
 }
