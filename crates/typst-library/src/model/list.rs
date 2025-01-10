@@ -1,4 +1,5 @@
 use comemo::Track;
+use ecow::eco_format;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -6,10 +7,9 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
     Smart, StyleChain, Styles, TargetElem, Value,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{tag, HtmlAttr, HtmlElem};
 use crate::layout::{BlockElem, Em, Length, VElem};
 use crate::model::ParElem;
-use crate::text::TextElem;
 
 /// A bullet list.
 ///
@@ -87,15 +87,7 @@ pub struct ListElem {
     /// - Items
     /// ```
     #[borrowed]
-    #[default(ListMarker::Content(vec![
-        // These are all available in the default font, vertically centered, and
-        // roughly of the same size (with the last one having slightly lower
-        // weight because it is not filled).
-        TextElem::packed('\u{2022}'), // Bullet
-        TextElem::packed('\u{2023}'), // Triangular Bullet
-        TextElem::packed('\u{2013}'), // En-dash
-    ]))]
-    pub marker: ListMarker,
+    pub marker: Smart<ListMarker>,
 
     /// The indent of each item.
     #[resolve]
@@ -142,15 +134,24 @@ impl ListElem {
 impl Show for Packed<ListElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::ul)
-                .with_body(Some(Content::sequence(self.children.iter().map(|item| {
-                    HtmlElem::new(tag::li)
-                        .with_body(Some(item.body.clone()))
-                        .pack()
-                        .spanned(item.span())
-                }))))
-                .pack()
-                .spanned(self.span()));
+            let mut elem = HtmlElem::new(tag::ul);
+
+            if let Some(marker) = self.marker(styles).as_ref().custom() {
+                let Depth(depth) = ListElem::depth_in(styles);
+                let marker = marker.resolve(engine, styles, depth)?;
+                // TODO: how to handle "'"?
+                elem = elem.with_attr(
+                    HtmlAttr::constant("style"),
+                    eco_format!("list-style-type: '{}'", marker.plain_text()),
+                );
+            }
+
+            let body = Content::sequence(self.children.iter().map(|item| {
+                let elem = HtmlElem::new(tag::li);
+                let body = item.body.clone().styled(ListElem::set_depth(Depth(1)));
+                elem.with_body(Some(body)).pack().spanned(item.span())
+            }));
+            return Ok(elem.with_body(Some(body)).pack().spanned(self.span()));
         }
 
         let mut realized =

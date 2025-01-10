@@ -6,7 +6,7 @@ use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
-use typst_library::model::{EnumElem, ListElem, Numbering, ParElem};
+use typst_library::model::{EnumElem, ListElem, ListMarker, Numbering, ParElem};
 use typst_library::text::TextElem;
 
 use crate::grid::GridLayouter;
@@ -30,9 +30,20 @@ pub fn layout_list(
         }
     });
 
+    let default_marker = ListMarker::Content(vec![
+        // These are all available in the default font, vertically centered, and
+        // roughly of the same size (with the last one having slightly lower
+        // weight because it is not filled).
+        TextElem::packed('\u{2022}'), // Bullet
+        TextElem::packed('\u{2023}'), // Triangular Bullet
+        TextElem::packed('\u{2013}'), // En-dash
+    ]);
+
     let Depth(depth) = ListElem::depth_in(styles);
     let marker = elem
         .marker(styles)
+        .as_ref()
+        .unwrap_or(&default_marker)
         .resolve(engine, styles, depth)?
         // avoid '#set align' interference with the list
         .aligned(HAlignment::Start + VAlignment::Top);
