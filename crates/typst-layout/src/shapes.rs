@@ -11,8 +11,8 @@ use typst_library::layout::{
 };
 use typst_library::visualize::{
     CircleElem, CloseMode, Curve, CurveComponent, CurveElem, EllipseElem, FillRule,
-    FixedStroke, Geometry, LineElem, Paint, PathElem, PathVertex, PolygonElem, RectElem,
-    Shape, SquareElem, Stroke,
+    FixedStroke, Geometry, LineCap, LineElem, Paint, PathElem, PathVertex, PolygonElem,
+    RectElem, Shape, SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -1034,8 +1034,7 @@ fn fill_segment(
         if c.arc_outer() {
             curve.arc_line(c.mid_outer(), c.center_outer(), c.end_outer());
         } else {
-            curve.line(c.outer());
-            curve.line(c.end_outer());
+            c.start_cap(&mut curve, stroke.cap);
         }
     }
 
@@ -1078,7 +1077,7 @@ fn fill_segment(
         if c.arc_inner() {
             curve.arc_line(c.mid_inner(), c.center_inner(), c.start_inner());
         } else {
-            curve.line(c.center_inner());
+            c.end_cap(&mut curve, stroke.cap);
         }
     }
 
@@ -1133,6 +1132,16 @@ struct ControlPoints {
 }
 
 impl ControlPoints {
+    /// Rotate point around the origin, relative to the top-left.
+    fn rotate_centered(&self, point: Point) -> Point {
+        match self.corner {
+            Corner::TopLeft => point,
+            Corner::TopRight => Point { x: -point.y, y: point.x },
+            Corner::BottomRight => Point { x: -point.x, y: -point.y },
+            Corner::BottomLeft => Point { x: point.y, y: -point.x },
+        }
+    }
+
     /// Move and rotate the point from top-left to the required corner.
     fn rotate(&self, point: Point) -> Point {
         match self.corner {
@@ -1278,6 +1287,73 @@ impl ControlPoints {
             x: self.stroke_before + self.radius_inner(),
             y: self.stroke_after,
         })
+    }
+
+    /// Draw the cap at the beginning of the segment.
+    ///
+    /// If this corner has a radius, or has a stroke before it,
+    /// a default "butt" cap is used.
+    pub fn start_cap(&self, curve: &mut Curve, cap_type: LineCap) {
+        if self.stroke_before != Abs::zero()
+            || self.radius != Abs::zero()
+            || cap_type == LineCap::Butt
+        {
+            // Just the default cap.
+            curve.line(self.outer());
+        } else if cap_type == LineCap::Square {
+            // Extend by the stroke width.
+            let offset =
+                self.rotate_centered(Point { x: -self.stroke_after, y: Abs::zero() });
+            curve.line(self.end_inner() + offset);
+            curve.line(self.outer() + offset);
+        } else if cap_type == LineCap::Round {
+            // We push the center by a little bit to ensure the correct
+            // half of the circle gets drawn. If it is perfectly centered
+            // the `arc` function just degenerates into a line, which we
+            // do not want in this case.
+            curve.arc(
+                self.end_inner(),
+                (self.end_inner()
+                    + self.rotate_centered(Point { x: Abs::raw(1.0), y: Abs::zero() })
+                    + self.outer())
+                    / 2.,
+                self.outer(),
+            );
+        }
+        curve.line(self.end_outer());
+    }
+
+    /// Draw the cap at the end of the segment.
+    ///
+    /// If this corner has a radius, or has a stroke after it,
+    /// a default "butt" cap is used.
+    pub fn end_cap(&self, curve: &mut Curve, cap_type: LineCap) {
+        if self.stroke_after != Abs::zero()
+            || self.radius != Abs::zero()
+            || cap_type == LineCap::Butt
+        {
+            // Just the default cap.
+            curve.line(self.center_inner());
+        } else if cap_type == LineCap::Square {
+            // Extend by the stroke width.
+            let offset =
+                self.rotate_centered(Point { x: Abs::zero(), y: -self.stroke_before });
+            curve.line(self.outer() + offset);
+            curve.line(self.center_inner() + offset);
+        } else if cap_type == LineCap::Round {
+            // We push the center by a little bit to ensure the correct
+            // half of the circle gets drawn. If it is perfectly centered
+            // the `arc` function just degenerates into a line, which we
+            // do not want in this case.
+            curve.arc(
+                self.outer(),
+                (self.outer()
+                    + self.rotate_centered(Point { x: Abs::zero(), y: Abs::raw(1.0) })
+                    + self.center_inner())
+                    / 2.,
+                self.center_inner(),
+            );
+        }
     }
 }
 
