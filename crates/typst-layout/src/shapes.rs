@@ -888,7 +888,13 @@ fn segmented_rect(
             let end = current;
             last = current;
             let Some(stroke) = strokes.get_ref(start.side_cw()) else { continue };
-            let (shape, ontop) = segment(start, end, &corners, stroke);
+            let start_cap = stroke.cap;
+            let end_cap = match strokes.get_ref(end.side_ccw()) {
+                Some(stroke) => stroke.cap,
+                None => start_cap,
+            };
+            let (shape, ontop) =
+                segment(start, end, start_cap, end_cap, &corners, stroke);
             if ontop {
                 res.push(shape);
             } else {
@@ -898,7 +904,14 @@ fn segmented_rect(
         }
     } else if let Some(stroke) = &strokes.top {
         // single segment
-        let (shape, _) = segment(Corner::TopLeft, Corner::TopLeft, &corners, stroke);
+        let (shape, _) = segment(
+            Corner::TopLeft,
+            Corner::TopLeft,
+            stroke.cap,
+            stroke.cap,
+            &corners,
+            stroke,
+        );
         res.push(shape);
     }
     res
@@ -945,6 +958,8 @@ fn curve_segment(
 fn segment(
     start: Corner,
     end: Corner,
+    start_cap: LineCap,
+    end_cap: LineCap,
     corners: &Corners<ControlPoints>,
     stroke: &FixedStroke,
 ) -> (Shape, bool) {
@@ -978,7 +993,7 @@ fn segment(
 
     let use_fill = solid && fill_corners(start, end, corners);
     let shape = if use_fill {
-        fill_segment(start, end, corners, stroke)
+        fill_segment(start, end, start_cap, end_cap, corners, stroke)
     } else {
         stroke_segment(start, end, corners, stroke.clone())
     };
@@ -1009,6 +1024,8 @@ fn stroke_segment(
 fn fill_segment(
     start: Corner,
     end: Corner,
+    start_cap: LineCap,
+    end_cap: LineCap,
     corners: &Corners<ControlPoints>,
     stroke: &FixedStroke,
 ) -> Shape {
@@ -1034,7 +1051,7 @@ fn fill_segment(
         if c.arc_outer() {
             curve.arc_line(c.mid_outer(), c.center_outer(), c.end_outer());
         } else {
-            c.start_cap(&mut curve, stroke.cap);
+            c.start_cap(&mut curve, start_cap);
         }
     }
 
@@ -1077,7 +1094,7 @@ fn fill_segment(
         if c.arc_inner() {
             curve.arc_line(c.mid_inner(), c.center_inner(), c.start_inner());
         } else {
-            c.end_cap(&mut curve, stroke.cap);
+            c.end_cap(&mut curve, end_cap);
         }
     }
 
