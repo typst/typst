@@ -19,7 +19,7 @@ mod dict;
 mod duration;
 mod fields;
 mod float;
-mod func;
+pub mod func;
 mod int;
 mod label;
 mod module;
