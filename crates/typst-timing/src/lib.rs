@@ -190,9 +190,9 @@ impl Timestamp {
         Self::now()
     }
 
-    fn millis_since(self, start: Self) -> f64 {
+    fn micros_since(self, start: Self) -> f64 {
         #[cfg(target_arch = "wasm32")]
-        return self.inner - start.inner;
+        return (self.inner - start.inner) * 1000.0;
 
         #[cfg(not(target_arch = "wasm32"))]
         (self
@@ -281,7 +281,7 @@ pub fn export_json<W: Write>(
                 EventKind::Start => "B",
                 EventKind::End => "E",
             },
-            ts: event.timestamp.millis_since(events[0].timestamp),
+            ts: event.timestamp.micros_since(events[0].timestamp),
             pid: 1,
             tid: event.thread_id,
             args: event.span.map(&mut source).map(|(file, line)| Args { file, line }),
