@@ -8,14 +8,66 @@ use parking_lot::Mutex;
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
 
+thread_local! {
+    /// Data that is initialized once per thread.
+    static THREAD_DATA: ThreadData = {
+        // We only need atomicity and no synchronization of other
+        // operations, so `Relaxed` is fine.
+        static COUNTER: AtomicU64 = AtomicU64::new(1);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+        // Retrieve `performance` from global object, either the window
+        // globalThis.
+        #[cfg(target_arch = "wasm32")]
+        let perf = web_sys::window()
+            .and_then(|window| window.performance())
+            .or_else(|| {
+                use web_sys::wasm_bindgen::JsCast;
+                web_sys::js_sys::global()
+                    .dyn_into::<web_sys::WorkerGlobalScope>()
+                    .ok()
+                    .and_then(|scope| scope.performance())
+            })
+            .expect("failed to get JS performance handle");
+
+        // Every thread gets its own time origin. To make the results consistent
+        // across threads, we need to add this to each `now()` call.
+        #[cfg(target_arch = "wasm32")]
+        let time_origin = perf.time_origin();
+
+        ThreadData {
+            id,
+            #[cfg(target_arch = "wasm32")]
+            perf,
+            #[cfg(target_arch = "wasm32")]
+            time_origin,
+        }
+    };
+}
+
 /// Whether the timer is enabled. Defaults to `false`.
 static ENABLED: AtomicBool = AtomicBool::new(false);
 
-/// The global event recorder.
+/// The list of collected events.
 static EVENTS: Mutex<Vec<Event>> = Mutex::new(Vec::new());
 
+/// Per-thread data.
+struct ThreadData {
+    /// The thread's ID.
+    ///
+    /// In contrast to `std::thread::current().id()`, this is wasm-compatible
+    /// and also a bit cheaper to access because the std version does a bit more
+    /// stuff (including cloning an `Arc`).
+    id: u64,
+    /// The cached JS performance handle for the thread.
+    #[cfg(target_arch = "wasm32")]
+    perf: web_sys::Performance,
+    /// The cached JS time origin.
+    #[cfg(target_arch = "wasm32")]
+    time_origin: f64,
+}
+
 /// An event that has been recorded.
-#[derive(Clone, Copy)]
 struct Event {
     /// Whether this is a start or end event.
     kind: EventKind,
@@ -85,8 +137,8 @@ impl TimingScope {
 
     /// Create a new scope without checking if timing is enabled.
     fn new_impl(name: &'static str, span: Option<NonZeroU64>) -> Self {
-        let timestamp = Timestamp::now();
-        let thread_id = thread_id();
+        let (thread_id, timestamp) =
+            THREAD_DATA.with(|data| (data.id, Timestamp::now_with(data)));
         EVENTS.lock().push(Event {
             kind: EventKind::Start,
             timestamp,
@@ -112,7 +164,7 @@ impl Drop for TimingScope {
 }
 
 /// A cross-platform way to get the current time.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 struct Timestamp {
     #[cfg(not(target_arch = "wasm32"))]
     inner: std::time::SystemTime,
@@ -121,63 +173,35 @@ struct Timestamp {
 }
 
 impl Timestamp {
-    #[cfg(not(target_arch = "wasm32"))]
     fn now() -> Self {
+        #[cfg(target_arch = "wasm32")]
+        return THREAD_DATA.with(Self::now_with);
+
+        #[cfg(not(target_arch = "wasm32"))]
         Self { inner: std::time::SystemTime::now() }
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn now() -> Self {
-        use web_sys::js_sys;
-        use web_sys::wasm_bindgen::JsCast;
+    #[allow(unused_variables)]
+    fn now_with(data: &ThreadData) -> Self {
+        #[cfg(target_arch = "wasm32")]
+        return Self { inner: data.time_origin + data.perf.now() };
 
-        thread_local! {
-            static PERF: Option<web_sys::Performance> =
-                web_sys::window().and_then(|window| window.performance()).or_else(|| {
-                    js_sys::global()
-                        .dyn_into::<web_sys::WorkerGlobalScope>()
-                        .ok()
-                        .and_then(|scope| scope.performance())
-                });
-        }
-
-        let inner = PERF.with(|perf| match perf {
-            Some(perf) => perf.time_origin() + perf.now(),
-            None => panic!("failed to get performance"),
-        });
-
-        Self { inner }
+        #[cfg(not(target_arch = "wasm32"))]
+        Self::now()
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn millis_since(self, start: Self) -> f64 {
-        self.inner
+        #[cfg(target_arch = "wasm32")]
+        return self.inner - start.inner;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        (self
+            .inner
             .duration_since(start.inner)
             .unwrap_or(std::time::Duration::ZERO)
             .as_nanos() as f64
-            / 1_000.0
+            / 1_000.0)
     }
-
-    #[cfg(target_arch = "wasm32")]
-    fn millis_since(self, start: Self) -> f64 {
-        self.inner - start.inner
-    }
-}
-
-/// Cross platform way to generate a unique ID per-thread.
-///
-/// Should also have less overhead than `std::thread::current().id()` because
-/// the former does a bunch of stuff and also clone an `Arc`.
-fn thread_id() -> u64 {
-    static CURRENT: AtomicU64 = AtomicU64::new(1);
-
-    thread_local! {
-        // We only need atomicity and no synchronization of other
-        // operations, so `Relaxed` is fine.
-        static ID: u64 = CURRENT.fetch_add(1, Ordering::Relaxed)
-    }
-
-    ID.with(|&id| id)
 }
 
 /// Creates a timing scope around an expression.
