@@ -134,6 +134,7 @@ ureq = { version = "2", default-features = false, features = ["native-tls", "gzi
 usvg = { version = "0.43", default-features = false, features = ["text"] }
 walkdir = "2"
 wasmi = "0.39.0"
+web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xmp-writer = "0.3"
