@@ -36,7 +36,7 @@ struct ThreadData {
     /// and also a bit cheaper to access because the std version does a bit more
     /// stuff (including cloning an `Arc`).
     id: u64,
-    /// A way to get the time in Wasm.
+    /// A way to get the time from WebAssembly.
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     timer: WasmTimer,
 }
@@ -271,6 +271,7 @@ pub fn export_json<W: Write>(
     Ok(())
 }
 
+/// A way to get the time from WebAssembly.
 #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 struct WasmTimer {
     /// The cached JS performance handle for the thread.
@@ -282,7 +283,7 @@ struct WasmTimer {
 #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 impl WasmTimer {
     fn new() -> Self {
-        // Retrieve `performance` from global object, either the window
+        // Retrieve `performance` from global object, either the window or
         // globalThis.
         let perf = web_sys::window()
             .and_then(|window| window.performance())
