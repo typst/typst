@@ -18,7 +18,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features = ["Window", "WorkerGlobalScope", "Performance"] }
+web-sys = { workspace = true, features = ["Window", "WorkerGlobalScope", "Performance"], optional = true }
+
+[features]
+wasm = ["dep:web-sys"]
 
 [lints]
 workspace = true

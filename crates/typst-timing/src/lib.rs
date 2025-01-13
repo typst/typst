@@ -10,38 +10,15 @@ use serde::{Serialize, Serializer};
 
 thread_local! {
     /// Data that is initialized once per thread.
-    static THREAD_DATA: ThreadData = {
-        // We only need atomicity and no synchronization of other
-        // operations, so `Relaxed` is fine.
-        static COUNTER: AtomicU64 = AtomicU64::new(1);
-        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-
-        // Retrieve `performance` from global object, either the window
-        // globalThis.
-        #[cfg(target_arch = "wasm32")]
-        let perf = web_sys::window()
-            .and_then(|window| window.performance())
-            .or_else(|| {
-                use web_sys::wasm_bindgen::JsCast;
-                web_sys::js_sys::global()
-                    .dyn_into::<web_sys::WorkerGlobalScope>()
-                    .ok()
-                    .and_then(|scope| scope.performance())
-            })
-            .expect("failed to get JS performance handle");
-
-        // Every thread gets its own time origin. To make the results consistent
-        // across threads, we need to add this to each `now()` call.
-        #[cfg(target_arch = "wasm32")]
-        let time_origin = perf.time_origin();
-
-        ThreadData {
-            id,
-            #[cfg(target_arch = "wasm32")]
-            perf,
-            #[cfg(target_arch = "wasm32")]
-            time_origin,
-        }
+    static THREAD_DATA: ThreadData = ThreadData {
+        id: {
+            // We only need atomicity and no synchronization of other
+            // operations, so `Relaxed` is fine.
+            static COUNTER: AtomicU64 = AtomicU64::new(1);
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        },
+        #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+        timer: WasmTimer::new(),
     };
 }
 
@@ -59,12 +36,9 @@ struct ThreadData {
     /// and also a bit cheaper to access because the std version does a bit more
     /// stuff (including cloning an `Arc`).
     id: u64,
-    /// The cached JS performance handle for the thread.
-    #[cfg(target_arch = "wasm32")]
-    perf: web_sys::Performance,
-    /// The cached JS time origin.
-    #[cfg(target_arch = "wasm32")]
-    time_origin: f64,
+    /// A way to get the time in Wasm.
+    #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+    timer: WasmTimer,
 }
 
 /// An event that has been recorded.
@@ -183,8 +157,11 @@ impl Timestamp {
 
     #[allow(unused_variables)]
     fn now_with(data: &ThreadData) -> Self {
-        #[cfg(target_arch = "wasm32")]
-        return Self { inner: data.time_origin + data.perf.now() };
+        #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+        return Self { inner: data.timer.now() };
+
+        #[cfg(all(target_arch = "wasm32", not(feature = "wasm")))]
+        return Self { inner: 0.0 };
 
         #[cfg(not(target_arch = "wasm32"))]
         Self::now()
@@ -292,4 +269,40 @@ pub fn export_json<W: Write>(
     seq.end().map_err(|e| format!("failed to serialize events: {e}"))?;
 
     Ok(())
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+struct WasmTimer {
+    /// The cached JS performance handle for the thread.
+    perf: web_sys::Performance,
+    /// The cached JS time origin.
+    time_origin: f64,
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+impl WasmTimer {
+    fn new() -> Self {
+        // Retrieve `performance` from global object, either the window
+        // globalThis.
+        let perf = web_sys::window()
+            .and_then(|window| window.performance())
+            .or_else(|| {
+                use web_sys::wasm_bindgen::JsCast;
+                web_sys::js_sys::global()
+                    .dyn_into::<web_sys::WorkerGlobalScope>()
+                    .ok()
+                    .and_then(|scope| scope.performance())
+            })
+            .expect("failed to get JS performance handle");
+
+        // Every thread gets its own time origin. To make the results consistent
+        // across threads, we need to add this to each `now()` call.
+        let time_origin = perf.time_origin();
+
+        Self { perf, time_origin }
+    }
+
+    fn now(&self) -> f64 {
+        self.time_origin + self.perf.now()
+    }
 }
