@@ -184,8 +184,7 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    let body = node.element.body();
-    outline.title(TextStr::trimmed(body.plain_text().trim()));
+    outline.title(TextStr::trimmed(node.element.body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);

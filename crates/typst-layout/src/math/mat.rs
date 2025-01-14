@@ -27,7 +27,7 @@ pub fn layout_vec(
     let frame = layout_vec_body(
         ctx,
         styles,
-        elem.children(),
+        &elem.children,
         elem.align(styles),
         elem.gap(styles),
         LeftRightAlternator::Right,
@@ -44,7 +44,7 @@ pub fn layout_mat(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let augment = elem.augment(styles);
-    let rows = elem.rows();
+    let rows = &elem.rows;
 
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
@@ -58,7 +58,7 @@ pub fn layout_mat(
             }
         }
 
-        let ncols = elem.rows().first().map_or(0, |row| row.len());
+        let ncols = rows.first().map_or(0, |row| row.len());
 
         for &offset in &aug.vline.0 {
             if offset == 0 || offset.unsigned_abs() >= ncols {
@@ -97,7 +97,7 @@ pub fn layout_cases(
     let frame = layout_vec_body(
         ctx,
         styles,
-        elem.children(),
+        &elem.children,
         FixedAlignment::Start,
         elem.gap(styles),
         LeftRightAlternator::None,

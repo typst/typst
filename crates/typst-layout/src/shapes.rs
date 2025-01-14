@@ -62,7 +62,7 @@ pub fn layout_path(
         axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
     };
 
-    let vertices = elem.vertices();
+    let vertices = &elem.vertices;
     let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
 
     let mut size = Size::zero();
@@ -150,7 +150,7 @@ pub fn layout_curve(
 ) -> SourceResult<Frame> {
     let mut builder = CurveBuilder::new(region, styles);
 
-    for item in elem.components() {
+    for item in &elem.components {
         match item {
             CurveComponent::Move(element) => {
                 let relative = element.relative(styles);
@@ -399,7 +399,7 @@ pub fn layout_polygon(
     region: Region,
 ) -> SourceResult<Frame> {
     let points: Vec<Point> = elem
-        .vertices()
+        .vertices
         .iter()
         .map(|c| c.resolve(styles).zip_map(region.size, Rel::relative_to).to_point())
         .collect();

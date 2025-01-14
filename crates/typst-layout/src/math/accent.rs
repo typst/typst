@@ -16,7 +16,7 @@ pub fn layout_accent(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let cramped = style_cramped();
-    let mut base = ctx.layout_into_fragment(elem.base(), styles.chain(&cramped))?;
+    let mut base = ctx.layout_into_fragment(&elem.base, styles.chain(&cramped))?;
 
     // Try to replace a glyph with its dotless variant.
     if let MathFragment::Glyph(glyph) = &mut base {
@@ -29,8 +29,8 @@ pub fn layout_accent(
 
     let width = elem.size(styles).relative_to(base.width());
 
-    let Accent(c) = elem.accent();
-    let mut glyph = GlyphFragment::new(ctx, styles, *c, elem.span());
+    let Accent(c) = elem.accent;
+    let mut glyph = GlyphFragment::new(ctx, styles, c, elem.span());
 
     // Try to replace accent glyph with flattened variant.
     let flattened_base_height = scaled!(ctx, styles, flattened_accent_base_height);

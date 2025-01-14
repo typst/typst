@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use fontdb::{Database, Source};
+use typst_library::foundations::Bytes;
 use typst_library::text::{Font, FontBook, FontInfo};
 use typst_timing::TimingScope;
 
@@ -52,9 +53,8 @@ impl FontSlot {
                         .as_ref()
                         .expect("`path` is not `None` if `font` is uninitialized"),
                 )
-                .ok()?
-                .into();
-                Font::new(data, self.index)
+                .ok()?;
+                Font::new(Bytes::new(data), self.index)
             })
             .clone()
     }
@@ -196,7 +196,7 @@ impl FontSearcher {
     #[cfg(feature = "embed-fonts")]
     fn add_embedded(&mut self) {
         for data in typst_assets::fonts() {
-            let buffer = typst_library::foundations::Bytes::from_static(data);
+            let buffer = Bytes::new(data);
             for (i, font) in Font::iter(buffer).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {

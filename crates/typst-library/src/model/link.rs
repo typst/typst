@@ -102,11 +102,10 @@ impl LinkElem {
 impl Show for Packed<LinkElem> {
     #[typst_macros::time(name = "link", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body().clone();
-        let dest = self.dest();
+        let body = self.body.clone();
 
         Ok(if TargetElem::target_in(styles).is_html() {
-            if let LinkTarget::Dest(Destination::Url(url)) = dest {
+            if let LinkTarget::Dest(Destination::Url(url)) = &self.dest {
                 HtmlElem::new(tag::a)
                     .with_attr(attr::href, url.clone().into_inner())
                     .with_body(Some(body))
@@ -120,7 +119,7 @@ impl Show for Packed<LinkElem> {
                 body
             }
         } else {
-            let linked = match self.dest() {
+            let linked = match &self.dest {
                 LinkTarget::Dest(dest) => body.linked(dest.clone()),
                 LinkTarget::Label(label) => {
                     let elem = engine.introspector.query_label(*label).at(self.span())?;
