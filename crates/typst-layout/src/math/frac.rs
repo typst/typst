@@ -23,8 +23,8 @@ pub fn layout_frac(
     layout_frac_like(
         ctx,
         styles,
-        elem.num(),
-        std::slice::from_ref(elem.denom()),
+        &elem.num,
+        std::slice::from_ref(&elem.denom),
         false,
         elem.span(),
     )
@@ -37,7 +37,7 @@ pub fn layout_binom(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_frac_like(ctx, styles, elem.upper(), elem.lower(), true, elem.span())
+    layout_frac_like(ctx, styles, &elem.upper, &elem.lower, true, elem.span())
 }
 
 /// Layout a fraction or binomial.

@@ -219,8 +219,7 @@ impl Show for Packed<OutlineElem> {
                 continue;
             };
 
-            let level = entry.level();
-            if depth < *level {
+            if depth < entry.level {
                 continue;
             }
 
@@ -229,7 +228,7 @@ impl Show for Packed<OutlineElem> {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .is_some_and(|last| last.level() >= *level)
+                .is_some_and(|last| last.level() >= entry.level)
             {
                 ancestors.pop();
             }
@@ -483,7 +482,7 @@ impl Show for Packed<OutlineEntry> {
     #[typst_macros::time(name = "outline.entry", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
-        let elem = self.element();
+        let elem = &self.element;
 
         // In case a user constructs an outline entry with an arbitrary element.
         let Some(location) = elem.location() else {
@@ -512,7 +511,7 @@ impl Show for Packed<OutlineEntry> {
             seq.push(TextElem::packed("\u{202B}"));
         }
 
-        seq.push(self.body().clone().linked(Destination::Location(location)));
+        seq.push(self.body.clone().linked(Destination::Location(location)));
 
         if rtl {
             // "Pop Directional Formatting"
@@ -520,7 +519,7 @@ impl Show for Packed<OutlineEntry> {
         }
 
         // Add filler symbols between the section name and page number.
-        if let Some(filler) = self.fill() {
+        if let Some(filler) = &self.fill {
             seq.push(SpaceElem::shared().clone());
             seq.push(
                 BoxElem::new()
@@ -535,7 +534,7 @@ impl Show for Packed<OutlineEntry> {
         }
 
         // Add the page number.
-        let page = self.page().clone().linked(Destination::Location(location));
+        let page = self.page.clone().linked(Destination::Location(location));
         seq.push(page);
 
         Ok(Content::sequence(seq))
