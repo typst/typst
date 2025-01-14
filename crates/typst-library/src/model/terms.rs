@@ -60,6 +60,8 @@ pub struct TermsElem {
     /// `{h(2cm, weak: true)}` as the separator and replace `{2cm}` with your
     /// desired amount of space.
     ///
+    /// Default: `{h(amount: 0.6em, weak: true)}`
+    ///
     /// ```example
     /// #set terms(separator: [: ])
     ///
