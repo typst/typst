@@ -166,7 +166,7 @@ impl Packed<InlineElem> {
         styles: StyleChain,
         region: Size,
     ) -> SourceResult<Vec<InlineItem>> {
-        self.body().call(engine, locator, styles, region)
+        self.body.call(engine, locator, styles, region)
     }
 }
 

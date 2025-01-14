@@ -223,7 +223,7 @@ impl Show for Packed<HeadingElem> {
         const SPACING_TO_NUMBERING: Em = Em::new(0.3);
 
         let span = self.span();
-        let mut realized = self.body().clone();
+        let mut realized = self.body.clone();
 
         let hanging_indent = self.hanging_indent(styles);
         let mut indent = match hanging_indent {
@@ -360,7 +360,7 @@ impl Outlinable for Packed<HeadingElem> {
             return Ok(None);
         }
 
-        let mut content = self.body().clone();
+        let mut content = self.body.clone();
         if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
             let numbers = Counter::of(HeadingElem::elem()).display_at_loc(
                 engine,

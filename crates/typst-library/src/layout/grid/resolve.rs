@@ -42,16 +42,16 @@ pub fn grid_to_cellgrid<'a>(
     // Use trace to link back to the grid when a specific cell errors
     let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
     let resolve_item = |item: &GridItem| grid_item_to_resolvable(item, styles);
-    let children = elem.children().iter().map(|child| match child {
+    let children = elem.children.iter().map(|child| match child {
         GridChild::Header(header) => ResolvableGridChild::Header {
             repeat: header.repeat(styles),
             span: header.span(),
-            items: header.children().iter().map(resolve_item),
+            items: header.children.iter().map(resolve_item),
         },
         GridChild::Footer(footer) => ResolvableGridChild::Footer {
             repeat: footer.repeat(styles),
             span: footer.span(),
-            items: footer.children().iter().map(resolve_item),
+            items: footer.children.iter().map(resolve_item),
         },
         GridChild::Item(item) => {
             ResolvableGridChild::Item(grid_item_to_resolvable(item, styles))
@@ -95,16 +95,16 @@ pub fn table_to_cellgrid<'a>(
     // Use trace to link back to the table when a specific cell errors
     let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
     let resolve_item = |item: &TableItem| table_item_to_resolvable(item, styles);
-    let children = elem.children().iter().map(|child| match child {
+    let children = elem.children.iter().map(|child| match child {
         TableChild::Header(header) => ResolvableGridChild::Header {
             repeat: header.repeat(styles),
             span: header.span(),
-            items: header.children().iter().map(resolve_item),
+            items: header.children.iter().map(resolve_item),
         },
         TableChild::Footer(footer) => ResolvableGridChild::Footer {
             repeat: footer.repeat(styles),
             span: footer.span(),
-            items: footer.children().iter().map(resolve_item),
+            items: footer.children.iter().map(resolve_item),
         },
         TableChild::Item(item) => {
             ResolvableGridChild::Item(table_item_to_resolvable(item, styles))

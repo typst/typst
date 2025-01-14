@@ -40,7 +40,7 @@ pub fn layout_list(
     let mut cells = vec![];
     let mut locator = locator.split();
 
-    for item in elem.children() {
+    for item in &elem.children {
         cells.push(Cell::new(Content::empty(), locator.next(&())));
         cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
         cells.push(Cell::new(Content::empty(), locator.next(&())));
@@ -101,7 +101,7 @@ pub fn layout_enum(
     // relation to the item it refers to.
     let number_align = elem.number_align(styles);
 
-    for item in elem.children() {
+    for item in &elem.children {
         number = item.number(styles).unwrap_or(number);
 
         let context = Context::new(None, Some(styles));

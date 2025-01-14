@@ -305,7 +305,7 @@ impl FileSlot {
     ) -> FileResult<Bytes> {
         self.file.get_or_init(
             || read(self.id, project_root, package_storage),
-            |data, _| Ok(data.into()),
+            |data, _| Ok(Bytes::new(data)),
         )
     }
 }

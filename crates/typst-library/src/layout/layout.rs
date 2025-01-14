@@ -89,7 +89,7 @@ impl Show for Packed<LayoutElem> {
                 let loc = elem.location().unwrap();
                 let context = Context::new(Some(loc), Some(styles));
                 let result = elem
-                    .func()
+                    .func
                     .call(
                         engine,
                         context.track(),

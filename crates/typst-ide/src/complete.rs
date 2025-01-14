@@ -817,25 +817,36 @@ fn param_value_completions<'a>(
 ) {
     if param.name == "font" {
         ctx.font_completions();
-    } else if param.name == "path" {
-        ctx.file_completions_with_extensions(match func.name() {
-            Some("image") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
-            Some("csv") => &["csv"],
-            Some("plugin") => &["wasm"],
-            Some("cbor") => &["cbor"],
-            Some("json") => &["json"],
-            Some("toml") => &["toml"],
-            Some("xml") => &["xml"],
-            Some("yaml") => &["yml", "yaml"],
-            Some("bibliography") => &["bib", "yml", "yaml"],
-            _ => &[],
-        });
+    } else if let Some(extensions) = path_completion(func, param) {
+        ctx.file_completions_with_extensions(extensions);
     } else if func.name() == Some("figure") && param.name == "body" {
         ctx.snippet_completion("image", "image(\"${}\"),", "An image in a figure.");
         ctx.snippet_completion("table", "table(\n  ${}\n),", "A table in a figure.");
     }
 
     ctx.cast_completions(&param.input);
+}
+
+/// Returns which file extensions to complete for the given parameter if any.
+fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
+    Some(match (func.name(), param.name) {
+        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("csv"), "source") => &["csv"],
+        (Some("plugin"), "source") => &["wasm"],
+        (Some("cbor"), "source") => &["cbor"],
+        (Some("json"), "source") => &["json"],
+        (Some("toml"), "source") => &["toml"],
+        (Some("xml"), "source") => &["xml"],
+        (Some("yaml"), "source") => &["yml", "yaml"],
+        (Some("bibliography"), "sources") => &["bib", "yml", "yaml"],
+        (Some("bibliography"), "style") => &["csl"],
+        (Some("cite"), "style") => &["csl"],
+        (Some("raw"), "syntaxes") => &["sublime-syntax"],
+        (Some("raw"), "theme") => &["tmtheme"],
+        (Some("embed"), "path") => &[],
+        (None, "path") => &[],
+        _ => return None,
+    })
 }
 
 /// Resolve a callee expression to a global function.

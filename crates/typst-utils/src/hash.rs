@@ -162,3 +162,74 @@ impl<T: Debug> Debug for LazyHash<T> {
         self.value.fmt(f)
     }
 }
+
+/// A wrapper type with a manually computed hash.
+///
+/// This can be used to turn an unhashable type into a hashable one where the
+/// hash is provided manually. Typically, the hash is derived from the data
+/// which was used to construct to the unhashable type.
+///
+/// For instance, you could hash the bytes that were parsed into an unhashable
+/// data structure.
+///
+/// # Equality
+/// Because Typst uses high-quality 128 bit hashes in all places, the risk of a
+/// hash collision is reduced to an absolute minimum. Therefore, this type
+/// additionally provides `PartialEq` and `Eq` implementations that compare by
+/// hash instead of by value. For this to be correct, your hash implementation
+/// **must feed all information relevant to the `PartialEq` impl to the
+/// hasher.**
+#[derive(Clone)]
+pub struct ManuallyHash<T: ?Sized> {
+    /// A manually computed hash.
+    hash: u128,
+    /// The underlying value.
+    value: T,
+}
+
+impl<T> ManuallyHash<T> {
+    /// Wraps an item with a pre-computed hash.
+    ///
+    /// The hash should be computed with `typst_utils::hash128`.
+    #[inline]
+    pub fn new(value: T, hash: u128) -> Self {
+        Self { hash, value }
+    }
+
+    /// Returns the wrapped value.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.value
+    }
+}
+
+impl<T: ?Sized> Hash for ManuallyHash<T> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u128(self.hash);
+    }
+}
+
+impl<T: ?Sized> Eq for ManuallyHash<T> {}
+
+impl<T: ?Sized> PartialEq for ManuallyHash<T> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl<T: ?Sized> Deref for ManuallyHash<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T: Debug> Debug for ManuallyHash<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.value.fmt(f)
+    }
+}

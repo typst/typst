@@ -1,10 +1,10 @@
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use typst_syntax::Spanned;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Bytes, Value};
-use crate::World;
+use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a CBOR file.
 ///
@@ -21,29 +21,31 @@ use crate::World;
 pub fn cbor(
     /// The engine.
     engine: &mut Engine,
-    /// Path to a CBOR file.
+    /// A path to a CBOR file or raw CBOR bytes.
     ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    cbor::decode(Spanned::new(data, span))
+    let data = source.load(engine.world)?;
+    ciborium::from_reader(data.as_slice())
+        .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
+        .at(source.span)
 }
 
 #[scope]
 impl cbor {
     /// Reads structured data from CBOR bytes.
+    ///
+    /// This function is deprecated. The [`cbor`] function now accepts bytes
+    /// directly.
     #[func(title = "Decode CBOR")]
     pub fn decode(
-        /// cbor data.
+        /// The engine.
+        engine: &mut Engine,
+        /// CBOR data.
         data: Spanned<Bytes>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        ciborium::from_reader(data.as_slice())
-            .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
-            .at(span)
+        cbor(engine, data.map(DataSource::Bytes))
     }
 
     /// Encode structured data into CBOR bytes.
@@ -55,7 +57,7 @@ impl cbor {
         let Spanned { v: value, span } = value;
         let mut res = Vec::new();
         ciborium::into_writer(&value, &mut res)
-            .map(|_| res.into())
+            .map(|_| Bytes::new(res))
             .map_err(|err| eco_format!("failed to encode value as CBOR ({err})"))
             .at(span)
     }

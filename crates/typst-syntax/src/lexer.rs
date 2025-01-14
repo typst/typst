@@ -616,6 +616,11 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '*' | '-' | '~' => SyntaxKind::MathShorthand,
 
+            '.' => SyntaxKind::Dot,
+            ',' => SyntaxKind::Comma,
+            ';' => SyntaxKind::Semicolon,
+            ')' => SyntaxKind::RightParen,
+
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
@@ -684,6 +689,45 @@ impl Lexer<'_> {
             self.s.jump(start + len);
         }
         SyntaxKind::Text
+    }
+
+    /// Handle named arguments in math function call.
+    pub fn maybe_math_named_arg(&mut self, start: usize) -> Option<SyntaxNode> {
+        let cursor = self.s.cursor();
+        self.s.jump(start);
+        if self.s.eat_if(is_id_start) {
+            self.s.eat_while(is_id_continue);
+            // Check that a colon directly follows the identifier, and not the
+            // `:=` or `::=` math shorthands.
+            if self.s.at(':') && !self.s.at(":=") && !self.s.at("::=") {
+                // Check that the identifier is not just `_`.
+                let node = if self.s.from(start) != "_" {
+                    SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start))
+                } else {
+                    let msg = SyntaxError::new("expected identifier, found underscore");
+                    SyntaxNode::error(msg, self.s.from(start))
+                };
+                return Some(node);
+            }
+        }
+        self.s.jump(cursor);
+        None
+    }
+
+    /// Handle spread arguments in math function call.
+    pub fn maybe_math_spread_arg(&mut self, start: usize) -> Option<SyntaxNode> {
+        let cursor = self.s.cursor();
+        self.s.jump(start);
+        if self.s.eat_if("..") {
+            // Check that neither a space nor a dot follows the spread syntax.
+            // A dot would clash with the `...` math shorthand.
+            if !self.space_or_end() && !self.s.at('.') {
+                let node = SyntaxNode::leaf(SyntaxKind::Dots, self.s.from(start));
+                return Some(node);
+            }
+        }
+        self.s.jump(cursor);
+        None
     }
 }
 
