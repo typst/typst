@@ -749,7 +749,7 @@ impl Show for Packed<TableCell> {
             let body = Some(self.body.clone());
             Ok(HtmlElem::new(tag::td).with_body(body).with_attrs(attrs).pack())
         } else {
-            show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+            show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
         }
     }
 }
