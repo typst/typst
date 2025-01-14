@@ -150,7 +150,7 @@ impl Show for Packed<TermsElem> {
             .then(|| HElem::new((-hanging_indent).into()).pack().spanned(span));
 
         let mut children = vec![];
-        for child in self.children().iter() {
+        for child in self.children.iter() {
             let mut seq = vec![];
             seq.extend(unpad.clone());
             seq.push(child.term().clone().strong());

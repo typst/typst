@@ -53,6 +53,6 @@ pub struct SmallcapsElem {
 impl Show for Packed<SmallcapsElem> {
     #[typst_macros::time(name = "smallcaps", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_smallcaps(true)))
+        Ok(self.body.clone().styled(TextElem::set_smallcaps(true)))
     }
 }
