@@ -75,6 +75,8 @@ pub struct ListElem {
     /// control, you may pass a function that maps the list's nesting depth
     /// (starting from `{0}`) to a desired marker.
     ///
+    /// Default: `([•], [‣], [–])`
+    ///
     /// ```example
     /// #set list(marker: [--])
     /// - A more classic list
