@@ -153,9 +153,9 @@ impl Show for Packed<TermsElem> {
         for child in self.children.iter() {
             let mut seq = vec![];
             seq.extend(unpad.clone());
-            seq.push(child.term().clone().strong());
+            seq.push(child.term.clone().strong());
             seq.push(separator.clone());
-            seq.push(child.description().clone());
+            seq.push(child.description.clone());
             children.push(StackChild::Block(Content::sequence(seq)));
         }
 
