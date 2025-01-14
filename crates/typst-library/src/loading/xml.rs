@@ -5,8 +5,7 @@ use typst_syntax::Spanned;
 use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from an XML file.
 ///
@@ -60,36 +59,36 @@ use crate::World;
 pub fn xml(
     /// The engine.
     engine: &mut Engine,
-    /// Path to an XML file.
+    /// A path to an XML file or raw XML bytes.
     ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    xml::decode(Spanned::new(Readable::Bytes(data), span))
+    let data = source.load(engine.world)?;
+    let text = data.as_str().map_err(FileError::from).at(source.span)?;
+    let document = roxmltree::Document::parse_with_options(
+        text,
+        ParsingOptions { allow_dtd: true, ..Default::default() },
+    )
+    .map_err(format_xml_error)
+    .at(source.span)?;
+    Ok(convert_xml(document.root()))
 }
 
 #[scope]
 impl xml {
     /// Reads structured data from an XML string/bytes.
+    ///
+    /// This function is deprecated. The [`xml`] function now accepts bytes
+    /// directly.
     #[func(title = "Decode XML")]
     pub fn decode(
+        /// The engine.
+        engine: &mut Engine,
         /// XML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        let text = std::str::from_utf8(data.as_slice())
-            .map_err(FileError::from)
-            .at(span)?;
-        let document = roxmltree::Document::parse_with_options(
-            text,
-            ParsingOptions { allow_dtd: true, ..Default::default() },
-        )
-        .map_err(format_xml_error)
-        .at(span)?;
-        Ok(convert_xml(document.root()))
+        xml(engine, data.map(Readable::into_source))
     }
 }
 

@@ -55,7 +55,7 @@ impl TestWorld {
     pub fn with_asset_at(mut self, path: &str, filename: &str) -> Self {
         let id = FileId::new(None, VirtualPath::new(path));
         let data = typst_dev_assets::get_by_name(filename).unwrap();
-        let bytes = Bytes::from_static(data);
+        let bytes = Bytes::new(data);
         Arc::make_mut(&mut self.files).assets.insert(id, bytes);
         self
     }
@@ -152,7 +152,7 @@ impl Default for TestBase {
     fn default() -> Self {
         let fonts: Vec<_> = typst_assets::fonts()
             .chain(typst_dev_assets::fonts())
-            .flat_map(|data| Font::iter(Bytes::from_static(data)))
+            .flat_map(|data| Font::iter(Bytes::new(data)))
             .collect();
 
         Self {

@@ -157,7 +157,7 @@ cast! {
 impl Show for Packed<QuoteElem> {
     #[typst_macros::time(name = "quote", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body().clone();
+        let mut realized = self.body.clone();
         let block = self.block(styles);
         let html = TargetElem::target_in(styles).is_html();
 

@@ -1124,6 +1124,53 @@ impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
     }
 }
 
+/// One element, or multiple provided as an array.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct OneOrMultiple<T>(pub Vec<T>);
+
+impl<T: Reflect> Reflect for OneOrMultiple<T> {
+    fn input() -> CastInfo {
+        T::input() + Array::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Array::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value) || T::castable(value)
+    }
+}
+
+impl<T: IntoValue + Clone> IntoValue for OneOrMultiple<T> {
+    fn into_value(self) -> Value {
+        self.0.into_value()
+    }
+}
+
+impl<T: FromValue> FromValue for OneOrMultiple<T> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if T::castable(&value) {
+            return Ok(Self(vec![T::from_value(value)?]));
+        }
+        if Array::castable(&value) {
+            return Ok(Self(
+                Array::from_value(value)?
+                    .into_iter()
+                    .map(|value| T::from_value(value))
+                    .collect::<HintedStrResult<_>>()?,
+            ));
+        }
+        Err(Self::error(&value))
+    }
+}
+
+impl<T> Default for OneOrMultiple<T> {
+    fn default() -> Self {
+        Self(vec![])
+    }
+}
+
 /// The error message when the array is empty.
 #[cold]
 fn array_is_empty() -> EcoString {

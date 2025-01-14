@@ -12,7 +12,7 @@ use typst_syntax::Span;
 use xmp_writer::{DateTime, LangId, RenditionClass, XmpWriter};
 
 use crate::page::PdfPageLabel;
-use crate::{hash_base64, outline, TextStrExt, Timezone, WithEverything};
+use crate::{hash_base64, outline, TextStrExt, Timestamp, Timezone, WithEverything};
 
 /// Write the document catalog.
 pub fn write_catalog(
@@ -86,23 +86,10 @@ pub fn write_catalog(
         info.keywords(TextStr::trimmed(&joined));
         xmp.pdf_keywords(&joined);
     }
-
-    // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
-    // (2) If the `document.date` is set to `auto` or not set, try to use the
-    //     date from the options.
-    // (3) Otherwise, we don't write date metadata.
-    let (date, tz) = match (ctx.document.info.date, ctx.options.timestamp) {
-        (Smart::Custom(date), _) => (date, None),
-        (Smart::Auto, Some(timestamp)) => {
-            (Some(timestamp.datetime), Some(timestamp.timezone))
-        }
-        _ => (None, None),
-    };
-    if let Some(date) = date {
-        if let Some(pdf_date) = pdf_date(date, tz) {
-            info.creation_date(pdf_date);
-            info.modified_date(pdf_date);
-        }
+    let (date, tz) = document_date(ctx.document.info.date, ctx.options.timestamp);
+    if let Some(pdf_date) = date.and_then(|date| pdf_date(date, tz)) {
+        info.creation_date(pdf_date);
+        info.modified_date(pdf_date);
     }
 
     info.finish();
@@ -154,7 +141,7 @@ pub fn write_catalog(
     }
 
     // Assert dominance.
-    if ctx.options.standards.pdfa {
+    if let Some((part, conformance)) = ctx.options.standards.pdfa_part {
         let mut extension_schemas = xmp.extension_schemas();
         extension_schemas
             .xmp_media_management()
@@ -162,8 +149,8 @@ pub fn write_catalog(
             .describe_instance_id();
         extension_schemas.pdf().properties().describe_all();
         extension_schemas.finish();
-        xmp.pdfa_part(2);
-        xmp.pdfa_conformance("B");
+        xmp.pdfa_part(part);
+        xmp.pdfa_conformance(conformance);
     }
 
     let xmp_buf = xmp.finish(None);
@@ -182,13 +169,35 @@ pub fn write_catalog(
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
-    // Write the named destination tree if there are any entries.
-    if !ctx.references.named_destinations.dests.is_empty() {
+    let has_dests = !ctx.references.named_destinations.dests.is_empty();
+    let has_embeddings = !ctx.references.embedded_files.is_empty();
+
+    // Write the `/Names` dictionary.
+    if has_dests || has_embeddings {
+        // Write the named destination tree if there are any entries.
         let mut name_dict = catalog.names();
-        let mut dests_name_tree = name_dict.destinations();
-        let mut names = dests_name_tree.names();
-        for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
-            names.insert(Str(name.resolve().as_bytes()), dest_ref);
+        if has_dests {
+            let mut dests_name_tree = name_dict.destinations();
+            let mut names = dests_name_tree.names();
+            for &(name, dest_ref, ..) in &ctx.references.named_destinations.dests {
+                names.insert(Str(name.resolve().as_bytes()), dest_ref);
+            }
+        }
+
+        if has_embeddings {
+            let mut embedded_files = name_dict.embedded_files();
+            let mut names = embedded_files.names();
+            for (name, file_ref) in &ctx.references.embedded_files {
+                names.insert(Str(name.as_bytes()), *file_ref);
+            }
+        }
+    }
+
+    if has_embeddings && ctx.options.standards.pdfa {
+        // PDF 2.0, but ISO 19005-3 (PDF/A-3) Annex E allows it for PDF/A-3.
+        let mut associated_files = catalog.insert(Name(b"AF")).array().typed();
+        for (_, file_ref) in ctx.references.embedded_files {
+            associated_files.item(file_ref).finish();
         }
     }
 
@@ -289,8 +298,27 @@ pub(crate) fn write_page_labels(
     result
 }
 
+/// Resolve the document date.
+///
+/// (1) If the `document.date` is set to specific `datetime` or `none`, use it.
+/// (2) If the `document.date` is set to `auto` or not set, try to use the
+///     date from the options.
+/// (3) Otherwise, we don't write date metadata.
+pub fn document_date(
+    document_date: Smart<Option<Datetime>>,
+    timestamp: Option<Timestamp>,
+) -> (Option<Datetime>, Option<Timezone>) {
+    match (document_date, timestamp) {
+        (Smart::Custom(date), _) => (date, None),
+        (Smart::Auto, Some(timestamp)) => {
+            (Some(timestamp.datetime), Some(timestamp.timezone))
+        }
+        _ => (None, None),
+    }
+}
+
 /// Converts a datetime to a pdf-writer date.
-fn pdf_date(datetime: Datetime, tz: Option<Timezone>) -> Option<pdf_writer::Date> {
+pub fn pdf_date(datetime: Datetime, tz: Option<Timezone>) -> Option<pdf_writer::Date> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut pdf_date = pdf_writer::Date::new(year);

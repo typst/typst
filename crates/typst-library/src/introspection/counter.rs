@@ -800,7 +800,7 @@ impl ManualPageCounter {
                     let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };
-                    if *elem.key() == CounterKey::Page {
+                    if elem.key == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
                         state.update(engine, elem.update.clone())?;
                         self.logical = state.first();
