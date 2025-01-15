@@ -1,24 +1,23 @@
 use std::num::NonZeroUsize;
 
-use typst_utils::NonZeroExt;
+use smallvec::{smallvec, SmallVec};
+use typst_utils::{NonZeroExt, Numeric};
 use unicode_math_class::MathClass;
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    cast, elem, Array, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, Value,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    AlignElem, Alignment, BlockElem, Em, InlineElem, Length, OuterHAlignment,
-    SpecificAlignment, VAlignment,
+    Abs, AlignElem, Alignment, BlockElem, Fr, InlineElem, Length, OuterHAlignment, Rel,
+    Spacing, SpecificAlignment, VAlignment,
 };
 use crate::math::{MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
-
-const DEFAULT_COL_GAP: Em = Em::new(1.0);
 
 /// A mathematical equation.
 ///
@@ -111,8 +110,14 @@ pub struct EquationElem {
     ///   0   &= 0 & &"no" \
     ///   1+1 &= 2 & &"maybe" $
     /// ```
-    #[default(DEFAULT_COL_GAP.into())]
-    pub column_gap: Length,
+    #[default(Fr::one().into())]
+    #[borrowed]
+    pub column_gap: GapSizings,
+
+    ///
+    #[default(Fr::one().into())]
+    #[borrowed]
+    pub column_padding: PaddingSizings,
 
     /// The contents of the equation.
     #[required]
@@ -203,7 +208,6 @@ impl ShowSet for Packed<EquationElem> {
             out.set(BlockElem::set_breakable(false));
             out.set(ParLine::set_numbering(None));
             out.set(EquationElem::set_size(MathSize::Display));
-            out.set(EquationElem::set_column_gap(self.column_gap(styles)));
         } else {
             out.set(EquationElem::set_size(MathSize::Text));
         }
@@ -261,4 +265,102 @@ impl Outlinable for Packed<EquationElem> {
     fn body(&self) -> Content {
         Content::empty()
     }
+}
+
+/// Gap sizing definitions.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct GapSizings<T: Numeric = Length>(pub SmallVec<[GapSizing<T>; 1]>);
+
+impl<T: Into<Spacing>> From<T> for GapSizings {
+    fn from(spacing: T) -> Self {
+        Self(smallvec![GapSizing::from(spacing)])
+    }
+}
+
+impl Resolve for &GapSizings {
+    type Output = GapSizings<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        Self::Output {
+            0: self.0.iter().map(|v| v.resolve(styles)).collect(),
+        }
+    }
+}
+
+cast! {
+    GapSizings,
+    self => self.0.into_value(),
+    v: GapSizing => Self(smallvec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
+}
+
+/// Padding sizing definitions.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PaddingSizings<T: Numeric = Length>(pub SmallVec<[GapSizing<T>; 2]>);
+
+impl<T: Into<Spacing>> From<T> for PaddingSizings {
+    fn from(spacing: T) -> Self {
+        let spacing = spacing.into();
+        Self(smallvec![GapSizing::from(spacing), GapSizing::from(spacing)])
+    }
+}
+
+impl Resolve for &PaddingSizings {
+    type Output = PaddingSizings<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        Self::Output {
+            0: self.0.iter().map(|v| v.resolve(styles)).collect(),
+        }
+    }
+}
+
+cast! {
+    PaddingSizings,
+    self => self.0.into_value(),
+    v: GapSizing => Self(smallvec![v, v]),
+    v: Array => match v.as_slice() {
+        [start, end] => Self(smallvec![start.clone().cast()?, end.clone().cast()?]),
+        _ => bail!("expected 2 sizings, found {}", v.len()),
+    },
+}
+
+/// Defines how to size a gap along an axis.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum GapSizing<T: Numeric = Length> {
+    /// A size specified in absolute terms and relative to the parent's size.
+    Rel(Rel<T>),
+    /// A size specified as a fraction of the remaining free space in the
+    /// parent.
+    Fr(Fr),
+}
+
+impl Resolve for GapSizing {
+    type Output = GapSizing<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Self::Rel(rel) => Self::Output::Rel(rel.resolve(styles)),
+            Self::Fr(fr) => Self::Output::Fr(fr),
+        }
+    }
+}
+
+impl<T: Into<Spacing>> From<T> for GapSizing {
+    fn from(spacing: T) -> Self {
+        match spacing.into() {
+            Spacing::Rel(rel) => Self::Rel(rel),
+            Spacing::Fr(fr) => Self::Fr(fr),
+        }
+    }
+}
+
+cast! {
+    GapSizing,
+    self => match self {
+        Self::Rel(rel) => rel.into_value(),
+        Self::Fr(fr) => fr.into_value(),
+    },
+    v: Rel<Length> => Self::Rel(v),
+    v: Fr => Self::Fr(v),
 }

@@ -220,7 +220,7 @@ fn layout_body(
     let mut x = Abs::zero();
 
     for (index, col) in cols.into_iter().enumerate() {
-        let AlignmentResult { points, width: rcol } = alignments(&col, Abs::zero());
+        let AlignmentResult { points, width: rcol, .. } = alignments(&col, None);
 
         let mut y = Abs::zero();
 
