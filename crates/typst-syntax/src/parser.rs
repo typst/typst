@@ -93,6 +93,8 @@ fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
             p.hint("try using a backslash escape: \\]");
         }
 
+        SyntaxKind::Shebang => p.eat(),
+
         SyntaxKind::Text
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape
