@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::eco_format;
-use typst_utils::NonZeroExt;
+use typst_utils::{Get, NonZeroExt};
 
 use crate::diag::{warning, SourceResult};
 use crate::engine::Engine;
@@ -13,8 +13,8 @@ use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
-use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region};
-use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region, Sides};
+use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 
 /// A section heading.
@@ -264,10 +264,6 @@ impl Show for Packed<HeadingElem> {
             realized = numbering + spacing + realized;
         }
 
-        if indent != Abs::zero() && !html {
-            realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
-        }
-
         Ok(if html {
             // HTML's h1 is closer to a title element. There should only be one.
             // Meanwhile, a level 1 Typst heading is a section heading. For this
@@ -294,8 +290,17 @@ impl Show for Packed<HeadingElem> {
                 HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
             }
         } else {
-            let realized = BlockBody::Content(realized);
-            BlockElem::new().with_body(Some(realized)).pack().spanned(span)
+            let block = if indent != Abs::zero() {
+                let body = HElem::new((-indent).into()).pack() + realized;
+                let inset = Sides::default()
+                    .with(TextElem::dir_in(styles).start(), Some(indent.into()));
+                BlockElem::new()
+                    .with_body(Some(BlockBody::Content(body)))
+                    .with_inset(inset)
+            } else {
+                BlockElem::new().with_body(Some(BlockBody::Content(realized)))
+            };
+            block.pack().spanned(span)
         })
     }
 }

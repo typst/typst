@@ -276,6 +276,15 @@ pub trait Get<Index> {
     fn set(&mut self, index: Index, component: Self::Component) {
         *self.get_mut(index) = component;
     }
+
+    /// Builder-style method for setting a component.
+    fn with(mut self, index: Index, component: Self::Component) -> Self
+    where
+        Self: Sized,
+    {
+        self.set(index, component);
+        self
+    }
 }
 
 /// A numeric type.
