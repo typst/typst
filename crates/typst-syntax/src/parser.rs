@@ -1605,10 +1605,12 @@ impl AtNewline {
                 _ => true,
             },
             AtNewline::StopParBreak => parbreak,
-            AtNewline::RequireColumn(min_col) => match column {
-                Some(column) => column <= min_col,
-                None => false, // Don't stop if we had no column.
-            },
+            AtNewline::RequireColumn(min_col) => {
+                // Don't stop if this newline doesn't start a column (this may
+                // be checked on the boundary of lexer modes, since we only
+                // report a column in Markup).
+                column.is_some_and(|column| column <= min_col)
+            }
         }
     }
 }
@@ -1703,10 +1705,13 @@ impl<'s> Parser<'s> {
         self.token.newline.is_some()
     }
 
-    /// The number of characters until the most recent newline from the current
-    /// token, or 0 if it did not follow a newline.
+    /// The number of characters until the most recent newline from the start of
+    /// the current token. Uses a cached value from the newline mode if present.
     fn current_column(&self) -> usize {
-        self.token.newline.and_then(|newline| newline.column).unwrap_or(0)
+        self.token
+            .newline
+            .and_then(|newline| newline.column)
+            .unwrap_or_else(|| self.lexer.column(self.token.start))
     }
 
     /// The current token's text.
