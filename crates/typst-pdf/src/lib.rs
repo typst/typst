@@ -4,6 +4,7 @@ mod catalog;
 mod color;
 mod color_font;
 mod content;
+mod embed;
 mod extg;
 mod font;
 mod gradient;
@@ -14,12 +15,13 @@ mod page;
 mod resources;
 mod tiling;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 
 use base64::Engine;
+use ecow::EcoString;
 use pdf_writer::{Chunk, Name, Pdf, Ref, Str, TextStr};
 use serde::{Deserialize, Serialize};
 use typst_library::diag::{bail, SourceResult, StrResult};
@@ -33,6 +35,7 @@ use typst_utils::Deferred;
 use crate::catalog::write_catalog;
 use crate::color::{alloc_color_functions_refs, ColorFunctionRefs};
 use crate::color_font::{write_color_fonts, ColorFontSlice};
+use crate::embed::write_embedded_files;
 use crate::extg::{write_graphic_states, ExtGState};
 use crate::font::write_fonts;
 use crate::gradient::{write_gradients, PdfGradient};
@@ -67,6 +70,7 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
                 gradients: builder.run(write_gradients)?,
                 tilings: builder.run(write_tilings)?,
                 ext_gs: builder.run(write_graphic_states)?,
+                embedded_files: builder.run(write_embedded_files)?,
             })
         })?
         .phase(|builder| builder.run(write_page_tree))?
@@ -147,16 +151,34 @@ pub enum Timezone {
 /// Encapsulates a list of compatible PDF standards.
 #[derive(Clone)]
 pub struct PdfStandards {
-    /// For now, we simplify to just PDF/A, since we only support PDF/A-2b. But
-    /// it can be more fine-grained in the future.
+    /// For now, we simplify to just PDF/A. But it can be more fine-grained in
+    /// the future.
     pub(crate) pdfa: bool,
+    /// Whether the standard allows for embedding any kind of file into the PDF.
+    /// We disallow this for PDF/A-2, since it only allows embedding
+    /// PDF/A-1 and PDF/A-2 documents.
+    pub(crate) embedded_files: bool,
+    /// Part of the PDF/A standard.
+    pub(crate) pdfa_part: Option<(i32, &'static str)>,
 }
 
 impl PdfStandards {
     /// Validates a list of PDF standards for compatibility and returns their
     /// encapsulated representation.
     pub fn new(list: &[PdfStandard]) -> StrResult<Self> {
-        Ok(Self { pdfa: list.contains(&PdfStandard::A_2b) })
+        let a2b = list.contains(&PdfStandard::A_2b);
+        let a3b = list.contains(&PdfStandard::A_3b);
+
+        if a2b && a3b {
+            bail!("PDF cannot conform to A-2B and A-3B at the same time")
+        }
+
+        let pdfa = a2b || a3b;
+        Ok(Self {
+            pdfa,
+            embedded_files: !a2b,
+            pdfa_part: pdfa.then_some((if a2b { 2 } else { 3 }, "B")),
+        })
     }
 }
 
@@ -166,10 +188,9 @@ impl Debug for PdfStandards {
     }
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for PdfStandards {
     fn default() -> Self {
-        Self { pdfa: false }
+        Self { pdfa: false, embedded_files: true, pdfa_part: None }
     }
 }
 
@@ -186,6 +207,9 @@ pub enum PdfStandard {
     /// PDF/A-2b.
     #[serde(rename = "a-2b")]
     A_2b,
+    /// PDF/A-3b.
+    #[serde(rename = "a-3b")]
+    A_3b,
 }
 
 /// A struct to build a PDF following a fixed succession of phases.
@@ -316,6 +340,8 @@ struct References {
     tilings: HashMap<PdfTiling, Ref>,
     /// The IDs of written external graphics states.
     ext_gs: HashMap<ExtGState, Ref>,
+    /// The names and references for embedded files.
+    embedded_files: BTreeMap<EcoString, Ref>,
 }
 
 /// At this point, the references have been assigned to all resources. The page
@@ -474,6 +500,14 @@ impl<R: Renumber> Renumber for Vec<R> {
 }
 
 impl<T: Eq + Hash, R: Renumber> Renumber for HashMap<T, R> {
+    fn renumber(&mut self, offset: i32) {
+        for v in self.values_mut() {
+            v.renumber(offset);
+        }
+    }
+}
+
+impl<T: Ord, R: Renumber> Renumber for BTreeMap<T, R> {
     fn renumber(&mut self, offset: i32) {
         for v in self.values_mut() {
             v.renumber(offset);

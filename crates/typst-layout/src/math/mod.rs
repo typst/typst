@@ -632,7 +632,7 @@ fn layout_h(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    if let Spacing::Rel(rel) = elem.amount() {
+    if let Spacing::Rel(rel) = elem.amount {
         if rel.rel.is_zero() {
             ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
         }
@@ -647,11 +647,10 @@ fn layout_class(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let class = *elem.class();
-    let style = EquationElem::set_class(Some(class)).wrap();
-    let mut fragment = ctx.layout_into_fragment(elem.body(), styles.chain(&style))?;
-    fragment.set_class(class);
-    fragment.set_limits(Limits::for_class(class));
+    let style = EquationElem::set_class(Some(elem.class)).wrap();
+    let mut fragment = ctx.layout_into_fragment(&elem.body, styles.chain(&style))?;
+    fragment.set_class(elem.class);
+    fragment.set_limits(Limits::for_class(elem.class));
     ctx.push(fragment);
     Ok(())
 }
@@ -663,7 +662,7 @@ fn layout_op(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let fragment = ctx.layout_into_fragment(elem.text(), styles)?;
+    let fragment = ctx.layout_into_fragment(&elem.text, styles)?;
     let italics = fragment.italics_correction();
     let accent_attach = fragment.accent_attach();
     let text_like = fragment.is_text_like();

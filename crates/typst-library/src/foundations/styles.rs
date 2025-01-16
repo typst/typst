@@ -12,7 +12,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, ty, Content, Context, Element, Func, NativeElement, Repr, Selector,
+    cast, ty, Content, Context, Element, Func, NativeElement, OneOrMultiple, Repr,
+    Selector,
 };
 use crate::text::{FontFamily, FontList, TextElem};
 
@@ -935,6 +936,13 @@ impl<T> Fold for Vec<T> {
 impl<T, const N: usize> Fold for SmallVec<[T; N]> {
     fn fold(self, mut outer: Self) -> Self {
         outer.extend(self);
+        outer
+    }
+}
+
+impl<T> Fold for OneOrMultiple<T> {
+    fn fold(self, mut outer: Self) -> Self {
+        outer.0.extend(self.0);
         outer
     }
 }

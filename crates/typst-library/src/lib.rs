@@ -21,6 +21,7 @@ pub mod layout;
 pub mod loading;
 pub mod math;
 pub mod model;
+pub mod pdf;
 pub mod routines;
 pub mod symbols;
 pub mod text;
@@ -249,6 +250,7 @@ fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
+    self::pdf::define(&mut global);
     global.reset_category();
     if features.is_enabled(Feature::Html) {
         global.define_module(self::html::module());

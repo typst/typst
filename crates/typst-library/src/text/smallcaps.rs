@@ -66,7 +66,7 @@ impl Show for Packed<SmallcapsElem> {
     #[typst_macros::time(name = "smallcaps", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
-            .body()
+            .body
             .clone()
             .styled(TextElem::set_smallcaps_from_caps(self.uppercase(styles)))
             .styled(TextElem::set_smallcaps(self.lowercase(styles))))

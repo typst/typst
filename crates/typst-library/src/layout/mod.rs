@@ -12,7 +12,7 @@ mod em;
 mod fr;
 mod fragment;
 mod frame;
-mod grid;
+pub mod grid;
 mod hide;
 #[path = "layout.rs"]
 mod layout_;

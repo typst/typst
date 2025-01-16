@@ -110,6 +110,7 @@ impl Hash for Repr {
         // all used fonts gives us something similar.
         self.data.hash(state);
         self.font_hash.hash(state);
+        self.flatten_text.hash(state);
     }
 }
 
