@@ -3,8 +3,9 @@ use std::mem;
 use std::ops::{Index, IndexMut, Range};
 
 use ecow::{eco_format, EcoString};
-use unicode_math_class::MathClass;
 use typst_utils::default_math_class;
+use unicode_math_class::MathClass;
+
 use crate::set::{syntax_set, SyntaxSet};
 use crate::{ast, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
 
