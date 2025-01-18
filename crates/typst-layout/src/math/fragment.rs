@@ -15,6 +15,7 @@ use typst_library::model::{Destination, LinkElem};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
+use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use super::{stretch_glyph, MathContext, Scaled};
@@ -280,7 +281,7 @@ impl GlyphFragment {
             .or_else(|| match c {
                 ':' => Some(MathClass::Relation),
                 '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
-                _ => unicode_math_class::class(c),
+                _ => default_math_class(c),
             })
             .unwrap_or(MathClass::Normal);
 
@@ -632,7 +633,7 @@ pub enum Limits {
 impl Limits {
     /// The default limit configuration if the given character is the base.
     pub fn for_char(c: char) -> Self {
-        match unicode_math_class::class(c) {
+        match default_math_class(c) {
             Some(MathClass::Large) => {
                 if is_integral_char(c) {
                     Limits::Never

@@ -1,6 +1,6 @@
 use smallvec::{smallvec, SmallVec};
 use typst_syntax::Spanned;
-use typst_utils::Numeric;
+use typst_utils::{default_math_class, Numeric};
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, At, HintedStrResult, StrResult};
@@ -292,7 +292,7 @@ impl Delimiter {
 
     pub fn char(c: char) -> StrResult<Self> {
         if !matches!(
-            unicode_math_class::class(c),
+            default_math_class(c),
             Some(MathClass::Opening | MathClass::Closing | MathClass::Fence),
         ) {
             bail!("invalid delimiter: \"{}\"", c)
@@ -311,7 +311,7 @@ impl Delimiter {
             Some(']') => Self(Some('[')),
             Some('{') => Self(Some('}')),
             Some('}') => Self(Some('{')),
-            Some(c) => match unicode_math_class::class(c) {
+            Some(c) => match default_math_class(c) {
                 Some(MathClass::Opening) => Self(char::from_u32(c as u32 + 1)),
                 Some(MathClass::Closing) => Self(char::from_u32(c as u32 - 1)),
                 _ => Self(Some(c)),

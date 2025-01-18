@@ -31,6 +31,7 @@ use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
+use unicode_math_class::MathClass;
 
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
@@ -300,4 +301,15 @@ pub trait Numeric:
 
     /// Whether `self` consists only of finite parts.
     fn is_finite(self) -> bool;
+}
+
+/// Returns default the math class of a character in Typst, if it has one.
+///
+/// This is determined by the Unicode math class, with some manual overrides.
+pub fn default_math_class(c: char) -> Option<MathClass> {
+    match c {
+        // ⊥ UP TACK. See https://github.com/typst/typst/issues/4985.
+        '\u{22A5}' => Some(MathClass::Normal),
+        c => unicode_math_class::class(c),
+    }
 }

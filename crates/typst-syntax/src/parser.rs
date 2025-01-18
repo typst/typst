@@ -4,7 +4,7 @@ use std::ops::{Index, IndexMut, Range};
 
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
-
+use typst_utils::default_math_class;
 use crate::set::{syntax_set, SyntaxSet};
 use crate::{ast, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
 
@@ -464,7 +464,7 @@ fn math_class(text: &str) -> Option<MathClass> {
     chars
         .next()
         .filter(|_| chars.next().is_none())
-        .and_then(unicode_math_class::class)
+        .and_then(default_math_class)
 }
 
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
