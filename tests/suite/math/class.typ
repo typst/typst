@@ -45,3 +45,8 @@ $class("large", ->)_a$
 
 $limits(class("normal", ->))_a$
 $ scripts(class("relation", x))_a $
+
+--- issue-4985-up-tack-is-normal-perp-is-relation ---
+$ top = 1 \
+  bot = 2 \
+  a perp b $
