@@ -359,7 +359,11 @@ impl SyntaxKind {
     pub fn is_trivia(self) -> bool {
         matches!(
             self,
-            Self::LineComment | Self::BlockComment | Self::Space | Self::Parbreak
+            Self::Shebang
+                | Self::LineComment
+                | Self::BlockComment
+                | Self::Space
+                | Self::Parbreak
         )
     }
 
