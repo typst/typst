@@ -1,5 +1,7 @@
 //! Interaction between document parts.
 
+#[path = "count.rs"]
+mod count_;
 mod counter;
 #[path = "here.rs"]
 mod here_;
@@ -14,6 +16,7 @@ mod query_;
 mod state;
 mod tag;
 
+pub use self::count_::*;
 pub use self::counter::*;
 pub use self::here_::*;
 pub use self::introspector::*;
@@ -49,5 +52,6 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<MetadataElem>();
     global.define_func::<here>();
     global.define_func::<query>();
+    global.define_func::<count>();
     global.define_func::<locate>();
 }
