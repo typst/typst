@@ -75,6 +75,7 @@ ops! {
     dim,
     exp,
     gcd (limits),
+    lcm (limits),
     hom,
     id,
     im,
