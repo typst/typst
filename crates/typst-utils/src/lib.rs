@@ -303,7 +303,7 @@ pub trait Numeric:
     fn is_finite(self) -> bool;
 }
 
-/// Returns default the math class of a character in Typst, if it has one.
+/// Returns the default math class of a character in Typst, if it has one.
 ///
 /// This is determined by the Unicode math class, with some manual overrides.
 pub fn default_math_class(c: char) -> Option<MathClass> {
