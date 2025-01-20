@@ -472,6 +472,26 @@ pub mod tag {
         wbr
     }
 
+    pub mod math {
+        use super::HtmlTag;
+
+        tags! {
+            math
+            mfrac
+            mi
+            mmultiscripts
+            mprescripts
+            mrow
+            msub
+            msup
+            munderover
+        }
+
+        pub fn is_self_closing(tag: HtmlTag) -> bool {
+            matches!(tag, self::mprescripts)
+        }
+    }
+
     /// Whether nodes with the tag have the CSS property `display: block` by
     /// default.
     ///
@@ -569,8 +589,9 @@ pub mod tag {
         )
     }
 
-    /// Whether this is a void tag whose associated element may not have a
-    /// children.
+    /// Whether this is a void tag whose elements may not have children.
+    ///
+    /// Source: <https://html.spec.whatwg.org/#void-elements>
     pub fn is_void(tag: HtmlTag) -> bool {
         matches!(
             tag,
@@ -589,6 +610,18 @@ pub mod tag {
                 | self::track
                 | self::wbr
         )
+    }
+
+    /// Whether this is a self-closing foreign tag.
+    ///
+    /// A foreign tag is a tag from the MathML or the SVG namespace
+    /// <https://html.spec.whatwg.org/#foreign-elements>.
+    ///
+    /// We use this to determine whether a tag needs to be
+    /// terminated with `/ >` (foreign elements) instead of just `>`.
+    /// See <https://html.spec.whatwg.org/#start-tags>.
+    pub fn is_self_closing_foreign(tag: HtmlTag) -> bool {
+        math::is_self_closing(tag)
     }
 
     /// Whether this is a tag containing raw text.

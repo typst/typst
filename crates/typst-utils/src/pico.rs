@@ -219,6 +219,7 @@ mod exceptions {
         "h5",
         "h6",
         "historical-ligatures",
+        "mmultiscripts",
         "number-clearance",
         "number-margin",
         "numbering-scope",

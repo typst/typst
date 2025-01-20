@@ -80,9 +80,13 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         w.buf.push('"');
     }
 
+    if tag::is_self_closing_foreign(element.tag) {
+        w.buf.push_str(" /");
+    }
+
     w.buf.push('>');
 
-    if tag::is_void(element.tag) {
+    if tag::is_void(element.tag) || tag::is_self_closing_foreign(element.tag) {
         return Ok(());
     }
 
