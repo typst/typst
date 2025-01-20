@@ -77,6 +77,49 @@ _Shopping list_
 
 #test(indented, manual)
 
+--- list-indent-bracket-nesting ---
+// Test list indent nesting behavior when directly at a starting bracket.
+
+#let indented = {
+  [- indented
+  - less
+  ]
+  [- indented
+   - same
+  - then less
+   - then same
+  ]
+  [- indented
+    - more
+   - then same
+  - then less
+  ]
+}
+
+#let item = list.item
+#let manual = {
+    {
+      item[indented]; [ ]
+      item[less]; [ ]
+    }
+    {
+      item[indented]; [ ]
+      item[same]; [ ]
+      item[then less #{
+        item[then same]
+      }]; [ ]
+    }
+    {
+      item[indented #{
+        item[more]
+      }]; [ ]
+      item[then same]; [ ]
+      item[then less]; [ ]
+    }
+}
+
+#test(indented, manual)
+
 --- list-tabs ---
 // This works because tabs are used consistently.
 	- A with 1 tab
