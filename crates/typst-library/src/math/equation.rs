@@ -7,8 +7,9 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    Synthesize, TargetElem,
 };
+use crate::html::{tag, HtmlAttr, HtmlElem};
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, InlineElem, OuterHAlignment, SpecificAlignment,
@@ -163,8 +164,128 @@ impl Synthesize for Packed<EquationElem> {
     }
 }
 
+use crate::foundations::SequenceElem;
+use crate::math::{AttachElem, FracElem, LrElem, PrimesElem};
+fn bla(elem: &Content, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+    dbg!(elem);
+    if let Some(sequence) = elem.to_packed::<SequenceElem>() {
+        let c: SourceResult<Vec<_>> =
+            sequence.children.iter().map(|c| bla(c, engine, styles)).collect();
+        Ok(HtmlElem::new(tag::math::mrow)
+            .with_body(Some(Content::sequence(c?)))
+            .pack()
+            .spanned(elem.span()))
+    } else if let Some(_) = elem.to_packed::<TextElem>() {
+        Ok(HtmlElem::new(tag::math::mi)
+            .with_body(Some(elem.clone()))
+            .pack()
+            .spanned(elem.span()))
+    } else if let Some(elem) = elem.to_packed::<LrElem>() {
+        show_lr(elem, engine, styles)
+    } else if let Some(elem) = elem.to_packed::<FracElem>() {
+        show_frac(elem, engine, styles)
+    } else if let Some(elem) = elem.to_packed::<AttachElem>() {
+        show_attach(elem, engine, styles)
+    } else {
+        Ok(elem.clone())
+    }
+}
+
+fn show_lr(
+    elem: &Packed<LrElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+) -> SourceResult<Content> {
+    /*
+    if let Some(seq) = body.to_packed::<SequenceElem>() {
+        let children = &seq.children;
+        match &children[..] {
+            [l, mid @ .., r] => todo!(),
+            _ => todo!(),
+        }
+    }
+    dbg!(&body);
+    */
+    bla(&elem.body, engine, styles)
+}
+
+fn show_frac(
+    elem: &Packed<FracElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+) -> SourceResult<Content> {
+    let num = bla(&elem.num, engine, styles)?;
+    let denom = bla(&elem.denom, engine, styles)?;
+    let body = Content::sequence([num, denom]);
+    Ok(HtmlElem::new(tag::math::mfrac)
+        .with_body(Some(body))
+        .pack()
+        .spanned(elem.span()))
+}
+
+fn show_attach(
+    elem: &Packed<AttachElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+) -> SourceResult<Content> {
+    let merged = elem.merge_base();
+    let elem = merged.as_ref().unwrap_or(elem);
+
+    let base = elem.base.clone();
+    let sup_style_chain = styles;
+    let tl = elem.tl(sup_style_chain);
+    let tr = elem.tr(sup_style_chain);
+    let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
+    let t = elem.t(sup_style_chain);
+
+    let sub_style_chain = styles;
+    let bl = elem.bl(sub_style_chain);
+    let br = elem.br(sub_style_chain);
+    let b = elem.b(sub_style_chain);
+
+    let limits = false; //base.limits().active(styles);
+    let (t, tr) = match (t, tr) {
+        (Some(t), Some(tr)) if primed && !limits => (None, Some(tr + t)),
+        (Some(t), None) if !limits => (None, Some(t)),
+        (t, tr) => (t, tr),
+    };
+    let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
+
+    let none = || HtmlElem::new(tag::math::mrow).pack();
+    let br = br.map(|c| bla(&c, engine, styles)).transpose()?.unwrap_or_else(none);
+    let tr = tr.map(|c| bla(&c, engine, styles)).transpose()?.unwrap_or_else(none);
+    let bl = bl.map(|c| bla(&c, engine, styles)).transpose()?.unwrap_or_else(none);
+    let tl = tl.map(|c| bla(&c, engine, styles)).transpose()?.unwrap_or_else(none);
+    let b = b.map(|c| bla(&c, engine, styles)).transpose()?;
+    let t = t.map(|c| bla(&c, engine, styles)).transpose()?;
+    let prescripts = HtmlElem::new(tag::math::mprescripts).pack();
+
+    let base = match (b, t) {
+        (Some(b), Some(t)) => HtmlElem::new(tag::math::munderover)
+            .with_body(Some(Content::sequence([base, b, t])))
+            .pack(),
+        (None, None) => base,
+        _ => todo!(),
+    };
+
+    let body = Content::sequence([base, br, tr, prescripts, bl, tl]);
+    Ok(HtmlElem::new(tag::math::mmultiscripts)
+        .with_body(Some(body))
+        .pack()
+        .spanned(elem.span()))
+}
+
 impl Show for Packed<EquationElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles).is_html() {
+            let disp = if self.block(styles) { "block" } else { "inline" };
+            dbg!(&self.body);
+            let elem = HtmlElem::new(tag::math::math)
+                .with_attr(HtmlAttr::constant("display"), disp)
+                .with_body(Some(bla(&self.body, engine, styles)?));
+            return Ok(elem.pack().spanned(self.span()));
+        }
+
         if self.block(styles) {
             Ok(BlockElem::multi_layouter(
                 self.clone(),
