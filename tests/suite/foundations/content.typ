@@ -85,7 +85,7 @@
   [With ]
   vars
     .pairs()
-    .map(((name, value)) => $name = value$)
+    .map(((name, value)) => $#symbol(name) = value$)
     .join(", ", last: " and ")
   [ we have:]
   $ equation = result $

@@ -538,11 +538,7 @@ fn layout_realized(
     } else if let Some(elem) = elem.to_packed::<TextElem>() {
         self::text::layout_text(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
-        // This is a hack to avoid affecting layout that will be replaced in a
-        // later commit.
-        let text_elem = TextElem::new(elem.text.to_string().into());
-        let packed = Packed::new(text_elem);
-        self::text::layout_text(&packed, ctx, styles)?;
+        self::text::layout_symbol(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
         layout_box(elem, ctx, styles)?;
     } else if elem.is::<AlignPointElem>() {
