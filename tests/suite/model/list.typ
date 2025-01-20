@@ -155,7 +155,7 @@ Not in list
   - B
     - C
 
---- list-marker-closure ---
+--- list-marker-closure html render ---
 // Test function.
 #set list(marker: n => if n == 1 [--] else [•])
 - A
