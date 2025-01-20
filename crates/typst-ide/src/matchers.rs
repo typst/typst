@@ -104,16 +104,16 @@ pub fn named_items<T>(
                                         .and_then(|s| s.get_span(&path_ident))
                                         .unwrap_or(Span::detached())
                                         .or(span);
-                                    let value = scope.and_then(|s| s.get(&path_ident));
+                                    let value = scope
+                                        .and_then(|s| s.get(&path_ident))
+                                        .map(MaybeDeprecated::into_inner);
                                     (span, value)
                                 },
                             );
 
-                            if let Some(res) = recv(NamedItem::Import(
-                                bound.get(),
-                                span,
-                                value.map(MaybeDeprecated::into_inner),
-                            )) {
+                            if let Some(res) =
+                                recv(NamedItem::Import(bound.get(), span, value))
+                            {
                                 return Some(res);
                             }
                         }
