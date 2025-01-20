@@ -175,7 +175,7 @@ fn bla(elem: &Content, engine: &mut Engine, styles: StyleChain) -> SourceResult<
             .with_body(Some(Content::sequence(c?)))
             .pack()
             .spanned(elem.span()))
-    } else if let Some(_) = elem.to_packed::<TextElem>() {
+    } else if elem.to_packed::<TextElem>().is_some() {
         Ok(HtmlElem::new(tag::math::mi)
             .with_body(Some(elem.clone()))
             .pack()
