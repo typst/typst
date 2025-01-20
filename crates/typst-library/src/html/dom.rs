@@ -480,6 +480,8 @@ pub mod tag {
             mfrac
             mi
             mmultiscripts
+            mo
+            mover
             mprescripts
             mrow
             msub

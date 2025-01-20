@@ -165,7 +165,8 @@ impl Synthesize for Packed<EquationElem> {
 }
 
 use crate::foundations::SequenceElem;
-use crate::math::{AttachElem, FracElem, LrElem, PrimesElem};
+use crate::math::{AccentElem, AttachElem, FracElem, LrElem, PrimesElem};
+use ecow::eco_format;
 fn bla(elem: &Content, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
     dbg!(elem);
     if let Some(sequence) = elem.to_packed::<SequenceElem>() {
@@ -186,6 +187,14 @@ fn bla(elem: &Content, engine: &mut Engine, styles: StyleChain) -> SourceResult<
         show_frac(elem, engine, styles)
     } else if let Some(elem) = elem.to_packed::<AttachElem>() {
         show_attach(elem, engine, styles)
+    } else if let Some(elem) = elem.to_packed::<AccentElem>() {
+        let accent = TextElem::packed(eco_format!(" {}", elem.accent.0));
+        let accent = HtmlElem::new(tag::math::mo).with_body(Some(accent)).pack();
+        let body = Content::sequence([elem.base.clone(), accent]);
+        Ok(HtmlElem::new(tag::math::mover)
+            .with_body(Some(body))
+            .pack()
+            .spanned(elem.span()))
     } else {
         Ok(elem.clone())
     }
