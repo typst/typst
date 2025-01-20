@@ -13,7 +13,7 @@ use crate::text::TextElem;
 ///
 /// # Smallcaps fonts
 /// By default, this uses the `smcp` and `c2sc` OpenType features on the font.
-/// Not all fonts support this feature. Sometimes, smallcaps are part of a
+/// Not all fonts support these features. Sometimes, smallcaps are part of a
 /// dedicated font. This is, for example, the case for the _Latin Modern_ family
 /// of fonts. In those cases, you can use a show-set rule to customize the
 /// appearance of the text in smallcaps:
@@ -45,18 +45,17 @@ use crate::text::TextElem;
 /// ```
 #[elem(title = "Small Capitals", Show)]
 pub struct SmallcapsElem {
-    /// Whether to turn uppercase letters into small capitals.
+    /// Whether to turn uppercase letters into small capitals as well.
     ///
     /// Unless overridden by a show rule, this enables the `c2sc` OpenType
     /// feature.
-    #[default(false)]
-    pub uppercase: bool,
-    /// Whether to turn lowercase letters into small capitals.
     ///
-    /// Unless overridden by a show rule, this enables the `smcp` OpenType
-    /// feature.
-    #[default(true)]
-    pub lowercase: bool,
+    /// ```example
+    /// #smallcaps(all: true)[UNICEF] is an
+    /// agency of #smallcaps(all: true)[UN].
+    /// ```
+    #[default(false)]
+    pub all: bool,
     /// The content to display in small capitals.
     #[required]
     pub body: Content,
@@ -68,7 +67,7 @@ impl Show for Packed<SmallcapsElem> {
         Ok(self
             .body
             .clone()
-            .styled(TextElem::set_smallcaps_from_caps(self.uppercase(styles)))
-            .styled(TextElem::set_smallcaps(self.lowercase(styles))))
+            .styled(TextElem::set_smallcaps_from_caps(self.all(styles)))
+            .styled(TextElem::set_smallcaps(true)))
     }
 }
