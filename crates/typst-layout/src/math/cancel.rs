@@ -16,7 +16,7 @@ pub fn layout_cancel(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let body = ctx.layout_into_fragment(elem.body(), styles)?;
+    let body = ctx.layout_into_fragment(&elem.body, styles)?;
 
     // Preserve properties of body.
     let body_class = body.class();

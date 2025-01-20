@@ -36,6 +36,7 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Content(b)) => Content(TextElem::packed(a.get()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
+        (Args(a), Args(b)) => Args(a + b),
         (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }
@@ -136,6 +137,7 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
+        (Args(a), Args(b)) => Args(a + b),
 
         (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
             Stroke::from_pair(color, thickness).into_value()

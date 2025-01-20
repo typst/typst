@@ -105,12 +105,12 @@ impl FootnoteElem {
 
     /// Tests if this footnote is a reference to another footnote.
     pub fn is_ref(&self) -> bool {
-        matches!(self.body(), FootnoteBody::Reference(_))
+        matches!(self.body, FootnoteBody::Reference(_))
     }
 
     /// Returns the content of the body of this footnote if it is not a ref.
     pub fn body_content(&self) -> Option<&Content> {
-        match self.body() {
+        match &self.body {
             FootnoteBody::Content(content) => Some(content),
             _ => None,
         }
@@ -120,9 +120,9 @@ impl FootnoteElem {
 impl Packed<FootnoteElem> {
     /// Returns the location of the definition of this footnote.
     pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
-        match self.body() {
+        match self.body {
             FootnoteBody::Reference(label) => {
-                let element = engine.introspector.query_label(*label)?;
+                let element = engine.introspector.query_label(label)?;
                 let footnote = element
                     .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
@@ -281,12 +281,11 @@ impl Show for Packed<FootnoteEntry> {
     #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
-        let note = self.note();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
-        let numbering = note.numbering(default);
+        let numbering = self.note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
-        let Some(loc) = note.location() else {
+        let Some(loc) = self.note.location() else {
             bail!(
                 span, "footnote entry must have a location";
                 hint: "try using a query or a show rule to customize the footnote instead"
@@ -304,7 +303,7 @@ impl Show for Packed<FootnoteEntry> {
             HElem::new(self.indent(styles).into()).pack(),
             sup,
             HElem::new(number_gap.into()).with_weak(true).pack(),
-            note.body_content().unwrap().clone(),
+            self.note.body_content().unwrap().clone(),
         ]))
     }
 }

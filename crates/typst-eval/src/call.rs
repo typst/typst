@@ -688,8 +688,7 @@ mod tests {
 
         // Named-params.
         test(s, "$ foo(bar: y) $", &["foo"]);
-        // This should be updated when we improve named-param parsing:
-        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["bar", "foo"]);
+        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["foo"]);
 
         // Field access in math.
         test(s, "$ foo.bar $", &["foo"]);

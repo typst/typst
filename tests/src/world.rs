@@ -99,7 +99,7 @@ impl Default for TestBase {
     fn default() -> Self {
         let fonts: Vec<_> = typst_assets::fonts()
             .chain(typst_dev_assets::fonts())
-            .flat_map(|data| Font::iter(Bytes::from_static(data)))
+            .flat_map(|data| Font::iter(Bytes::new(data)))
             .collect();
 
         Self {
@@ -141,8 +141,8 @@ impl FileSlot {
         self.file
             .get_or_init(|| {
                 read(&system_path(self.id)?).map(|cow| match cow {
-                    Cow::Owned(buf) => buf.into(),
-                    Cow::Borrowed(buf) => Bytes::from_static(buf),
+                    Cow::Owned(buf) => Bytes::new(buf),
+                    Cow::Borrowed(buf) => Bytes::new(buf),
                 })
             })
             .clone()

@@ -1,3 +1,5 @@
+pub mod resolve;
+
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
@@ -747,7 +749,7 @@ cast! {
 
 impl Show for Packed<GridCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
+        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
     }
 }
 

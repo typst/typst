@@ -21,7 +21,7 @@ pub fn layout_stretch(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut fragment = ctx.layout_into_fragment(elem.body(), styles)?;
+    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
     stretch_fragment(
         ctx,
         styles,

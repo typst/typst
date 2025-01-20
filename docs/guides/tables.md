@@ -886,8 +886,8 @@ everything else by providing an array in the `align` argument:
   stroke: none,
 
   table.header[Day][Location][Hotel or Apartment][Activities],
-  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
-  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
+  [1], [Paris, France], [Hôtel de l'Europe], [Arrival, Evening River Cruise],
+  [2], [Paris, France], [Hôtel de l'Europe], [Louvre Museum, Eiffel Tower],
   [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
   [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
   [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
@@ -911,8 +911,8 @@ bottom-aligned. Let's use a function instead to do so:
   stroke: none,
 
   table.header[Day][Location][Hotel or Apartment][Activities],
-  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
-  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
+  [1], [Paris, France], [Hôtel de l'Europe], [Arrival, Evening River Cruise],
+  [2], [Paris, France], [Hôtel de l'Europe], [Louvre Museum, Eiffel Tower],
 <<<  // ... remaining days omitted
 >>>  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
 >>>  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],

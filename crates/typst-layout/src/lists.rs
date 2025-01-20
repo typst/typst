@@ -4,11 +4,12 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, StyleChain};
 use typst_library::introspection::Locator;
+use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem};
 use typst_library::text::TextElem;
 
-use crate::grid::{Cell, CellGrid, GridLayouter};
+use crate::grid::GridLayouter;
 
 /// Layout the list.
 #[typst_macros::time(span = elem.span())]
@@ -39,7 +40,7 @@ pub fn layout_list(
     let mut cells = vec![];
     let mut locator = locator.split();
 
-    for item in elem.children() {
+    for item in &elem.children {
         cells.push(Cell::new(Content::empty(), locator.next(&())));
         cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
         cells.push(Cell::new(Content::empty(), locator.next(&())));
@@ -100,7 +101,7 @@ pub fn layout_enum(
     // relation to the item it refers to.
     let number_align = elem.number_align(styles);
 
-    for item in elem.children() {
+    for item in &elem.children {
         number = item.number(styles).unwrap_or(number);
 
         let context = Context::new(None, Some(styles));
