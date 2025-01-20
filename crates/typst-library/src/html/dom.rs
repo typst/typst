@@ -477,6 +477,7 @@ pub mod tag {
 
         tags! {
             math
+            menclose
             mfrac
             mi
             mmultiscripts
