@@ -522,6 +522,12 @@ pub mod tag {
                 | self::p
                 | self::pre
                 | self::search
+                | self::table
+                | self::thead
+                | self::tbody
+                | self::tfoot
+                | self::th
+                | self::tr
         )
     }
 
