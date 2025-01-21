@@ -5,7 +5,7 @@ use typst::{
     diag::{bail, HintedStrResult, Warned},
     layout::PagedDocument,
 };
-use typst_kit::package::DEFAULT_PACKAGES_SUBDIR;
+use typst_kit::package::{DEFAULT_PACKAGES_SUBDIR, DEFAULT_VENDOR_SUBDIR};
 
 use crate::{
     args::VendorCommand, compile::print_diagnostics, set_failed, world::SystemWorld,
@@ -46,7 +46,7 @@ pub fn vendor(command: &VendorCommand) -> HintedStrResult<()> {
 }
 
 fn copy_deps(world: &mut SystemWorld) -> HintedStrResult<()> {
-    let vendor_dir = world.workdir().join("vendor");
+    let vendor_dir = world.workdir().join(DEFAULT_VENDOR_SUBDIR);
 
     match vendor_dir.try_exists() {
         Ok(false) => {
