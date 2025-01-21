@@ -10,7 +10,6 @@ use crate::math::Mathy;
 /// ```
 #[func(title = "Square Root")]
 pub fn sqrt(
-    /// The call span of this function.
     span: Span,
     /// The expression to take the square root of.
     radicand: Content,

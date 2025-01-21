@@ -24,9 +24,7 @@ use crate::introspection::Location;
 /// ```
 #[func(contextual)]
 pub fn locate(
-    /// The engine.
     engine: &mut Engine,
-    /// The callsite context.
     context: Tracked<Context>,
     /// A selector that should match exactly one element. This element will be
     /// located.

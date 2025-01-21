@@ -425,9 +425,7 @@ impl Str {
     #[func]
     pub fn replace(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The pattern to search for.
         pattern: StrPattern,
@@ -784,11 +782,7 @@ cast! {
     v: f64 => Self::Str(repr::display_float(v).into()),
     v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(
-        std::str::from_utf8(&v)
-            .map_err(|_| "bytes are not valid utf-8")?
-            .into()
-    ),
+    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid utf-8")?),
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),

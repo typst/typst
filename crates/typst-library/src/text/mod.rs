@@ -555,6 +555,7 @@ pub struct TextElem {
     /// #lorem(10)
     /// ```
     #[fold]
+    #[ghost]
     pub costs: Costs,
 
     /// Whether to apply kerning.
@@ -793,7 +794,7 @@ impl Construct for TextElem {
 
 impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text);
     }
 }
 
@@ -1429,5 +1430,15 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                 family.as_str(),
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_text_elem_size() {
+        assert_eq!(std::mem::size_of::<TextElem>(), std::mem::size_of::<EcoString>());
     }
 }

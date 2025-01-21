@@ -301,9 +301,7 @@ impl Array {
     #[func]
     pub fn find(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
@@ -325,9 +323,7 @@ impl Array {
     #[func]
     pub fn position(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
@@ -363,8 +359,6 @@ impl Array {
     /// ```
     #[func]
     pub fn range(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The start of the range (inclusive).
         #[external]
@@ -402,9 +396,7 @@ impl Array {
     #[func]
     pub fn filter(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
@@ -427,9 +419,7 @@ impl Array {
     #[func]
     pub fn map(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The function to apply to each item.
         mapper: Func,
@@ -481,8 +471,6 @@ impl Array {
     #[func]
     pub fn zip(
         self,
-        /// The real arguments (the `others` arguments are just for the docs, this
-        /// function is a bit involved, so we parse the positional arguments manually).
         args: &mut Args,
         /// Whether all arrays have to have the same length.
         /// For example, `{(1, 2).zip((1, 2, 3), exact: true)}` produces an
@@ -569,9 +557,7 @@ impl Array {
     #[func]
     pub fn fold(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The initial value to start with.
         init: Value,
@@ -631,9 +617,7 @@ impl Array {
     #[func]
     pub fn any(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
@@ -651,9 +635,7 @@ impl Array {
     #[func]
     pub fn all(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
@@ -831,11 +813,8 @@ impl Array {
     #[func]
     pub fn sorted(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to sort by.
@@ -881,9 +860,7 @@ impl Array {
     #[func(title = "Deduplicate")]
     pub fn dedup(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
@@ -967,9 +944,7 @@ impl Array {
     #[func]
     pub fn reduce(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The reducing function. Must have two parameters: One for the
         /// accumulated value and one for an item.
@@ -1121,6 +1096,53 @@ impl<T: FromValue> FromValue for Vec<T> {
 impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
     fn from_value(value: Value) -> HintedStrResult<Self> {
         value.cast::<Array>()?.into_iter().map(Value::cast).collect()
+    }
+}
+
+/// One element, or multiple provided as an array.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct OneOrMultiple<T>(pub Vec<T>);
+
+impl<T: Reflect> Reflect for OneOrMultiple<T> {
+    fn input() -> CastInfo {
+        T::input() + Array::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Array::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value) || T::castable(value)
+    }
+}
+
+impl<T: IntoValue + Clone> IntoValue for OneOrMultiple<T> {
+    fn into_value(self) -> Value {
+        self.0.into_value()
+    }
+}
+
+impl<T: FromValue> FromValue for OneOrMultiple<T> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if T::castable(&value) {
+            return Ok(Self(vec![T::from_value(value)?]));
+        }
+        if Array::castable(&value) {
+            return Ok(Self(
+                Array::from_value(value)?
+                    .into_iter()
+                    .map(|value| T::from_value(value))
+                    .collect::<HintedStrResult<_>>()?,
+            ));
+        }
+        Err(Self::error(&value))
+    }
+}
+
+impl<T> Default for OneOrMultiple<T> {
+    fn default() -> Self {
+        Self(vec![])
     }
 }
 

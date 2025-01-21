@@ -274,7 +274,7 @@ mod tests {
         #[track_caller]
         fn test(path: &str, format: RasterFormat, dpi: f64) {
             let data = typst_dev_assets::get(path).unwrap();
-            let bytes = Bytes::from_static(data);
+            let bytes = Bytes::new(data);
             let image = RasterImage::new(bytes, format).unwrap();
             assert_eq!(image.dpi().map(f64::round), Some(dpi));
         }

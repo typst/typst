@@ -20,7 +20,7 @@ pub fn layout_text(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let text = elem.text();
+    let text = &elem.text;
     let span = elem.span();
     let mut chars = text.chars();
     let math_size = EquationElem::size_in(styles);

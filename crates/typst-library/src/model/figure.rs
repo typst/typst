@@ -257,7 +257,7 @@ impl Synthesize for Packed<FigureElem> {
 
         // Determine the figure's kind.
         let kind = elem.kind(styles).unwrap_or_else(|| {
-            elem.body()
+            elem.body
                 .query_first(&Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
@@ -288,14 +288,13 @@ impl Synthesize for Packed<FigureElem> {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
                 let descendant = match kind {
-                    FigureKind::Elem(func) => elem
-                        .body()
-                        .query_first(&Selector::Elem(func, None))
-                        .map(Cow::Owned),
+                    FigureKind::Elem(func) => {
+                        elem.body.query_first(&Selector::Elem(func, None)).map(Cow::Owned)
+                    }
                     FigureKind::Name(_) => None,
                 };
 
-                let target = descendant.unwrap_or_else(|| Cow::Borrowed(elem.body()));
+                let target = descendant.unwrap_or_else(|| Cow::Borrowed(&elem.body));
                 Some(supplement.resolve(engine, styles, [target])?)
             }
         };
@@ -437,7 +436,7 @@ impl Outlinable for Packed<FigureElem> {
             return Ok(None);
         };
 
-        let mut realized = caption.body().clone();
+        let mut realized = caption.body.clone();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(Some(counter)),
@@ -460,7 +459,7 @@ impl Outlinable for Packed<FigureElem> {
 
             let separator = caption.get_separator(StyleChain::default());
 
-            realized = supplement + numbers + separator + caption.body();
+            realized = supplement + numbers + separator + caption.body.clone();
         }
 
         Ok(Some(realized))
@@ -604,7 +603,7 @@ impl Synthesize for Packed<FigureCaption> {
 impl Show for Packed<FigureCaption> {
     #[typst_macros::time(name = "figure.caption", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body().clone();
+        let mut realized = self.body.clone();
 
         if let (
             Some(Some(mut supplement)),
