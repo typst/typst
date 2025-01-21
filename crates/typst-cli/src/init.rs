@@ -28,9 +28,9 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         StrResult::Ok(spec.at(version))
     })?;
 
-    // Find or download the package.
+    // Find or download the package. Vendoring does not make sense for initialization, so project_root is not needed.
     let package_path =
-        package_storage.prepare_package(&spec, &mut PrintDownload(&spec))?;
+        package_storage.prepare_package(&spec, &mut PrintDownload(&spec), None)?;
 
     // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;

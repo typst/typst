@@ -381,7 +381,11 @@ fn system_path(
     let buf;
     let mut root = project_root;
     if let Some(spec) = id.package() {
-        buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
+        buf = package_storage.prepare_package(
+            spec,
+            &mut PrintDownload(&spec),
+            Some(root),
+        )?;
         root = &buf;
     }
 
