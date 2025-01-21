@@ -325,6 +325,13 @@ fn eval_field_call(
     } else if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
         Ok(FieldCall::Normal(callee.clone(), args))
+    } else if let Value::Content(content) = &target {
+        if let Some(callee) = content.elem().scope().get(&field) {
+            args.insert(0, target_expr.span(), target);
+            Ok(FieldCall::Normal(callee.clone(), args))
+        } else {
+            bail!(missing_field_call_error(target, field))
+        }
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
@@ -341,8 +348,20 @@ fn eval_field_call(
 
 /// Produce an error when we cannot call the field.
 fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
-    let mut error =
-        error!(field.span(), "type {} has no method `{}`", target.ty(), field.as_str());
+    let mut error = match &target {
+        Value::Content(content) => error!(
+            field.span(),
+            "element {} has no method `{}`",
+            content.elem().name(),
+            field.as_str(),
+        ),
+        _ => error!(
+            field.span(),
+            "type {} has no method `{}`",
+            target.ty(),
+            field.as_str()
+        ),
+    };
 
     match target {
         Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
@@ -360,6 +379,7 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
         }
         _ => {}
     }
+
     error
 }
 
