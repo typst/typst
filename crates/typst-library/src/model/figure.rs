@@ -156,6 +156,7 @@ pub struct FigureElem {
     pub scope: PlacementScope,
 
     /// The figure's caption.
+    #[borrowed]
     pub caption: Option<Packed<FigureCaption>>,
 
     /// The kind of figure this is.
@@ -305,7 +306,7 @@ impl Synthesize for Packed<FigureElem> {
         ));
 
         // Fill the figure's caption.
-        let mut caption = elem.caption(styles);
+        let mut caption = elem.caption(styles).clone();
         if let Some(caption) = &mut caption {
             caption.synthesize(engine, styles)?;
             caption.push_kind(kind.clone());
@@ -331,7 +332,7 @@ impl Show for Packed<FigureElem> {
         let mut realized = self.body.clone();
 
         // Build the caption, if any.
-        if let Some(caption) = self.caption(styles) {
+        if let Some(caption) = self.caption(styles).clone() {
             let (first, second) = match caption.position(styles) {
                 OuterVAlignment::Top => (caption.pack(), realized),
                 OuterVAlignment::Bottom => (realized, caption.pack()),
@@ -423,46 +424,26 @@ impl Refable for Packed<FigureElem> {
 }
 
 impl Outlinable for Packed<FigureElem> {
-    fn outline(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Option<Content>> {
-        if !self.outlined(StyleChain::default()) {
-            return Ok(None);
+    fn outlined(&self) -> bool {
+        (**self).outlined(StyleChain::default())
+            && (self.caption(StyleChain::default()).is_some()
+                || self.numbering().is_some())
+    }
+
+    fn prefix(&self, numbers: Content) -> Content {
+        let supplement = self.supplement();
+        if !supplement.is_empty() {
+            supplement + TextElem::packed('\u{a0}') + numbers
+        } else {
+            numbers
         }
+    }
 
-        let Some(caption) = self.caption(StyleChain::default()) else {
-            return Ok(None);
-        };
-
-        let mut realized = caption.body.clone();
-        if let (
-            Smart::Custom(Some(Supplement::Content(mut supplement))),
-            Some(Some(counter)),
-            Some(numbering),
-        ) = (
-            (**self).supplement(StyleChain::default()).clone(),
-            (**self).counter(),
-            self.numbering(),
-        ) {
-            let numbers = counter.display_at_loc(
-                engine,
-                self.location().unwrap(),
-                styles,
-                numbering,
-            )?;
-
-            if !supplement.is_empty() {
-                supplement += TextElem::packed('\u{a0}');
-            }
-
-            let separator = caption.get_separator(StyleChain::default());
-
-            realized = supplement + numbers + separator + caption.body.clone();
-        }
-
-        Ok(Some(realized))
+    fn body(&self) -> Content {
+        self.caption(StyleChain::default())
+            .as_ref()
+            .map(|caption| caption.body.clone())
+            .unwrap_or_default()
     }
 }
 

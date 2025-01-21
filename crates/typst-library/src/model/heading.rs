@@ -356,31 +356,20 @@ impl Refable for Packed<HeadingElem> {
 }
 
 impl Outlinable for Packed<HeadingElem> {
-    fn outline(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Option<Content>> {
-        if !self.outlined(StyleChain::default()) {
-            return Ok(None);
-        }
-
-        let mut content = self.body.clone();
-        if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
-            let numbers = Counter::of(HeadingElem::elem()).display_at_loc(
-                engine,
-                self.location().unwrap(),
-                styles,
-                numbering,
-            )?;
-            content = numbers + SpaceElem::shared().clone() + content;
-        };
-
-        Ok(Some(content))
+    fn outlined(&self) -> bool {
+        (**self).outlined(StyleChain::default())
     }
 
     fn level(&self) -> NonZeroUsize {
         (**self).resolve_level(StyleChain::default())
+    }
+
+    fn prefix(&self, numbers: Content) -> Content {
+        numbers
+    }
+
+    fn body(&self) -> Content {
+        self.body.clone()
     }
 }
 
