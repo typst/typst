@@ -526,7 +526,6 @@ pub mod tag {
                 | self::thead
                 | self::tbody
                 | self::tfoot
-                | self::th
                 | self::tr
         )
     }
