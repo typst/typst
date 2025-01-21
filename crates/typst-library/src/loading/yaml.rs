@@ -40,7 +40,6 @@ use crate::loading::{DataSource, Load, Readable};
 /// ```
 #[func(scope, title = "YAML")]
 pub fn yaml(
-    /// The engine.
     engine: &mut Engine,
     /// A path to a YAML file or raw YAML bytes.
     ///
@@ -61,7 +60,6 @@ impl yaml {
     /// directly.
     #[func(title = "Decode YAML")]
     pub fn decode(
-        /// The engine.
         engine: &mut Engine,
         /// YAML data.
         data: Spanned<Readable>,

@@ -57,7 +57,6 @@ use crate::loading::{DataSource, Load, Readable};
 /// ```
 #[func(scope, title = "XML")]
 pub fn xml(
-    /// The engine.
     engine: &mut Engine,
     /// A path to an XML file or raw XML bytes.
     ///
@@ -83,7 +82,6 @@ impl xml {
     /// directly.
     #[func(title = "Decode XML")]
     pub fn decode(
-        /// The engine.
         engine: &mut Engine,
         /// XML data.
         data: Spanned<Readable>,

@@ -152,7 +152,6 @@ impl Plugin {
     /// Creates a new plugin from a WebAssembly file.
     #[func(constructor)]
     pub fn construct(
-        /// The engine.
         engine: &mut Engine,
         /// A path to a WebAssembly file or raw WebAssembly bytes.
         ///

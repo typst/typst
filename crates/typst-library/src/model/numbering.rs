@@ -53,9 +53,7 @@ use crate::text::Case;
 /// ```
 #[func]
 pub fn numbering(
-    /// The engine.
     engine: &mut Engine,
-    /// The callsite context.
     context: Tracked<Context>,
     /// Defines how the numbering works.
     ///

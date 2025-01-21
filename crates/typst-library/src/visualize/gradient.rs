@@ -200,9 +200,7 @@ impl Gradient {
     /// ```
     #[func(title = "Linear Gradient")]
     pub fn linear(
-        /// The args of this function.
         args: &mut Args,
-        /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]
@@ -292,7 +290,6 @@ impl Gradient {
     /// ```
     #[func]
     fn radial(
-        /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]
@@ -407,7 +404,6 @@ impl Gradient {
     /// ```
     #[func]
     pub fn conic(
-        /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]

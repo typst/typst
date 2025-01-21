@@ -25,7 +25,6 @@ use crate::loading::{DataSource, Load, Readable};
 /// ```
 #[func(scope, title = "CSV")]
 pub fn csv(
-    /// The engine.
     engine: &mut Engine,
     /// Path to a CSV file or raw CSV bytes.
     ///
@@ -102,7 +101,6 @@ impl csv {
     /// directly.
     #[func(title = "Decode CSV")]
     pub fn decode(
-        /// The engine.
         engine: &mut Engine,
         /// CSV data.
         data: Spanned<Readable>,
