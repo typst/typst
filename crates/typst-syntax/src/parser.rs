@@ -107,15 +107,13 @@ fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
         SyntaxKind::HeadingMarker if at_start => heading(p),
-        SyntaxKind::ListMarker if at_start => list_item(p),
-        SyntaxKind::EnumMarker if at_start => enum_item(p),
+        SyntaxKind::ListMarker => list_item(p),
+        SyntaxKind::EnumMarker => enum_item(p),
         SyntaxKind::TermMarker if at_start => term_item(p),
         SyntaxKind::RefMarker => reference(p),
         SyntaxKind::Dollar => equation(p),
 
         SyntaxKind::HeadingMarker
-        | SyntaxKind::ListMarker
-        | SyntaxKind::EnumMarker
         | SyntaxKind::TermMarker
         | SyntaxKind::Colon => p.convert_and_eat(SyntaxKind::Text),
 
@@ -157,7 +155,14 @@ fn heading(p: &mut Parser) {
 
 /// Parses an item in a bullet list: `- ...`.
 fn list_item(p: &mut Parser) {
-    p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
+    let mut column = 0;
+    for i in (0..p.current_start()).rev() {
+        if p.text.chars().nth(i) == Some('\n') {
+            column = i;
+            break;
+        }
+    }
+    p.with_nl_mode(AtNewline::RequireColumn(p.current_start() - column), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::ListMarker);
         markup(p, false, false, syntax_set!(RightBracket, End));
@@ -167,7 +172,14 @@ fn list_item(p: &mut Parser) {
 
 /// Parses an item in an enumeration (numbered list): `+ ...` or `1. ...`.
 fn enum_item(p: &mut Parser) {
-    p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
+    let mut column = 0;
+    for i in (0..p.current_start()).rev() {
+        if p.text.chars().nth(i) == Some('\n') {
+            column = i;
+            break;
+        }
+    }
+    p.with_nl_mode(AtNewline::RequireColumn(p.current_start() - column), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::EnumMarker);
         markup(p, false, false, syntax_set!(RightBracket, End));

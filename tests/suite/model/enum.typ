@@ -192,3 +192,15 @@ a + 0.
 + f
 #align(right)[+ align]
 + h
+
+
+--- issue-5719-sub-enum-numbering ---
+#set enum(numbering: "(a)")
+
++ first main
++ + first sub
+  + second sub
+
+- first main
+- - first sub
+  - second sub
