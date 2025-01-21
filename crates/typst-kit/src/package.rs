@@ -21,6 +21,9 @@ pub const DEFAULT_NAMESPACE: &str = "preview";
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
+/// The default vendor sub directory within the project root.
+pub const DEFAULT_VENDOR_SUBDIR: &str = "vendor";
+
 /// Holds information about where packages should be stored and downloads them
 /// on demand, if possible.
 #[derive(Debug)]
@@ -84,7 +87,7 @@ impl PackageStorage {
 
         // Read from vendor dir if it exists.
         if let Some(project_root) = project_root {
-            let vendor_dir = project_root.join("vendor");
+            let vendor_dir = project_root.join(DEFAULT_VENDOR_SUBDIR);
             if let Ok(true) = vendor_dir.try_exists() {
                 let dir = vendor_dir.join(&subdir);
                 if dir.exists() {
