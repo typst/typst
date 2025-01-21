@@ -1,4 +1,4 @@
-use kurbo::{BezPath, Line, ParamCurve};
+use kurbo::{BezPath, Line, ParamCurve, ParamCurveDeriv};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
@@ -108,30 +108,41 @@ pub fn decorate(
 
         if intersect {
             // Find all intersections of segments with the line.
-            intersections.extend(
-                path.segments()
-                    .flat_map(|seg| seg.intersect_line(line))
-                    .map(|is| Abs::raw(line.eval(is.line_t).x)),
-            );
+            intersections.extend(path.segments().flat_map(|seg| {
+                let intersections = seg.intersect_line(line);
+                let derivative = seg.to_cubic().deriv();
+                intersections.into_iter().map(move |is| {
+                    // Check whether the tangent line at the intersection point
+                    // is horizontal, i.e. the line is tangential to the glyph.
+                    let tangential = derivative.eval(is.segment_t).y.abs() < 1e-6;
+                    (Abs::raw(line.eval(is.line_t).x), tangential)
+                })
+            }));
         }
     }
 
     // Add start and end points, taking padding into account.
-    intersections.push(start - gap_padding);
-    intersections.push(end + gap_padding);
+    intersections.push((start - gap_padding, false));
+    intersections.push((end + gap_padding, false));
     // When emitting the decorative line segments, we move from left to
     // right. The intersections are not necessarily in this order, yet.
     intersections.sort();
 
+    let mut inside = false;
     for edge in intersections.windows(2) {
-        let l = edge[0];
-        let r = edge[1];
+        let (l, _) = edge[0];
+        let (r, tangential) = edge[1];
 
-        // If we are too close, don't draw the segment
-        if r - l < gap_padding {
-            continue;
-        } else {
+        if !inside && r - l >= gap_padding {
+            // Only draw the segment if it's outside the glyph and the
+            // intersections points are not too close to each other.
             push_segment(l + gap_padding, r - gap_padding, background);
+        }
+
+        if !tangential {
+            // If the right intersection point is not tangential, the next
+            // segment will be inside the glyph and should be skipped.
+            inside = !inside;
         }
     }
 }
