@@ -1,5 +1,5 @@
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, Smart, Value};
+use crate::foundations::{cast, elem, func, Content, NativeElement, Value};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 use crate::text::TextElem;
@@ -52,7 +52,9 @@ pub struct AccentElem {
     pub accent: Accent,
 
     /// The size of the accent, relative to the width of the base.
-    pub size: Smart<Rel<Length>>,
+    #[resolve]
+    #[default(Rel::one())]
+    pub size: Rel<Length>,
 }
 
 /// An accent character.
@@ -101,7 +103,7 @@ macro_rules! accents {
                 base: Content,
                 /// The size of the accent, relative to the width of the base.
                 #[named]
-                size: Option<Smart<Rel<Length>>>,
+                size: Option<Rel<Length>>,
             ) -> Content {
                 let mut accent = AccentElem::new(base, Accent::new($primary));
                 if let Some(size) = size {
@@ -141,7 +143,7 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => match v.to_packed::<TextElem>() {
-        Some(elem) => Value::Str(elem.text().clone().into()).cast()?,
+        Some(elem) => Value::Str(elem.text.clone().into()).cast()?,
         None => bail!("expected text"),
     },
 }

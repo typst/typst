@@ -6,7 +6,7 @@ use typst_library::math::{EquationElem, MathSize, MEDIUM, THICK, THIN};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
-use super::{alignments, scaled_font_size, FrameFragment, MathContext, MathFragment};
+use super::{alignments, FrameFragment, MathFragment};
 
 const TIGHT_LEADING: Em = Em::new(0.25);
 
@@ -161,15 +161,15 @@ impl MathRun {
         }
     }
 
-    pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
+    pub fn into_frame(self, styles: StyleChain) -> Frame {
         if !self.is_multiline() {
             self.into_line_frame(&[], LeftRightAlternator::Right)
         } else {
-            self.multiline_frame_builder(ctx, styles).build()
+            self.multiline_frame_builder(styles).build()
         }
     }
 
-    pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
+    pub fn into_fragment(self, styles: StyleChain) -> MathFragment {
         if self.0.len() == 1 {
             return self.0.into_iter().next().unwrap();
         }
@@ -181,7 +181,7 @@ impl MathRun {
             .filter(|e| e.math_size().is_some())
             .all(|e| e.is_text_like());
 
-        FrameFragment::new(ctx, styles, self.into_frame(ctx, styles))
+        FrameFragment::new(styles, self.into_frame(styles))
             .with_text_like(text_like)
             .into()
     }
@@ -189,11 +189,7 @@ impl MathRun {
     /// Returns a builder that lays out the [`MathFragment`]s into a possibly
     /// multi-row [`Frame`]. The rows are aligned using the same set of alignment
     /// points computed from them as a whole.
-    pub fn multiline_frame_builder(
-        self,
-        ctx: &MathContext,
-        styles: StyleChain,
-    ) -> MathRunFrameBuilder {
+    pub fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder {
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
         let alignments = alignments(&rows);
@@ -201,8 +197,7 @@ impl MathRun {
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
             ParElem::leading_in(styles)
         } else {
-            let font_size = scaled_font_size(ctx, styles);
-            TIGHT_LEADING.at(font_size)
+            TIGHT_LEADING.resolve(styles)
         };
 
         let align = AlignElem::alignment_in(styles).resolve(styles).x;

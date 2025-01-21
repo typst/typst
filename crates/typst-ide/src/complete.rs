@@ -521,11 +521,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Ident;
         if let Some(parent) = ctx.leaf.parent();
-        if parent.kind() == SyntaxKind::ImportItems;
+        if parent.kind() == SyntaxKind::ImportItemPath;
         if let Some(grand) = parent.parent();
-        if let Some(ast::Expr::Import(import)) = grand.get().cast();
+        if grand.kind() == SyntaxKind::ImportItems;
+        if let Some(great) = grand.parent();
+        if let Some(ast::Expr::Import(import)) = great.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
-        if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
+        if let Some(source) = great.children().find(|child| child.is::<ast::Expr>());
         then {
             ctx.from = ctx.leaf.offset();
             import_item_completions(ctx, items, &source);
@@ -815,25 +817,36 @@ fn param_value_completions<'a>(
 ) {
     if param.name == "font" {
         ctx.font_completions();
-    } else if param.name == "path" {
-        ctx.file_completions_with_extensions(match func.name() {
-            Some("image") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
-            Some("csv") => &["csv"],
-            Some("plugin") => &["wasm"],
-            Some("cbor") => &["cbor"],
-            Some("json") => &["json"],
-            Some("toml") => &["toml"],
-            Some("xml") => &["xml"],
-            Some("yaml") => &["yml", "yaml"],
-            Some("bibliography") => &["bib", "yml", "yaml"],
-            _ => &[],
-        });
+    } else if let Some(extensions) = path_completion(func, param) {
+        ctx.file_completions_with_extensions(extensions);
     } else if func.name() == Some("figure") && param.name == "body" {
         ctx.snippet_completion("image", "image(\"${}\"),", "An image in a figure.");
         ctx.snippet_completion("table", "table(\n  ${}\n),", "A table in a figure.");
     }
 
     ctx.cast_completions(&param.input);
+}
+
+/// Returns which file extensions to complete for the given parameter if any.
+fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
+    Some(match (func.name(), param.name) {
+        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("csv"), "source") => &["csv"],
+        (Some("plugin"), "source") => &["wasm"],
+        (Some("cbor"), "source") => &["cbor"],
+        (Some("json"), "source") => &["json"],
+        (Some("toml"), "source") => &["toml"],
+        (Some("xml"), "source") => &["xml"],
+        (Some("yaml"), "source") => &["yml", "yaml"],
+        (Some("bibliography"), "sources") => &["bib", "yml", "yaml"],
+        (Some("bibliography"), "style") => &["csl"],
+        (Some("cite"), "style") => &["csl"],
+        (Some("raw"), "syntaxes") => &["sublime-syntax"],
+        (Some("raw"), "theme") => &["tmtheme"],
+        (Some("embed"), "path") => &[],
+        (None, "path") => &[],
+        _ => return None,
+    })
 }
 
 /// Resolve a callee expression to a global function.
@@ -1504,14 +1517,13 @@ impl BracketMode {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
     use typst::layout::PagedDocument;
-    use typst::syntax::{FileId, Source, VirtualPath};
-    use typst::World;
 
     use super::{autocomplete, Completion};
-    use crate::tests::{SourceExt, TestWorld};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     /// Quote a string.
     macro_rules! q {
@@ -1583,60 +1595,50 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: isize) -> Response {
-        let world = TestWorld::new(text);
-        test_with_world(&world, cursor)
+    fn test(world: impl WorldLike, pos: impl FilePos) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc = typst::compile(world).output.ok();
+        test_with_doc(world, pos, doc.as_ref())
     }
 
     #[track_caller]
-    fn test_with_world(world: &TestWorld, cursor: isize) -> Response {
-        let doc = typst::compile(&world).output.ok();
-        test_full(world, &world.main, doc.as_ref(), cursor)
-    }
-
-    #[track_caller]
-    fn test_with_path(world: &TestWorld, path: &str, cursor: isize) -> Response {
-        let doc = typst::compile(&world).output.ok();
-        let id = FileId::new(None, VirtualPath::new(path));
-        let source = world.source(id).unwrap();
-        test_full(world, &source, doc.as_ref(), cursor)
-    }
-
-    #[track_caller]
-    fn test_full(
-        world: &TestWorld,
-        source: &Source,
+    fn test_with_doc(
+        world: impl WorldLike,
+        pos: impl FilePos,
         doc: Option<&PagedDocument>,
-        cursor: isize,
     ) -> Response {
-        autocomplete(world, doc, source, source.cursor(cursor), true)
+        let world = world.acquire();
+        let world = world.borrow();
+        let (source, cursor) = pos.resolve(world);
+        autocomplete(world, doc, &source, cursor, true)
     }
 
     #[test]
     fn test_autocomplete_hash_expr() {
-        test("#i", 2).must_include(["int", "if conditional"]);
+        test("#i", -1).must_include(["int", "if conditional"]);
     }
 
     #[test]
     fn test_autocomplete_array_method() {
-        test("#().", 4).must_include(["insert", "remove", "len", "all"]);
-        test("#{ let x = (1, 2, 3); x. }", -2).must_include(["at", "push", "pop"]);
+        test("#().", -1).must_include(["insert", "remove", "len", "all"]);
+        test("#{ let x = (1, 2, 3); x. }", -3).must_include(["at", "push", "pop"]);
     }
 
     /// Test that extra space before '.' is handled correctly.
     #[test]
     fn test_autocomplete_whitespace() {
-        test("#() .", 5).must_exclude(["insert", "remove", "len", "all"]);
-        test("#{() .}", 6).must_include(["insert", "remove", "len", "all"]);
-        test("#() .a", 6).must_exclude(["insert", "remove", "len", "all"]);
-        test("#{() .a}", 7).must_include(["at", "any", "all"]);
+        test("#() .", -1).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .}", -2).must_include(["insert", "remove", "len", "all"]);
+        test("#() .a", -1).must_exclude(["insert", "remove", "len", "all"]);
+        test("#{() .a}", -2).must_include(["at", "any", "all"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
     fn test_autocomplete_before_window_char_boundary() {
-        test("😀😀     #text(font: \"\")", -2);
+        test("😀😀     #text(font: \"\")", -3);
     }
 
     /// Ensure that autocompletion for `#cite(|)` completes bibligraphy labels,
@@ -1653,7 +1655,7 @@ mod tests {
         let end = world.main.len_bytes();
         world.main.edit(end..end, " #cite()");
 
-        test_full(&world, &world.main, doc.as_ref(), -1)
+        test_with_doc(&world, -2, doc.as_ref())
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
     }
@@ -1677,13 +1679,13 @@ mod tests {
     #[test]
     fn test_autocomplete_positional_param() {
         // No string given yet.
-        test("#numbering()", -1).must_include(["string", "integer"]);
+        test("#numbering()", -2).must_include(["string", "integer"]);
         // String is already given.
-        test("#numbering(\"foo\", )", -1)
+        test("#numbering(\"foo\", )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
         // Integer is already given, but numbering is variadic.
-        test("#numbering(\"foo\", 1, )", -1)
+        test("#numbering(\"foo\", 1, )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
     }
@@ -1698,14 +1700,14 @@ mod tests {
                 "#let clrs = (a: red, b: blue); #let nums = (a: 1, b: 2)",
             );
 
-        test_with_world(&world, -1)
+        test(&world, -2)
             .must_include(["clrs", "aqua"])
             .must_exclude(["nums", "a", "b"]);
     }
 
     #[test]
     fn test_autocomplete_packages() {
-        test("#import \"@\"", -1).must_include([q!("@preview/example:0.1.0")]);
+        test("#import \"@\"", -2).must_include([q!("@preview/example:0.1.0")]);
     }
 
     #[test]
@@ -1719,28 +1721,41 @@ mod tests {
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
 
-        test_with_path(&world, "main.typ", -1)
+        test(&world, -2)
             .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
             .must_exclude([q!("assets/tiger.jpg")]);
 
-        test_with_path(&world, "content/c.typ", -1)
+        test(&world, ("content/c.typ", -2))
             .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
             .must_exclude([q!("c.typ")]);
 
-        test_with_path(&world, "content/a.typ", -1)
+        test(&world, ("content/a.typ", -2))
             .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
             .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
 
-        test_with_path(&world, "content/b.typ", -2)
-            .must_include([q!("../data/example.csv")]);
+        test(&world, ("content/b.typ", -3)).must_include([q!("../data/example.csv")]);
     }
 
     #[test]
     fn test_autocomplete_figure_snippets() {
-        test("#figure()", -1)
+        test("#figure()", -2)
             .must_apply("image", "image(\"${}\"),")
             .must_apply("table", "table(\n  ${}\n),");
 
-        test("#figure(cap)", -1).must_apply("caption", "caption: [${}]");
+        test("#figure(cap)", -2).must_apply("caption", "caption: [${}]");
+    }
+
+    #[test]
+    fn test_autocomplete_import_items() {
+        let world = TestWorld::new("#import \"other.typ\": ")
+            .with_source("second.typ", "#import \"other.typ\": th")
+            .with_source("other.typ", "#let this = 1; #let that = 2");
+
+        test(&world, ("main.typ", 21))
+            .must_include(["*", "this", "that"])
+            .must_exclude(["figure"]);
+        test(&world, ("second.typ", 23))
+            .must_include(["this", "that"])
+            .must_exclude(["*", "figure"]);
     }
 }

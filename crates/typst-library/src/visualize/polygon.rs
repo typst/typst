@@ -35,7 +35,7 @@ pub struct PolygonElem {
 
     /// The drawing rule used to fill the polygon.
     ///
-    /// See the [path documentation]($path.fill-rule) for an example.
+    /// See the [curve documentation]($curve.fill-rule) for an example.
     #[default]
     pub fill_rule: FillRule,
 
@@ -67,8 +67,8 @@ impl PolygonElem {
     /// ```
     #[func(title = "Regular Polygon")]
     pub fn regular(
-        /// The call span of this function.
         span: Span,
+
         /// How to fill the polygon. See the general
         /// [polygon's documentation]($polygon.fill) for more details.
         #[named]

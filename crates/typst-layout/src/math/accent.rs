@@ -1,12 +1,9 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
-use typst_library::layout::{Em, Frame, Point, Rel, Size};
+use typst_library::layout::{Em, Frame, Point, Size};
 use typst_library::math::{Accent, AccentElem};
 
-use super::{
-    scaled_font_size, style_cramped, FrameFragment, GlyphFragment, MathContext,
-    MathFragment,
-};
+use super::{style_cramped, FrameFragment, GlyphFragment, MathContext, MathFragment};
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
@@ -19,7 +16,7 @@ pub fn layout_accent(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let cramped = style_cramped();
-    let mut base = ctx.layout_into_fragment(elem.base(), styles.chain(&cramped))?;
+    let mut base = ctx.layout_into_fragment(&elem.base, styles.chain(&cramped))?;
 
     // Try to replace a glyph with its dotless variant.
     if let MathFragment::Glyph(glyph) = &mut base {
@@ -30,14 +27,10 @@ pub fn layout_accent(
     let base_class = base.class();
     let base_attach = base.accent_attach();
 
-    let width = elem
-        .size(styles)
-        .unwrap_or(Rel::one())
-        .at(scaled_font_size(ctx, styles))
-        .relative_to(base.width());
+    let width = elem.size(styles).relative_to(base.width());
 
-    let Accent(c) = elem.accent();
-    let mut glyph = GlyphFragment::new(ctx, styles, *c, elem.span());
+    let Accent(c) = elem.accent;
+    let mut glyph = GlyphFragment::new(ctx, styles, c, elem.span());
 
     // Try to replace accent glyph with flattened variant.
     let flattened_base_height = scaled!(ctx, styles, flattened_accent_base_height);
@@ -75,7 +68,7 @@ pub fn layout_accent(
     frame.push_frame(accent_pos, accent);
     frame.push_frame(base_pos, base.into_frame());
     ctx.push(
-        FrameFragment::new(ctx, styles, frame)
+        FrameFragment::new(styles, frame)
             .with_class(base_class)
             .with_base_ascent(base_ascent)
             .with_italics_correction(base_italics_correction)

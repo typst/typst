@@ -318,7 +318,6 @@ impl Datetime {
     /// ```
     #[func]
     pub fn today(
-        /// The engine.
         engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
         /// offset will be the local offset.

@@ -30,9 +30,6 @@ pub struct TargetElem {
 
 /// Returns the current compilation target.
 #[func(contextual)]
-pub fn target(
-    /// The callsite context.
-    context: Tracked<Context>,
-) -> HintedStrResult<Target> {
+pub fn target(context: Tracked<Context>) -> HintedStrResult<Target> {
     Ok(TargetElem::target_in(context.styles()?))
 }

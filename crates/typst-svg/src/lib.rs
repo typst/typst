@@ -255,9 +255,10 @@ impl SVGRenderer {
             self.xml.write_attribute("data-typst-label", &label.resolve());
         }
 
-        if let Some(clip_path) = &group.clip_path {
+        if let Some(clip_curve) = &group.clip {
             let hash = hash128(&group);
-            let id = self.clip_paths.insert_with(hash, || shape::convert_path(clip_path));
+            let id =
+                self.clip_paths.insert_with(hash, || shape::convert_curve(clip_curve));
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 

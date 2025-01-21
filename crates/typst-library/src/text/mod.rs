@@ -50,6 +50,7 @@ use crate::foundations::{
     Resolve, Scope, Set, Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
+use crate::math::{EquationElem, MathSize};
 use crate::model::ParElem;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 use crate::World;
@@ -554,6 +555,7 @@ pub struct TextElem {
     /// #lorem(10)
     /// ```
     #[fold]
+    #[ghost]
     pub costs: Costs,
 
     /// Whether to apply kerning.
@@ -792,7 +794,7 @@ impl Construct for TextElem {
 
 impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text);
     }
 }
 
@@ -981,7 +983,14 @@ impl Resolve for TextSize {
     type Output = Abs;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.0.resolve(styles)
+        let factor = match EquationElem::size_in(styles) {
+            MathSize::Display | MathSize::Text => 1.0,
+            MathSize::Script => EquationElem::script_scale_in(styles).0 as f64 / 100.0,
+            MathSize::ScriptScript => {
+                EquationElem::script_scale_in(styles).1 as f64 / 100.0
+            }
+        };
+        factor * self.0.resolve(styles)
     }
 }
 
@@ -1421,5 +1430,15 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                 family.as_str(),
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_text_elem_size() {
+        assert_eq!(std::mem::size_of::<TextElem>(), std::mem::size_of::<EcoString>());
     }
 }

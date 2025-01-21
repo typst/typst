@@ -136,9 +136,7 @@ use crate::foundations::{func, Array, Context, LocatableSelector, Value};
 /// ```
 #[func(contextual)]
 pub fn query(
-    /// The engine.
     engine: &mut Engine,
-    /// The callsite context.
     context: Tracked<Context>,
     /// Can be
     /// - an element function like a `heading` or `figure`,

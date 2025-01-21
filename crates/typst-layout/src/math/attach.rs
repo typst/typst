@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::layout::{Abs, Axis, Corner, Frame, Length, Point, Rel, Size};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
 use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
 };
@@ -29,7 +29,7 @@ pub fn layout_attach(
     let elem = merged.as_ref().unwrap_or(elem);
     let stretch = stretch_size(styles, elem);
 
-    let mut base = ctx.layout_into_fragment(elem.base(), styles)?;
+    let mut base = ctx.layout_into_fragment(&elem.base, styles)?;
     let sup_style = style_for_superscript(styles);
     let sup_style_chain = styles.chain(&sup_style);
     let tl = elem.tl(sup_style_chain);
@@ -95,7 +95,7 @@ pub fn layout_primes(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    match *elem.count() {
+    match elem.count {
         count @ 1..=4 => {
             let c = match count {
                 1 => '′',
@@ -121,7 +121,7 @@ pub fn layout_primes(
                     prime.clone(),
                 )
             }
-            ctx.push(FrameFragment::new(ctx, styles, frame).with_text_like(true));
+            ctx.push(FrameFragment::new(styles, frame).with_text_like(true));
         }
     }
     Ok(())
@@ -134,7 +134,7 @@ pub fn layout_scripts(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut fragment = ctx.layout_into_fragment(elem.body(), styles)?;
+    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
     fragment.set_limits(Limits::Never);
     ctx.push(fragment);
     Ok(())
@@ -148,21 +148,18 @@ pub fn layout_limits(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let limits = if elem.inline(styles) { Limits::Always } else { Limits::Display };
-    let mut fragment = ctx.layout_into_fragment(elem.body(), styles)?;
+    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
     fragment.set_limits(limits);
     ctx.push(fragment);
     Ok(())
 }
 
-/// Get the size to stretch the base to, if the attach argument is true.
-fn stretch_size(
-    styles: StyleChain,
-    elem: &Packed<AttachElem>,
-) -> Option<Smart<Rel<Length>>> {
+/// Get the size to stretch the base to.
+fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs>> {
     // Extract from an EquationElem.
-    let mut base = elem.base();
-    if let Some(equation) = base.to_packed::<EquationElem>() {
-        base = equation.body();
+    let mut base = &elem.base;
+    while let Some(equation) = base.to_packed::<EquationElem>() {
+        base = &equation.body;
     }
 
     base.to_packed::<StretchElem>().map(|stretch| stretch.size(styles))
@@ -277,7 +274,7 @@ fn layout_attachments(
     layout!(b, b_x, b_y); // lower-limit
 
     // Done! Note that we retain the class of the base.
-    ctx.push(FrameFragment::new(ctx, styles, frame).with_class(base_class));
+    ctx.push(FrameFragment::new(styles, frame).with_class(base_class));
 
     Ok(())
 }

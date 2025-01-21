@@ -743,7 +743,6 @@ impl MathShorthand<'_> {
     pub const LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("-", '−'),
-        ("'", '′'),
         ("*", '∗'),
         ("~", '∼'),
         ("!=", '≠'),

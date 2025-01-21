@@ -161,9 +161,9 @@ pub fn collect<'a>(
                 }
 
                 if let Some(case) = TextElem::case_in(styles) {
-                    full.push_str(&case.apply(elem.text()));
+                    full.push_str(&case.apply(&elem.text));
                 } else {
-                    full.push_str(elem.text());
+                    full.push_str(&elem.text);
                 }
 
                 if dir != outer_dir {
@@ -172,13 +172,12 @@ pub fn collect<'a>(
                 }
             });
         } else if let Some(elem) = child.to_packed::<HElem>() {
-            let amount = elem.amount();
-            if amount.is_zero() {
+            if elem.amount.is_zero() {
                 continue;
             }
 
-            collector.push_item(match amount {
-                Spacing::Fr(fr) => Item::Fractional(*fr, None),
+            collector.push_item(match elem.amount {
+                Spacing::Fr(fr) => Item::Fractional(fr, None),
                 Spacing::Rel(rel) => Item::Absolute(
                     rel.resolve(styles).relative_to(region.x),
                     elem.weak(styles),

@@ -23,8 +23,8 @@ pub use self::pad::layout_pad;
 pub use self::pages::layout_document;
 pub use self::repeat::layout_repeat;
 pub use self::shapes::{
-    layout_circle, layout_ellipse, layout_line, layout_path, layout_polygon, layout_rect,
-    layout_square,
+    layout_circle, layout_curve, layout_ellipse, layout_line, layout_path,
+    layout_polygon, layout_rect, layout_square,
 };
 pub use self::stack::layout_stack;
 pub use self::transforms::{layout_move, layout_rotate, layout_scale, layout_skew};

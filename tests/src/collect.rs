@@ -23,9 +23,9 @@ pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
 pub struct Test {
     pub pos: FilePos,
     pub name: EcoString,
+    pub attrs: Vec<Attr>,
     pub source: Source,
     pub notes: Vec<Note>,
-    pub large: bool,
 }
 
 impl Display for Test {
@@ -55,6 +55,14 @@ impl Display for FilePos {
             write!(f, "{}", self.path.display())
         }
     }
+}
+
+/// A test attribute, given after the test name.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Attr {
+    Html,
+    Render,
+    Large,
 }
 
 /// The size of a file.
@@ -109,8 +117,7 @@ impl Display for NoteKind {
 struct Collector {
     tests: Vec<Test>,
     errors: Vec<TestParseError>,
-    seen: HashMap<EcoString, FilePos>,
-    large: HashSet<EcoString>,
+    seen: HashMap<EcoString, (FilePos, Vec<Attr>)>,
     skipped: usize,
 }
 
@@ -121,7 +128,6 @@ impl Collector {
             tests: vec![],
             errors: vec![],
             seen: HashMap::new(),
-            large: HashSet::new(),
             skipped: 0,
         }
     }
@@ -156,7 +162,7 @@ impl Collector {
         }
     }
 
-    /// Walks through all reference images and ensure that a test exists for
+    /// Walks through all reference output and ensures that a test exists for
     /// each one.
     fn walk_references(&mut self) {
         for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
@@ -169,20 +175,20 @@ impl Collector {
             let stem = path.file_stem().unwrap().to_string_lossy();
             let name = &*stem;
 
-            let Some(pos) = self.seen.get(name) else {
+            let Some((pos, attrs)) = self.seen.get(name) else {
                 self.errors.push(TestParseError {
                     pos: FilePos::new(path, 0),
-                    message: "dangling reference image".into(),
+                    message: "dangling reference output".into(),
                 });
                 continue;
             };
 
             let len = path.metadata().unwrap().len() as usize;
-            if !self.large.contains(name) && len > crate::REF_LIMIT {
+            if !attrs.contains(&Attr::Large) && len > crate::REF_LIMIT {
                 self.errors.push(TestParseError {
                     pos: pos.clone(),
                     message: format!(
-                        "reference image size exceeds {}, but the test is not marked as `// LARGE`",
+                        "reference output size exceeds {}, but the test is not marked as `large`",
                         FileSize(crate::REF_LIMIT),
                     ),
                 });
@@ -218,6 +224,7 @@ impl<'a> Parser<'a> {
 
         while !self.s.done() {
             let mut name = EcoString::new();
+            let mut attrs = Vec::new();
             let mut notes = vec![];
             if self.s.eat_if("---") {
                 self.s.eat_while(' ');
@@ -228,8 +235,8 @@ impl<'a> Parser<'a> {
                     self.error("expected test name");
                 } else if !is_ident(&name) {
                     self.error(format!("test name `{name}` is not a valid identifier"));
-                } else if !self.s.eat_if("---") {
-                    self.error("expected closing ---");
+                } else {
+                    attrs = self.parse_attrs();
                 }
             } else {
                 self.error("expected opening ---");
@@ -247,7 +254,7 @@ impl<'a> Parser<'a> {
             self.test_start_line = self.line;
 
             let pos = FilePos::new(self.path, self.test_start_line);
-            self.collector.seen.insert(name.clone(), pos.clone());
+            self.collector.seen.insert(name.clone(), (pos.clone(), attrs.clone()));
 
             while !self.s.done() && !self.s.at("---") {
                 self.s.eat_until(is_newline);
@@ -257,10 +264,6 @@ impl<'a> Parser<'a> {
             }
 
             let text = self.s.from(start);
-            let large = text.starts_with("// LARGE");
-            if large {
-                self.collector.large.insert(name.clone());
-            }
 
             if !selected(&name, self.path.canonicalize().unwrap()) {
                 self.collector.skipped += 1;
@@ -285,8 +288,31 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            self.collector.tests.push(Test { pos, name, source, notes, large });
+            self.collector.tests.push(Test { pos, name, source, notes, attrs });
         }
+    }
+
+    fn parse_attrs(&mut self) -> Vec<Attr> {
+        let mut attrs = vec![];
+        while !self.s.eat_if("---") {
+            let attr = match self.s.eat_until(char::is_whitespace) {
+                "large" => Attr::Large,
+                "html" => Attr::Html,
+                "render" => Attr::Render,
+                found => {
+                    self.error(format!(
+                        "expected attribute or closing ---, found `{found}`"
+                    ));
+                    break;
+                }
+            };
+            if attrs.contains(&attr) {
+                self.error(format!("duplicate attribute {attr:?}"));
+            }
+            attrs.push(attr);
+            self.s.eat_while(' ');
+        }
+        attrs
     }
 
     /// Skips the preamble of a test.

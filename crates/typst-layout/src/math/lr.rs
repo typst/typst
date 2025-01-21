@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::layout::{Abs, Axis, Length, Rel};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::layout::{Abs, Axis, Rel};
 use typst_library::math::{EquationElem, LrElem, MidElem};
 use unicode_math_class::MathClass;
 
@@ -13,17 +13,16 @@ pub fn layout_lr(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut body = elem.body();
-
     // Extract from an EquationElem.
+    let mut body = &elem.body;
     if let Some(equation) = body.to_packed::<EquationElem>() {
-        body = equation.body();
+        body = &equation.body;
     }
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size(styles).is_auto() {
-            body = lr.body();
+        if lr.size(styles).is_one() {
+            body = &lr.body;
         }
     }
 
@@ -100,7 +99,7 @@ pub fn layout_mid(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut fragments = ctx.layout_into_fragments(elem.body(), styles)?;
+    let mut fragments = ctx.layout_into_fragments(&elem.body, styles)?;
 
     for fragment in &mut fragments {
         match fragment {
@@ -128,7 +127,7 @@ fn scale(
     styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
-    height: Smart<Rel<Length>>,
+    height: Rel<Abs>,
     apply: Option<MathClass>,
 ) {
     if matches!(

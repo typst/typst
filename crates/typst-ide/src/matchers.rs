@@ -89,15 +89,21 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
-                            let original = item.original_name();
                             let bound = item.bound_name();
-                            let scope = source.and_then(|(value, _)| value.scope());
-                            let span = scope
-                                .and_then(|s| s.get_span(&original))
-                                .unwrap_or(Span::detached())
-                                .or(bound.span());
 
-                            let value = scope.and_then(|s| s.get(&original));
+                            let (span, value) = item.path().iter().fold(
+                                (bound.span(), source.map(|(value, _)| value)),
+                                |(span, value), path_ident| {
+                                    let scope = value.and_then(|v| v.scope());
+                                    let span = scope
+                                        .and_then(|s| s.get_span(&path_ident))
+                                        .unwrap_or(Span::detached())
+                                        .or(span);
+                                    let value = scope.and_then(|s| s.get(&path_ident));
+                                    (span, value)
+                                },
+                            );
+
                             if let Some(res) =
                                 recv(NamedItem::Import(bound.get(), span, value))
                             {
@@ -266,53 +272,95 @@ pub enum DerefTarget<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
+    use ecow::EcoString;
+    use typst::foundations::Value;
     use typst::syntax::{LinkedNode, Side};
 
-    use crate::{named_items, tests::TestWorld};
+    use super::named_items;
+    use crate::tests::{FilePos, TestWorld, WorldLike};
+
+    type Response = Vec<(EcoString, Option<Value>)>;
+
+    trait ResponseExt {
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_include_value(&self, name_value: (&str, Option<&Value>)) -> &Self;
+    }
+
+    impl ResponseExt for Response {
+        #[track_caller]
+        fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self {
+            for item in includes {
+                assert!(
+                    self.iter().any(|v| v.0 == item),
+                    "{item:?} was not contained in {self:?}",
+                );
+            }
+            self
+        }
+
+        #[track_caller]
+        fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self {
+            for item in excludes {
+                assert!(
+                    !self.iter().any(|v| v.0 == item),
+                    "{item:?} was wrongly contained in {self:?}",
+                );
+            }
+            self
+        }
+
+        #[track_caller]
+        fn must_include_value(&self, name_value: (&str, Option<&Value>)) -> &Self {
+            assert!(
+                self.iter().any(|v| (v.0.as_str(), v.1.as_ref()) == name_value),
+                "{name_value:?} was not contained in {self:?}",
+            );
+            self
+        }
+    }
 
     #[track_caller]
-    fn has_named_items(text: &str, cursor: usize, containing: &str) -> bool {
-        let world = TestWorld::new(text);
-
-        let src = world.main.clone();
-        let node = LinkedNode::new(src.root());
+    fn test(world: impl WorldLike, pos: impl FilePos) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let (source, cursor) = pos.resolve(world);
+        let node = LinkedNode::new(source.root());
         let leaf = node.leaf_at(cursor, Side::After).unwrap();
-
-        let res = named_items(&world, leaf, |s| {
-            if containing == s.name() {
-                return Some(true);
-            }
-
-            None
+        let mut items = vec![];
+        named_items(world, leaf, |s| {
+            items.push((s.name().clone(), s.value().clone()));
+            None::<()>
         });
-
-        res.unwrap_or_default()
+        items
     }
 
     #[test]
-    fn test_simple_named_items() {
-        // Has named items
-        assert!(has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "a"));
-        assert!(has_named_items(r#"#let a = 1;#let b = 2;"#, 15, "a"));
-
-        // Doesn't have named items
-        assert!(!has_named_items(r#"#let a = 1;#let b = 2;"#, 8, "b"));
+    fn test_named_items_simple() {
+        let s = "#let a = 1;#let b = 2;";
+        test(s, 8).must_include(["a"]).must_exclude(["b"]);
+        test(s, 15).must_include(["b"]);
     }
 
     #[test]
-    fn test_param_named_items() {
-        // Has named items
-        assert!(has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 12, "a"));
-        assert!(has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "a"));
+    fn test_named_items_param() {
+        let pos = "#let f(a) = 1;#let b = 2;";
+        test(pos, 12).must_include(["a"]);
+        test(pos, 19).must_include(["b", "f"]).must_exclude(["a"]);
 
-        // Doesn't have named items
-        assert!(!has_named_items(r#"#let f(a) = 1;#let b = 2;"#, 19, "a"));
-        assert!(!has_named_items(r#"#let f(a: b) = 1;#let b = 2;"#, 15, "b"));
+        let named = "#let f(a: b) = 1;#let b = 2;";
+        test(named, 15).must_include(["a", "f"]).must_exclude(["b"]);
     }
 
     #[test]
-    fn test_import_named_items() {
-        // Cannot test much.
-        assert!(has_named_items(r#"#import "foo.typ": a; #(a);"#, 24, "a"));
+    fn test_named_items_import() {
+        test("#import \"foo.typ\": a; #(a);", 2).must_include(["a"]);
+
+        let world = TestWorld::new("#import \"foo.typ\": a.b; #(b);")
+            .with_source("foo.typ", "#import \"a.typ\"")
+            .with_source("a.typ", "#let b = 1;");
+        test(&world, 2).must_include_value(("b", Some(&Value::Int(1))));
     }
 }

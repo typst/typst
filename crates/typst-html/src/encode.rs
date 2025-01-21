@@ -12,6 +12,9 @@ pub fn html(document: &HtmlDocument) -> SourceResult<String> {
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, &document.root)?;
+    if w.pretty {
+        w.buf.push('\n');
+    }
     Ok(w.buf)
 }
 

@@ -46,11 +46,11 @@ impl Resolver for CliResolver<'_> {
         if let Some(code) = source {
             let code_safe = code.as_str();
             Html::new(format!(
-                r#"<div class="previewed-code"><pre>{code_safe}</pre><div class="preview"><img src="{src}" alt="Preview" /></div></div>"#
+                r#"<div class="previewed-code"><pre>{code_safe}</pre><div class="preview"><img src="{src}" alt="Preview"></div></div>"#
             ))
         } else {
             Html::new(format!(
-                r#"<div class="preview"><img src="{src}" alt="Preview" /></div>"#
+                r#"<div class="preview"><img src="{src}" alt="Preview"></div>"#
             ))
         }
     }

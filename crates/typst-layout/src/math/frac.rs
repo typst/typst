@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{BinomElem, FracElem};
 use typst_library::text::TextElem;
@@ -7,8 +7,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    scaled_font_size, style_for_denominator, style_for_numerator, FrameFragment,
-    GlyphFragment, MathContext, DELIM_SHORT_FALL,
+    style_for_denominator, style_for_numerator, FrameFragment, GlyphFragment,
+    MathContext, DELIM_SHORT_FALL,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -23,8 +23,8 @@ pub fn layout_frac(
     layout_frac_like(
         ctx,
         styles,
-        elem.num(),
-        std::slice::from_ref(elem.denom()),
+        &elem.num,
+        std::slice::from_ref(&elem.denom),
         false,
         elem.span(),
     )
@@ -37,7 +37,7 @@ pub fn layout_binom(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_frac_like(ctx, styles, elem.upper(), elem.lower(), true, elem.span())
+    layout_frac_like(ctx, styles, &elem.upper, &elem.lower, true, elem.span())
 }
 
 /// Layout a fraction or binomial.
@@ -49,8 +49,7 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let font_size = scaled_font_size(ctx, styles);
-    let short_fall = DELIM_SHORT_FALL.at(font_size);
+    let short_fall = DELIM_SHORT_FALL.resolve(styles);
     let axis = scaled!(ctx, styles, axis_height);
     let thickness = scaled!(ctx, styles, fraction_rule_thickness);
     let shift_up = scaled!(
@@ -86,7 +85,7 @@ fn layout_frac_like(
         styles.chain(&denom_style),
     )?;
 
-    let around = FRAC_AROUND.at(font_size);
+    let around = FRAC_AROUND.resolve(styles);
     let num_gap = (shift_up - (axis + thickness / 2.0) - num.descent()).max(num_min);
     let denom_gap =
         (shift_down + (axis - thickness / 2.0) - denom.ascent()).max(denom_min);
@@ -111,7 +110,7 @@ fn layout_frac_like(
             .stretch_vertical(ctx, height, short_fall);
         left.center_on_axis(ctx);
         ctx.push(left);
-        ctx.push(FrameFragment::new(ctx, styles, frame));
+        ctx.push(FrameFragment::new(styles, frame));
         let mut right = GlyphFragment::new(ctx, styles, ')', span)
             .stretch_vertical(ctx, height, short_fall);
         right.center_on_axis(ctx);
@@ -129,7 +128,7 @@ fn layout_frac_like(
                 span,
             ),
         );
-        ctx.push(FrameFragment::new(ctx, styles, frame));
+        ctx.push(FrameFragment::new(styles, frame));
     }
 
     Ok(())
