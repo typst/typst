@@ -6,7 +6,6 @@ use std::ops::{Add, AddAssign, Deref, Range};
 use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
-use typst_macros::Cast;
 use typst_syntax::{Span, Spanned};
 use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
@@ -14,8 +13,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
-    IntoValue, Label, Repr, Smart, Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Cast, Context, Decimal, Dict, Func,
+    IntoValue, Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
 
@@ -291,18 +290,18 @@ impl Str {
     /// Normalizes the string to the given Unicode Normalization Form. This is useful when
     /// manipulating strings containing combining Unicode characters.
     ///
-    /// ```example
-    /// #"é".normalize("NFD") \ // "e\u{0301}"
-    /// #"ſ́".normalize("NFKC") // "ś", = "\u{015b}"
+    /// ```typ
+    /// #assert.eq("é".normalize("NFD"), "e\u{0301}")\
+    /// #assert.eq("ſ́".normalize("NFKC"), "ś")
     /// ```
     #[func]
     pub fn normalize(
         &self,
-        /// One of `"NFC"`, `"NFD"`, `"NFKC"`, or `"NFKD"`, specifiying the [Unicode Normalization
-        /// Form](https://unicode.org/reports/tr15/#Norm_Forms) to use. If set to `auto`, NFC is used.
-        form: Smart<UnicodeNormalForm>,
+        #[named]
+        #[default(UnicodeNormalForm::Nfc)]
+        form: UnicodeNormalForm,
     ) -> Str {
-        match form.unwrap_or(UnicodeNormalForm::Nfc) {
+        match form {
             UnicodeNormalForm::Nfc => self.nfc().collect(),
             UnicodeNormalForm::Nfd => self.nfd().collect(),
             UnicodeNormalForm::Nfkc => self.nfkc().collect(),
@@ -817,15 +816,21 @@ cast! {
     v: Str => Self::Str(v),
 }
 
-#[derive(PartialEq, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum UnicodeNormalForm {
-    #[string("NFC")]
+    /// Converts letters with accents, for example, into one Unicode character
+    #[string("nfc")]
     Nfc,
-    #[string("NFD")]
+    /// Decomposes accented characters into the base and the diacritic
+    /// separately
+    #[string("nfd")]
     Nfd,
-    #[string("NFKC")]
+    /// `"nfc"` (compose) but using the Unicode compatibility decompositions of
+    /// the characters
+    #[string("nkfc")]
     Nfkc,
-    #[string("NFKD")]
+    /// `"nfd"` (decompose) but compatibility-decomposing the characters first
+    #[string("nfkd")]
     Nfkd,
 }
 
