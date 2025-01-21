@@ -12,6 +12,7 @@ mod terminal;
 mod timings;
 #[cfg(feature = "self-update")]
 mod update;
+mod vendor;
 mod watch;
 mod world;
 
@@ -69,6 +70,7 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Watch(command) => crate::watch::watch(&mut timer, command)?,
         Command::Init(command) => crate::init::init(command)?,
         Command::Query(command) => crate::query::query(command)?,
+        Command::Vendor(command) => crate::vendor::vendor(command)?,
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command)?,
     }

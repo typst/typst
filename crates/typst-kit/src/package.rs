@@ -71,6 +71,7 @@ impl PackageStorage {
         &self,
         spec: &PackageSpec,
         progress: &mut dyn Progress,
+        project_root: Option<&Path>,
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
@@ -78,6 +79,17 @@ impl PackageStorage {
             let dir = packages_dir.join(&subdir);
             if dir.exists() {
                 return Ok(dir);
+            }
+        }
+
+        // Read from vendor dir if it exists.
+        if let Some(project_root) = project_root {
+            let vendor_dir = project_root.join("vendor");
+            if let Ok(true) = vendor_dir.try_exists() {
+                let dir = vendor_dir.join(&subdir);
+                if dir.exists() {
+                    return Ok(dir);
+                }
             }
         }
 
