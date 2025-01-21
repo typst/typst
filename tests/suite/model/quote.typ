@@ -99,3 +99,11 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 --- quote-nesting-html html ---
 When you said that #quote[he surely meant that #quote[she intended to say #quote[I'm sorry]]], I was quite confused.
+
+--- quote-attribution-link html ---
+#quote(
+  block: true,
+  attribution: link("https://typst.app/home")[typst.com]
+)[
+  Compose papers faster
+]

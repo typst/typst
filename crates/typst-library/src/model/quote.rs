@@ -4,12 +4,12 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles, TargetElem,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{tag, HtmlAttr, HtmlElem};
 use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,
 };
-use crate::model::{CitationForm, CiteElem};
+use crate::model::{CitationForm, CiteElem, Destination, LinkElem, LinkTarget};
 use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
 /// Displays a quote alongside an optional attribution.
@@ -186,15 +186,28 @@ impl Show for Packed<QuoteElem> {
             .styled(QuoteElem::set_depth(Depth(1)));
         }
 
+        let attribution = self.attribution(styles);
+
         if block {
             realized = if html {
-                HtmlElem::new(tag::blockquote).with_body(Some(realized)).pack()
+                let mut elem = HtmlElem::new(tag::blockquote).with_body(Some(realized));
+                if let Some(Attribution::Content(attribution)) = attribution {
+                    if let Some(link) = attribution.to_packed::<LinkElem>() {
+                        if let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
+                            elem = elem.with_attr(
+                                HtmlAttr::constant("cite"),
+                                url.clone().into_inner(),
+                            );
+                        }
+                    }
+                }
+                elem.pack()
             } else {
                 BlockElem::new().with_body(Some(BlockBody::Content(realized))).pack()
             }
             .spanned(self.span());
 
-            if let Some(attribution) = self.attribution(styles).as_ref() {
+            if let Some(attribution) = attribution.as_ref() {
                 let attribution = match attribution {
                     Attribution::Content(content) => content.clone(),
                     Attribution::Label(label) => CiteElem::new(*label)
@@ -218,7 +231,7 @@ impl Show for Packed<QuoteElem> {
             if !html {
                 realized = PadElem::new(realized).pack();
             }
-        } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
+        } else if let Some(Attribution::Label(label)) = attribution {
             realized += SpaceElem::shared().clone()
                 + CiteElem::new(*label).pack().spanned(self.span());
         }
