@@ -24,7 +24,6 @@ use crate::World;
 /// ```
 #[func]
 pub fn read(
-    /// The engine.
     engine: &mut Engine,
     /// Path to a file.
     ///

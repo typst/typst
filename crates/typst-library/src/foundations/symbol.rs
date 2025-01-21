@@ -187,7 +187,6 @@ impl Symbol {
     /// ```
     #[func(constructor)]
     pub fn construct(
-        /// The callsite span.
         span: Span,
         /// The variants of the symbol.
         ///

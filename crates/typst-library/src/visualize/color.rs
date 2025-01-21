@@ -248,8 +248,6 @@ impl Color {
     /// ```
     #[func]
     pub fn luma(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The lightness component.
         #[external]
@@ -300,8 +298,6 @@ impl Color {
     /// ```
     #[func]
     pub fn oklab(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The lightness component.
         #[external]
@@ -358,8 +354,6 @@ impl Color {
     /// ```
     #[func]
     pub fn oklch(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The lightness component.
         #[external]
@@ -420,8 +414,6 @@ impl Color {
     /// ```
     #[func(title = "Linear RGB")]
     pub fn linear_rgb(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The red component.
         #[external]
@@ -477,8 +469,6 @@ impl Color {
     /// ```
     #[func(title = "RGB")]
     pub fn rgb(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The red component.
         #[external]
@@ -555,8 +545,6 @@ impl Color {
     /// ```
     #[func(title = "CMYK")]
     pub fn cmyk(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The cyan component.
         #[external]
@@ -614,8 +602,6 @@ impl Color {
     /// ```
     #[func(title = "HSL")]
     pub fn hsl(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The hue angle.
         #[external]
@@ -673,8 +659,6 @@ impl Color {
     /// ```
     #[func(title = "HSV")]
     pub fn hsv(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
         /// The hue angle.
         #[external]
@@ -898,7 +882,6 @@ impl Color {
     #[func]
     pub fn saturate(
         self,
-        /// The call span
         span: Span,
         /// The factor to saturate the color by.
         factor: Ratio,
@@ -924,7 +907,6 @@ impl Color {
     #[func]
     pub fn desaturate(
         self,
-        /// The call span
         span: Span,
         /// The factor to desaturate the color by.
         factor: Ratio,
@@ -1001,7 +983,6 @@ impl Color {
     #[func]
     pub fn rotate(
         self,
-        /// The call span
         span: Span,
         /// The angle to rotate the hue by.
         angle: Angle,

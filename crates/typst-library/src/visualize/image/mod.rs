@@ -112,7 +112,6 @@ impl ImageElem {
     /// ```
     #[func(title = "Decode Image")]
     pub fn decode(
-        /// The call span of this function.
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
         data: Readable,

@@ -266,7 +266,6 @@ impl assert {
 /// ```
 #[func(title = "Evaluate")]
 pub fn eval(
-    /// The engine.
     engine: &mut Engine,
     /// A string of Typst code to evaluate.
     source: Spanned<String>,

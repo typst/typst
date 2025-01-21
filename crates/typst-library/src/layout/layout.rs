@@ -54,7 +54,6 @@ use crate::layout::{BlockElem, Size};
 /// corresponding page dimension is set to `{auto}`.
 #[func]
 pub fn layout(
-    /// The call span of this function.
     span: Span,
     /// A function to call with the outer container's size. Its return value is
     /// displayed in the document.

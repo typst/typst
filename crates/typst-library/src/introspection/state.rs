@@ -289,11 +289,8 @@ impl State {
     #[func(contextual)]
     pub fn get(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
     ) -> SourceResult<Value> {
         let loc = context.location().at(span)?;
@@ -309,11 +306,8 @@ impl State {
     #[func(contextual)]
     pub fn at(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
         /// The place at which the state's value should be retrieved.
         selector: LocatableSelector,
@@ -326,11 +320,8 @@ impl State {
     #[func(contextual)]
     pub fn final_(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
     ) -> SourceResult<Value> {
         context.introspect().at(span)?;
@@ -349,7 +340,6 @@ impl State {
     #[func]
     pub fn update(
         self,
-        /// The span of the `update` call.
         span: Span,
         /// If given a non function-value, sets the state to that value. If
         /// given a function, that function receives the previous state and has

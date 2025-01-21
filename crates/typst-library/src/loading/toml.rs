@@ -28,7 +28,6 @@ use crate::loading::{DataSource, Load, Readable};
 /// ```
 #[func(scope, title = "TOML")]
 pub fn toml(
-    /// The engine.
     engine: &mut Engine,
     /// A path to a TOML file or raw TOML bytes.
     ///
@@ -50,7 +49,6 @@ impl toml {
     /// directly.
     #[func(title = "Decode TOML")]
     pub fn decode(
-        /// The engine.
         engine: &mut Engine,
         /// TOML data.
         data: Spanned<Readable>,
