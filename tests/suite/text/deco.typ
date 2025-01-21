@@ -83,3 +83,7 @@ We can also specify a customized value
 #highlight(stroke: 2pt + blue)[abc]
 #highlight(stroke: (top: blue, left: red, bottom: green, right: orange))[abc]
 #highlight(stroke: 1pt, radius: 3pt)[#lorem(5)]
+
+--- issue-5717-underline-inside ---
+// Test that line segments fully inside the glyph are not drawn.
+#underline(stroke: 2pt + red, offset: -0.15pt)[a gggreat time]
