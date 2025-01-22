@@ -10,6 +10,7 @@ use typst_library::text::{Lang, TextElem};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -93,7 +94,7 @@ impl Line<'_> {
     pub fn has_negative_width_items(&self) -> bool {
         self.items.iter().any(|item| match item {
             Item::Absolute(amount, _) => *amount < Abs::zero(),
-            Item::Frame(frame, _) => frame.width() < Abs::zero(),
+            Item::Frame(frame) => frame.width() < Abs::zero(),
             _ => false,
         })
     }
@@ -409,6 +410,11 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
     }
 }
 
+/// Apply the current baseline shift to a frame.
+pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
+    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+}
+
 /// Commit to a line and build its frame.
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
@@ -509,10 +515,11 @@ pub fn commit(
                 let amount = v.share(fr, remaining);
                 if let Some((elem, loc, styles)) = elem {
                     let region = Size::new(amount, full);
-                    let mut frame =
-                        layout_box(elem, engine, loc.relayout(), *styles, region)?;
-                    frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                    push(&mut offset, frame.post_processed(*styles));
+                    let mut frame = layout_and_modify(*styles, |styles| {
+                        layout_box(elem, engine, loc.relayout(), styles, region)
+                    })?;
+                    apply_baseline_shift(&mut frame, *styles);
+                    push(&mut offset, frame);
                 } else {
                     offset += amount;
                 }
@@ -524,12 +531,10 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame.post_processed(shaped.styles));
+                push(&mut offset, frame);
             }
-            Item::Frame(frame, styles) => {
-                let mut frame = frame.clone();
-                frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                push(&mut offset, frame.post_processed(*styles));
+            Item::Frame(frame) => {
+                push(&mut offset, frame.clone());
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());

@@ -13,6 +13,7 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
+use crate::modifiers::{layout_and_modify, FrameModifiers, FrameModify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // paragraph's full text.
@@ -36,7 +37,7 @@ pub enum Item<'a> {
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, Locator<'a>, StyleChain<'a>)>),
     /// Layouted inline-level content.
-    Frame(Frame, StyleChain<'a>),
+    Frame(Frame),
     /// A tag.
     Tag(&'a Tag),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
@@ -67,7 +68,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.text,
             Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
-            Self::Frame(_, _) => OBJ_REPLACE,
+            Self::Frame(_) => OBJ_REPLACE,
             Self::Tag(_) => "",
             Self::Skip(s) => s,
         }
@@ -83,7 +84,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v, _) => *v,
-            Self::Frame(frame, _) => frame.width(),
+            Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
@@ -210,8 +211,10 @@ pub fn collect<'a>(
                     InlineItem::Space(space, weak) => {
                         collector.push_item(Item::Absolute(space, weak));
                     }
-                    InlineItem::Frame(frame) => {
-                        collector.push_item(Item::Frame(frame, styles));
+                    InlineItem::Frame(mut frame) => {
+                        frame.modify(&FrameModifiers::get_in(styles));
+                        apply_baseline_shift(&mut frame, styles);
+                        collector.push_item(Item::Frame(frame));
                     }
                 }
             }
@@ -222,8 +225,11 @@ pub fn collect<'a>(
             if let Sizing::Fr(v) = elem.width(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let frame = layout_box(elem, engine, loc, styles, region)?;
-                collector.push_item(Item::Frame(frame, styles));
+                let mut frame = layout_and_modify(styles, |styles| {
+                    layout_box(elem, engine, loc, styles, region)
+                })?;
+                apply_baseline_shift(&mut frame, styles);
+                collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
             collector.push_item(Item::Tag(&elem.tag));

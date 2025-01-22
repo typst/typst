@@ -75,3 +75,14 @@ Text <hey>
 Text <hey>
 // Error: 2-20 label `<hey>` occurs multiple times in the document
 #link(<hey>)[Nope.]
+
+--- link-empty-block ---
+#link("", block(height: 10pt, width: 100%))
+
+--- issue-758-link-repeat ---
+#let url = "https://typst.org/"
+#let body = [Hello #box(width: 1fr, repeat[.])]
+
+Inline: #link(url, body)
+
+#link(url, block(inset: 4pt, [Block: ] + body))
