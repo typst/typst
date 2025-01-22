@@ -276,3 +276,13 @@ World
 - h
 #align(right)[- i]
 - j
+
+--- issue-5719-sub-list ---
+- first main
+- - first sub
+  - second sub
+- = Heading in the list
+  text
+  == Sub-heading in the list
+  more text
+= new heading outside list

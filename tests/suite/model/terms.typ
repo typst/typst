@@ -90,3 +90,8 @@ Not in list
 / h: h
 #align(right)[/ i: i]
 / j: j
+
+--- issue-5719-sub-term ---
+/ Term A: first
+/ Term B: / Term C:  second
+          / Term D:  third

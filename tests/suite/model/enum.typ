@@ -193,14 +193,15 @@ a + 0.
 #align(right)[+ align]
 + h
 
-
 --- issue-5719-sub-enum-numbering ---
-#set enum(numbering: "(a)")
-
-+ first main
+1. first main
+2. 1. first sub
+   2. second sub
 + + first sub
   + second sub
++ = Heading 
+  text
+  == Sub-heading 
+  more text
+= Heading outside enum
 
-- first main
-- - first sub
-  - second sub
