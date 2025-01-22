@@ -23,7 +23,7 @@ use typst_library::World;
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{commit, line, Line};
+use self::line::{apply_baseline_shift, commit, line, Line};
 use self::linebreak::{linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{

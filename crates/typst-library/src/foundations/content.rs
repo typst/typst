@@ -9,7 +9,6 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
-use smallvec::smallvec;
 use typst_syntax::Span;
 use typst_utils::{fat, singleton, LazyHash, SmallBitSet};
 
@@ -500,7 +499,7 @@ impl Content {
 
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
-        self.styled(LinkElem::set_dests(smallvec![dest]))
+        self.styled(LinkElem::set_current(Some(dest)))
     }
 
     /// Set alignments for this content.

@@ -6,6 +6,7 @@ mod image;
 mod inline;
 mod lists;
 mod math;
+mod modifiers;
 mod pad;
 mod pages;
 mod repeat;
