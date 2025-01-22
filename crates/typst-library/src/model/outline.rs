@@ -175,7 +175,7 @@ pub struct OutlineElem {
     ///
     /// = A New Beginning
     /// ```
-    #[default(Some(RepeatElem::new(TextElem::packed(".")).pack()))]
+    #[default(Some(RepeatElem::new(TextElem::packed("\u{2024}")).pack()))]
     pub fill: Option<Content>,
 }
 
