@@ -15,7 +15,7 @@ use crate::package;
 
 /// Execute an initialization command.
 pub fn init(command: &InitCommand) -> StrResult<()> {
-    let package_storage = package::storage(&command.package);
+    let package_storage = package::storage(&command.package, None);
 
     // Parse the package specification. If the user didn't specify the version,
     // we try to figure it out automatically by downloading the package index
@@ -28,9 +28,9 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         StrResult::Ok(spec.at(version))
     })?;
 
-    // Find or download the package. Vendoring does not make sense for initialization, so project_root is not needed.
+    // Find or download the package. Vendoring does not make sense for initialization, so vendor_dir is not needed.
     let package_path =
-        package_storage.prepare_package(&spec, &mut PrintDownload(&spec), None)?;
+        package_storage.prepare_package(&spec, &mut PrintDownload(&spec))?;
 
     // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;

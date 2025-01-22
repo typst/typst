@@ -28,6 +28,8 @@ pub const DEFAULT_VENDOR_SUBDIR: &str = "vendor";
 /// on demand, if possible.
 #[derive(Debug)]
 pub struct PackageStorage {
+    /// The path at which packages are stored by the vendor command.
+    package_vendor_path: Option<PathBuf>,
     /// The path at which non-local packages should be stored when downloaded.
     package_cache_path: Option<PathBuf>,
     /// The path at which local packages are stored.
@@ -42,11 +44,15 @@ impl PackageStorage {
     /// Creates a new package storage for the given package paths. Falls back to
     /// the recommended XDG directories if they are `None`.
     pub fn new(
+        package_vendor_path: Option<PathBuf>,
         package_cache_path: Option<PathBuf>,
         package_path: Option<PathBuf>,
         downloader: Downloader,
+        workdir: Option<PathBuf>,
     ) -> Self {
         Self {
+            package_vendor_path: package_vendor_path
+                .or_else(|| workdir.map(|workdir| workdir.join(DEFAULT_VENDOR_SUBDIR))),
             package_cache_path: package_cache_path.or_else(|| {
                 dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
             }),
@@ -74,7 +80,6 @@ impl PackageStorage {
         &self,
         spec: &PackageSpec,
         progress: &mut dyn Progress,
-        project_root: Option<&Path>,
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
@@ -86,8 +91,7 @@ impl PackageStorage {
         }
 
         // Read from vendor dir if it exists.
-        if let Some(project_root) = project_root {
-            let vendor_dir = project_root.join(DEFAULT_VENDOR_SUBDIR);
+        if let Some(vendor_dir) = &self.package_vendor_path {
             if let Ok(true) = vendor_dir.try_exists() {
                 let dir = vendor_dir.join(&subdir);
                 if dir.exists() {

@@ -29,7 +29,7 @@ static STDIN_ID: LazyLock<FileId> =
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
     /// The working directory.
-    workdir: Option<PathBuf>,
+    workdir: PathBuf,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -132,15 +132,18 @@ impl SystemWorld {
             None => Now::System(OnceLock::new()),
         };
 
+        let env_workdir = std::env::current_dir().ok();
+        let workdir = env_workdir.unwrap_or(PathBuf::from("."));
+
         Ok(Self {
-            workdir: std::env::current_dir().ok(),
+            workdir: workdir.clone(),
             root,
             main,
             library: LazyHash::new(library),
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
             slots: Mutex::new(HashMap::new()),
-            package_storage: package::storage(&world_args.package),
+            package_storage: package::storage(&world_args.package, Some(workdir)),
             now,
         })
     }
@@ -157,7 +160,7 @@ impl SystemWorld {
 
     /// The current working directory.
     pub fn workdir(&self) -> &Path {
-        self.workdir.as_deref().unwrap_or(Path::new("."))
+        self.workdir.as_path()
     }
 
     /// Return all paths the last compilation depended on.
@@ -380,12 +383,9 @@ fn system_path(
     // will be resolved.
     let buf;
     let mut root = project_root;
+
     if let Some(spec) = id.package() {
-        buf = package_storage.prepare_package(
-            spec,
-            &mut PrintDownload(&spec),
-            Some(root),
-        )?;
+        buf = package_storage.prepare_package(spec, &mut PrintDownload(&spec))?;
         root = &buf;
     }
 
