@@ -83,13 +83,6 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-        if let Some(packages_dir) = &self.package_path {
-            let dir = packages_dir.join(&subdir);
-            if dir.exists() {
-                return Ok(dir);
-            }
-        }
-
         // Read from vendor dir if it exists.
         if let Some(vendor_dir) = &self.package_vendor_path {
             if let Ok(true) = vendor_dir.try_exists() {
@@ -97,6 +90,13 @@ impl PackageStorage {
                 if dir.exists() {
                     return Ok(dir);
                 }
+            }
+        }
+
+        if let Some(packages_dir) = &self.package_path {
+            let dir = packages_dir.join(&subdir);
+            if dir.exists() {
+                return Ok(dir);
             }
         }
 
