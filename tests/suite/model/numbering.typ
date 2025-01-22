@@ -1,109 +1,39 @@
-// Test integrated numbering patterns.
+// Test numbering styles
 
---- numbering ---
-#let t(pat: "1", step: 1, ..vals) = {
-  let num = 0
-  for val in vals.pos() {
-    if type(val) == int {
-      num = val
-    } else {
-      test(numbering(pat, num), val)
-      num += step
-    }
-  }
-}
+--- numbering-shorthand ---
+#test(numbering("1", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "12345678910")
 
-// Arabic.
-#t(pat: "1", "0", "1", "2", "3", "4", "5", "6", 107, "107", "108")
+--- numbering-shorthand-prefix ---
+#test(numbering("p1", 1, 2, 3), "p1p2p3")
 
-// Greek.
-#t(
-  pat: "α",
-  "𐆊", "αʹ", "βʹ", "γʹ", "δʹ", "εʹ", "ϛʹ", "ζʹ", "ηʹ", "θʹ", "ιʹ",
-  "ιαʹ", "ιβʹ", "ιγʹ", "ιδʹ", "ιεʹ", "ιϛʹ", "ιζʹ", "ιηʹ", "ιθʹ", "κʹ",
-  241, "σμαʹ",
-  999, "ϡϙθʹ",
-  1005, "͵αε",
-  1999, "͵αϡϙθ",
-  2999, "͵βϡϙθ",
-  3000, "͵γ",
-  3398, "͵γτϙη",
-  4444, "͵δυμδ",
-  5683, "͵εχπγ",
-  9184, "͵θρπδ",
-  9999, "͵θϡϙθ",
-  20000, "αΜβʹ",
-  20001, "αΜβʹ, αʹ",
-  97554, "αΜθʹ, ͵ζφνδ",
-  99999, "αΜθʹ, ͵θϡϙθ",
-  1000000, "αΜρʹ",
-  1000001, "αΜρʹ, αʹ",
-  1999999, "αΜρϙθʹ, ͵θϡϙθ",
-  2345678, "αΜσλδʹ, ͵εχοη",
-  9999999, "αΜϡϙθʹ, ͵θϡϙθ",
-  10000000, "αΜ͵α",
-  90000001, "αΜ͵θ, αʹ",
-  100000000, "βΜαʹ",
-  1000000000, "βΜιʹ",
-  2000000000, "βΜκʹ",
-  2000000001, "βΜκʹ, αʹ",
-  2000010001, "βΜκʹ, αΜαʹ, αʹ",
-  2056839184, "βΜκʹ, αΜ͵εχπγ, ͵θρπδ",
-  12312398676, "βΜρκγʹ, αΜ͵ασλθ, ͵ηχοϛ",
-)
-#t(
-  pat: sym.Alpha,
-  "𐆊", "Αʹ", "Βʹ", "Γʹ", "Δʹ", "Εʹ", "Ϛʹ", "Ζʹ", "Ηʹ", "Θʹ", "Ιʹ",
-  "ΙΑʹ", "ΙΒʹ", "ΙΓʹ", "ΙΔʹ", "ΙΕʹ", "ΙϚʹ", "ΙΖʹ", "ΙΗʹ", "ΙΘʹ", "Κʹ",
-  241, "ΣΜΑʹ",
-)
+--- numbering-shorthand-prefix-suffix ---
+#test(numbering("p1.a.is", 1, 3, 5), "p1.c.vs")
 
-// Symbols.
-#t(pat: "*", "-", "*", "†", "‡", "§", "¶", "‖", "**")
+--- numbering-verbose-prefix ---
+#test(numbering("prefix{decimal}", 1, 2, 3), "prefix1prefix2prefix3")
 
-// Hebrew.
-#t(pat: "א", step: 2, 9, "ט׳", "י״א", "י״ג")
+--- numbering-verbose-prefix-suffix ---
+#test(numbering("prefix{circled-decimal}.{double-circled-decimal}.{filled-circled-decimal}suffix", 1, 1, 1), "prefix①.⓵.❶suffix")
 
-// Chinese.
-#t(pat: "一", step: 2, 9, "九", "十一", "十三", "十五", "十七", "十九")
-#t(pat: "壹", step: 2, 9, "玖", "拾壹", "拾叁", "拾伍", "拾柒", "拾玖")
+--- numbering-additive ---
+#test(numbering("{greek-upper-modern}", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "𐆊ΑΒΓΔΕΣΤΖΗΘΙ")
 
-// Japanese.
-#t(pat: "イ", "-", "イ", "ロ", "ハ", 47, "ス", "イイ", "イロ", "イハ", 2256, "スス", "イイイ")
-#t(pat: "い", "-", "い", "ろ", "は", 47, "す", "いい", "いろ", "いは")
-#t(pat: "あ", "-", "あ", "い", "う", "え", "お", "か", "き", "く")
-#t(pat: "ア", "-", "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク")
+--- numbering-fixed ---
+#test(numbering("{double-circled-decimal}", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), "⓵⓶⓷⓸⓹⓺⓻⓼⓽⓾11")
 
-// Korean.
-#t(pat: "가", "-", "가", "나", "다", 47, "다마", "다바", "다사", "다아")
-#t(pat: "ㄱ", "-", "ㄱ", "ㄴ", "ㄷ", 47, "ㄷㅁ")
+--- numbering-numeric ---
+#test(numbering("{decimal}", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "12345678910")
 
-// Arabic Indic.
-#t(pat: "\u{0661}", 1475, "١٤٧٥")
-#t(pat: "\u{06F1}", 1475, "۱۴۷۵")
+--- numbering-symbolic ---
+#test(numbering("{symbol}", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), "*†‡§¶‖**††‡‡§§")
 
-// Devanagari.
-#t(pat: "\u{0967}", 1, "१")
-#t(pat: "\u{0967}", 10, "१०")
-#t(pat: "\u{0967}", 123456789, "१२३४५६७८९")
+--- numbering-no-name ---
+// Error: 12-20 invalid numbering pattern
+#numbering("{nope}", 1)
 
-// Bengali.
-#t(pat: "\u{09E7}", 1, "১")
-#t(pat: "\u{09E7}", 10, "১০")
-#t(pat: "\u{09E7}", 123456789, "১২৩৪৫৬৭৮৯")
-
-// Bengali Consonants.
-#t(pat: "\u{0995}", 1, "ক")
-#t(pat: "\u{0995}", 32, "হ")
-#t(pat: "\u{0995}", 32*2 , "কহ")
-
-// Circled number.
-#t(pat: "①", 1, "①")
-#t(pat: "①", 50, "㊿")
-
-// Double-circled number.
-#t(pat: "⓵", 1, "⓵")
-#t(pat: "⓵", 10, "⓾")
+--- numbering-unclosed ---
+// Error: 12-21 invalid numbering pattern
+#numbering("{roman{", 1)
 
 --- numbering-negative ---
 // Error: 17-19 number must be at least zero
