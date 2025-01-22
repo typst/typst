@@ -28,7 +28,7 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         StrResult::Ok(spec.at(version))
     })?;
 
-    // Find or download the package. Vendoring does not make sense for initialization, so vendor_dir is not needed.
+    // Find or download the package.
     let package_path =
         package_storage.prepare_package(&spec, &mut PrintDownload(&spec))?;
 
