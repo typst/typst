@@ -1,7 +1,6 @@
 use std::ops::Deref;
 
 use ecow::{eco_format, EcoString};
-use smallvec::SmallVec;
 
 use crate::diag::{bail, warning, At, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -85,10 +84,10 @@ pub struct LinkElem {
     })]
     pub body: Content,
 
-    /// This style is set on the content contained in the `link` element.
+    /// A destination style that should be applied to elements.
     #[internal]
     #[ghost]
-    pub dests: SmallVec<[Destination; 1]>,
+    pub current: Option<Destination>,
 }
 
 impl LinkElem {

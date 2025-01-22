@@ -22,6 +22,7 @@ use typst_library::text::TextElem;
 use typst_library::World;
 
 use super::{layout_multi_block, layout_single_block};
+use crate::modifiers::layout_and_modify;
 
 /// Collects all elements of the flow into prepared children. These are much
 /// simpler to handle than the raw elements.
@@ -377,8 +378,9 @@ fn layout_single_impl(
         route: Route::extend(route),
     };
 
-    layout_single_block(elem, &mut engine, locator, styles, region)
-        .map(|frame| frame.post_processed(styles))
+    layout_and_modify(styles, |styles| {
+        layout_single_block(elem, &mut engine, locator, styles, region)
+    })
 }
 
 /// A child that encapsulates a prepared breakable block.
@@ -473,11 +475,8 @@ fn layout_multi_impl(
         route: Route::extend(route),
     };
 
-    layout_multi_block(elem, &mut engine, locator, styles, regions).map(|mut fragment| {
-        for frame in &mut fragment {
-            frame.post_process(styles);
-        }
-        fragment
+    layout_and_modify(styles, |styles| {
+        layout_multi_block(elem, &mut engine, locator, styles, regions)
     })
 }
 
@@ -579,20 +578,23 @@ impl PlacedChild<'_> {
         self.cell.get_or_init(base, |base| {
             let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
             let aligned = AlignElem::set_alignment(align).wrap();
+            let styles = self.styles.chain(&aligned);
 
-            let mut frame = crate::layout_frame(
-                engine,
-                &self.elem.body,
-                self.locator.relayout(),
-                self.styles.chain(&aligned),
-                Region::new(base, Axes::splat(false)),
-            )?;
+            let mut frame = layout_and_modify(styles, |styles| {
+                crate::layout_frame(
+                    engine,
+                    &self.elem.body,
+                    self.locator.relayout(),
+                    styles,
+                    Region::new(base, Axes::splat(false)),
+                )
+            })?;
 
             if self.float {
                 frame.set_parent(self.elem.location().unwrap());
             }
 
-            Ok(frame.post_processed(self.styles))
+            Ok(frame)
         })
     }
 
