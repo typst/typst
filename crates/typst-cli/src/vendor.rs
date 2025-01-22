@@ -1,4 +1,7 @@
-use std::fs::{create_dir, create_dir_all};
+use std::{
+    fs::{create_dir, create_dir_all},
+    path::PathBuf,
+};
 
 use ecow::eco_format;
 use typst::{
@@ -24,7 +27,7 @@ pub fn vendor(command: &VendorCommand) -> HintedStrResult<()> {
 
     match output {
         Ok(_) => {
-            copy_deps(&mut world)?;
+            copy_deps(&mut world, &command.world.package.vendor_path)?;
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
@@ -45,20 +48,26 @@ pub fn vendor(command: &VendorCommand) -> HintedStrResult<()> {
     Ok(())
 }
 
-fn copy_deps(world: &mut SystemWorld) -> HintedStrResult<()> {
-    let vendor_dir = world.workdir().join(DEFAULT_VENDOR_SUBDIR);
-
-    match vendor_dir.try_exists() {
-        Ok(false) => {
-            if let Err(err) = create_dir(vendor_dir.clone()) {
-                bail!("failed to create vendor directory: {:?}", err);
+fn copy_deps(
+    world: &mut SystemWorld,
+    vendor_path: &Option<PathBuf>,
+) -> HintedStrResult<()> {
+    let vendor_dir = match vendor_path {
+        Some(path) => match path.canonicalize() {
+            Ok(path) => path,
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    if let Err(err) = create_dir(path) {
+                        bail!("failed to create vendor directory: {:?}", err);
+                    }
+                    path.clone()
+                } else {
+                    bail!("failed to canonicalize vendor directory path: {:?}", err);
+                }
             }
-        }
-        Err(err) => {
-            bail!("failed to check existence of vendor directory: {:?}", err);
-        }
-        _ => {}
-    }
+        },
+        None => world.workdir().join(DEFAULT_VENDOR_SUBDIR),
+    };
 
     // Must iterate two times in total. As soon as the parent directory is created,
     // world tries to read the subsequent files from the same package

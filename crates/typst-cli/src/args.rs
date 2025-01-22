@@ -361,6 +361,14 @@ pub struct PackageArgs {
         value_name = "DIR"
     )]
     pub package_cache_path: Option<PathBuf>,
+
+    /// Custom vendor directory name.
+    #[clap(
+        long = "package-vendor-path",
+        env = "TYPST_PACKAGE_VENDOR_PATH",
+        value_name = "DIR"
+    )]
+    pub vendor_path: Option<PathBuf>,
 }
 
 /// Common arguments to customize available fonts.
