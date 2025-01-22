@@ -25,3 +25,7 @@
 // Test error numbering with dictionary rows.
 // Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv", row-type: dictionary)
+
+--- csv-invalid-delimiter ---
+// Error: 41-51 delimiter must be an ASCII character
+#csv("/assets/data/zoo.csv", delimiter: "\u{2008}")

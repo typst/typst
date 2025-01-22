@@ -136,18 +136,10 @@ impl Default for Delimiter {
 cast! {
     Delimiter,
     self => self.0.into_value(),
-    v: EcoString => {
-        let mut chars = v.chars();
-        let first = chars.next().ok_or("delimiter must not be empty")?;
-        if chars.next().is_some() {
-            bail!("delimiter must be a single character");
-        }
-
-        if !first.is_ascii() {
-            bail!("delimiter must be an ASCII character");
-        }
-
-        Self(first)
+    c: char => if c.is_ascii() {
+        Self(c)
+    } else {
+        bail!("delimiter must be an ASCII character")
     },
 }
 

@@ -7,12 +7,11 @@ use typst_library::diag::{
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
     Arg, Args, Bytes, Capturer, Closure, Content, Context, Func, IntoValue,
-    NativeElement, Scope, Scopes, Value,
+    NativeElement, Scope, Scopes, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::routines::Routines;
-use typst_library::text::TextElem;
 use typst_library::World;
 use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
@@ -402,16 +401,16 @@ fn wrap_args_in_math(
     let mut body = Content::empty();
     for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
         if i > 0 {
-            body += TextElem::packed(',');
+            body += SymbolElem::packed(',');
         }
         body += arg;
     }
     if trailing_comma {
-        body += TextElem::packed(',');
+        body += SymbolElem::packed(',');
     }
     Ok(Value::Content(
         callee.display().spanned(callee_span)
-            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+            + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
                 .pack()
                 .spanned(args.span),
     ))
