@@ -385,10 +385,14 @@ pub struct OutlineEntry {
     /// Content to fill the space between the title and the page number. Can be
     /// set to `{none}` to disable filling.
     ///
-    /// Note that, when using show rules to override outline entries, it is
-    /// recommended to wrap the filling content in a [`box`] with fractional
-    /// width. For example, `{box(width: 1fr, repeat[-])}` would show precisely
-    /// as many `-` characters as necessary to fill a particular gap.
+    /// The `fill` will be placed into a fractionally sized box that spans the
+    /// space between the entry's body and the page number. When using show
+    /// rules to override outline entries, it is thus recommended to wrap the
+    /// fill in a [`box`] with fractional width, i.e.
+    /// `{box(width: 1fr, it.fill}`.
+    ///
+    /// When using a [`repeat`] fill, the [`gap`]($repeat.gap) property can
+    /// be useful to tweak the visual weight.
     ///
     /// ```example
     /// #set outline.entry(fill: line(length: 100%))
@@ -397,7 +401,11 @@ pub struct OutlineEntry {
     /// = A New Beginning
     /// ```
     #[borrowed]
-    #[default(Some(RepeatElem::new(TextElem::packed(".")).pack()))]
+    #[default(Some(
+        RepeatElem::new(TextElem::packed("."))
+            .with_gap(Em::new(0.15).into())
+            .pack()
+    ))]
     pub fill: Option<Content>,
 
     /// Lets outline entries access the outline they are part of. This is a bit
