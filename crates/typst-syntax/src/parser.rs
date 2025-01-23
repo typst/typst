@@ -442,10 +442,10 @@ fn math_unparen(p: &mut Parser, m: Marker) {
         if first.text() == "(" && last.text() == ")" {
             first.convert_to_kind(SyntaxKind::LeftParen);
             last.convert_to_kind(SyntaxKind::RightParen);
+            // Only convert if we did have regular parens.
+            node.convert_to_kind(SyntaxKind::Math);
         }
     }
-
-    node.convert_to_kind(SyntaxKind::Math);
 }
 
 /// The unicode math class of a string. Only returns `Some` if `text` has
