@@ -120,7 +120,10 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 
 /// Whether the element should be pretty-printed.
 fn is_pretty(element: &HtmlElement) -> bool {
-    tag::is_block_by_default(element.tag) || matches!(element.tag, tag::meta)
+    matches!(
+        element.tag,
+        tag::meta | tag::table | tag::thead | tag::tbody | tag::tfoot | tag::tr
+    ) || tag::is_block_by_default(element.tag)
 }
 
 /// Escape a character.
