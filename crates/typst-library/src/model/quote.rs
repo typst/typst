@@ -4,7 +4,7 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles, TargetElem,
 };
-use crate::html::{tag, HtmlAttr, HtmlElem};
+use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,
@@ -194,10 +194,7 @@ impl Show for Packed<QuoteElem> {
                 if let Some(Attribution::Content(attribution)) = attribution {
                     if let Some(link) = attribution.to_packed::<LinkElem>() {
                         if let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
-                            elem = elem.with_attr(
-                                HtmlAttr::constant("cite"),
-                                url.clone().into_inner(),
-                            );
+                            elem = elem.with_attr(attr::cite, url.clone().into_inner());
                         }
                     }
                 }
