@@ -103,6 +103,7 @@ impl Lexer<'_> {
         self.newline = false;
         let kind = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+            Some('#') if start == 0 && self.s.eat_if('!') => self.shebang(),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -149,6 +150,11 @@ impl Lexer<'_> {
         } else {
             SyntaxKind::Space
         }
+    }
+
+    fn shebang(&mut self) -> SyntaxKind {
+        self.s.eat_until(is_newline);
+        SyntaxKind::Shebang
     }
 
     fn line_comment(&mut self) -> SyntaxKind {
