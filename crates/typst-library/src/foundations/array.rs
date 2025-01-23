@@ -848,8 +848,8 @@ impl Array {
         /// first element is smaller, positive if the second element is smaller.
         /// If `{0}` is returned, the order of the elements is not modified.
         ///
-        /// When used together with `key`, `compare` will be passed the keys
-        /// instead of the elements.
+        /// When used together with `key`, `by` will be passed the keys instead
+        /// of the elements.
         ///
         /// ```example
         /// #(
@@ -859,11 +859,11 @@ impl Array {
         ///   "length",
         /// ).sorted(
         ///   key: s => s.len(),
-        ///   compare: (x, y) => y - x,
+        ///   by: (x, y) => y - x,
         /// )
         /// ```
         #[named]
-        compare: Option<Func>,
+        by: Option<Func>,
     ) -> SourceResult<Array> {
         let mut result = Ok(());
         let mut vec = self.0;
@@ -876,14 +876,12 @@ impl Array {
             };
             let x = key_of(x)?;
             let y = key_of(y)?;
-            match &compare {
+            match &by {
                 Some(f) => Ok(match f.call(engine, context, [x, y])? {
                     Value::Int(x) => x.cmp(&0),
-                    x => bail!(
-                        span,
-                        "expected integer from `compare` function, got {}",
-                        x.ty()
-                    ),
+                    x => {
+                        bail!(span, "expected integer from `by` function, got {}", x.ty())
+                    }
                 }),
                 None => ops::compare(&x, &y).at(span),
             }
