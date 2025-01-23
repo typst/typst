@@ -91,7 +91,8 @@ Not in list
 #align(right)[/ i: i]
 / j: j
 
---- issue-5719-sub-term ---
-/ Term A: first
-/ Term B: / Term C:  second
-          / Term D:  third
+--- issue-5719-terms-nested ---
+// Term lists can be immediately nested.
+/ Term A: 1
+/ Term B: / Term C: 2
+          / Term D: 3

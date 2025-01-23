@@ -137,6 +137,6 @@ Cannot be used as @intro
 // Hint: 1-16 you may want to restructure your document so that it doesn't contain deep headings
 ======= Level 7
 
-
---- issue-5719-no-sub-heading ---
-= = Nest heading 
+--- issue-5719-heading-nested ---
+// Headings may not be nested like this.
+= = A

@@ -193,15 +193,12 @@ a + 0.
 #align(right)[+ align]
 + h
 
---- issue-5719-sub-enum-numbering ---
-1. first main
-2. 1. first sub
-   2. second sub
-+ + first sub
-  + second sub
-+ = Heading 
-  text
-  == Sub-heading 
-  more text
-= Heading outside enum
-
+--- issue-5719-enum-nested ---
+// Enums can be immediately nested.
+1. A
+2. 1. B
+   2. C
++ + D
+  + E
++ = F
+  G
