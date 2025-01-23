@@ -125,3 +125,11 @@ $ lr(size: #3em, |)_a^b lr(size: #3em, zws|)_a^b
 --- issue-4188-lr-corner-brackets ---
 // Test positioning of U+231C to U+231F
 $⌜a⌟⌞b⌝$ = $⌜$$a$$⌟$$⌞$$b$$⌝$
+
+--- math-lr-unparen ---
+// Test that unparen with brackets stays as an LrElem.
+#let item = $limits(sum)_i$
+$
+  1 / ([item]) quad
+  1 /  [item]
+$
