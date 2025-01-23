@@ -160,7 +160,7 @@ fn list_item(p: &mut Parser) {
     p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::ListMarker);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::ListItem);
     });
 }
@@ -170,7 +170,7 @@ fn enum_item(p: &mut Parser) {
     p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::EnumMarker);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::EnumItem);
     });
 }
@@ -184,7 +184,7 @@ fn term_item(p: &mut Parser) {
             markup(p, false, false, syntax_set!(Colon, RightBracket, End));
         });
         p.expect(SyntaxKind::Colon);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::TermItem);
     });
 }
