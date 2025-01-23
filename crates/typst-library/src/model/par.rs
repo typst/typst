@@ -12,11 +12,69 @@ use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 
-/// Arranges text, spacing and inline-level elements into a paragraph.
+/// A logical subdivison of textual content.
 ///
-/// Although this function is primarily used in set rules to affect paragraph
-/// properties, it can also be used to explicitly render its argument onto a
-/// paragraph of its own.
+/// Typst automatically collects _inline-level_ elements into paragraphs.
+/// Inline-level elements include [text], [horizontal spacing]($h),
+/// [boxes]($box), and [inline equations]($math.equation).
+///
+/// To separate paragraphs, use a blank line (or an explicit [`parbreak`]).
+/// Paragraphs are also automatically interrupted by any block-level element
+/// (like [`block`], [`place`], or anything that shows itself as one of these).
+///
+/// The `par` element is primarily used in set rules to affect paragraph
+/// properties, but it can also be used to explicitly display its argument as a
+/// paragraph of its own. Then, the paragraph's body may not contain any
+/// block-level content.
+///
+/// # Boxes and blocks
+/// As explained above, usually paragraphs only contain inline-level content.
+/// However, you can integrate any kind of block-level content into a paragraph
+/// by wrapping it in a [`box`].
+///
+/// Conversely, you can separate inline-level content from a paragraph by
+/// wrapping it in a [`block`]. In this case, it will not become part of any
+/// paragraph at all. Read the following section for an explanation of why that
+/// matters and how it differs from just adding paragraph breaks around the
+/// content.
+///
+/// # What becomes a paragraph?
+/// When you add inline-level content to your document, Typst will automatically
+/// wrap it in paragraphs. However, a typical document also contains some text
+/// that is not semantically part of a paragraph, for example in a heading or
+/// caption.
+///
+/// The rules for when Typst wraps inline-level content in a paragraph are as
+/// follows:
+///
+/// - All text at the root of a document is wrapped in paragraphs.
+///
+/// - Text in a container (like a `block`) is only wrapped in a paragraph if the
+///   container holds any block-level content. If all of the contents are
+///   inline-level, no paragraph is created.
+///
+/// In the laid-out document, it's not immediately visible whether text became
+/// part of a paragraph. However, it is still important for various reasons:
+///
+/// - Certain paragraph styling like `first-line-indent` will only apply to
+///   proper paragraphs, not any text. Similarly, `par` show rules of course
+///   only trigger on paragraphs.
+///
+/// - A proper distinction between paragraphs and other text helps people who
+///   rely on assistive technologies (such as screen readers) navigate and
+///   understand the document properly. Currently, this only applies to HTML
+///   export since Typst does not yet output accessible PDFs, but support for
+///   this is planned for the near future.
+///
+/// - HTML export will generate a `<p>` tag only for paragraphs.
+///
+/// When creating custom reusable components, you can and should take charge
+/// over whether Typst creates paragraphs. By wrapping text in a [`block`]
+/// instead of just adding paragraph breaks around it, you can force the absence
+/// of a paragraph. Conversely, by adding a [`parbreak`] after some content in a
+/// container, you can force it to become a paragraph even if it's just one
+/// word. This is, for example, what [non-`tight`]($list.tight) lists do to
+/// force their items to become paragraphs.
 ///
 /// # Example
 /// ```example
