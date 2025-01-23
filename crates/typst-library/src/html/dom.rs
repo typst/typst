@@ -210,7 +210,10 @@ impl HtmlAttr {
 
     /// Creates a compile-time constant `HtmlAttr`.
     ///
-    /// Should only be used in const contexts because it can panic.
+    /// Must only be used in const contexts (in a constant definition or
+    /// explicit `const { .. }` block) because otherwise a panic for a malformed
+    /// attribute or not auto-internible constant will only be caught at
+    /// runtime.
     #[track_caller]
     pub const fn constant(string: &'static str) -> Self {
         if string.is_empty() {
@@ -605,6 +608,7 @@ pub mod tag {
 /// Predefined constants for HTML attributes.
 ///
 /// Note: These are very incomplete.
+#[allow(non_upper_case_globals)]
 pub mod attr {
     use super::HtmlAttr;
 
@@ -619,13 +623,18 @@ pub mod attr {
 
     attrs! {
         charset
+        cite
+        colspan
         content
         href
         name
-        value
+        reversed
         role
+        rowspan
+        start
+        style
+        value
     }
 
-    #[allow(non_upper_case_globals)]
     pub const aria_level: HtmlAttr = HtmlAttr::constant("aria-level");
 }

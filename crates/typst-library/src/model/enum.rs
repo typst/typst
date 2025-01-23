@@ -9,7 +9,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
     Styles, TargetElem,
 };
-use crate::html::{attr, tag, HtmlAttr, HtmlElem};
+use crate::html::{attr, tag, HtmlElem};
 use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem};
 
@@ -229,10 +229,10 @@ impl Show for Packed<EnumElem> {
         if TargetElem::target_in(styles).is_html() {
             let mut elem = HtmlElem::new(tag::ol);
             if self.reversed(styles) {
-                elem = elem.with_attr(HtmlAttr::constant("reversed"), "reversed");
+                elem = elem.with_attr(attr::reversed, "reversed");
             }
             if let Some(n) = self.start(styles).custom() {
-                elem = elem.with_attr(HtmlAttr::constant("start"), eco_format!("{n}"));
+                elem = elem.with_attr(attr::start, eco_format!("{n}"));
             }
             let body = Content::sequence(self.children.iter().map(|item| {
                 let mut li = HtmlElem::new(tag::li);
