@@ -297,7 +297,6 @@ impl ShowSet for Packed<OutlineElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::set_outlined(false));
         out.set(HeadingElem::set_numbering(None));
-        out.set(ParElem::set_first_line_indent(Em::new(0.0).into()));
         out.set(ParElem::set_justify(false));
         out.set(BlockElem::set_above(Smart::Custom(ParElem::leading_in(styles).into())));
         // Makes the outline itself available to its entries. Should be
