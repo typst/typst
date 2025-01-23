@@ -209,6 +209,22 @@ fn handle(
                     .into(),
             )
         }
+    } else if let Some((elem, body)) =
+        child
+            .to_packed::<BlockElem>()
+            .and_then(|elem| match elem.body(styles) {
+                Some(BlockBody::Content(body)) => Some((elem, body)),
+                _ => None,
+            })
+    {
+        // TODO: This is rather incomplete.
+        let children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
+        output.push(
+            HtmlElement::new(tag::div)
+                .with_children(children)
+                .spanned(elem.span())
+                .into(),
+        );
     } else if child.is::<SpaceElem>() {
         output.push(HtmlNode::text(' ', child.span()));
     } else if let Some(elem) = child.to_packed::<TextElem>() {
