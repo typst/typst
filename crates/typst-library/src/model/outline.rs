@@ -391,8 +391,8 @@ pub struct OutlineEntry {
     /// fill in a [`box`] with fractional width, i.e.
     /// `{box(width: 1fr, it.fill}`.
     ///
-    /// When using a [`repeat`] fill, the [`gap`]($repeat.gap) property can
-    /// be useful to tweak the visual weight.
+    /// When using [`repeat`], the [`gap`]($repeat.gap) property can be useful
+    /// to tweak the visual weight of the fill.
     ///
     /// ```example
     /// #set outline.entry(fill: line(length: 100%))
@@ -421,6 +421,7 @@ impl Show for Packed<OutlineEntry> {
         let span = self.span();
         let context = Context::new(None, Some(styles));
         let context = context.track();
+
         let prefix = self.prefix(engine, context, span)?;
         let inner = self.inner(engine, context, span)?;
         let block = if self.element.is::<EquationElem>() {
@@ -433,8 +434,8 @@ impl Show for Packed<OutlineEntry> {
             self.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
         };
 
-        let location = self.element_location().at(span)?;
-        Ok(block.linked(Destination::Location(location)))
+        let loc = self.element_location().at(span)?;
+        Ok(block.linked(Destination::Location(loc)))
     }
 }
 
@@ -480,67 +481,63 @@ impl OutlineEntry {
             .at(span)?;
         let outline_loc = outline.location().unwrap();
 
-        let prefix_width = if let Some(prefix) = &prefix {
-            Some(measure_prefix(engine, prefix, outline_loc, styles)?)
-        } else {
-            None
-        };
+        let prefix_width = prefix
+            .as_ref()
+            .map(|prefix| measure_prefix(engine, prefix, outline_loc, styles))
+            .transpose()?;
+        let prefix_inset = prefix_width.map(|w| w + gap.resolve(styles));
 
-        let mut seq = vec![];
-        let mut hang = if let Some(prefix_width) = prefix_width {
-            prefix_width + gap.resolve(styles)
-        } else {
-            Abs::zero()
-        };
-
-        // FIXME: This is messy and needs to be refactored, but I don't have
-        //        time right now and still want to open the PR, so that people
-        //        can take a look. Will refactor later.
-        let indent = match outline.indent(styles) {
-            Smart::Auto => {
-                let fallback = Em::new(1.2).resolve(styles);
-
-                let mut indents = compute_indent_levels(engine.introspector, outline_loc);
-                if indents.len() < self.level.get() {
-                    indents.resize(self.level.get(), None);
-                }
-
-                let mut indents: SmallVec<[Abs; 4]> =
-                    indents.into_iter().map(|value| value.unwrap_or(fallback)).collect();
-
-                if prefix.is_some() {
-                    seq.push(PrefixInfo::new(outline_loc, self.level, hang).pack());
-                    let sliced = &mut indents[..self.level.get()];
-                    if let Some(last) = sliced.last_mut() {
-                        last.set_max(hang);
-                        hang.set_max(*last);
-                    }
-                    sliced.iter().sum::<Abs>().into()
-                } else {
-                    indents[..(self.level.get() - 1)].iter().sum::<Abs>().into()
-                }
-            }
+        let indent = outline.indent(styles);
+        let (base_indent, hanging_indent) = match &indent {
+            Smart::Auto => compute_auto_indents(
+                engine.introspector,
+                outline_loc,
+                styles,
+                self.level,
+                prefix_inset,
+            ),
             Smart::Custom(amount) => {
-                amount.resolve(engine, context, self.level, span)? + Rel::from(hang)
+                let base = amount.resolve(engine, context, self.level, span)?;
+                (base, prefix_inset)
             }
         };
 
-        if let Some((prefix, prefix_width)) = prefix.zip(prefix_width) {
+        let body = if let (
+            Some(prefix),
+            Some(prefix_width),
+            Some(prefix_inset),
+            Some(hanging_indent),
+        ) = (prefix, prefix_width, prefix_inset, hanging_indent)
+        {
+            // Save information about our prefix that other outline entries
+            // can query for (within `compute_auto_indent`) to align
+            // themselves).
+            let mut seq = Vec::with_capacity(5);
+            if indent.is_auto() {
+                seq.push(PrefixInfo::new(outline_loc, self.level, prefix_inset).pack());
+            }
+
+            // Dedent the prefix by the amount of hanging indent and then skip
+            // ahead so that the inner contents are aligned.
             seq.extend([
-                HElem::new((-hang).into()).pack(),
+                HElem::new((-hanging_indent).into()).pack(),
                 prefix,
-                HElem::new((hang - prefix_width).into()).pack(),
+                HElem::new((hanging_indent - prefix_width).into()).pack(),
+                inner,
             ]);
-        }
+            Content::sequence(seq)
+        } else {
+            inner
+        };
 
-        seq.push(inner);
-
-        let start = TextElem::dir_in(styles).start();
-        let inset = Sides::default().with(start, Some(indent));
+        let inset = Sides::default().with(
+            TextElem::dir_in(styles).start(),
+            Some(base_indent + Rel::from(hanging_indent.unwrap_or_default())),
+        );
 
         Ok(BlockElem::new()
             .with_inset(inset)
-            .with_body(Some(BlockBody::Content(Content::sequence(seq))))
+            .with_body(Some(BlockBody::Content(body)))
             .pack()
             .spanned(span))
     }
@@ -694,25 +691,44 @@ fn measure_prefix(
         .width())
 }
 
-/// Determines the indent at each outline level for the outline with the given
-/// `loc`.
+/// Compute the base indent and hanging indent for an auto-indented outline
+/// entry of the given level, with the given prefix inset.
+fn compute_auto_indents(
+    introspector: Tracked<Introspector>,
+    outline_loc: Location,
+    styles: StyleChain,
+    level: NonZeroUsize,
+    prefix_inset: Option<Abs>,
+) -> (Rel, Option<Abs>) {
+    let indents = query_prefix_widths(introspector, outline_loc);
+
+    let fallback = Em::new(1.2).resolve(styles);
+    let get = |i: usize| indents.get(i).copied().flatten().unwrap_or(fallback);
+
+    let last = level.get() - 1;
+    let base: Abs = (0..last).map(get).sum();
+    let hang = prefix_inset.map(|p| p.max(get(last)));
+
+    (base.into(), hang)
+}
+
+/// Determines the maximum prefix inset (prefix width + gap) at each outline
+/// level, for the outline with the given `loc`. Levels for which there is no
+/// information available yield `None`.
 #[comemo::memoize]
-fn compute_indent_levels(
+fn query_prefix_widths(
     introspector: Tracked<Introspector>,
     outline_loc: Location,
 ) -> SmallVec<[Option<Abs>; 4]> {
-    let elems = introspector.query(&select_where!(PrefixInfo, Key => outline_loc));
     let mut widths = SmallVec::<[Option<Abs>; 4]>::new();
+    let elems = introspector.query(&select_where!(PrefixInfo, Key => outline_loc));
     for elem in &elems {
         let info = elem.to_packed::<PrefixInfo>().unwrap();
         let level = info.level.get();
         if widths.len() < level {
             widths.resize(level, None);
         }
-        match &mut widths[level - 1] {
-            slot @ None => *slot = Some(info.width),
-            Some(value) => value.set_max(info.width),
-        }
+        widths[level - 1].get_or_insert(info.inset).set_max(info.inset);
     }
     widths
 }
@@ -733,7 +749,7 @@ struct PrefixInfo {
     /// The width of the prefix, including the gap.
     #[required]
     #[internal]
-    width: Abs,
+    inset: Abs,
 }
 
 impl Construct for PrefixInfo {
