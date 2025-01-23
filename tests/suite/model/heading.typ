@@ -97,6 +97,18 @@ comment spans lines
 = Fake level 2
 == Fake level 3
 
+--- heading-hanging-indent-auto ---
+#set heading(numbering: "1.1.a.")
+= State of the Art
+
+--- heading-hanging-indent-zero ---
+#set heading(numbering: "1.1.a.", hanging-indent: 0pt)
+= State of the Art
+
+--- heading-hanging-indent-length ---
+#set heading(numbering: "1.1.a.", hanging-indent: 2em)
+= State of the Art In Multi-Line
+
 --- heading-offset-and-level ---
 // Passing level directly still overrides all other set values
 #set heading(numbering: "1.1", offset: 1)

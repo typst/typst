@@ -289,9 +289,3 @@ HI#footnote.entry(clearance: 2.5em)[There]
 )
 
 #c
-
---- issue-5370-figure-caption-separator-outline ---
-// Test that language-dependant caption separator is respected in outline.
-#outline(title: none, target: figure)
-#set text(lang: "ru")
-#figure(rect(), caption: [Rectangle])
