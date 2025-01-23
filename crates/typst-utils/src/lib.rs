@@ -128,6 +128,20 @@ pub trait SliceExt<T> {
     where
         F: FnMut(&T) -> K,
         K: PartialEq;
+
+    /// Computes two indices which split a slice into three parts.
+    ///
+    /// - A prefix which matches `f`
+    /// - An inner portion
+    /// - A suffix which matches `f` and does not overlap with the prefix
+    ///
+    /// If all elements match `f`, the prefix becomes `self` and the suffix
+    /// will be empty.
+    ///
+    /// Returns the indices at which the inner portion and the suffix start.
+    fn split_prefix_suffix<F>(&self, f: F) -> (usize, usize)
+    where
+        F: FnMut(&T) -> bool;
 }
 
 impl<T> SliceExt<T> for [T] {
@@ -156,6 +170,19 @@ impl<T> SliceExt<T> for [T] {
 
     fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F> {
         GroupByKey { slice: self, f }
+    }
+
+    fn split_prefix_suffix<F>(&self, mut f: F) -> (usize, usize)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let start = self.iter().position(|v| !f(v)).unwrap_or(self.len());
+        let end = self
+            .iter()
+            .skip(start)
+            .rposition(|v| !f(v))
+            .map_or(start, |i| start + i + 1);
+        (start, end)
     }
 }
 
