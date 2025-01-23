@@ -881,8 +881,8 @@ impl Array {
                     Value::Int(x) => x.cmp(&0),
                     x => bail!(
                         span,
-                        "expected integer from `compare` function; got {}",
-                        x.repr()
+                        "expected integer from `compare` function, got {}",
+                        x.ty()
                     ),
                 }),
                 None => ops::compare(&x, &y).at(span),
