@@ -229,19 +229,19 @@ impl Show for Packed<EnumElem> {
         if TargetElem::target_in(styles).is_html() {
             let mut elem = HtmlElem::new(tag::ol);
             if self.reversed(styles) {
-                elem =
-                    elem.with_attr(const { HtmlAttr::constant("reversed") }, "reversed");
+                elem = elem.with_attr(HtmlAttr::constant("reversed"), "reversed");
             }
-            return Ok(elem
-                .with_body(Some(Content::sequence(self.children.iter().map(|item| {
-                    let mut li = HtmlElem::new(tag::li);
-                    if let Some(nr) = item.number(styles) {
-                        li = li.with_attr(attr::value, eco_format!("{nr}"));
-                    }
-                    li.with_body(Some(item.body.clone())).pack().spanned(item.span())
-                }))))
-                .pack()
-                .spanned(self.span()));
+            if let Some(n) = self.start(styles).custom() {
+                elem = elem.with_attr(HtmlAttr::constant("start"), eco_format!("{n}"));
+            }
+            let body = Content::sequence(self.children.iter().map(|item| {
+                let mut li = HtmlElem::new(tag::li);
+                if let Some(nr) = item.number(styles) {
+                    li = li.with_attr(attr::value, eco_format!("{nr}"));
+                }
+                li.with_body(Some(item.body.clone())).pack().spanned(item.span())
+            }));
+            return Ok(elem.with_body(Some(body)).pack().spanned(self.span()));
         }
 
         let mut realized =

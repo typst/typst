@@ -10,7 +10,7 @@ use crate::layout::{BlockElem, Length};
 /// Space may be inserted between the instances of the body parameter, so be
 /// sure to adjust the [`justify`]($repeat.justify) parameter accordingly.
 ///
-/// Errors if there no bounds on the available space, as it would create
+/// Errors if there are no bounds on the available space, as it would create
 /// infinite content.
 ///
 /// # Example

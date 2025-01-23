@@ -101,6 +101,13 @@ a + 0.
   [Red], [Green], [Blue], [Red],
 )
 
+--- enum-start html ---
+#enum(
+  start: 3,
+  [Skipping],
+  [Ahead],
+)
+
 --- enum-numbering-closure-nested ---
 // Test numbering with closure and nested lists.
 #set enum(numbering: n => super[#n])
@@ -192,3 +199,13 @@ a + 0.
 + f
 #align(right)[+ align]
 + h
+
+--- issue-5719-enum-nested ---
+// Enums can be immediately nested.
+1. A
+2. 1. B
+   2. C
++ + D
+  + E
++ = F
+  G

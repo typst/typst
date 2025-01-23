@@ -287,6 +287,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Destructuring => None,
         SyntaxKind::DestructAssignment => None,
 
+        SyntaxKind::Shebang => Some(Tag::Comment),
         SyntaxKind::LineComment => Some(Tag::Comment),
         SyntaxKind::BlockComment => Some(Tag::Comment),
         SyntaxKind::Error => Some(Tag::Error),

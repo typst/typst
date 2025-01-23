@@ -1,4 +1,4 @@
-use typst_utils::Numeric;
+use typst_utils::{Get, Numeric};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -7,7 +7,7 @@ use crate::foundations::{
     Styles, TargetElem,
 };
 use crate::html::{tag, HtmlElem};
-use crate::layout::{Dir, Em, HElem, Length, Sides, StackChild, StackElem, VElem};
+use crate::layout::{Em, HElem, Length, Sides, StackChild, StackElem, VElem};
 use crate::model::{ListItemLike, ListLike, ParElem};
 use crate::text::TextElem;
 
@@ -160,12 +160,7 @@ impl Show for Packed<TermsElem> {
             children.push(StackChild::Block(Content::sequence(seq)));
         }
 
-        let mut padding = Sides::default();
-        if TextElem::dir_in(styles) == Dir::LTR {
-            padding.left = pad.into();
-        } else {
-            padding.right = pad.into();
-        }
+        let padding = Sides::default().with(TextElem::dir_in(styles).start(), pad.into());
 
         let mut realized = StackElem::new(children)
             .with_spacing(Some(gutter.into()))

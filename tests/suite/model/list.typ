@@ -276,3 +276,11 @@ World
 - h
 #align(right)[- i]
 - j
+
+--- issue-5719-list-nested ---
+// Lists can be immediately nested.
+- A
+- - B
+  - C
+- = D
+  E

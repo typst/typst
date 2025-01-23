@@ -93,6 +93,8 @@ fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
             p.hint("try using a backslash escape: \\]");
         }
 
+        SyntaxKind::Shebang => p.eat(),
+
         SyntaxKind::Text
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape
@@ -160,7 +162,7 @@ fn list_item(p: &mut Parser) {
     p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::ListMarker);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::ListItem);
     });
 }
@@ -170,7 +172,7 @@ fn enum_item(p: &mut Parser) {
     p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::EnumMarker);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::EnumItem);
     });
 }
@@ -184,7 +186,7 @@ fn term_item(p: &mut Parser) {
             markup(p, false, false, syntax_set!(Colon, RightBracket, End));
         });
         p.expect(SyntaxKind::Colon);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::TermItem);
     });
 }
@@ -442,10 +444,10 @@ fn math_unparen(p: &mut Parser, m: Marker) {
         if first.text() == "(" && last.text() == ")" {
             first.convert_to_kind(SyntaxKind::LeftParen);
             last.convert_to_kind(SyntaxKind::RightParen);
+            // Only convert if we did have regular parens.
+            node.convert_to_kind(SyntaxKind::Math);
         }
     }
-
-    node.convert_to_kind(SyntaxKind::Math);
 }
 
 /// The unicode math class of a string. Only returns `Some` if `text` has

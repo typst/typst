@@ -229,35 +229,20 @@ impl Refable for Packed<EquationElem> {
 }
 
 impl Outlinable for Packed<EquationElem> {
-    fn outline(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Option<Content>> {
-        if !self.block(StyleChain::default()) {
-            return Ok(None);
-        }
-        let Some(numbering) = self.numbering() else {
-            return Ok(None);
-        };
+    fn outlined(&self) -> bool {
+        self.block(StyleChain::default()) && self.numbering().is_some()
+    }
 
-        // After synthesis, this should always be custom content.
-        let mut supplement = match (**self).supplement(StyleChain::default()) {
-            Smart::Custom(Some(Supplement::Content(content))) => content,
-            _ => Content::empty(),
-        };
-
+    fn prefix(&self, numbers: Content) -> Content {
+        let supplement = self.supplement();
         if !supplement.is_empty() {
-            supplement += TextElem::packed("\u{a0}");
+            supplement + TextElem::packed('\u{a0}') + numbers
+        } else {
+            numbers
         }
+    }
 
-        let numbers = self.counter().display_at_loc(
-            engine,
-            self.location().unwrap(),
-            styles,
-            numbering,
-        )?;
-
-        Ok(Some(supplement + numbers))
+    fn body(&self) -> Content {
+        Content::empty()
     }
 }
