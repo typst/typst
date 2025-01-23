@@ -358,6 +358,10 @@
 #test(("I", "the", "hi", "text").sorted(compare: (x, y) => x.len() - y.len()), ("I", "hi", "the", "text"))
 #test(("I", "the", "hi", "text").sorted(key: x => x.len(), compare: (x, y) => y - x), ("text", "the", "hi", "I"))
 
+--- array-sorted-invalid-compare-function ---
+// Error: 2-44 expected integer from `compare` function, got string
+#(1, 2, 3).sorted(compare: (_, _) => "hmm")
+
 --- array-sorted-key-function-positional-1 ---
 // Error: 12-18 unexpected argument
 #().sorted(x => x)
