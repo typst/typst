@@ -64,32 +64,16 @@ pub struct SmallcapsElem {
 impl Show for Packed<SmallcapsElem> {
     #[typst_macros::time(name = "smallcaps", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let sc = if self.all(styles) {
-            SmallcapsSetting::All
-        } else {
-            SmallcapsSetting::Minuscules
-        };
-        Ok(self.body.clone().styled(TextElem::set_smallcaps(sc)))
+        let sc = if self.all(styles) { Smallcaps::All } else { Smallcaps::Minuscules };
+        Ok(self.body.clone().styled(TextElem::set_smallcaps(Some(sc))))
     }
 }
 
 /// What becomes small capitals.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SmallcapsSetting {
-    /// No small capitals.
-    Disabled,
+pub enum Smallcaps {
     /// Minuscules become small capitals.
     Minuscules,
     /// All letters become small capitals.
     All,
-}
-
-impl SmallcapsSetting {
-    pub fn smcp(self) -> bool {
-        matches!(self, Self::Minuscules | Self::All)
-    }
-
-    pub fn c2sc(self) -> bool {
-        self == Self::All
-    }
 }

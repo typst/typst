@@ -38,7 +38,7 @@ use crate::model::{
 };
 use crate::routines::{EvalMode, Routines};
 use crate::text::{
-    FontStyle, Lang, LocalName, Region, SmallcapsSetting, SubElem, SuperElem, TextElem,
+    FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
     WeightDelta,
 };
 use crate::World;
@@ -1048,7 +1048,7 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
         citationberg::FontVariant::Normal => {}
         citationberg::FontVariant::SmallCaps => {
             content =
-                content.styled(TextElem::set_smallcaps(SmallcapsSetting::Minuscules));
+                content.styled(TextElem::set_smallcaps(Some(Smallcaps::Minuscules)));
         }
     }
 
