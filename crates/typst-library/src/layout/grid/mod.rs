@@ -1,20 +1,22 @@
 pub mod resolve;
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use comemo::Track;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, CastInfo, Content, Context, Fold, FromValue, Func,
-    IntoValue, NativeElement, Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
+    Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
+    Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
+use crate::introspection::Tagged;
+use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
-    Alignment, BlockElem, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
+    Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::visualize::{Paint, Stroke};
@@ -28,15 +30,18 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// While the grid and table elements work very similarly, they are intended for
 /// different use cases and carry different semantics. The grid element is
-/// intended for presentational and layout purposes, while the
-/// [`{table}`]($table) element is intended for, in broad terms, presenting
-/// multiple related data points. In the future, Typst will annotate its output
-/// such that screenreaders will announce content in `table` as tabular while a
-/// grid's content will be announced no different than multiple content blocks
-/// in the document flow. Set and show rules on one of these elements do not
-/// affect the other.
+/// intended for presentational and layout purposes, while the [`table`] element
+/// is intended for, in broad terms, presenting multiple related data points.
+/// Set and show rules on one of these elements do not affect the other. Refer
+/// to the [Accessibility Section]($grid/#accessibility) to learn how grids and
+/// tables are presented to users of Assistive Technology (AT) like screen
+/// readers.
+///
+/// # Sizing the tracks { #track-size }
 ///
 /// A grid's sizing is determined by the track sizes specified in the arguments.
+/// There are multiple sizing parameters: [`columns`]($grid.columns),
+/// [`rows`]($grid.rows) and [`gutter`]($grid.gutter).
 /// Because each of the sizing parameters accepts the same values, we will
 /// explain them just once, here. Each sizing argument accepts an array of
 /// individual track sizes. A track size is either:
@@ -62,8 +67,8 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options. It also
-/// shows how you can use [`grid.cell`]($grid.cell) to make an individual cell
-/// span two grid tracks.
+/// shows how you can use [`grid.cell`] to make an individual cell span two grid
+/// tracks.
 ///
 /// ```example
 /// // We use `rect` to emphasize the
@@ -100,34 +105,62 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// # Styling the grid
+/// # Styling the grid { #styling }
+/// The grid and table elements work similarly. For a hands-on explanation,
+/// refer to the [Table Guide]($guides/tables/#fills); for a quick overview,
+/// continue reading.
+///
 /// The grid's appearance can be customized through different parameters. These
 /// are the most important ones:
 ///
-/// - [`fill`]($grid.fill) to give all cells a background
 /// - [`align`]($grid.align) to change how cells are aligned
-/// - [`inset`]($grid.inset) to optionally add internal padding to each cell
+/// - [`inset`]($grid.inset) to optionally add internal padding to cells
+/// - [`fill`]($grid.fill) to give cells a background
 /// - [`stroke`]($grid.stroke) to optionally enable grid lines with a certain
 ///   stroke
 ///
-/// If you need to override one of the above options for a single cell, you can
-/// use the [`grid.cell`]($grid.cell) element. Likewise, you can override
-/// individual grid lines with the [`grid.hline`]($grid.hline) and
-/// [`grid.vline`]($grid.vline) elements.
+/// To meet different needs, there are various ways to set them.
 ///
-/// Alternatively, if you need the appearance options to depend on a cell's
-/// position (column and row), you may specify a function to `fill` or `align`
-/// of the form `(column, row) => value`. You may also use a show rule on
-/// [`grid.cell`]($grid.cell) - see that element's examples or the examples
-/// below for more information.
+/// If you need to override the above options for individual cells, you can use
+/// the [`grid.cell`] element. Likewise, you can override individual grid lines
+/// with the [`grid.hline`] and [`grid.vline`] elements.
 ///
-/// Locating most of your styling in set and show rules is recommended, as it
-/// keeps the grid's or table's actual usages clean and easy to read. It also
-/// allows you to easily change the grid's appearance in one place.
+/// To configure an overall style for a grid, you may instead specify the option
+/// in any of the following fashions:
+///
+/// - As a single value that applies to all cells.
+/// - As an array of values corresponding to each column. The array will be
+///   cycled if there are more columns than the array has items.
+/// - As a function in the form of `(x, y) => value`. It receives the cell's
+///   column and row indices (both starting from zero) and should return the
+///   value to apply to that cell.
+///
+/// ```example
+/// #grid(
+///   columns: 5,
+///
+///   // By a single value
+///   align: center,
+///   // By a single but more complicated value
+///   inset: (x: 2pt, y: 3pt),
+///   // By an array of values (cycling)
+///   fill: (rgb("#239dad50"), none),
+///   // By a function that returns a value
+///   stroke: (x, y) => if calc.rem(x + y, 3) == 0 { 0.5pt },
+///
+///   ..range(5 * 3).map(n => numbering("A", n + 1))
+/// )
+/// ```
+///
+/// On top of that, you may [apply styling rules]($styling) to [`grid`] and
+/// [`grid.cell`]. Especially, the [`x`]($grid.cell.x) and [`y`]($grid.cell.y)
+/// fields of `grid.cell` can be used in a [`where`]($function.where) selector,
+/// making it possible to style cells at specific columns or rows, or individual
+/// positions.
 ///
 /// ## Stroke styling precedence
-/// There are three ways to set the stroke of a grid cell: through
-/// [`{grid.cell}`'s `stroke` field]($grid.cell.stroke), by using
+/// As explained above, there are three ways to set the stroke of a grid cell:
+/// through [`{grid.cell}`'s `stroke` field]($grid.cell.stroke), by using
 /// [`{grid.hline}`]($grid.hline) and [`{grid.vline}`]($grid.vline), or by
 /// setting the [`{grid}`'s `stroke` field]($grid.stroke). When multiple of
 /// these settings are present and conflict, the `hline` and `vline` settings
@@ -136,7 +169,18 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope, Show)]
+///
+/// # Accessibility
+/// Grids do not carry any special semantics. Assistive Technology (AT) does not
+/// offer the ability to navigate two-dimensionally by cell in grids. If you
+/// want to present tabular data, use the [`table`] element instead.
+///
+/// AT will read the grid cells in their semantic order. Usually, this is the
+/// order in which you passed them to the grid. However, if you manually
+/// positioned them using [`grid.cell`'s `x` and `y` arguments]($grid.cell.x),
+/// cells will be read row by row, from left to right (in left-to-right
+/// documents). A cell will be read when its position is first reached.
+#[elem(scope, Synthesize, Tagged)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -144,23 +188,26 @@ pub struct GridElem {
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
-    #[borrowed]
+    ///
+    /// See the [track size section](#track-size) above for more details.
     pub columns: TrackSizings,
 
     /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
-    #[borrowed]
+    ///
+    /// See the [track size section](#track-size) above for more details.
     pub rows: TrackSizings,
 
-    /// The gaps between rows and columns.
+    /// The gaps between rows and columns. This is a shorthand to set
+    /// [`column-gutter`]($grid.column-gutter) and [`row-gutter`]($grid.row-gutter)
+    /// to the same value.
     ///
     /// If there are more gutters than defined sizes, the last gutter is
     /// repeated.
     ///
-    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
-    /// value.
+    /// See the [track size section](#track-size) above for more details.
     #[external]
     pub gutter: TrackSizings,
 
@@ -169,19 +216,52 @@ pub struct GridElem {
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
-    #[borrowed]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
     pub row_gutter: TrackSizings,
+
+    /// How much to pad the cells' content.
+    ///
+    /// To specify a uniform inset for all cells, you can use a single length
+    /// for all sides, or a dictionary of lengths for individual sides. See the
+    /// [box's documentation]($box.inset) for more details.
+    ///
+    /// To specify varying inset for different cells, you can:
+    /// - use a single inset for all cells
+    /// - use an array of insets corresponding to each column
+    /// - use a function that maps a cell's position to its inset
+    ///
+    /// See the [styling section](#styling) above for more details.
+    ///
+    /// In addition, you can find an example at the [`table.inset`] parameter.
+    #[fold]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+
+    /// How to align the cells' content.
+    ///
+    /// If set to `{auto}`, the outer alignment is used.
+    ///
+    /// You can specify the alignment in any of the following fashions:
+    /// - use a single alignment for all cells
+    /// - use an array of alignments corresponding to each column
+    /// - use a function that maps a cell's position to its alignment
+    ///
+    /// See the [styling section](#styling) above for details.
+    ///
+    /// In addition, you can find an example at the [`table.align`] parameter.
+    pub align: Celled<Smart<Alignment>>,
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function
-    /// receives the cells' column and row indices, starting from zero. This can
-    /// be used to implement striped grids.
+    /// This can be:
+    /// - a single color for all cells
+    /// - an array of colors corresponding to each column
+    /// - a function that maps a cell's position to its color
+    ///
+    /// Most notably, arrays and functions are useful for creating striped grids.
+    /// See the [styling section](#styling) above for more details.
     ///
     /// ```example
     /// #grid(
@@ -197,20 +277,7 @@ pub struct GridElem {
     ///   [O], [X], [O], [X],
     /// )
     /// ```
-    #[borrowed]
     pub fill: Celled<Option<Paint>>,
-
-    /// How to align the cells' content.
-    ///
-    /// This can either be a single alignment, an array of alignments
-    /// (corresponding to each column) or a function that returns an alignment.
-    /// The function receives the cells' column and row indices, starting from
-    /// zero. If set to `{auto}`, the outer alignment is used.
-    ///
-    /// You can find an example for this argument at the
-    /// [`table.align`]($table.align) parameter.
-    #[borrowed]
-    pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
     ///
@@ -218,12 +285,57 @@ pub struct GridElem {
     /// option to the desired stroke.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the `gutter` option, or to override the stroke between
-    /// multiple specific cells, consider specifying one or more of
-    /// [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline) alongside
-    /// your grid cells.
+    /// produced by the [`gutter`]($grid.gutter) option, or to override the
+    /// stroke between multiple specific cells, consider specifying one or more
+    /// of [`grid.hline`] and [`grid.vline`] alongside your grid cells.
     ///
-    /// ```example
+    /// To specify the same stroke for all cells, you can use a single [stroke]
+    /// for all sides, or a dictionary of [strokes]($stroke) for individual
+    /// sides. See the [rectangle's documentation]($rect.stroke) for more
+    /// details.
+    ///
+    /// To specify varying strokes for different cells, you can:
+    /// - use a single stroke for all cells
+    /// - use an array of strokes corresponding to each column
+    /// - use a function that maps a cell's position to its stroke
+    ///
+    /// See the [styling section](#styling) above for more details.
+    ///
+    /// ```example:"Passing a function to set a stroke based on position"
+    /// #set page(width: 420pt)
+    /// #set text(number-type: "old-style")
+    /// #show grid.cell.where(y: 0): set text(size: 1.3em)
+    ///
+    /// #grid(
+    ///   columns: (1fr, 2fr, 2fr),
+    ///   row-gutter: 1.5em,
+    ///   inset: (left: 0.5em),
+    ///   stroke: (x, y) => if x > 0 { (left: 0.5pt + gray) },
+    ///   align: horizon,
+    ///
+    ///   [Winter \ 2007 \ Season],
+    ///   [Aaron Copland \ *The Tender Land* \ January 2007],
+    ///   [Eric Satie \ *Gymnopedie 1, 2* \ February 2007],
+    ///
+    ///   [],
+    ///   [Jan 12 \ *Middlebury College \ Center for the Arts* \ 20:00],
+    ///   [Feb 2 \ *Johnson State College Dibden Center for the Arts* \ 19:30],
+    ///
+    ///   [],
+    ///   [Skip a week \ #text(0.8em)[_Prepare your exams!_]],
+    ///   [Feb 9 \ *Castleton State College \ Fine Arts Center* \ 19:30],
+    ///
+    ///   [],
+    ///   [Jan 26, 27 \ *Lyndon State College Alexander Twilight Theater* \ 20:00],
+    ///   [
+    ///     Feb 17 --- #smallcaps[Anniversary] \
+    ///     *Middlebury College \ Center for the Arts* \
+    ///     19:00 #text(0.7em)[(for a special guest)]
+    ///   ],
+    /// )
+    /// ```
+    ///
+    /// ```example:"Folding the stroke dictionary"
     /// #set page(height: 13em, width: 26em)
     ///
     /// #let cv(..jobs) = grid(
@@ -233,7 +345,7 @@ pub struct GridElem {
     ///     (right: (
     ///       paint: luma(180),
     ///       thickness: 1.5pt,
-    ///       dash: "dotted"
+    ///       dash: "dotted",
     ///     ))
     ///   },
     ///   grid.header(grid.cell(colspan: 2)[
@@ -289,20 +401,15 @@ pub struct GridElem {
     ///   ),
     /// )
     /// ```
-    #[resolve]
     #[fold]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
-    /// How much to pad the cells' content.
-    ///
-    /// You can find an example for this argument at the
-    /// [`table.inset`]($table.inset) parameter.
-    #[fold]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
 
-    /// The contents of the grid cells, plus any extra grid lines specified
-    /// with the [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline)
-    /// elements.
+    /// The contents of the grid cells, plus any extra grid lines specified with
+    /// the [`grid.hline`] and [`grid.vline`] elements.
     ///
     /// The cells are populated in row-major order.
     #[variadic]
@@ -327,11 +434,15 @@ impl GridElem {
     type GridFooter;
 }
 
-impl Show for Packed<GridElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_grid)
-            .pack()
-            .spanned(self.span()))
+impl Synthesize for Packed<GridElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = grid_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
     }
 }
 
@@ -348,7 +459,7 @@ cast! {
 }
 
 /// Any child of a grid element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GridChild {
     Header(Packed<GridHeader>),
     Footer(Packed<GridFooter>),
@@ -392,7 +503,7 @@ impl TryFrom<Content> for GridChild {
 }
 
 /// A grid item, which is the basic unit of grid specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GridItem {
     HLine(Packed<GridHLine>),
     VLine(Packed<GridVLine>),
@@ -460,13 +571,24 @@ impl TryFrom<Content> for GridItem {
 /// A repeatable grid header.
 ///
 /// If `repeat` is set to `true`, the header will be repeated across pages. For
-/// an example, refer to the [`table.header`]($table.header) element and the
-/// [`grid.stroke`]($grid.stroke) parameter.
+/// an example, refer to the [`table.header`] element and the [`grid.stroke`]
+/// parameter.
 #[elem(name = "header", title = "Grid Header")]
 pub struct GridHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
     pub repeat: bool,
+
+    /// The level of the header. Must not be zero.
+    ///
+    /// This allows repeating multiple headers at once. Headers with different
+    /// levels can repeat together, as long as they have ascending levels.
+    ///
+    /// Notably, when a header with a lower level starts repeating, all higher
+    /// or equal level headers stop repeating (they are "replaced" by the new
+    /// header).
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
 
     /// The cells and lines within the header.
     #[variadic]
@@ -475,8 +597,8 @@ pub struct GridHeader {
 
 /// A repeatable grid footer.
 ///
-/// Just like the [`grid.header`]($grid.header) element, the footer can repeat
-/// itself on every page of the table.
+/// Just like the [`grid.header`] element, the footer can repeat itself on every
+/// page of the table.
 ///
 /// No other grid cells may be placed after the footer.
 #[elem(name = "footer", title = "Grid Footer")]
@@ -496,13 +618,12 @@ pub struct GridFooter {
 /// `stroke` field. Can cross spacing between cells created through the grid's
 /// `column-gutter` option.
 ///
-/// An example for this function can be found at the
-/// [`table.hline`]($table.hline) element.
+/// An example for this function can be found at the [`table.hline`] element.
 #[elem(name = "hline", title = "Grid Horizontal Line")]
 pub struct GridHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
     /// If the `position` field is set to `{bottom}`, the line is placed below
-    /// the row with the given index instead (see that field's docs for
+    /// the row with the given index instead (see [`grid.hline.position`] for
     /// details).
     ///
     /// Specifying `{auto}` causes the line to be placed at the row below the
@@ -530,7 +651,6 @@ pub struct GridHLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including hlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -553,9 +673,9 @@ pub struct GridHLine {
 /// the grid's `row-gutter` option.
 #[elem(name = "vline", title = "Grid Vertical Line")]
 pub struct GridVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
+    /// The column before which the vertical line is placed (zero-indexed).
     /// If the `position` field is set to `{end}`, the line is placed after the
-    /// column with the given index instead (see that field's docs for
+    /// column with the given index instead (see [`grid.vline.position`] for
     /// details).
     ///
     /// Specifying `{auto}` causes the line to be placed at the column after
@@ -585,7 +705,6 @@ pub struct GridVLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including vlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -644,9 +763,9 @@ pub struct GridVLine {
 ///
 /// You may also apply a show rule on `grid.cell` to style all cells at once,
 /// which allows you, for example, to apply styles based on a cell's position.
-/// Refer to the examples of the [`table.cell`]($table.cell) element to learn
-/// more about this.
-#[elem(name = "cell", title = "Grid Cell", Show)]
+/// Refer to the examples of the [`table.cell`] element to learn more about
+/// this.
+#[elem(name = "cell", title = "Grid Cell")]
 pub struct GridCell {
     /// The cell's body.
     #[required]
@@ -721,19 +840,22 @@ pub struct GridCell {
     #[default(NonZeroUsize::ONE)]
     pub rowspan: NonZeroUsize,
 
-    /// The cell's [fill]($grid.fill) override.
-    pub fill: Smart<Option<Paint>>,
+    /// The cell's [inset]($grid.inset) override.
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [alignment]($grid.align) override.
     pub align: Smart<Alignment>,
 
-    /// The cell's [inset]($grid.inset) override.
-    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+    /// The cell's [fill]($grid.fill) override.
+    pub fill: Smart<Option<Paint>>,
 
     /// The cell's [stroke]($grid.stroke) override.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 
     /// Whether rows spanned by this cell can be placed in different pages.
     /// When equal to `{auto}`, a cell spanning only fixed-size rows is
@@ -747,15 +869,16 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Show for Packed<GridCell> {
-    fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
-    }
-}
-
 impl Default for Packed<GridCell> {
     fn default() -> Self {
-        Packed::new(GridCell::new(Content::default()))
+        Packed::new(
+            // Explicitly set colspan and rowspan to ensure they won't be
+            // overridden by set rules (default cells are created after
+            // colspans and rowspans are processed in the resolver)
+            GridCell::new(Content::default())
+                .with_colspan(NonZeroUsize::ONE)
+                .with_rowspan(NonZeroUsize::ONE),
+        )
     }
 }
 
@@ -766,28 +889,6 @@ impl From<Content> for GridCell {
     }
 }
 
-/// Function with common code to display a grid cell or table cell.
-pub(crate) fn show_grid_cell(
-    mut body: Content,
-    inset: Smart<Sides<Option<Rel<Length>>>>,
-    align: Smart<Alignment>,
-) -> SourceResult<Content> {
-    let inset = inset.unwrap_or_default().map(Option::unwrap_or_default);
-
-    if inset != Sides::default() {
-        // Only pad if some inset is not 0pt.
-        // Avoids a bug where using .padded() in any way inside Show causes
-        // alignment in align(...) to break.
-        body = body.padded(inset);
-    }
-
-    if let Smart::Custom(alignment) = align {
-        body = body.aligned(alignment);
-    }
-
-    Ok(body)
-}
-
 /// A value that can be configured per cell.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Celled<T> {
@@ -795,7 +896,8 @@ pub enum Celled<T> {
     Value(T),
     /// A closure mapping from cell coordinates to a value.
     Func(Func),
-    /// An array of alignment values corresponding to each column.
+    /// An array of values corresponding to each column. The array will be
+    /// cycled if there are more columns than the array has items.
     Array(Vec<T>),
 }
 

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::foundations::{cast, dict, Dict, Label, Value};
+use crate::foundations::{Dict, Label, Value, cast, dict};
 use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
 use crate::model::Destination;
@@ -346,7 +346,7 @@ impl Frame {
 
     /// Set a parent for the frame. As a result, all elements in the frame
     /// become logically ordered immediately after the given location.
-    pub fn set_parent(&mut self, parent: Location) {
+    pub fn set_parent(&mut self, parent: FrameParent) {
         if !self.is_empty() {
             self.group(|g| g.parent = Some(parent));
         }
@@ -435,7 +435,7 @@ impl Debug for Frame {
 /// This corresponds to whether or not the frame is considered to be the
 /// innermost parent of its contents. This is used to determine the coordinate
 /// reference system for gradients.
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum FrameKind {
     /// A container which follows its parent's size.
     ///
@@ -503,8 +503,10 @@ pub struct GroupItem {
     /// The group's label.
     pub label: Option<Label>,
     /// The group's logical parent. All elements in this group are logically
-    /// ordered immediately after the parent's start location.
-    pub parent: Option<Location>,
+    /// ordered immediately after the parent's start location. This can be
+    /// thought of as inserting the elements at the end but still inside of the
+    /// parent.
+    pub parent: Option<FrameParent>,
 }
 
 impl GroupItem {
@@ -525,6 +527,52 @@ impl Debug for GroupItem {
         f.write_str("Group ")?;
         self.frame.fmt(f)
     }
+}
+
+/// The parent of a [`GroupItem`]. The child will be logically ordered at the
+/// end but still inside of the parent.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct FrameParent {
+    /// The location of the parent element.
+    pub location: Location,
+    /// Whether the child has inherited the parent's styles.
+    pub inherit: Inherit,
+}
+
+impl FrameParent {
+    /// Create a new frame parent.
+    pub const fn new(location: Location, inherit: Inherit) -> Self {
+        Self { location, inherit }
+    }
+}
+
+/// Whether the child has inherited the parent's styles.
+///
+/// # Inherited
+///
+/// The placed text will inherit the styles from its parent (the place element).
+/// So `explanation` will be underlined.
+///
+/// ```typ
+/// #underline[
+///   Some text #place(float: true, bottom + right)[explanation].
+/// ]
+/// ```
+///
+/// # Not Inherited
+///
+/// The footnote entry won't inherit the styles from it's parent (the footnote).
+/// So `explanation` won't be underlined, unless other styles apply.
+///
+/// ```typ
+/// #underline[
+///   Some text #footnote[explanation].
+/// ]
+/// ```
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Inherit {
+    Yes,
+    No,
 }
 
 /// A physical position in a document.

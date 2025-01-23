@@ -93,15 +93,18 @@ $ mat(column-gap: #1em, 1, 2; 3, 4)
 #grid(
   columns: 2,
   gutter: 10pt,
-
   $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #3) $,
-  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #(-1)) $,
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #4) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 0)) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 2)) $,
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: -1)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 3)) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 1, vline: 1)) $,
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: -2, vline: -2)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: -1, vline: -1)) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 2, stroke: 1pt + blue)) $,
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: -1, stroke: 1pt + blue)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 3, stroke: 1pt + blue)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 3, stroke: 1pt + blue)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 0, stroke: 1pt + blue)) $,
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #(vline: -4, stroke: 1pt + blue)) $,
 )
 
 --- math-mat-augment-set ---
@@ -115,8 +118,8 @@ $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
 #set math.mat(augment: none)
 
 --- math-mat-augment-line-out-of-bounds ---
-// Error: 3-37 cannot draw a vertical line after column 3 of a matrix with 3 columns
-$ mat(1, 0, 0; 0, 1, 1; augment: #3) $,
+// Error: 3-37 cannot draw a vertical line at offset 4 in a matrix with 3 columns
+$ mat(1, 0, 0; 0, 1, 1; augment: #4) $,
 
 --- math-mat-align ---
 $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #left) $
@@ -216,7 +219,7 @@ $ mat(delim: \[, 1, 2; 3, 4) $
 $ mat(delim: bracket.l, 1, 2; 3, 4) $
 
 $ mat(delim: "⟦", 1, 2; 3, 4) $
-$ mat(delim: bracket.double.l, 1, 2; 3, 4) $
+$ mat(delim: bracket.stroked.l, 1, 2; 3, 4) $
 
 $ mat(delim: "{", 1, 2; 3, 4) $
 $ mat(delim: \{, 1, 2; 3, 4) $
@@ -230,7 +233,7 @@ $ mat(delim: "‖", 1, 2; 3, 4) $
 $ mat(delim: bar.v.double, 1, 2; 3, 4) $
 
 $ mat(delim: "⟨", 1, 2; 3, 4) $
-$ mat(delim: angle.l, 1, 2; 3, 4) $
+$ mat(delim: chevron.l, 1, 2; 3, 4) $
 
 --- math-mat-delims-inverted ---
 $ mat(delim: ")", 1, 2; 3, 4) $
@@ -242,23 +245,30 @@ $ mat(delim: \], 1, 2; 3, 4) $
 $ mat(delim: bracket.r, 1, 2; 3, 4) $
 
 $ mat(delim: "⟧", 1, 2; 3, 4) $
-$ mat(delim: bracket.double.r, 1, 2; 3, 4) $
+$ mat(delim: bracket.stroked.r, 1, 2; 3, 4) $
 
 $ mat(delim: "}", 1, 2; 3, 4) $
 $ mat(delim: \}, 1, 2; 3, 4) $
 $ mat(delim: brace.r, 1, 2; 3, 4) $
 
 $ mat(delim: "⟩", 1, 2; 3, 4) $
-$ mat(delim: angle.r, 1, 2; 3, 4) $
+$ mat(delim: chevron.r, 1, 2; 3, 4) $
 
 --- math-mat-delims-pair ---
 $ mat(delim: #(none, "["), 1, 2; 3, 4) $
-$ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $
+$ mat(delim: #(sym.chevron.r, sym.bracket.stroked.r), 1, 2; 3, 4) $
 
 --- math-mat-linebreaks ---
-// Unlike cases and vectors, linebreaks are discarded in matrices. This
-// behaviour may change in the future.
+// Warning: 20-29 linebreaks are ignored in cells
+// Hint: 20-29 use commas instead to separate each line
 $ mat(a; b; c) mat(a \ b \ c) $
+
+--- math-mat-vec-cases-unity ---
+// Test that matrices, vectors, and cases are all laid out the same.
+$ mat(z_(n_p); a^2)
+  vec(z_(n_p), a^2)
+  cases(reverse: #true, delim: \(, z_(n_p), a^2)
+  cases(delim: \(, z_(n_p), a^2) $
 
 --- issue-1617-mat-align ---
 #set page(width: auto)

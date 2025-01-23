@@ -5,22 +5,22 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
-use ecow::{eco_format, EcoString};
-use typst_syntax::{ast, Span, SyntaxNode};
-use typst_utils::{singleton, LazyHash, Static};
+use ecow::{EcoString, eco_format};
+use typst_syntax::{Span, SyntaxNode, ast};
+use typst_utils::{LazyHash, Static, singleton};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, CastInfo, Content, Context, Element, IntoArgs, Scope,
-    Selector, Type, Value,
+    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Scope,
+    Selector, Type, Value, cast, repr, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
 ///
 /// You can call a function by writing a comma-separated list of function
 /// _arguments_ enclosed in parentheses directly after the function name.
-/// Additionally, you can pass any number of trailing content blocks arguments
+/// Additionally, you can pass any number of trailing content block arguments
 /// to a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
 /// arguments. The former are identified by position and type, while the latter
@@ -59,9 +59,9 @@ use crate::foundations::{
 ///
 /// # Function scopes
 /// Functions can hold related definitions in their own scope, similar to a
-/// [module]($scripting/#modules). Examples of this are
-/// [`assert.eq`]($assert.eq) or [`list.item`]($list.item). However, this
-/// feature is currently only available for built-in functions.
+/// [module]($scripting/#modules). Examples of this are [`assert.eq`] or
+/// [`list.item`]. However, this feature is currently only available for
+/// built-in functions.
 ///
 /// # Defining functions
 /// You can define your own function with a [let binding]($scripting/#bindings)
@@ -112,7 +112,7 @@ use crate::foundations::{
 /// it into another file by writing `{import "foo.typ": alert}`.
 ///
 /// # Unnamed functions { #unnamed }
-/// You can also created an unnamed function without creating a binding by
+/// You can also create an unnamed function without creating a binding by
 /// specifying a parameter list followed by `=>` and the function body. If your
 /// function has just one parameter, the parentheses around the parameter list
 /// are optional. Unnamed functions are mainly useful for show rules, but also
@@ -151,6 +151,8 @@ enum Repr {
     Element(Element),
     /// A user-defined closure.
     Closure(Arc<LazyHash<Closure>>),
+    /// A plugin WebAssembly function.
+    Plugin(Arc<PluginFunc>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -164,6 +166,7 @@ impl Func {
             Repr::Native(native) => Some(native.name),
             Repr::Element(elem) => Some(elem.name()),
             Repr::Closure(closure) => closure.name(),
+            Repr::Plugin(func) => Some(func.name()),
             Repr::With(with) => with.0.name(),
         }
     }
@@ -176,6 +179,7 @@ impl Func {
             Repr::Native(native) => Some(native.title),
             Repr::Element(elem) => Some(elem.title()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.title(),
         }
     }
@@ -186,6 +190,7 @@ impl Func {
             Repr::Native(native) => Some(native.docs),
             Repr::Element(elem) => Some(elem.docs()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.docs(),
         }
     }
@@ -204,6 +209,7 @@ impl Func {
             Repr::Native(native) => Some(&native.0.params),
             Repr::Element(elem) => Some(elem.params()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.params(),
         }
     }
@@ -221,6 +227,7 @@ impl Func {
                 Some(singleton!(CastInfo, CastInfo::Type(Type::of::<Content>())))
             }
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.returns(),
         }
     }
@@ -231,6 +238,7 @@ impl Func {
             Repr::Native(native) => native.keywords,
             Repr::Element(elem) => elem.keywords(),
             Repr::Closure(_) => &[],
+            Repr::Plugin(_) => &[],
             Repr::With(with) => with.0.keywords(),
         }
     }
@@ -241,16 +249,21 @@ impl Func {
             Repr::Native(native) => Some(&native.0.scope),
             Repr::Element(elem) => Some(elem.scope()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.scope(),
         }
     }
 
     /// Get a field from this function's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
+    pub fn field(
+        &self,
+        field: &str,
+        sink: impl DeprecationSink,
+    ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
-            Some(field) => Ok(field),
+            Some(binding) => Ok(binding.read_checked(sink)),
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),
                 None => bail!("function does not contain field `{field}`"),
@@ -262,6 +275,14 @@ impl Func {
     pub fn element(&self) -> Option<Element> {
         match self.repr {
             Repr::Element(func) => Some(func),
+            _ => None,
+        }
+    }
+
+    /// Extract the plugin function, if it is one.
+    pub fn to_plugin(&self) -> Option<&PluginFunc> {
+        match &self.repr {
+            Repr::Plugin(func) => Some(func),
             _ => None,
         }
     }
@@ -286,7 +307,7 @@ impl Func {
     ) -> SourceResult<Value> {
         match &self.repr {
             Repr::Native(native) => {
-                let value = (native.function)(engine, context, &mut args)?;
+                let value = (native.function.0)(engine, context, &mut args)?;
                 args.finish()?;
                 Ok(value)
             }
@@ -307,6 +328,12 @@ impl Func {
                 context,
                 args,
             ),
+            Repr::Plugin(func) => {
+                let inputs = args.all::<Bytes>()?;
+                let output = func.call(inputs).at(args.span)?;
+                args.finish()?;
+                Ok(Value::Bytes(output))
+            }
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, context, args)
@@ -397,9 +424,13 @@ impl Debug for Func {
 
 impl repr::Repr for Func {
     fn repr(&self) -> EcoString {
-        match self.name() {
-            Some(name) => name.into(),
-            None => "(..) => ..".into(),
+        const DEFAULT: &str = "(..) => ..";
+        match &self.repr {
+            Repr::Native(native) => native.name.into(),
+            Repr::Element(elem) => elem.name().into(),
+            Repr::Closure(closure) => closure.name().unwrap_or(DEFAULT).into(),
+            Repr::Plugin(func) => func.name().clone(),
+            Repr::With(_) => DEFAULT.into(),
         }
     }
 }
@@ -410,10 +441,19 @@ impl PartialEq for Func {
     }
 }
 
-impl PartialEq<&NativeFuncData> for Func {
-    fn eq(&self, other: &&NativeFuncData) -> bool {
+impl PartialEq<&'static NativeFuncData> for Func {
+    fn eq(&self, other: &&'static NativeFuncData) -> bool {
         match &self.repr {
-            Repr::Native(native) => native.function == other.function,
+            Repr::Native(native) => *native == Static(*other),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<Element> for Func {
+    fn eq(&self, other: &Element) -> bool {
+        match &self.repr {
+            Repr::Element(elem) => elem == other,
             _ => false,
         }
     }
@@ -425,9 +465,27 @@ impl From<Repr> for Func {
     }
 }
 
+impl From<&'static NativeFuncData> for Func {
+    fn from(data: &'static NativeFuncData) -> Self {
+        Repr::Native(Static(data)).into()
+    }
+}
+
 impl From<Element> for Func {
     fn from(func: Element) -> Self {
         Repr::Element(func).into()
+    }
+}
+
+impl From<Closure> for Func {
+    fn from(closure: Closure) -> Self {
+        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
+    }
+}
+
+impl From<PluginFunc> for Func {
+    fn from(func: PluginFunc) -> Self {
+        Repr::Plugin(Arc::new(func)).into()
     }
 }
 
@@ -446,8 +504,8 @@ pub trait NativeFunc {
 /// Defines a native function.
 #[derive(Debug)]
 pub struct NativeFuncData {
-    /// Invokes the function from Typst.
-    pub function: fn(&mut Engine, Tracked<Context>, &mut Args) -> SourceResult<Value>,
+    /// The implementation of the function.
+    pub function: NativeFuncPtr,
     /// The function's normal name (e.g. `align`), as exposed to Typst.
     pub name: &'static str,
     /// The function's title case name (e.g. `Align`).
@@ -459,23 +517,39 @@ pub struct NativeFuncData {
     /// Whether this function makes use of context.
     pub contextual: bool,
     /// Definitions in the scope of the function.
-    pub scope: LazyLock<Scope>,
+    pub scope: DynLazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: LazyLock<Vec<ParamInfo>>,
+    pub params: DynLazyLock<Vec<ParamInfo>>,
     /// Information about the return value of this function.
-    pub returns: LazyLock<CastInfo>,
-}
-
-impl From<&'static NativeFuncData> for Func {
-    fn from(data: &'static NativeFuncData) -> Self {
-        Repr::Native(Static(data)).into()
-    }
+    pub returns: DynLazyLock<CastInfo>,
 }
 
 cast! {
     &'static NativeFuncData,
     self => Func::from(self).into_value(),
 }
+
+/// A pointer to a native function's implementation.
+pub struct NativeFuncPtr(pub &'static NativeFuncSignature);
+
+/// The signature of a native function's implementation.
+type NativeFuncSignature =
+    dyn Fn(&mut Engine, Tracked<Context>, &mut Args) -> SourceResult<Value> + Send + Sync;
+
+impl Debug for NativeFuncPtr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.pad("NativeFuncPtr(..)")
+    }
+}
+
+/// A `LazyLock` that uses a static closure for initialization instead of only
+/// working with function pointers.
+///
+/// Can be created from a normal function or closure by prepending with a `&`,
+/// e.g. `LazyLock::new(&|| "hello")`. Can be created from a dynamic closure
+/// by allocating and then leaking it. This is equivalent to having it
+/// statically allocated, but allows for it to be generated at runtime.
+type DynLazyLock<T> = LazyLock<T, &'static (dyn Fn() -> T + Send + Sync)>;
 
 /// Describes a function parameter.
 #[derive(Debug, Clone)]
@@ -503,13 +577,21 @@ pub struct ParamInfo {
     pub settable: bool,
 }
 
+/// Distinguishes between variants of closures.
+#[derive(Debug, Hash)]
+pub enum ClosureNode {
+    /// A regular closure. Must always be castable to a `ast::Closure`.
+    Closure(SyntaxNode),
+    /// Synthetic closure used for `context` expressions. Can be any `ast::Expr`
+    /// and has no parameters.
+    Context(SyntaxNode),
+}
+
 /// A user-defined closure.
 #[derive(Debug, Hash)]
 pub struct Closure {
-    /// The closure's syntax node. Must be either castable to `ast::Closure` or
-    /// `ast::Expr`. In the latter case, this is a synthesized closure without
-    /// any parameters (used by `context` expressions).
-    pub node: SyntaxNode,
+    /// The closure's syntax node.
+    pub node: ClosureNode,
     /// Default values of named parameters.
     pub defaults: Vec<Value>,
     /// Captured values from outer scopes.
@@ -521,13 +603,12 @@ pub struct Closure {
 impl Closure {
     /// The name of the closure.
     pub fn name(&self) -> Option<&str> {
-        self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
-    }
-}
-
-impl From<Closure> for Func {
-    fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
+        match self.node {
+            ClosureNode::Closure(ref node) => {
+                node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
+            }
+            _ => None,
+        }
     }
 }
 

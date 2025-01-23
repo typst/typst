@@ -1,26 +1,26 @@
 use comemo::TrackedMut;
-use ecow::{eco_format, eco_vec, EcoString};
+use ecow::{EcoString, eco_format, eco_vec};
+use typst_library::World;
 use typst_library::diag::{
-    bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint,
+    At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Module, Value};
-use typst_library::World;
-use typst_syntax::ast::{self, AstNode};
+use typst_library::foundations::{Binding, Content, Module, Value};
+use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
 use typst_syntax::{FileId, Span, VirtualPath};
 
-use crate::{eval, Eval, Vm};
+use crate::{Eval, Vm, eval};
 
 impl Eval for ast::ModuleImport<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let source = self.source();
-        let source_span = source.span();
-        let mut source = source.eval(vm)?;
-        let new_name = self.new_name();
-        let imports = self.imports();
+        let source_expr = self.source();
+        let source_span = source_expr.span();
+
+        let mut source = source_expr.eval(vm)?;
+        let mut is_str = false;
 
         match &source {
             Value::Func(func) => {
@@ -32,6 +32,7 @@ impl Eval for ast::ModuleImport<'_> {
             Value::Module(_) => {}
             Value::Str(path) => {
                 source = Value::Module(import(&mut vm.engine, path, source_span)?);
+                is_str = true;
             }
             v => {
                 bail!(
@@ -42,33 +43,56 @@ impl Eval for ast::ModuleImport<'_> {
             }
         }
 
+        // If there is a rename, import the source itself under that name.
+        let new_name = self.new_name();
         if let Some(new_name) = new_name {
-            if let ast::Expr::Ident(ident) = self.source() {
-                if ident.as_str() == new_name.as_str() {
-                    // Warn on `import x as x`
-                    vm.engine.sink.warn(warning!(
-                        new_name.span(),
-                        "unnecessary import rename to same name",
-                    ));
-                }
+            if let ast::Expr::Ident(ident) = self.source()
+                && ident.as_str() == new_name.as_str()
+            {
+                // Warn on `import x as x`
+                vm.engine.sink.warn(warning!(
+                    new_name.span(),
+                    "unnecessary import rename to same name",
+                ));
             }
 
             // Define renamed module on the scope.
-            vm.scopes.top.define_ident(new_name, source.clone());
+            vm.define(new_name, source.clone());
         }
 
         let scope = source.scope().unwrap();
-        match imports {
+        match self.imports() {
             None => {
-                // Only import here if there is no rename.
                 if new_name.is_none() {
-                    let name: EcoString = source.name().unwrap().into();
-                    vm.scopes.top.define(name, source);
+                    match self.bare_name() {
+                        // Bare dynamic string imports are not allowed.
+                        Ok(name)
+                            if !is_str || matches!(source_expr, ast::Expr::Str(_)) =>
+                        {
+                            if matches!(source_expr, ast::Expr::Ident(_)) {
+                                vm.engine.sink.warn(warning!(
+                                    source_expr.span(),
+                                    "this import has no effect",
+                                ));
+                            }
+                            vm.scopes.top.bind(name, Binding::new(source, source_span));
+                        }
+                        Ok(_) | Err(BareImportError::Dynamic) => bail!(
+                            source_span, "dynamic import requires an explicit name";
+                            hint: "you can name the import with `as`"
+                        ),
+                        Err(BareImportError::PathInvalid) => bail!(
+                            source_span, "module name would not be a valid identifier";
+                            hint: "you can rename the import with `as`",
+                        ),
+                        // Bad package spec would have failed the import already.
+                        Err(BareImportError::PackageInvalid) => unreachable!(),
+                    }
                 }
             }
             Some(ast::Imports::Wildcard) => {
-                for (var, value, span) in scope.iter() {
-                    vm.scopes.top.define_spanned(var.clone(), value.clone(), span);
+                for (var, binding) in scope.iter() {
+                    vm.scopes.top.bind(var.clone(), binding.clone());
                 }
             }
             Some(ast::Imports::Items(items)) => {
@@ -78,7 +102,7 @@ impl Eval for ast::ModuleImport<'_> {
                     let mut scope = scope;
 
                     while let Some(component) = &path.next() {
-                        let Some(value) = scope.get(component) else {
+                        let Some(binding) = scope.get(component) else {
                             errors.push(error!(component.span(), "unresolved import"));
                             break;
                         };
@@ -86,6 +110,7 @@ impl Eval for ast::ModuleImport<'_> {
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.
                             // This must be a submodule.
+                            let value = binding.read();
                             let Some(submodule) = value.scope() else {
                                 let error = if matches!(value, Value::Func(function) if function.scope().is_none())
                                 {
@@ -117,18 +142,17 @@ impl Eval for ast::ModuleImport<'_> {
                             // it.
 
                             // Warn on `import ...: x as x`
-                            if let ast::ImportItem::Renamed(renamed_item) = &item {
-                                if renamed_item.original_name().as_str()
+                            if let ast::ImportItem::Renamed(renamed_item) = &item
+                                && renamed_item.original_name().as_str()
                                     == renamed_item.new_name().as_str()
-                                {
-                                    vm.engine.sink.warn(warning!(
-                                        renamed_item.new_name().span(),
-                                        "unnecessary import rename to same name",
-                                    ));
-                                }
+                            {
+                                vm.engine.sink.warn(warning!(
+                                    renamed_item.new_name().span(),
+                                    "unnecessary import rename to same name",
+                                ));
                             }
 
-                            vm.define(item.bound_name(), value.clone());
+                            vm.bind(item.bound_name(), binding.clone());
                         }
                     }
                 }

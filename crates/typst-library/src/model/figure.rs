@@ -5,22 +5,21 @@ use std::str::FromStr;
 use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
-    Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    Content, Element, NativeElement, Packed, Selector, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, cast, elem, scope, select_where,
 };
-use crate::html::{tag, HtmlElem};
 use crate::introspection::{
-    Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
+    Count, Counter, CounterKey, CounterUpdate, Locatable, Location, Tagged,
 };
 use crate::layout::{
-    AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
-    PlaceElem, PlacementScope, VAlignment, VElem,
+    AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
+    VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{Lang, Locale, TextElem};
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -102,11 +101,44 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, Show, ShowSet, Refable, Outlinable)]
+///
+/// # Accessibility
+/// You can use the [`alt`]($figure.alt) parameter to provide an [alternative
+/// description]($guides/accessibility/#textual-representations) of the figure
+/// for screen readers and other Assistive Technology (AT). Refer to [its
+/// documentation]($figure.alt) to learn more.
+///
+/// You can use figures to add alternative descriptions to paths, shapes, or
+/// visualizations that do not have their own `alt` parameter. If your graphic
+/// is purely decorative and does not have a semantic meaning, consider wrapping
+/// it in [`pdf.artifact`] instead, which will hide it from AT when exporting to
+/// PDF.
+///
+/// AT will always read the figure at the point where it appears in the
+/// document, regardless of its [`placement`]($figure.placement). Put its markup
+/// where it would make the most sense in the reading order.
+#[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image].
     #[required]
     pub body: Content,
+
+    /// An alternative description of the figure.
+    ///
+    /// When you add an alternative description, AT will read both it and the
+    /// caption (if any). However, the content of the figure itself will be
+    /// skipped.
+    ///
+    /// When the body of your figure is an [image]($image) with its own `alt`
+    /// text set, this parameter should not be used on the figure element.
+    /// Likewise, do not use this parameter when the figure contains a table,
+    /// code, or other content that is already accessible. In such cases, the
+    /// content of the figure will be read by AT, and adding an alternative
+    /// description would lead to a loss of information.
+    ///
+    /// You can learn how to write good alternative descriptions in the
+    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
+    pub alt: Option<EcoString>,
 
     /// The figure's placement on the page.
     ///
@@ -123,6 +155,9 @@ pub struct FigureElem {
     ///
     /// ```example
     /// #set page(height: 200pt)
+    /// #show figure: set place(
+    ///   clearance: 1em,
+    /// )
     ///
     /// = Introduction
     /// #figure(
@@ -156,7 +191,6 @@ pub struct FigureElem {
     pub scope: PlacementScope,
 
     /// The figure's caption.
-    #[borrowed]
     pub caption: Option<Packed<FigureCaption>>,
 
     /// The kind of figure this is.
@@ -176,11 +210,10 @@ pub struct FigureElem {
     ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
-    /// it to an element function other than [`{table}`]($table), [`{raw}`](raw)
-    /// or [`{image}`](image), you will need to manually specify the figure's
-    /// supplement.
+    /// it to an element function other than [`table`], [`raw`], or [`image`],
+    /// you will need to manually specify the figure's supplement.
     ///
-    /// ```example
+    /// ```example:"Customizing the figure kind"
     /// #figure(
     ///   circle(radius: 10pt),
     ///   caption: [A curious atom.],
@@ -188,6 +221,39 @@ pub struct FigureElem {
     ///   supplement: [Atom],
     /// )
     /// ```
+    ///
+    /// If you want to modify a counter to skip a number or reset the counter,
+    /// you can access the [counter] of each kind of figure with a
+    /// [`where`]($function.where) selector:
+    ///
+    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
+    /// - For [images]($image): `{counter(figure.where(kind: image))}`
+    /// - For a custom kind: `{counter(figure.where(kind: kind))}`
+    ///
+    /// ```example:"Modifying the figure counter for specific kinds"
+    /// #figure(
+    ///   table(columns: 2, $n$, $1$),
+    ///   caption: [The first table.],
+    /// )
+    ///
+    /// #counter(
+    ///   figure.where(kind: table)
+    /// ).update(41)
+    ///
+    /// #figure(
+    ///   table(columns: 2, $n$, $42$),
+    ///   caption: [The 42nd table],
+    /// )
+    ///
+    /// #figure(
+    ///   rect[Image],
+    ///   caption: [Does not affect images],
+    /// )
+    /// ```
+    ///
+    /// To conveniently use the correct counter in a show rule, you can access
+    /// the `counter` field. There is an example of this in the documentation
+    /// [of the `figure.caption` element's `body` field]($figure.caption.body).
     pub kind: Smart<FigureKind>,
 
     /// The figure's supplement.
@@ -209,13 +275,11 @@ pub struct FigureElem {
     ///   kind: "foo",
     /// )
     /// ```
-    #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
 
     /// How to number the figure. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking a single number.
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
-    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// The vertical gap between the body and caption.
@@ -229,20 +293,35 @@ pub struct FigureElem {
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
-    /// - For (tables)[@table]: `{counter(figure.where(kind: table))}`
-    /// - For (images)[@image]: `{counter(figure.where(kind: image))}`
+    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
+    /// - For [images]($image): `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
     /// These are the counters you'll need to modify if you want to skip a
     /// number or reset the counter.
     #[synthesized]
     pub counter: Option<Counter>,
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 #[scope]
 impl FigureElem {
     #[elem]
     type FigureCaption;
+}
+
+impl FigureElem {
+    /// Retrieves the locale separator.
+    pub fn resolve_separator(&self, styles: StyleChain) -> Content {
+        match self.caption.get_ref(styles) {
+            Some(caption) => caption.resolve_separator(styles),
+            None => FigureCaption::local_separator_in(styles),
+        }
+    }
 }
 
 impl Synthesize for Packed<FigureElem> {
@@ -254,25 +333,25 @@ impl Synthesize for Packed<FigureElem> {
         let span = self.span();
         let location = self.location();
         let elem = self.as_mut();
-        let numbering = elem.numbering(styles);
+        let numbering = elem.numbering.get_ref(styles);
 
         // Determine the figure's kind.
-        let kind = elem.kind(styles).unwrap_or_else(|| {
+        let kind = elem.kind.get_cloned(styles).unwrap_or_else(|| {
             elem.body
-                .query_first(&Selector::can::<dyn Figurable>())
+                .query_first_naive(&Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
-                .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
+                .unwrap_or_else(|| FigureKind::Elem(ImageElem::ELEM))
         });
 
         // Resolve the supplement.
-        let supplement = match elem.supplement(styles).as_ref() {
+        let supplement = match elem.supplement.get_ref(styles).as_ref() {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
                     FigureKind::Elem(func) => func
                         .local_name(
-                            TextElem::lang_in(styles),
-                            TextElem::region_in(styles),
+                            styles.get(TextElem::lang),
+                            styles.get(TextElem::region),
                         )
                         .map(TextElem::packed),
                     FigureKind::Name(_) => None,
@@ -289,9 +368,10 @@ impl Synthesize for Packed<FigureElem> {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
                 let descendant = match kind {
-                    FigureKind::Elem(func) => {
-                        elem.body.query_first(&Selector::Elem(func, None)).map(Cow::Owned)
-                    }
+                    FigureKind::Elem(func) => elem
+                        .body
+                        .query_first_naive(&Selector::Elem(func, None))
+                        .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };
 
@@ -302,81 +382,28 @@ impl Synthesize for Packed<FigureElem> {
 
         // Construct the figure's counter.
         let counter = Counter::new(CounterKey::Selector(
-            select_where!(FigureElem, Kind => kind.clone()),
+            select_where!(FigureElem, kind => kind.clone()),
         ));
 
         // Fill the figure's caption.
-        let mut caption = elem.caption(styles).clone();
+        let mut caption = elem.caption.get_cloned(styles);
         if let Some(caption) = &mut caption {
             caption.synthesize(engine, styles)?;
-            caption.push_kind(kind.clone());
-            caption.push_supplement(supplement.clone());
-            caption.push_numbering(numbering.clone());
-            caption.push_counter(Some(counter.clone()));
-            caption.push_figure_location(location);
+            caption.kind = Some(kind.clone());
+            caption.supplement = Some(supplement.clone());
+            caption.numbering = Some(numbering.clone());
+            caption.counter = Some(Some(counter.clone()));
+            caption.figure_location = Some(location);
         }
 
-        elem.push_kind(Smart::Custom(kind));
-        elem.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
-        elem.push_counter(Some(counter));
-        elem.push_caption(caption);
+        elem.kind.set(Smart::Custom(kind));
+        elem.supplement
+            .set(Smart::Custom(supplement.map(Supplement::Content)));
+        elem.counter = Some(Some(counter));
+        elem.caption.set(caption);
+        elem.locale = Some(Locale::get_in(styles));
 
         Ok(())
-    }
-}
-
-impl Show for Packed<FigureElem> {
-    #[typst_macros::time(name = "figure", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let target = TargetElem::target_in(styles);
-        let mut realized = self.body.clone();
-
-        // Build the caption, if any.
-        if let Some(caption) = self.caption(styles).clone() {
-            let (first, second) = match caption.position(styles) {
-                OuterVAlignment::Top => (caption.pack(), realized),
-                OuterVAlignment::Bottom => (realized, caption.pack()),
-            };
-            let mut seq = Vec::with_capacity(3);
-            seq.push(first);
-            if !target.is_html() {
-                let v = VElem::new(self.gap(styles).into()).with_weak(true);
-                seq.push(v.pack().spanned(self.span()))
-            }
-            seq.push(second);
-            realized = Content::sequence(seq)
-        }
-
-        if target.is_html() {
-            return Ok(HtmlElem::new(tag::figure)
-                .with_body(Some(realized))
-                .pack()
-                .spanned(self.span()));
-        }
-
-        // Wrap the contents in a block.
-        realized = BlockElem::new()
-            .with_body(Some(BlockBody::Content(realized)))
-            .pack()
-            .spanned(self.span());
-
-        // Wrap in a float.
-        if let Some(align) = self.placement(styles) {
-            realized = PlaceElem::new(realized)
-                .with_alignment(align.map(|align| HAlignment::Center + align))
-                .with_scope(self.scope(styles))
-                .with_float(true)
-                .pack()
-                .spanned(self.span());
-        } else if self.scope(styles) == PlacementScope::Parent {
-            bail!(
-                self.span(),
-                "parent-scoped placement is only available for floating figures";
-                hint: "you can enable floating placement with `figure(placement: auto, ..)`"
-            );
-        }
-
-        Ok(realized)
     }
 }
 
@@ -385,8 +412,8 @@ impl ShowSet for Packed<FigureElem> {
         // Still allows breakable figures with
         // `show figure: set block(breakable: true)`.
         let mut map = Styles::new();
-        map.set(BlockElem::set_breakable(false));
-        map.set(AlignElem::set_alignment(Alignment::CENTER));
+        map.set(BlockElem::breakable, false);
+        map.set(AlignElem::alignment, Alignment::CENTER);
         map
     }
 }
@@ -404,29 +431,28 @@ impl Count for Packed<FigureElem> {
 impl Refable for Packed<FigureElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match (**self).supplement(StyleChain::default()).as_ref() {
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+        match self.supplement.get_cloned(StyleChain::default()) {
+            Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        (**self)
-            .counter()
-            .cloned()
+        self.counter
+            .clone()
             .flatten()
-            .unwrap_or_else(|| Counter::of(FigureElem::elem()))
+            .unwrap_or_else(|| Counter::of(FigureElem::ELEM))
     }
 
     fn numbering(&self) -> Option<&Numbering> {
-        (**self).numbering(StyleChain::default()).as_ref()
+        self.numbering.get_ref(StyleChain::default()).as_ref()
     }
 }
 
 impl Outlinable for Packed<FigureElem> {
     fn outlined(&self) -> bool {
-        (**self).outlined(StyleChain::default())
-            && (self.caption(StyleChain::default()).is_some()
+        self.outlined.get(StyleChain::default())
+            && (self.caption.get_ref(StyleChain::default()).is_some()
                 || self.numbering().is_some())
     }
 
@@ -440,7 +466,8 @@ impl Outlinable for Packed<FigureElem> {
     }
 
     fn body(&self) -> Content {
-        self.caption(StyleChain::default())
+        self.caption
+            .get_ref(StyleChain::default())
             .as_ref()
             .map(|caption| caption.body.clone())
             .unwrap_or_default()
@@ -451,7 +478,7 @@ impl Outlinable for Packed<FigureElem> {
 /// customize the appearance of captions for all figures or figures of a
 /// specific kind.
 ///
-/// In addition to its `pos` and `body`, the `caption` also provides the
+/// In addition to its `position` and `body`, the `caption` also provides the
 /// figure's `kind`, `supplement`, `counter`, and `numbering` as fields. These
 /// parts can be used in [`where`]($function.where) selectors and show rules to
 /// build a completely custom caption.
@@ -464,7 +491,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[elem(name = "caption", Locatable, Tagged, Synthesize)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -552,38 +579,12 @@ pub struct FigureCaption {
 }
 
 impl FigureCaption {
-    /// Gets the default separator in the given language and (optionally)
-    /// region.
-    fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::CHINESE => "\u{2003}",
-            Lang::FRENCH => ".\u{a0}– ",
-            Lang::RUSSIAN => ". ",
-            Lang::ENGLISH | _ => ": ",
-        }
-    }
-
-    fn get_separator(&self, styles: StyleChain) -> Content {
-        self.separator(styles).unwrap_or_else(|| {
-            TextElem::packed(Self::local_separator(
-                TextElem::lang_in(styles),
-                TextElem::region_in(styles),
-            ))
-        })
-    }
-}
-
-impl Synthesize for Packed<FigureCaption> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let elem = self.as_mut();
-        elem.push_separator(Smart::Custom(elem.get_separator(styles)));
-        Ok(())
-    }
-}
-
-impl Show for Packed<FigureCaption> {
-    #[typst_macros::time(name = "figure.caption", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+    /// Realizes the textual caption content.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let mut realized = self.body.clone();
 
         if let (
@@ -592,26 +593,47 @@ impl Show for Packed<FigureCaption> {
             Some(Some(counter)),
             Some(Some(location)),
         ) = (
-            self.supplement().cloned(),
-            self.numbering(),
-            self.counter(),
-            self.figure_location(),
+            self.supplement.clone(),
+            &self.numbering,
+            &self.counter,
+            &self.figure_location,
         ) {
             let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
-            realized = supplement + numbers + self.get_separator(styles) + realized;
-        }
-
-        if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::figcaption)
-                .with_body(Some(realized))
-                .pack()
-                .spanned(self.span()));
+            realized = supplement + numbers + self.resolve_separator(styles) + realized;
         }
 
         Ok(realized)
+    }
+
+    /// Retrieves the locale separator.
+    fn resolve_separator(&self, styles: StyleChain) -> Content {
+        self.separator
+            .get_cloned(styles)
+            .unwrap_or_else(|| Self::local_separator_in(styles))
+    }
+
+    /// Gets the default separator in the given language and (optionally)
+    /// region.
+    fn local_separator_in(styles: StyleChain) -> Content {
+        styles.get_cloned(Self::separator).unwrap_or_else(|| {
+            TextElem::packed(match styles.get(TextElem::lang) {
+                Lang::CHINESE => "\u{2003}",
+                Lang::FRENCH => ".\u{a0}– ",
+                Lang::RUSSIAN => ". ",
+                Lang::ENGLISH | _ => ": ",
+            })
+        })
+    }
+}
+
+impl Synthesize for Packed<FigureCaption> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
+        let elem = self.as_mut();
+        elem.separator.set(Smart::Custom(elem.resolve_separator(styles)));
+        Ok(())
     }
 }
 

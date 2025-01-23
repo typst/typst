@@ -1,29 +1,26 @@
 use std::num::NonZeroUsize;
 
-use ecow::eco_format;
-use typst_utils::{Get, NonZeroExt};
+use ecow::EcoString;
+use typst_utils::NonZeroExt;
 
-use crate::diag::{warning, SourceResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, TargetElem,
+    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::html::{attr, tag, HtmlElem};
-use crate::introspection::{
-    Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
-};
-use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region, Sides};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
+use crate::layout::{BlockElem, Em, Length};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
-use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
+use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 
 /// A section heading.
 ///
 /// With headings, you can structure your document into sections. Each heading
 /// has a _level,_ which starts at one and is unbounded upwards. This level
 /// indicates the logical role of the following content (section, subsection,
-/// etc.) A top-level heading indicates a top-level section of the document
-/// (not the document's title).
+/// etc.) A top-level heading indicates a top-level section of the document (not
+/// the document's title). To insert a title, use the [`title`]($title) element
+/// instead.
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
 /// specify how you want your headings to be numbered with a
@@ -32,6 +29,13 @@ use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 /// Independently of the numbering, Typst can also automatically generate an
 /// [outline] of all headings for you. To exclude one or more headings from this
 /// outline, you can set the `outlined` parameter to `{false}`.
+///
+/// When writing a [show rule]($styling/#show-rules) that accesses the
+/// [`body` field]($heading.body) to create a completely custom look for
+/// headings, make sure to wrap the content in a [`block`]($block) (which is
+/// implicitly [sticky]($block.sticky) for headings through a built-in show-set
+/// rule). This prevents headings from becoming "orphans", i.e. remaining
+/// at the end of the page with the following content being on the next page.
 ///
 /// # Example
 /// ```example
@@ -49,7 +53,28 @@ use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth. The `{offset}` field
 /// can be set to configure the starting depth.
-#[elem(Locatable, Synthesize, Count, Show, ShowSet, LocalName, Refable, Outlinable)]
+///
+/// # Accessibility
+/// Headings are important for accessibility, as they help users of Assistive
+/// Technologies (AT) like screen readers to navigate within your document.
+/// Screen reader users will be able to skip from heading to heading, or get an
+/// overview of all headings in the document.
+///
+/// To make your headings accessible, you should not skip heading levels. This
+/// means that you should start with a first-level heading. Also, when the
+/// previous heading was of level 3, the next heading should be of level 3
+/// (staying at the same depth), level 4 (going exactly one level deeper), or
+/// level 1 or 2 (new hierarchically higher headings).
+///
+/// # HTML export
+/// As mentioned above, a top-level heading indicates a top-level section of
+/// the document rather than its title. This is in contrast to the HTML `<h1>`
+/// element of which there should be only one per document.
+///
+/// For this reason, in HTML export, a [`title`] element will turn into an
+/// `<h1>` and headings turn into `<h2>` and lower (a level 1 heading thus turns
+/// into `<h2>`, a level 2 heading into `<h3>`, etc).
+#[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set
     /// to `{auto}`, it is computed from `{offset + depth}`.
@@ -97,7 +122,7 @@ pub struct HeadingElem {
     pub offset: usize,
 
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking multiple numbers.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
@@ -106,8 +131,19 @@ pub struct HeadingElem {
     /// == A subsection
     /// === A sub-subsection
     /// ```
-    #[borrowed]
     pub numbering: Option<Numbering>,
+
+    /// The resolved plain-text numbers.
+    ///
+    /// This field is internal and only used for creating PDF bookmarks. We
+    /// don't currently have access to `World`, `Engine`, or `styles` in export,
+    /// which is needed to resolve the counter and numbering pattern into a
+    /// concrete string.
+    ///
+    /// This remains unset if `numbering` is `None`.
+    #[internal]
+    #[synthesized]
+    pub numbers: EcoString,
 
     /// A supplement for the heading.
     ///
@@ -170,12 +206,16 @@ pub struct HeadingElem {
 
     /// The indent all but the first line of a heading should have.
     ///
-    /// The default value of `{auto}` indicates that the subsequent heading
-    /// lines will be indented based on the width of the numbering.
+    /// The default value of `{auto}` uses the width of the numbering as indent
+    /// if the heading is aligned at the [start]($direction.start) of the [text
+    /// direction]($text.dir), and no indent for center and other alignments.
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #heading[A very, very, very, very, very, very long heading]
+    /// = A very, very, very, very, very, very long heading
+    ///
+    /// #show heading: set align(center)
+    /// == A very long heading\ with center alignment
     /// ```
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
@@ -187,8 +227,8 @@ pub struct HeadingElem {
 
 impl HeadingElem {
     pub fn resolve_level(&self, styles: StyleChain) -> NonZeroUsize {
-        self.level(styles).unwrap_or_else(|| {
-            NonZeroUsize::new(self.offset(styles) + self.depth(styles).get())
+        self.level.get(styles).unwrap_or_else(|| {
+            NonZeroUsize::new(self.offset.get(styles) + self.depth.get(styles).get())
                 .expect("overflow to 0 on NoneZeroUsize + usize")
         })
     }
@@ -200,7 +240,7 @@ impl Synthesize for Packed<HeadingElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let supplement = match (**self).supplement(styles) {
+        let supplement = match self.supplement.get_ref(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
@@ -208,106 +248,27 @@ impl Synthesize for Packed<HeadingElem> {
             }
         };
 
-        let elem = self.as_mut();
-        elem.push_level(Smart::Custom(elem.resolve_level(styles)));
-        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-        Ok(())
-    }
-}
-
-impl Show for Packed<HeadingElem> {
-    #[typst_macros::time(name = "heading", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let html = TargetElem::target_in(styles).is_html();
-
-        const SPACING_TO_NUMBERING: Em = Em::new(0.3);
-
-        let span = self.span();
-        let mut realized = self.body.clone();
-
-        let hanging_indent = self.hanging_indent(styles);
-        let mut indent = match hanging_indent {
-            Smart::Custom(length) => length.resolve(styles),
-            Smart::Auto => Abs::zero(),
-        };
-
-        if let Some(numbering) = (**self).numbering(styles).as_ref() {
-            let location = self.location().unwrap();
-            let numbering = Counter::of(HeadingElem::elem())
-                .display_at_loc(engine, location, styles, numbering)?
-                .spanned(span);
-
-            if hanging_indent.is_auto() && !html {
-                let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
-
-                // We don't have a locator for the numbering here, so we just
-                // use the measurement infrastructure for now.
-                let link = LocatorLink::measure(location);
-                let size = (engine.routines.layout_frame)(
-                    engine,
-                    &numbering,
-                    Locator::link(&link),
-                    styles,
-                    pod,
-                )?
-                .size();
-
-                indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
-            }
-
-            let spacing = if html {
-                SpaceElem::shared().clone()
-            } else {
-                HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack()
-            };
-
-            realized = numbering + spacing + realized;
+        if let Some((numbering, location)) =
+            self.numbering.get_ref(styles).as_ref().zip(self.location())
+        {
+            self.numbers = Some(
+                self.counter()
+                    .display_at_loc(engine, location, styles, numbering)?
+                    .plain_text(),
+            );
         }
 
-        Ok(if html {
-            // HTML's h1 is closer to a title element. There should only be one.
-            // Meanwhile, a level 1 Typst heading is a section heading. For this
-            // reason, levels are offset by one: A Typst level 1 heading becomes
-            // a `<h2>`.
-            let level = self.resolve_level(styles).get();
-            if level >= 6 {
-                engine.sink.warn(warning!(span,
-                    "heading of level {} was transformed to \
-                    <div role=\"heading\" aria-level=\"{}\">, which is not \
-                    supported by all assistive technology",
-                    level, level + 1;
-                    hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
-                    hint: "you may want to restructure your document so that \
-                          it doesn't contain deep headings"));
-                HtmlElem::new(tag::div)
-                    .with_body(Some(realized))
-                    .with_attr(attr::role, "heading")
-                    .with_attr(attr::aria_level, eco_format!("{}", level + 1))
-                    .pack()
-                    .spanned(span)
-            } else {
-                let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
-                HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
-            }
-        } else {
-            let block = if indent != Abs::zero() {
-                let body = HElem::new((-indent).into()).pack() + realized;
-                let inset = Sides::default()
-                    .with(TextElem::dir_in(styles).start(), Some(indent.into()));
-                BlockElem::new()
-                    .with_body(Some(BlockBody::Content(body)))
-                    .with_inset(inset)
-            } else {
-                BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-            };
-            block.pack().spanned(span)
-        })
+        let elem = self.as_mut();
+        elem.level.set(Smart::Custom(elem.resolve_level(styles)));
+        elem.supplement
+            .set(Smart::Custom(Some(Supplement::Content(supplement))));
+        Ok(())
     }
 }
 
 impl ShowSet for Packed<HeadingElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
-        let level = (**self).resolve_level(styles).get();
+        let level = self.resolve_level(styles).get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -319,49 +280,49 @@ impl ShowSet for Packed<HeadingElem> {
         let below = Em::new(0.75) / scale;
 
         let mut out = Styles::new();
-        out.set(TextElem::set_size(TextSize(size.into())));
-        out.set(TextElem::set_weight(FontWeight::BOLD));
-        out.set(BlockElem::set_above(Smart::Custom(above.into())));
-        out.set(BlockElem::set_below(Smart::Custom(below.into())));
-        out.set(BlockElem::set_sticky(true));
+        out.set(TextElem::size, TextSize(size.into()));
+        out.set(TextElem::weight, FontWeight::BOLD);
+        out.set(BlockElem::above, Smart::Custom(above.into()));
+        out.set(BlockElem::below, Smart::Custom(below.into()));
+        out.set(BlockElem::sticky, true);
         out
     }
 }
 
 impl Count for Packed<HeadingElem> {
     fn update(&self) -> Option<CounterUpdate> {
-        (**self)
-            .numbering(StyleChain::default())
+        self.numbering
+            .get_ref(StyleChain::default())
             .is_some()
-            .then(|| CounterUpdate::Step((**self).resolve_level(StyleChain::default())))
+            .then(|| CounterUpdate::Step(self.resolve_level(StyleChain::default())))
     }
 }
 
 impl Refable for Packed<HeadingElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match (**self).supplement(StyleChain::default()) {
+        match self.supplement.get_cloned(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(HeadingElem::elem())
+        Counter::of(HeadingElem::ELEM)
     }
 
     fn numbering(&self) -> Option<&Numbering> {
-        (**self).numbering(StyleChain::default()).as_ref()
+        self.numbering.get_ref(StyleChain::default()).as_ref()
     }
 }
 
 impl Outlinable for Packed<HeadingElem> {
     fn outlined(&self) -> bool {
-        (**self).outlined(StyleChain::default())
+        self.outlined.get(StyleChain::default())
     }
 
     fn level(&self) -> NonZeroUsize {
-        (**self).resolve_level(StyleChain::default())
+        self.resolve_level(StyleChain::default())
     }
 
     fn prefix(&self, numbers: Content) -> Content {

@@ -1,6 +1,5 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain};
+use crate::foundations::{Content, elem};
+use crate::introspection::Tagged;
 
 /// Hides content without affecting layout.
 ///
@@ -14,7 +13,7 @@ use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
-#[elem(Show)]
+#[elem(Tagged)]
 pub struct HideElem {
     /// The content to hide.
     #[required]
@@ -24,11 +23,4 @@ pub struct HideElem {
     #[internal]
     #[ghost]
     pub hidden: bool,
-}
-
-impl Show for Packed<HideElem> {
-    #[typst_macros::time(name = "hide", span = self.span())]
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().styled(HideElem::set_hidden(true)))
-    }
 }

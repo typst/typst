@@ -1,9 +1,10 @@
 use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Result};
+use syn::punctuated::Punctuated;
+use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{foundations, BareType};
+use crate::util::{BareType, foundations};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -14,13 +15,12 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     let self_ty = &item.self_ty;
 
     let mut primitive_ident_ext = None;
-    if let syn::Type::Path(syn::TypePath { path, .. }) = self_ty.as_ref() {
-        if let Some(ident) = path.get_ident() {
-            if is_primitive(ident) {
-                let ident_ext = quote::format_ident!("{ident}Ext");
-                primitive_ident_ext = Some(ident_ext);
-            }
-        }
+    if let syn::Type::Path(syn::TypePath { path, .. }) = self_ty.as_ref()
+        && let Some(ident) = path.get_ident()
+        && is_primitive(ident)
+    {
+        let ident_ext = quote::format_ident!("{ident}Ext");
+        primitive_ident_ext = Some(ident_ext);
     }
 
     let self_ty_expr = match &primitive_ident_ext {
@@ -31,18 +31,60 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     let mut definitions = vec![];
     let mut constructor = quote! { None };
     for child in &mut item.items {
-        let def = match child {
-            syn::ImplItem::Const(item) => handle_const(&self_ty_expr, item)?,
-            syn::ImplItem::Fn(item) => match handle_fn(self_ty, item)? {
-                FnKind::Member(tokens) => tokens,
-                FnKind::Constructor(tokens) => {
-                    constructor = tokens;
-                    continue;
-                }
-            },
-            syn::ImplItem::Verbatim(item) => handle_type_or_elem(item)?,
+        let bare: BareType;
+        let (mut def, attrs) = match child {
+            syn::ImplItem::Const(item) => {
+                (handle_const(&self_ty_expr, item)?, &item.attrs)
+            }
+            syn::ImplItem::Fn(item) => (
+                match handle_fn(self_ty, item)? {
+                    FnKind::Member(tokens) => tokens,
+                    FnKind::Constructor(tokens) => {
+                        constructor = tokens;
+                        continue;
+                    }
+                },
+                &item.attrs,
+            ),
+            syn::ImplItem::Verbatim(item) => {
+                bare = syn::parse2(item.clone())?;
+                (handle_type_or_elem(&bare)?, &bare.attrs)
+            }
             _ => bail!(child, "unexpected item in scope"),
         };
+
+        if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("deprecated")) {
+            match &attr.meta {
+                syn::Meta::NameValue(pair) if pair.path.is_ident("deprecated") => {
+                    let message = &pair.value;
+                    def = quote! { #def.deprecated(#message) }
+                }
+                syn::Meta::List(list) if list.path.is_ident("deprecated") => {
+                    let args = list.parse_args_with(
+                        Punctuated::<MetaNameValue, Token![,]>::parse_separated_nonempty,
+                    )?;
+
+                    let mut deprecation =
+                        quote! { crate::foundations::Deprecation::new() };
+
+                    if let Some(message) = args.iter().find_map(|pair| {
+                        pair.path.is_ident("message").then_some(&pair.value)
+                    }) {
+                        deprecation = quote! { #deprecation.with_message(#message) }
+                    }
+
+                    if let Some(version) = args.iter().find_map(|pair| {
+                        pair.path.is_ident("until").then_some(&pair.value)
+                    }) {
+                        deprecation = quote! { #deprecation.with_until(#version) }
+                    }
+
+                    def = quote! { #def.deprecated(#deprecation) }
+                }
+                _ => {}
+            }
+        }
+
         definitions.push(def);
     }
 
@@ -61,6 +103,7 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
                 #constructor
             }
 
+            #[allow(deprecated)]
             fn scope() -> #foundations::Scope {
                 let mut scope = #foundations::Scope::deduplicating();
                 #(#definitions;)*
@@ -78,8 +121,7 @@ fn handle_const(self_ty: &TokenStream, item: &syn::ImplItemConst) -> Result<Toke
 }
 
 /// Process a type item.
-fn handle_type_or_elem(item: &TokenStream) -> Result<TokenStream> {
-    let item: BareType = syn::parse2(item.clone())?;
+fn handle_type_or_elem(item: &BareType) -> Result<TokenStream> {
     let ident = &item.ident;
     let define = if item.attrs.iter().any(|attr| attr.path().is_ident("elem")) {
         quote! { define_elem }

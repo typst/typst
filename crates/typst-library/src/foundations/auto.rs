@@ -4,8 +4,8 @@ use ecow::EcoString;
 
 use crate::diag::HintedStrResult;
 use crate::foundations::{
-    ty, CastInfo, Fold, FromValue, IntoValue, Reflect, Repr, Resolve, StyleChain, Type,
-    Value,
+    CastInfo, Fold, FromValue, IntoValue, Reflect, Repr, Resolve, StyleChain, Type,
+    Value, ty,
 };
 
 /// A value that indicates a smart default.
@@ -210,6 +210,15 @@ impl<T> Smart<Smart<T>> {
 impl<T> Default for Smart<T> {
     fn default() -> Self {
         Self::Auto
+    }
+}
+
+impl<T> From<Option<T>> for Smart<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => Smart::Custom(v),
+            None => Smart::Auto,
+        }
     }
 }
 

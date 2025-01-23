@@ -1,17 +1,11 @@
-use std::ffi::OsStr;
-
-use typst_library::diag::{warning, At, SourceResult, StrResult};
+use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
+use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
 };
-use typst_library::loading::DataSource;
-use typst_library::text::families;
-use typst_library::visualize::{
-    Curve, Image, ImageElem, ImageFit, ImageFormat, RasterFormat, VectorFormat,
-};
+use typst_library::visualize::{Curve, Image, ImageElem, ImageFit};
 
 /// Layout the image.
 #[typst_macros::time(span = elem.span())]
@@ -22,42 +16,7 @@ pub fn layout_image(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let span = elem.span();
-
-    // Take the format that was explicitly defined, or parse the extension,
-    // or try to detect the format.
-    let Derived { source, derived: data } = &elem.source;
-    let format = match elem.format(styles) {
-        Smart::Custom(v) => v,
-        Smart::Auto => determine_format(source, data).at(span)?,
-    };
-
-    // Warn the user if the image contains a foreign object. Not perfect
-    // because the svg could also be encoded, but that's an edge case.
-    if format == ImageFormat::Vector(VectorFormat::Svg) {
-        let has_foreign_object =
-            data.as_str().is_ok_and(|s| s.contains("<foreignObject"));
-
-        if has_foreign_object {
-            engine.sink.warn(warning!(
-                span,
-                "image contains foreign object";
-                hint: "SVG images with foreign objects might render incorrectly in typst";
-                hint: "see https://github.com/typst/typst/issues/1421 for more information"
-            ));
-        }
-    }
-
-    // Construct the image itself.
-    let image = Image::with_fonts(
-        data.clone(),
-        format,
-        elem.alt(styles),
-        engine.world,
-        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-        elem.flatten_text(styles),
-    )
-    .at(span)?;
+    let image = elem.decode(engine, styles)?;
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();
@@ -83,6 +42,8 @@ pub fn layout_image(
     } else {
         // If neither is forced, take the natural image size at the image's
         // DPI bounded by the available space.
+        //
+        // Division by DPI is fine since it's guaranteed to be positive.
         let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
         let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
         Size::new(
@@ -92,7 +53,7 @@ pub fn layout_image(
     };
 
     // Compute the actual size of the fitted image.
-    let fit = elem.fit(styles);
+    let fit = elem.fit.get(styles);
     let fitted = match fit {
         ImageFit::Cover | ImageFit::Contain => {
             if wide == (fit == ImageFit::Contain) {
@@ -108,7 +69,7 @@ pub fn layout_image(
     // the frame to the target size, center aligning the image in the
     // process.
     let mut frame = Frame::soft(fitted);
-    frame.push(Point::zero(), FrameItem::Image(image, fitted, span));
+    frame.push(Point::zero(), FrameItem::Image(image, fitted, elem.span()));
     frame.resize(target, Axes::splat(FixedAlignment::Center));
 
     // Create a clipping group if only part of the image should be visible.
@@ -117,25 +78,4 @@ pub fn layout_image(
     }
 
     Ok(frame)
-}
-
-/// Try to determine the image format based on the data.
-fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat> {
-    if let DataSource::Path(path) = source {
-        let ext = std::path::Path::new(path.as_str())
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default()
-            .to_lowercase();
-
-        match ext.as_str() {
-            "png" => return Ok(ImageFormat::Raster(RasterFormat::Png)),
-            "jpg" | "jpeg" => return Ok(ImageFormat::Raster(RasterFormat::Jpg)),
-            "gif" => return Ok(ImageFormat::Raster(RasterFormat::Gif)),
-            "svg" | "svgz" => return Ok(ImageFormat::Vector(VectorFormat::Svg)),
-            _ => {}
-        }
-    }
-
-    Ok(ImageFormat::detect(data).ok_or("unknown image format")?)
 }

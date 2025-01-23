@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ecow::eco_format;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use tiny_http::{Header, Request, Response, StatusCode};
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
 
 use crate::args::{Input, ServerArgs};
 
@@ -162,7 +162,7 @@ impl<T> Bucket<T> {
     }
 
     /// Retrieves the current data in the bucket.
-    fn get(&self) -> MutexGuard<T> {
+    fn get(&self) -> MutexGuard<'_, T> {
         self.mutex.lock()
     }
 
@@ -181,8 +181,11 @@ impl<T> Bucket<T> {
 
 /// The initial HTML before compilation is finished.
 const PLACEHOLDER_HTML: &str = "\
+<!DOCTYPE html>
 <html>
   <head>
+    <meta charset=\"utf-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
     <title>Waiting for {INPUT}</title>
     <style>
       body {
@@ -201,7 +204,7 @@ const PLACEHOLDER_HTML: &str = "\
   </head>
   <body>
     <main>
-      <div>Waiting for output ...</div>
+      <div>Waiting for output…</div>
       <div><code>typst watch {INPUT}</code></div>
     </main>
   </body>

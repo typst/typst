@@ -1,0 +1,11 @@
+figure = Addadi
+table = tabili
+# equation =
+bibliography = Fahirinsa
+# heading =
+outline = Abin da ke ciki
+# raw =
+page = Shafi
+# footnote =
+# email =
+# telephone =

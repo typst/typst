@@ -8,8 +8,8 @@ use typst_library::introspection::{
     SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, OuterHAlignment,
-    PlacementScope, Point, Region, Regions, Rel, Size,
+    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, Inherit,
+    OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
@@ -17,7 +17,9 @@ use typst_library::model::{
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
-use super::{distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Stop, Work};
+use super::{
+    Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,
+};
 
 /// Composes the contents of a single page/region. A region can have multiple
 /// columns/subregions.
@@ -113,7 +115,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let column_height = regions.size.y;
         let backlog: Vec<_> = std::iter::once(&column_height)
             .chain(regions.backlog)
-            .flat_map(|&h| std::iter::repeat(h).take(self.config.columns.count))
+            .flat_map(|&h| std::iter::repeat_n(h, self.config.columns.count))
             .skip(1)
             .collect();
 
@@ -317,11 +319,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             let used = base.y - remaining;
             let half = need / 2.0;
             let ratio = (used + half) / base.y;
-            if ratio <= 0.5 {
-                FixedAlignment::Start
-            } else {
-                FixedAlignment::End
-            }
+            if ratio <= 0.5 { FixedAlignment::Start } else { FixedAlignment::End }
         });
 
         // Select the insertion area where we'll put this float.
@@ -356,14 +354,14 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         migratable: bool,
     ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
-        if !self.config.root {
+        if self.config.mode != FlowMode::Root {
             return Ok(());
         }
 
         // Search for footnotes.
         let mut notes = vec![];
         for tag in &self.work.tags {
-            let Tag::Start(elem) = tag else { continue };
+            let Tag::Start(elem, _) = tag else { continue };
             let Some(note) = elem.to_packed::<FootnoteElem>() else { continue };
             notes.push((Abs::zero(), note.clone()));
         }
@@ -603,14 +601,19 @@ fn layout_footnote(
     let loc = elem.location().unwrap();
     crate::layout_fragment(
         engine,
-        &FootnoteEntry::new(elem.clone()).pack(),
+        &FootnoteEntry::new(elem.clone())
+            .pack()
+            .spanned(elem.span())
+            // We attach a well-known derived location to the entry so that the
+            // note can link to this entry without first querying for it.
+            .located(loc.variant(1)),
         Locator::synthesize(loc),
         config.shared,
         pod,
     )
     .map(|mut fragment| {
         for frame in &mut fragment {
-            frame.set_parent(loc);
+            frame.set_parent(FrameParent::new(loc, Inherit::No));
         }
         fragment
     })
@@ -665,7 +668,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
         self.footnote_separator = Some(frame);
     }
 
-    /// The combined height of the top and bottom area (includings clearances).
+    /// The combined height of the top and bottom area (including clearances).
     /// Subtracting this from the total region size yields the available space
     /// for distribution.
     fn height(&self) -> Abs {
@@ -849,7 +852,7 @@ fn layout_line_number_reset(
     config: &Config,
     locator: &mut SplitLocator,
 ) -> SourceResult<Frame> {
-    let counter = Counter::of(ParLineMarker::elem());
+    let counter = Counter::of(ParLineMarker::ELEM);
     let update = CounterUpdate::Set(CounterState::init(false));
     let content = counter.update(Span::detached(), update);
     crate::layout_frame(
@@ -877,7 +880,7 @@ fn layout_line_number(
     locator: &mut SplitLocator,
     numbering: &Numbering,
 ) -> SourceResult<Frame> {
-    let counter = Counter::of(ParLineMarker::elem());
+    let counter = Counter::of(ParLineMarker::ELEM);
     let update = CounterUpdate::Step(NonZeroUsize::ONE);
     let numbering = Smart::Custom(numbering.clone());
 
@@ -932,7 +935,7 @@ fn find_in_frame_impl<T: NativeElement>(
         let y = y_offset + pos.y;
         match item {
             FrameItem::Group(group) => find_in_frame_impl(output, &group.frame, y),
-            FrameItem::Tag(Tag::Start(elem)) => {
+            FrameItem::Tag(Tag::Start(elem, _)) => {
                 if let Some(elem) = elem.to_packed::<T>() {
                     output.push((y, elem.clone()));
                 }

@@ -17,7 +17,6 @@ mod datetime;
 mod decimal;
 mod dict;
 mod duration;
-mod element;
 mod fields;
 mod float;
 mod func;
@@ -25,7 +24,8 @@ mod int;
 mod label;
 mod module;
 mod none;
-mod plugin;
+#[path = "plugin.rs"]
+mod plugin_;
 mod scope;
 mod selector;
 mod str;
@@ -48,7 +48,6 @@ pub use self::datetime::*;
 pub use self::decimal::*;
 pub use self::dict::*;
 pub use self::duration::*;
-pub use self::element::*;
 pub use self::fields::*;
 pub use self::float::*;
 pub use self::func::*;
@@ -56,7 +55,7 @@ pub use self::int::*;
 pub use self::label::*;
 pub use self::module::*;
 pub use self::none::*;
-pub use self::plugin::*;
+pub use self::plugin_::*;
 pub use self::repr::Repr;
 pub use self::scope::*;
 pub use self::selector::*;
@@ -68,32 +67,27 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
+use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
 pub use {
     ecow::{eco_format, eco_vec},
     indexmap::IndexMap,
+    smallvec::SmallVec,
 };
 
+use comemo::TrackedMut;
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
-use crate::routines::EvalMode;
 use crate::{Feature, Features};
-
-/// Foundational types and functions.
-///
-/// Here, you'll find documentation for basic data types like [integers]($int)
-/// and [strings]($str) as well as details about core computational functions.
-#[category]
-pub static FOUNDATIONS: Category;
 
 /// Hook up all `foundations` definitions.
 pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
-    global.category(FOUNDATIONS);
+    global.start_category(crate::Category::Foundations);
     global.define_type::<bool>();
     global.define_type::<i64>();
     global.define_type::<f64>();
@@ -114,16 +108,17 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Symbol>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
-    global.define_type::<Plugin>();
     global.define_func::<repr::repr>();
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
+    global.define_func::<plugin>();
     if features.is_enabled(Feature::Html) {
         global.define_func::<target>();
     }
-    global.define_module(calc::module());
-    global.define_module(sys::module(inputs));
+    global.define("calc", calc::module());
+    global.define("sys", sys::module(inputs));
+    global.reset_category();
 }
 
 /// Fails with an error.
@@ -160,8 +155,8 @@ pub fn panic(
 /// Fails with an error if the condition is not fulfilled. Does not
 /// produce any output in the document.
 ///
-/// If you wish to test equality between two values, see
-/// [`assert.eq`]($assert.eq) and [`assert.ne`]($assert.ne).
+/// If you wish to test equality between two values, see [`assert.eq`] and
+/// [`assert.ne`].
 ///
 /// # Example
 /// ```typ
@@ -277,8 +272,8 @@ pub fn eval(
     /// #eval("1_2^3", mode: "math")
     /// ```
     #[named]
-    #[default(EvalMode::Code)]
-    mode: EvalMode,
+    #[default(SyntaxMode::Code)]
+    mode: SyntaxMode,
     /// A scope of definitions that are made available.
     ///
     /// ```example
@@ -300,7 +295,16 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define_spanned(key, value, span);
+        scope.bind(key.into(), Binding::new(value, span));
     }
-    (engine.routines.eval_string)(engine.routines, engine.world, &text, span, mode, scope)
+
+    (engine.routines.eval_string)(
+        engine.routines,
+        engine.world,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        &text,
+        span,
+        mode,
+        scope,
+    )
 }

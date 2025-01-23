@@ -1,30 +1,37 @@
 //! Image handling.
 
+mod pdf;
 mod raster;
 mod svg;
 
-pub use self::raster::{RasterFormat, RasterImage};
+pub use self::pdf::PdfImage;
+pub use self::raster::{
+    ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
+};
 pub use self::svg::SvgImage;
 
+use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use comemo::Tracked;
 use ecow::EcoString;
+use hayro_syntax::LoadPdfError;
 use typst_syntax::{Span, Spanned};
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, NonZeroExt};
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Show,
-    Smart, StyleChain,
+    Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, Synthesize,
+    cast, elem, func, scope,
 };
-use crate::layout::{BlockElem, Length, Rel, Sizing};
-use crate::loading::{DataSource, Load, Readable};
+use crate::introspection::{Locatable, Tagged};
+use crate::layout::{Length, Rel, Sizing};
+use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
-use crate::text::LocalName;
-use crate::World;
+use crate::text::{LocalName, Locale, families};
+use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.
 ///
@@ -44,23 +51,88 @@ use crate::World;
 ///   ],
 /// )
 /// ```
-#[elem(scope, Show, LocalName, Figurable)]
+#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A path to an image file or raw bytes making up an encoded image.
+    /// A [path]($syntax/#paths) to an image file or raw bytes making up an
+    /// image in one of the supported [formats]($image.format).
     ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// Bytes can be used to specify raw pixel data in a row-major,
+    /// left-to-right, top-to-bottom format.
+    ///
+    /// ```example
+    /// #let original = read("diagram.svg")
+    /// #let changed = original.replace(
+    ///   "#2B80FF", // blue
+    ///   green.to-hex(),
+    /// )
+    ///
+    /// #image(bytes(original))
+    /// #image(bytes(changed))
+    /// ```
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
-        let data = source.load(engine.world)?;
-        Derived::new(source.v, data)
+        let loaded = source.load(engine.world)?;
+        Derived::new(source.v, loaded)
     )]
-    pub source: Derived<DataSource, Bytes>,
+    pub source: Derived<DataSource, Loaded>,
 
-    /// The image's format. Detected automatically by default.
+    /// The image's format.
     ///
-    /// Supported formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
-    /// is [not currently supported](https://github.com/typst/typst/issues/145).
+    /// By default, the format is detected automatically. Typically, you thus
+    /// only need to specify this when providing raw bytes as the
+    /// [`source`]($image.source) (even then, Typst will try to figure out the
+    /// format automatically, but that's not always possible).
+    ///
+    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
+    /// `{"pdf"}`, `{"webp"}` as well as raw pixel data.
+    ///
+    /// Note that several restrictions apply when using PDF files as images:
+    ///
+    /// - When exporting to PDF, any PDF image file used must have a version
+    ///   equal to or lower than the [export target PDF
+    ///   version]($pdf/#pdf-versions).
+    /// - PDF files as images are currently not supported when exporting with a
+    ///   specific PDF standard, like PDF/A-3 or PDF/UA-1. In these cases, you
+    ///   can instead use SVGs to embed vector images.
+    /// - The image file must not be password-protected.
+    /// - Tags in your PDF image will not be preserved. Instead, you must
+    ///   provide an [alternative description]($image.alt) to make the image
+    ///   accessible.
+    ///
+    /// When providing raw pixel data as the `source`, you must specify a
+    /// dictionary with the following keys as the `format`:
+    /// - `encoding` ([str]): The encoding of the pixel data. One of:
+    ///   - `{"rgb8"}` (three 8-bit channels: red, green, blue)
+    ///   - `{"rgba8"}` (four 8-bit channels: red, green, blue, alpha)
+    ///   - `{"luma8"}` (one 8-bit channel)
+    ///   - `{"lumaa8"}` (two 8-bit channels: luma and alpha)
+    /// - `width` ([int]): The pixel width of the image.
+    /// - `height` ([int]): The pixel height of the image.
+    ///
+    /// The pixel width multiplied by the height multiplied by the channel count
+    /// for the specified encoding must then match the `source` data.
+    ///
+    /// ```example
+    /// #image(
+    ///   read(
+    ///     "tetrahedron.svg",
+    ///     encoding: none,
+    ///   ),
+    ///   format: "svg",
+    ///   width: 2cm,
+    /// )
+    ///
+    /// #image(
+    ///   bytes(range(16).map(x => x * 16)),
+    ///   format: (
+    ///     encoding: "luma8",
+    ///     width: 4,
+    ///     height: 4,
+    ///   ),
+    ///   width: 2cm,
+    /// )
+    /// ```
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
@@ -69,8 +141,26 @@ pub struct ImageElem {
     /// The height of the image.
     pub height: Sizing,
 
-    /// A text describing the image.
+    /// An alternative description of the image.
+    ///
+    /// This text is used by Assistive Technology (AT) like screen readers to
+    /// describe the image to users with visual impairments.
+    ///
+    /// When the image is wrapped in a [`figure`]($figure), use this parameter
+    /// rather than the [figure's `alt` parameter]($figure.alt) to describe the
+    /// image. The only exception to this rule is when the image and the other
+    /// contents in the figure form a single semantic unit. In this case, use
+    /// the figure's `alt` parameter to describe the entire composition and do
+    /// not use this parameter.
+    ///
+    /// You can learn how to write good alternative descriptions in the
+    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
     pub alt: Option<EcoString>,
+
+    /// The page number that should be embedded as an image. This attribute only
+    /// has an effect for PDF files.
+    #[default(NonZeroUsize::ONE)]
+    pub page: NonZeroUsize,
 
     /// How the image should adjust itself to a given area (the area is defined
     /// by the `width` and `height` fields). Note that `fit` doesn't visually
@@ -86,35 +176,55 @@ pub struct ImageElem {
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
 
-    /// Whether text in SVG images should be converted into curves before
-    /// embedding. This will result in the text becoming unselectable in the
-    /// output.
-    #[default(false)]
-    pub flatten_text: bool,
+    /// A hint to viewers how they should scale the image.
+    ///
+    /// When set to `{auto}`, the default is left up to the viewer. For PNG
+    /// export, Typst will default to smooth scaling, like most PDF and SVG
+    /// viewers.
+    ///
+    /// _Note:_ The exact look may differ across PDF viewers.
+    pub scaling: Smart<ImageScaling>,
+
+    /// An ICC profile for the image.
+    ///
+    /// ICC profiles define how to interpret the colors in an image. When set
+    /// to `{auto}`, Typst will try to extract an ICC profile from the image.
+    #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
+        Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
+            let loaded = Spanned::new(&source, span).load(engine.world)?;
+            Derived::new(source, loaded.data)
+        })),
+        Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
+        None => None,
+    })]
+    pub icc: Smart<Derived<DataSource, Bytes>>,
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
+}
+
+impl Synthesize for Packed<ImageElem> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
+        self.locale = Some(Locale::get_in(styles));
+        Ok(())
+    }
 }
 
 #[scope]
+#[allow(clippy::too_many_arguments)]
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
-    ///
-    /// This function is deprecated. The [`image`] function now accepts bytes
-    /// directly.
-    ///
-    /// ```example
-    /// #let original = read("diagram.svg")
-    /// #let changed = original.replace(
-    ///   "#2B80FF", // blue
-    ///   green.to-hex(),
-    /// )
-    ///
-    /// #image.decode(original)
-    /// #image.decode(changed)
-    /// ```
     #[func(title = "Decode Image")]
+    #[deprecated(
+        message = "`image.decode` is deprecated, directly pass bytes to `image` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
-        data: Readable,
+        data: Spanned<Readable>,
         /// The image's format. Detected automatically by default.
         #[named]
         format: Option<Smart<ImageFormat>>,
@@ -130,36 +240,173 @@ impl ImageElem {
         /// How the image should adjust itself to a given area.
         #[named]
         fit: Option<ImageFit>,
+        /// A hint to viewers how they should scale the image.
+        #[named]
+        scaling: Option<Smart<ImageScaling>>,
     ) -> StrResult<Content> {
-        let bytes = data.into_bytes();
-        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
+        let bytes = data.v.into_bytes();
+        let loaded =
+            Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
+        let source = Derived::new(DataSource::Bytes(bytes), loaded);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
-            elem.push_format(format);
+            elem.format.set(format);
         }
         if let Some(width) = width {
-            elem.push_width(width);
+            elem.width.set(width);
         }
         if let Some(height) = height {
-            elem.push_height(height);
+            elem.height.set(height);
         }
         if let Some(alt) = alt {
-            elem.push_alt(alt);
+            elem.alt.set(alt);
         }
         if let Some(fit) = fit {
-            elem.push_fit(fit);
+            elem.fit.set(fit);
+        }
+        if let Some(scaling) = scaling {
+            elem.scaling.set(scaling);
         }
         Ok(elem.pack().spanned(span))
     }
 }
 
-impl Show for Packed<ImageElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_image)
-            .with_width(self.width(styles))
-            .with_height(self.height(styles))
-            .pack()
-            .spanned(self.span()))
+impl Packed<ImageElem> {
+    /// Decodes the image.
+    pub fn decode(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Image> {
+        let span = self.span();
+        let loaded = &self.source.derived;
+        let format = self.determine_format(styles).at(span)?;
+
+        // Construct the image itself.
+        let kind = match format {
+            ImageFormat::Raster(format) => ImageKind::Raster(
+                RasterImage::new(
+                    loaded.data.clone(),
+                    format,
+                    self.icc.get_ref(styles).as_ref().map(|icc| icc.derived.clone()),
+                )
+                .at(span)?,
+            ),
+            ImageFormat::Vector(VectorFormat::Svg) => {
+                // Warn the user if the image contains a foreign object. Not
+                // perfect because the svg could also be encoded, but that's an
+                // edge case.
+                if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
+                    engine.sink.warn(warning!(
+                        span,
+                        "image contains foreign object";
+                        hint: "SVG images with foreign objects might render incorrectly in Typst";
+                        hint: "see https://github.com/typst/typst/issues/1421 for more information"
+                    ));
+                }
+
+                // Identify the SVG file in case contained hrefs need to be resolved.
+                let svg_file = match self.source.source {
+                    DataSource::Path(ref path) => span.resolve_path(path).ok(),
+                    DataSource::Bytes(_) => span.id(),
+                };
+                ImageKind::Svg(
+                    SvgImage::with_fonts_images(
+                        loaded.data.clone(),
+                        engine.world,
+                        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+                        svg_file,
+                    )
+                    .within(loaded)?,
+                )
+            }
+            ImageFormat::Vector(VectorFormat::Pdf) => {
+                let document = match PdfDocument::new(loaded.data.clone()) {
+                    Ok(doc) => doc,
+                    Err(e) => match e {
+                        // TODO: the `DecyptionError` is currently not public
+                        LoadPdfError::Decryption(_) => {
+                            bail!(
+                                span,
+                                "the PDF is encrypted or password-protected";
+                                hint: "such PDFs are currently not supported";
+                                hint: "preprocess the PDF to remove the encryption"
+                            );
+                        }
+                        LoadPdfError::Invalid => {
+                            bail!(
+                                span,
+                                "the PDF could not be loaded";
+                                hint: "perhaps the PDF file is malformed"
+                            );
+                        }
+                    },
+                };
+
+                // See https://github.com/LaurenzV/hayro/issues/141.
+                if document.pdf().xref().has_optional_content_groups() {
+                    engine.sink.warn(warning!(
+                        span,
+                        "PDF contains optional content groups";
+                        hint: "the image might display incorrectly in PDF export";
+                        hint: "preprocess the PDF to flatten or remove optional content groups"
+                    ));
+                }
+
+                // The user provides the page number start from 1, but further
+                // down the pipeline, page numbers are 0-based.
+                let page_num = self.page.get(styles).get();
+                let page_idx = page_num - 1;
+                let num_pages = document.num_pages();
+
+                let Some(pdf_image) = PdfImage::new(document, page_idx) else {
+                    let s = if num_pages == 1 { "" } else { "s" };
+                    bail!(
+                        span,
+                        "page {page_num} does not exist";
+                        hint: "the document only has {num_pages} page{s}"
+                    );
+                };
+
+                ImageKind::Pdf(pdf_image)
+            }
+        };
+
+        Ok(Image::new(kind, self.alt.get_cloned(styles), self.scaling.get(styles)))
+    }
+
+    /// Tries to determine the image format based on the format that was
+    /// explicitly defined, or else the extension, or else the data.
+    fn determine_format(&self, styles: StyleChain) -> StrResult<ImageFormat> {
+        if let Smart::Custom(v) = self.format.get(styles) {
+            return Ok(v);
+        };
+
+        let Derived { source, derived: loaded } = &self.source;
+        if let DataSource::Path(path) = source
+            && let Some(format) = determine_format_from_path(path.as_str())
+        {
+            return Ok(format);
+        }
+
+        Ok(ImageFormat::detect(&loaded.data).ok_or("unknown image format")?)
+    }
+}
+
+/// Derive the image format from the file extension of a path.
+fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase();
+
+    match ext.as_str() {
+        // Raster formats
+        "png" => Some(ExchangeFormat::Png.into()),
+        "jpg" | "jpeg" => Some(ExchangeFormat::Jpg.into()),
+        "gif" => Some(ExchangeFormat::Gif.into()),
+        "webp" => Some(ExchangeFormat::Webp.into()),
+        // Vector formats
+        "svg" | "svgz" => Some(VectorFormat::Svg.into()),
+        "pdf" => Some(VectorFormat::Pdf.into()),
+        _ => None,
     }
 }
 
@@ -189,7 +436,7 @@ pub enum ImageFit {
 /// A loaded raster or vector image.
 ///
 /// Values of this type are cheap to clone and hash.
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Image(Arc<LazyHash<Repr>>);
 
 /// The internal representation.
@@ -199,15 +446,8 @@ struct Repr {
     kind: ImageKind,
     /// A text describing the image.
     alt: Option<EcoString>,
-}
-
-/// A kind of image.
-#[derive(Hash)]
-pub enum ImageKind {
-    /// A raster image.
-    Raster(RasterImage),
-    /// An SVG image.
-    Svg(SvgImage),
+    /// The scaling algorithm to use.
+    scaling: Smart<ImageScaling>,
 }
 
 impl Image {
@@ -218,55 +458,29 @@ impl Image {
     /// Should always be the same as the default DPI used by usvg.
     pub const USVG_DEFAULT_DPI: f64 = 96.0;
 
-    /// Create an image from a buffer and a format.
-    #[comemo::memoize]
-    #[typst_macros::time(name = "load image")]
+    /// Create an image from a `RasterImage` or `SvgImage`.
     pub fn new(
-        data: Bytes,
-        format: ImageFormat,
+        kind: impl Into<ImageKind>,
         alt: Option<EcoString>,
-    ) -> StrResult<Image> {
-        let kind = match format {
-            ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
-            }
-            ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::new(data)?)
-            }
-        };
-
-        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
+        scaling: Smart<ImageScaling>,
+    ) -> Self {
+        Self::new_impl(kind.into(), alt, scaling)
     }
 
-    /// Create a possibly font-dependent image from a buffer and a format.
+    /// Create an image with optional properties set to the default.
+    pub fn plain(kind: impl Into<ImageKind>) -> Self {
+        Self::new(kind, None, Smart::Auto)
+    }
+
+    /// The internal, non-generic implementation. This is memoized to reuse
+    /// the `Arc` and `LazyHash`.
     #[comemo::memoize]
-    #[typst_macros::time(name = "load image")]
-    pub fn with_fonts(
-        data: Bytes,
-        format: ImageFormat,
+    fn new_impl(
+        kind: ImageKind,
         alt: Option<EcoString>,
-        world: Tracked<dyn World + '_>,
-        families: &[&str],
-        flatten_text: bool,
-    ) -> StrResult<Image> {
-        let kind = match format {
-            ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
-            }
-            ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, flatten_text, families)?)
-            }
-        };
-
-        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
-    }
-
-    /// The raw image data.
-    pub fn data(&self) -> &Bytes {
-        match &self.0.kind {
-            ImageKind::Raster(raster) => raster.data(),
-            ImageKind::Svg(svg) => svg.data(),
-        }
+        scaling: Smart<ImageScaling>,
+    ) -> Image {
+        Self(Arc::new(LazyHash::new(Repr { kind, alt, scaling })))
     }
 
     /// The format of the image.
@@ -274,6 +488,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.format().into(),
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
+            ImageKind::Pdf(_) => VectorFormat::Pdf.into(),
         }
     }
 
@@ -282,6 +497,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
+            ImageKind::Pdf(pdf) => pdf.width() as f64,
         }
     }
 
@@ -290,6 +506,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+            ImageKind::Pdf(pdf) => pdf.height() as f64,
         }
     }
 
@@ -298,12 +515,18 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
+            ImageKind::Pdf(_) => Some(Image::DEFAULT_DPI),
         }
     }
 
     /// A text describing the image.
     pub fn alt(&self) -> Option<&str> {
         self.0.alt.as_deref()
+    }
+
+    /// The image scaling algorithm to use for this image.
+    pub fn scaling(&self) -> Smart<ImageScaling> {
+        self.0.scaling
     }
 
     /// The decoded image.
@@ -319,7 +542,31 @@ impl Debug for Image {
             .field("width", &self.width())
             .field("height", &self.height())
             .field("alt", &self.alt())
+            .field("scaling", &self.scaling())
             .finish()
+    }
+}
+
+/// A kind of image.
+#[derive(Clone, Hash)]
+pub enum ImageKind {
+    /// A raster image.
+    Raster(RasterImage),
+    /// An SVG image.
+    Svg(SvgImage),
+    /// A PDF image.
+    Pdf(PdfImage),
+}
+
+impl From<RasterImage> for ImageKind {
+    fn from(image: RasterImage) -> Self {
+        Self::Raster(image)
+    }
+}
+
+impl From<SvgImage> for ImageKind {
+    fn from(image: SvgImage) -> Self {
+        Self::Svg(image)
     }
 }
 
@@ -335,17 +582,41 @@ pub enum ImageFormat {
 impl ImageFormat {
     /// Try to detect the format of an image from data.
     pub fn detect(data: &[u8]) -> Option<Self> {
-        if let Some(format) = RasterFormat::detect(data) {
-            return Some(Self::Raster(format));
+        if let Some(format) = ExchangeFormat::detect(data) {
+            return Some(Self::Raster(RasterFormat::Exchange(format)));
         }
 
-        // SVG or compressed SVG.
-        if data.starts_with(b"<svg") || data.starts_with(&[0x1f, 0x8b]) {
+        if is_svg(data) {
             return Some(Self::Vector(VectorFormat::Svg));
+        }
+
+        if is_pdf(data) {
+            return Some(Self::Vector(VectorFormat::Pdf));
         }
 
         None
     }
+}
+
+/// Checks whether the data looks like a PDF file.
+fn is_pdf(data: &[u8]) -> bool {
+    let head = &data[..data.len().min(2048)];
+    memchr::memmem::find(head, b"%PDF-").is_some()
+}
+
+/// Checks whether the data looks like an SVG or a compressed SVG.
+fn is_svg(data: &[u8]) -> bool {
+    // Check for the gzip magic bytes. This check is perhaps a bit too
+    // permissive as other formats than SVGZ could use gzip.
+    if data.starts_with(&[0x1f, 0x8b]) {
+        return true;
+    }
+
+    // If the first 2048 bytes contain the SVG namespace declaration, we assume
+    // that it's an SVG. Note that, if the SVG does not contain a namespace
+    // declaration, usvg will reject it.
+    let head = &data[..data.len().min(2048)];
+    memchr::memmem::find(head, b"http://www.w3.org/2000/svg").is_some()
 }
 
 /// A vector graphics format.
@@ -353,11 +624,17 @@ impl ImageFormat {
 pub enum VectorFormat {
     /// The vector graphics format of the web.
     Svg,
+    /// High-fidelity document and graphics format, with focus on exact
+    /// reproduction in print.
+    Pdf,
 }
 
-impl From<RasterFormat> for ImageFormat {
-    fn from(format: RasterFormat) -> Self {
-        Self::Raster(format)
+impl<R> From<R> for ImageFormat
+where
+    R: Into<RasterFormat>,
+{
+    fn from(format: R) -> Self {
+        Self::Raster(format.into())
     }
 }
 
@@ -371,8 +648,18 @@ cast! {
     ImageFormat,
     self => match self {
         Self::Raster(v) => v.into_value(),
-        Self::Vector(v) => v.into_value()
+        Self::Vector(v) => v.into_value(),
     },
     v: RasterFormat => Self::Raster(v),
     v: VectorFormat => Self::Vector(v),
+}
+
+/// The image scaling algorithm a viewer should use.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum ImageScaling {
+    /// Scale with a smoothing algorithm such as bilinear interpolation.
+    Smooth,
+    /// Scale with nearest neighbor or a similar algorithm to preserve the
+    /// pixelated look of the image.
+    Pixelated,
 }

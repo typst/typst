@@ -9,28 +9,23 @@ pub use self::contribs::*;
 pub use self::html::*;
 pub use self::model::*;
 
-use std::collections::HashSet;
-
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
+use heck::ToTitleCase;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
+use typst::foundations::Deprecation;
 use typst::foundations::{
-    AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
-    Scope, Smart, Type, Value, FOUNDATIONS,
+    AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
+    Smart, Type, Value,
 };
-use typst::introspection::INTROSPECTION;
-use typst::layout::{Abs, Margin, PageElem, PagedDocument, LAYOUT};
-use typst::loading::DATA_LOADING;
-use typst::math::MATH;
-use typst::model::MODEL;
-use typst::pdf::PDF;
-use typst::symbols::SYMBOLS;
-use typst::text::{Font, FontBook, TEXT};
+use typst::layout::{Abs, Margin, PageElem, PagedDocument};
+use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::visualize::VISUALIZE;
-use typst::Library;
+use typst::{Category, Feature, Library, LibraryExt};
+use unicode_math_class::MathClass;
 
 macro_rules! load {
     ($path:literal) => {
@@ -42,13 +37,19 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
     let mut groups: Vec<GroupData> =
         yaml::from_str(load!("reference/groups.yml")).unwrap();
     for group in &mut groups {
-        if group.filter.is_empty() {
+        if group.filter.is_empty() && group.name != "std" {
             group.filter = group
                 .module()
                 .scope()
                 .iter()
-                .filter(|(_, v, _)| matches!(v, Value::Func(_)))
-                .map(|(k, _, _)| k.clone())
+                .filter(|(_, b)| matches!(b.read(), Value::Func(_)))
+                .map(|(k, _)| k.clone())
+                .collect();
+        }
+        if group.name == "typed" {
+            group.filter = typst_assets::html::ELEMS
+                .iter()
+                .map(|elem| elem.name.into())
                 .collect();
         }
     }
@@ -56,21 +57,22 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = Library::default();
+    let mut lib = Library::builder()
+        .with_features([Feature::Html, Feature::A11yExtras].into_iter().collect())
+        .build();
     let scope = lib.global.scope_mut();
 
     // Add those types, so that they show up in the docs.
-    scope.category(FOUNDATIONS);
+    scope.start_category(Category::Foundations);
     scope.define_type::<NoneValue>();
     scope.define_type::<AutoValue>();
+    scope.reset_category();
 
     // Adjust the default look.
+    lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(240.0).into()));
+    lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles
-        .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
-    lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
-        Abs::pt(15.0).into(),
-    )))));
+        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(15.0).into()))));
 
     LazyHash::new(lib)
 });
@@ -107,7 +109,7 @@ pub trait Resolver {
 
     /// Produce HTML for an example.
     fn example(&self, hash: u128, source: Option<Html>, document: &PagedDocument)
-        -> Html;
+    -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -119,9 +121,20 @@ pub trait Resolver {
 /// Create a page from a markdown file.
 #[track_caller]
 fn md_page(resolver: &dyn Resolver, parent: &str, md: &str) -> PageModel {
+    md_page_with_title(resolver, parent, md, None)
+}
+
+/// Create a page from a markdown file.
+#[track_caller]
+fn md_page_with_title(
+    resolver: &dyn Resolver,
+    parent: &str,
+    md: &str,
+    title: Option<&str>,
+) -> PageModel {
     assert!(parent.starts_with('/') && parent.ends_with('/'));
     let html = Html::markdown(resolver, md, Some(0));
-    let title = html.title().expect("chapter lacks a title");
+    let title = title.or(html.title()).expect("chapter lacks a title");
     PageModel {
         route: eco_format!("{parent}{}/", urlify(title)),
         title: title.into(),
@@ -151,20 +164,24 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("reference/welcome.md"));
     let base = format!("{}reference/", resolver.base());
     page.children = vec![
-        md_page(resolver, &base, load!("reference/syntax.md")).with_part("Language"),
-        md_page(resolver, &base, load!("reference/styling.md")),
-        md_page(resolver, &base, load!("reference/scripting.md")),
-        md_page(resolver, &base, load!("reference/context.md")),
-        category_page(resolver, FOUNDATIONS).with_part("Library"),
-        category_page(resolver, MODEL),
-        category_page(resolver, TEXT),
-        category_page(resolver, MATH),
-        category_page(resolver, SYMBOLS),
-        category_page(resolver, LAYOUT),
-        category_page(resolver, VISUALIZE),
-        category_page(resolver, INTROSPECTION),
-        category_page(resolver, DATA_LOADING),
-        category_page(resolver, PDF),
+        md_page(resolver, &base, load!("reference/language/syntax.md"))
+            .with_part("Language"),
+        md_page(resolver, &base, load!("reference/language/styling.md")),
+        md_page(resolver, &base, load!("reference/language/scripting.md")),
+        md_page(resolver, &base, load!("reference/language/context.md")),
+        category_page(resolver, Category::Foundations).with_part("Library"),
+        category_page(resolver, Category::Model),
+        category_page(resolver, Category::Text),
+        category_page(resolver, Category::Math),
+        category_page(resolver, Category::Symbols),
+        category_page(resolver, Category::Layout),
+        category_page(resolver, Category::Visualize),
+        category_page(resolver, Category::Introspection),
+        category_page(resolver, Category::DataLoading),
+        category_page(resolver, Category::Pdf).with_part("Export"),
+        category_page(resolver, Category::Html),
+        category_page(resolver, Category::Png),
+        category_page(resolver, Category::Svg),
     ];
     page
 }
@@ -174,9 +191,25 @@ fn guide_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("guides/welcome.md"));
     let base = format!("{}guides/", resolver.base());
     page.children = vec![
-        md_page(resolver, &base, load!("guides/guide-for-latex-users.md")),
-        md_page(resolver, &base, load!("guides/page-setup.md")),
-        md_page(resolver, &base, load!("guides/tables.md")),
+        md_page_with_title(
+            resolver,
+            &base,
+            load!("guides/guide-for-latex-users.md"),
+            Some("For LaTeX Users"),
+        ),
+        md_page_with_title(
+            resolver,
+            &base,
+            load!("guides/page-setup.md"),
+            Some("Page Setup"),
+        ),
+        md_page_with_title(resolver, &base, load!("guides/tables.md"), Some("Tables")),
+        md_page_with_title(
+            resolver,
+            &base,
+            load!("guides/accessibility.md"),
+            Some("Accessibility"),
+        ),
     ];
     page
 }
@@ -186,6 +219,9 @@ fn changelog_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("changelog/welcome.md"));
     let base = format!("{}changelog/", resolver.base());
     page.children = vec![
+        md_page(resolver, &base, load!("changelog/0.14.0.md")),
+        md_page(resolver, &base, load!("changelog/0.13.1.md")),
+        md_page(resolver, &base, load!("changelog/0.13.0.md")),
         md_page(resolver, &base, load!("changelog/0.12.0.md")),
         md_page(resolver, &base, load!("changelog/0.11.1.md")),
         md_page(resolver, &base, load!("changelog/0.11.0.md")),
@@ -214,14 +250,16 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
     let mut markup = vec![];
     let mut math = vec![];
 
-    let (module, path): (&Module, &[&str]) = if category == MATH {
-        (&LIBRARY.math, &["math"])
-    } else {
-        (&LIBRARY.global, &[])
+    let docs = category_docs(category);
+    let (module, path): (&Module, &[&str]) = match category {
+        Category::Math => (&LIBRARY.math, &["math"]),
+        Category::Pdf => (get_module(&LIBRARY.global, "pdf").unwrap(), &["pdf"]),
+        Category::Html => (get_module(&LIBRARY.global, "html").unwrap(), &["html"]),
+        _ => (&LIBRARY.global, &[]),
     };
 
     // Add groups.
-    for group in GROUPS.iter().filter(|g| g.category == category.name()).cloned() {
+    for group in GROUPS.iter().filter(|g| g.category == category).cloned() {
         if matches!(group.name.as_str(), "sym" | "emoji") {
             let subpage = symbols_page(resolver, &route, &group);
             let BodyModel::Symbols(model) = &subpage.body else { continue };
@@ -238,7 +276,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
             items.push(CategoryItem {
                 name: group.name.clone(),
                 route: subpage.route.clone(),
-                oneliner: oneliner(category.docs()).into(),
+                oneliner: oneliner(docs),
                 code: true,
             });
             children.push(subpage);
@@ -251,27 +289,36 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
     }
 
     // Add symbol pages. These are ordered manually.
-    if category == SYMBOLS {
+    if category == Category::Symbols {
         shorthands = Some(ShorthandsModel { markup, math });
     }
 
-    let mut skip = HashSet::new();
-    if category == MATH {
-        skip = GROUPS
-            .iter()
-            .filter(|g| g.category == category.name())
-            .flat_map(|g| &g.filter)
-            .map(|s| s.as_str())
-            .collect();
+    let mut skip: FxHashSet<&str> = GROUPS
+        .iter()
+        .filter(|g| g.category == category)
+        .flat_map(|g| &g.filter)
+        .map(|s| s.as_str())
+        .collect();
 
+    if category == Category::Math {
         // Already documented in the text category.
         skip.insert("text");
     }
 
+    // Tiling would be duplicate otherwise.
+    if category == Category::Visualize {
+        skip.insert("pattern");
+    }
+
+    // PDF attach would be duplicate otherwise.
+    if category == Category::Pdf {
+        skip.insert("embed");
+    }
+
     // Add values and types.
     let scope = module.scope();
-    for (name, value, _) in scope.iter() {
-        if scope.get_category(name) != Some(category) {
+    for (name, binding) in scope.iter() {
+        if binding.category() != Some(category) {
             continue;
         }
 
@@ -279,15 +326,15 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
             continue;
         }
 
-        match value {
+        match binding.read() {
             Value::Func(func) => {
                 let name = func.name().unwrap();
-
-                let subpage = func_page(resolver, &route, func, path);
+                let subpage =
+                    func_page(resolver, &route, func, path, binding.deprecation());
                 items.push(CategoryItem {
                     name: name.into(),
                     route: subpage.route.clone(),
-                    oneliner: oneliner(func.docs().unwrap_or_default()).into(),
+                    oneliner: oneliner(func.docs().unwrap_or_default()),
                     code: true,
                 });
                 children.push(subpage);
@@ -297,7 +344,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
                 items.push(CategoryItem {
                     name: ty.short_name().into(),
                     route: subpage.route.clone(),
-                    oneliner: oneliner(ty.docs()).into(),
+                    oneliner: oneliner(ty.docs()),
                     code: true,
                 });
                 children.push(subpage);
@@ -306,36 +353,63 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
         }
     }
 
-    if category != SYMBOLS {
+    if category != Category::Symbols {
         children.sort_by_cached_key(|child| child.title.clone());
         items.sort_by_cached_key(|item| item.name.clone());
     }
 
-    let name = category.title();
-    let details = Html::markdown(resolver, category.docs(), Some(1));
+    let title = EcoString::from(match category {
+        Category::Pdf | Category::Html | Category::Png | Category::Svg => {
+            category.name().to_uppercase()
+        }
+        _ => category.name().to_title_case(),
+    });
+
+    let details = Html::markdown(resolver, docs, Some(1));
     let mut outline = vec![OutlineItem::from_name("Summary")];
     outline.extend(details.outline());
-    outline.push(OutlineItem::from_name("Definitions"));
+    if !items.is_empty() {
+        outline.push(OutlineItem::from_name("Definitions"));
+    }
     if shorthands.is_some() {
         outline.push(OutlineItem::from_name("Shorthands"));
     }
 
     PageModel {
         route,
-        title: name.into(),
+        title: title.clone(),
         description: eco_format!(
-            "Documentation for functions related to {name} in Typst."
+            "Documentation for functions related to {title} in Typst."
         ),
         part: None,
         outline,
         body: BodyModel::Category(CategoryModel {
             name: category.name(),
-            title: category.title(),
+            title,
             details,
             items,
             shorthands,
         }),
         children,
+    }
+}
+
+/// Retrieve the docs for a category.
+fn category_docs(category: Category) -> &'static str {
+    match category {
+        Category::Foundations => load!("reference/library/foundations.md"),
+        Category::Introspection => load!("reference/library/introspection.md"),
+        Category::Layout => load!("reference/library/layout.md"),
+        Category::DataLoading => load!("reference/library/data-loading.md"),
+        Category::Math => load!("reference/library/math.md"),
+        Category::Model => load!("reference/library/model.md"),
+        Category::Symbols => load!("reference/library/symbols.md"),
+        Category::Text => load!("reference/library/text.md"),
+        Category::Visualize => load!("reference/library/visualize.md"),
+        Category::Pdf => load!("reference/export/pdf.md"),
+        Category::Html => load!("reference/export/html.md"),
+        Category::Svg => load!("reference/export/svg.md"),
+        Category::Png => load!("reference/export/png.md"),
     }
 }
 
@@ -345,8 +419,9 @@ fn func_page(
     parent: &str,
     func: &Func,
     path: &[&str],
+    deprecation: Option<&Deprecation>,
 ) -> PageModel {
-    let model = func_model(resolver, func, path, false);
+    let model = func_model(resolver, func, path, false, deprecation);
     let name = func.name().unwrap();
     PageModel {
         route: eco_format!("{parent}{}/", urlify(name)),
@@ -365,6 +440,7 @@ fn func_model(
     func: &Func,
     path: &[&str],
     nested: bool,
+    deprecation: Option<&Deprecation>,
 ) -> FuncModel {
     let name = func.name().unwrap();
     let scope = func.scope().unwrap();
@@ -378,26 +454,45 @@ fn func_model(
     }
 
     let mut returns = vec![];
-    casts(resolver, &mut returns, &mut vec![], func.returns().unwrap());
+    let mut strings = vec![];
+    casts(resolver, &mut returns, &mut strings, func.returns().unwrap());
+    if !strings.is_empty() && !returns.contains(&"str") {
+        returns.push("str");
+    }
     returns.sort_by_key(|ty| type_index(ty));
     if returns == ["none"] {
         returns.clear();
     }
 
     let nesting = if nested { None } else { Some(1) };
-    let (details, example) =
-        if nested { split_details_and_example(docs) } else { (docs, None) };
+    let items =
+        if nested { details_blocks(docs) } else { vec![RawDetailsBlock::Markdown(docs)] };
+
+    let Some(first_md) = items.iter().find_map(|item| {
+        if let RawDetailsBlock::Markdown(md) = item { Some(md) } else { None }
+    }) else {
+        panic!("function lacks any details")
+    };
+
+    let mut params = params.to_vec();
+    if func.keywords().contains(&"typed-html") {
+        params.retain(|param| !is_global_html_attr(param.name));
+    }
 
     FuncModel {
         path: path.iter().copied().map(Into::into).collect(),
         name: name.into(),
         title: func.title().unwrap(),
         keywords: func.keywords(),
-        oneliner: oneliner(details),
+        oneliner: oneliner(first_md),
         element: func.element().is_some(),
         contextual: func.contextual().unwrap_or(false),
-        details: Html::markdown(resolver, details, nesting),
-        example: example.map(|md| Html::markdown(resolver, md, None)),
+        deprecation_message: deprecation.map(Deprecation::message),
+        deprecation_until: deprecation.and_then(Deprecation::until),
+        details: items
+            .into_iter()
+            .map(|proto| proto.into_model(resolver, nesting))
+            .collect(),
         self_,
         params: params.iter().map(|param| param_model(resolver, param)).collect(),
         returns,
@@ -407,8 +502,6 @@ fn func_model(
 
 /// Produce a parameter's model.
 fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
-    let (details, example) = split_details_and_example(info.docs);
-
     let mut types = vec![];
     let mut strings = vec![];
     casts(resolver, &mut types, &mut strings, &info.input);
@@ -419,8 +512,10 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
 
     ParamModel {
         name: info.name,
-        details: Html::markdown(resolver, details, None),
-        example: example.map(|md| Html::markdown(resolver, md, None)),
+        details: details_blocks(info.docs)
+            .into_iter()
+            .map(|proto| proto.into_model(resolver, None))
+            .collect(),
         types,
         strings,
         default: info.default.map(|default| {
@@ -435,18 +530,89 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
     }
 }
 
-/// Split up documentation into details and an example.
-fn split_details_and_example(docs: &str) -> (&str, Option<&str>) {
-    let mut details = docs;
-    let mut example = None;
-    if let Some(mut i) = docs.find("```") {
-        while docs[..i].ends_with('`') {
-            i -= 1;
+/// A details block that has not yet been processed.
+enum RawDetailsBlock<'a> {
+    /// Raw Markdown.
+    Markdown(&'a str),
+    /// An example with an optional title.
+    Example { body: &'a str, title: Option<&'a str> },
+}
+
+impl<'a> RawDetailsBlock<'a> {
+    fn into_model(self, resolver: &dyn Resolver, nesting: Option<usize>) -> DetailsBlock {
+        match self {
+            RawDetailsBlock::Markdown(md) => {
+                DetailsBlock::Html(Html::markdown(resolver, md, nesting))
+            }
+            RawDetailsBlock::Example { body, title } => DetailsBlock::Example {
+                body: Html::markdown(resolver, body, None),
+                title: title.map(Into::into),
+            },
         }
-        details = &docs[..i];
-        example = Some(&docs[i..]);
     }
-    (details, example)
+}
+
+/// Split up documentation into Markdown blocks and examples.
+fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
+    let mut i = 0;
+    let mut res = Vec::new();
+
+    while i < docs.len() {
+        match find_fence_start(&docs[i..]) {
+            Some((found, fence_len)) => {
+                let fence_idx = i + found;
+
+                // Find the language tag of the fence, if any.
+                let lang_tag_end = docs[fence_idx + fence_len..]
+                    .find('\n')
+                    .map(|end| fence_idx + fence_len + end)
+                    .unwrap_or(docs.len());
+
+                let tag = &docs[fence_idx + fence_len..lang_tag_end].trim();
+                let title = ExampleArgs::from_tag(tag).title;
+
+                // First, push non-fenced content.
+                if found > 0 {
+                    res.push(RawDetailsBlock::Markdown(&docs[i..fence_idx]));
+                }
+
+                // Then, find the end of the fence.
+                let offset = fence_idx + fence_len;
+                let Some(fence_end) = docs[offset..]
+                    .find(&"`".repeat(fence_len))
+                    .map(|end| offset + end + fence_len)
+                else {
+                    panic!(
+                        "unclosed code fence in docs at position {}: {}",
+                        fence_idx,
+                        &docs[fence_idx..]
+                    );
+                };
+
+                res.push(RawDetailsBlock::Example {
+                    body: &docs[fence_idx..fence_end],
+                    title,
+                });
+                i = fence_end;
+            }
+            None => {
+                res.push(RawDetailsBlock::Markdown(&docs[i..]));
+                break;
+            }
+        }
+    }
+
+    res
+}
+
+/// Returns the start of a code fence and how many backticks it uses.
+fn find_fence_start(md: &str) -> Option<(usize, usize)> {
+    let start = md.find("```")?;
+    let mut count = 3;
+    while md[start + count..].starts_with('`') {
+        count += 1;
+    }
+    Some((start, count))
 }
 
 /// Process cast information into types and strings.
@@ -476,9 +642,9 @@ fn casts(
 fn scope_models(resolver: &dyn Resolver, name: &str, scope: &Scope) -> Vec<FuncModel> {
     scope
         .iter()
-        .filter_map(|(_, value, _)| {
-            let Value::Func(func) = value else { return None };
-            Some(func_model(resolver, func, &[name], true))
+        .filter_map(|(_, binding)| {
+            let Value::Func(func) = binding.read() else { return None };
+            Some(func_model(resolver, func, &[name], true, binding.deprecation()))
         })
         .collect()
 }
@@ -489,7 +655,11 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
 
     if id_base.is_empty() {
         outline.push(OutlineItem::from_name("Summary"));
-        outline.extend(model.details.outline());
+        for block in &model.details {
+            if let DetailsBlock::Html(html) = block {
+                outline.extend(html.outline());
+            }
+        }
 
         if !model.params.is_empty() {
             outline.push(OutlineItem {
@@ -506,8 +676,6 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
                     .collect(),
             });
         }
-
-        outline.extend(scope_outline(&model.scope));
     } else {
         outline.extend(model.params.iter().map(|param| OutlineItem {
             id: eco_format!("{id_base}-{}", urlify(param.name)),
@@ -516,27 +684,30 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
         }));
     }
 
+    outline.extend(scope_outline(&model.scope, id_base));
+
     outline
 }
 
 /// Produce an outline for a function scope.
-fn scope_outline(scope: &[FuncModel]) -> Option<OutlineItem> {
+fn scope_outline(scope: &[FuncModel], id_base: &str) -> Option<OutlineItem> {
     if scope.is_empty() {
         return None;
     }
 
-    Some(OutlineItem {
-        id: "definitions".into(),
-        name: "Definitions".into(),
-        children: scope
-            .iter()
-            .map(|func| {
-                let id = urlify(&eco_format!("definitions-{}", func.name));
-                let children = func_outline(func, &id);
-                OutlineItem { id, name: func.title.into(), children }
-            })
-            .collect(),
-    })
+    let dash = if id_base.is_empty() { "" } else { "-" };
+    let id = eco_format!("{id_base}{dash}definitions");
+
+    let children = scope
+        .iter()
+        .map(|func| {
+            let id = urlify(&eco_format!("{id}-{}", func.name));
+            let children = func_outline(func, &id);
+            OutlineItem { id, name: func.title.into(), children }
+        })
+        .collect();
+
+    Some(OutlineItem { id, name: "Definitions".into(), children })
 }
 
 /// Create a page for a group of functions.
@@ -554,9 +725,11 @@ fn group_page(
 
     let mut outline_items = vec![];
     for name in &group.filter {
-        let value = group.module().scope().get(name).unwrap();
-        let Ok(ref func) = value.clone().cast::<Func>() else { panic!("not a function") };
-        let func = func_model(resolver, func, &path, true);
+        let binding = group.module().scope().get(name).unwrap();
+        let Ok(ref func) = binding.read().clone().cast::<Func>() else {
+            panic!("not a function")
+        };
+        let func = func_model(resolver, func, &path, true, binding.deprecation());
         let id_base = urlify(&eco_format!("functions-{}", func.name));
         let children = func_outline(&func, &id_base);
         outline_items.push(OutlineItem {
@@ -573,8 +746,37 @@ fn group_page(
         children: outline_items,
     });
 
+    let global_attributes = if group.name == "typed" {
+        let div = group.module().scope().get("div").unwrap();
+        let func = div.read().clone().cast::<Func>().unwrap();
+        func.params()
+            .unwrap()
+            .iter()
+            .filter(|param| is_global_html_attr(param.name))
+            .map(|info| param_model(resolver, info))
+            .collect()
+    } else {
+        vec![]
+    };
+
+    if !global_attributes.is_empty() {
+        let id = "global-attributes";
+        outline.push(OutlineItem {
+            id: id.into(),
+            name: "Global Attributes".into(),
+            children: global_attributes
+                .iter()
+                .map(|param| OutlineItem {
+                    id: eco_format!("{id}-{}", urlify(param.name)),
+                    name: param.name.into(),
+                    children: vec![],
+                })
+                .collect(),
+        });
+    }
+
     let model = PageModel {
-        route: eco_format!("{parent}{}", group.name),
+        route: eco_format!("{parent}{}/", group.name),
         title: group.title.clone(),
         description: eco_format!("Documentation for the {} functions.", group.name),
         part: None,
@@ -584,6 +786,7 @@ fn group_page(
             title: group.title.clone(),
             details,
             functions,
+            global_attributes,
         }),
         children: vec![],
     };
@@ -591,11 +794,20 @@ fn group_page(
     let item = CategoryItem {
         name: group.name.clone(),
         route: model.route.clone(),
-        oneliner: oneliner(&group.details).into(),
+        oneliner: oneliner(&group.details),
         code: false,
     };
 
     (model, item)
+}
+
+/// Whether the given `name` is one of a global HTML attribute (shared by all
+/// elements).
+fn is_global_html_attr(name: &str) -> bool {
+    use typst_assets::html as data;
+    data::ATTRS[..data::ATTRS_GLOBAL]
+        .iter()
+        .any(|global| global.name == name)
 }
 
 /// Create a page for a type.
@@ -623,7 +835,7 @@ fn type_model(resolver: &dyn Resolver, ty: &Type) -> TypeModel {
         constructor: ty
             .constructor()
             .ok()
-            .map(|func| func_model(resolver, &func, &[], true)),
+            .map(|func| func_model(resolver, &func, &[], true, None)),
         scope: scope_models(resolver, ty.short_name(), ty.scope()),
     }
 }
@@ -641,7 +853,7 @@ fn type_outline(model: &TypeModel) -> Vec<OutlineItem> {
         });
     }
 
-    outline.extend(scope_outline(&model.scope));
+    outline.extend(scope_outline(&model.scope, ""));
     outline
 }
 
@@ -662,32 +874,47 @@ fn symbols_page(resolver: &dyn Resolver, parent: &str, group: &GroupData) -> Pag
 /// Produce a symbol list's model.
 fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
-    for (name, value, _) in group.module().scope().iter() {
-        let Value::Symbol(symbol) = value else { continue };
-        let complete = |variant: &str| {
+    for (name, binding) in group.module().scope().iter() {
+        let Value::Symbol(symbol) = binding.read() else { continue };
+        let complete = |variant: codex::ModifierSet<&str>| {
             if variant.is_empty() {
                 name.clone()
             } else {
-                eco_format!("{}.{}", name, variant)
+                eco_format!("{}.{}", name, variant.as_str())
             }
         };
 
-        for (variant, c) in symbol.variants() {
+        for (variant, value, deprecation_message) in symbol.variants() {
+            let value_char = value.parse::<char>().ok();
+
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                value_char.and_then(|c| {
+                    list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                })
             };
 
+            let name = complete(variant);
+
             list.push(SymbolModel {
-                name: complete(variant),
+                name,
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
                 math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
-                codepoint: c as _,
-                accent: typst::math::Accent::combine(c).is_some(),
+                // Matches `typst_layout::math::GlyphFragment::new`
+                math_class: value.chars().next().and_then(|c| {
+                    typst_utils::default_math_class(c).map(math_class_name)
+                }),
+                value: value.into(),
+                // Matches casting `Symbol` to `Accent`
+                accent: value_char
+                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
                 alternates: symbol
                     .variants()
-                    .filter(|(other, _)| other != &variant)
-                    .map(|(other, _)| complete(other))
+                    .filter(|(other, _, _)| other != &variant)
+                    .map(|(other, _, _)| complete(other))
                     .collect(),
+                deprecation_message: deprecation_message
+                    .or_else(|| binding.deprecation().map(Deprecation::message)),
+                deprecation_until: binding.deprecation().and_then(Deprecation::until),
             });
         }
     }
@@ -703,7 +930,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 /// Extract a module from another module.
 #[track_caller]
 fn get_module<'a>(parent: &'a Module, name: &str) -> StrResult<&'a Module> {
-    match parent.scope().get(name) {
+    match parent.scope().get(name).map(Binding::read) {
         Some(Value::Module(module)) => Ok(module),
         _ => bail!("module doesn't contain module `{name}`"),
     }
@@ -722,8 +949,24 @@ pub fn urlify(title: &str) -> EcoString {
 }
 
 /// Extract the first line of documentation.
-fn oneliner(docs: &str) -> &str {
-    docs.lines().next().unwrap_or_default()
+fn oneliner(docs: &str) -> EcoString {
+    let paragraph = docs.split("\n\n").next().unwrap_or_default();
+    let mut depth = 0;
+    let mut period = false;
+    let mut end = paragraph.len();
+    for (i, c) in paragraph.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            '.' if depth == 0 => period = true,
+            c if period && c.is_whitespace() && !docs[..i].ends_with("e.g.") => {
+                end = i;
+                break;
+            }
+            _ => period = false,
+        }
+    }
+    EcoString::from(&docs[..end]).replace("\r\n", " ").replace("\n", " ")
 }
 
 /// The order of types in the documentation.
@@ -764,12 +1007,32 @@ const TYPE_ORDER: &[&str] = &[
     "stroke",
 ];
 
+fn math_class_name(class: MathClass) -> &'static str {
+    match class {
+        MathClass::Normal => "Normal",
+        MathClass::Alphabetic => "Alphabetic",
+        MathClass::Binary => "Binary",
+        MathClass::Closing => "Closing",
+        MathClass::Diacritic => "Diacritic",
+        MathClass::Fence => "Fence",
+        MathClass::GlyphPart => "Glyph Part",
+        MathClass::Large => "Large",
+        MathClass::Opening => "Opening",
+        MathClass::Punctuation => "Punctuation",
+        MathClass::Relation => "Relation",
+        MathClass::Space => "Space",
+        MathClass::Unary => "Unary",
+        MathClass::Vary => "Vary",
+        MathClass::Special => "Special",
+    }
+}
+
 /// Data about a collection of functions.
 #[derive(Debug, Clone, Deserialize)]
 struct GroupData {
     name: EcoString,
     title: EcoString,
-    category: EcoString,
+    category: Category,
     #[serde(default)]
     path: Vec<EcoString>,
     #[serde(default)]

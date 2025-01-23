@@ -1,14 +1,13 @@
 use comemo::Track;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
-    Smart, StyleChain, Styles, TargetElem, Value,
+    Array, Content, Context, Depth, Func, NativeElement, Packed, Smart, StyleChain,
+    Styles, Value, cast, elem, scope,
 };
-use crate::html::{tag, HtmlElem};
-use crate::layout::{BlockElem, Em, Length, VElem};
-use crate::model::ParElem;
+use crate::introspection::{Locatable, Tagged};
+use crate::layout::{Em, Length};
 use crate::text::TextElem;
 
 /// A bullet list.
@@ -42,7 +41,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", Show)]
+#[elem(scope, title = "Bullet List", Locatable, Tagged)]
 pub struct ListElem {
     /// Defines the default [spacing]($list.spacing) of the list. If it is
     /// `{false}`, the items are spaced apart with
@@ -86,7 +85,6 @@ pub struct ListElem {
     ///   - Items
     /// - Items
     /// ```
-    #[borrowed]
     #[default(ListMarker::Content(vec![
         // These are all available in the default font, vertically centered, and
         // roughly of the same size (with the last one having slightly lower
@@ -98,11 +96,9 @@ pub struct ListElem {
     pub marker: ListMarker,
 
     /// The indent of each item.
-    #[resolve]
     pub indent: Length,
 
     /// The spacing between the marker and the body of each item.
-    #[resolve]
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
@@ -139,38 +135,8 @@ impl ListElem {
     type ListItem;
 }
 
-impl Show for Packed<ListElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::ul)
-                .with_body(Some(Content::sequence(self.children.iter().map(|item| {
-                    HtmlElem::new(tag::li)
-                        .with_body(Some(item.body.clone()))
-                        .pack()
-                        .spanned(item.span())
-                }))))
-                .pack()
-                .spanned(self.span()));
-        }
-
-        let mut realized =
-            BlockElem::multi_layouter(self.clone(), engine.routines.layout_list)
-                .pack()
-                .spanned(self.span());
-
-        if self.tight(styles) {
-            let leading = ParElem::leading_in(styles);
-            let spacing =
-                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
-            realized = spacing + realized;
-        }
-
-        Ok(realized)
-    }
-}
-
 /// A bullet list item.
-#[elem(name = "item", title = "Bullet List Item")]
+#[elem(name = "item", title = "Bullet List Item", Tagged)]
 pub struct ListItem {
     /// The item's body.
     #[required]

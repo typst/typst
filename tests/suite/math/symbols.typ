@@ -2,7 +2,7 @@
 
 --- math-symbol-basic ---
 #let sym = symbol("s", ("basic", "s"))
-#test($sym.basic$, $#"s"$)
+#test($sym.basic$, $s$)
 
 --- math-symbol-underscore ---
 #let sym = symbol("s", ("test_underscore", "s"))
@@ -16,7 +16,7 @@ $sym.test-dash$
 
 --- math-symbol-double ---
 #let sym = symbol("s", ("test.basic", "s"))
-#test($sym.test.basic$, $#"s"$)
+#test($sym.test.basic$, $s$)
 
 --- math-symbol-double-underscore ---
 #let sym = symbol("s", ("one.test_underscore", "s"))

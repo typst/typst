@@ -1,8 +1,11 @@
 figure = 圖
-# table = 
+table = 表
 equation = 式
 bibliography = 書目
 heading = 小節
 outline = 目錄
 raw = 程式
-# page = 
+page = 頁
+footnote = 註腳
+email = 電子郵件
+telephone = 電話

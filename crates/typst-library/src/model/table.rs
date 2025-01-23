@@ -1,23 +1,22 @@
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    TargetElem,
+    Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
 };
-use crate::html::{tag, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag};
-use crate::introspection::Locator;
-use crate::layout::grid::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
+use crate::introspection::{Locatable, Tagged};
+use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine,
-    GridHeader, GridVLine, Length, OuterHAlignment, OuterVAlignment, Rel, Sides,
-    TrackSizings,
+    Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
+    Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
+use crate::pdf::TableCellKind;
 use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
@@ -26,29 +25,32 @@ use crate::visualize::{Paint, Stroke};
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// For a hands-on explanation of all the ways you can use and customize tables
-/// in Typst, check out the [table guide]($guides/table-guide).
+/// in Typst, check out the [Table Guide]($guides/tables).
 ///
 /// Because tables are just grids with different defaults for some cell
 /// properties (notably `stroke` and `inset`), refer to the [grid
-/// documentation]($grid) for more information on how to size the table tracks
-/// and specify the cell appearance properties.
+/// documentation]($grid/#track-size) for more information on how to size the
+/// table tracks and specify the cell appearance properties.
 ///
 /// If you are unsure whether you should be using a table or a grid, consider
 /// whether the content you are arranging semantically belongs together as a set
 /// of related data points or similar or whether you are just want to enhance
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
-/// appropriate. Furthermore, Typst will annotate its output in the future such
-/// that screenreaders will announce content in `table` as tabular while a
-/// grid's content will be announced no different than multiple content blocks
-/// in the document flow.
+/// appropriate. Furthermore, Assistive Technology (AT) like screen readers will
+/// announce content in a `table` as tabular while a grid's content will be
+/// announced no different than multiple content blocks in the document flow. AT
+/// users will be able to navigate tables two-dimensionally by cell.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
-/// table cells, you can use the [`table.cell`]($table.cell) element. See its
-/// documentation for more information.
+/// table cells, you can use the [`table.cell`] element. See its documentation
+/// for more information.
 ///
 /// Although the `table` and the `grid` share most properties, set and show
-/// rules on one of them do not affect the other.
+/// rules on one of them do not affect the other. Locating most of your styling
+/// in set and show rules is recommended, as it keeps the table's actual usages
+/// clean and easy to read. It also allows you to easily change the appearance
+/// of all tables in one place.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
 /// [figure].
@@ -77,8 +79,8 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// Much like with grids, you can use [`table.cell`]($table.cell) to customize
-/// the appearance and the position of each cell.
+/// Much like with grids, you can use [`table.cell`] to customize the appearance
+/// and the position of each cell.
 ///
 /// ```example
 /// >>> #set page(width: auto)
@@ -121,27 +123,36 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, Show, LocalName, Figurable)]
+///
+/// # Accessibility
+/// Tables are challenging to consume for users of Assistive Technology (AT). To
+/// make the life of AT users easier, we strongly recommend that you use
+/// [`table.header`] and [`table.footer`] to mark the header and footer sections
+/// of your table. This will allow AT to announce the column labels for each
+/// cell.
+///
+/// Because navigating a table by cell is more cumbersome than reading it
+/// visually, you should consider making the core information in your table
+/// available as text as well. You can do this by wrapping your table in a
+/// [figure] and using its caption to summarize the table's content.
+#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
-    /// The column sizes. See the [grid documentation]($grid) for more
-    /// information on track sizing.
-    #[borrowed]
+    /// The column sizes. See the [grid documentation]($grid/#track-size) for
+    /// more information on track sizing.
     pub columns: TrackSizings,
 
-    /// The row sizes. See the [grid documentation]($grid) for more information
-    /// on track sizing.
-    #[borrowed]
+    /// The row sizes. See the [grid documentation]($grid/#track-size) for more
+    /// information on track sizing.
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand for setting
     /// `column-gutter` and `row-gutter` to the same value. See the [grid
-    /// documentation]($grid) for more information on gutters.
+    /// documentation]($grid.gutter) for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid) for more information on gutters.
-    #[borrowed]
+    /// [grid documentation]($grid.gutter) for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -149,16 +160,75 @@ pub struct TableElem {
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid) for more information on gutters.
+    /// [grid documentation]($grid.gutter) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
     pub row_gutter: TrackSizings,
+
+    /// How much to pad the cells' content.
+    ///
+    /// To specify the same inset for all cells, use a single length for all
+    /// sides, or a dictionary of lengths for individual sides. See the
+    /// [box's documentation]($box.inset) for more details.
+    ///
+    /// To specify a varying inset for different cells, you can:
+    /// - use a single, uniform inset for all cells
+    /// - use an array of insets for each column
+    /// - use a function that maps a cell's X/Y position (both starting from
+    ///   zero) to its inset
+    ///
+    /// See the [grid documentation]($grid/#styling) for more details.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 2,
+    ///   inset: 10pt,
+    ///   [Hello],
+    ///   [World],
+    /// )
+    ///
+    /// #table(
+    ///   columns: 2,
+    ///   inset: (x: 20pt, y: 10pt),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    /// ```
+    #[fold]
+    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+
+    /// How to align the cells' content.
+    ///
+    /// If set to `{auto}`, the outer alignment is used.
+    ///
+    /// You can specify the alignment in any of the following fashions:
+    /// - use a single alignment for all cells
+    /// - use an array of alignments corresponding to each column
+    /// - use a function that maps a cell's X/Y position (both starting from
+    ///   zero) to its alignment
+    ///
+    /// See the [Table Guide]($guides/tables/#alignment) for details.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (left, center, right),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
+    pub align: Celled<Smart<Alignment>>,
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function
-    /// receives the cells' column and row indices, starting from zero. This can
-    /// be used to implement striped tables.
+    /// This can be:
+    /// - a single fill for all cells
+    /// - an array of fill corresponding to each column
+    /// - a function that maps a cell's position to its fill
+    ///
+    /// Most notably, arrays and functions are useful for creating striped
+    /// tables. See the [Table Guide]($guides/tables/#fills) for more
+    /// details.
     ///
     /// ```example
     /// #table(
@@ -176,70 +246,45 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    #[borrowed]
     pub fill: Celled<Option<Paint>>,
-
-    /// How to align the cells' content.
-    ///
-    /// This can either be a single alignment, an array of alignments
-    /// (corresponding to each column) or a function that returns an alignment.
-    /// The function receives the cells' column and row indices, starting from
-    /// zero. If set to `{auto}`, the outer alignment is used.
-    ///
-    /// ```example
-    /// #table(
-    ///   columns: 3,
-    ///   align: (left, center, right),
-    ///   [Hello], [Hello], [Hello],
-    ///   [A], [B], [C],
-    /// )
-    /// ```
-    #[borrowed]
-    pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke] the cells.
     ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the `gutter` option, or to override the stroke between
-    /// multiple specific cells, consider specifying one or more of
-    /// [`table.hline`]($table.hline) and [`table.vline`]($table.vline)
-    /// alongside your table cells.
+    /// produced by the [`gutter`]($table.gutter) option, or to override the
+    /// stroke between multiple specific cells, consider specifying one or more
+    /// of [`table.hline`] and [`table.vline`] alongside your table cells.
     ///
-    /// See the [grid documentation]($grid.stroke) for more information on
-    /// strokes.
-    #[resolve]
+    /// To specify the same stroke for all cells, use a single [stroke] for all
+    /// sides, or a dictionary of [strokes]($stroke) for individual sides. See
+    /// the [rectangle's documentation]($rect.stroke) for more details.
+    ///
+    /// To specify varying strokes for different cells, you can:
+    /// - use a single stroke for all cells
+    /// - use an array of strokes corresponding to each column
+    /// - use a function that maps a cell's position to its stroke
+    ///
+    /// See the [Table Guide]($guides/tables/#strokes) for more details.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
-    /// How much to pad the cells' content.
+    /// A summary of the purpose and structure of complex tables.
     ///
-    /// ```example
-    /// #table(
-    ///   inset: 10pt,
-    ///   [Hello],
-    ///   [World],
-    /// )
-    ///
-    /// #table(
-    ///   columns: 2,
-    ///   inset: (
-    ///     x: 20pt,
-    ///     y: 10pt,
-    ///   ),
-    ///   [Hello],
-    ///   [World],
-    /// )
-    /// ```
-    #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+    /// See the [`crate::pdf::accessibility::table_summary`] function for more
+    /// information.
+    #[internal]
+    #[parse(None)]
+    pub summary: Option<EcoString>,
+
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
 
     /// The contents of the table cells, plus any extra table lines specified
-    /// with the [`table.hline`]($table.hline) and
-    /// [`table.vline`]($table.vline) elements.
+    /// with the [`table.hline`] and [`table.vline`] elements.
     #[variadic]
     pub children: Vec<TableChild>,
 }
@@ -262,65 +307,15 @@ impl TableElem {
     type TableFooter;
 }
 
-fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
-    let cell = cell.body.clone();
-    let Some(cell) = cell.to_packed::<TableCell>() else { return cell };
-    let mut attrs = HtmlAttrs::default();
-    let span = |n: NonZeroUsize| (n != NonZeroUsize::MIN).then(|| n.to_string());
-    if let Some(colspan) = span(cell.colspan(styles)) {
-        attrs.push(HtmlAttr::constant("colspan"), colspan);
-    }
-    if let Some(rowspan) = span(cell.rowspan(styles)) {
-        attrs.push(HtmlAttr::constant("rowspan"), rowspan);
-    }
-    HtmlElem::new(tag)
-        .with_body(Some(cell.body.clone()))
-        .with_attrs(attrs)
-        .pack()
-        .spanned(cell.span())
-}
-
-fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
-    let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
-    let mut rows: Vec<_> = grid.entries.chunks(grid.cols.len()).collect();
-
-    let tr = |tag, row: &[Entry]| {
-        let row = row
-            .iter()
-            .flat_map(|entry| entry.as_cell())
-            .map(|cell| show_cell_html(tag, cell, styles));
-        elem(tag::tr, Content::sequence(row))
-    };
-
-    let footer = grid.footer.map(|ft| {
-        let rows = rows.drain(ft.unwrap().start..);
-        elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
-    });
-    let header = grid.header.map(|hd| {
-        let rows = rows.drain(..hd.unwrap().end);
-        elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))
-    });
-
-    let mut body = Content::sequence(rows.into_iter().map(|row| tr(tag::td, row)));
-    if header.is_some() || footer.is_some() {
-        body = elem(tag::tbody, body);
-    }
-
-    let content = header.into_iter().chain(core::iter::once(body)).chain(footer);
-    elem(tag::table, Content::sequence(content))
-}
-
-impl Show for Packed<TableElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(if TargetElem::target_in(styles).is_html() {
-            // TODO: This is a hack, it is not clear whether the locator is actually used by HTML.
-            // How can we find out whether locator is actually used?
-            let locator = Locator::root();
-            show_cellgrid_html(table_to_cellgrid(self, engine, locator, styles)?, styles)
-        } else {
-            BlockElem::multi_layouter(self.clone(), engine.routines.layout_table).pack()
-        }
-        .spanned(self.span()))
+impl Synthesize for Packed<TableElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = table_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
     }
 }
 
@@ -330,8 +325,13 @@ impl LocalName for Packed<TableElem> {
 
 impl Figurable for Packed<TableElem> {}
 
+cast! {
+    TableElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected table")?,
+}
+
 /// Any child of a table element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableChild {
     Header(Packed<TableHeader>),
     Footer(Packed<TableFooter>),
@@ -376,7 +376,7 @@ impl TryFrom<Content> for TableChild {
 }
 
 /// A table item, which is the basic unit of table specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableItem {
     HLine(Packed<TableHLine>),
     VLine(Packed<TableVLine>),
@@ -444,13 +444,21 @@ impl TryFrom<Content> for TableItem {
 
 /// A repeatable table header.
 ///
-/// You should wrap your tables' heading rows in this function even if you do not
-/// plan to wrap your table across pages because Typst will use this function to
-/// attach accessibility metadata to tables in the future and ensure universal
-/// access to your document.
+/// You should wrap your tables' heading rows in this function even if you do
+/// not plan to wrap your table across pages because Typst uses this function to
+/// attach accessibility metadata to tables and ensure [Universal
+/// Access]($guides/accessibility/#basics) to your document.
 ///
 /// You can use the `repeat` parameter to control whether your table's header
 /// will be repeated across pages.
+///
+/// Currently, this function is unsuitable for creating a header column or
+/// single header cells. Either use regular cells, or, if you are exporting a
+/// PDF, you can also use the [`pdf.header-cell`] function to mark a cell as a
+/// header cell. Likewise, you can use [`pdf.data-cell`] to mark cells in this
+/// function as data cells. Note that these functions are not final and thus
+/// only available when you enable the `a11y-extras` feature (see the [PDF
+/// module documentation]($pdf) for details).
 ///
 /// ```example
 /// #set page(height: 11.5em)
@@ -492,6 +500,17 @@ pub struct TableHeader {
     #[default(true)]
     pub repeat: bool,
 
+    /// The level of the header. Must not be zero.
+    ///
+    /// This allows repeating multiple headers at once. Headers with different
+    /// levels can repeat together, as long as they have ascending levels.
+    ///
+    /// Notably, when a header with a lower level starts repeating, all higher
+    /// or equal level headers stop repeating (they are "replaced" by the new
+    /// header).
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
+
     /// The cells and lines within the header.
     #[variadic]
     pub children: Vec<TableItem>,
@@ -499,10 +518,10 @@ pub struct TableHeader {
 
 /// A repeatable table footer.
 ///
-/// Just like the [`table.header`]($table.header) element, the footer can repeat
-/// itself on every page of the table. This is useful for improving legibility
-/// by adding the column labels in both the header and footer of a large table,
-/// totals, or other information that should be visible on every page.
+/// Just like the [`table.header`] element, the footer can repeat itself on
+/// every page of the table. This is useful for improving legibility by adding
+/// the column labels in both the header and footer of a large table, totals, or
+/// other information that should be visible on every page.
 ///
 /// No other table cells may be placed after the footer.
 #[elem(name = "footer", title = "Table Footer")]
@@ -565,7 +584,6 @@ pub struct TableHLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including hlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -581,22 +599,22 @@ pub struct TableHLine {
     pub position: OuterVAlignment,
 }
 
-/// A vertical line in the table. See the docs for [`grid.vline`]($grid.vline)
-/// for more information regarding how to use this element's fields.
+/// A vertical line in the table. See the docs for [`grid.vline`] for more
+/// information regarding how to use this element's fields.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
 /// table's `stroke` field. Can cross spacing between cells created through the
 /// table's [`row-gutter`]($table.row-gutter) option.
 ///
-/// Similar to [`table.hline`]($table.hline), use this function if you want to
-/// manually place a vertical line at a specific position in a single table and
-/// use the [table's `stroke`]($table.stroke) field or [`table.cell`'s
+/// Similar to [`table.hline`], use this function if you want to manually place
+/// a vertical line at a specific position in a single table and use the
+/// [table's `stroke`]($table.stroke) field or [`table.cell`'s
 /// `stroke`]($table.cell.stroke) field instead if the line you want to place is
 /// part of all your tables' designs.
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
-    /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
+    /// The column before which the vertical line is placed (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.vline`].
     pub x: Smart<usize>,
 
     /// The row at which the vertical line starts (zero-indexed, inclusive).
@@ -610,7 +628,6 @@ pub struct TableVLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including vlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -693,7 +710,7 @@ pub struct TableVLine {
 ///   cell(align: left)[🌴🚗],
 ///   cell(
 ///     inset: 0.06em,
-///     text(1.62em)[🛖🌅🌊],
+///     text(1.62em)[🏝️🌅🌊],
 ///   ),
 /// )
 /// ```
@@ -714,18 +731,18 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell", Show)]
+#[elem(name = "cell", title = "Table Cell")]
 pub struct TableCell {
     /// The cell's body.
     #[required]
     pub body: Content,
 
     /// The cell's column (zero-indexed).
-    /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
+    /// Functions identically to the `x` field in [`grid.cell`].
     pub x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
-    /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
+    /// Functions identically to the `y` field in [`grid.cell`].
     pub y: Smart<usize>,
 
     /// The amount of columns spanned by this cell.
@@ -736,17 +753,16 @@ pub struct TableCell {
     #[default(NonZeroUsize::ONE)]
     pub rowspan: NonZeroUsize,
 
-    /// The cell's [fill]($table.fill) override.
-    pub fill: Smart<Option<Paint>>,
+    /// The cell's [inset]($table.inset) override.
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [alignment]($table.align) override.
     pub align: Smart<Alignment>,
 
-    /// The cell's [inset]($table.inset) override.
-    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+    /// The cell's [fill]($table.fill) override.
+    pub fill: Smart<Option<Paint>>,
 
     /// The cell's [stroke]($table.stroke) override.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
@@ -755,6 +771,14 @@ pub struct TableCell {
     /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
     /// breakable.
     pub breakable: Smart<bool>,
+
+    #[internal]
+    #[parse(Some(Smart::Auto))]
+    pub kind: Smart<TableCellKind>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 }
 
 cast! {
@@ -762,15 +786,16 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Show for Packed<TableCell> {
-    fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
-    }
-}
-
 impl Default for Packed<TableCell> {
     fn default() -> Self {
-        Packed::new(TableCell::new(Content::default()))
+        Packed::new(
+            // Explicitly set colspan and rowspan to ensure they won't be
+            // overridden by set rules (default cells are created after
+            // colspans and rowspans are processed in the resolver)
+            TableCell::new(Content::default())
+                .with_colspan(NonZeroUsize::ONE)
+                .with_rowspan(NonZeroUsize::ONE),
+        )
     }
 }
 

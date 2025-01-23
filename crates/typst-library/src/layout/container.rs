@@ -1,8 +1,8 @@
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Construct, Content, NativeElement, Packed, Smart,
-    StyleChain, Value,
+    Args, AutoValue, Construct, Content, NativeElement, Packed, Smart, StyleChain, Value,
+    cast, elem,
 };
 use crate::introspection::Locator;
 use crate::layout::{
@@ -14,9 +14,9 @@ use crate::visualize::{Paint, Stroke};
 /// An inline-level container that sizes content.
 ///
 /// All elements except inline math, text, and boxes are block-level and cannot
-/// occur inside of a paragraph. The box function can be used to integrate such
-/// elements into a paragraph. Boxes take the size of their contents by default
-/// but can also be sized explicitly.
+/// occur inside of a [paragraph]($par). The box function can be used to
+/// integrate such elements into a paragraph. Boxes take the size of their
+/// contents by default but can also be sized explicitly.
 ///
 /// # Example
 /// ```example
@@ -51,7 +51,6 @@ pub struct BoxElem {
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    #[resolve]
     pub baseline: Rel<Length>,
 
     /// The box's background color. See the
@@ -60,17 +59,26 @@ pub struct BoxElem {
 
     /// The box's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the box's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
-    #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the box's content.
+    ///
+    /// This can be a single length for all sides or a dictionary of lengths
+    /// for individual sides. When passing a dictionary, it can contain the
+    /// following keys in order of precedence: `top`, `right`, `bottom`, `left`
+    /// (controlling the respective cell sides), `x`, `y` (controlling vertical
+    /// and horizontal insets), and `rest` (covers all insets not styled by
+    /// other dictionary entries). All keys are optional; omitted keys will use
+    /// their previously set value, or the default value if never set.
+    ///
+    /// [Relative lengths]($relative) are relative to the box size without
+    /// outset.
     ///
     /// _Note:_ When the box contains text, its exact size depends on the
     /// current [text edges]($text.top-edge).
@@ -78,11 +86,15 @@ pub struct BoxElem {
     /// ```example
     /// #rect(inset: 0pt)[Tight]
     /// ```
-    #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the box's size without affecting the layout.
+    ///
+    /// This can be a single length for all sides or a dictionary of lengths for
+    /// individual sides. [Relative lengths]($relative) are relative to the box
+    /// size without outset. See the documentation for [inset]($box.inset) above
+    /// for further details.
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
@@ -97,7 +109,6 @@ pub struct BoxElem {
     ///   radius: 2pt,
     /// )[rectangle].
     /// ```
-    #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -119,7 +130,6 @@ pub struct BoxElem {
 
     /// The contents of the box.
     #[positional]
-    #[borrowed]
     pub body: Option<Content>,
 }
 
@@ -183,6 +193,10 @@ pub enum InlineItem {
 ///
 /// Such a container can be used to separate content, size it, and give it a
 /// background or border.
+///
+/// Blocks are also the primary way to control whether text becomes part of a
+/// paragraph or not. See [the paragraph documentation]($par/#what-becomes-a-paragraph)
+/// for more details.
 ///
 /// # Examples
 /// With a block, you can give a background to content while still allowing it
@@ -258,25 +272,21 @@ pub struct BlockElem {
 
     /// The block's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the block's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
-    #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the block's content. See the
     /// [box's documentation]($box.inset) for more details.
-    #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
     /// the [box's documentation]($box.outset) for more details.
-    #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -354,7 +364,6 @@ pub struct BlockElem {
 
     /// The contents of the block.
     #[positional]
-    #[borrowed]
     pub body: Option<BlockBody>,
 }
 
@@ -493,7 +502,8 @@ mod callbacks {
 
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
-            #[derive(Debug, Clone, PartialEq, Hash)]
+            #[derive(Debug, Clone, Hash)]
+            #[allow(clippy::derived_hash_with_manual_eq)]
             pub struct $name {
                 captured: Content,
                 f: fn(&Content, $($param_ty),*) -> $ret,
@@ -529,6 +539,19 @@ mod callbacks {
 
                 pub fn call(&self, $($param: $param_ty),*) -> $ret {
                     (self.f)(&self.captured, $($param),*)
+                }
+            }
+
+            impl PartialEq for $name {
+                fn eq(&self, other: &Self) -> bool {
+                    // Comparing function pointers is problematic. Since for
+                    // each type of content, there is typically just one
+                    // callback, we skip it. It barely matters anyway since
+                    // getting into a comparison codepath for inline & block
+                    // elements containing callback bodies is close to
+                    // impossible (as these are generally generated in show
+                    // rules).
+                    self.captured.eq(&other.captured)
                 }
             }
         };

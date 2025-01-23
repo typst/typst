@@ -1,10 +1,10 @@
 use comemo::Tracked;
+use typst_library::World;
 use typst_library::diag::warning;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Context, IntoValue, Scopes, Value};
-use typst_library::World;
-use typst_syntax::ast::{self, AstNode};
+use typst_library::foundations::{Binding, Context, IntoValue, Scopes, Value};
 use typst_syntax::Span;
+use typst_syntax::ast::{self, AstNode};
 
 use crate::FlowEvent;
 
@@ -42,13 +42,23 @@ impl<'a> Vm<'a> {
         self.engine.world
     }
 
-    /// Define a variable in the current scope.
+    /// Bind a value to an identifier.
+    ///
+    /// This will create a [`Binding`] with the value and the identifier's span.
     pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
-        let value = value.into_value();
+        self.bind(var, Binding::new(value, var.span()));
+    }
+
+    /// Insert a binding into the current scope.
+    ///
+    /// This will insert the value into the top-most scope and make it available
+    /// for dynamic tracing, assisting IDE functionality.
+    pub fn bind(&mut self, var: ast::Ident, binding: Binding) {
         if self.inspected == Some(var.span()) {
-            self.trace(value.clone());
+            self.trace(binding.read().clone());
         }
-        // This will become an error in the parser if 'is' becomes a keyword.
+
+        // This will become an error in the parser if `is` becomes a keyword.
         if var.get() == "is" {
             self.engine.sink.warn(warning!(
                 var.span(),
@@ -58,7 +68,8 @@ impl<'a> Vm<'a> {
                 hint: "try `is_` instead"
             ));
         }
-        self.scopes.top.define_ident(var, value);
+
+        self.scopes.top.bind(var.get().clone(), binding);
     }
 
     /// Trace a value.

@@ -1,10 +1,5 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, StyleChain, TargetElem,
-};
-use crate::html::{tag, HtmlElem};
-use crate::text::{ItalicToggle, TextElem};
+use crate::foundations::{Content, elem};
+use crate::introspection::{Locatable, Tagged};
 
 /// Emphasizes content by toggling italics.
 ///
@@ -29,24 +24,9 @@ use crate::text::{ItalicToggle, TextElem};
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-#[elem(title = "Emphasis", keywords = ["italic"], Show)]
+#[elem(title = "Emphasis", keywords = ["italic"], Locatable, Tagged)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<EmphElem> {
-    #[typst_macros::time(name = "emph", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body.clone();
-        Ok(if TargetElem::target_in(styles).is_html() {
-            HtmlElem::new(tag::em)
-                .with_body(Some(body))
-                .pack()
-                .spanned(self.span())
-        } else {
-            body.styled(TextElem::set_emph(ItalicToggle(true)))
-        })
-    }
 }

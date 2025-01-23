@@ -28,7 +28,7 @@ _Shopping list_
   - Top-level indent
 - is fine.
 
---- list-indent-specifics ---
+--- list-indent-specifics render pdftags ---
  - A
      - B
    - C
@@ -238,6 +238,33 @@ World
 #text(red)[- World]
 #text(green)[- What up?]
 
+--- list-par render html ---
+// Check whether the contents of list items become paragraphs.
+#show par: it => if target() != "html" { highlight(it) } else { it }
+
+#block[
+  // No paragraphs.
+  - Hello
+  - World
+]
+
+#block[
+  - Hello // Paragraphs
+
+    From
+  - World // No paragraph because it's a tight list.
+]
+
+#block[
+  - Hello // Paragraphs either way
+
+    From
+
+    The
+
+  - World // Paragraph because it's a wide list.
+]
+
 --- issue-2530-list-item-panic ---
 // List item (pre-emptive)
 #list.item[Hello]
@@ -262,18 +289,11 @@ World
   part($ x $ + parbreak() + parbreak() + list[A])
 }
 
---- issue-5503-list-interrupted-by-par-align ---
-// `align` is block-level and should interrupt a list
-// but not a `par`
+--- issue-5503-list-in-align ---
+// `align` is block-level and should interrupt a list.
 #show list: [List]
 - a
 - b
-#par(leading: 5em)[- c]
-- d
-- e
-#par[- f]
-- g
-- h
 #align(right)[- i]
 - j
 
@@ -284,3 +304,11 @@ World
   - C
 - = D
   E
+
+--- issue-6242-tight-list-attach-spacing ---
+// Nested tight lists should be uniformly spaced when list spacing is set.
+#set list(spacing: 1.2em)
+- A
+  - B
+  - C
+- C

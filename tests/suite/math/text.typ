@@ -17,6 +17,40 @@ $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
 
+--- math-font-features-switch ---
+#let scr(it) = text(stylistic-set: 1, $cal(it)$)
+$cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
+$ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
+
+--- math-font-covers ---
+#show math.equation: set text(
+  font: (
+    // Ignore that this regex actually misses some of the script glyphs...
+    (name: "XITS Math", covers: regex("[\u{1D49C}-\u{1D503}]")),
+    "New Computer Modern Math"
+  ),
+  stylistic-set: 1,
+)
+$ cal(P)_i (X) * cal(C)_1 $
+
+--- math-font-warning ---
+#show math.equation: set text(font: "Libertinus Serif")
+// Warning: 1-14 current font is not designed for math
+// Hint: 1-14 rendering may be poor
+$ x + y = z $
+
+--- math-font-error ---
+// Warning: 37-54 unknown font family: libertinus math
+#show math.equation: set text(font: "Libertinus Math", fallback: false)
+// Error: 1-39 no font could be found
+$ brace.stroked.l -1 brace.stroked.r $
+
+--- math-font-fallback-class ---
+// Test that math class is preserved even when the result is a tofu.
+#show math.equation: set text(font: "Fira Math", fallback: false)
+$ brace.stroked.l -1 brace.stroked.r $
+$ lr(brace.stroked.l -1 brace.stroked.r) $
+
 --- math-optical-size-nested-scripts ---
 // Test transition from script to scriptscript.
 #[
@@ -43,3 +77,8 @@ $sum_(k in NN)^prime 1/k^2$
 // Test script-script in a fraction.
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
+
+--- math-par ---
+// Ensure that math does not produce paragraphs.
+#show par: highlight
+$ a + "bc" + #[c] + #box[d] + #block[e] $

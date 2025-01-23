@@ -5,12 +5,13 @@ use std::ops::{Add, AddAssign, Deref};
 use std::str::Utf8Error;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
+use typst_syntax::Lines;
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty};
 
 /// A sequence of bytes.
 ///
@@ -196,12 +197,8 @@ impl Bytes {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Bytes> {
-        let mut end = end;
-        if end.is_none() {
-            end = count.map(|c: i64| start + c);
-        }
-
         let start = self.locate(start)?;
+        let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
         let slice = &self.as_slice()[start..end];
 
@@ -279,10 +276,20 @@ impl Serialize for Bytes {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&eco_format!("{self:?}"))
+            serializer.serialize_str(&self.repr())
         } else {
             serializer.serialize_bytes(self)
         }
+    }
+}
+
+impl TryFrom<&Bytes> for Lines<String> {
+    type Error = Utf8Error;
+
+    #[comemo::memoize]
+    fn try_from(value: &Bytes) -> Result<Lines<String>, Utf8Error> {
+        let text = value.as_str()?;
+        Ok(Lines::new(text.to_string()))
     }
 }
 

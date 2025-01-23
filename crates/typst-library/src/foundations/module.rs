@@ -1,22 +1,26 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
-use crate::diag::StrResult;
-use crate::foundations::{repr, ty, Content, Scope, Value};
+use crate::diag::{DeprecationSink, StrResult, bail};
+use crate::foundations::{Content, Scope, Value, repr, ty};
 
-/// An evaluated module, either built-in or resulting from a file.
+/// A collection of variables and functions that are commonly related to
+/// a single theme.
 ///
-/// You can access definitions from the module using
-/// [field access notation]($scripting/#fields) and interact with it using the
-/// [import and include syntaxes]($scripting/#modules). Alternatively, it is
-/// possible to convert a module to a dictionary, and therefore access its
-/// contents dynamically, using the
-/// [dictionary constructor]($dictionary/#constructor).
+/// A module can
+/// - be built-in
+/// - stem from a [file import]($scripting/#modules)
+/// - stem from a [package import]($scripting/#packages) (and thus indirectly
+///   its entrypoint file)
+/// - result from a call to the [plugin]($plugin) function
 ///
-/// # Example
+/// You can access definitions from the module using [field access
+/// notation]($scripting/#fields) and interact with it using the [import and
+/// include syntaxes]($scripting/#modules).
+///
 /// ```example
 /// <<< #import "utils.typ"
 /// <<< #utils.add(2, 5)
@@ -27,12 +31,26 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 /// >>>
 /// >>> #(-3)
 /// ```
+///
+/// You can check whether a definition is present in a module using the `{in}`
+/// operator, with a string on the left-hand side. This can be useful to
+/// [conditionally access]($category/foundations/std/#conditional-access)
+/// definitions in a module.
+///
+/// ```example
+/// #("table" in std) \
+/// #("nope" in std)
+/// ```
+///
+/// Alternatively, it is possible to convert a module to a dictionary, and
+/// therefore access its contents dynamically, using the [dictionary
+/// constructor]($dictionary/#constructor).
 #[ty(cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
-    name: EcoString,
+    name: Option<EcoString>,
     /// The reference-counted inner fields.
     inner: Arc<Repr>,
 }
@@ -52,14 +70,22 @@ impl Module {
     /// Create a new module.
     pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
-            name: name.into(),
+            name: Some(name.into()),
+            inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
+        }
+    }
+
+    /// Create a new anonymous module without a name.
+    pub fn anonymous(scope: Scope) -> Self {
+        Self {
+            name: None,
             inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
         }
     }
 
     /// Update the module's name.
     pub fn with_name(mut self, name: impl Into<EcoString>) -> Self {
-        self.name = name.into();
+        self.name = Some(name.into());
         self
     }
 
@@ -82,8 +108,8 @@ impl Module {
     }
 
     /// Get the module's name.
-    pub fn name(&self) -> &EcoString {
-        &self.name
+    pub fn name(&self) -> Option<&EcoString> {
+        self.name.as_ref()
     }
 
     /// Access the module's scope.
@@ -104,10 +130,14 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, name: &str) -> StrResult<&Value> {
-        self.scope().get(name).ok_or_else(|| {
-            eco_format!("module `{}` does not contain `{name}`", self.name())
-        })
+    pub fn field(&self, field: &str, sink: impl DeprecationSink) -> StrResult<&Value> {
+        match self.scope().get(field) {
+            Some(binding) => Ok(binding.read_checked(sink)),
+            None => match &self.name {
+                Some(name) => bail!("module `{name}` does not contain `{field}`"),
+                None => bail!("module does not contain `{field}`"),
+            },
+        }
     }
 
     /// Extract the module's content.
@@ -131,7 +161,10 @@ impl Debug for Module {
 
 impl repr::Repr for Module {
     fn repr(&self) -> EcoString {
-        eco_format!("<module {}>", self.name())
+        match &self.name {
+            Some(module) => eco_format!("<module {module}>"),
+            None => "<module>".into(),
+        }
     }
 }
 

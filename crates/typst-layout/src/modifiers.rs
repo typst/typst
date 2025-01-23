@@ -1,6 +1,6 @@
 use typst_library::foundations::StyleChain;
-use typst_library::layout::{Fragment, Frame, FrameItem, HideElem, Point};
-use typst_library::model::{Destination, LinkElem};
+use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
+use typst_library::model::{Destination, LinkElem, ParElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -29,8 +29,8 @@ impl FrameModifiers {
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
-            dest: LinkElem::current_in(styles),
-            hidden: HideElem::hidden_in(styles),
+            dest: styles.get_cloned(LinkElem::current),
+            hidden: styles.get(HideElem::hidden),
         }
     }
 }
@@ -52,14 +52,7 @@ pub trait FrameModify {
 
 impl FrameModify for Frame {
     fn modify(&mut self, modifiers: &FrameModifiers) {
-        if let Some(dest) = &modifiers.dest {
-            let size = self.size();
-            self.push(Point::zero(), FrameItem::Link(dest.clone(), size));
-        }
-
-        if modifiers.hidden {
-            self.hide();
-        }
+        modify_frame(self, modifiers, None);
     }
 }
 
@@ -79,6 +72,41 @@ where
         if let Ok(inner) = self {
             inner.modify(props);
         }
+    }
+}
+
+pub trait FrameModifyText {
+    /// Resolve and apply [`FrameModifiers`] for this text frame.
+    fn modify_text(&mut self, styles: StyleChain);
+}
+
+impl FrameModifyText for Frame {
+    fn modify_text(&mut self, styles: StyleChain) {
+        let modifiers = FrameModifiers::get_in(styles);
+        let expand_y = 0.5 * styles.resolve(ParElem::leading);
+        let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
+        modify_frame(self, &modifiers, Some(outset));
+    }
+}
+
+fn modify_frame(
+    frame: &mut Frame,
+    modifiers: &FrameModifiers,
+    link_box_outset: Option<Sides<Abs>>,
+) {
+    if let Some(dest) = &modifiers.dest {
+        let mut pos = Point::zero();
+        let mut size = frame.size();
+        if let Some(outset) = link_box_outset {
+            pos.y -= outset.top;
+            pos.x -= outset.left;
+            size += outset.sum_by_axis();
+        }
+        frame.push(pos, FrameItem::Link(dest.clone(), size));
+    }
+
+    if modifiers.hidden {
+        frame.hide();
     }
 }
 
@@ -102,7 +130,7 @@ where
     let outer = styles;
     let mut styles = styles;
     if modifiers.dest.is_some() {
-        reset = LinkElem::set_current(None).wrap();
+        reset = LinkElem::current.set(None).wrap();
         styles = outer.chain(&reset);
     }
 

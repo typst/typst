@@ -5,8 +5,10 @@ use std::cmp::Ordering;
 use ecow::eco_format;
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
-use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
+use crate::diag::{HintedStrResult, StrResult, bail};
+use crate::foundations::{
+    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
+};
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
 use crate::visualize::Stroke;
@@ -30,10 +32,10 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
         (Bytes(a), Bytes(b)) => Bytes(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + TextElem::packed(b.get())),
+        (Content(a), Symbol(b)) => Content(a + SymbolElem::packed(b.get())),
         (Content(a), Str(b)) => Content(a + TextElem::packed(b)),
         (Str(a), Content(b)) => Content(TextElem::packed(a) + b),
-        (Symbol(a), Content(b)) => Content(TextElem::packed(a.get()) + b),
+        (Symbol(a), Content(b)) => Content(SymbolElem::packed(a.get()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
         (Args(a), Args(b)) => Args(a + b),
@@ -130,10 +132,10 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
         (Bytes(a), Bytes(b)) => Bytes(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + TextElem::packed(b.get())),
+        (Content(a), Symbol(b)) => Content(a + SymbolElem::packed(b.get())),
         (Content(a), Str(b)) => Content(a + TextElem::packed(b)),
         (Str(a), Content(b)) => Content(TextElem::packed(a) + b),
-        (Symbol(a), Content(b)) => Content(TextElem::packed(a.get()) + b),
+        (Symbol(a), Content(b)) => Content(SymbolElem::packed(a.get()) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -445,7 +447,6 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Args(a), Args(b)) => a == b,
         (Type(a), Type(b)) => a == b,
         (Module(a), Module(b)) => a == b,
-        (Plugin(a), Plugin(b)) => a == b,
         (Datetime(a), Datetime(b)) => a == b,
         (Duration(a), Duration(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
@@ -557,6 +558,7 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
         (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
+        (Str(a), Module(b)) => Some(b.scope().get(a).is_some()),
         (a, Array(b)) => Some(b.contains(a.clone())),
 
         _ => Option::None,

@@ -77,11 +77,6 @@ I
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
 
---- text-font-linux-libertine ---
-// Warning: 17-34 Typst's default font has changed from Linux Libertine to its successor Libertinus Serif
-// Hint: 17-34 please set the font to `"Libertinus Serif"` instead
-#set text(font: "Linux Libertine")
-
 --- issue-5499-text-fill-in-clip-block ---
 
 #let t = tiling(
@@ -140,6 +135,34 @@ I
 
 The number 123.
 
+--- text-font-covers-repeat ---
+// Repeatedly use the same font.
+#set text(font: (
+  (name: "Libertinus Serif", covers: regex("[0-9]")),
+  "Libertinus Serif"
+))
+
+The number 123.
+
+--- text-font-covers-riffle ---
+// Repeatedly use two fonts alternately.
+#set text(font: (
+  (name: "Noto Color Emoji", covers: regex("[🔗⛓‍💥]")),
+  (name: "Twitter Color Emoji", covers: regex("[^🖥️]")),
+  "Noto Color Emoji",
+))
+
+🔗⛓‍💥🖥️🔑
+
+// The above should be the same as:
+#{
+  text(font: "Noto Color Emoji", "🔗⛓‍💥🖥️")
+  text(font: "Twitter Color Emoji", "🔑")
+}
+
+// but not:
+#text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑")
+
 --- text-font-covers-bad-1 ---
 // Error: 17-59 coverage regex may only use dot, letters, and character classes
 // Hint: 17-59 the regex is applied to each letter individually
@@ -154,3 +177,12 @@ The number 123.
 #set text(-1pt)
 
 a
+
+--- issue-5940-text-negative-size-panic ---
+#set align(center)
+#set text(-10pt)
+Hello
+
+--- empty-text-font-array ---
+// Error: 17-19 font fallback list must not be empty
+#set text(font: ())

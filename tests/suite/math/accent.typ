@@ -42,3 +42,53 @@ $tilde(U, size: #1.1em), x^tilde(U, size: #1.1em), sscript(tilde(U, size: #1.1em
   macron(bb(#c)), dot(cal(#c)), diaer(upright(#c)), breve(bold(#c)),
   circle(bold(upright(#c))), caron(upright(sans(#c))), arrow(bold(frak(#c)))$
 $test(i) \ test(j)$
+
+--- math-accent-dotless-disabled ---
+// Test disabling the dotless glyph variants.
+$hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #false)$
+
+--- math-accent-dotless-set-rule ---
+#set math.accent(dotless: false)
+$ hat(i) $
+
+--- math-accent-dotless-greedy ---
+// Currently the dotless style propagates to everything in the accent's base,
+// even though it shouldn't.
+$ arrow(P_(c, i dot j) P_(1, i) j) \
+  arrow(P_(c, i dot j) P_(1, i) j, dotless: #false) $
+
+--- math-accent-flattened ---
+// Test flattened accent glyph variants.
+#show math.equation: set text(font: "STIX Two Math")
+$hat(a) hat(A)$
+$tilde(w) tilde(W)$
+$grave(i) grave(j)$
+$grave(I) grave(J)$
+
+--- math-accent-bottom ---
+// Test bottom accents.
+$accent(a, \u{20EE}), accent(T, \u{0323}), accent(xi, \u{0332}),
+  accent(f, \u{20ED}), accent(F, \u{20E8}), accent(y, \u{032E}),
+  accent(!, \u{032F}), accent(J, \u{0333}), accent(p, \u{0331})$
+
+--- math-accent-bottom-wide-base ---
+// Test wide base with bottom accents.
+$accent(x + y, \u{20EF}), accent(sum, \u{032D})$
+
+--- math-accent-bottom-subscript ---
+// Test effect of bottom accent on subscript.
+$q_x != accent(q, \u{032C})_x != accent(accent(q, \u{032C}), \u{032C})_x$
+
+--- math-accent-bottom-high-base ---
+// Test high base with bottom accents.
+$ accent(integral, \u{20EC}), accent(integral, \u{20EC})_a^b, accent(integral_a^b, \u{20EC}) $
+
+--- math-accent-bottom-sized ---
+// Test bottom accent size.
+$accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, size: #200%)$
+
+--- math-accent-nested ---
+// Test nested top and bottom accents.
+$hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
+  macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
+  breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$

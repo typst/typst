@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::iter;
 use std::path::PathBuf;
@@ -9,18 +8,20 @@ use codespan_reporting::term::termcolor::WriteColor;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
+use rustc_hash::{FxHashMap, FxHashSet};
 use same_file::is_same_file;
-use typst::diag::{bail, StrResult};
+use typst::diag::{HintedStrResult, StrResult, bail, warning};
+use typst::syntax::Span;
 use typst::utils::format_duration;
 
 use crate::args::{Input, Output, WatchCommand};
-use crate::compile::{compile_once, CompileConfig};
+use crate::compile::{CompileConfig, compile_once, print_diagnostics};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
-pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
+pub fn watch(timer: &mut Timer, command: &WatchCommand) -> HintedStrResult<()> {
     let mut config = CompileConfig::watching(command)?;
 
     let Output::Path(output) = &config.output else {
@@ -55,11 +56,16 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
-    // Watch all dependencies of the initial compilation.
-    watcher.update(world.dependencies())?;
+    // Print warning when trying to watch stdin.
+    if matches!(&config.input, Input::Stdin) {
+        warn_watching_std(&world, &config)?;
+    }
 
     // Recompile whenever something relevant happens.
     loop {
+        // Watch all dependencies of the most recent compilation.
+        watcher.update(world.dependencies())?;
+
         // Wait until anything relevant happens.
         watcher.wait()?;
 
@@ -71,9 +77,6 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
         // Evict the cache.
         comemo::evict(10);
-
-        // Adjust the file watching.
-        watcher.update(world.dependencies())?;
     }
 }
 
@@ -88,10 +91,10 @@ struct Watcher {
     /// Keeps track of which paths are watched via `watcher`. The boolean is
     /// used during updating for mark-and-sweep garbage collection of paths we
     /// should unwatch.
-    watched: HashMap<PathBuf, bool>,
+    watched: FxHashMap<PathBuf, bool>,
     /// A set of files that should be watched, but don't exist. We manually poll
     /// for those.
-    missing: HashSet<PathBuf>,
+    missing: FxHashSet<PathBuf>,
 }
 
 impl Watcher {
@@ -124,8 +127,8 @@ impl Watcher {
             output,
             rx,
             watcher,
-            watched: HashMap::new(),
-            missing: HashSet::new(),
+            watched: FxHashMap::default(),
+            missing: FxHashSet::default(),
         })
     }
 
@@ -136,6 +139,7 @@ impl Watcher {
     fn update(&mut self, iter: impl IntoIterator<Item = PathBuf>) -> StrResult<()> {
         // Mark all files as not "seen" so that we may unwatch them if they
         // aren't in the dependency list.
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
         for seen in self.watched.values_mut() {
             *seen = false;
         }
@@ -204,6 +208,10 @@ impl Watcher {
                 let event = event
                     .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
 
+                if !is_relevant_event_kind(&event.kind) {
+                    continue;
+                }
+
                 // Workaround for notify-rs' implicit unwatch on remove/rename
                 // (triggered by some editors when saving files) with the
                 // inotify backend. By keeping track of the potentially
@@ -224,7 +232,17 @@ impl Watcher {
                     }
                 }
 
-                relevant |= self.is_event_relevant(&event);
+                // Don't recompile because the output file changed.
+                // FIXME: This doesn't work properly for multifile image export.
+                if event
+                    .paths
+                    .iter()
+                    .all(|path| is_same_file(path, &self.output).unwrap_or(false))
+                {
+                    continue;
+                }
+
+                relevant = true;
             }
 
             // If we found a relevant event or if any of the missing files now
@@ -234,32 +252,23 @@ impl Watcher {
             }
         }
     }
+}
 
-    /// Whether a watch event is relevant for compilation.
-    fn is_event_relevant(&self, event: &notify::Event) -> bool {
-        // Never recompile because the output file changed.
-        if event
-            .paths
-            .iter()
-            .all(|path| is_same_file(path, &self.output).unwrap_or(false))
-        {
-            return false;
-        }
-
-        match &event.kind {
-            notify::EventKind::Any => true,
-            notify::EventKind::Access(_) => false,
-            notify::EventKind::Create(_) => true,
-            notify::EventKind::Modify(kind) => match kind {
-                notify::event::ModifyKind::Any => true,
-                notify::event::ModifyKind::Data(_) => true,
-                notify::event::ModifyKind::Metadata(_) => false,
-                notify::event::ModifyKind::Name(_) => true,
-                notify::event::ModifyKind::Other => false,
-            },
-            notify::EventKind::Remove(_) => true,
-            notify::EventKind::Other => false,
-        }
+/// Whether a kind of watch event is relevant for compilation.
+fn is_relevant_event_kind(kind: &notify::EventKind) -> bool {
+    match kind {
+        notify::EventKind::Any => true,
+        notify::EventKind::Access(_) => false,
+        notify::EventKind::Create(_) => true,
+        notify::EventKind::Modify(kind) => match kind {
+            notify::event::ModifyKind::Any => true,
+            notify::event::ModifyKind::Data(_) => true,
+            notify::event::ModifyKind::Metadata(_) => false,
+            notify::event::ModifyKind::Name(_) => true,
+            notify::event::ModifyKind::Other => false,
+        },
+        notify::EventKind::Remove(_) => true,
+        notify::EventKind::Other => false,
     }
 }
 
@@ -329,4 +338,16 @@ impl Status {
             _ => styles.header_note,
         }
     }
+}
+
+/// Emits a warning when trying to watch stdin.
+fn warn_watching_std(world: &SystemWorld, config: &CompileConfig) -> StrResult<()> {
+    let warning = warning!(
+        Span::detached(),
+        "cannot watch changes for stdin";
+        hint: "to recompile on changes, watch a regular file instead";
+        hint: "to compile once and exit, please use `typst compile` instead"
+    );
+    print_diagnostics(world, &[], &[warning], config.diagnostic_format)
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))
 }

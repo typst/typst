@@ -3,7 +3,7 @@
 --- enum-function-call ---
 #enum[Embrace][Extend][Extinguish]
 
---- enum-number-override-nested ---
+--- enum-number-override-nested render pdftags ---
 0. Before first!
 1. First.
    2. Indented
@@ -56,6 +56,10 @@ a + 0.
    enum.item(5)[Fifth]
 )
 
+--- enum-item-number-optional ---
+#enum.item[First]
+#enum.item[Second]
+
 --- enum-numbering-pattern ---
 // Test numbering pattern.
 #set enum(numbering: "(1.a.*)")
@@ -78,8 +82,8 @@ a + 0.
 + Tea
 + Milk
 
---- enum-numbering-reversed-overriden ---
-// Test reverse numbering with overriden numbers.
+--- enum-numbering-reversed-overridden ---
+// Test reverse numbering with overridden numbers.
 #set enum(reversed: true)
 + A
 + B
@@ -134,6 +138,11 @@ a + 0.
 // Error: 22-28 invalid numbering pattern
 #set enum(numbering: "(())")
 
+--- enum-numbering-huge ---
+// Test values greater than 32-bits
+100000000001. A
++             B
+
 --- enum-number-align-unaffected ---
 // Alignment shouldn't affect number
 #set align(horizon)
@@ -183,22 +192,44 @@ a + 0.
 #set enum(number-align: horizon)
 #set enum(number-align: bottom)
 
+--- enum-par render html ---
+// Check whether the contents of enum items become paragraphs.
+#show par: it => if target() != "html" { highlight(it) } else { it }
+
+// No paragraphs.
+#block[
+  + Hello
+  + World
+]
+
+#block[
+  + Hello // Paragraphs
+
+    From
+  + World // No paragraph because it's a tight enum
+]
+
+#block[
+  + Hello // Paragraphs
+
+    From
+
+    The
+
+  + World // Paragraph because it's a wide enum
+]
+
 --- issue-2530-enum-item-panic ---
 // Enum item (pre-emptive)
-#enum.item(none)[Hello]
+#enum.item(auto)[Hello]
 #enum.item(17)[Hello]
 
---- issue-5503-enum-interrupted-by-par-align ---
-// `align` is block-level and should interrupt an enum
-// but not a `par`
+--- issue-5503-enum-in-align ---
+// `align` is block-level and should interrupt an enum.
 + a
 + b
-#par(leading: 5em)[+ par]
+#align(right)[+ c]
 + d
-#par[+ par]
-+ f
-#align(right)[+ align]
-+ h
 
 --- issue-5719-enum-nested ---
 // Enums can be immediately nested.

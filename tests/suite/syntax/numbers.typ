@@ -2,6 +2,7 @@
 
 --- numbers ---
 // Test numbers in text mode.
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 12 \
 12.0 \
 3.14 \

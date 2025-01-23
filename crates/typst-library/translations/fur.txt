@@ -1,0 +1,11 @@
+figure = Figure
+table = Tabele
+# equation =
+bibliography = Bibliografie
+# heading =
+outline = Tabele gjenerâl
+# raw =
+page = Pagjine
+# footnote =
+# email =
+# telephone =

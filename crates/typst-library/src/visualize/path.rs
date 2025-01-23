@@ -1,14 +1,10 @@
 use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
-use crate::diag::{bail, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Show, Smart,
-    StyleChain,
-};
-use crate::layout::{Axes, BlockElem, Length, Rel};
+use crate::diag::bail;
+use crate::foundations::{Array, Reflect, Smart, array, cast, elem};
+use crate::layout::{Axes, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 
-/// A path through a list of points, connected by Bezier curves.
+/// A path through a list of points, connected by Bézier curves.
 ///
 /// # Example
 /// ```example
@@ -21,10 +17,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-///
-/// # Deprecation
-/// This element is deprecated. The [`curve`] element should be used instead.
-#[elem(Show)]
+#[elem]
 pub struct PathElem {
     /// How to fill the path.
     ///
@@ -54,16 +47,15 @@ pub struct PathElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the path. This can be:
+    /// How to [stroke] the path.
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and if only if no fill is given.
-    #[resolve]
+    /// stroke of `{1pt}` black if and only if no fill is given.
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// Whether to close this path with one last bezier curve. This curve will
-    /// takes into account the adjacent control points. If you want to close
+    /// Whether to close this path with one last Bézier curve. This curve will
+    /// take into account the adjacent control points. If you want to close
     /// with a straight line, simply add one last point that's the same as the
     /// start point.
     #[default(false)]
@@ -85,14 +77,6 @@ pub struct PathElem {
     ///   respectively).
     #[variadic]
     pub vertices: Vec<PathVertex>,
-}
-
-impl Show for Packed<PathElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_path)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// A component used for path creation.

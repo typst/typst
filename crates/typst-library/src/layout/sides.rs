@@ -3,10 +3,10 @@ use std::ops::Add;
 
 use typst_utils::Get;
 
-use crate::diag::{bail, HintedStrResult};
+use crate::diag::{HintedStrResult, bail};
 use crate::foundations::{
-    cast, AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
-    StyleChain, Value,
+    AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
+    StyleChain, Value, cast,
 };
 use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Rel, Size};
 
@@ -97,6 +97,14 @@ impl<T: Add> Sides<T> {
 }
 
 impl<T> Sides<Option<T>> {
+    /// Unwrap-or the individual sides.
+    pub fn unwrap_or(self, default: T) -> Sides<T>
+    where
+        T: Clone,
+    {
+        self.map(|v| v.unwrap_or(default.clone()))
+    }
+
     /// Unwrap-or-default the individual sides.
     pub fn unwrap_or_default(self) -> Sides<T>
     where
@@ -184,10 +192,10 @@ where
     T: PartialEq + IntoValue,
 {
     fn into_value(self) -> Value {
-        if self.is_uniform() {
-            if let Some(left) = self.left {
-                return left.into_value();
-            }
+        if self.is_uniform()
+            && let Some(left) = self.left
+        {
+            return left.into_value();
         }
 
         let mut dict = Dict::new();

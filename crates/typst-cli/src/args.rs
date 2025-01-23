@@ -1,4 +1,10 @@
+// This module is imported both from the `typst-cli` crate itself
+// and from its build script. In this module, you can only import from crates
+// that are both runtime and build dependencies of this crate, or else
+// Rust will give a confusing error message about a missing crate.
+
 use std::fmt::{self, Display, Formatter};
+use std::io::Write;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -7,7 +13,9 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use clap::builder::{TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
+use clap_complete::Shell;
 use semver::Version;
+use serde::Serialize;
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -37,7 +45,7 @@ const AFTER_HELP: &str = color_print::cstr!("\
 #[derive(Debug, Clone, Parser)]
 #[clap(
     name = "typst",
-    version = crate::typst_version(),
+    version = format!("{} ({})", crate::typst_version(), crate::typst_commit_sha()),
     author,
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
@@ -81,6 +89,12 @@ pub enum Command {
     /// Self update the Typst CLI.
     #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
+
+    /// Generates shell completion scripts.
+    Completions(CompletionsCommand),
+
+    /// Displays debugging information about Typst.
+    Info(InfoCommand),
 }
 
 /// Compiles an input file into a supported output format.
@@ -151,6 +165,10 @@ pub struct QueryCommand {
     #[clap(long)]
     pub pretty: bool,
 
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
     /// World arguments.
     #[clap(flatten)]
     pub world: WorldArgs,
@@ -196,6 +214,30 @@ pub struct UpdateCommand {
     /// defaults to system-dependent location
     #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "FILE")]
     pub backup_path: Option<PathBuf>,
+}
+
+/// Generates shell completion scripts.
+#[derive(Debug, Clone, Parser)]
+pub struct CompletionsCommand {
+    /// The shell to generate completions for.
+    #[arg(value_enum)]
+    pub shell: Shell,
+}
+
+/// Displays environment variables and default values Typst uses.
+#[derive(Debug, Clone, Parser)]
+pub struct InfoCommand {
+    /// The format to serialize in, if it should be machine-readable.
+    ///
+    /// If no format is passed the output is displayed human-readable.
+    #[arg(long = "format", short = 'f')]
+    pub format: Option<SerializationFormat>,
+
+    /// Whether to pretty-print the serialized output.
+    ///
+    /// Only applies to JSON format.
+    #[clap(long)]
+    pub pretty: bool,
 }
 
 /// Arguments for compilation and watching.
@@ -246,14 +288,35 @@ pub struct CompileArgs {
     #[arg(long = "pdf-standard", value_delimiter = ',')]
     pub pdf_standard: Vec<PdfStandard>,
 
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances (for example when trying to reduce the size of a document)
+    /// it can be desirable to disable tagged PDF.
+    #[arg(long = "no-pdf-tags")]
+    pub no_pdf_tags: bool,
+
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
-    #[clap(long = "make-deps", value_name = "PATH")]
+    #[clap(long = "make-deps", value_name = "PATH", hide = true)]
     pub make_deps: Option<PathBuf>,
+
+    /// File path to which a list of current compilation's dependencies will be
+    /// written. Use `-` to write to stdout.
+    #[clap(
+        long,
+        value_name = "PATH",
+        value_parser = output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
+    pub deps: Option<Output>,
+
+    /// File format to use for dependencies.
+    #[clap(long, default_value_t)]
+    pub deps_format: DepsFormat,
 
     /// Processing arguments.
     #[clap(flatten)]
@@ -361,8 +424,13 @@ pub struct FontArgs {
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
-    #[arg(long)]
+    #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
     pub ignore_system_fonts: bool,
+
+    /// Ensures fonts embedded into Typst won't be considered.
+    #[cfg(feature = "embed-fonts")]
+    #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
+    pub ignore_embedded_fonts: bool,
 }
 
 /// Arguments for the HTTP server.
@@ -425,11 +493,52 @@ pub enum Output {
     Path(PathBuf),
 }
 
+impl Output {
+    /// Write data to the output.
+    pub fn write(&self, buffer: &[u8]) -> std::io::Result<()> {
+        match self {
+            Output::Stdout => std::io::stdout().write_all(buffer),
+            Output::Path(path) => std::fs::write(path, buffer),
+        }
+    }
+
+    /// Open the output for writing.
+    pub fn open(&self) -> std::io::Result<OpenOutput<'_>> {
+        match self {
+            Self::Stdout => Ok(OpenOutput::Stdout(std::io::stdout().lock())),
+            Self::Path(path) => std::fs::File::create(path).map(OpenOutput::File),
+        }
+    }
+}
+
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Output::Stdout => f.pad("stdout"),
             Output::Path(path) => path.display().fmt(f),
+        }
+    }
+}
+
+/// A step-by-step writable version of [`Output`].
+#[derive(Debug)]
+pub enum OpenOutput<'a> {
+    Stdout(std::io::StdoutLock<'a>),
+    File(std::fs::File),
+}
+
+impl Write for OpenOutput<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            OpenOutput::Stdout(v) => v.write(buf),
+            OpenOutput::File(v) => v.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            OpenOutput::Stdout(v) => v.flush(),
+            OpenOutput::File(v) => v.flush(),
         }
     }
 }
@@ -445,6 +554,32 @@ pub enum OutputFormat {
 
 display_possible_values!(OutputFormat);
 
+/// Which format to use for a generated dependency file.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum DepsFormat {
+    /// Encodes as JSON, failing for non-Unicode paths.
+    #[default]
+    Json,
+    /// Separates paths with NULL bytes and can express all paths.
+    Zero,
+    /// Emits in Make format, omitting inexpressible paths.
+    Make,
+}
+
+display_possible_values!(DepsFormat);
+
+/// The target to compile for.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum Target {
+    /// PDF and image formats.
+    #[default]
+    Paged,
+    /// HTML.
+    Html,
+}
+
+display_possible_values!(Target);
+
 /// Which format to use for diagnostics.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum DiagnosticFormat {
@@ -456,9 +591,10 @@ pub enum DiagnosticFormat {
 display_possible_values!(DiagnosticFormat);
 
 /// An in-development feature that may be changed or removed at any time.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum, Serialize)]
 pub enum Feature {
     Html,
+    A11yExtras,
 }
 
 display_possible_values!(Feature);
@@ -467,20 +603,62 @@ display_possible_values!(Feature);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum PdfStandard {
+    /// PDF 1.4.
+    #[value(name = "1.4")]
+    V_1_4,
+    /// PDF 1.5.
+    #[value(name = "1.5")]
+    V_1_5,
+    /// PDF 1.6.
+    #[value(name = "1.6")]
+    V_1_6,
     /// PDF 1.7.
     #[value(name = "1.7")]
     V_1_7,
+    /// PDF 2.0.
+    #[value(name = "2.0")]
+    V_2_0,
+    /// PDF/A-1b.
+    #[value(name = "a-1b")]
+    A_1b,
+    /// PDF/A-1a.
+    #[value(name = "a-1a")]
+    A_1a,
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
+    /// PDF/A-2u.
+    #[value(name = "a-2u")]
+    A_2u,
+    /// PDF/A-2a.
+    #[value(name = "a-2a")]
+    A_2a,
     /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
+    /// PDF/A-3u.
+    #[value(name = "a-3u")]
+    A_3u,
+    /// PDF/A-3a.
+    #[value(name = "a-3a")]
+    A_3a,
+    /// PDF/A-4.
+    #[value(name = "a-4")]
+    A_4,
+    /// PDF/A-4f.
+    #[value(name = "a-4f")]
+    A_4f,
+    /// PDF/A-4e.
+    #[value(name = "a-4e")]
+    A_4e,
+    /// PDF/UA-1.
+    #[value(name = "ua-1")]
+    UA_1,
 }
 
 display_possible_values!(PdfStandard);
 
-// Output file format for query command
+/// Output file format for query and info commands
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum SerializationFormat {
     #[default]

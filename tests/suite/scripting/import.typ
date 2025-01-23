@@ -145,6 +145,34 @@
 #test(module.item(1, 2), 3)
 #test(module.push(2), 3)
 
+--- import-from-file-bare-invalid ---
+// Error: 9-33 module name would not be a valid identifier
+// Hint: 9-33 you can rename the import with `as`
+#import "modules/with space.typ"
+
+--- import-from-file-bare-dynamic ---
+// Error: 9-26 dynamic import requires an explicit name
+// Hint: 9-26 you can name the import with `as`
+#import "mod" + "ule.typ"
+
+--- import-from-var-bare ---
+#let p = "module.typ"
+// Error: 9-10 dynamic import requires an explicit name
+// Hint: 9-10 you can name the import with `as`
+#import p
+#test(p.b, 1)
+
+--- import-from-dict-field-bare ---
+#let d = (p: "module.typ")
+// Error: 9-12 dynamic import requires an explicit name
+// Hint: 9-12 you can name the import with `as`
+#import d.p
+#test(p.b, 1)
+
+--- import-from-file-renamed-dynamic ---
+#import "mod" + "ule.typ" as mod
+#test(mod.b, 1)
+
 --- import-from-file-renamed ---
 // A renamed module import without items.
 #import "module.typ" as other
@@ -160,6 +188,10 @@
 #test(item(1, 2), 3)
 #test(newname.item(1, 2), 3)
 
+--- import-from-function-scope-bare ---
+// Warning: 9-13 this import has no effect
+#import enum
+
 --- import-from-function-scope-renamed ---
 // Renamed module import with function scopes.
 #import enum as othernum
@@ -170,6 +202,23 @@
 #import assert as asrt
 #import asrt: ne as asne
 #asne(1, 2)
+
+--- import-from-module-bare ---
+#import "modules/chap1.typ" as mymod
+// Warning: 9-14 this import has no effect
+#import mymod
+// The name `chap1` is not bound.
+// Error: 2-7 unknown variable: chap1
+#chap1
+
+--- import-module-nested ---
+#import std.calc: pi
+#test(pi, calc.pi)
+
+--- import-module-nested-bare ---
+#import "module.typ"
+#import module.chap2
+#test(chap2.name, "Peter")
 
 --- import-module-item-name-mutating ---
 // Edge case for module access that isn't fixed.
@@ -206,6 +255,10 @@
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum
 
+--- import-rename-necessary ---
+#import "module.typ" as module: a
+#test(module.a, a)
+
 --- import-rename-unnecessary-mixed ---
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum: item
@@ -215,8 +268,8 @@
 #import enum as enum: item as item
 
 --- import-item-rename-unnecessary-but-ok ---
-// No warning on a case that isn't obviously pathological
-#import "module.typ" as module
+#import "modul" + "e.typ" as module
+#test(module.b, 1)
 
 --- import-from-closure-invalid ---
 // Can't import from closures.
@@ -281,6 +334,7 @@
 
 --- import-cyclic-in-other-file ---
 // Cyclic import in other file.
+// Error: "tests/suite/scripting/modules/cycle2.typ" 2:9-2:21 cyclic import
 #import "./modules/cycle1.typ": *
 
 This is never reached.
@@ -359,6 +413,15 @@ This is never reached.
 #import "@test/adder:0.1.0"
 #test(adder.add(2, 8), 10)
 
+--- import-from-package-dynamic ---
+// Error: 9-33 dynamic import requires an explicit name
+// Hint: 9-33 you can name the import with `as`
+#import "@test/" + "adder:0.1.0"
+
+--- import-from-package-renamed-dynamic ---
+#import "@test/" + "adder:0.1.0" as adder
+#test(adder.add(2, 8), 10)
+
 --- import-from-package-items ---
 // Test import with items.
 #import "@test/adder:0.1.0": add
@@ -366,7 +429,7 @@ This is never reached.
 
 --- import-from-package-required-compiler-version ---
 // Test too high required compiler version.
-// Error: 9-29 package requires typst 1.0.0 or newer (current version is VERSION)
+// Error: 9-29 package requires Typst 1.0.0 or newer (current version is VERSION)
 #import "@test/future:0.1.0": future
 
 --- import-from-package-namespace-invalid-1 ---

@@ -44,6 +44,18 @@ break you can force a break without #linebreak(justify: true)
 breaking justification. #linebreak(justify: false)
 Nice!
 
+--- linebreak-whitespace-trimming ---
+// Ensure that even spaces across multiple layout items are trimmed during
+// line breaking.
+#block(width: 15pt, box(fill: aqua, underline("A   " + text(fill: blue, " ") + "    B")))
+
+--- issues-7168-linebreak-whitespace-trimming-justify-rtl ---
+#set page(width: 80pt)
+#set par(justify: true)
+#set text(dir: rtl)
+
+Hello From Earth
+
 --- linebreak-thai ---
 // Test linebreak for East Asian languages
 ทีวีตรวจทานนอร์ทแฟรีเลคเชอร์โกลด์อัลบัมเชอร์รี่เย้วสโตร์กฤษณ์เคลมเยอบีร่าพ่อค้าบลูเบอร์รี่สหัสวรรษโฮปแคนูโยโย่จูนสตรอว์เบอร์รีซื่อบื้อเยนแบ็กโฮเป็นไงโดนัททอมสเตริโอแคนูวิทย์แดรี่โดนัทวิทย์แอปพริคอทเซอร์ไพรส์ไฮบริดกิฟท์อินเตอร์โซนเซอร์วิสเทียมทานโคโยตี้ม็อบเที่ยงคืนบุญคุณ
@@ -139,3 +151,15 @@ Some texts feature many longer
 words. Those are often exceedingly
 challenging to break in a visually
 pleasing way.
+
+--- issue-5489-matrix-stray-linebreak ---
+#table(
+  columns: (70pt,) * 1,
+  align: horizon + center,
+  stroke: 0.6pt,
+  [$mat(2241/2210,-71/1105;-71/1105,147/1105)$],
+)
+
+--- linebreak-default-ignorables ---
+#set text(font: "Noto Sans Math")
+\u{2295}\u{FE00} vs \u{2295}\u{FE00}

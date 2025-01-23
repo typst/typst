@@ -1,6 +1,6 @@
 // Test tables.
 
---- table-empty ---
+--- table-empty render pdftags ---
 #table()
 
 --- table-newlines ---
@@ -309,6 +309,17 @@
     [Jake], [49], [Epic]
   )
 }
+
+--- table-cell-par ---
+// Ensure that table cells aren't considered paragraphs by default.
+#show par: highlight
+
+#table(
+  columns: 3,
+  [A],
+  block[B],
+  par[C],
+)
 
 --- grid-cell-in-table ---
 // Error: 8-19 cannot use `grid.cell` as a table cell

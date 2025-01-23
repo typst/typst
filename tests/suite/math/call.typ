@@ -80,7 +80,7 @@ $args(..(a + b))$
 
 --- math-call-spread-multiple-exprs ---
 #let args(..body) = body
-// Error: 10 expected comma or semicolon
+// Error: 7-14 cannot spread content
 $args(..a + b)$
 
 --- math-call-spread-unexpected-dots ---
@@ -91,6 +91,32 @@ $args(#..range(1, 5).chunks(2))$
 --- math-call-spread-shorthand-clash ---
 #let func(body) = body
 $func(...)$
+
+--- math-call-spread-empty ---
+// Test that a spread operator followed by nothing generates two dots.
+#let args(..body) = body
+#test-repr($args(..)$.body.text, "arguments(sequence([.], [.]))")
+#test-repr($args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
+
+--- math-call-named-spread-override ---
+// Test named argument overriding with the spread operator.
+#let check(it, s) = test(it.body.text, repr(s))
+#let func(a: 1, b: 1) = (a: a, b: b)
+#let dict = (a: 2, b: 2)
+#let args = arguments(a: 3, b: 3)
+#check($func()$, (a: 1, b: 1))
+#check($func(..dict, ..args)$, (a: 3, b: 3))
+#check($func(..args, ..dict)$, (a: 2, b: 2))
+#check($func(a: #4, ..dict, b: #4)$, (a: 2, b: 4))
+#check($func(a: #4, ..args, b: #4)$, (a: 3, b: 4))
+
+--- math-call-named-spread-duplicate ---
+// Test duplicate named args with the spread operator.
+// The error should only happen for manually added args.
+#let func(..) = none
+#let dict = (a: 1)
+// Error: 22-23 duplicate argument: a
+$func(a: #2, ..dict, a: #3)$
 
 --- math-call-spread-repr ---
 #let args(..body) = body
@@ -221,6 +247,15 @@ $
 // Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
 $ 5ab $
 
+--- math-call-symbol ---
+$ phi(x) $
+$ phi(x, y) $
+$ phi(1,2,,3,) $
+
+--- math-call-symbol-named-argument ---
+// Error: 10-18 unexpected argument: alpha
+$ phi(x, alpha: y) $
+
 --- issue-3774-math-call-empty-2d-args ---
 $ mat(;,) $
 // Add some whitespace/trivia:
@@ -240,3 +275,17 @@ $ mat(
 // Error: 7-10 unknown variable: rgb
 // Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
 $text(rgb(0, 0, 0), "foo")$
+
+--- math-call-error ---
+// Test the span of errors when calling a function.
+#let func(a, b, c) = {}
+// Error: 3-13 missing argument: c
+$ func(a, b) $
+
+--- math-call-error-inside-func ---
+// Test whether errors inside function calls produce further errors.
+#let int = int
+$ int(
+  // Error: 3-8 missing argument: value
+  int()
+) $

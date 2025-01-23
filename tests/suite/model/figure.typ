@@ -1,6 +1,6 @@
 // Test figures.
 
---- figure-basic ---
+--- figure-basic render pdftags ---
 #set page(width: 150pt)
 #set figure(numbering: "I")
 
@@ -13,7 +13,7 @@ We can clearly see that @fig-cylinder and
 ) <tab-basic>
 
 #figure(
-  pad(y: -6pt, image("/assets/images/cylinder.svg", height: 2cm)),
+  pad(y: -6pt, image(alt: "Sketch of white standing cylinder", "/assets/images/cylinder.svg", height: 2cm)),
   caption: [The basic shapes.],
   numbering: "I",
 ) <fig-cylinder>
@@ -178,6 +178,17 @@ We can clearly see that @fig-cylinder and
 #figure(
   table[A table],
   caption: [Underlined],
+)
+
+--- figure-par ---
+// Ensure that a figure body is considered a paragraph.
+#show par: highlight
+
+#figure[Text]
+
+#figure(
+  [Text],
+  caption: [A caption]
 )
 
 --- figure-and-caption-show ---

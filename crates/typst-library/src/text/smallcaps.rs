@@ -1,7 +1,4 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain};
-use crate::text::TextElem;
+use crate::foundations::{Content, elem};
 
 /// Displays text in small capitals.
 ///
@@ -12,11 +9,11 @@ use crate::text::TextElem;
 /// ```
 ///
 /// # Smallcaps fonts
-/// By default, this enables the OpenType `smcp` feature for the font. Not all
-/// fonts support this feature. Sometimes smallcaps are part of a dedicated
-/// font. This is, for example, the case for the _Latin Modern_ family of fonts.
-/// In those cases, you can use a show-set rule to customize the appearance of
-/// the text in smallcaps:
+/// By default, this uses the `smcp` and `c2sc` OpenType features on the font.
+/// Not all fonts support these features. Sometimes, smallcaps are part of a
+/// dedicated font. This is, for example, the case for the _Latin Modern_ family
+/// of fonts. In those cases, you can use a show-set rule to customize the
+/// appearance of the text in smallcaps:
 ///
 /// ```typ
 /// #show smallcaps: set text(font: "Latin Modern Roman Caps")
@@ -43,16 +40,29 @@ use crate::text::TextElem;
 /// = Introduction
 /// #lorem(40)
 /// ```
-#[elem(title = "Small Capitals", Show)]
+#[elem(title = "Small Capitals")]
 pub struct SmallcapsElem {
+    /// Whether to turn uppercase letters into small capitals as well.
+    ///
+    /// Unless overridden by a show rule, this enables the `c2sc` OpenType
+    /// feature.
+    ///
+    /// ```example
+    /// #smallcaps(all: true)[UNICEF] is an
+    /// agency of #smallcaps(all: true)[UN].
+    /// ```
+    #[default(false)]
+    pub all: bool,
     /// The content to display in small capitals.
     #[required]
     pub body: Content,
 }
 
-impl Show for Packed<SmallcapsElem> {
-    #[typst_macros::time(name = "smallcaps", span = self.span())]
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().styled(TextElem::set_smallcaps(true)))
-    }
+/// What becomes small capitals.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Smallcaps {
+    /// Minuscules become small capitals.
+    Minuscules,
+    /// All letters become small capitals.
+    All,
 }

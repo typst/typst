@@ -1,21 +1,17 @@
-#[doc(inline)]
-pub use typst_macros::category;
-
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
-use typst_syntax::ast::{self, AstNode};
+use indexmap::map::Entry;
+use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
-use typst_utils::Static;
 
-use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
+use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult, bail};
 use crate::foundations::{
-    Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
-    NativeType, Type, Value,
+    Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
 };
-use crate::Library;
+use crate::{Category, Library};
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -46,14 +42,14 @@ impl<'a> Scopes<'a> {
         self.top = self.scopes.pop().expect("no pushed scope");
     }
 
-    /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
+    /// Try to access a binding immutably.
+    pub fn get(&self, var: &str) -> HintedStrResult<&Binding> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
                 self.base.and_then(|base| match base.global.scope().get(var) {
-                    Some(value) => Some(value),
+                    Some(binding) => Some(binding),
                     None if var == "std" => Some(&base.std),
                     None => None,
                 })
@@ -61,14 +57,28 @@ impl<'a> Scopes<'a> {
             .ok_or_else(|| unknown_variable(var))
     }
 
-    /// Try to access a variable immutably in math.
-    pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
+    /// Try to access a binding mutably.
+    pub fn get_mut(&mut self, var: &str) -> HintedStrResult<&mut Binding> {
+        std::iter::once(&mut self.top)
+            .chain(&mut self.scopes.iter_mut().rev())
+            .find_map(|scope| scope.get_mut(var))
+            .ok_or_else(|| {
+                match self.base.and_then(|base| base.global.scope().get(var)) {
+                    Some(_) => cannot_mutate_constant(var),
+                    _ if var == "std" => cannot_mutate_constant(var),
+                    _ => unknown_variable(var),
+                }
+            })
+    }
+
+    /// Try to access a binding immutably in math.
+    pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Binding> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
                 self.base.and_then(|base| match base.math.scope().get(var) {
-                    Some(value) => Some(value),
+                    Some(binding) => Some(binding),
                     None if var == "std" => Some(&base.std),
                     None => None,
                 })
@@ -81,20 +91,6 @@ impl<'a> Scopes<'a> {
             })
     }
 
-    /// Try to access a variable mutably.
-    pub fn get_mut(&mut self, var: &str) -> HintedStrResult<&mut Value> {
-        std::iter::once(&mut self.top)
-            .chain(&mut self.scopes.iter_mut().rev())
-            .find_map(|scope| scope.get_mut(var))
-            .ok_or_else(|| {
-                match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => cannot_mutate_constant(var),
-                    _ if var == "std" => cannot_mutate_constant(var),
-                    _ => unknown_variable(var),
-                }
-            })?
-    }
-
     /// Check if an std variable is shadowed.
     pub fn check_std_shadowed(&self, var: &str) -> bool {
         self.base.is_some_and(|base| base.global.scope().get(var).is_some())
@@ -104,63 +100,15 @@ impl<'a> Scopes<'a> {
     }
 }
 
-#[cold]
-fn cannot_mutate_constant(var: &str) -> HintedString {
-    eco_format!("cannot mutate a constant: {}", var).into()
-}
-
-/// The error message when a variable is not found.
-#[cold]
-fn unknown_variable(var: &str) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
-
-    if var.contains('-') {
-        res.hint(eco_format!(
-            "if you meant to use subtraction, try adding spaces around the minus sign{}: `{}`",
-            if var.matches('-').count() > 1 { "s" } else { "" },
-            var.replace('-', " - ")
-        ));
-    }
-
-    res
-}
-
-#[cold]
-fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
-
-    if matches!(var, "none" | "auto" | "false" | "true") {
-        res.hint(eco_format!(
-            "if you meant to use a literal, try adding a hash before it: `#{var}`",
-        ));
-    } else if in_global {
-        res.hint(eco_format!(
-            "`{var}` is not available directly in math, try adding a hash before it: `#{var}`",
-        ));
-    } else {
-        res.hint(eco_format!(
-            "if you meant to display multiple letters as is, try adding spaces between each letter: `{}`",
-            var.chars()
-                .flat_map(|c| [' ', c])
-                .skip(1)
-                .collect::<EcoString>()
-        ));
-        res.hint(eco_format!(
-            "or if you meant to display this as text, try placing it in quotes: `\"{var}\"`"
-        ));
-    }
-
-    res
-}
-
 /// A map from binding names to values.
 #[derive(Default, Clone)]
 pub struct Scope {
-    map: IndexMap<EcoString, Slot>,
+    map: IndexMap<EcoString, Binding, FxBuildHasher>,
     deduplicate: bool,
     category: Option<Category>,
 }
 
+/// Scope construction.
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Self {
@@ -173,7 +121,7 @@ impl Scope {
     }
 
     /// Enter a new category.
-    pub fn category(&mut self, category: Category) {
+    pub fn start_category(&mut self, category: Category) {
         self.category = Some(category);
     }
 
@@ -182,107 +130,87 @@ impl Scope {
         self.category = None;
     }
 
-    /// Bind a value to a name.
-    #[track_caller]
-    pub fn define(&mut self, name: impl Into<EcoString>, value: impl IntoValue) {
-        self.define_spanned(name, value, Span::detached())
-    }
-
-    /// Bind a value to a name defined by an identifier.
-    #[track_caller]
-    pub fn define_ident(&mut self, ident: ast::Ident, value: impl IntoValue) {
-        self.define_spanned(ident.get().clone(), value, ident.span())
-    }
-
-    /// Bind a value to a name.
-    #[track_caller]
-    pub fn define_spanned(
-        &mut self,
-        name: impl Into<EcoString>,
-        value: impl IntoValue,
-        span: Span,
-    ) {
-        let name = name.into();
-
-        #[cfg(debug_assertions)]
-        if self.deduplicate && self.map.contains_key(&name) {
-            panic!("duplicate definition: {name}");
-        }
-
-        self.map.insert(
-            name,
-            Slot::new(value.into_value(), span, Kind::Normal, self.category),
-        );
-    }
-
-    /// Define a captured, immutable binding.
-    pub fn define_captured(
-        &mut self,
-        name: EcoString,
-        value: Value,
-        capturer: Capturer,
-        span: Span,
-    ) {
-        self.map.insert(
-            name,
-            Slot::new(value.into_value(), span, Kind::Captured(capturer), self.category),
-        );
-    }
-
     /// Define a native function through a Rust type that shadows the function.
-    pub fn define_func<T: NativeFunc>(&mut self) {
+    #[track_caller]
+    pub fn define_func<T: NativeFunc>(&mut self) -> &mut Binding {
         let data = T::data();
-        self.define(data.name, Func::from(data));
+        self.define(data.name, Func::from(data))
     }
 
     /// Define a native function with raw function data.
-    pub fn define_func_with_data(&mut self, data: &'static NativeFuncData) {
-        self.define(data.name, Func::from(data));
+    #[track_caller]
+    pub fn define_func_with_data(
+        &mut self,
+        data: &'static NativeFuncData,
+    ) -> &mut Binding {
+        self.define(data.name, Func::from(data))
     }
 
     /// Define a native type.
-    pub fn define_type<T: NativeType>(&mut self) {
-        let data = T::data();
-        self.define(data.name, Type::from(data));
+    #[track_caller]
+    pub fn define_type<T: NativeType>(&mut self) -> &mut Binding {
+        let ty = T::ty();
+        self.define(ty.short_name(), ty)
     }
 
     /// Define a native element.
-    pub fn define_elem<T: NativeElement>(&mut self) {
-        let data = T::data();
-        self.define(data.name, Element::from(data));
+    #[track_caller]
+    pub fn define_elem<T: NativeElement>(&mut self) -> &mut Binding {
+        let elem = T::ELEM;
+        self.define(elem.name(), elem)
     }
 
-    /// Define a module.
-    pub fn define_module(&mut self, module: Module) {
-        self.define(module.name().clone(), module);
+    /// Define a built-in with compile-time known name and returns a mutable
+    /// reference to it.
+    ///
+    /// When the name isn't compile-time known, you should instead use:
+    /// - `Vm::bind` if you already have [`Binding`]
+    /// - `Vm::define`  if you only have a [`Value`]
+    /// - [`Scope::bind`](Self::bind) if you are not operating in the context of
+    ///   a `Vm` or if you are binding to something that is not an AST
+    ///   identifier (e.g. when constructing a dynamic
+    ///   [`Module`](super::Module))
+    #[track_caller]
+    pub fn define(&mut self, name: &'static str, value: impl IntoValue) -> &mut Binding {
+        #[cfg(debug_assertions)]
+        if self.deduplicate && self.map.contains_key(name) {
+            panic!("duplicate definition: {name}");
+        }
+
+        let mut binding = Binding::detached(value);
+        binding.category = self.category;
+        self.bind(name.into(), binding)
+    }
+}
+
+/// Scope manipulation and access.
+impl Scope {
+    /// Inserts a binding into this scope and returns a mutable reference to it.
+    ///
+    /// Prefer `Vm::bind` if you are operating in the context of a `Vm`.
+    pub fn bind(&mut self, name: EcoString, binding: Binding) -> &mut Binding {
+        match self.map.entry(name) {
+            Entry::Occupied(mut entry) => {
+                entry.insert(binding);
+                entry.into_mut()
+            }
+            Entry::Vacant(entry) => entry.insert(binding),
+        }
     }
 
-    /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> Option<&Value> {
-        self.map.get(var).map(Slot::read)
+    /// Try to access a binding immutably.
+    pub fn get(&self, var: &str) -> Option<&Binding> {
+        self.map.get(var)
     }
 
-    /// Try to access a variable mutably.
-    pub fn get_mut(&mut self, var: &str) -> Option<HintedStrResult<&mut Value>> {
-        self.map
-            .get_mut(var)
-            .map(Slot::write)
-            .map(|res| res.map_err(HintedString::from))
-    }
-
-    /// Get the span of a definition.
-    pub fn get_span(&self, var: &str) -> Option<Span> {
-        Some(self.map.get(var)?.span)
-    }
-
-    /// Get the category of a definition.
-    pub fn get_category(&self, var: &str) -> Option<Category> {
-        self.map.get(var)?.category
+    /// Try to access a binding mutably.
+    pub fn get_mut(&mut self, var: &str) -> Option<&mut Binding> {
+        self.map.get_mut(var)
     }
 
     /// Iterate over all definitions.
-    pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Value, Span)> {
-        self.map.iter().map(|(k, v)| (k, v.read(), v.span))
+    pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Binding)> {
+        self.map.iter()
     }
 }
 
@@ -315,26 +243,109 @@ pub trait NativeScope {
     fn scope() -> Scope;
 }
 
-/// A slot where a value is stored.
-#[derive(Clone, Hash)]
-struct Slot {
-    /// The stored value.
+/// A bound value with metadata.
+#[derive(Debug, Clone, Hash)]
+pub struct Binding {
+    /// The bound value.
     value: Value,
-    /// The kind of slot, determines how the value can be accessed.
-    kind: Kind,
-    /// A span associated with the stored value.
+    /// The kind of binding, determines how the value can be accessed.
+    kind: BindingKind,
+    /// A span associated with the binding.
     span: Span,
-    /// The category of the slot.
+    /// The category of the binding.
     category: Option<Category>,
+    /// The deprecation information if this item is deprecated.
+    deprecation: Option<Box<Deprecation>>,
 }
 
 /// The different kinds of slots.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum Kind {
+enum BindingKind {
     /// A normal, mutable binding.
     Normal,
     /// A captured copy of another variable.
     Captured(Capturer),
+}
+
+impl Binding {
+    /// Create a new binding with a span marking its definition site.
+    pub fn new(value: impl IntoValue, span: Span) -> Self {
+        Self {
+            value: value.into_value(),
+            span,
+            kind: BindingKind::Normal,
+            category: None,
+            deprecation: None,
+        }
+    }
+
+    /// Create a binding without a span.
+    pub fn detached(value: impl IntoValue) -> Self {
+        Self::new(value, Span::detached())
+    }
+
+    /// Marks this binding as deprecated, with the given `message`.
+    pub fn deprecated(&mut self, deprecation: Deprecation) -> &mut Self {
+        self.deprecation = Some(Box::new(deprecation));
+        self
+    }
+
+    /// Read the value.
+    pub fn read(&self) -> &Value {
+        &self.value
+    }
+
+    /// Read the value, checking for deprecation.
+    ///
+    /// As the `sink`
+    /// - pass `()` to ignore the message.
+    /// - pass `(&mut engine, span)` to emit a warning into the engine.
+    pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
+        if let Some(info) = &self.deprecation {
+            sink.emit(info.message, info.until);
+        }
+        &self.value
+    }
+
+    /// Try to write to the value.
+    ///
+    /// This fails if the value is a read-only closure capture.
+    pub fn write(&mut self) -> StrResult<&mut Value> {
+        match self.kind {
+            BindingKind::Normal => Ok(&mut self.value),
+            BindingKind::Captured(capturer) => bail!(
+                "variables from outside the {} are \
+                 read-only and cannot be modified",
+                match capturer {
+                    Capturer::Function => "function",
+                    Capturer::Context => "context expression",
+                }
+            ),
+        }
+    }
+
+    /// Create a copy of the binding for closure capturing.
+    pub fn capture(&self, capturer: Capturer) -> Self {
+        Self {
+            kind: BindingKind::Captured(capturer),
+            ..self.clone()
+        }
+    }
+
+    /// A span associated with the stored value.
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    /// A deprecation message for the value, if any.
+    pub fn deprecation(&self) -> Option<&Deprecation> {
+        self.deprecation.as_deref()
+    }
+
+    /// The category of the value, if any.
+    pub fn category(&self) -> Option<Category> {
+        self.category
+    }
 }
 
 /// What the variable was captured by.
@@ -346,71 +357,101 @@ pub enum Capturer {
     Context,
 }
 
-impl Slot {
-    /// Create a new slot.
-    fn new(value: Value, span: Span, kind: Kind, category: Option<Category>) -> Self {
-        Self { value, span, kind, category }
+/// Information about a deprecated binding.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Deprecation {
+    /// A deprecation message for the definition.
+    message: &'static str,
+    /// A version in which the deprecated binding is planned to be removed.
+    until: Option<&'static str>,
+}
+
+impl Deprecation {
+    /// Creates new deprecation info with a default message to display when
+    /// emitting the deprecation warning.
+    pub fn new() -> Self {
+        Self { message: "item is deprecated", until: None }
     }
 
-    /// Read the value.
-    fn read(&self) -> &Value {
-        &self.value
+    /// Set the message to display when emitting the deprecation warning.
+    pub fn with_message(mut self, message: &'static str) -> Self {
+        self.message = message;
+        self
     }
 
-    /// Try to write to the value.
-    fn write(&mut self) -> StrResult<&mut Value> {
-        match self.kind {
-            Kind::Normal => Ok(&mut self.value),
-            Kind::Captured(capturer) => {
-                bail!(
-                    "variables from outside the {} are \
-                     read-only and cannot be modified",
-                    match capturer {
-                        Capturer::Function => "function",
-                        Capturer::Context => "context expression",
-                    }
-                )
-            }
-        }
+    /// Set the version in which the binding is planned to be removed.
+    pub fn with_until(mut self, version: &'static str) -> Self {
+        self.until = Some(version);
+        self
+    }
+
+    /// The message to display when emitting the deprecation warning.
+    pub fn message(&self) -> &'static str {
+        self.message
+    }
+
+    /// The version in which the binding is planned to be removed.
+    pub fn until(&self) -> Option<&'static str> {
+        self.until
     }
 }
 
-/// A group of related definitions.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Category(Static<CategoryData>);
-
-impl Category {
-    /// Create a new category from raw data.
-    pub const fn from_data(data: &'static CategoryData) -> Self {
-        Self(Static(data))
-    }
-
-    /// The category's name.
-    pub fn name(&self) -> &'static str {
-        self.0.name
-    }
-
-    /// The type's title case name, for use in documentation (e.g. `String`).
-    pub fn title(&self) -> &'static str {
-        self.0.title
-    }
-
-    /// Documentation for the category.
-    pub fn docs(&self) -> &'static str {
-        self.0.docs
+impl Default for Deprecation {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl Debug for Category {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Category({})", self.name())
-    }
+/// The error message when trying to mutate a variable from the standard
+/// library.
+#[cold]
+fn cannot_mutate_constant(var: &str) -> HintedString {
+    eco_format!("cannot mutate a constant: {}", var).into()
 }
 
-/// Defines a category.
-#[derive(Debug)]
-pub struct CategoryData {
-    pub name: &'static str,
-    pub title: &'static str,
-    pub docs: &'static str,
+/// The error message when a variable wasn't found.
+#[cold]
+fn unknown_variable(var: &str) -> HintedString {
+    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+
+    if var.contains('-') {
+        res.hint(eco_format!(
+            "if you meant to use subtraction, \
+             try adding spaces around the minus sign{}: `{}`",
+            if var.matches('-').count() > 1 { "s" } else { "" },
+            var.replace('-', " - ")
+        ));
+    }
+
+    res
+}
+
+/// The error message when a variable wasn't found it math.
+#[cold]
+fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
+    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+
+    if matches!(var, "none" | "auto" | "false" | "true") {
+        res.hint(eco_format!(
+            "if you meant to use a literal, \
+             try adding a hash before it: `#{var}`",
+        ));
+    } else if in_global {
+        res.hint(eco_format!(
+            "`{var}` is not available directly in math, \
+             try adding a hash before it: `#{var}`",
+        ));
+    } else {
+        res.hint(eco_format!(
+            "if you meant to display multiple letters as is, \
+             try adding spaces between each letter: `{}`",
+            var.chars().flat_map(|c| [' ', c]).skip(1).collect::<EcoString>()
+        ));
+        res.hint(eco_format!(
+            "or if you meant to display this as text, \
+             try placing it in quotes: `\"{var}\"`"
+        ));
+    }
+
+    res
 }

@@ -1,14 +1,14 @@
 //! Download and unpack packages and package indices.
 
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
-use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
-use typst_syntax::package::{
-    PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
-};
+use serde::Deserialize;
+use typst_library::diag::{PackageError, PackageResult, StrResult, bail};
+use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::download::{Downloader, Progress};
 
@@ -21,6 +21,24 @@ pub const DEFAULT_NAMESPACE: &str = "preview";
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
+/// Attempts to infer the default package cache directory from the current
+/// environment.
+///
+/// This simply joins [`DEFAULT_PACKAGES_SUBDIR`] to the output of
+/// [`dirs::cache_dir`].
+pub fn default_package_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
+
+/// Attempts to infer the default package directory from the current
+/// environment.
+///
+/// This simply joins [`DEFAULT_PACKAGES_SUBDIR`] to the output of
+/// [`dirs::data_dir`].
+pub fn default_package_path() -> Option<PathBuf> {
+    dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
+
 /// Holds information about where packages should be stored and downloads them
 /// on demand, if possible.
 #[derive(Debug)]
@@ -32,7 +50,7 @@ pub struct PackageStorage {
     /// The downloader used for fetching the index and packages.
     downloader: Downloader,
     /// The cached index of the default namespace.
-    index: OnceCell<Vec<PackageInfo>>,
+    index: OnceCell<Vec<serde_json::Value>>,
 }
 
 impl PackageStorage {
@@ -43,15 +61,23 @@ impl PackageStorage {
         package_path: Option<PathBuf>,
         downloader: Downloader,
     ) -> Self {
+        Self::with_index(package_cache_path, package_path, downloader, OnceCell::new())
+    }
+
+    /// Creates a new package storage with a pre-defined index.
+    ///
+    /// Useful for testing.
+    fn with_index(
+        package_cache_path: Option<PathBuf>,
+        package_path: Option<PathBuf>,
+        downloader: Downloader,
+        index: OnceCell<Vec<serde_json::Value>>,
+    ) -> Self {
         Self {
-            package_cache_path: package_cache_path.or_else(|| {
-                dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
-            }),
-            package_path: package_path.or_else(|| {
-                dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
-            }),
+            package_cache_path: package_cache_path.or_else(default_package_cache_path),
+            package_path: package_path.or_else(default_package_path),
             downloader,
-            index: OnceCell::new(),
+            index,
         }
     }
 
@@ -66,7 +92,8 @@ impl PackageStorage {
         self.package_path.as_deref()
     }
 
-    /// Make a package available in the on-disk.
+    /// Makes a package available on-disk and returns the path at which it is
+    /// located (will be either in the cache or package directory).
     pub fn prepare_package(
         &self,
         spec: &PackageSpec,
@@ -89,7 +116,7 @@ impl PackageStorage {
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == DEFAULT_NAMESPACE {
-                self.download_package(spec, &dir, progress)?;
+                self.download_package(spec, cache_dir, progress)?;
                 if dir.exists() {
                     return Ok(dir);
                 }
@@ -99,7 +126,7 @@ impl PackageStorage {
         Err(PackageError::NotFound(spec.clone()))
     }
 
-    /// Try to determine the latest version of a package.
+    /// Tries to determine the latest version of a package.
     pub fn determine_latest_version(
         &self,
         spec: &VersionlessPackageSpec,
@@ -109,6 +136,7 @@ impl PackageStorage {
             // version.
             self.download_index()?
                 .iter()
+                .filter_map(|value| MinimalPackageInfo::deserialize(value).ok())
                 .filter(|package| package.name == spec.name)
                 .map(|package| package.version)
                 .max()
@@ -131,7 +159,7 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&[PackageInfo]> {
+    fn download_index(&self) -> StrResult<&[serde_json::Value]> {
         self.index
             .get_or_try_init(|| {
                 let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
@@ -152,10 +180,10 @@ impl PackageStorage {
     ///
     /// # Panics
     /// Panics if the package spec namespace isn't `DEFAULT_NAMESPACE`.
-    pub fn download_package(
+    fn download_package(
         &self,
         spec: &PackageSpec,
-        package_dir: &Path,
+        cache_dir: &Path,
         progress: &mut dyn Progress,
     ) -> PackageResult<()> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
@@ -175,14 +203,136 @@ impl PackageStorage {
                 }
             }
             Err(err) => {
-                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))))
+                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))));
             }
         };
 
+        // The directory in which the package's version lives.
+        let base_dir = cache_dir.join(format!("{}/{}", spec.namespace, spec.name));
+
+        // The place at which the specific package version will live in the end.
+        let package_dir = base_dir.join(format!("{}", spec.version));
+
+        // To prevent multiple Typst instances from interfering, we download
+        // into a temporary directory first and then move this directory to
+        // its final destination.
+        //
+        // In the `rename` function's documentation it is stated:
+        // > This will not work if the new name is on a different mount point.
+        //
+        // By locating the temporary directory directly next to where the
+        // package directory will live, we are (trying our best) making sure
+        // that `tempdir` and `package_dir` are on the same mount point.
+        let tempdir = Tempdir::create(base_dir.join(format!(
+            ".tmp-{}-{}",
+            spec.version,
+            fastrand::u32(..),
+        )))
+        .map_err(|err| error("failed to create temporary package directory", err))?;
+
+        // Decompress the archive into the temporary directory.
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
-        tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
-            fs::remove_dir_all(package_dir).ok();
-            PackageError::MalformedArchive(Some(eco_format!("{err}")))
-        })
+        tar::Archive::new(decompressed)
+            .unpack(&tempdir)
+            .map_err(|err| PackageError::MalformedArchive(Some(eco_format!("{err}"))))?;
+
+        // When trying to move (i.e., `rename`) the directory from one place to
+        // another and the target/destination directory is empty, then the
+        // operation will succeed (if it's atomic, or hardware doesn't fail, or
+        // power doesn't go off, etc.). If however the target directory is not
+        // empty, i.e., another instance already successfully moved the package,
+        // then we can safely ignore the `DirectoryNotEmpty` error.
+        //
+        // This means that we do not check the integrity of an existing moved
+        // package, just like we don't check the integrity if the package
+        // directory already existed in the first place. If situations with
+        // broken packages still occur even with the rename safeguard, we might
+        // consider more complex solutions like file locking or checksums.
+        match fs::rename(&tempdir, &package_dir) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
+            Err(err) => Err(error("failed to move downloaded package directory", err)),
+        }
+    }
+}
+
+/// Minimal information required about a package to determine its latest
+/// version.
+#[derive(Deserialize)]
+struct MinimalPackageInfo {
+    name: String,
+    version: PackageVersion,
+}
+
+/// A temporary directory that is a automatically cleaned up.
+struct Tempdir(PathBuf);
+
+impl Tempdir {
+    /// Creates a directory at the path and auto-cleans it.
+    fn create(path: PathBuf) -> io::Result<Self> {
+        std::fs::create_dir_all(&path)?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for Tempdir {
+    fn drop(&mut self) {
+        _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+impl AsRef<Path> for Tempdir {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+/// Enriches an I/O error with a message and turns it into a
+/// `PackageError::Other`.
+#[cold]
+fn error(message: &str, err: io::Error) -> PackageError {
+    PackageError::Other(Some(eco_format!("{message}: {err}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lazy_deser_index() {
+        let storage = PackageStorage::with_index(
+            None,
+            None,
+            Downloader::new("typst/test"),
+            OnceCell::with_value(vec![
+                serde_json::json!({
+                    "name": "charged-ieee",
+                    "version": "0.1.0",
+                    "entrypoint": "lib.typ",
+                }),
+                serde_json::json!({
+                    "name": "unequivocal-ams",
+                    // This version number is currently not valid, so this package
+                    // can't be parsed.
+                    "version": "0.2.0-dev",
+                    "entrypoint": "lib.typ",
+                }),
+            ]),
+        );
+
+        let ieee_version = storage.determine_latest_version(&VersionlessPackageSpec {
+            namespace: "preview".into(),
+            name: "charged-ieee".into(),
+        });
+        assert_eq!(ieee_version, Ok(PackageVersion { major: 0, minor: 1, patch: 0 }));
+
+        let ams_version = storage.determine_latest_version(&VersionlessPackageSpec {
+            namespace: "preview".into(),
+            name: "unequivocal-ams".into(),
+        });
+        assert_eq!(
+            ams_version,
+            Err("failed to find package @preview/unequivocal-ams".into())
+        )
     }
 }

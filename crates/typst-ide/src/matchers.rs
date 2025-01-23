@@ -1,9 +1,9 @@
 use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind, SyntaxNode};
+use typst::syntax::{LinkedNode, Span, SyntaxKind, ast};
 
-use crate::{analyze_import, IdeWorld};
+use crate::{IdeWorld, analyze_import};
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(
@@ -30,39 +30,39 @@ pub fn named_items<T>(
 
             if let Some(v) = node.cast::<ast::ModuleImport>() {
                 let imports = v.imports();
-                let source = node
-                    .children()
-                    .find(|child| child.is::<ast::Expr>())
-                    .and_then(|source: LinkedNode| {
-                        Some((analyze_import(world, &source)?, source))
-                    });
-                let source = source.as_ref();
+                let source = v.source();
+
+                let source_value = node
+                    .find(source.span())
+                    .and_then(|source| analyze_import(world, &source));
+                let source_value = source_value.as_ref();
+
+                let module = source_value.and_then(|value| match value {
+                    Value::Module(module) => Some(module),
+                    _ => None,
+                });
+
+                let name_and_span = match (imports, v.new_name()) {
+                    // ```plain
+                    // import "foo" as name
+                    // import "foo" as name: ..
+                    // ```
+                    (_, Some(name)) => Some((name.get().clone(), name.span())),
+                    // ```plain
+                    // import "foo"
+                    // ```
+                    (None, None) => v.bare_name().ok().map(|name| (name, source.span())),
+                    // ```plain
+                    // import "foo": ..
+                    // ```
+                    (Some(..), None) => None,
+                };
 
                 // Seeing the module itself.
-                if let Some((value, source)) = source {
-                    let site = match (imports, v.new_name()) {
-                        // ```plain
-                        // import "foo" as name;
-                        // import "foo" as name: ..;
-                        // ```
-                        (_, Some(name)) => Some(name.to_untyped()),
-                        // ```plain
-                        // import "foo";
-                        // ```
-                        (None, None) => Some(source.get()),
-                        // ```plain
-                        // import "foo": ..;
-                        // ```
-                        (Some(..), None) => None,
-                    };
-
-                    if let Some((site, value)) =
-                        site.zip(value.clone().cast::<Module>().ok())
-                    {
-                        if let Some(res) = recv(NamedItem::Module(&value, site)) {
-                            return Some(res);
-                        }
-                    }
+                if let Some((name, span)) = name_and_span
+                    && let Some(res) = recv(NamedItem::Module(&name, span, module))
+                {
+                    return Some(res);
                 }
 
                 // Seeing the imported items.
@@ -75,9 +75,13 @@ pub fn named_items<T>(
                     // import "foo": *;
                     // ```
                     Some(ast::Imports::Wildcard) => {
-                        if let Some(scope) = source.and_then(|(value, _)| value.scope()) {
-                            for (name, value, span) in scope.iter() {
-                                let item = NamedItem::Import(name, span, Some(value));
+                        if let Some(scope) = source_value.and_then(Value::scope) {
+                            for (name, binding) in scope.iter() {
+                                let item = NamedItem::Import(
+                                    name,
+                                    binding.span(),
+                                    Some(binding.read()),
+                                );
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -89,24 +93,26 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
+                            let mut iter = item.path().iter();
+                            let mut binding = source_value
+                                .and_then(Value::scope)
+                                .zip(iter.next())
+                                .and_then(|(scope, first)| scope.get(&first));
+
+                            for ident in iter {
+                                binding = binding.and_then(|binding| {
+                                    binding.read().scope()?.get(&ident)
+                                });
+                            }
+
                             let bound = item.bound_name();
+                            let (span, value) = match binding {
+                                Some(binding) => (binding.span(), Some(binding.read())),
+                                None => (bound.span(), None),
+                            };
 
-                            let (span, value) = item.path().iter().fold(
-                                (bound.span(), source.map(|(value, _)| value)),
-                                |(span, value), path_ident| {
-                                    let scope = value.and_then(|v| v.scope());
-                                    let span = scope
-                                        .and_then(|s| s.get_span(&path_ident))
-                                        .unwrap_or(Span::detached())
-                                        .or(span);
-                                    let value = scope.and_then(|s| s.get(&path_ident));
-                                    (span, value)
-                                },
-                            );
-
-                            if let Some(res) =
-                                recv(NamedItem::Import(bound.get(), span, value))
-                            {
+                            let item = NamedItem::Import(bound.get(), span, value);
+                            if let Some(res) = recv(item) {
                                 return Some(res);
                             }
                         }
@@ -118,13 +124,13 @@ pub fn named_items<T>(
         }
 
         if let Some(parent) = node.parent() {
-            if let Some(v) = parent.cast::<ast::ForLoop>() {
-                if node.prev_sibling_kind() != Some(SyntaxKind::In) {
-                    let pattern = v.pattern();
-                    for ident in pattern.bindings() {
-                        if let Some(res) = recv(NamedItem::Var(ident)) {
-                            return Some(res);
-                        }
+            if let Some(v) = parent.cast::<ast::ForLoop>()
+                && node.prev_sibling_kind() != Some(SyntaxKind::In)
+            {
+                let pattern = v.pattern();
+                for ident in pattern.bindings() {
+                    if let Some(res) = recv(NamedItem::Var(ident)) {
+                        return Some(res);
                     }
                 }
             }
@@ -149,10 +155,10 @@ pub fn named_items<T>(
                             }
                         }
                         ast::Param::Spread(s) => {
-                            if let Some(sink_ident) = s.sink_ident() {
-                                if let Some(t) = recv(NamedItem::Var(sink_ident)) {
-                                    return Some(t);
-                                }
+                            if let Some(sink_ident) = s.sink_ident()
+                                && let Some(t) = recv(NamedItem::Var(sink_ident))
+                            {
+                                return Some(t);
                             }
                         }
                     }
@@ -175,8 +181,8 @@ pub enum NamedItem<'a> {
     Var(ast::Ident<'a>),
     /// A function item.
     Fn(ast::Ident<'a>),
-    /// A (imported) module item.
-    Module(&'a Module, &'a SyntaxNode),
+    /// A (imported) module.
+    Module(&'a EcoString, Span, Option<&'a Module>),
     /// An imported item.
     Import(&'a EcoString, Span, Option<&'a Value>),
 }
@@ -186,7 +192,7 @@ impl<'a> NamedItem<'a> {
         match self {
             NamedItem::Var(ident) => ident.get(),
             NamedItem::Fn(ident) => ident.get(),
-            NamedItem::Module(value, _) => value.name(),
+            NamedItem::Module(name, _, _) => name,
             NamedItem::Import(name, _, _) => name,
         }
     }
@@ -194,7 +200,7 @@ impl<'a> NamedItem<'a> {
     pub(crate) fn value(&self) -> Option<Value> {
         match self {
             NamedItem::Var(..) | NamedItem::Fn(..) => None,
-            NamedItem::Module(value, _) => Some(Value::Module((*value).clone())),
+            NamedItem::Module(_, _, value) => value.cloned().map(Value::Module),
             NamedItem::Import(_, _, value) => value.cloned(),
         }
     }
@@ -202,7 +208,7 @@ impl<'a> NamedItem<'a> {
     pub(crate) fn span(&self) -> Span {
         match *self {
             NamedItem::Var(name) | NamedItem::Fn(name) => name.span(),
-            NamedItem::Module(_, site) => site.span(),
+            NamedItem::Module(_, span, _) => span,
             NamedItem::Import(_, span, _) => span,
         }
     }
@@ -210,7 +216,7 @@ impl<'a> NamedItem<'a> {
 
 /// Categorize an expression into common classes IDE functionality can operate
 /// on.
-pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
+pub fn deref_target(node: LinkedNode<'_>) -> Option<DerefTarget<'_>> {
     // Move to the first ancestor that is an expression.
     let mut ancestor = node;
     while !ancestor.is::<ast::Expr>() {
@@ -226,7 +232,9 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
         ast::Expr::FuncCall(call) => {
             DerefTarget::Callee(expr_node.find(call.callee().span())?)
         }
-        ast::Expr::Set(set) => DerefTarget::Callee(expr_node.find(set.target().span())?),
+        ast::Expr::SetRule(set) => {
+            DerefTarget::Callee(expr_node.find(set.target().span())?)
+        }
         ast::Expr::Ident(_) | ast::Expr::MathIdent(_) | ast::Expr::FieldAccess(_) => {
             DerefTarget::VarAccess(expr_node)
         }
@@ -356,7 +364,17 @@ mod tests {
 
     #[test]
     fn test_named_items_import() {
-        test("#import \"foo.typ\": a; #(a);", 2).must_include(["a"]);
+        test("#import \"foo.typ\"", 2).must_include(["foo"]);
+        test("#import \"foo.typ\" as bar", 2)
+            .must_include(["bar"])
+            .must_exclude(["foo"]);
+    }
+
+    #[test]
+    fn test_named_items_import_items() {
+        test("#import \"foo.typ\": a; #(a);", 2)
+            .must_include(["a"])
+            .must_exclude(["foo"]);
 
         let world = TestWorld::new("#import \"foo.typ\": a.b; #(b);")
             .with_source("foo.typ", "#import \"a.typ\"")

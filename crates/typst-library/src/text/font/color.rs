@@ -10,7 +10,9 @@ use xmlwriter::XmlWriter;
 use crate::foundations::Bytes;
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::text::{Font, Glyph};
-use crate::visualize::{FixedStroke, Geometry, Image, RasterFormat, VectorFormat};
+use crate::visualize::{
+    ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, SvgImage,
+};
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
@@ -102,12 +104,8 @@ fn draw_raster_glyph(
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<()> {
-    let image = Image::new(
-        Bytes::new(raster_image.data.to_vec()),
-        RasterFormat::Png.into(),
-        None,
-    )
-    .ok()?;
+    let data = Bytes::new(raster_image.data.to_vec());
+    let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
@@ -129,13 +127,8 @@ fn draw_raster_glyph(
     Some(())
 }
 
-/// Draws a glyph from the COLR table into the frame.
-fn draw_colr_glyph(
-    frame: &mut Frame,
-    font: &Font,
-    upem: Abs,
-    glyph_id: GlyphId,
-) -> Option<()> {
+/// Convert a COLR glyph into an SVG file.
+pub fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
     let ttf = font.ttf();
@@ -178,9 +171,26 @@ fn draw_colr_glyph(
     ttf.paint_color_glyph(glyph_id, 0, RgbaColor::new(0, 0, 0, 255), &mut glyph_painter)?;
     svg.end_element();
 
-    let data = svg.end_document().into_bytes();
+    Some(svg.end_document())
+}
 
-    let image = Image::new(Bytes::new(data), VectorFormat::Svg.into(), None).ok()?;
+/// Draws a glyph from the COLR table into the frame.
+fn draw_colr_glyph(
+    frame: &mut Frame,
+    font: &Font,
+    upem: Abs,
+    glyph_id: GlyphId,
+) -> Option<()> {
+    let svg_string = colr_glyph_to_svg(font, glyph_id)?;
+
+    let ttf = font.ttf();
+    let width = ttf.global_bounding_box().width() as f64;
+    let height = ttf.global_bounding_box().height() as f64;
+    let x_min = ttf.global_bounding_box().x_min as f64;
+    let y_max = ttf.global_bounding_box().y_max as f64;
+
+    let data = Bytes::from_string(svg_string);
+    let image = Image::plain(SvgImage::new(data).ok()?);
 
     let y_shift = Abs::pt(upem.to_pt() - y_max);
     let position = Point::new(Abs::pt(x_min), y_shift);
@@ -255,9 +265,8 @@ fn draw_svg_glyph(
         ty = -top,
     );
 
-    let image =
-        Image::new(Bytes::new(wrapper_svg.into_bytes()), VectorFormat::Svg.into(), None)
-            .ok()?;
+    let data = Bytes::from_string(wrapper_svg);
+    let image = Image::plain(SvgImage::new(data).ok()?);
 
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Size::new(Abs::pt(width), Abs::pt(height));

@@ -1,18 +1,23 @@
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use ecow::EcoString;
+use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
+use typst_syntax::FileId;
 
-use crate::diag::{format_xml_like_error, StrResult};
+use crate::World;
+use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
+use crate::visualize::VectorFormat;
+use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
+use crate::visualize::image::{ImageFormat, determine_format_from_path};
+
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
-use crate::World;
 
 /// A decoded SVG.
 #[derive(Clone, Hash)]
@@ -22,7 +27,6 @@ pub struct SvgImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     size: Axes<f64>,
-    flatten_text: bool,
     font_hash: u128,
     tree: usvg::Tree,
 }
@@ -30,51 +34,55 @@ struct Repr {
 impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
-    pub fn new(data: Bytes) -> StrResult<SvgImage> {
+    #[typst_macros::time(name = "load svg")]
+    pub fn new(data: Bytes) -> LoadResult<SvgImage> {
         let tree =
             usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash: 0,
-            flatten_text: false,
-            tree,
-        })))
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
-    /// Decode an SVG image with access to fonts.
+    /// Decode an SVG image with access to fonts and linked images.
     #[comemo::memoize]
-    pub fn with_fonts(
+    #[typst_macros::time(name = "load svg")]
+    pub fn with_fonts_images(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        flatten_text: bool,
         families: &[&str],
-    ) -> StrResult<SvgImage> {
+        svg_file: Option<FileId>,
+    ) -> LoadResult<SvgImage> {
         let book = world.book();
-        let resolver = Mutex::new(FontResolver::new(world, book, families));
+        let font_resolver = Mutex::new(FontResolver::new(world, book, families));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
                 font_resolver: usvg::FontResolver {
                     select_font: Box::new(|font, db| {
-                        resolver.lock().unwrap().select_font(font, db)
+                        font_resolver.lock().unwrap().select_font(font, db)
                     }),
                     select_fallback: Box::new(|c, exclude_fonts, db| {
-                        resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
+                        font_resolver.lock().unwrap().select_fallback(
+                            c,
+                            exclude_fonts,
+                            db,
+                        )
+                    }),
+                },
+                image_href_resolver: usvg::ImageHrefResolver {
+                    resolve_data: usvg::ImageHrefResolver::default_data_resolver(),
+                    resolve_string: Box::new(|href, _opts| {
+                        image_resolver.lock().unwrap().load(href)
                     }),
                 },
                 ..base_options()
             },
         )
         .map_err(format_usvg_error)?;
-        let font_hash = resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash,
-            flatten_text,
-            tree,
-        })))
+        if let Some(err) = image_resolver.into_inner().unwrap().error {
+            return Err(err);
+        }
+        let font_hash = font_resolver.into_inner().unwrap().finish();
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -85,11 +93,6 @@ impl SvgImage {
     /// The SVG's width in pixels.
     pub fn width(&self) -> f64 {
         self.0.size.x
-    }
-
-    /// Whether the SVG's text should be flattened.
-    pub fn flatten_text(&self) -> bool {
-        self.0.flatten_text
     }
 
     /// The SVG's height in pixels.
@@ -110,7 +113,6 @@ impl Hash for Repr {
         // all used fonts gives us something similar.
         self.data.hash(state);
         self.font_hash.hash(state);
-        self.flatten_text.hash(state);
     }
 }
 
@@ -143,16 +145,15 @@ fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
 }
 
 /// Format the user-facing SVG decoding error message.
-fn format_usvg_error(error: usvg::Error) -> EcoString {
-    match error {
-        usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
-        usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
-        usvg::Error::ElementsLimitReached => "file is too large".into(),
-        usvg::Error::InvalidSize => {
-            "failed to parse SVG (width, height, or viewbox is invalid)".into()
-        }
-        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
-    }
+fn format_usvg_error(error: usvg::Error) -> LoadError {
+    let error = match error {
+        usvg::Error::NotAnUtf8Str => "file is not valid utf-8",
+        usvg::Error::MalformedGZip => "file is not compressed correctly",
+        usvg::Error::ElementsLimitReached => "file is too large",
+        usvg::Error::InvalidSize => "width, height, or viewbox is invalid",
+        usvg::Error::ParsingFailed(error) => return format_xml_like_error("SVG", error),
+    };
+    LoadError::new(ReportPos::None, "failed to parse SVG", error)
 }
 
 /// Provides Typst's fonts to usvg.
@@ -164,9 +165,9 @@ struct FontResolver<'a> {
     /// The active list of font families at the location of the SVG.
     families: &'a [&'a str],
     /// A mapping from Typst font indices to fontdb IDs.
-    to_id: HashMap<usize, Option<fontdb::ID>>,
+    to_id: FxHashMap<usize, Option<fontdb::ID>>,
     /// The reverse mapping.
-    from_id: HashMap<fontdb::ID, Font>,
+    from_id: FxHashMap<fontdb::ID, Font>,
     /// Accumulates a hash of all used fonts.
     hasher: SipHasher13,
 }
@@ -182,8 +183,8 @@ impl<'a> FontResolver<'a> {
             book,
             world,
             families,
-            to_id: HashMap::new(),
-            from_id: HashMap::new(),
+            to_id: FxHashMap::default(),
+            from_id: FxHashMap::default(),
             hasher: SipHasher13::new(),
         }
     }
@@ -305,5 +306,122 @@ impl FontResolver<'_> {
         self.from_id.insert(id, font);
 
         Some(id)
+    }
+}
+
+/// Resolves linked images in an SVG.
+/// (Linked SVG images from an SVG are not supported yet.)
+struct ImageResolver<'a> {
+    /// The world used to load linked images.
+    world: Tracked<'a, dyn World + 'a>,
+    /// Parent folder of the SVG file, used to resolve hrefs to linked images, if any.
+    svg_file: Option<FileId>,
+    /// The first error that occurred when loading a linked image, if any.
+    error: Option<LoadError>,
+}
+
+impl<'a> ImageResolver<'a> {
+    fn new(world: Tracked<'a, dyn World + 'a>, svg_file: Option<FileId>) -> Self {
+        Self { world, svg_file, error: None }
+    }
+
+    /// Load a linked image or return None if a previous image caused an error,
+    /// or if the linked image failed to load.
+    /// Only the first error message is retained.
+    fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
+        if self.error.is_some() {
+            return None;
+        }
+        match self.load_or_error(href) {
+            Ok(image) => Some(image),
+            Err(err) => {
+                self.error = Some(LoadError::new(
+                    ReportPos::None,
+                    eco_format!("failed to load linked image {} in SVG", href),
+                    err,
+                ));
+                None
+            }
+        }
+    }
+
+    /// Load a linked image or return an error message string.
+    fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
+        // If the href starts with "file://", strip this prefix to construct an ordinary path.
+        let href = href.strip_prefix("file://").unwrap_or(href);
+
+        // Do not accept absolute hrefs. They would be parsed in Typst in a way
+        // that is not compatible with their interpretation in the SVG standard.
+        if href.starts_with("/") {
+            return Err("absolute paths are not allowed".into());
+        }
+
+        // Exit early if the href is an URL.
+        if let Some(pos) = href.find("://") {
+            let scheme = &href[..pos];
+            if scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
+            {
+                return Err("URLs are not allowed".into());
+            }
+        }
+
+        // Resolve the path to the linked image.
+        if self.svg_file.is_none() {
+            return Err("cannot access file system from here".into());
+        }
+        // Replace the file name in svg_file by href.
+        let href_file = self.svg_file.unwrap().join(href);
+
+        // Load image if file can be accessed.
+        match self.world.file(href_file) {
+            Ok(bytes) => {
+                let arc_data = Arc::new(bytes.to_vec());
+                let format = match determine_format_from_path(href) {
+                    Some(format) => Some(format),
+                    None => ImageFormat::detect(&arc_data),
+                };
+                match format {
+                    Some(ImageFormat::Vector(vector_format)) => match vector_format {
+                        VectorFormat::Svg => {
+                            Err("SVG images are not supported yet".into())
+                        }
+                        VectorFormat::Pdf => {
+                            Err("PDF documents are not supported".into())
+                        }
+                    },
+                    Some(ImageFormat::Raster(raster_format)) => match raster_format {
+                        RasterFormat::Exchange(exchange_format) => {
+                            match exchange_format {
+                                ExchangeFormat::Gif => Ok(usvg::ImageKind::GIF(arc_data)),
+                                ExchangeFormat::Jpg => {
+                                    Ok(usvg::ImageKind::JPEG(arc_data))
+                                }
+                                ExchangeFormat::Png => Ok(usvg::ImageKind::PNG(arc_data)),
+                                ExchangeFormat::Webp => {
+                                    Ok(usvg::ImageKind::WEBP(arc_data))
+                                }
+                            }
+                        }
+                        RasterFormat::Pixel(_) => {
+                            Err("pixel formats are not supported".into())
+                        }
+                    },
+                    None => Err("unknown image format".into()),
+                }
+            }
+            // TODO: Somehow unify this with `impl Display for FileError`.
+            Err(err) => Err(match err {
+                FileError::NotFound(path) => {
+                    eco_format!("file not found, searched at {}", path.display())
+                }
+                FileError::AccessDenied => "access denied".into(),
+                FileError::IsDirectory => "is a directory".into(),
+                FileError::Other(Some(msg)) => msg,
+                FileError::Other(None) => "unspecified error".into(),
+                _ => eco_format!("unexpected error: {}", err),
+            }),
+        }
     }
 }

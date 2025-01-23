@@ -1,17 +1,12 @@
 use std::str::FromStr;
 
-use ecow::eco_format;
 use smallvec::SmallVec;
 
-use crate::diag::{bail, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles, TargetElem,
-};
-use crate::html::{attr, tag, HtmlAttr, HtmlElem};
-use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
-use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem};
+use crate::diag::bail;
+use crate::foundations::{Array, Content, Packed, Smart, Styles, cast, elem, scope};
+use crate::introspection::{Locatable, Tagged};
+use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
+use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
 /// A numbered list.
 ///
@@ -47,8 +42,8 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem}
 /// + Don't forget step two
 /// ```
 ///
-/// You can also use [`enum.item`]($enum.item) to programmatically customize the
-/// number of each item in the enumeration:
+/// You can also use [`enum.item`] to programmatically customize the number of
+/// each item in the enumeration:
 ///
 /// ```example
 /// #enum(
@@ -69,7 +64,7 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem}
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Show)]
+#[elem(scope, title = "Numbered List", Locatable, Tagged)]
 pub struct EnumElem {
     /// Defines the default [spacing]($enum.spacing) of the enumeration. If it
     /// is `{false}`, the items are spaced apart with
@@ -115,7 +110,6 @@ pub struct EnumElem {
     /// + Numbering!
     /// ```
     #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
-    #[borrowed]
     pub numbering: Numbering,
 
     /// Which number to start the enumeration with.
@@ -127,7 +121,7 @@ pub struct EnumElem {
     ///   [Ahead],
     /// )
     /// ```
-    pub start: Smart<usize>,
+    pub start: Smart<u64>,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -155,11 +149,9 @@ pub struct EnumElem {
     pub reversed: bool,
 
     /// The indentation of each item.
-    #[resolve]
     pub indent: Length,
 
     /// The space between the numbering and the body of each item.
-    #[resolve]
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
@@ -215,7 +207,7 @@ pub struct EnumElem {
     #[internal]
     #[fold]
     #[ghost]
-    pub parents: SmallVec<[usize; 4]>,
+    pub parents: SmallVec<[u64; 4]>,
 }
 
 #[scope]
@@ -224,48 +216,12 @@ impl EnumElem {
     type EnumItem;
 }
 
-impl Show for Packed<EnumElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if TargetElem::target_in(styles).is_html() {
-            let mut elem = HtmlElem::new(tag::ol);
-            if self.reversed(styles) {
-                elem = elem.with_attr(HtmlAttr::constant("reversed"), "reversed");
-            }
-            if let Some(n) = self.start(styles).custom() {
-                elem = elem.with_attr(HtmlAttr::constant("start"), eco_format!("{n}"));
-            }
-            let body = Content::sequence(self.children.iter().map(|item| {
-                let mut li = HtmlElem::new(tag::li);
-                if let Some(nr) = item.number(styles) {
-                    li = li.with_attr(attr::value, eco_format!("{nr}"));
-                }
-                li.with_body(Some(item.body.clone())).pack().spanned(item.span())
-            }));
-            return Ok(elem.with_body(Some(body)).pack().spanned(self.span()));
-        }
-
-        let mut realized =
-            BlockElem::multi_layouter(self.clone(), engine.routines.layout_enum)
-                .pack()
-                .spanned(self.span());
-
-        if self.tight(styles) {
-            let leading = ParElem::leading_in(styles);
-            let spacing =
-                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
-            realized = spacing + realized;
-        }
-
-        Ok(realized)
-    }
-}
-
 /// An enumeration item.
-#[elem(name = "item", title = "Numbered List Item")]
+#[elem(name = "item", title = "Numbered List Item", Tagged)]
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<usize>,
+    pub number: Smart<u64>,
 
     /// The item's body.
     #[required]

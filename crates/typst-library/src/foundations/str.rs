@@ -7,13 +7,14 @@ use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
+use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
-    IntoValue, Label, Repr, Type, Value, Version,
+    Array, Bytes, Cast, Context, Decimal, Dict, Func, IntoValue, Label, Repr, Type,
+    Value, Version, cast, dict, func, repr, scope, ty,
 };
 use crate::layout::Alignment;
 
@@ -41,9 +42,10 @@ pub use crate::__format_str as format_str;
 /// [joined together]($scripting/#blocks) and multiplied with integers.
 ///
 /// Typst provides utility methods for string manipulation. Many of these
-/// methods (e.g., `split`, `trim` and `replace`) operate on _patterns:_ A
-/// pattern can be either a string or a [regular expression]($regex). This makes
-/// the methods quite versatile.
+/// methods (e.g., [`split`]($str.split), [`trim`]($str.trim) and
+/// [`replace`]($str.replace)) operate on _patterns:_ A pattern can be either a
+/// string or a [regular expression]($regex). This makes the methods quite
+/// versatile.
 ///
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
 /// zero-based and negative indices wrap around to the end of the string.
@@ -178,24 +180,40 @@ impl Str {
     }
 
     /// Extracts the first grapheme cluster of the string.
-    /// Fails with an error if the string is empty.
+    ///
+    /// Returns the provided default value if the string is empty or fails with
+    /// an error if no default value was specified.
     #[func]
-    pub fn first(&self) -> StrResult<Str> {
+    pub fn first(
+        &self,
+        /// A default value to return if the string is empty.
+        #[named]
+        default: Option<Str>,
+    ) -> StrResult<Str> {
         self.0
             .graphemes(true)
             .next()
             .map(Into::into)
+            .or(default)
             .ok_or_else(string_is_empty)
     }
 
     /// Extracts the last grapheme cluster of the string.
-    /// Fails with an error if the string is empty.
+    ///
+    /// Returns the provided default value if the string is empty or fails with
+    /// an error if no default value was specified.
     #[func]
-    pub fn last(&self) -> StrResult<Str> {
+    pub fn last(
+        &self,
+        /// A default value to return if the string is empty.
+        #[named]
+        default: Option<Str>,
+    ) -> StrResult<Str> {
         self.0
             .graphemes(true)
             .next_back()
             .map(Into::into)
+            .or(default)
             .ok_or_else(string_is_empty)
     }
 
@@ -236,9 +254,9 @@ impl Str {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Str> {
-        let end = end.or(count.map(|c| start + c)).unwrap_or(self.len() as i64);
         let start = self.locate(start)?;
-        let end = self.locate(end)?.max(start);
+        let end = end.or(count.map(|c| start as i64 + c));
+        let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
         Ok(self.0[start..end].into())
     }
 
@@ -284,6 +302,30 @@ impl Str {
             .try_into()
             .map_err(|_| eco_format!("{value:#x} is not a valid codepoint"))?;
         Ok(c.into())
+    }
+
+    /// Normalizes the string to the given Unicode normal form.
+    ///
+    /// This is useful when manipulating strings containing Unicode combining
+    /// characters.
+    ///
+    /// ```typ
+    /// #assert.eq("é".normalize(form: "nfd"), "e\u{0301}")
+    /// #assert.eq("ſ́".normalize(form: "nfkc"), "ś")
+    /// ```
+    #[func]
+    pub fn normalize(
+        &self,
+        #[named]
+        #[default(UnicodeNormalForm::Nfc)]
+        form: UnicodeNormalForm,
+    ) -> Str {
+        match form {
+            UnicodeNormalForm::Nfc => self.nfc().collect(),
+            UnicodeNormalForm::Nfd => self.nfd().collect(),
+            UnicodeNormalForm::Nfkc => self.nfkc().collect(),
+            UnicodeNormalForm::Nfkd => self.nfkd().collect(),
+        }
     }
 
     /// Whether the string contains the specified pattern.
@@ -381,6 +423,17 @@ impl Str {
     ///   group. The first item of the array contains the first matched
     ///   capturing, not the whole match! This is empty unless the `pattern` was
     ///   a regex with capturing groups.
+    ///
+    /// ```example:"Shape of the returned dictionary"
+    /// #let pat = regex("not (a|an) (apple|cat)")
+    /// #"I'm a doctor, not an apple.".match(pat) \
+    /// #"I am not a cat!".match(pat)
+    /// ```
+    ///
+    /// ```example:"Different kinds of patterns"
+    /// #assert.eq("Is there a".match("for this?"), none)
+    /// #"The time of my life.".match(regex("[mit]+e"))
+    /// ```
     #[func]
     pub fn match_(
         &self,
@@ -397,7 +450,11 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns an array of
     /// dictionaries with details about all matches. For details about the
-    /// returned dictionaries, see above.
+    /// returned dictionaries, see [above]($str.match).
+    ///
+    /// ```example
+    /// #"Day by Day.".matches("Day")
+    /// ```
     #[func]
     pub fn matches(
         &self,
@@ -432,6 +489,9 @@ impl Str {
         /// The string to replace the matches with or a function that gets a
         /// dictionary for each match and can return individual replacement
         /// strings.
+        ///
+        /// The dictionary passed to the function has the same shape as the
+        /// dictionary returned by [`match`]($str.match).
         replacement: Replacement,
         ///  If given, only the first `count` matches of the pattern are placed.
         #[named]
@@ -788,6 +848,25 @@ cast! {
     v: Str => Self::Str(v),
 }
 
+/// A Unicode normalization form.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum UnicodeNormalForm {
+    /// Canonical composition where e.g. accented letters are turned into a
+    /// single Unicode codepoint.
+    #[string("nfc")]
+    Nfc,
+    /// Canonical decomposition where e.g. accented letters are split into a
+    /// separate base and diacritic.
+    #[string("nfd")]
+    Nfd,
+    /// Like NFC, but using the Unicode compatibility decompositions.
+    #[string("nfkc")]
+    Nfkc,
+    /// Like NFD, but using the Unicode compatibility decompositions.
+    #[string("nfkd")]
+    Nfkd,
+}
+
 /// Convert an item of std's `match_indices` to a dictionary.
 fn match_to_dict((start, text): (usize, &str)) -> Dict {
     dict! {
@@ -821,7 +900,11 @@ fn out_of_bounds(index: i64, len: usize) -> EcoString {
 /// The out of bounds access error message when no default value was given.
 #[cold]
 fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
-    eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
+    eco_format!(
+        "no default value was specified and string index out of bounds (index: {}, len: {})",
+        index,
+        len
+    )
 }
 
 /// The char boundary access error message.

@@ -1,12 +1,12 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::Spanned;
-use typst_utils::Numeric;
+use typst_utils::{Numeric, default_math_class};
 use unicode_math_class::MathClass;
 
-use crate::diag::{bail, At, HintedStrResult, StrResult};
+use crate::diag::{At, HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Resolve, Smart,
-    StyleChain, Symbol, Value,
+    Array, Content, Dict, Fold, NoneValue, Resolve, Smart, StyleChain, Symbol, Value,
+    array, cast, dict, elem,
 };
 use crate::layout::{Abs, Em, HAlignment, Length, Rel};
 use crate::math::Mathy;
@@ -19,6 +19,10 @@ const DEFAULT_COL_GAP: Em = Em::new(0.5);
 ///
 /// Content in the vector's elements can be aligned with the
 /// [`align`]($math.vec.align) parameter, or the `&` symbol.
+///
+/// This function is for typesetting vector components. To typeset a symbol that
+/// represents a vector, [`arrow`]($math.accent) and [`bold`]($math.bold) are
+/// commonly used.
 ///
 /// # Example
 /// ```example
@@ -46,7 +50,6 @@ pub struct VecElem {
     /// #set math.vec(align: right)
     /// $ vec(-1, 1, -1) $
     /// ```
-    #[resolve]
     #[default(HAlignment::Center)]
     pub align: HAlignment,
 
@@ -56,7 +59,6 @@ pub struct VecElem {
     /// #set math.vec(gap: 1em)
     /// $ vec(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -107,7 +109,6 @@ pub struct MatElem {
     /// #set math.mat(align: right)
     /// $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
     /// ```
-    #[resolve]
     #[default(HAlignment::Center)]
     pub align: HAlignment,
 
@@ -130,18 +131,17 @@ pub struct MatElem {
     ///     integer for a single line, or an array of integers
     ///     for multiple lines. Like for a single number, negative numbers start from the end.
     ///   - `stroke`: How to [stroke]($stroke) the line. If set to `{auto}`,
-    ///     takes on a thickness of 0.05em and square line caps.
+    ///     takes on a thickness of 0.05 em and square line caps.
     ///
-    /// ```example
+    /// ```example:"Basic usage"
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
     /// // Equivalent to:
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #(-1)) $
     /// ```
     ///
-    /// ```example
+    /// ```example:"Customizing the augmentation line"
     /// $ mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
     /// ```
-    #[resolve]
     #[fold]
     pub augment: Option<Augment>,
 
@@ -162,7 +162,6 @@ pub struct MatElem {
     /// #set math.mat(row-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(
         let gap = args.named("gap")?;
         args.named("row-gap")?.or(gap)
@@ -176,7 +175,6 @@ pub struct MatElem {
     /// #set math.mat(column-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(args.named("column-gap")?.or(gap))]
     #[default(DEFAULT_COL_GAP.into())]
     pub column_gap: Rel<Length>,
@@ -259,7 +257,6 @@ pub struct CasesElem {
     /// #set math.cases(gap: 1em)
     /// $ x = cases(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -281,7 +278,7 @@ cast! {
     Delimiter,
     self => self.0.into_value(),
     _: NoneValue => Self::none(),
-    v: Symbol => Self::char(v.get())?,
+    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "expected a single-codepoint symbol")?)?,
     v: char => Self::char(v)?,
 }
 
@@ -292,7 +289,7 @@ impl Delimiter {
 
     pub fn char(c: char) -> StrResult<Self> {
         if !matches!(
-            unicode_math_class::class(c),
+            default_math_class(c),
             Some(MathClass::Opening | MathClass::Closing | MathClass::Fence),
         ) {
             bail!("invalid delimiter: \"{}\"", c)
@@ -311,7 +308,7 @@ impl Delimiter {
             Some(']') => Self(Some('[')),
             Some('{') => Self(Some('}')),
             Some('}') => Self(Some('{')),
-            Some(c) => match unicode_math_class::class(c) {
+            Some(c) => match default_math_class(c) {
                 Some(MathClass::Opening) => Self(char::from_u32(c as u32 + 1)),
                 Some(MathClass::Closing) => Self(char::from_u32(c as u32 - 1)),
                 _ => Self(Some(c)),

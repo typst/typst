@@ -13,11 +13,13 @@ mod stretch;
 mod text;
 mod underover;
 
-use rustybuzz::Feature;
-use ttf_parser::Tag;
-use typst_library::diag::{bail, SourceResult};
+use comemo::Tracked;
+use typst_library::World;
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, Packed, Resolve, StyleChain};
+use typst_library::foundations::{
+    Content, NativeElement, Packed, Resolve, Style, StyleChain, SymbolElem,
+};
 use typst_library::introspection::{Counter, Locator, SplitLocator, TagElem};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, BoxElem, Em, FixedAlignment, Fragment, Frame, HElem,
@@ -28,19 +30,19 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    families, features, variant, Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem,
+    Font, FontFlags, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, variant,
 };
-use typst_library::World;
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::{LazyHash, Numeric};
+
 use unicode_math_class::MathClass;
 
 use self::fragment::{
-    FrameFragment, GlyphFragment, GlyphwiseSubsts, Limits, MathFragment, VariantFragment,
+    FrameFragment, GlyphFragment, Limits, MathFragment, has_dtls_feat, stretch_axes,
 };
 use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
 use self::shared::*;
-use self::stretch::{stretch_fragment, stretch_glyph};
+use self::stretch::stretch_fragment;
 
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
@@ -51,14 +53,16 @@ pub fn layout_equation_inline(
     styles: StyleChain,
     region: Size,
 ) -> SourceResult<Vec<InlineItem>> {
-    assert!(!elem.block(styles));
+    assert!(!elem.block.get(styles));
 
-    let font = find_math_font(engine, styles, elem.span())?;
+    let span = elem.span();
+    let font = get_font(engine.world, styles, span)?;
+    warn_non_math_font(&font, engine, span);
 
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, styles, region, &font);
+    let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
 
-    let scale_style = style_for_script_scale(&ctx);
+    let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
     let run = ctx.layout_into_run(&elem.body, styles)?;
@@ -78,12 +82,12 @@ pub fn layout_equation_inline(
     for item in &mut items {
         let InlineItem::Frame(frame) = item else { continue };
 
-        let slack = ParElem::leading_in(styles) * 0.7;
+        let slack = styles.resolve(ParElem::leading) * 0.7;
 
         let (t, b) = font.edges(
-            TextElem::top_edge_in(styles),
-            TextElem::bottom_edge_in(styles),
-            TextElem::size_in(styles),
+            styles.get(TextElem::top_edge),
+            styles.get(TextElem::bottom_edge),
+            styles.resolve(TextElem::size),
             TextEdgeBounds::Frame(frame),
         );
 
@@ -105,15 +109,16 @@ pub fn layout_equation_block(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    assert!(elem.block(styles));
+    assert!(elem.block.get(styles));
 
     let span = elem.span();
-    let font = find_math_font(engine, styles, span)?;
+    let font = get_font(engine.world, styles, span)?;
+    warn_non_math_font(&font, engine, span);
 
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, styles, regions.base(), &font);
+    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
 
-    let scale_style = style_for_script_scale(&ctx);
+    let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
     let full_equation_builder = ctx
@@ -121,7 +126,7 @@ pub fn layout_equation_block(
         .multiline_frame_builder(styles);
     let width = full_equation_builder.size.x;
 
-    let equation_builders = if BlockElem::breakable_in(styles) {
+    let equation_builders = if styles.get(BlockElem::breakable) {
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
@@ -188,7 +193,7 @@ pub fn layout_equation_block(
         vec![full_equation_builder]
     };
 
-    let Some(numbering) = (**elem).numbering(styles) else {
+    let Some(numbering) = elem.numbering.get_ref(styles) else {
         let frames = equation_builders
             .into_iter()
             .map(MathRunFrameBuilder::build)
@@ -197,16 +202,15 @@ pub fn layout_equation_block(
     };
 
     let pod = Region::new(regions.base(), Axes::splat(false));
-    let counter = Counter::of(EquationElem::elem())
+    let counter = Counter::of(EquationElem::ELEM)
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
         .spanned(span);
-    let number =
-        (engine.routines.layout_frame)(engine, &counter, locator.next(&()), styles, pod)?;
+    let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
-    let number_align = match elem.number_align(styles) {
+    let number_align = match elem.number_align.get(styles) {
         SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
         SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
         SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
@@ -225,7 +229,7 @@ pub fn layout_equation_block(
                 builder,
                 number.clone(),
                 number_align.resolve(styles),
-                AlignElem::alignment_in(styles).resolve(styles).x,
+                styles.get(AlignElem::alignment).resolve(styles).x,
                 regions.size.x,
                 full_number_width,
             )
@@ -233,24 +237,6 @@ pub fn layout_equation_block(
         .collect();
 
     Ok(Fragment::frames(frames))
-}
-
-fn find_math_font(
-    engine: &mut Engine<'_>,
-    styles: StyleChain,
-    span: Span,
-) -> SourceResult<Font> {
-    let variant = variant(styles);
-    let world = engine.world;
-    let Some(font) = families(styles).find_map(|family| {
-        let id = world.book().select(family.as_str(), variant)?;
-        let font = world.font(id)?;
-        let _ = font.ttf().tables().math?.constants?;
-        Some(font)
-    }) else {
-        bail!(span, "current font does not support math");
-    };
-    Ok(font)
 }
 
 fn add_equation_number(
@@ -371,17 +357,8 @@ struct MathContext<'a, 'v, 'e> {
     engine: &'v mut Engine<'e>,
     locator: &'v mut SplitLocator<'a>,
     region: Region,
-    // Font-related.
-    font: &'a Font,
-    ttf: &'a ttf_parser::Face<'a>,
-    table: ttf_parser::math::Table<'a>,
-    constants: ttf_parser::math::Constants<'a>,
-    dtls_table: Option<GlyphwiseSubsts<'a>>,
-    flac_table: Option<GlyphwiseSubsts<'a>>,
-    ssty_table: Option<GlyphwiseSubsts<'a>>,
-    glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
-    space_width: Em,
     // Mutable.
+    fonts_stack: Vec<Font>,
     fragments: Vec<MathFragment>,
 }
 
@@ -390,48 +367,23 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
     fn new(
         engine: &'v mut Engine<'e>,
         locator: &'v mut SplitLocator<'a>,
-        styles: StyleChain<'a>,
         base: Size,
-        font: &'a Font,
+        font: Font,
     ) -> Self {
-        let math_table = font.ttf().tables().math.unwrap();
-        let gsub_table = font.ttf().tables().gsub;
-        let constants = math_table.constants.unwrap();
-
-        let feat = |tag: &[u8; 4]| {
-            GlyphwiseSubsts::new(gsub_table, Feature::new(Tag::from_bytes(tag), 0, ..))
-        };
-
-        let features = features(styles);
-        let glyphwise_tables = Some(
-            features
-                .into_iter()
-                .filter_map(|feature| GlyphwiseSubsts::new(gsub_table, feature))
-                .collect(),
-        );
-
-        let ttf = font.ttf();
-        let space_width = ttf
-            .glyph_index(' ')
-            .and_then(|id| ttf.glyph_hor_advance(id))
-            .map(|advance| font.to_em(advance))
-            .unwrap_or(THICK);
-
         Self {
             engine,
             locator,
             region: Region::new(base, Axes::splat(false)),
-            font,
-            ttf,
-            table: math_table,
-            constants,
-            dtls_table: feat(b"dtls"),
-            flac_table: feat(b"flac"),
-            ssty_table: feat(b"ssty"),
-            glyphwise_tables,
-            space_width,
+            fonts_stack: vec![font],
             fragments: vec![],
         }
+    }
+
+    /// Get the current base font.
+    #[inline]
+    fn font(&self) -> &Font {
+        // Will always be at least one font in the stack.
+        self.fonts_stack.last().unwrap()
     }
 
     /// Push a fragment.
@@ -503,16 +455,20 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             styles,
         )?;
 
-        let outer = styles;
+        let outer_styles = styles;
+        let outer_font = styles.get_ref(TextElem::font);
         for (elem, styles) in pairs {
-            // Hack because the font is fixed in math.
-            if styles != outer && TextElem::font_in(styles) != TextElem::font_in(outer) {
-                let frame = layout_external(elem, self, styles)?;
-                self.push(FrameFragment::new(styles, frame).with_spaced(true));
-                continue;
+            // Whilst this check isn't exact, it more or less suffices as a
+            // change in font variant probably won't have an effect on metrics.
+            if styles != outer_styles && styles.get_ref(TextElem::font) != outer_font {
+                self.fonts_stack
+                    .push(get_font(self.engine.world, styles, elem.span())?);
+                let scale_style = style_for_script_scale(self.font());
+                layout_realized(elem, self, styles.chain(&scale_style))?;
+                self.fonts_stack.pop();
+            } else {
+                layout_realized(elem, self, styles)?;
             }
-
-            layout_realized(elem, self, styles)?;
         }
 
         Ok(())
@@ -528,13 +484,15 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        ctx.push(MathFragment::Space(ctx.space_width.resolve(styles)));
+        ctx.push(MathFragment::Space(ctx.font().math().space_width.resolve(styles)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
     } else if let Some(elem) = elem.to_packed::<HElem>() {
         layout_h(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<TextElem>() {
         self::text::layout_text(elem, ctx, styles)?;
+    } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
+        self::text::layout_symbol(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
         layout_box(elem, ctx, styles)?;
     } else if elem.is::<AlignPointElem>() {
@@ -596,7 +554,7 @@ fn layout_realized(
     } else {
         let mut frame = layout_external(elem, ctx, styles)?;
         if !frame.has_baseline() {
-            let axis = scaled!(ctx, styles, axis_height);
+            let axis = ctx.font().math().axis_height.resolve(styles);
             frame.set_baseline(frame.height() / 2.0 + axis);
         }
         ctx.push(
@@ -615,7 +573,7 @@ fn layout_box(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let frame = (ctx.engine.routines.layout_box)(
+    let frame = crate::inline::layout_box(
         elem,
         ctx.engine,
         ctx.locator.next(&elem.span()),
@@ -632,22 +590,22 @@ fn layout_h(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    if let Spacing::Rel(rel) = elem.amount {
-        if rel.rel.is_zero() {
-            ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
-        }
+    if let Spacing::Rel(rel) = elem.amount
+        && rel.rel.is_zero()
+    {
+        ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak.get(styles)));
     }
     Ok(())
 }
 
 /// Lays out a [`ClassElem`].
-#[typst_macros::time(name = "math.op", span = elem.span())]
+#[typst_macros::time(name = "math.class", span = elem.span())]
 fn layout_class(
     elem: &Packed<ClassElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let style = EquationElem::set_class(Some(elem.class)).wrap();
+    let style = EquationElem::class.set(Some(elem.class)).wrap();
     let mut fragment = ctx.layout_into_fragment(&elem.body, styles.chain(&style))?;
     fragment.set_class(elem.class);
     fragment.set_limits(Limits::for_class(elem.class));
@@ -673,7 +631,7 @@ fn layout_op(
             .with_italics_correction(italics)
             .with_accent_attach(accent_attach)
             .with_text_like(text_like)
-            .with_limits(if elem.limits(styles) {
+            .with_limits(if elem.limits.get(styles) {
                 Limits::Display
             } else {
                 Limits::Never
@@ -688,11 +646,51 @@ fn layout_external(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<Frame> {
-    (ctx.engine.routines.layout_frame)(
+    crate::layout_frame(
         ctx.engine,
         content,
         ctx.locator.next(&content.span()),
         styles,
         ctx.region,
     )
+}
+
+/// Styles to add font constants to the style chain.
+fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+    EquationElem::script_scale
+        .set((
+            font.math().script_percent_scale_down,
+            font.math().script_script_percent_scale_down,
+        ))
+        .wrap()
+}
+
+/// Get the current base font.
+fn get_font(
+    world: Tracked<dyn World + '_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    families(styles)
+        .find_map(|family| {
+            world
+                .book()
+                .select(family.as_str(), variant)
+                .and_then(|id| world.font(id))
+                .filter(|_| family.covers().is_none())
+        })
+        .ok_or("no font could be found")
+        .at(span)
+}
+
+/// Check if the top-level base font has a MATH table.
+fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
+    if !font.info().flags.contains(FontFlags::MATH) {
+        engine.sink.warn(warning!(
+            span,
+            "current font is not designed for math";
+            hint: "rendering may be poor"
+        ))
+    }
 }

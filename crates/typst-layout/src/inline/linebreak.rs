@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::LineBreak;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -11,13 +11,13 @@ use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{is_default_ignorable, Lang, TextElem};
+use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 
-/// The cost of a line or paragraph layout.
+/// The cost of a line or inline layout.
 type Cost = f64;
 
 // Cost parameters.
@@ -57,6 +57,9 @@ static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| 
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
 
+// Zero width space.
+const ZWS: char = '\u{200B}';
+
 /// A line break opportunity.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Breakpoint {
@@ -71,18 +74,28 @@ pub enum Breakpoint {
 
 impl Breakpoint {
     /// Trim a line before this breakpoint.
-    pub fn trim(self, line: &str) -> &str {
-        // Trim default ignorables.
-        let line = line.trim_end_matches(is_default_ignorable);
-
+    pub fn trim(self, start: usize, line: &str) -> Trim {
         match self {
-            // Trim whitespace.
-            Self::Normal => line.trim_end_matches(char::is_whitespace),
+            // Trailing whitespace should be shaped, but the glyphs should have
+            // their advance width zeroed. This way, they are available for copy
+            // paste, but don't influence layout. The zero width space already
+            // has zero advance width, so would not need to be trimmed for that
+            // reason, but it can interfere with end-of-line adjustments in CJK
+            // layout, so it is included here. Unfortunately, there isn't
+            // currently a test for this.
+            Self::Normal => {
+                let trimmed =
+                    line.trim_end_matches(|c: char| c.is_whitespace() || c == ZWS);
+                Trim {
+                    layout: start + trimmed.len(),
+                    shaping: start + line.len(),
+                }
+            }
 
             // Trim linebreaks.
             Self::Mandatory => {
                 let lb = LINEBREAK_DATA.as_borrowed();
-                line.trim_end_matches(|c| {
+                let trimmed = line.trim_end_matches(|c| {
                     matches!(
                         lb.get(c),
                         LineBreak::MandatoryBreak
@@ -90,11 +103,12 @@ impl Breakpoint {
                             | LineBreak::LineFeed
                             | LineBreak::NextLine
                     )
-                })
+                });
+                Trim::uniform(start + trimmed.len())
             }
 
-            // Trim nothing further.
-            Self::Hyphen(..) => line,
+            // Trim nothing.
+            Self::Hyphen(..) => Trim::uniform(start + line.len()),
         }
     }
 
@@ -104,21 +118,33 @@ impl Breakpoint {
     }
 }
 
-/// Breaks the paragraph into lines.
+/// How to trim the end of a line.
+///
+/// It's an invariant that `self.layout <= self.shaping`.
+pub struct Trim {
+    /// The text in the range `layout..shaping` should be shaped but should not
+    /// affect layout. This ensures that we trim spaces for layout purposes, but
+    /// still render zero-advance space glyphs for copy paste.
+    pub layout: usize,
+    /// The text should only be shaped up until the given text offset. Newlines
+    /// are already trimmed here.
+    pub shaping: usize,
+}
+
+impl Trim {
+    /// Create an instance with equal layout and shaping trim.
+    fn uniform(trim: usize) -> Self {
+        Self { layout: trim, shaping: trim }
+    }
+}
+
+/// Breaks the text into lines.
 pub fn linebreak<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
-    let linebreaks = p.linebreaks.unwrap_or_else(|| {
-        if p.justify {
-            Linebreaks::Optimized
-        } else {
-            Linebreaks::Simple
-        }
-    });
-
-    match linebreaks {
+    match p.config.linebreaks {
         Linebreaks::Simple => linebreak_simple(engine, p, width),
         Linebreaks::Optimized => linebreak_optimized(engine, p, width),
     }
@@ -144,12 +170,12 @@ fn linebreak_simple<'a>(
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
-        if !width.fits(attempt.width) {
-            if let Some((last_attempt, last_end)) = last.take() {
-                lines.push(last_attempt);
-                start = last_end;
-                attempt = line(engine, p, start..end, breakpoint, lines.last());
-            }
+        if !width.fits(attempt.width)
+            && let Some((last_attempt, last_end)) = last.take()
+        {
+            lines.push(last_attempt);
+            start = last_end;
+            attempt = line(engine, p, start..end, breakpoint, lines.last());
         }
 
         // Finish the current line if there is a mandatory line break (i.e. due
@@ -181,13 +207,12 @@ fn linebreak_simple<'a>(
 /// lines with hyphens even more.
 ///
 /// To find the layout with the minimal total cost the algorithm uses dynamic
-/// programming: For each possible breakpoint it determines the optimal
-/// paragraph layout _up to that point_. It walks over all possible start points
-/// for a line ending at that point and finds the one for which the cost of the
-/// line plus the cost of the optimal paragraph up to the start point (already
-/// computed and stored in dynamic programming table) is minimal. The final
-/// result is simply the layout determined for the last breakpoint at the end of
-/// text.
+/// programming: For each possible breakpoint, it determines the optimal layout
+/// _up to that point_. It walks over all possible start points for a line
+/// ending at that point and finds the one for which the cost of the line plus
+/// the cost of the optimal layout up to the start point (already computed and
+/// stored in dynamic programming table) is minimal. The final result is simply
+/// the layout determined for the last breakpoint at the end of text.
 #[typst_macros::time]
 fn linebreak_optimized<'a>(
     engine: &Engine,
@@ -215,7 +240,7 @@ fn linebreak_optimized_bounded<'a>(
     metrics: &CostMetrics,
     upper_bound: Cost,
 ) -> Vec<Line<'a>> {
-    /// An entry in the dynamic programming table for paragraph optimization.
+    /// An entry in the dynamic programming table for inline layout optimization.
     struct Entry<'a> {
         pred: usize,
         total: Cost,
@@ -299,7 +324,7 @@ fn linebreak_optimized_bounded<'a>(
             }
 
             // If this attempt is better than what we had before, take it!
-            if best.as_ref().map_or(true, |best| best.total >= total) {
+            if best.as_ref().is_none_or(|best| best.total >= total) {
                 best = Some(Entry { pred: pred_index, total, line: attempt, end });
             }
         }
@@ -321,7 +346,7 @@ fn linebreak_optimized_bounded<'a>(
     // This should only happen if our bound was faulty. Which shouldn't happen!
     if table[idx].end != p.text.len() {
         #[cfg(debug_assertions)]
-        panic!("bounded paragraph layout is incomplete");
+        panic!("bounded inline layout is incomplete");
 
         #[cfg(not(debug_assertions))]
         return linebreak_optimized_bounded(engine, p, width, metrics, Cost::INFINITY);
@@ -342,7 +367,7 @@ fn linebreak_optimized_bounded<'a>(
 /// (which is costly) to determine costs, it determines approximate costs using
 /// cumulative arrays.
 ///
-/// This results in a likely good paragraph layouts, for which we then compute
+/// This results in a likely good inline layouts, for which we then compute
 /// the exact cost. This cost is an upper bound for proper optimized
 /// linebreaking. We can use it to heavily prune the search space.
 #[typst_macros::time]
@@ -355,7 +380,7 @@ fn linebreak_optimized_approximate(
     // Determine the cumulative estimation metrics.
     let estimates = Estimates::compute(p);
 
-    /// An entry in the dynamic programming table for paragraph optimization.
+    /// An entry in the dynamic programming table for inline layout optimization.
     struct Entry {
         pred: usize,
         total: Cost,
@@ -385,7 +410,7 @@ fn linebreak_optimized_approximate(
 
             // Whether the line is justified. This is not 100% accurate w.r.t
             // to line()'s behaviour, but good enough.
-            let justify = p.justify && breakpoint != Breakpoint::Mandatory;
+            let justify = p.config.justify && breakpoint != Breakpoint::Mandatory;
 
             // We don't really know whether the line naturally ends with a dash
             // here, so we can miss that case, but it's ok, since all of this
@@ -432,7 +457,7 @@ fn linebreak_optimized_approximate(
             let total = pred.total + line_cost;
 
             // If this attempt is better than what we had before, take it!
-            if best.as_ref().map_or(true, |best| best.total >= total) {
+            if best.as_ref().is_none_or(|best| best.total >= total) {
                 best = Some(Entry {
                     pred: pred_index,
                     total,
@@ -574,7 +599,7 @@ fn raw_ratio(
         // calculate the extra amount. Also, don't divide by zero.
         let extra_stretch = (delta - adjustability) / justifiables.max(1) as f64;
         // Normalize the amount by half the em size.
-        ratio = 1.0 + extra_stretch / (p.size / 2.0);
+        ratio = 1.0 + extra_stretch / (p.config.font_size / 2.0);
     }
 
     // The min value must be < MIN_RATIO, but how much smaller doesn't matter
@@ -664,9 +689,9 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         return;
     }
 
-    let hyphenate = p.hyphenate != Some(false);
+    let hyphenate = p.config.hyphenate != Some(false);
     let lb = LINEBREAK_DATA.as_borrowed();
-    let segmenter = match p.lang {
+    let segmenter = match p.config.lang {
         Some(Lang::CHINESE | Lang::JAPANESE) => &CJ_SEGMENTER,
         _ => &SEGMENTER,
     };
@@ -699,13 +724,34 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         let breakpoint = if point == text.len() {
             Breakpoint::Mandatory
         } else {
+            const OBJ_REPLACE: char = '\u{FFFC}';
             match lb.get(c) {
-                // Fix for: https://github.com/unicode-org/icu4x/issues/4146
-                LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
                 | LineBreak::LineFeed
                 | LineBreak::NextLine => Breakpoint::Mandatory,
+
+                // https://github.com/typst/typst/issues/5489
+                //
+                // OBJECT-REPLACEMENT-CHARACTERs provide Contingent Break
+                // opportunities before and after by default. This behaviour
+                // is however tailorable, see:
+                // https://www.unicode.org/reports/tr14/#CB
+                // https://www.unicode.org/reports/tr14/#TailorableBreakingRules
+                // https://www.unicode.org/reports/tr14/#LB20
+                //
+                // Don't provide a line breaking opportunity between a LTR-
+                // ISOLATE (or any other Combining Mark) and an OBJECT-
+                // REPLACEMENT-CHARACTER representing an inline item, if the
+                // LTR-ISOLATE could end up as the only character on the
+                // previous line.
+                LineBreak::CombiningMark
+                    if text[point..].starts_with(OBJ_REPLACE)
+                        && last + c.len_utf8() == point =>
+                {
+                    continue;
+                }
+
                 _ => Breakpoint::Normal,
             }
         };
@@ -831,21 +877,23 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 
 /// Whether hyphenation is enabled at the given offset.
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
-    p.hyphenate
-        .or_else(|| {
-            let (_, item) = p.get(offset);
-            let styles = item.text()?.styles;
-            Some(TextElem::hyphenate_in(styles))
-        })
-        .unwrap_or(false)
+    p.config.hyphenate.unwrap_or_else(|| {
+        let (_, item) = p.get(offset);
+        match item.text() {
+            Some(text) => {
+                text.styles.get(TextElem::hyphenate).unwrap_or(p.config.justify)
+            }
+            None => false,
+        }
+    })
 }
 
 /// The text language at the given offset.
 fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
-    let lang = p.lang.or_else(|| {
+    let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);
         let styles = item.text()?.styles;
-        Some(TextElem::lang_in(styles))
+        Some(styles.get(TextElem::lang))
     })?;
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;
@@ -862,17 +910,17 @@ struct CostMetrics {
 }
 
 impl CostMetrics {
-    /// Compute shared metrics for paragraph optimization.
+    /// Compute shared metrics for inline layout optimization.
     fn compute(p: &Preparation) -> Self {
         Self {
             // When justifying, we may stretch spaces below their natural width.
-            min_ratio: if p.justify { MIN_RATIO } else { 0.0 },
-            min_approx_ratio: if p.justify { MIN_APPROX_RATIO } else { 0.0 },
+            min_ratio: if p.config.justify { MIN_RATIO } else { 0.0 },
+            min_approx_ratio: if p.config.justify { MIN_APPROX_RATIO } else { 0.0 },
             // Approximate hyphen width for estimates.
-            approx_hyphen_width: Em::new(0.33).at(p.size),
+            approx_hyphen_width: Em::new(0.33).at(p.config.font_size),
             // Costs.
-            hyph_cost: DEFAULT_HYPH_COST * p.costs.hyphenation().get(),
-            runt_cost: DEFAULT_RUNT_COST * p.costs.runt().get(),
+            hyph_cost: DEFAULT_HYPH_COST * p.config.costs.hyphenation().get(),
+            runt_cost: DEFAULT_RUNT_COST * p.config.costs.runt().get(),
         }
     }
 
@@ -880,11 +928,7 @@ impl CostMetrics {
     /// we allow less because otherwise we get an invalid layout fairly often,
     /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
-        if approx {
-            self.min_approx_ratio
-        } else {
-            self.min_ratio
-        }
+        if approx { self.min_approx_ratio } else { self.min_ratio }
     }
 }
 
@@ -915,9 +959,9 @@ impl Estimates {
                     let byte_len = g.range.len();
                     let stretch = g.stretchability().0 + g.stretchability().1;
                     let shrink = g.shrinkability().0 + g.shrinkability().1;
-                    widths.push(byte_len, g.x_advance.at(shaped.size));
-                    stretchability.push(byte_len, stretch.at(shaped.size));
-                    shrinkability.push(byte_len, shrink.at(shaped.size));
+                    widths.push(byte_len, g.x_advance.at(g.size));
+                    stretchability.push(byte_len, stretch.at(g.size));
+                    shrinkability.push(byte_len, shrink.at(g.size));
                     justifiables.push(byte_len, g.is_justifiable() as usize);
                 }
             } else {

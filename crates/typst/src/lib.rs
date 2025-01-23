@@ -27,7 +27,6 @@
 //! [module]: crate::foundations::Module
 //! [content]: crate::foundations::Content
 //! [laid out]: typst_layout::layout_document
-//! [document]: crate::model::Document
 //! [frame]: crate::layout::Frame
 
 pub extern crate comemo;
@@ -39,21 +38,22 @@ pub use typst_syntax as syntax;
 #[doc(inline)]
 pub use typst_utils as utils;
 
-use std::collections::HashSet;
+use std::sync::LazyLock;
 
-use comemo::{Track, Tracked, Validate};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use comemo::{Track, Tracked};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use rustc_hash::FxHashSet;
+use typst_html::HtmlDocument;
 use typst_library::diag::{
-    bail, warning, FileError, SourceDiagnostic, SourceResult, Warned,
+    FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{StyleChain, Styles, Value};
-use typst_library::html::HtmlDocument;
+use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
 use typst_library::introspection::Introspector;
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
-use typst_timing::{timed, TimingScope};
+use typst_timing::{TimingScope, timed};
 
 use crate::foundations::{Target, TargetElem};
 use crate::model::DocumentInfo;
@@ -99,7 +99,7 @@ fn compile_impl<D: Document>(
 
     let library = world.library();
     let base = StyleChain::new(&library.styles);
-    let target = TargetElem::set_target(D::TARGET).wrap();
+    let target = TargetElem::target.set(D::TARGET).wrap();
     let styles = base.chain(&target);
     let empty_introspector = Introspector::default();
 
@@ -135,7 +135,7 @@ fn compile_impl<D: Document>(
 
         subsink = Sink::new();
 
-        let constraint = <Introspector as Validate>::Constraint::new();
+        let constraint = comemo::Constraint::new();
         let mut engine = Engine {
             world,
             introspector: introspector.track_with(&constraint),
@@ -150,7 +150,7 @@ fn compile_impl<D: Document>(
         introspector = document.introspector();
         iter += 1;
 
-        if timed!("check stabilized", introspector.validate(&constraint)) {
+        if timed!("check stabilized", constraint.validate(introspector)) {
             break;
         }
 
@@ -176,7 +176,7 @@ fn compile_impl<D: Document>(
 
 /// Deduplicate diagnostics.
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-    let mut unique = HashSet::new();
+    let mut unique = FxHashSet::default();
     diags.retain(|diag| {
         let hash = typst_utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)
@@ -323,39 +323,40 @@ mod sealed {
     }
 }
 
+/// Provides ways to construct a [`Library`].
+pub trait LibraryExt {
+    /// Creates the default library.
+    fn default() -> Library;
+
+    /// Creates a builder for configuring a library.
+    fn builder() -> LibraryBuilder;
+}
+
+impl LibraryExt for Library {
+    fn default() -> Library {
+        Self::builder().build()
+    }
+
+    fn builder() -> LibraryBuilder {
+        LibraryBuilder::from_routines(&ROUTINES)
+    }
+}
+
 /// Defines implementation of various Typst compiler routines as a table of
 /// function pointers.
 ///
 /// This is essentially dynamic linking and done to allow for crate splitting.
-pub static ROUTINES: Routines = Routines {
+pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
+    rules: {
+        let mut rules = NativeRuleMap::new();
+        typst_layout::register(&mut rules);
+        typst_html::register(&mut rules);
+        rules
+    },
     eval_string: typst_eval::eval_string,
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
-    layout_fragment: typst_layout::layout_fragment,
     layout_frame: typst_layout::layout_frame,
-    layout_inline: typst_layout::layout_inline,
-    layout_box: typst_layout::layout_box,
-    layout_list: typst_layout::layout_list,
-    layout_enum: typst_layout::layout_enum,
-    layout_grid: typst_layout::layout_grid,
-    layout_table: typst_layout::layout_table,
-    layout_stack: typst_layout::layout_stack,
-    layout_columns: typst_layout::layout_columns,
-    layout_move: typst_layout::layout_move,
-    layout_rotate: typst_layout::layout_rotate,
-    layout_scale: typst_layout::layout_scale,
-    layout_skew: typst_layout::layout_skew,
-    layout_repeat: typst_layout::layout_repeat,
-    layout_pad: typst_layout::layout_pad,
-    layout_line: typst_layout::layout_line,
-    layout_curve: typst_layout::layout_curve,
-    layout_path: typst_layout::layout_path,
-    layout_polygon: typst_layout::layout_polygon,
-    layout_rect: typst_layout::layout_rect,
-    layout_square: typst_layout::layout_square,
-    layout_ellipse: typst_layout::layout_ellipse,
-    layout_circle: typst_layout::layout_circle,
-    layout_image: typst_layout::layout_image,
-    layout_equation_block: typst_layout::layout_equation_block,
-    layout_equation_inline: typst_layout::layout_equation_inline,
-};
+    html_module: typst_html::module,
+    html_span_filled: typst_html::html_span_filled,
+});

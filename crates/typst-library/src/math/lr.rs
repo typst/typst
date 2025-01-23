@@ -1,7 +1,6 @@
-use crate::foundations::{elem, func, Content, NativeElement};
+use crate::foundations::{Content, NativeElement, SymbolElem, elem, func};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
-use crate::text::TextElem;
 
 /// Scales delimiters.
 ///
@@ -10,7 +9,6 @@ use crate::text::TextElem;
 #[elem(title = "Left/Right", Mathy)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
-    #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
 
@@ -19,7 +17,7 @@ pub struct LrElem {
     #[parse(
         let mut arguments = args.all::<Content>()?.into_iter();
         let mut body = arguments.next().unwrap_or_default();
-        arguments.for_each(|arg| body += TextElem::packed(',') + arg);
+        arguments.for_each(|arg| body += SymbolElem::packed(',') + arg);
         body
     )]
     pub body: Content,
@@ -125,13 +123,13 @@ fn delimited(
 ) -> Content {
     let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
-        TextElem::packed(left),
+        SymbolElem::packed(left),
         body,
-        TextElem::packed(right),
+        SymbolElem::packed(right),
     ]));
     // Push size only if size is provided
     if let Some(size) = size {
-        elem.push_size(size);
+        elem.size.set(size);
     }
     elem.pack().spanned(span)
 }

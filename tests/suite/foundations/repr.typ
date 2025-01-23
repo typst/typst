@@ -35,10 +35,11 @@
 #t(f, `f`)
 #t(rect , `rect`)
 #t(() => none, `(..) => ..`)
+#t(f.with(), `(..) => ..`)
 
 // Types.
-#t(int, `integer`)
-#t(type("hi"), `string`)
+#t(int, `int`)
+#t(type("hi"), `str`)
 #t(type((a: 1)), `dictionary`)
 
 // Constants.

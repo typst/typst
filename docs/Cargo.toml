@@ -17,18 +17,23 @@ cli = ["clap", "typst-render", "serde_json"]
 
 [dependencies]
 typst = { workspace = true }
+typst-render = { workspace = true, optional = true }
+typst-utils = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
 clap = { workspace = true, optional = true }
+codex = { workspace = true }
 ecow = { workspace = true }
 heck = { workspace = true }
 pulldown-cmark = { workspace = true }
+regex = { workspace = true }
+rustc-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 serde_yaml = { workspace = true }
 syntect = { workspace = true, features = ["html"] }
 typed-arena = { workspace = true }
-typst-render = { workspace = true, optional = true }
+unicode-math-class = { workspace = true }
 unscanny = { workspace = true }
 yaml-front-matter = { workspace = true }
 

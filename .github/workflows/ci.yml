@@ -5,6 +5,7 @@ env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
   TYPST_TESTS_EXTENDED: true
+  PKG_CONFIG_i686-unknown-linux-gnu: /usr/bin/i686-linux-gnu-pkgconf
 
 jobs:
   # This allows us to have one branch protection rule for the full test matrix.
@@ -27,30 +28,43 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        bits: [64]
+        include:
+          - os: ubuntu-latest
+            bits: 32
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.83.0
+      - if: startsWith(matrix.os, 'ubuntu-') && matrix.bits == 32
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update
+          sudo apt install -y gcc-multilib libssl-dev:i386 pkg-config:i386
+      - uses: dtolnay/rust-toolchain@1.89.0
+        with:
+          targets: ${{ matrix.bits == 32 && 'i686-unknown-linux-gnu' || '' }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace --no-run
-      - run: cargo test --workspace --no-fail-fast
+        with:
+          key: ${{ matrix.bits }}
+      - run: cargo test --workspace --no-run ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
+      - run: cargo test --workspace --no-fail-fast ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - name: Upload rendered test output
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: tests-rendered-${{ matrix.os }}
+          name: tests-rendered-${{ matrix.os }}-${{ matrix.bits }}
           path: tests/store/render/**
           retention-days: 3
       - name: Update test artifacts
         if: failure()
         run: |
-          cargo test --workspace --test tests -- --update
+          cargo test --workspace --test tests ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }} -- --update
           echo 'updated_artifacts=1' >> "$GITHUB_ENV"
       - name: Upload updated reference output (for use if the test changes are desired)
         if: failure() && env.updated_artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tests-updated-${{ matrix.os }}
+          name: tests-updated-${{ matrix.os }}-${{ matrix.bits }}
           path: tests/ref/**
           retention-days: 3
 
@@ -59,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.83.0
+      - uses: dtolnay/rust-toolchain@1.89.0
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
@@ -67,13 +81,14 @@ jobs:
       - run: cargo clippy --workspace --all-targets --no-default-features
       - run: cargo fmt --check --all
       - run: cargo doc --workspace --no-deps
+      - run: git diff --exit-code
 
   min-version:
     name: Check minimum Rust version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.80.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
 
@@ -84,7 +99,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2024-10-29
+          toolchain: nightly-2025-05-10
       - uses: Swatinem/rust-cache@v2
       - run: cargo install --locked cargo-fuzz@0.12.0
       - run: cd tests/fuzz && cargo fuzz build --dev
+
+  miri:
+    name: Check unsafe code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          components: miri
+          toolchain: nightly-2025-05-10
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo miri test -p typst-library test_miri

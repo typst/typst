@@ -1,0 +1,11 @@
+figure = Dealbh
+table = Clàr
+# equation =
+bibliography = Leabhraichean
+# heading =
+outline = Clàr-obrach
+# raw =
+page = t.d.
+# footnote =
+# email =
+# telephone =

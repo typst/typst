@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unscanny::Scanner;
@@ -66,7 +66,7 @@ pub struct PackageManifest {
 /// assert_eq!(my_tool, MyTool { key: "value".into() });
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolInfo {
     /// Any fields parsed in the tool section.
     #[serde(flatten)]
@@ -143,6 +143,16 @@ pub struct PackageInfo {
 }
 
 impl PackageManifest {
+    /// Create a new package manifest with the given package info.
+    pub fn new(package: PackageInfo) -> Self {
+        PackageManifest {
+            package,
+            template: None,
+            tool: ToolInfo::default(),
+            unknown_fields: UnknownFields::new(),
+        }
+    }
+
     /// Ensure that this manifest is indeed for the specified package.
     pub fn validate(&self, spec: &PackageSpec) -> Result<(), EcoString> {
         if self.package.name != spec.name {
@@ -163,13 +173,51 @@ impl PackageManifest {
             let current = PackageVersion::compiler();
             if !current.matches_ge(&required) {
                 return Err(eco_format!(
-                    "package requires typst {required} or newer \
+                    "package requires Typst {required} or newer \
                      (current version is {current})"
                 ));
             }
         }
 
         Ok(())
+    }
+}
+
+impl TemplateInfo {
+    /// Create a new template info with only required fields.
+    pub fn new(path: impl Into<EcoString>, entrypoint: impl Into<EcoString>) -> Self {
+        TemplateInfo {
+            path: path.into(),
+            entrypoint: entrypoint.into(),
+            thumbnail: None,
+            unknown_fields: UnknownFields::new(),
+        }
+    }
+}
+
+impl PackageInfo {
+    /// Create a new package info with only required fields.
+    pub fn new(
+        name: impl Into<EcoString>,
+        version: PackageVersion,
+        entrypoint: impl Into<EcoString>,
+    ) -> Self {
+        PackageInfo {
+            name: name.into(),
+            version,
+            entrypoint: entrypoint.into(),
+            authors: vec![],
+            categories: vec![],
+            compiler: None,
+            description: None,
+            disciplines: vec![],
+            exclude: vec![],
+            homepage: None,
+            keywords: vec![],
+            license: None,
+            repository: None,
+            unknown_fields: BTreeMap::new(),
+        }
     }
 }
 
@@ -327,8 +375,8 @@ impl PackageVersion {
     /// missing in the bound are ignored.
     pub fn matches_eq(&self, bound: &VersionBound) -> bool {
         self.major == bound.major
-            && bound.minor.map_or(true, |minor| self.minor == minor)
-            && bound.patch.map_or(true, |patch| self.patch == patch)
+            && bound.minor.is_none_or(|minor| self.minor == minor)
+            && bound.patch.is_none_or(|patch| self.patch == patch)
     }
 
     /// Performs a `>` match with the given version bound. The match only
@@ -535,22 +583,11 @@ mod tests {
             "#
             ),
             Ok(PackageManifest {
-                package: PackageInfo {
-                    name: "package".into(),
-                    version: PackageVersion { major: 0, minor: 1, patch: 0 },
-                    entrypoint: "src/lib.typ".into(),
-                    authors: vec![],
-                    license: None,
-                    description: None,
-                    homepage: None,
-                    repository: None,
-                    keywords: vec![],
-                    categories: vec![],
-                    disciplines: vec![],
-                    compiler: None,
-                    exclude: vec![],
-                    unknown_fields: BTreeMap::new(),
-                },
+                package: PackageInfo::new(
+                    "package",
+                    PackageVersion { major: 0, minor: 1, patch: 0 },
+                    "src/lib.typ"
+                ),
                 template: None,
                 tool: ToolInfo { sections: BTreeMap::new() },
                 unknown_fields: BTreeMap::new(),
@@ -562,8 +599,9 @@ mod tests {
     fn tool_section() {
         // NOTE: tool section must be table of tables, but we can't easily
         // compare the error structurally
-        assert!(toml::from_str::<PackageManifest>(
-            r#"
+        assert!(
+            toml::from_str::<PackageManifest>(
+                r#"
                 [package]
                 name = "package"
                 version = "0.1.0"
@@ -572,8 +610,9 @@ mod tests {
                 [tool]
                 not-table = "str"
             "#
-        )
-        .is_err());
+            )
+            .is_err()
+        );
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct MyTool {

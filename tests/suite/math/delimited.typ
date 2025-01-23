@@ -41,8 +41,8 @@ $floor(x/2), ceil(x/2), abs(x), norm(x)$
 --- math-lr-color ---
 // Test colored delimiters
 $ lr(
-    text("(", fill: #green) a/b
-    text(")", fill: #blue)
+    text(\(, fill: #green) a/b
+    text(\), fill: #blue)
   ) $
 
 --- math-lr-mid ---
@@ -76,6 +76,14 @@ $ lr({ A mid(|) integral }) quad
 $ lr(body) quad
   lr(size: #1em, body) quad
   lr(size: #(1em+20%), body) $
+
+--- math-lr-mid-class ---
+// Test that `mid` creates a Relation, but that can be overridden.
+$ (a | b) $
+$ (a mid(|) b) $
+$ (a class("unary", |) b) $
+$ (a class("unary", mid(|)) b) $
+$ (a mid(class("unary", |)) b) $
 
 --- math-lr-unbalanced ---
 // Test unbalanced delimiters.

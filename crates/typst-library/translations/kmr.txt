@@ -1,0 +1,11 @@
+figure = Dimenê
+table = Kevala
+# equation =
+bibliography = Çavkanîya Pirtukan
+# heading =
+outline = Navêrok
+# raw =
+page = Rûpelê
+# footnote =
+# email =
+# telephone =

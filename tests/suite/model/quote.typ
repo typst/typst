@@ -1,14 +1,16 @@
 // Test the quote element.
 
---- quote-dir-author-pos ---
+--- quote-dir-author-pos render pdftags ---
 // Text direction affects author positioning
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 #set text(lang: "ar")
 #quote(attribution: [عالم])[مرحبًا]
 
---- quote-dir-align ---
+--- quote-dir-align render pdftags ---
 // Text direction affects block alignment
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 #set quote(block: true)
 #quote(attribution: [René Descartes])[cogito, ergo sum]
 
@@ -48,7 +50,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
 #show bibliography: none
-#bibliography("/assets/bib/works.bib", style: "chicago-notes")
+#bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
 --- quote-cite-format-author-date ---
 // Citation-format: author-date or author
@@ -107,3 +109,17 @@ When you said that #quote[he surely meant that #quote[she intended to say #quote
 )[
   Compose papers faster
 ]
+
+--- quote-par ---
+// Ensure that an inline quote is part of a paragraph, but a block quote
+// does not result in paragraphs.
+#show par: highlight
+
+An inline #quote[quote.]
+
+#quote(block: true, attribution: [The Test Author])[
+  A block-level quote.
+]
+
+--- issue-5536-quote-inline-quotes-false ---
+Lorem #quote(block: false, quotes: false)[dolor].

@@ -1,0 +1,32 @@
+- Tag: H1
+  /T: "Tail hidden"
+  /K:
+    - Content: page=0 mcid=0
+- Tag: L
+  /Numbering: Circle
+  /K:
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=1
+        - Tag: LBody
+          /K:
+            - Content: page=0 mcid=2
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=3
+        - Tag: LBody
+    - Tag: L
+      /Numbering: Circle
+      /K:
+        - Tag: LI
+          /K:
+            - Tag: Lbl
+            - Tag: LBody
+- Tag: H1
+  /T: "Head hidden"
+  /K:
+    - Content: page=0 mcid=4

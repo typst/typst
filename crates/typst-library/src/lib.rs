@@ -15,7 +15,6 @@ extern crate self as typst_library;
 pub mod diag;
 pub mod engine;
 pub mod foundations;
-pub mod html;
 pub mod introspection;
 pub mod layout;
 pub mod loading;
@@ -29,12 +28,14 @@ pub mod visualize;
 
 use std::ops::{Deref, Range};
 
+use serde::{Deserialize, Serialize};
 use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
-use crate::foundations::{Array, Bytes, Datetime, Dict, Module, Scope, Styles, Value};
+use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
 use crate::layout::{Alignment, Dir};
+use crate::routines::Routines;
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
 
@@ -138,6 +139,11 @@ impl<T: World + ?Sized> WorldExt for T {
 }
 
 /// Definition of Typst's standard library.
+///
+/// To create and configure the standard library, use the `LibraryExt` trait
+/// and call
+/// - `Library::default()` for a standard configuration
+/// - `Library::builder().build()` if you want to customize the library
 #[derive(Debug, Clone, Hash)]
 pub struct Library {
     /// The module that contains the definitions that are available everywhere.
@@ -147,36 +153,33 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
-    /// The standard library as a value. Used to provide the `std` variable.
-    pub std: Value,
+    /// The standard library as a value. Used to provide the `std` module.
+    pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
 }
 
-impl Library {
-    /// Create a new builder for a library.
-    pub fn builder() -> LibraryBuilder {
-        LibraryBuilder::default()
-    }
-}
-
-impl Default for Library {
-    /// Constructs the standard library with the default configuration.
-    fn default() -> Self {
-        Self::builder().build()
-    }
-}
-
 /// Configurable builder for the standard library.
 ///
-/// This struct is created by [`Library::builder`].
-#[derive(Debug, Clone, Default)]
+/// Constructed via the `LibraryExt` trait.
+#[derive(Debug, Clone)]
 pub struct LibraryBuilder {
+    routines: &'static Routines,
     inputs: Option<Dict>,
     features: Features,
 }
 
 impl LibraryBuilder {
+    /// Creates a new builder.
+    #[doc(hidden)]
+    pub fn from_routines(routines: &'static Routines) -> Self {
+        Self {
+            routines,
+            inputs: None,
+            features: Features::default(),
+        }
+    }
+
     /// Configure the inputs visible through `sys.inputs`.
     pub fn with_inputs(mut self, inputs: Dict) -> Self {
         self.inputs = Some(inputs);
@@ -195,13 +198,12 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs, &self.features);
-        let std = Value::Module(global.clone());
+        let global = global(self.routines, math.clone(), inputs, &self.features);
         Library {
-            global,
+            global: global.clone(),
             math,
             styles: Styles::new(),
-            std,
+            std: Binding::detached(global),
             features: self.features,
         }
     }
@@ -235,33 +237,80 @@ impl FromIterator<Feature> for Features {
 #[non_exhaustive]
 pub enum Feature {
     Html,
+    A11yExtras,
+}
+
+/// A group of related standard library definitions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Category {
+    Foundations,
+    Introspection,
+    Layout,
+    DataLoading,
+    Math,
+    Model,
+    Symbols,
+    Text,
+    Visualize,
+    Pdf,
+    Html,
+    Svg,
+    Png,
+}
+
+impl Category {
+    /// The kebab-case name of the category.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Foundations => "foundations",
+            Self::Introspection => "introspection",
+            Self::Layout => "layout",
+            Self::DataLoading => "data-loading",
+            Self::Math => "math",
+            Self::Model => "model",
+            Self::Symbols => "symbols",
+            Self::Text => "text",
+            Self::Visualize => "visualize",
+            Self::Pdf => "pdf",
+            Self::Html => "html",
+            Self::Svg => "svg",
+            Self::Png => "png",
+        }
+    }
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict, features: &Features) -> Module {
+fn global(
+    routines: &Routines,
+    math: Module,
+    inputs: Dict,
+    features: &Features,
+) -> Module {
     let mut global = Scope::deduplicating();
+
     self::foundations::define(&mut global, inputs, features);
     self::model::define(&mut global);
     self::text::define(&mut global);
-    global.reset_category();
-    global.define_module(math);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
-    self::pdf::define(&mut global);
-    global.reset_category();
+
+    global.define("math", math);
+    global.define("pdf", self::pdf::module(features));
     if features.is_enabled(Feature::Html) {
-        global.define_module(self::html::module());
+        global.define("html", (routines.html_module)());
     }
+
     prelude(&mut global);
+
     Module::new("global", global)
 }
 
 /// Defines scoped values that are globally available, too.
 fn prelude(global: &mut Scope) {
-    global.reset_category();
     global.define("black", Color::BLACK);
     global.define("gray", Color::GRAY);
     global.define("silver", Color::SILVER);
