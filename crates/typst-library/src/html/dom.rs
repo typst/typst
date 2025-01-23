@@ -626,6 +626,297 @@ pub mod tag {
                 | self::colgroup
         )
     }
+
+    /// Wether an element is considered flow content.
+    pub fn is_flow_content(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::a
+                | self::abbr
+                | self::address
+                | self::area
+                | self::article
+                | self::aside
+                | self::audio
+                | self::b
+                | self::bdi
+                | self::bdo
+                | self::blockquote
+                | self::br
+                | self::button
+                | self::canvas
+                | self::cite
+                | self::code
+                | self::data
+                | self::datalist
+                | self::del
+                | self::details
+                | self::dfn
+                | self::dialog
+                | self::div
+                | self::dl
+                | self::em
+                | self::embed
+                | self::fieldset
+                | self::figure
+                | self::footer
+                | self::form
+                | self::h1
+                | self::h2
+                | self::h3
+                | self::h4
+                | self::h5
+                | self::h6
+                | self::header
+                | self::hgroup
+                | self::hr
+                | self::i
+                | self::iframe
+                | self::img
+                | self::input
+                | self::ins
+                | self::kbd
+                | self::label
+                | self::link
+                | self::main
+                | self::map
+                | self::mark
+                | self::menu
+                | self::meta
+                | self::meter
+                | self::nav
+                | self::noscript
+                | self::object
+                | self::ol
+                | self::output
+                | self::p
+                | self::picture
+                | self::pre
+                | self::progress
+                | self::q
+                | self::ruby
+                | self::s
+                | self::samp
+                | self::script
+                | self::search
+                | self::section
+                | self::select
+                | self::slot
+                | self::small
+                | self::span
+                | self::strong
+                | self::sub
+                | self::sup
+                | self::table
+                | self::template
+                | self::textarea
+                | self::time
+                | self::u
+                | self::ul
+                | self::var
+                | self::video
+                | self::wbr
+        )
+    }
+
+    /// Whether an element is considered sectioning content.
+    pub fn is_sectioning_content(tag: HtmlTag) -> bool {
+        matches!(tag, self::article | self::aside | self::nav | self::section)
+    }
+
+    /// Whether an element is considered heading content.
+    pub fn is_heading_content(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::h1
+                | self::h2
+                | self::h3
+                | self::h4
+                | self::h5
+                | self::h6
+                | self::hgroup
+        )
+    }
+
+    /// Whether an element is considered phrasing content.
+    pub fn is_phrasing_content(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::a
+                | self::abbr
+                | self::area
+                | self::audio
+                | self::b
+                | self::bdi
+                | self::bdo
+                | self::br
+                | self::button
+                | self::canvas
+                | self::cite
+                | self::code
+                | self::data
+                | self::datalist
+                | self::del
+                | self::dfn
+                | self::em
+                | self::embed
+                | self::i
+                | self::iframe
+                | self::img
+                | self::input
+                | self::ins
+                | self::kbd
+                | self::label
+                | self::link
+                | self::map
+                | self::mark
+                | self::meta
+                | self::meter
+                | self::noscript
+                | self::object
+                | self::output
+                | self::picture
+                | self::progress
+                | self::q
+                | self::ruby
+                | self::s
+                | self::samp
+                | self::script
+                | self::select
+                | self::slot
+                | self::small
+                | self::span
+                | self::strong
+                | self::sub
+                | self::sup
+                | self::template
+                | self::textarea
+                | self::time
+                | self::u
+                | self::var
+                | self::video
+                | self::wbr
+        )
+    }
+
+    /// Whether an element is considered embedded content.
+    pub fn is_embedded_content(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::audio
+                | self::canvas
+                | self::embed
+                | self::iframe
+                | self::img
+                | self::object
+                | self::picture
+                | self::video
+        )
+    }
+
+    /// Whether an element is considered interactive content.
+    pub fn is_interactive_content(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::a
+                | self::audio
+                | self::button
+                | self::details
+                | self::embed
+                | self::iframe
+                | self::img
+                | self::input
+                | self::label
+                | self::select
+                | self::textarea
+                | self::video
+        )
+    }
+
+    /// Whether an element is considered palpable content.
+    pub fn is_palpable_content(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::a
+                | self::abbr
+                | self::address
+                | self::article
+                | self::aside
+                | self::audio
+                | self::b
+                | self::bdi
+                | self::bdo
+                | self::blockquote
+                | self::button
+                | self::canvas
+                | self::cite
+                | self::code
+                | self::data
+                | self::del
+                | self::details
+                | self::dfn
+                | self::div
+                | self::dl
+                | self::em
+                | self::embed
+                | self::fieldset
+                | self::figure
+                | self::footer
+                | self::form
+                | self::h1
+                | self::h2
+                | self::h3
+                | self::h4
+                | self::h5
+                | self::h6
+                | self::header
+                | self::hgroup
+                | self::i
+                | self::iframe
+                | self::img
+                | self::input
+                | self::ins
+                | self::kbd
+                | self::label
+                | self::main
+                | self::map
+                | self::mark
+                | self::menu
+                | self::meter
+                | self::nav
+                | self::object
+                | self::ol
+                | self::output
+                | self::p
+                | self::picture
+                | self::pre
+                | self::progress
+                | self::q
+                | self::ruby
+                | self::s
+                | self::samp
+                | self::search
+                | self::section
+                | self::select
+                | self::small
+                | self::span
+                | self::strong
+                | self::sub
+                | self::sup
+                | self::table
+                | self::textarea
+                | self::time
+                | self::u
+                | self::ul
+                | self::var
+                | self::video
+        )
+    }
+
+    /// Whether an element is considered a script-supporting element.
+    pub fn is_script_supporting_content(tag: HtmlTag) -> bool {
+        matches!(tag, self::script | self::template)
+    }
 }
 
 #[allow(non_upper_case_globals)]
