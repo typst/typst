@@ -755,11 +755,10 @@ pub struct TextElem {
     #[ghost]
     pub case: Option<Case>,
 
-    /// Whether small capital glyphs should be used. ("smcp")
+    /// Whether small capital glyphs should be used. ("smcp", "c2sc")
     #[internal]
-    #[default(false)]
     #[ghost]
-    pub smallcaps: bool,
+    pub smallcaps: Option<Smallcaps>,
 }
 
 impl TextElem {
@@ -1249,8 +1248,11 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     // Features that are off by default in Harfbuzz are only added if enabled.
-    if TextElem::smallcaps_in(styles) {
+    if let Some(sc) = TextElem::smallcaps_in(styles) {
         feat(b"smcp", 1);
+        if sc == Smallcaps::All {
+            feat(b"c2sc", 1);
+        }
     }
 
     if TextElem::alternates_in(styles) {
