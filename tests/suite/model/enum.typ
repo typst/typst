@@ -101,6 +101,13 @@ a + 0.
   [Red], [Green], [Blue], [Red],
 )
 
+--- enum-start html ---
+#enum(
+  start: 3,
+  [Skipping],
+  [Ahead],
+)
+
 --- enum-numbering-closure-nested ---
 // Test numbering with closure and nested lists.
 #set enum(numbering: n => super[#n])
