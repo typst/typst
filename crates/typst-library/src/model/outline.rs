@@ -53,9 +53,9 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// `target` to `{figure.where(kind: image)}`. Just the same, we could have set
 /// it to `{figure.where(kind: table)}` to generate a list of tables.
 ///
-/// We could also set it to just `figure`, but then the list would _all_
-/// figures, be it ones containing images, tables, or other material. For more
-/// details on the `where` selector, [see here]($function.where).
+/// We could also set it to just `figure`, without using a [`where`]($function.where)
+/// selector, but then the list would contain _all_ figures, be it ones
+/// containing images, tables, or other material.
 ///
 /// ```example
 /// #outline(
@@ -72,7 +72,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// # Styling the outline
 /// At the most basic level, you can style the outline by setting properties on
 /// it and its entries. This way, you can customize the outline's
-/// [`title`]($outline.title), how outline entries are
+/// [title]($outline.title), how outline entries are
 /// [indented]($outline.indent), and how the space between an entry's text and
 /// its page number should be [filled]($outline.entry.fill).
 ///
@@ -147,7 +147,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 ///
 /// [^1]: The outline of equations is the exception to this rule as it does not
 ///       have a body and thus does not use indented layout.
-#[elem(scope, keywords = ["Table of Contents"], Show, ShowSet, LocalName, Locatable)]
+#[elem(scope, keywords = ["Table of Contents", "toc"], Show, ShowSet, LocalName, Locatable)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -164,9 +164,9 @@ pub struct OutlineElem {
     /// The type of element to include in the outline.
     ///
     /// To list figures containing a specific kind of element, like an image or
-    /// a table, you can specify the desired kind in a where selector. See the
-    /// section on [alternative outlines]($outline/#alternative-outlines) for
-    /// more details.
+    /// a table, you can specify the desired kind in a [`where`]($function.where)
+    /// selector. See the section on [alternative outlines]($outline/#alternative-outlines)
+    /// for more details.
     ///
     /// ```example
     /// #outline(
@@ -214,7 +214,7 @@ pub struct OutlineElem {
     ///
     /// - [Relative length]($relative): Indents the entry by the specified
     ///   length per nesting level. Specifying `{2em}`, for instance, would
-    ///   indent top-level headings (not nested) by `{0em}`, second level
+    ///   indent top-level headings by `{0em}` (not nested), second level
     ///   headings by `{2em}` (nested once), third-level headings by `{4em}`
     ///   (nested twice) and so on.
     ///
