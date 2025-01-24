@@ -14,6 +14,8 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// addition and subtraction of a length and a ratio. Wherever a relative length
 /// is expected, you can also use a bare length or ratio.
 ///
+/// You can multiply relative length by [ratio], [int], and [float].
+///
 /// # Example
 /// ```example
 /// #rect(width: 100% - 50pt)
