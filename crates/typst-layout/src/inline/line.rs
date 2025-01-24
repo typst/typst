@@ -18,12 +18,12 @@ const EN_DASH: char = '–';
 const EM_DASH: char = '—';
 const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified breaks.
 
-/// A layouted line, consisting of a sequence of layouted paragraph items that
-/// are mostly borrowed from the preparation phase. This type enables you to
-/// measure the size of a line in a range before committing to building the
-/// line's frame.
+/// A layouted line, consisting of a sequence of layouted inline items that are
+/// mostly borrowed from the preparation phase. This type enables you to measure
+/// the size of a line in a range before committing to building the line's
+/// frame.
 ///
-/// At most two paragraph items must be created individually for this line: The
+/// At most two inline items must be created individually for this line: The
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
 /// the break index is safe-to-break per rustybuzz.
@@ -430,7 +430,7 @@ pub fn commit(
     let mut offset = Abs::zero();
 
     // We always build the line from left to right. In an LTR paragraph, we must
-    // thus add the hanging indent to the offset. When the paragraph is RTL, the
+    // thus add the hanging indent to the offset. In an RTL paragraph, the
     // hanging indent arises naturally due to the line width.
     if p.dir == Dir::LTR {
         offset += p.hang;
@@ -631,7 +631,7 @@ fn overhang(c: char) -> f64 {
     }
 }
 
-/// A collection of owned or borrowed paragraph items.
+/// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<ItemEntry<'a>>);
 
 impl<'a> Items<'a> {

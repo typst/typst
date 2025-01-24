@@ -1,8 +1,8 @@
 use std::f64::consts::SQRT_2;
 
-use ecow::{eco_vec, EcoString};
+use ecow::EcoString;
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain, StyleVec, SymbolElem};
+use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Size};
 use typst_library::math::{EquationElem, MathSize, MathVariant};
 use typst_library::text::{
@@ -100,13 +100,14 @@ fn layout_inline_text(
         // because it will be placed somewhere probably not at the left margin
         // it will overflow. So emulate an `hbox` instead and allow the
         // paragraph to extend as far as needed.
-        let frame = (ctx.engine.routines.layout_inline)(
+        let frame = crate::inline::layout_inline(
             ctx.engine,
-            &StyleVec::wrap(eco_vec![elem]),
-            ctx.locator.next(&span),
+            &[(&elem, styles)],
+            &mut ctx.locator.next(&span).split(),
             styles,
-            false,
             Size::splat(Abs::inf()),
+            false,
+            false,
             false,
         )?
         .into_frame();

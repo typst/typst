@@ -14,9 +14,9 @@ use crate::visualize::{Paint, Stroke};
 /// An inline-level container that sizes content.
 ///
 /// All elements except inline math, text, and boxes are block-level and cannot
-/// occur inside of a paragraph. The box function can be used to integrate such
-/// elements into a paragraph. Boxes take the size of their contents by default
-/// but can also be sized explicitly.
+/// occur inside of a [paragraph]($par). The box function can be used to
+/// integrate such elements into a paragraph. Boxes take the size of their
+/// contents by default but can also be sized explicitly.
 ///
 /// # Example
 /// ```example
@@ -183,6 +183,10 @@ pub enum InlineItem {
 ///
 /// Such a container can be used to separate content, size it, and give it a
 /// background or border.
+///
+/// Blocks are also the primary way to control whether text becomes part of a
+/// paragraph or not. See [the paragraph documentation]($par/#what-becomes-a-paragraph)
+/// for more details.
 ///
 /// # Examples
 /// With a block, you can give a background to content while still allowing it

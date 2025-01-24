@@ -1,22 +1,78 @@
-use std::fmt::{self, Debug, Formatter};
-
 use typst_utils::singleton;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart,
-    StyleVec, Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Smart,
+    Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 
-/// Arranges text, spacing and inline-level elements into a paragraph.
+/// A logical subdivison of textual content.
 ///
-/// Although this function is primarily used in set rules to affect paragraph
-/// properties, it can also be used to explicitly render its argument onto a
-/// paragraph of its own.
+/// Typst automatically collects _inline-level_ elements into paragraphs.
+/// Inline-level elements include [text], [horizontal spacing]($h),
+/// [boxes]($box), and [inline equations]($math.equation).
+///
+/// To separate paragraphs, use a blank line (or an explicit [`parbreak`]).
+/// Paragraphs are also automatically interrupted by any block-level element
+/// (like [`block`], [`place`], or anything that shows itself as one of these).
+///
+/// The `par` element is primarily used in set rules to affect paragraph
+/// properties, but it can also be used to explicitly display its argument as a
+/// paragraph of its own. Then, the paragraph's body may not contain any
+/// block-level content.
+///
+/// # Boxes and blocks
+/// As explained above, usually paragraphs only contain inline-level content.
+/// However, you can integrate any kind of block-level content into a paragraph
+/// by wrapping it in a [`box`].
+///
+/// Conversely, you can separate inline-level content from a paragraph by
+/// wrapping it in a [`block`]. In this case, it will not become part of any
+/// paragraph at all. Read the following section for an explanation of why that
+/// matters and how it differs from just adding paragraph breaks around the
+/// content.
+///
+/// # What becomes a paragraph?
+/// When you add inline-level content to your document, Typst will automatically
+/// wrap it in paragraphs. However, a typical document also contains some text
+/// that is not semantically part of a paragraph, for example in a heading or
+/// caption.
+///
+/// The rules for when Typst wraps inline-level content in a paragraph are as
+/// follows:
+///
+/// - All text at the root of a document is wrapped in paragraphs.
+///
+/// - Text in a container (like a `block`) is only wrapped in a paragraph if the
+///   container holds any block-level content. If all of the contents are
+///   inline-level, no paragraph is created.
+///
+/// In the laid-out document, it's not immediately visible whether text became
+/// part of a paragraph. However, it is still important for various reasons:
+///
+/// - Certain paragraph styling like `first-line-indent` will only apply to
+///   proper paragraphs, not any text. Similarly, `par` show rules of course
+///   only trigger on paragraphs.
+///
+/// - A proper distinction between paragraphs and other text helps people who
+///   rely on assistive technologies (such as screen readers) navigate and
+///   understand the document properly. Currently, this only applies to HTML
+///   export since Typst does not yet output accessible PDFs, but support for
+///   this is planned for the near future.
+///
+/// - HTML export will generate a `<p>` tag only for paragraphs.
+///
+/// When creating custom reusable components, you can and should take charge
+/// over whether Typst creates paragraphs. By wrapping text in a [`block`]
+/// instead of just adding paragraph breaks around it, you can force the absence
+/// of a paragraph. Conversely, by adding a [`parbreak`] after some content in a
+/// container, you can force it to become a paragraph even if it's just one
+/// word. This is, for example, what [non-`tight`]($list.tight) lists do to
+/// force their items to become paragraphs.
 ///
 /// # Example
 /// ```example
@@ -37,7 +93,7 @@ use crate::model::Numbering;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(scope, title = "Paragraph", Debug, Construct)]
+#[elem(scope, title = "Paragraph")]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -53,7 +109,6 @@ pub struct ParElem {
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
     #[resolve]
-    #[ghost]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 
@@ -68,7 +123,6 @@ pub struct ParElem {
     /// takes precedence over the paragraph spacing. Headings, for instance,
     /// reduce the spacing below them by default for a better look.
     #[resolve]
-    #[ghost]
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
@@ -81,7 +135,6 @@ pub struct ParElem {
     /// Note that the current [alignment]($align.alignment) still has an effect
     /// on the placement of the last line except if it ends with a
     /// [justified line break]($linebreak.justify).
-    #[ghost]
     #[default(false)]
     pub justify: bool,
 
@@ -106,7 +159,6 @@ pub struct ParElem {
     /// challenging to break in a visually
     /// pleasing way.
     /// ```
-    #[ghost]
     pub linebreaks: Smart<Linebreaks>,
 
     /// The indent the first line of a paragraph should have.
@@ -118,51 +170,21 @@ pub struct ParElem {
     /// space between paragraphs or by indented first lines. Consider reducing
     /// the [paragraph spacing]($block.spacing) to the [`leading`]($par.leading)
     /// when using this property (e.g. using `[#set par(spacing: 0.65em)]`).
-    #[ghost]
     pub first_line_indent: Length,
 
-    /// The indent all but the first line of a paragraph should have.
-    #[ghost]
+    /// The indent that all but the first line of a paragraph should have.
     #[resolve]
     pub hanging_indent: Length,
 
     /// The contents of the paragraph.
-    #[external]
     #[required]
     pub body: Content,
-
-    /// The paragraph's children.
-    #[internal]
-    #[variadic]
-    pub children: StyleVec,
 }
 
 #[scope]
 impl ParElem {
     #[elem]
     type ParLine;
-}
-
-impl Construct for ParElem {
-    fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
-        // The paragraph constructor is special: It doesn't create a paragraph
-        // element. Instead, it just ensures that the passed content lives in a
-        // separate paragraph and styles it.
-        let styles = Self::set(engine, args)?;
-        let body = args.expect::<Content>("body")?;
-        Ok(Content::sequence([
-            ParbreakElem::shared().clone(),
-            body.styled_with_map(styles),
-            ParbreakElem::shared().clone(),
-        ]))
-    }
-}
-
-impl Debug for ParElem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Par ")?;
-        self.children.fmt(f)
-    }
 }
 
 /// How to determine line breaks in a paragraph.

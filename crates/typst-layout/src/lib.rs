@@ -17,7 +17,6 @@ mod transforms;
 pub use self::flow::{layout_columns, layout_fragment, layout_frame};
 pub use self::grid::{layout_grid, layout_table};
 pub use self::image::layout_image;
-pub use self::inline::{layout_box, layout_inline};
 pub use self::lists::{layout_enum, layout_list};
 pub use self::math::{layout_equation_block, layout_equation_inline};
 pub use self::pad::layout_pad;

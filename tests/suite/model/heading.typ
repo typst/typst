@@ -128,6 +128,11 @@ Not in heading
 // Hint: 1:19-1:25 you can enable heading numbering with `#set heading(numbering: "1.")`
 Cannot be used as @intro
 
+--- heading-par ---
+// Ensure that heading text isn't considered a paragraph.
+#show par: highlight
+= Heading
+
 --- heading-html-basic html ---
 // level 1 => h2
 // ...

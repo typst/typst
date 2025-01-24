@@ -8,7 +8,7 @@ use crate::foundations::{
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{Em, HElem, Length, Sides, StackChild, StackElem, VElem};
-use crate::model::{ListItemLike, ListLike, ParElem};
+use crate::model::{ListItemLike, ListLike, ParElem, ParbreakElem};
 use crate::text::TextElem;
 
 /// A list of terms and their descriptions.
@@ -116,17 +116,25 @@ impl TermsElem {
 impl Show for Packed<TermsElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
+        let tight = self.tight(styles);
+
         if TargetElem::target_in(styles).is_html() {
             return Ok(HtmlElem::new(tag::dl)
                 .with_body(Some(Content::sequence(self.children.iter().flat_map(
                     |item| {
+                        // Text in wide term lists shall always turn into paragraphs.
+                        let mut description = item.description.clone();
+                        if !tight {
+                            description += ParbreakElem::shared();
+                        }
+
                         [
                             HtmlElem::new(tag::dt)
                                 .with_body(Some(item.term.clone()))
                                 .pack()
                                 .spanned(item.term.span()),
                             HtmlElem::new(tag::dd)
-                                .with_body(Some(item.description.clone()))
+                                .with_body(Some(description))
                                 .pack()
                                 .spanned(item.description.span()),
                         ]
@@ -139,7 +147,7 @@ impl Show for Packed<TermsElem> {
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
         let gutter = self.spacing(styles).unwrap_or_else(|| {
-            if self.tight(styles) {
+            if tight {
                 ParElem::leading_in(styles).into()
             } else {
                 ParElem::spacing_in(styles).into()
@@ -157,6 +165,12 @@ impl Show for Packed<TermsElem> {
             seq.push(child.term.clone().strong());
             seq.push((*separator).clone());
             seq.push(child.description.clone());
+
+            // Text in wide term lists shall always turn into paragraphs.
+            if !tight {
+                seq.push(ParbreakElem::shared().clone());
+            }
+
             children.push(StackChild::Block(Content::sequence(seq)));
         }
 
@@ -168,7 +182,7 @@ impl Show for Packed<TermsElem> {
             .spanned(span)
             .padded(padding);
 
-        if self.tight(styles) {
+        if tight {
             let leading = ParElem::leading_in(styles);
             let spacing = VElem::new(leading.into())
                 .with_weak(true)

@@ -19,6 +19,105 @@ heaven Would through the airy region stream so bright That birds would sing and
 think it were not night. See, how she leans her cheek upon her hand! O, that I
 were a glove upon that hand, That I might touch that cheek!
 
+--- par-semantic ---
+#show par: highlight
+
+I'm a paragraph.
+
+#align(center, table(
+  columns: 3,
+
+  // No paragraphs.
+  [A],
+  block[B],
+  block[C *D*],
+
+  // Paragraphs.
+  par[E],
+  [
+
+    F
+  ],
+  [
+    G
+
+  ],
+
+  // Paragraphs.
+  parbreak() + [H],
+  [I] + parbreak(),
+  parbreak() +  [J] + parbreak(),
+
+  // Paragraphs.
+  [K #v(10pt)],
+  [#v(10pt) L],
+  [#place[] M],
+
+  // Paragraphs.
+  [
+    N
+
+    O
+  ],
+  [#par[P]#par[Q]],
+  // No paragraphs.
+  [#block[R]#block[S]],
+))
+
+--- par-semantic-html html ---
+= Heading is no paragraph
+
+I'm a paragraph.
+
+#html.elem("div")[I'm not.]
+
+#html.elem("div")[
+  We are two.
+
+  So we are paragraphs.
+]
+
+--- par-semantic-tag ---
+#show par: highlight
+#block[
+  #metadata(none) <hi1>
+  A
+  #metadata(none) <hi2>
+]
+
+#block(width: 100%, metadata(none) + align(center)[A])
+#block(width: 100%, align(center)[A] + metadata(none))
+
+--- par-semantic-align ---
+#show par: highlight
+#show bibliography: none
+#set block(width: 100%, stroke: 1pt, inset: 5pt)
+
+#bibliography("/assets/bib/works.bib")
+
+#block[
+  #set align(right)
+  Hello
+]
+
+#block[
+  #set align(right)
+  Hello
+  @netwok
+]
+
+#block[
+  Hello
+  #align(right)[World]
+  You
+]
+
+#block[
+  Hello
+  #align(right)[@netwok]
+  You
+]
+
 --- par-leading-and-spacing ---
 // Test changing leading and spacing.
 #set par(spacing: 1em, leading: 2pt)
@@ -69,6 +168,12 @@ Why would anybody ever ...
 #set par(hanging-indent: 15pt, justify: true)
 #lorem(10)
 
+--- par-hanging-indent-semantic ---
+#set par(hanging-indent: 15pt)
+= I am not affected
+
+I am affected by hanging indent.
+
 --- par-hanging-indent-manual-linebreak ---
 #set par(hanging-indent: 1em)
 Welcome \ here. Does this work well?
@@ -83,6 +188,22 @@ Welcome \ here. Does this work well?
 // Ensure that trailing whitespace layouts as intended.
 #box(fill: aqua, " ")
 
+--- par-contains-parbreak ---
+#par[
+  Hello
+  // Warning: 4-14 parbreak may not occur inside of a paragraph and was ignored
+  #parbreak()
+  World
+]
+
+--- par-contains-block ---
+#par[
+  Hello
+  // Warning: 4-11 block may not occur inside of a paragraph and was ignored
+  #block[]
+  World
+]
+
 --- par-empty-metadata ---
 // Check that metadata still works in a zero length paragraph.
 #block(height: 0pt)[#""#metadata(false)<hi>]
@@ -93,6 +214,26 @@ Welcome \ here. Does this work well?
 #set par(justify: true, linebreaks: "simple")
 #set text(hyphenate: false)
 Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
+
+--- par-show ---
+// This is only slightly cursed.
+#let revoke = metadata("revoke")
+#show par: it => {
+  if bibliography.title == revoke { return it }
+  set bibliography(title: revoke)
+  let p = counter("p")
+  par[#p.step() §#context p.display() #it.body]
+}
+
+= A
+
+B
+
+C #parbreak() D
+
+#block[E]
+
+#block[F #parbreak() G]
 
 --- issue-4278-par-trim-before-equation ---
 #set par(justify: true)

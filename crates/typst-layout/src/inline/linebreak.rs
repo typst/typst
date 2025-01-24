@@ -17,7 +17,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 
-/// The cost of a line or paragraph layout.
+/// The cost of a line or inline layout.
 type Cost = f64;
 
 // Cost parameters.
@@ -104,7 +104,7 @@ impl Breakpoint {
     }
 }
 
-/// Breaks the paragraph into lines.
+/// Breaks the text into lines.
 pub fn linebreak<'a>(
     engine: &Engine,
     p: &'a Preparation<'a>,
@@ -181,13 +181,12 @@ fn linebreak_simple<'a>(
 /// lines with hyphens even more.
 ///
 /// To find the layout with the minimal total cost the algorithm uses dynamic
-/// programming: For each possible breakpoint it determines the optimal
-/// paragraph layout _up to that point_. It walks over all possible start points
-/// for a line ending at that point and finds the one for which the cost of the
-/// line plus the cost of the optimal paragraph up to the start point (already
-/// computed and stored in dynamic programming table) is minimal. The final
-/// result is simply the layout determined for the last breakpoint at the end of
-/// text.
+/// programming: For each possible breakpoint, it determines the optimal layout
+/// _up to that point_. It walks over all possible start points for a line
+/// ending at that point and finds the one for which the cost of the line plus
+/// the cost of the optimal layout up to the start point (already computed and
+/// stored in dynamic programming table) is minimal. The final result is simply
+/// the layout determined for the last breakpoint at the end of text.
 #[typst_macros::time]
 fn linebreak_optimized<'a>(
     engine: &Engine,
@@ -215,7 +214,7 @@ fn linebreak_optimized_bounded<'a>(
     metrics: &CostMetrics,
     upper_bound: Cost,
 ) -> Vec<Line<'a>> {
-    /// An entry in the dynamic programming table for paragraph optimization.
+    /// An entry in the dynamic programming table for inline layout optimization.
     struct Entry<'a> {
         pred: usize,
         total: Cost,
@@ -321,7 +320,7 @@ fn linebreak_optimized_bounded<'a>(
     // This should only happen if our bound was faulty. Which shouldn't happen!
     if table[idx].end != p.text.len() {
         #[cfg(debug_assertions)]
-        panic!("bounded paragraph layout is incomplete");
+        panic!("bounded inline layout is incomplete");
 
         #[cfg(not(debug_assertions))]
         return linebreak_optimized_bounded(engine, p, width, metrics, Cost::INFINITY);
@@ -342,7 +341,7 @@ fn linebreak_optimized_bounded<'a>(
 /// (which is costly) to determine costs, it determines approximate costs using
 /// cumulative arrays.
 ///
-/// This results in a likely good paragraph layouts, for which we then compute
+/// This results in a likely good inline layouts, for which we then compute
 /// the exact cost. This cost is an upper bound for proper optimized
 /// linebreaking. We can use it to heavily prune the search space.
 #[typst_macros::time]
@@ -355,7 +354,7 @@ fn linebreak_optimized_approximate(
     // Determine the cumulative estimation metrics.
     let estimates = Estimates::compute(p);
 
-    /// An entry in the dynamic programming table for paragraph optimization.
+    /// An entry in the dynamic programming table for inline layout optimization.
     struct Entry {
         pred: usize,
         total: Cost,
@@ -862,7 +861,7 @@ struct CostMetrics {
 }
 
 impl CostMetrics {
-    /// Compute shared metrics for paragraph optimization.
+    /// Compute shared metrics for inline layout optimization.
     fn compute(p: &Preparation) -> Self {
         Self {
             // When justifying, we may stretch spaces below their natural width.

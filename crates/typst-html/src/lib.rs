@@ -16,7 +16,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{Abs, Axes, BlockBody, BlockElem, BoxElem, Region, Size};
 use typst_library::model::{DocumentInfo, ParElem};
-use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_library::World;
 use typst_syntax::Span;
@@ -139,7 +139,9 @@ fn html_fragment_impl(
 
     let arenas = Arenas::default();
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlFragment,
+        // No need to know about the `FragmentKind` because we handle both
+        // uniformly.
+        RealizationKind::HtmlFragment(&mut FragmentKind::Block),
         &mut engine,
         &mut locator,
         &arenas,
@@ -189,7 +191,8 @@ fn handle(
         };
         output.push(element.into());
     } else if let Some(elem) = child.to_packed::<ParElem>() {
-        let children = handle_list(engine, locator, elem.children.iter(&styles))?;
+        let children =
+            html_fragment(engine, &elem.body, locator.next(&elem.span()), styles)?;
         output.push(
             HtmlElement::new(tag::p)
                 .with_children(children)
