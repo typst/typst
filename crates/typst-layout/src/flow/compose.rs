@@ -17,7 +17,9 @@ use typst_library::model::{
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
-use super::{distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Stop, Work};
+use super::{
+    distribute, Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work,
+};
 
 /// Composes the contents of a single page/region. A region can have multiple
 /// columns/subregions.
@@ -356,7 +358,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         migratable: bool,
     ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
-        if !self.config.root {
+        if self.config.mode != FlowMode::Root {
             return Ok(());
         }
 

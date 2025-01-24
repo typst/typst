@@ -1,12 +1,10 @@
-use std::fmt::{self, Debug, Formatter};
-
 use typst_utils::singleton;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart,
-    StyleVec, Unlabellable,
+    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Smart,
+    Unlabellable,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
@@ -95,7 +93,7 @@ use crate::model::Numbering;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(scope, title = "Paragraph", Debug, Construct)]
+#[elem(scope, title = "Paragraph")]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -111,7 +109,6 @@ pub struct ParElem {
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
     #[resolve]
-    #[ghost]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 
@@ -126,7 +123,6 @@ pub struct ParElem {
     /// takes precedence over the paragraph spacing. Headings, for instance,
     /// reduce the spacing below them by default for a better look.
     #[resolve]
-    #[ghost]
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
@@ -139,7 +135,6 @@ pub struct ParElem {
     /// Note that the current [alignment]($align.alignment) still has an effect
     /// on the placement of the last line except if it ends with a
     /// [justified line break]($linebreak.justify).
-    #[ghost]
     #[default(false)]
     pub justify: bool,
 
@@ -164,7 +159,6 @@ pub struct ParElem {
     /// challenging to break in a visually
     /// pleasing way.
     /// ```
-    #[ghost]
     pub linebreaks: Smart<Linebreaks>,
 
     /// The indent the first line of a paragraph should have.
@@ -176,51 +170,21 @@ pub struct ParElem {
     /// space between paragraphs or by indented first lines. Consider reducing
     /// the [paragraph spacing]($block.spacing) to the [`leading`]($par.leading)
     /// when using this property (e.g. using `[#set par(spacing: 0.65em)]`).
-    #[ghost]
     pub first_line_indent: Length,
 
-    /// The indent all but the first line of a paragraph should have.
-    #[ghost]
+    /// The indent that all but the first line of a paragraph should have.
     #[resolve]
     pub hanging_indent: Length,
 
     /// The contents of the paragraph.
-    #[external]
     #[required]
     pub body: Content,
-
-    /// The paragraph's children.
-    #[internal]
-    #[variadic]
-    pub children: StyleVec,
 }
 
 #[scope]
 impl ParElem {
     #[elem]
     type ParLine;
-}
-
-impl Construct for ParElem {
-    fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
-        // The paragraph constructor is special: It doesn't create a paragraph
-        // element. Instead, it just ensures that the passed content lives in a
-        // separate paragraph and styles it.
-        let styles = Self::set(engine, args)?;
-        let body = args.expect::<Content>("body")?;
-        Ok(Content::sequence([
-            ParbreakElem::shared().clone(),
-            body.styled_with_map(styles),
-            ParbreakElem::shared().clone(),
-        ]))
-    }
-}
-
-impl Debug for ParElem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Par ")?;
-        self.children.fmt(f)
-    }
 }
 
 /// How to determine line breaks in a paragraph.

@@ -14,7 +14,7 @@ pub fn finalize(
     expand: bool,
     locator: &mut SplitLocator<'_>,
 ) -> SourceResult<Fragment> {
-    // Determine the paragraph's width: Full width of the region if we should
+    // Determine the resulting width: Full width of the region if we should
     // expand or there's fractional spacing, fit-to-width otherwise.
     let width = if !region.x.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))

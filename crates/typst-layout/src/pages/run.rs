@@ -19,7 +19,7 @@ use typst_library::visualize::Paint;
 use typst_library::World;
 use typst_utils::Numeric;
 
-use crate::flow::layout_flow;
+use crate::flow::{layout_flow, FlowMode};
 
 /// A mostly finished layout for one page. Needs only knowledge of its exact
 /// page number to be finalized into a `Page`. (Because the margins can depend
@@ -181,7 +181,7 @@ fn layout_page_run_impl(
         Regions::repeat(area, area.map(Abs::is_finite)),
         PageElem::columns_in(styles),
         ColumnsElem::gutter_in(styles),
-        true,
+        FlowMode::Root,
     )?;
 
     // Layouts a single marginal.

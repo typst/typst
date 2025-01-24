@@ -202,8 +202,7 @@ pub fn layout_equation_block(
     let counter = Counter::of(EquationElem::elem())
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
         .spanned(span);
-    let number =
-        (engine.routines.layout_frame)(engine, &counter, locator.next(&()), styles, pod)?;
+    let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
@@ -619,7 +618,7 @@ fn layout_box(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let frame = (ctx.engine.routines.layout_box)(
+    let frame = crate::inline::layout_box(
         elem,
         ctx.engine,
         ctx.locator.next(&elem.span()),
@@ -692,7 +691,7 @@ fn layout_external(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<Frame> {
-    (ctx.engine.routines.layout_frame)(
+    crate::layout_frame(
         ctx.engine,
         content,
         ctx.locator.next(&content.span()),
