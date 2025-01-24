@@ -14,8 +14,7 @@ use super::Lang;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
-    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed, PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
@@ -475,6 +474,7 @@ impl ShowSet for Packed<RawElem> {
         out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
+        out.set(TextElem::set_cjk_latin_spacing(Smart::Custom(None)));
         if self.block(styles) {
             out.set(ParElem::set_justify(false));
         }
