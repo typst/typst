@@ -215,14 +215,16 @@ Welcome \ here. Does this work well?
 #set text(hyphenate: false)
 Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
 
---- par-show ---
-// This is only slightly cursed.
-#let revoke = metadata("revoke")
+--- par-show-children ---
+// Variant 1: Prevent recursion by checking the children.
+#let p = counter("p")
+#let step = p.step()
+#let nr = context p.display()
 #show par: it => {
-  if bibliography.title == revoke { return it }
-  set bibliography(title: revoke)
-  let p = counter("p")
-  par[#p.step() §#context p.display() #it.body]
+  if it.body.at("children", default: ()).at(0, default: none) == step {
+    return it
+  }
+  par(step + [§#nr ] + it.body)
 }
 
 = A
@@ -234,6 +236,27 @@ C #parbreak() D
 #block[E]
 
 #block[F #parbreak() G]
+
+--- par-show-styles ---
+// Variant 2: Prevent recursion by observing a style.
+#let revoke = metadata("revoke")
+#show par: it => {
+  if bibliography.title == revoke { return it }
+  set bibliography(title: revoke)
+  let p = counter("p")
+  par[#p.step()§#context p.display() #it.body]
+}
+
+= A
+
+B
+
+C
+
+--- par-explicit-trim-space ---
+A
+
+#par[ B ]
 
 --- issue-4278-par-trim-before-equation ---
 #set par(justify: true)

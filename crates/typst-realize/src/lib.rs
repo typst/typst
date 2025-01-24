@@ -729,8 +729,8 @@ fn finish(s: &mut State) -> SourceResult<()> {
         }
     })?;
 
-    // In math, spaces are top-level.
-    if let RealizationKind::Math = s.kind {
+    // In paragraph and math realization, spaces are top-level.
+    if matches!(s.kind, RealizationKind::LayoutPar | RealizationKind::Math) {
         collapse_spaces(&mut s.sink, 0);
     }
 
