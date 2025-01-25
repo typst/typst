@@ -37,6 +37,7 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
             &command.args.input,
             &command.args.world,
             &command.args.process,
+            Some(&command.args),
         ) {
             Ok(world) => break world,
             Err(

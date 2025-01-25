@@ -15,7 +15,8 @@ use crate::world::SystemWorld;
 
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
-    let mut world = SystemWorld::new(&command.input, &command.world, &command.process)?;
+    let mut world =
+        SystemWorld::new(&command.input, &command.world, &command.process, None)?;
 
     // Reset everything and ensure that the main file is present.
     world.reset();

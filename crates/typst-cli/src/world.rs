@@ -12,12 +12,15 @@ use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
+use typst::OutputFormat;
 use typst::{Library, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
 
-use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
+use crate::args::OutputFormat as CliOutputFormat;
+use crate::args::{CompileArgs, Feature, Input, ProcessArgs, WorldArgs};
+use crate::compile::resolve_output_format;
 use crate::download::PrintDownload;
 use crate::package;
 
@@ -56,6 +59,8 @@ impl SystemWorld {
         input: &Input,
         world_args: &WorldArgs,
         process_args: &ProcessArgs,
+        // Can't get the value from, e.g., `query` command.
+        compile_args: Option<&CompileArgs>,
     ) -> Result<Self, WorldCreationError> {
         // Set up the thread pool.
         if let Some(jobs) = process_args.jobs {
@@ -120,7 +125,15 @@ impl SystemWorld {
                 })
                 .collect();
 
-            Library::builder().with_inputs(inputs).with_features(features).build()
+            let builder = Library::builder().with_inputs(inputs).with_features(features);
+            let builder = if let Some(compile_args) = compile_args {
+                let output_format = resolve_output_format(compile_args)
+                    .expect("was already run in CompileConfig:new_impl");
+                builder.with_output_format(output_format.into())
+            } else {
+                builder
+            };
+            builder.build()
         };
 
         let fonts = Fonts::searcher()
@@ -185,6 +198,17 @@ impl SystemWorld {
     #[track_caller]
     pub fn lookup(&self, id: FileId) -> Source {
         self.source(id).expect("file id does not point to any source file")
+    }
+}
+
+impl From<CliOutputFormat> for typst::OutputFormat {
+    fn from(value: CliOutputFormat) -> Self {
+        match value {
+            CliOutputFormat::Pdf => OutputFormat::Pdf,
+            CliOutputFormat::Png => OutputFormat::Png,
+            CliOutputFormat::Svg => OutputFormat::Svg,
+            CliOutputFormat::Html => OutputFormat::Html,
+        }
     }
 }
 

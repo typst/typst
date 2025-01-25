@@ -37,9 +37,13 @@ type CodespanError = codespan_reporting::files::Error;
 /// Execute a compilation command.
 pub fn compile(timer: &mut Timer, command: &CompileCommand) -> StrResult<()> {
     let mut config = CompileConfig::new(command)?;
-    let mut world =
-        SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
-            .map_err(|err| eco_format!("{err}"))?;
+    let mut world = SystemWorld::new(
+        &command.args.input,
+        &command.args.world,
+        &command.args.process,
+        Some(&command.args),
+    )
+    .map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut config))?
 }
 
@@ -93,23 +97,7 @@ impl CompileConfig {
     fn new_impl(args: &CompileArgs, watch: Option<&WatchCommand>) -> StrResult<Self> {
         let input = args.input.clone();
 
-        let output_format = if let Some(specified) = args.format {
-            specified
-        } else if let Some(Output::Path(output)) = &args.output {
-            match output.extension() {
-                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
-                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
-                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
-                _ => bail!(
-                    "could not infer output format for path {}.\n\
-                     consider providing the format manually with `--format/-f`",
-                    output.display()
-                ),
-            }
-        } else {
-            OutputFormat::Pdf
-        };
+        let output_format = resolve_output_format(args)?;
 
         let output = args.output.clone().unwrap_or_else(|| {
             let Input::Path(path) = &input else {
@@ -169,6 +157,27 @@ impl CompileConfig {
             server,
         })
     }
+}
+
+pub fn resolve_output_format(args: &CompileArgs) -> StrResult<OutputFormat> {
+    let output_format = if let Some(specified) = args.format {
+        specified
+    } else if let Some(Output::Path(output)) = &args.output {
+        match output.extension() {
+            Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
+            Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
+            Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
+            Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
+            _ => bail!(
+                "could not infer output format for path {}.\n\
+                     consider providing the format manually with `--format/-f`",
+                output.display()
+            ),
+        }
+    } else {
+        OutputFormat::Pdf
+    };
+    Ok(output_format)
 }
 
 /// Compile a single time.

@@ -137,6 +137,27 @@ impl<T: World + ?Sized> WorldExt for T {
     }
 }
 
+/// Which format to use for the generated output file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum OutputFormat {
+    Pdf,
+    Png,
+    Svg,
+    Html,
+}
+
+impl std::fmt::Display for OutputFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            OutputFormat::Pdf => "pdf",
+            OutputFormat::Png => "png",
+            OutputFormat::Svg => "svg",
+            OutputFormat::Html => "html",
+        };
+        write!(f, "{str}")
+    }
+}
+
 /// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
 pub struct Library {
@@ -170,10 +191,21 @@ impl Default for Library {
 /// Configurable builder for the standard library.
 ///
 /// This struct is created by [`Library::builder`].
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct LibraryBuilder {
     inputs: Option<Dict>,
     features: Features,
+    output_format: OutputFormat,
+}
+
+impl Default for LibraryBuilder {
+    fn default() -> Self {
+        Self {
+            inputs: Default::default(),
+            features: Default::default(),
+            output_format: OutputFormat::Pdf,
+        }
+    }
 }
 
 impl LibraryBuilder {
@@ -191,11 +223,17 @@ impl LibraryBuilder {
         self
     }
 
+    /// Configure the output format visible through `sys.output-format`.
+    pub fn with_output_format(mut self, output_format: OutputFormat) -> Self {
+        self.output_format = output_format;
+        self
+    }
+
     /// Consumes the builder and returns a `Library`.
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs, &self.features);
+        let global = global(math.clone(), inputs, &self.features, self.output_format);
         let std = Value::Module(global.clone());
         Library {
             global,
@@ -238,9 +276,14 @@ pub enum Feature {
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict, features: &Features) -> Module {
+fn global(
+    math: Module,
+    inputs: Dict,
+    features: &Features,
+    output_format: OutputFormat,
+) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global, inputs, features);
+    self::foundations::define(&mut global, inputs, features, output_format);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();

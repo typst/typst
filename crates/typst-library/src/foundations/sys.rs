@@ -1,9 +1,10 @@
 //! System-related things.
 
 use crate::foundations::{Dict, Module, Scope, Version};
+use crate::OutputFormat;
 
 /// A module with system-related things.
-pub fn module(inputs: Dict) -> Module {
+pub fn module(inputs: Dict, output_format: OutputFormat) -> Module {
     let mut scope = Scope::deduplicating();
     scope.define(
         "version",
@@ -14,5 +15,6 @@ pub fn module(inputs: Dict) -> Module {
         ]),
     );
     scope.define("inputs", inputs);
+    scope.define("output-format", output_format.to_string());
     Module::new("sys", scope)
 }

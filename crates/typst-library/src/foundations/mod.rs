@@ -82,6 +82,7 @@ use typst_syntax::Spanned;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::routines::EvalMode;
+use crate::OutputFormat;
 use crate::{Feature, Features};
 
 /// Foundational types and functions.
@@ -92,7 +93,12 @@ use crate::{Feature, Features};
 pub static FOUNDATIONS: Category;
 
 /// Hook up all `foundations` definitions.
-pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
+pub(super) fn define(
+    global: &mut Scope,
+    inputs: Dict,
+    features: &Features,
+    output_format: OutputFormat,
+) {
     global.category(FOUNDATIONS);
     global.define_type::<bool>();
     global.define_type::<i64>();
@@ -123,7 +129,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
         global.define_func::<target>();
     }
     global.define_module(calc::module());
-    global.define_module(sys::module(inputs));
+    global.define_module(sys::module(inputs, output_format));
 }
 
 /// Fails with an error.
