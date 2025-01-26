@@ -134,6 +134,39 @@
 #test("c" in dict, false)
 #test(dict, (a: 3, b: 1))
 
+--- dict-deep-merge ---
+#{
+  let dict = (
+    a: 1,
+    b: 2,
+    c: (x: 3, y: 4, z: (subz1: 5)),
+    d: (subd: 6)
+  )
+  let other1 = (
+    b: (:),
+    c: (y: "hello", z: (subz2: 0)),
+    d: "overwritten",
+    e: "new",
+  )
+  let other2 = (c: (y: "goodbye"))
+  let updated = dict.deep-merge(other1, other2)
+
+  test(updated, (
+    a: 1,
+    b: (:),
+    c: (x: 3, y: "goodbye", z: (subz1: 5, subz2: 0)),
+    d: "overwritten",
+    e: "new"
+  ))
+}
+
+--- dict-deep-merge-nothing ---
+#{
+  let dict = (a: 1, b: 2)
+  // Error: 3-20 expected at least one dictionary
+  dict.deep-merge()
+}
+
 --- dict-from-module ---
 // Test dictionary constructor
 #test(type(dictionary(sys).at("version")), version)
