@@ -1,4 +1,6 @@
-use kurbo::{BezPath, Line, ParamCurve, ParamCurveDeriv};
+use kurbo::{
+    BezPath, CubicBez, Line, ParamCurve, ParamCurveDeriv, PathSeg, QuadBez, Shape, Vec2,
+};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
@@ -107,14 +109,21 @@ pub fn decorate(
         });
 
         if intersect {
+            // Move path and line such that all coordinates are positive.
+            // Workaround for https://github.com/linebender/kurbo/issues/411
+            let offset = Vec2::new(
+                -line.p0.x.min(path.bounding_box().min_x()),
+                -line.p0.y.min(path.bounding_box().min_y()),
+            );
+
             // Find all intersections of segments with the line.
             intersections.extend(path.segments().flat_map(|seg| {
-                let intersections = seg.intersect_line(line);
-                let derivative = seg.to_cubic().deriv();
+                let intersections = seg.translate(offset).intersect_line(line + offset);
                 intersections.into_iter().map(move |is| {
                     // Check whether the tangent line at the intersection point
                     // is horizontal, i.e. the line is tangential to the glyph.
-                    let tangential = derivative.eval(is.segment_t).y.abs() < 1e-6;
+                    let deriv = seg.deriv_at(is.segment_t);
+                    let tangential = (deriv.y / deriv.x).abs() < 1e-6;
                     (Abs::raw(line.eval(is.line_t).x), tangential)
                 })
             }));
@@ -220,5 +229,37 @@ impl OutlineBuilder for BezPathBuilder {
 
     fn close(&mut self) {
         self.path.close_path();
+    }
+}
+
+trait PathSegExt {
+    fn translate(&self, offset: Vec2) -> Self;
+    fn deriv_at(&self, t: f64) -> Vec2;
+}
+
+impl PathSegExt for PathSeg {
+    fn translate(&self, offset: Vec2) -> Self {
+        match self {
+            PathSeg::Line(line) => PathSeg::Line(*line + offset),
+            PathSeg::Quad(quad) => PathSeg::Quad(QuadBez::new(
+                quad.p0 + offset,
+                quad.p1 + offset,
+                quad.p2 + offset,
+            )),
+            PathSeg::Cubic(cubic) => PathSeg::Cubic(CubicBez::new(
+                cubic.p0 + offset,
+                cubic.p1 + offset,
+                cubic.p2 + offset,
+                cubic.p3 + offset,
+            )),
+        }
+    }
+
+    fn deriv_at(&self, t: f64) -> Vec2 {
+        match self {
+            PathSeg::Line(line) => line.deriv().eval(t).to_vec2(),
+            PathSeg::Quad(quad) => quad.deriv().eval(t).to_vec2(),
+            PathSeg::Cubic(cubic) => cubic.deriv().eval(t).to_vec2(),
+        }
     }
 }
