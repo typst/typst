@@ -136,6 +136,10 @@ pub fn decorate(
     // When emitting the decorative line segments, we move from left to
     // right. The intersections are not necessarily in this order, yet.
     intersections.sort();
+    // When the line hits the glyph just where two path segments meet, kurbo
+    // may report two intersections very close to each other. We remove these
+    // duplicates here, so they don't mess with the "inside" flag below.
+    intersections.dedup_by(|(l, _), (r, _)| l.approx_eq(*r));
 
     let mut inside = false;
     for edge in intersections.windows(2) {
@@ -149,8 +153,6 @@ pub fn decorate(
         }
 
         if !tangential {
-            // If the right intersection point is not tangential, the next
-            // segment will be inside the glyph and should be skipped.
             inside = !inside;
         }
     }
