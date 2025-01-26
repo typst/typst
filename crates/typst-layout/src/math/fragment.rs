@@ -278,11 +278,7 @@ impl GlyphFragment {
         span: Span,
     ) -> Self {
         let class = EquationElem::class_in(styles)
-            .or_else(|| match c {
-                ':' => Some(MathClass::Relation),
-                '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
-                _ => default_math_class(c),
-            })
+            .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
         let mut fragment = Self {

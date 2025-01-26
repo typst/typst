@@ -308,8 +308,22 @@ pub trait Numeric:
 /// This is determined by the Unicode math class, with some manual overrides.
 pub fn default_math_class(c: char) -> Option<MathClass> {
     match c {
-        // ⊥ UP TACK. See https://github.com/typst/typst/issues/4985.
+        // Better spacing.
+        // https://github.com/typst/typst/commit/2e039cb052fcb768027053cbf02ce396f6d7a6be
+        ':' => Some(MathClass::Relation),
+
+        // Better spacing when used alongside + PLUS SIGN.
+        // https://github.com/typst/typst/pull/1726
+        '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
+
+        // Better spacing.
+        // https://github.com/typst/typst/pull/1855
+        '.' | '/' => Some(MathClass::Normal),
+
+        // ⊥ UP TACK should not be a relation, contrary to ⟂ PERPENDICULAR.
+        // https://github.com/typst/typst/pull/5714
         '\u{22A5}' => Some(MathClass::Normal),
+
         c => unicode_math_class::class(c),
     }
 }
