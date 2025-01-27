@@ -676,6 +676,19 @@ a b c --------------------
   `code`
   ```
 
+--- issue-5760-disable-cjk-latin-spacing-in-raw ---
+// Test that cjk-latin-spacing is disabled in raw blocks.
+
+#set text(cjk-latin-spacing: auto) // cjk-latin-spacing is enabled but should be disabled in raw blocks by default
+```typ
+#let hi = "你好world"
+```
+
+#show raw: set text(cjk-latin-spacing: auto) // This would enable cjk-latin-spacing
+```typ
+#let hi = "你好world"
+```
+
 --- raw-theme-set-to-auto ---
 ```typ
 #let hi = "Hello World"
@@ -705,16 +718,3 @@ a b c --------------------
 //
 // Error: 1-2:1 unclosed raw text
 `endless
-
---- issue-5760-disable-cjk-latin-spacing-in-raw ---
-// Test that cjk-latin-spacing is disabled in raw blocks.
-
-#set text(cjk-latin-spacing: auto) // cjk-latin-spacing is enabled but should be disabled in raw blocks by default
-```typ
-#let hi = "你好world"
-```
-
-#show raw: set text(cjk-latin-spacing: auto) // This would enable cjk-latin-spacing
-```typ
-#let hi = "你好world"
-```
