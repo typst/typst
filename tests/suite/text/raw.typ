@@ -677,14 +677,13 @@ a b c --------------------
   ```
 
 --- issue-5760-disable-cjk-latin-spacing-in-raw ---
-// Test that cjk-latin-spacing is disabled in raw blocks.
 
-#set text(cjk-latin-spacing: auto) // cjk-latin-spacing is enabled but should be disabled in raw blocks by default
+#show raw: set text(cjk-latin-spacing: auto) // This would enable cjk-latin-spacing
 ```typ
 #let hi = "你好world"
 ```
 
-#show raw: set text(cjk-latin-spacing: auto) // This would enable cjk-latin-spacing
+#show raw: set text(cjk-latin-spacing: none)
 ```typ
 #let hi = "你好world"
 ```
