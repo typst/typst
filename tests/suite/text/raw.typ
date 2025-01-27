@@ -678,7 +678,7 @@ a b c --------------------
 
 --- issue-5760-disable-cjk-latin-spacing-in-raw ---
 
-#show raw: set text(cjk-latin-spacing: auto) // This would enable cjk-latin-spacing
+#show raw: set text(cjk-latin-spacing: auto)
 ```typ
 #let hi = "你好world"
 ```
