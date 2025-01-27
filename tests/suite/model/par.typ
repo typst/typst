@@ -156,6 +156,57 @@ starts a paragraph, also with indent.
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
 
+--- par-first-line-indent-all ---
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+#set block(spacing: 1.2em)
+#show heading: set text(size: 10pt)
+
+= Heading
+All paragraphs are indented.
+
+Even the first.
+
+--- par-first-line-indent-all-list ---
+#show list.where(tight: false): set list(spacing: 1.2em)
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+
+- A #parbreak() B #line(length: 100%) C
+
+- D
+
+--- par-first-line-indent-all-enum ---
+#show enum.where(tight: false): set enum(spacing: 1.2em)
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+
++ A #parbreak() B #line(length: 100%) C
+
++ D
+
+--- par-first-line-indent-all-terms ---
+#show terms.where(tight: false): set terms(spacing: 1.2em)
+#set terms(hanging-indent: 10pt)
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+
+/ Term A: B \ C #parbreak() D #line(length: 100%) E
+
+/ Term F: G
+
 --- par-spacing-and-first-line-indent ---
 // This is madness.
 #set par(first-line-indent: 12pt)
