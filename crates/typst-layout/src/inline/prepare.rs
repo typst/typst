@@ -85,7 +85,7 @@ pub fn prepare<'a>(
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
     styles: StyleChain<'a>,
-    paragraph: bool,
+    situation: Option<ParSituation>,
 ) -> SourceResult<Preparation<'a>> {
     let dir = TextElem::dir_in(styles);
     let default_level = match dir {
@@ -130,7 +130,11 @@ pub fn prepare<'a>(
     }
 
     // Only apply hanging indent to real paragraphs.
-    let hang = if paragraph { ParElem::hanging_indent_in(styles) } else { Abs::zero() };
+    let hang = if situation.is_some() {
+        ParElem::hanging_indent_in(styles)
+    } else {
+        Abs::zero()
+    };
 
     Ok(Preparation {
         text,

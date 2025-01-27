@@ -23,6 +23,7 @@ use typst_library::World;
 use typst_utils::SliceExt;
 
 use super::{layout_multi_block, layout_single_block, FlowMode};
+use crate::inline::ParSituation;
 use crate::modifiers::layout_and_modify;
 
 /// Collects all elements of the flow into prepared children. These are much
@@ -46,7 +47,7 @@ pub fn collect<'a>(
         base,
         expand,
         output: Vec::with_capacity(children.len()),
-        last_was_par: false,
+        par_situation: ParSituation::First,
     }
     .run(mode)
 }
@@ -60,7 +61,7 @@ struct Collector<'a, 'x, 'y> {
     expand: bool,
     locator: SplitLocator<'a>,
     output: Vec<Child<'a>>,
-    last_was_par: bool,
+    par_situation: ParSituation,
 }
 
 impl<'a> Collector<'a, '_, '_> {
@@ -123,8 +124,7 @@ impl<'a> Collector<'a, '_, '_> {
             styles,
             self.base,
             self.expand,
-            false,
-            false,
+            None,
         )?
         .into_frames();
 
@@ -165,7 +165,7 @@ impl<'a> Collector<'a, '_, '_> {
             styles,
             self.base,
             self.expand,
-            self.last_was_par,
+            self.par_situation,
         )?
         .into_frames();
 
@@ -175,7 +175,7 @@ impl<'a> Collector<'a, '_, '_> {
         self.lines(lines, styles);
 
         self.output.push(Child::Rel(spacing.into(), 4));
-        self.last_was_par = true;
+        self.par_situation = ParSituation::Consecutive;
 
         Ok(())
     }
@@ -272,7 +272,7 @@ impl<'a> Collector<'a, '_, '_> {
         };
 
         self.output.push(spacing(elem.below(styles)));
-        self.last_was_par = false;
+        self.par_situation = ParSituation::Other;
     }
 
     /// Collects a placed element into a [`PlacedChild`].

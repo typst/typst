@@ -5,6 +5,7 @@ use typst_library::layout::{
     Abs, AlignElem, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing,
     Spacing,
 };
+use typst_library::model::{EnumElem, ListElem, TermsElem};
 use typst_library::routines::Pair;
 use typst_library::text::{
     is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
@@ -124,26 +125,33 @@ pub fn collect<'a>(
     locator: &mut SplitLocator<'a>,
     styles: StyleChain<'a>,
     region: Size,
-    consecutive: bool,
-    paragraph: bool,
+    situation: Option<ParSituation>,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
     let outer_dir = TextElem::dir_in(styles);
 
-    if paragraph && consecutive {
+    if let Some(situation) = situation {
         let first_line_indent = ParElem::first_line_indent_in(styles);
-        if !first_line_indent.is_zero()
+        if !first_line_indent.amount.is_zero()
+            && match situation {
+                // First-line indent for the first paragraph after a list bullet
+                // just looks bad.
+                ParSituation::First => first_line_indent.all && !in_list(styles),
+                ParSituation::Consecutive => true,
+                ParSituation::Other => first_line_indent.all,
+            }
             && AlignElem::alignment_in(styles).resolve(styles).x
                 == outer_dir.start().into()
         {
-            collector.push_item(Item::Absolute(first_line_indent.resolve(styles), false));
+            collector.push_item(Item::Absolute(
+                first_line_indent.amount.resolve(styles),
+                false,
+            ));
             collector.spans.push(1, Span::detached());
         }
-    }
 
-    if paragraph {
         let hang = ParElem::hanging_indent_in(styles);
         if !hang.is_zero() {
             collector.push_item(Item::Absolute(-hang, false));
@@ -255,6 +263,16 @@ pub fn collect<'a>(
     }
 
     Ok((collector.full, collector.segments, collector.spans))
+}
+
+/// Whether we have a list ancestor.
+///
+/// When we support some kind of more general ancestry mechanism, this can
+/// become more elegant.
+fn in_list(styles: StyleChain) -> bool {
+    ListElem::depth_in(styles).0 > 0
+        || !EnumElem::parents_in(styles).is_empty()
+        || TermsElem::within_in(styles)
 }
 
 /// Collects segments.

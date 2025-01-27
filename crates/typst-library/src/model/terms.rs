@@ -105,6 +105,11 @@ pub struct TermsElem {
     /// ```
     #[variadic]
     pub children: Vec<Packed<TermItem>>,
+
+    /// Whether we are currently within a term list.
+    #[internal]
+    #[ghost]
+    pub within: bool,
 }
 
 #[scope]
@@ -180,7 +185,8 @@ impl Show for Packed<TermsElem> {
             .with_spacing(Some(gutter.into()))
             .pack()
             .spanned(span)
-            .padded(padding);
+            .padded(padding)
+            .styled(TermsElem::set_within(true));
 
         if tight {
             let leading = ParElem::leading_in(styles);

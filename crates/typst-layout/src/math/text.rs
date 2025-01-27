@@ -107,8 +107,7 @@ fn layout_inline_text(
             styles,
             Size::splat(Abs::inf()),
             false,
-            false,
-            false,
+            None,
         )?
         .into_frame();
 

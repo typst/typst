@@ -42,7 +42,7 @@ pub fn layout_par(
     styles: StyleChain,
     region: Size,
     expand: bool,
-    consecutive: bool,
+    situation: ParSituation,
 ) -> SourceResult<Fragment> {
     layout_par_impl(
         elem,
@@ -56,7 +56,7 @@ pub fn layout_par(
         styles,
         region,
         expand,
-        consecutive,
+        situation,
     )
 }
 
@@ -75,7 +75,7 @@ fn layout_par_impl(
     styles: StyleChain,
     region: Size,
     expand: bool,
-    consecutive: bool,
+    situation: ParSituation,
 ) -> SourceResult<Fragment> {
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
@@ -105,8 +105,7 @@ fn layout_par_impl(
         styles,
         region,
         expand,
-        true,
-        consecutive,
+        Some(situation),
     )
 }
 
@@ -119,20 +118,33 @@ pub fn layout_inline<'a>(
     styles: StyleChain<'a>,
     region: Size,
     expand: bool,
-    paragraph: bool,
-    consecutive: bool,
+    par: Option<ParSituation>,
 ) -> SourceResult<Fragment> {
     // Collect all text into one string for BiDi analysis.
     let (text, segments, spans) =
-        collect(children, engine, locator, styles, region, consecutive, paragraph)?;
+        collect(children, engine, locator, styles, region, par)?;
 
     // Perform BiDi analysis and performs some preparation steps before we
     // proceed to line breaking.
-    let p = prepare(engine, children, &text, segments, spans, styles, paragraph)?;
+    let p = prepare(engine, children, &text, segments, spans, styles, par)?;
 
     // Break the text into lines.
     let lines = linebreak(engine, &p, region.x - p.hang);
 
     // Turn the selected lines into frames.
     finalize(engine, &p, &lines, styles, region, expand, locator)
+}
+
+/// Distinguishes between a few different kinds of paragraphs.
+///
+/// In the form `Option<ParSituation>`, `None` implies that we are creating an
+/// inline layout that isn't a semantic paragraph.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ParSituation {
+    /// The paragraph is the first thing in the flow.
+    First,
+    /// The paragraph follows another paragraph.
+    Consecutive,
+    /// Any other kind of paragraph.
+    Other,
 }
