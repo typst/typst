@@ -8,11 +8,12 @@ use crate::foundations::{repr, ty, Repr};
 
 /// A ratio of a whole.
 ///
-/// Written as a number, followed by a percent sign. A common use case is
-/// setting the width or height of a container (e.g., [block], [rect], etc.),
-/// as it can be used as part of a [relative length]($relative) to represent
-/// a certain percentage of the size of the surrounding container or of the
-/// current page. For example:
+/// Written as a number, followed by a percent sign.
+///
+/// A common use case is setting the width or height of a container (e.g.,
+/// [block], [rect], etc.), as it can be used as part of a [relative
+/// length]($relative) to represent a certain percentage of the size of the
+/// surrounding container or of the current page. For example:
 ///
 /// ```example
 /// #block(width: 240pt, {
