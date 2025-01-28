@@ -16,6 +16,22 @@ use crate::layout::{Abs, Em, Length, Ratio};
 ///
 /// You can multiply relative length by [ratio], [int], and [float].
 ///
+/// If you are trying to use the page width/height's value as the base for the
+/// ratio, then the value is equal to the width/height of the page minus the
+/// margins (left and right for width, top and bottom for height). To force
+/// Typst to use the full length you have a few options (this highly depends on
+/// your exact use case):
+///
+/// 1. set page margins to `{0pt}` (`#set page(margin: 0pt)`)
+/// 2. multiply by a full length value (`{21cm * 69%}`)
+/// 3. use padding which will negate the margins (`#pad(x: -2.5cm, ...)`)
+/// 4. use page [background](page.background)/[foreground](page.foreground)
+///    field that doesn't use the margins (note that it will render the content
+///    outside of the document flow, see [place] to control the content
+///    position)
+///
+/// See [ratio] for more details.
+///
 /// # Example
 /// ```example
 /// #rect(width: 100% - 50pt)

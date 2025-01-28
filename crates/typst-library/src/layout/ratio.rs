@@ -10,21 +10,9 @@ use crate::foundations::{repr, ty, Repr};
 ///
 /// Written as a number, followed by a percent sign. A common use case is
 /// setting the width or height of a container (e.g., [block], [rect], etc.),
-/// thus it is used as a part of a [relative length](relative) (because
-/// internally containers use relative length for width and height fields):
-///
-/// ```example
-/// #block(width: 240pt, {
-///   rect(width: 25%, layout(size => size.width))
-/// })
-/// ```
-///
-/// Here the block width is set to `{250pt}` (just to demonstrate the use of
-/// ratio with containers), and inside of it the rectangle width is set to
-/// `{25%}`, which means "get 25% of the width of the innermost container" (240
-/// ⋅ 0.25 = 60). The reason it shows `{50pt}` instead of `{60pt}` is due to
-/// the default value of inset. If we set it to `{0pt}`, then we will get
-/// the expected result (although the number will be cramped):
+/// as it can be used as part of a [relative length]($relative) to represent
+/// a certain percentage of the size of the surrounding container or of the
+/// current page. For example:
 ///
 /// ```example
 /// #block(width: 240pt, {
@@ -32,19 +20,14 @@ use crate::foundations::{repr, ty, Repr};
 /// })
 /// ```
 ///
-/// If you are trying to use the page width/height's value as the base for the
-/// ratio, then the value is equal to the width/height of the page minus the
-/// margins (left and right for width, top and bottom for height). To force
-/// Typst to use the full length you have a few options (this highly depends on
-/// your exact use case):
+/// Here the block width is set to `{240pt}` (just to demonstrate the use of
+/// ratio with containers), and inside of it the rectangle width is set to
+/// `{25%}`, which means "get 25% of the width of the innermost container" (240
+/// ⋅ 0.25 = 60). Notice that the inset is equal to `{0pt}`, if it's not set
+/// then it will show `{50pt}` instead of `{60pt}`, which is also why the number
+/// looks cramped.
 ///
-/// 1. set page margins to `{0pt}` (`#set page(margin: 0pt)`)
-/// 2. multiply by a full length value (`{21cm * 69%}`)
-/// 3. use padding which will negate the margins (`#pad(x: -2.5cm, ...)`)
-/// 4. use page [background](page.background)/[foreground](page.foreground)
-///    field that doesn't use the margins (note that it will render the content
-///    outside of the document flow, see [place] to control the content
-///    position)
+/// See [relative length]($relative) for more details.
 ///
 /// However, within your own code, you can use ratios as you'd like. You can
 /// multiply ratio by ratio, [length], [relative length](relative), [angle],
