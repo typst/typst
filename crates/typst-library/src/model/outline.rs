@@ -461,13 +461,13 @@ impl OutlineEntry {
         /// The `prefix` is aligned with the `inner` content of entries that
         /// have level one less.
         ///
-        /// In the default show rule, this is just to `it.prefix()`, but it can
-        /// be freely customized.
+        /// In the default show rule, this is just `it.prefix()`, but it can be
+        /// freely customized.
         prefix: Option<Content>,
         /// The formatted inner content of the entry.
         ///
-        /// In the default show rule, this is just to `it.inner()`, but it can
-        /// be freely customized.
+        /// In the default show rule, this is just `it.inner()`, but it can be
+        /// freely customized.
         inner: Content,
         /// The gap between the prefix and the inner content.
         #[named]
