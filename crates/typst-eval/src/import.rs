@@ -66,8 +66,10 @@ impl Eval for ast::ModuleImport<'_> {
             None => {
                 if new_name.is_none() {
                     match self.bare_name() {
-                        Ok(name) => {
-                            if matches!(source_expr, ast::Expr::Ident(_)) && !is_str {
+                        Ok(name)
+                            if !is_str || matches!(source_expr, ast::Expr::Str(_)) =>
+                        {
+                            if matches!(source_expr, ast::Expr::Ident(_)) {
                                 // Warn on `import x` where `x` is not a string.
                                 vm.engine.sink.warn(warning!(
                                     source_expr.span(),
@@ -76,7 +78,7 @@ impl Eval for ast::ModuleImport<'_> {
                             }
                             vm.scopes.top.define_spanned(name, source, source_span);
                         }
-                        Err(BareImportError::Dynamic) => bail!(
+                        Ok(_) | Err(BareImportError::Dynamic) => bail!(
                             source_span, "cannot determine binding name for this import";
                             hint: "the name must be statically known";
                             hint: "you can rename the import with `as`";

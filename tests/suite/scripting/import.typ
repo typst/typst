@@ -160,11 +160,19 @@
 
 --- import-from-var-bare ---
 #let p = "module.typ"
+// Error: 9-10 cannot determine binding name for this import
+// Hint: 9-10 the name must be statically known
+// Hint: 9-10 you can rename the import with `as`
+// Hint: 9-10 to import specific items from a dynamic source, add a colon followed by an import list
 #import p
 #test(p.b, 1)
 
 --- import-from-dict-field-bare ---
 #let d = (p: "module.typ")
+// Error: 9-12 cannot determine binding name for this import
+// Hint: 9-12 the name must be statically known
+// Hint: 9-12 you can rename the import with `as`
+// Hint: 9-12 to import specific items from a dynamic source, add a colon followed by an import list
 #import d.p
 #test(p.b, 1)
 
