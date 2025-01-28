@@ -18,9 +18,9 @@ impl Eval for ast::ModuleImport<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let source_expr = self.source();
         let source_span = source_expr.span();
+
         let mut source = source_expr.eval(vm)?;
-        let new_name = self.new_name();
-        let imports = self.imports();
+        let mut is_str = false;
 
         match &source {
             Value::Func(func) => {
@@ -32,6 +32,7 @@ impl Eval for ast::ModuleImport<'_> {
             Value::Module(_) => {}
             Value::Str(path) => {
                 source = Value::Module(import(&mut vm.engine, path, source_span)?);
+                is_str = true;
             }
             v => {
                 bail!(
@@ -61,13 +62,13 @@ impl Eval for ast::ModuleImport<'_> {
         }
 
         let scope = source.scope().unwrap();
-        match imports {
+        match self.imports() {
             None => {
                 if new_name.is_none() {
                     match self.bare_name() {
                         Ok(name) => {
-                            if let ast::Expr::Ident(_) = source_expr {
-                                // Warn on `import x`
+                            if matches!(source_expr, ast::Expr::Ident(_)) && !is_str {
+                                // Warn on `import x` where `x` is not a string.
                                 vm.engine.sink.warn(warning!(
                                     source_expr.span(),
                                     "this import has no effect",

@@ -158,6 +158,16 @@
 // Hint: 9-26 to import specific items from a dynamic source, add a colon followed by an import list
 #import "mod" + "ule.typ"
 
+--- import-from-var-bare ---
+#let p = "module.typ"
+#import p
+#test(p.b, 1)
+
+--- import-from-dict-field-bare ---
+#let d = (p: "module.typ")
+#import d.p
+#test(p.b, 1)
+
 --- import-from-file-renamed-dynamic ---
 #import "mod" + "ule.typ" as mod
 #test(mod.b, 1)
