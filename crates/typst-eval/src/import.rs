@@ -43,9 +43,11 @@ impl Eval for ast::ModuleImport<'_> {
         }
 
         // Source itself is imported if there is no import list or a rename.
+        let bare_name = self.bare_name();
+        let new_name = self.new_name();
         if let Some(new_name) = new_name {
-            if let ast::Expr::Ident(ident) = source_expr {
-                if ident.as_str() == new_name.as_str() {
+            if let Ok(source_name) = &bare_name {
+                if source_name == new_name.as_str() {
                     // Warn on `import x as x`
                     vm.engine.sink.warn(warning!(
                         new_name.span(),

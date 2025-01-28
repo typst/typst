@@ -252,9 +252,13 @@
 // Warning: 31-35 unnecessary import rename to same name
 #import enum as enum: item as item
 
---- import-item-rename-unnecessary-but-ok ---
-// No warning on a case that isn't obviously pathological
+--- import-item-rename-unnecessary-string ---
+// Warning: 25-31 unnecessary import rename to same name
 #import "module.typ" as module
+
+--- import-item-rename-unnecessary-but-ok ---
+#import "modul" + "e.typ" as module
+#test(module.b, 1)
 
 --- import-from-closure-invalid ---
 // Can't import from closures.
