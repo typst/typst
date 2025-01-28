@@ -445,9 +445,9 @@ impl OutlineEntry {
     ///
     /// If the parent outline's [`indent`]($outline.indent) is `{auto}`, the
     /// inner content of all entries at level `N` is aligned with the prefix of
-    /// all entries at with level `N + 1`, leaving at least `gap` space between
-    /// the prefix and inner parts. Furthermore, the `inner` contents of all
-    /// entries at the same level are aligned.
+    /// all entries at level `N + 1`, leaving at least `gap` space between the
+    /// prefix and inner parts. Furthermore, the `inner` contents of all entries
+    /// at the same level are aligned.
     ///
     /// If the outline's indent is a fixed value or a function, the prefixes are
     /// indented, but the inner contents are simply inset from the prefix by the
