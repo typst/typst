@@ -30,8 +30,32 @@ use crate::foundations::{repr, ty, Repr};
 /// See [relative length]($relative) for more details.
 ///
 /// However, within your own code, you can use ratios as you'd like. You can
-/// multiply ratio by ratio, [length], [relative length](relative), [angle],
+/// multiply ratio by ratio, [length], [relative length]($relative), [angle],
 /// [int], [float], and [fraction].
+///
+/// ```example
+/// #ratio: #(27% * 10%) \
+/// #length: #(27% * 100pt) \
+/// #relative: #(27% * (10% + 100pt)) \
+/// #angle: #(27% * 100deg) \
+/// #int: #(27% * 2) \
+/// #float: #(27% * 0.37037) \ // Some rounding is happening.
+/// #fraction: #(27% * 3fr)
+///
+/// #table(
+///   columns: 2,
+///   align: (right, left),
+///   inset: (x: 2pt),
+///   table.vline(x: 1, stroke: none),
+///   [#ratio:], [#(27% * 10%)],
+///   [#length:], [#(27% * 100pt)],
+///   [#relative:], [#(27% * (10% + 100pt))],
+///   [#angle:], [#(27% * 100deg)],
+///   [#int:], [#(27% * 2)],
+///   [#float:], [#(27% * 0.37037)], // Some rounding is happening.
+///   [#fraction:], [#(27% * 3fr)],
+/// )
+/// ```
 ///
 /// # Example
 /// ```example
