@@ -145,6 +145,23 @@
 #test(module.item(1, 2), 3)
 #test(module.push(2), 3)
 
+--- import-from-file-bare-invalid ---
+// Error: 9-33 cannot determine binding name for this import
+// Hint: 9-33 the file stem is not a valid identifier
+// Hint: 9-33 you can rename the import with `as`
+#import "modules/with space.typ"
+
+--- import-from-file-bare-dynamic ---
+// Error: 9-26 cannot determine binding name for this import
+// Hint: 9-26 the name must be statically known
+// Hint: 9-26 you can rename the import with `as`
+// Hint: 9-26 to import specific items from a dynamic source, add a colon followed by an import list
+#import "mod" + "ule.typ"
+
+--- import-from-file-renamed-dynamic ---
+#import "mod" + "ule.typ" as mod
+#test(mod.b, 1)
+
 --- import-from-file-renamed ---
 // A renamed module import without items.
 #import "module.typ" as other
@@ -160,6 +177,10 @@
 #test(item(1, 2), 3)
 #test(newname.item(1, 2), 3)
 
+--- import-from-function-scope-bare ---
+// Warning: 9-13 this import has no effect
+#import enum
+
 --- import-from-function-scope-renamed ---
 // Renamed module import with function scopes.
 #import enum as othernum
@@ -170,6 +191,23 @@
 #import assert as asrt
 #import asrt: ne as asne
 #asne(1, 2)
+
+--- import-from-module-bare ---
+#import "modules/chap1.typ" as mymod
+// Warning: 9-14 this import has no effect
+#import mymod
+// The name `chap1` is not bound.
+// Error: 2-7 unknown variable: chap1
+#chap1
+
+--- import-module-nested ---
+#import std.calc: pi
+#test(pi, calc.pi)
+
+--- import-module-nested-bare ---
+#import "module.typ"
+#import module.chap2
+#test(chap2.name, "Peter")
 
 --- import-module-item-name-mutating ---
 // Edge case for module access that isn't fixed.
@@ -357,6 +395,17 @@ This is never reached.
 --- import-from-package-bare ---
 // Test import without items.
 #import "@test/adder:0.1.0"
+#test(adder.add(2, 8), 10)
+
+--- import-from-package-dynamic ---
+// Error: 9-33 cannot determine binding name for this import
+// Hint: 9-33 the name must be statically known
+// Hint: 9-33 you can rename the import with `as`
+// Hint: 9-33 to import specific items from a dynamic source, add a colon followed by an import list
+#import "@test/" + "adder:0.1.0"
+
+--- import-from-package-renamed-dynamic ---
+#import "@test/" + "adder:0.1.0" as adder
 #test(adder.add(2, 8), 10)
 
 --- import-from-package-items ---

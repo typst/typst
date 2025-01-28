@@ -4,11 +4,14 @@
 
 use std::num::NonZeroUsize;
 use std::ops::Deref;
+use std::path::Path;
+use std::str::FromStr;
 
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use crate::{is_newline, Span, SyntaxKind, SyntaxNode};
+use crate::package::PackageSpec;
+use crate::{is_ident, is_newline, Span, SyntaxKind, SyntaxNode};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -2064,6 +2067,41 @@ impl<'a> ModuleImport<'a> {
         })
     }
 
+    /// The name that will be bound for a bare import. This name must be
+    /// statically known. It can come from:
+    /// - an identifier
+    /// - a field access
+    /// - a string that is a valid file path where the file stem is a valid
+    ///   identifier
+    /// - a string that is a valid package spec
+    pub fn bare_name(self) -> Result<EcoString, BareImportError> {
+        match self.source() {
+            Expr::Ident(ident) => Ok(ident.get().clone()),
+            Expr::FieldAccess(access) => Ok(access.field().get().clone()),
+            Expr::Str(string) => {
+                let string = string.get();
+                let name = if string.starts_with('@') {
+                    PackageSpec::from_str(&string)
+                        .map_err(|_| BareImportError::PackageInvalid)?
+                        .name
+                } else {
+                    Path::new(string.as_str())
+                        .file_stem()
+                        .and_then(|path| path.to_str())
+                        .ok_or(BareImportError::PathInvalid)?
+                        .into()
+                };
+
+                if !is_ident(&name) {
+                    return Err(BareImportError::PathInvalid);
+                }
+
+                Ok(name)
+            }
+            _ => Err(BareImportError::Dynamic),
+        }
+    }
+
     /// The name this module was assigned to, if it was renamed with `as`
     /// (`renamed` in `import "..." as renamed`).
     pub fn new_name(self) -> Option<Ident<'a>> {
@@ -2072,6 +2110,18 @@ impl<'a> ModuleImport<'a> {
             .skip_while(|child| child.kind() != SyntaxKind::As)
             .find_map(SyntaxNode::cast)
     }
+}
+
+/// Reasons why a bare name cannot be determined for an import source.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum BareImportError {
+    /// There is no statically resolvable binding name.
+    Dynamic,
+    /// The import source is not a valid path or the path stem not a valid
+    /// identifier.
+    PathInvalid,
+    /// The import source is not a valid package spec.
+    PackageInvalid,
 }
 
 /// The items that ought to be imported from a file.

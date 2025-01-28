@@ -181,16 +181,6 @@ impl Value {
         }
     }
 
-    /// The name, if this is a function, type, or module.
-    pub fn name(&self) -> Option<&str> {
-        match self {
-            Self::Func(func) => func.name(),
-            Self::Type(ty) => Some(ty.short_name()),
-            Self::Module(module) => Some(module.name()),
-            _ => None,
-        }
-    }
-
     /// Try to extract documentation for the value.
     pub fn docs(&self) -> Option<&'static str> {
         match self {
@@ -728,6 +718,11 @@ mod tests {
     #[track_caller]
     fn test(value: impl IntoValue, exp: &str) {
         assert_eq!(value.into_value().repr(), exp);
+    }
+
+    #[test]
+    fn test_value_size() {
+        assert!(std::mem::size_of::<Value>() <= 32);
     }
 
     #[test]

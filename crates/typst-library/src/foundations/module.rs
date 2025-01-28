@@ -32,7 +32,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
-    name: EcoString,
+    name: Option<EcoString>,
     /// The reference-counted inner fields.
     inner: Arc<Repr>,
 }
@@ -52,14 +52,22 @@ impl Module {
     /// Create a new module.
     pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
-            name: name.into(),
+            name: Some(name.into()),
+            inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
+        }
+    }
+
+    /// Create a new anonymous module without a name.
+    pub fn anonymous(scope: Scope) -> Self {
+        Self {
+            name: None,
             inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
         }
     }
 
     /// Update the module's name.
     pub fn with_name(mut self, name: impl Into<EcoString>) -> Self {
-        self.name = name.into();
+        self.name = Some(name.into());
         self
     }
 
@@ -82,8 +90,8 @@ impl Module {
     }
 
     /// Get the module's name.
-    pub fn name(&self) -> &EcoString {
-        &self.name
+    pub fn name(&self) -> Option<&EcoString> {
+        self.name.as_ref()
     }
 
     /// Access the module's scope.
@@ -105,8 +113,9 @@ impl Module {
 
     /// Try to access a definition in the module.
     pub fn field(&self, name: &str) -> StrResult<&Value> {
-        self.scope().get(name).ok_or_else(|| {
-            eco_format!("module `{}` does not contain `{name}`", self.name())
+        self.scope().get(name).ok_or_else(|| match &self.name {
+            Some(module) => eco_format!("module `{module}` does not contain `{name}`"),
+            None => eco_format!("module does not contain `{name}`"),
         })
     }
 
@@ -131,7 +140,10 @@ impl Debug for Module {
 
 impl repr::Repr for Module {
     fn repr(&self) -> EcoString {
-        eco_format!("<module {}>", self.name())
+        match &self.name {
+            Some(module) => eco_format!("<module {module}>"),
+            None => "<module>".into(),
+        }
     }
 }
 

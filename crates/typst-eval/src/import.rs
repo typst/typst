@@ -6,7 +6,7 @@ use typst_library::diag::{
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Module, Value};
 use typst_library::World;
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
 use typst_syntax::{FileId, Span, VirtualPath};
 
@@ -16,9 +16,9 @@ impl Eval for ast::ModuleImport<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let source = self.source();
-        let source_span = source.span();
-        let mut source = source.eval(vm)?;
+        let source_expr = self.source();
+        let source_span = source_expr.span();
+        let mut source = source_expr.eval(vm)?;
         let new_name = self.new_name();
         let imports = self.imports();
 
@@ -42,8 +42,9 @@ impl Eval for ast::ModuleImport<'_> {
             }
         }
 
+        // Source itself is imported if there is no import list or a rename.
         if let Some(new_name) = new_name {
-            if let ast::Expr::Ident(ident) = self.source() {
+            if let ast::Expr::Ident(ident) = source_expr {
                 if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
                     vm.engine.sink.warn(warning!(
@@ -60,10 +61,34 @@ impl Eval for ast::ModuleImport<'_> {
         let scope = source.scope().unwrap();
         match imports {
             None => {
-                // Only import here if there is no rename.
                 if new_name.is_none() {
-                    let name: EcoString = source.name().unwrap().into();
-                    vm.scopes.top.define(name, source);
+                    match self.bare_name() {
+                        Ok(name) => {
+                            if let ast::Expr::Ident(_) = source_expr {
+                                // Warn on `import x`
+                                vm.engine.sink.warn(warning!(
+                                    source_expr.span(),
+                                    "this import has no effect",
+                                ));
+                            }
+                            vm.scopes.top.define_spanned(name, source, source_span);
+                        }
+                        Err(BareImportError::Dynamic) => bail!(
+                            source_span, "cannot determine binding name for this import";
+                            hint: "the name must be statically known";
+                            hint: "you can rename the import with `as`";
+                            hint: "to import specific items from a dynamic source, \
+                                   add a colon followed by an import list"
+                        ),
+                        Err(BareImportError::PathInvalid) => bail!(
+                            source_span, "cannot determine binding name for this import";
+                            hint: "the file stem is not a valid identifier";
+                            hint: "you can rename the import with `as`",
+                        ),
+                        // Bad package spec would have failed the import
+                        // already.
+                        Err(BareImportError::PackageInvalid) => unreachable!(),
+                    }
                 }
             }
             Some(ast::Imports::Wildcard) => {

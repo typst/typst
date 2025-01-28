@@ -12,8 +12,8 @@ use typst_utils::Static;
 
 use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
-    Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
-    NativeType, Type, Value,
+    Element, Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType,
+    Type, Value,
 };
 use crate::Library;
 
@@ -250,11 +250,6 @@ impl Scope {
     pub fn define_elem<T: NativeElement>(&mut self) {
         let data = T::data();
         self.define(data.name, Element::from(data));
-    }
-
-    /// Define a module.
-    pub fn define_module(&mut self, module: Module) {
-        self.define(module.name().clone(), module);
     }
 
     /// Try to access a variable immutably.
