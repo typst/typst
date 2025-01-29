@@ -66,11 +66,11 @@ impl Eval for ast::ModuleImport<'_> {
             None => {
                 if new_name.is_none() {
                     match self.bare_name() {
+                        // Bare dynamic string imports are not allowed.
                         Ok(name)
                             if !is_str || matches!(source_expr, ast::Expr::Str(_)) =>
                         {
                             if matches!(source_expr, ast::Expr::Ident(_)) {
-                                // Warn on `import x` where `x` is not a string.
                                 vm.engine.sink.warn(warning!(
                                     source_expr.span(),
                                     "this import has no effect",
