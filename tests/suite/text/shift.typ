@@ -8,6 +8,18 @@
   [x#sub[1]], [x#sub[5n]], [x#sub[2 #box(square(size: 6pt))]],
 )
 
+--- sub-super-typographic ---
+// Warning: 5:35-5:67 typographic superscript element contains non-textual content
+// Hint: 5:35-5:67 this may have undesired behavior
+// Hint: 5:35-5:67 set the `typographic` parameter to `false`
+#set super(typographic: true)
+#table(
+  columns: 3,
+  [Typo.], [Fallb.], [Synth],
+  [x#super[1]], [x#super[5n]], [x#super[2 #box(square(size: 6pt))]],
+  [x#sub[1]], [x#sub[5n]], [x#sub[2 #box(square(size: 6pt))]],
+)
+
 --- sub-super-non-typographic ---
 #set super(typographic: false, baseline: -0.25em, size: 0.7em)
 n#super[1], n#sub[2], ... n#super[N]
