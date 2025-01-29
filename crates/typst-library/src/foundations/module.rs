@@ -7,14 +7,20 @@ use typst_syntax::FileId;
 use crate::diag::StrResult;
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
-/// An evaluated module, either built-in or resulting from a file.
+/// An module of definitions.
 ///
-/// You can access definitions from the module using
-/// [field access notation]($scripting/#fields) and interact with it using the
-/// [import and include syntaxes]($scripting/#modules). Alternatively, it is
-/// possible to convert a module to a dictionary, and therefore access its
-/// contents dynamically, using the
-/// [dictionary constructor]($dictionary/#constructor).
+/// A module
+/// - be built-in
+/// - stem from a [file import]($scripting/#modules)
+/// - stem from a [package import]($scripting/#packages) (and thus indirectly
+///   its entrypoint file)
+/// - result from a call to the [plugin]($plugin) function
+///
+/// You can access definitions from the module using [field access
+/// notation]($scripting/#fields) and interact with it using the [import and
+/// include syntaxes]($scripting/#modules). Alternatively, it is possible to
+/// convert a module to a dictionary, and therefore access its contents
+/// dynamically, using the [dictionary constructor]($dictionary/#constructor).
 ///
 /// # Example
 /// ```example

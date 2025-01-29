@@ -167,6 +167,14 @@ impl Scope {
         Default::default()
     }
 
+    /// Create a new scope with the given capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            map: IndexMap::with_capacity(capacity),
+            ..Default::default()
+        }
+    }
+
     /// Create a new scope with duplication prevention.
     pub fn deduplicating() -> Self {
         Self { deduplicate: true, ..Default::default() }

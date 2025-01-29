@@ -6,8 +6,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Bytes, Capturer, Closure, Content, Context, Func, IntoValue,
-    NativeElement, Scope, Scopes, SymbolElem, Value,
+    Arg, Args, Capturer, Closure, Content, Context, Func, NativeElement, Scope, Scopes,
+    SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -315,13 +315,7 @@ fn eval_field_call(
         (target, args)
     };
 
-    if let Value::Plugin(plugin) = &target {
-        // Call plugins by converting args to bytes.
-        let bytes = args.all::<Bytes>()?;
-        args.finish()?;
-        let value = plugin.call(&field, bytes).at(span)?.into_value();
-        Ok(FieldCall::Resolved(value))
-    } else if let Some(callee) = target.ty().scope().get(&field) {
+    if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
         Ok(FieldCall::Normal(callee.clone(), args))
     } else if let Value::Content(content) = &target {
