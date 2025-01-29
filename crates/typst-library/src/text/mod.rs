@@ -759,6 +759,18 @@ pub struct TextElem {
     #[internal]
     #[ghost]
     pub smallcaps: Option<Smallcaps>,
+
+    /// Whether subscript glyphs should be used. ("subs")
+    #[internal]
+    #[default(false)]
+    #[ghost]
+    pub subscript: bool,
+
+    /// Whether superscript glyphs should be used. ("sups")
+    #[internal]
+    #[default(false)]
+    #[ghost]
+    pub superscript: bool,
 }
 
 impl TextElem {
@@ -1253,6 +1265,14 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         if sc == Smallcaps::All {
             feat(b"c2sc", 1);
         }
+    }
+
+    if TextElem::subscript_in(styles) {
+        feat(b"subs", 1);
+    }
+
+    if TextElem::superscript_in(styles) {
+        feat(b"sups", 1);
     }
 
     if TextElem::alternates_in(styles) {
