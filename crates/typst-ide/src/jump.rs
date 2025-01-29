@@ -271,6 +271,6 @@ mod tests {
     #[test]
     fn test_backlink() {
         let s = "#footnote[Hi]";
-        test_click(s, point(10.0, 10.0), pos(1, 18.5, 37.1).map(Jump::Position));
+        test_click(s, point(10.0, 10.0), pos(1, 18.5, 34.5).map(Jump::Position));
     }
 }
