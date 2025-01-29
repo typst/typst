@@ -122,8 +122,8 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     if features.is_enabled(Feature::Html) {
         global.define_func::<target>();
     }
-    global.define_module(calc::module());
-    global.define_module(sys::module(inputs));
+    global.define("calc", calc::module());
+    global.define("sys", sys::module(inputs));
 }
 
 /// Fails with an error.
