@@ -146,33 +146,26 @@
 #test(module.push(2), 3)
 
 --- import-from-file-bare-invalid ---
-// Error: 9-33 cannot determine binding name for this import
-// Hint: 9-33 the file stem is not a valid identifier
+// Error: 9-33 module name would not be a valid identifier
 // Hint: 9-33 you can rename the import with `as`
 #import "modules/with space.typ"
 
 --- import-from-file-bare-dynamic ---
-// Error: 9-26 cannot determine binding name for this import
-// Hint: 9-26 the name must be statically known
-// Hint: 9-26 you can rename the import with `as`
-// Hint: 9-26 to import specific items from a dynamic source, add a colon followed by an import list
+// Error: 9-26 dynamic import requires an explicit name
+// Hint: 9-26 you can name the import with `as`
 #import "mod" + "ule.typ"
 
 --- import-from-var-bare ---
 #let p = "module.typ"
-// Error: 9-10 cannot determine binding name for this import
-// Hint: 9-10 the name must be statically known
-// Hint: 9-10 you can rename the import with `as`
-// Hint: 9-10 to import specific items from a dynamic source, add a colon followed by an import list
+// Error: 9-10 dynamic import requires an explicit name
+// Hint: 9-10 you can name the import with `as`
 #import p
 #test(p.b, 1)
 
 --- import-from-dict-field-bare ---
 #let d = (p: "module.typ")
-// Error: 9-12 cannot determine binding name for this import
-// Hint: 9-12 the name must be statically known
-// Hint: 9-12 you can rename the import with `as`
-// Hint: 9-12 to import specific items from a dynamic source, add a colon followed by an import list
+// Error: 9-12 dynamic import requires an explicit name
+// Hint: 9-12 you can name the import with `as`
 #import d.p
 #test(p.b, 1)
 
@@ -420,10 +413,8 @@ This is never reached.
 #test(adder.add(2, 8), 10)
 
 --- import-from-package-dynamic ---
-// Error: 9-33 cannot determine binding name for this import
-// Hint: 9-33 the name must be statically known
-// Hint: 9-33 you can rename the import with `as`
-// Hint: 9-33 to import specific items from a dynamic source, add a colon followed by an import list
+// Error: 9-33 dynamic import requires an explicit name
+// Hint: 9-33 you can name the import with `as`
 #import "@test/" + "adder:0.1.0"
 
 --- import-from-package-renamed-dynamic ---

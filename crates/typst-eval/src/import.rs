@@ -79,19 +79,14 @@ impl Eval for ast::ModuleImport<'_> {
                             vm.scopes.top.define_spanned(name, source, source_span);
                         }
                         Ok(_) | Err(BareImportError::Dynamic) => bail!(
-                            source_span, "cannot determine binding name for this import";
-                            hint: "the name must be statically known";
-                            hint: "you can rename the import with `as`";
-                            hint: "to import specific items from a dynamic source, \
-                                   add a colon followed by an import list"
+                            source_span, "dynamic import requires an explicit name";
+                            hint: "you can name the import with `as`"
                         ),
                         Err(BareImportError::PathInvalid) => bail!(
-                            source_span, "cannot determine binding name for this import";
-                            hint: "the file stem is not a valid identifier";
+                            source_span, "module name would not be a valid identifier";
                             hint: "you can rename the import with `as`",
                         ),
-                        // Bad package spec would have failed the import
-                        // already.
+                        // Bad package spec would have failed the import already.
                         Err(BareImportError::PackageInvalid) => unreachable!(),
                     }
                 }
