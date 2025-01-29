@@ -10,6 +10,7 @@ use typst_library::text::{Lang, TextElem};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -17,12 +18,12 @@ const EN_DASH: char = '–';
 const EM_DASH: char = '—';
 const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified breaks.
 
-/// A layouted line, consisting of a sequence of layouted paragraph items that
-/// are mostly borrowed from the preparation phase. This type enables you to
-/// measure the size of a line in a range before committing to building the
-/// line's frame.
+/// A layouted line, consisting of a sequence of layouted inline items that are
+/// mostly borrowed from the preparation phase. This type enables you to measure
+/// the size of a line in a range before committing to building the line's
+/// frame.
 ///
-/// At most two paragraph items must be created individually for this line: The
+/// At most two inline items must be created individually for this line: The
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
 /// the break index is safe-to-break per rustybuzz.
@@ -93,7 +94,7 @@ impl Line<'_> {
     pub fn has_negative_width_items(&self) -> bool {
         self.items.iter().any(|item| match item {
             Item::Absolute(amount, _) => *amount < Abs::zero(),
-            Item::Frame(frame, _) => frame.width() < Abs::zero(),
+            Item::Frame(frame) => frame.width() < Abs::zero(),
             _ => false,
         })
     }
@@ -409,6 +410,11 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
     }
 }
 
+/// Apply the current baseline shift to a frame.
+pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
+    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+}
+
 /// Commit to a line and build its frame.
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
@@ -424,7 +430,7 @@ pub fn commit(
     let mut offset = Abs::zero();
 
     // We always build the line from left to right. In an LTR paragraph, we must
-    // thus add the hanging indent to the offset. When the paragraph is RTL, the
+    // thus add the hanging indent to the offset. In an RTL paragraph, the
     // hanging indent arises naturally due to the line width.
     if p.dir == Dir::LTR {
         offset += p.hang;
@@ -509,10 +515,11 @@ pub fn commit(
                 let amount = v.share(fr, remaining);
                 if let Some((elem, loc, styles)) = elem {
                     let region = Size::new(amount, full);
-                    let mut frame =
-                        layout_box(elem, engine, loc.relayout(), *styles, region)?;
-                    frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                    push(&mut offset, frame.post_processed(*styles));
+                    let mut frame = layout_and_modify(*styles, |styles| {
+                        layout_box(elem, engine, loc.relayout(), styles, region)
+                    })?;
+                    apply_baseline_shift(&mut frame, *styles);
+                    push(&mut offset, frame);
                 } else {
                     offset += amount;
                 }
@@ -524,12 +531,10 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame.post_processed(shaped.styles));
+                push(&mut offset, frame);
             }
-            Item::Frame(frame, styles) => {
-                let mut frame = frame.clone();
-                frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                push(&mut offset, frame.post_processed(*styles));
+            Item::Frame(frame) => {
+                push(&mut offset, frame.clone());
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
@@ -626,7 +631,7 @@ fn overhang(c: char) -> f64 {
     }
 }
 
-/// A collection of owned or borrowed paragraph items.
+/// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<ItemEntry<'a>>);
 
 impl<'a> Items<'a> {

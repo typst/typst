@@ -211,7 +211,7 @@ fn resolve_package(
     // Evaluate the manifest.
     let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
     let bytes = engine.world.file(manifest_id).at(span)?;
-    let string = std::str::from_utf8(&bytes).map_err(FileError::from).at(span)?;
+    let string = bytes.as_str().map_err(FileError::from).at(span)?;
     let manifest: PackageManifest = toml::from_str(string)
         .map_err(|err| eco_format!("package manifest is malformed ({})", err.message()))
         .at(span)?;

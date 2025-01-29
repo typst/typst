@@ -31,7 +31,7 @@
 #numbers.fun()
 
 --- method-unknown-but-field-exists ---
-// Error: 2:4-2:10 type content has no method `stroke`
+// Error: 2:4-2:10 element line has no method `stroke`
 // Hint: 2:4-2:10 did you mean to access the field `stroke`?
 #let l = line(stroke: red)
 #l.stroke()

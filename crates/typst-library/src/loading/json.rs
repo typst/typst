@@ -1,11 +1,10 @@
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use typst_syntax::Spanned;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a JSON file.
 ///
@@ -51,31 +50,31 @@ use crate::World;
 /// ```
 #[func(scope, title = "JSON")]
 pub fn json(
-    /// The engine.
     engine: &mut Engine,
-    /// Path to a JSON file.
+    /// Path to a JSON file or raw JSON bytes.
     ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    json::decode(Spanned::new(Readable::Bytes(data), span))
+    let data = source.load(engine.world)?;
+    serde_json::from_slice(data.as_slice())
+        .map_err(|err| eco_format!("failed to parse JSON ({err})"))
+        .at(source.span)
 }
 
 #[scope]
 impl json {
     /// Reads structured data from a JSON string/bytes.
+    ///
+    /// This function is deprecated. The [`json`] function now accepts bytes
+    /// directly.
     #[func(title = "Decode JSON")]
     pub fn decode(
+        engine: &mut Engine,
         /// JSON data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        serde_json::from_slice(data.as_slice())
-            .map_err(|err| eco_format!("failed to parse JSON ({err})"))
-            .at(span)
+        json(engine, data.map(Readable::into_source))
     }
 
     /// Encodes structured data into a JSON string.

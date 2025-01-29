@@ -16,7 +16,7 @@ use crate::foundations::{
     fields, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime,
     Decimal, Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module,
     NativeElement, NativeType, NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str,
-    Styles, Symbol, Type, Version,
+    Styles, Symbol, SymbolElem, Type, Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::text::{RawContent, RawElem, TextElem};
@@ -209,7 +209,7 @@ impl Value {
             Self::Decimal(v) => TextElem::packed(eco_format!("{v}")),
             Self::Str(v) => TextElem::packed(v),
             Self::Version(v) => TextElem::packed(eco_format!("{v}")),
-            Self::Symbol(v) => TextElem::packed(v.get()),
+            Self::Symbol(v) => SymbolElem::packed(v.get()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
             _ => RawElem::new(RawContent::Text(self.repr()))
@@ -459,15 +459,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     fn visit_bytes<E: Error>(self, v: &[u8]) -> Result<Self::Value, E> {
-        Ok(Bytes::from(v).into_value())
+        Ok(Bytes::new(v.to_vec()).into_value())
     }
 
     fn visit_borrowed_bytes<E: Error>(self, v: &'de [u8]) -> Result<Self::Value, E> {
-        Ok(Bytes::from(v).into_value())
+        Ok(Bytes::new(v.to_vec()).into_value())
     }
 
     fn visit_byte_buf<E: Error>(self, v: Vec<u8>) -> Result<Self::Value, E> {
-        Ok(Bytes::from(v).into_value())
+        Ok(Bytes::new(v).into_value())
     }
 
     fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
@@ -656,7 +656,7 @@ primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
-    Symbol(v) => TextElem::packed(v.get()),
+    Symbol(v) => SymbolElem::packed(v.get()),
     Str(v) => TextElem::packed(v)
 }
 primitive! { Styles: "styles", Styles }

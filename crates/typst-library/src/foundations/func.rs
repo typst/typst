@@ -334,8 +334,6 @@ impl Func {
     #[func]
     pub fn with(
         self,
-        /// The real arguments (the other argument is just for the docs).
-        /// The docs argument cannot be called `args`.
         args: &mut Args,
         /// The arguments to apply to the function.
         #[external]
@@ -361,8 +359,6 @@ impl Func {
     #[func]
     pub fn where_(
         self,
-        /// The real arguments (the other argument is just for the docs).
-        /// The docs argument cannot be called `args`.
         args: &mut Args,
         /// The fields to filter for.
         #[variadic]

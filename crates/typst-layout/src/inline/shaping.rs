@@ -20,6 +20,7 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
 use super::{decorate, Item, Range, SpanMapper};
+use crate::modifiers::{FrameModifiers, FrameModify};
 
 /// The result of shaping text.
 ///
@@ -28,7 +29,7 @@ use super::{decorate, Item, Range, SpanMapper};
 /// frame.
 #[derive(Clone)]
 pub struct ShapedText<'a> {
-    /// The start of the text in the full paragraph.
+    /// The start of the text in the full text.
     pub base: usize,
     /// The text that was shaped.
     pub text: &'a str,
@@ -65,9 +66,9 @@ pub struct ShapedGlyph {
     pub y_offset: Em,
     /// The adjustability of the glyph.
     pub adjustability: Adjustability,
-    /// The byte range of this glyph's cluster in the full paragraph. A cluster
-    /// is a sequence of one or multiple glyphs that cannot be separated and
-    /// must always be treated as a union.
+    /// The byte range of this glyph's cluster in the full inline layout. A
+    /// cluster is a sequence of one or multiple glyphs that cannot be separated
+    /// and must always be treated as a union.
     ///
     /// The range values of the glyphs in a [`ShapedText`] should not overlap
     /// with each other, and they should be monotonically increasing (for
@@ -326,6 +327,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
+        frame.modify(&FrameModifiers::get_in(self.styles));
         frame
     }
 
@@ -403,7 +405,7 @@ impl<'a> ShapedText<'a> {
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
     ///
-    /// The text `range` is relative to the whole paragraph.
+    /// The text `range` is relative to the whole inline layout.
     pub fn reshape(&'a self, engine: &Engine, text_range: Range) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {

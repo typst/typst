@@ -138,7 +138,6 @@ impl Tiling {
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
-        /// The callsite span.
         span: Span,
         /// The bounding box of each cell of the tiling.
         #[named]

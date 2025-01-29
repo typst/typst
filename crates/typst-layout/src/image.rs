@@ -2,12 +2,12 @@ use std::ffi::OsStr;
 
 use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Smart, StyleChain};
+use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
 };
-use typst_library::loading::Readable;
+use typst_library::loading::DataSource;
 use typst_library::text::families;
 use typst_library::visualize::{
     Curve, Image, ImageElem, ImageFit, ImageFormat, ImageOptions, ImageSource,
@@ -27,7 +27,7 @@ pub fn layout_image(
 
     // Take the format that was explicitly defined, or parse the extension,
     // or try to detect the format.
-    let source = elem.source();
+    let Derived { source, derived: data } = &elem.source;
     let format = match (elem.format(styles), source) {
         (Smart::Custom(v), _) => v,
         (Smart::Auto, ImageSource::Readable(data)) => {
@@ -130,25 +130,23 @@ pub fn layout_image(
     Ok(frame)
 }
 
-/// Determine the image format based on path and data.
-fn determine_format(path: &str, data: &Readable) -> StrResult<ImageFormat> {
-    let ext = std::path::Path::new(path)
-        .extension()
-        .and_then(OsStr::to_str)
-        .unwrap_or_default()
-        .to_lowercase();
+/// Try to determine the image format based on the data.
+fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat> {
+    if let DataSource::Path(path) = source {
+        let ext = std::path::Path::new(path.as_str())
+            .extension()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default()
+            .to_lowercase();
 
-    Ok(match ext.as_str() {
-        "png" => ImageFormat::Raster(RasterFormat::Png),
-        "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
-        "gif" => ImageFormat::Raster(RasterFormat::Gif),
-        "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-        _ => match &data {
-            Readable::Str(_) => ImageFormat::Vector(VectorFormat::Svg),
-            Readable::Bytes(bytes) => match RasterFormat::detect(bytes) {
-                Some(f) => ImageFormat::Raster(f),
-                None => bail!("unknown image format"),
-            },
-        },
-    })
+        match ext.as_str() {
+            "png" => return Ok(ImageFormat::Raster(RasterFormat::Png)),
+            "jpg" | "jpeg" => return Ok(ImageFormat::Raster(RasterFormat::Jpg)),
+            "gif" => return Ok(ImageFormat::Raster(RasterFormat::Gif)),
+            "svg" | "svgz" => return Ok(ImageFormat::Vector(VectorFormat::Svg)),
+            _ => {}
+        }
+    }
+
+    Ok(ImageFormat::detect(data).ok_or("unknown image format")?)
 }

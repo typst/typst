@@ -486,7 +486,7 @@ impl World for DocWorld {
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
-        Ok(Bytes::from_static(
+        Ok(Bytes::new(
             typst_dev_assets::get_by_name(
                 &id.vpath().as_rootless_path().to_string_lossy(),
             )

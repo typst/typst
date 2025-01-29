@@ -99,6 +99,7 @@ impl Eval for ast::Expr<'_> {
             Self::Term(v) => v.eval(vm).map(Value::Content),
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
+            Self::MathText(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),

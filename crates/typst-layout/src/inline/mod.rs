@@ -13,17 +13,17 @@ pub use self::box_::layout_box;
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{StyleChain, StyleVec};
-use typst_library::introspection::{Introspector, Locator, LocatorLink};
+use typst_library::foundations::{Packed, StyleChain};
+use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Fragment, Size};
 use typst_library::model::ParElem;
-use typst_library::routines::Routines;
+use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::World;
 
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{commit, line, Line};
+use self::line::{apply_baseline_shift, commit, line, Line};
 use self::linebreak::{linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{
@@ -34,18 +34,18 @@ use self::shaping::{
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
 
-/// Layouts content inline.
-pub fn layout_inline(
+/// Layouts the paragraph.
+pub fn layout_par(
+    elem: &Packed<ParElem>,
     engine: &mut Engine,
-    children: &StyleVec,
     locator: Locator,
     styles: StyleChain,
-    consecutive: bool,
     region: Size,
     expand: bool,
+    situation: ParSituation,
 ) -> SourceResult<Fragment> {
-    layout_inline_impl(
-        children,
+    layout_par_impl(
+        elem,
         engine.routines,
         engine.world,
         engine.introspector,
@@ -54,17 +54,17 @@ pub fn layout_inline(
         engine.route.track(),
         locator.track(),
         styles,
-        consecutive,
         region,
         expand,
+        situation,
     )
 }
 
-/// The internal, memoized implementation of `layout_inline`.
+/// The internal, memoized implementation of `layout_par`.
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
-fn layout_inline_impl(
-    children: &StyleVec,
+fn layout_par_impl(
+    elem: &Packed<ParElem>,
     routines: &Routines,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
@@ -73,12 +73,12 @@ fn layout_inline_impl(
     route: Tracked<Route>,
     locator: Tracked<Locator>,
     styles: StyleChain,
-    consecutive: bool,
     region: Size,
     expand: bool,
+    situation: ParSituation,
 ) -> SourceResult<Fragment> {
     let link = LocatorLink::new(locator);
-    let locator = Locator::link(&link);
+    let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
         routines,
         world,
@@ -88,18 +88,63 @@ fn layout_inline_impl(
         route: Route::extend(route),
     };
 
-    let mut locator = locator.split();
+    let arenas = Arenas::default();
+    let children = (engine.routines.realize)(
+        RealizationKind::LayoutPar,
+        &mut engine,
+        &mut locator,
+        &arenas,
+        &elem.body,
+        styles,
+    )?;
 
+    layout_inline(
+        &mut engine,
+        &children,
+        &mut locator,
+        styles,
+        region,
+        expand,
+        Some(situation),
+    )
+}
+
+/// Lays out realized content with inline layout.
+#[allow(clippy::too_many_arguments)]
+pub fn layout_inline<'a>(
+    engine: &mut Engine,
+    children: &[Pair<'a>],
+    locator: &mut SplitLocator<'a>,
+    styles: StyleChain<'a>,
+    region: Size,
+    expand: bool,
+    par: Option<ParSituation>,
+) -> SourceResult<Fragment> {
     // Collect all text into one string for BiDi analysis.
     let (text, segments, spans) =
-        collect(children, &mut engine, &mut locator, &styles, region, consecutive)?;
+        collect(children, engine, locator, styles, region, par)?;
 
-    // Perform BiDi analysis and then prepares paragraph layout.
-    let p = prepare(&mut engine, children, &text, segments, spans, styles)?;
+    // Perform BiDi analysis and performs some preparation steps before we
+    // proceed to line breaking.
+    let p = prepare(engine, children, &text, segments, spans, styles, par)?;
 
-    // Break the paragraph into lines.
-    let lines = linebreak(&engine, &p, region.x - p.hang);
+    // Break the text into lines.
+    let lines = linebreak(engine, &p, region.x - p.hang);
 
     // Turn the selected lines into frames.
-    finalize(&mut engine, &p, &lines, styles, region, expand, &mut locator)
+    finalize(engine, &p, &lines, styles, region, expand, locator)
+}
+
+/// Distinguishes between a few different kinds of paragraphs.
+///
+/// In the form `Option<ParSituation>`, `None` implies that we are creating an
+/// inline layout that isn't a semantic paragraph.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ParSituation {
+    /// The paragraph is the first thing in the flow.
+    First,
+    /// The paragraph follows another paragraph.
+    Consecutive,
+    /// Any other kind of paragraph.
+    Other,
 }

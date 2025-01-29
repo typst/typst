@@ -9,9 +9,11 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
     Styles, TargetElem,
 };
-use crate::html::{attr, tag, HtmlAttr, HtmlElem};
+use crate::html::{attr, tag, HtmlElem};
 use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
-use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern, ParElem};
+use crate::model::{
+    ListItemLike, ListLike, Numbering, NumberingPattern, ParElem, ParbreakElem,
+};
 
 /// A numbered list.
 ///
@@ -226,22 +228,29 @@ impl EnumElem {
 
 impl Show for Packed<EnumElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let tight = self.tight(styles);
+
         if TargetElem::target_in(styles).is_html() {
             let mut elem = HtmlElem::new(tag::ol);
             if self.reversed(styles) {
-                elem =
-                    elem.with_attr(const { HtmlAttr::constant("reversed") }, "reversed");
+                elem = elem.with_attr(attr::reversed, "reversed");
             }
-            return Ok(elem
-                .with_body(Some(Content::sequence(self.children.iter().map(|item| {
-                    let mut li = HtmlElem::new(tag::li);
-                    if let Some(nr) = item.number(styles) {
-                        li = li.with_attr(attr::value, eco_format!("{nr}"));
-                    }
-                    li.with_body(Some(item.body.clone())).pack().spanned(item.span())
-                }))))
-                .pack()
-                .spanned(self.span()));
+            if let Some(n) = self.start(styles).custom() {
+                elem = elem.with_attr(attr::start, eco_format!("{n}"));
+            }
+            let body = Content::sequence(self.children.iter().map(|item| {
+                let mut li = HtmlElem::new(tag::li);
+                if let Some(nr) = item.number(styles) {
+                    li = li.with_attr(attr::value, eco_format!("{nr}"));
+                }
+                // Text in wide enums shall always turn into paragraphs.
+                let mut body = item.body.clone();
+                if !tight {
+                    body += ParbreakElem::shared();
+                }
+                li.with_body(Some(body)).pack().spanned(item.span())
+            }));
+            return Ok(elem.with_body(Some(body)).pack().spanned(self.span()));
         }
 
         let mut realized =
@@ -249,7 +258,7 @@ impl Show for Packed<EnumElem> {
                 .pack()
                 .spanned(self.span());
 
-        if self.tight(styles) {
+        if tight {
             let leading = ParElem::leading_in(styles);
             let spacing =
                 VElem::new(leading.into()).with_weak(true).with_attach(true).pack();

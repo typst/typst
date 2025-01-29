@@ -9,6 +9,8 @@ pub enum SyntaxKind {
     /// An invalid sequence of characters.
     Error,
 
+    /// A shebang: `#! ...`
+    Shebang,
     /// A line comment: `// ...`.
     LineComment,
     /// A block comment: `/* ... */`.
@@ -73,6 +75,8 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
+    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
+    MathText,
     /// An identifier in math: `pi`.
     MathIdent,
     /// A shorthand for a unicode codepoint in math: `a <= b`.
@@ -357,7 +361,11 @@ impl SyntaxKind {
     pub fn is_trivia(self) -> bool {
         matches!(
             self,
-            Self::LineComment | Self::BlockComment | Self::Space | Self::Parbreak
+            Self::Shebang
+                | Self::LineComment
+                | Self::BlockComment
+                | Self::Space
+                | Self::Parbreak
         )
     }
 
@@ -371,6 +379,7 @@ impl SyntaxKind {
         match self {
             Self::End => "end of tokens",
             Self::Error => "syntax error",
+            Self::Shebang => "shebang",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Markup => "markup",
@@ -401,6 +410,7 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
+            Self::MathText => "math text",
             Self::MathIdent => "math identifier",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",

@@ -555,6 +555,7 @@ pub struct TextElem {
     /// #lorem(10)
     /// ```
     #[fold]
+    #[ghost]
     pub costs: Costs,
 
     /// Whether to apply kerning.
@@ -754,11 +755,10 @@ pub struct TextElem {
     #[ghost]
     pub case: Option<Case>,
 
-    /// Whether small capital glyphs should be used. ("smcp")
+    /// Whether small capital glyphs should be used. ("smcp", "c2sc")
     #[internal]
-    #[default(false)]
     #[ghost]
-    pub smallcaps: bool,
+    pub smallcaps: Option<Smallcaps>,
 }
 
 impl TextElem {
@@ -793,7 +793,7 @@ impl Construct for TextElem {
 
 impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text);
     }
 }
 
@@ -1248,8 +1248,11 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     // Features that are off by default in Harfbuzz are only added if enabled.
-    if TextElem::smallcaps_in(styles) {
+    if let Some(sc) = TextElem::smallcaps_in(styles) {
         feat(b"smcp", 1);
+        if sc == Smallcaps::All {
+            feat(b"c2sc", 1);
+        }
     }
 
     if TextElem::alternates_in(styles) {
@@ -1429,5 +1432,15 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                 family.as_str(),
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_text_elem_size() {
+        assert_eq!(std::mem::size_of::<TextElem>(), std::mem::size_of::<EcoString>());
     }
 }

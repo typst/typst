@@ -2,6 +2,7 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Abs, Axis, Rel};
 use typst_library::math::{EquationElem, LrElem, MidElem};
+use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
 use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
@@ -13,32 +14,23 @@ pub fn layout_lr(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut body = elem.body();
-
     // Extract from an EquationElem.
+    let mut body = &elem.body;
     if let Some(equation) = body.to_packed::<EquationElem>() {
-        body = equation.body();
+        body = &equation.body;
     }
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
         if lr.size(styles).is_one() {
-            body = lr.body();
+            body = &lr.body;
         }
     }
 
     let mut fragments = ctx.layout_into_fragments(body, styles)?;
 
     // Ignore leading and trailing ignorant fragments.
-    let start_idx = fragments
-        .iter()
-        .position(|f| !f.is_ignorant())
-        .unwrap_or(fragments.len());
-    let end_idx = fragments
-        .iter()
-        .skip(start_idx)
-        .rposition(|f| !f.is_ignorant())
-        .map_or(start_idx, |i| start_idx + i + 1);
+    let (start_idx, end_idx) = fragments.split_prefix_suffix(|f| f.is_ignorant());
     let inner_fragments = &mut fragments[start_idx..end_idx];
 
     let axis = scaled!(ctx, styles, axis_height);
@@ -100,7 +92,7 @@ pub fn layout_mid(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut fragments = ctx.layout_into_fragments(elem.body(), styles)?;
+    let mut fragments = ctx.layout_into_fragments(&elem.body, styles)?;
 
     for fragment in &mut fragments {
         match fragment {

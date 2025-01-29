@@ -106,7 +106,7 @@ fn draw_raster_glyph(
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<()> {
     let image = Image::new(
-        Bytes::from(raster_image.data).into(),
+        Bytes::new(raster_image.data).to_vec(),
         RasterFormat::Png.into(),
         &Default::default(),
     )
@@ -184,7 +184,7 @@ fn draw_colr_glyph(
     let data = svg.end_document().into_bytes();
 
     let image = Image::new(
-        Bytes::from(data).into(),
+        Bytes::new(data).into(),
         VectorFormat::Svg.into(),
         &Default::default(),
     )

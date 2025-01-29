@@ -7,12 +7,11 @@ use typst_library::diag::{
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
     Arg, Args, Bytes, Capturer, Closure, Content, Context, Func, IntoValue,
-    NativeElement, Scope, Scopes, Value,
+    NativeElement, Scope, Scopes, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::routines::Routines;
-use typst_library::text::TextElem;
 use typst_library::World;
 use typst_syntax::ast::{self, AstNode, Ident};
 use typst_syntax::{Span, Spanned, SyntaxNode};
@@ -325,6 +324,13 @@ fn eval_field_call(
     } else if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
         Ok(FieldCall::Normal(callee.clone(), args))
+    } else if let Value::Content(content) = &target {
+        if let Some(callee) = content.elem().scope().get(&field) {
+            args.insert(0, target_expr.span(), target);
+            Ok(FieldCall::Normal(callee.clone(), args))
+        } else {
+            bail!(missing_field_call_error(target, field))
+        }
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
@@ -341,8 +347,20 @@ fn eval_field_call(
 
 /// Produce an error when we cannot call the field.
 fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
-    let mut error =
-        error!(field.span(), "type {} has no method `{}`", target.ty(), field.as_str());
+    let mut error = match &target {
+        Value::Content(content) => error!(
+            field.span(),
+            "element {} has no method `{}`",
+            content.elem().name(),
+            field.as_str(),
+        ),
+        _ => error!(
+            field.span(),
+            "type {} has no method `{}`",
+            target.ty(),
+            field.as_str()
+        ),
+    };
 
     match target {
         Value::Dict(ref dict) if matches!(dict.get(&field), Ok(Value::Func(_))) => {
@@ -360,6 +378,7 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
         }
         _ => {}
     }
+
     error
 }
 
@@ -382,16 +401,16 @@ fn wrap_args_in_math(
     let mut body = Content::empty();
     for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
         if i > 0 {
-            body += TextElem::packed(',');
+            body += SymbolElem::packed(',');
         }
         body += arg;
     }
     if trailing_comma {
-        body += TextElem::packed(',');
+        body += SymbolElem::packed(',');
     }
     Ok(Value::Content(
         callee.display().spanned(callee_span)
-            + LrElem::new(TextElem::packed('(') + body + TextElem::packed(')'))
+            + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
                 .pack()
                 .spanned(args.span),
     ))
@@ -685,8 +704,7 @@ mod tests {
 
         // Named-params.
         test(s, "$ foo(bar: y) $", &["foo"]);
-        // This should be updated when we improve named-param parsing:
-        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["bar", "foo"]);
+        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["foo"]);
 
         // Field access in math.
         test(s, "$ foo.bar $", &["foo"]);

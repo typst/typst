@@ -20,11 +20,11 @@ use typst_utils::LazyHash;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, AutoValue, Bytes, Cast, Content, Dict, NativeElement,
+    cast, elem, func, scope, AutoValue, Bytes, Cast, Content, Derived, Dict, NativeElement,
     Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
-use crate::loading::Readable;
+use crate::loading::{DataSource, Load, Readable};
 use crate::model::Figurable;
 use crate::text::LocalName;
 use crate::World;
@@ -49,25 +49,16 @@ use crate::World;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// Path to an image file.
+    /// A path to an image file or raw bytes making up an encoded image.
     ///
-    /// For more details, see the [Paths section]($syntax/#paths).
+    /// For more details about paths, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
-        let Spanned { v: path, span } =
-            args.expect::<Spanned<EcoString>>("path to image file")?;
-        let id = span.resolve_path(&path).at(span)?;
-        let data = engine.world.file(id).at(span)?;
-        path
+        let source = args.expect::<Spanned<DataSource>>("source")?;
+        let data = source.load(engine.world)?;
+        Derived::new(source.v, data)
     )]
-    #[borrowed]
-    pub path: EcoString,
-
-    /// The data required to decode the image.
-    #[internal]
-    #[required]
-    #[parse(data.into())]
-    pub source: ImageSource,
+    pub source: Derived<DataSource, Bytes>,
 
     /// The image's format. Detected automatically by default.
     ///
@@ -116,6 +107,9 @@ pub struct ImageElem {
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
     ///
+    /// This function is deprecated. The [`image`] function now accepts bytes
+    /// directly.
+    ///
     /// ```example
     /// #let original = read("diagram.svg")
     /// #let changed = original.replace(
@@ -128,7 +122,6 @@ impl ImageElem {
     /// ```
     #[func(title = "Decode Image")]
     pub fn decode(
-        /// The call span of this function.
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
         source: ImageSource,
@@ -154,7 +147,9 @@ impl ImageElem {
         #[named]
         scaling: Option<ImageScaling>,
     ) -> StrResult<Content> {
-        let mut elem = ImageElem::new(EcoString::new(), source);
+        let bytes = data.into_bytes();
+        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
+        let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);
         }
@@ -378,6 +373,22 @@ pub enum ImageFormat {
     Vector(VectorFormat),
     /// A format made up of flat pixels without metadata or compression.
     Pixmap(PixmapFormat),
+}
+
+impl ImageFormat {
+    /// Try to detect the format of an image from data.
+    pub fn detect(data: &[u8]) -> Option<Self> {
+        if let Some(format) = RasterFormat::detect(data) {
+            return Some(Self::Raster(format));
+        }
+
+        // SVG or compressed SVG.
+        if data.starts_with(b"<svg") || data.starts_with(&[0x1f, 0x8b]) {
+            return Some(Self::Vector(VectorFormat::Svg));
+        }
+
+        None
+    }
 }
 
 /// A vector graphics format.
