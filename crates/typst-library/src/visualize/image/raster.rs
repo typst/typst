@@ -221,7 +221,8 @@ pub enum ExchangeFormat {
     Png,
     /// Lossy raster format suitable for photos.
     Jpg,
-    /// Raster format that is typically used for short animated clips.
+    /// Raster format that is typically used for short animated clips. Typst can
+    /// load GIFs, but they will become static.
     Gif,
 }
 

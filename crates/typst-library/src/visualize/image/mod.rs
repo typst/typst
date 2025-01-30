@@ -84,13 +84,22 @@ pub struct ImageElem {
     ///
     /// ```example
     /// #image(
+    ///   read(
+    ///     "tetrahedron.svg",
+    ///     encoding: none,
+    ///   ),
+    ///   format: "svg",
+    ///   width: 2cm,
+    /// )
+    ///
+    /// #image(
     ///   bytes(range(16).map(x => x * 16)),
     ///   format: (
     ///     encoding: "luma8",
     ///     width: 4,
     ///     height: 4,
     ///   ),
-    ///   width: 1cm,
+    ///   width: 2cm,
     /// )
     /// ```
     pub format: Smart<ImageFormat>,
