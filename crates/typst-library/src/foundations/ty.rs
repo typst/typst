@@ -136,7 +136,7 @@ impl Repr for Type {
         } else if *self == Type::of::<NoneValue>() {
             "type(none)"
         } else {
-            self.long_name()
+            self.short_name()
         }
         .into()
     }
