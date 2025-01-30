@@ -190,7 +190,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-pixmap-invalid-size ---
-// Error: 1:2-8:2 provided pixel dimensions and pixmap data do not match
+// Error: 1:2-8:2 pixel dimensions and pixel data do not match
 #image(
   (
     data: bytes((0x00, 0x00, 0x00)),

@@ -37,11 +37,11 @@ impl PixmapImage {
             .checked_mul(source.pixel_height)
             .and_then(|size| size.checked_mul(pixel_size))
         else {
-            bail!("provided pixel dimensions are too large");
+            bail!("pixel dimensions are too large");
         };
 
         if expected_size as usize != source.data.len() {
-            bail!("provided pixel dimensions and pixmap data do not match");
+            bail!("pixel dimensions and pixel data do not match");
         }
 
         Ok(Self(Arc::new(Repr { source, format })))
@@ -98,14 +98,13 @@ impl PixmapImage {
 /// Determines how the given image is interpreted and encoded.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum PixmapFormat {
-    /// Red, green, and blue channels, one byte per channel.
-    /// No alpha channel.
+    /// Raw image data with three 8-bit channels: Red, green, blue.
     Rgb8,
-    /// Red, green, blue, and alpha channels, one byte per channel.
+    /// Raw image data with four 8-bit channels: Red, green, blue, alpha.
     Rgba8,
-    /// A single byte channel representing brightness.
+    /// Raw image data with one 8-bit channel: Brightness.
     Luma8,
-    /// Brightness and alpha, one byte per channel.
+    /// Raw image data with two 8-bit channels: Brightness and alpha.
     Lumaa8,
 }
 

@@ -48,9 +48,19 @@ use crate::World;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A path to an image file or raw bytes making up an encoded image.
+    /// The source to load the image from. Either of:
     ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// - A path to an image file. For more details about paths, see the [Paths
+    ///   section]($syntax/#paths).
+    /// - Raw bytes making up an encoded image.
+    /// - A dictionary with the following keys:
+    ///   - `data` ([bytes]): Raw pixel data in the specified [`format`]($image.format).
+    ///   - `pixel-width` ([int]): The width in pixels.
+    ///   - `pixel-height` ([int]): The height in pixels.
+    ///   - `icc-profile` ([bytes], optional): An ICC profile for the image.
+    ///
+    ///   The width multiplied by the height multiplied by the channel count for
+    ///   the specified format must match the data length.
     #[required]
     #[parse(
         let source = args.expect::<Spanned<ImageSource>>("source")?;
@@ -61,8 +71,11 @@ pub struct ImageElem {
 
     /// The image's format. Detected automatically by default.
     ///
-    /// Supported formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
+    /// Supported image formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
     /// is [not currently supported](https://github.com/typst/typst/issues/145).
+    ///
+    /// Aside from these encoded image formats, Typst also lets you provide raw
+    /// image data as the source. In this case, providing a format is mandatory.
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
@@ -88,17 +101,20 @@ pub struct ImageElem {
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
 
+    /// A hint to viewers how they should scale the image.
+    ///
+    /// When set to `{auto}`, the default is left up to the viewer. For PNG
+    /// export, Typst will default to smooth scaling, like most PDF and SVG
+    /// viewers.
+    ///
+    /// _Note:_ The exact look may differ across PDF viewers.
+    pub scaling: Smart<ImageScaling>,
+
     /// Whether text in SVG images should be converted into curves before
     /// embedding. This will result in the text becoming unselectable in the
     /// output.
     #[default(false)]
     pub flatten_text: bool,
-
-    /// A hint to the viewer how it should scale the image.
-    ///
-    /// _Note:_ This option may be ignored and results look different depending
-    /// on the format and viewer.
-    pub scaling: Smart<ImageScaling>,
 }
 
 #[scope]
@@ -139,12 +155,13 @@ impl ImageElem {
         /// How the image should adjust itself to a given area.
         #[named]
         fit: Option<ImageFit>,
-        /// Whether text in SVG images should be converted into paths.
-        #[named]
-        flatten_text: Option<bool>,
-        /// How the image should be scaled by the viewer.
+        /// A hint to viewers how they should scale the image.
         #[named]
         scaling: Option<Smart<ImageScaling>>,
+        /// Whether text in SVG images should be converted into curves before
+        /// embedding.
+        #[named]
+        flatten_text: Option<bool>,
     ) -> StrResult<Content> {
         let bytes = data.into_bytes();
         let source =
@@ -450,9 +467,9 @@ cast! {
 /// The image scaling algorithm a viewer should use.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ImageScaling {
-    /// Scale photos with a smoothing algorithm such as bilinear interpolation.
+    /// Scale with a smoothing algorithm such as bilinear interpolation.
     Smooth,
-    /// Scale with nearest neighbor or similar to preserve the pixelated look
-    /// of the image.
+    /// Scale with nearest neighbor or a similar algorithm to preserve the
+    /// pixelated look of the image.
     Pixelated,
 }
