@@ -170,16 +170,17 @@ impl RasterImage {
     }
 
     /// Access the ICC profile, if any.
-    pub fn icc(&self) -> Option<&[u8]> {
-        self.0.icc.as_deref()
+    pub fn icc(&self) -> Option<&Bytes> {
+        self.0.icc.as_ref()
     }
 }
 
 impl Hash for Repr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // The image is fully defined by data and format.
+        // The image is fully defined by data, format, and ICC profile.
         self.data.hash(state);
         self.format.hash(state);
+        self.icc.hash(state);
     }
 }
 

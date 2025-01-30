@@ -174,7 +174,7 @@ fn encode_raster_image(image: &RasterImage, interpolate: bool) -> EncodedImage {
             (Filter::FlateDecode, data, bits_per_component)
         };
 
-    let compressed_icc = image.icc().map(deflate);
+    let compressed_icc = image.icc().map(|data| deflate(data));
     let alpha = dynamic.color().has_alpha().then(|| encode_alpha(dynamic));
 
     EncodedImage::Raster {
