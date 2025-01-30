@@ -7,7 +7,7 @@ use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
 use typst_library::foundations::Smart;
 use typst_library::visualize::{
-    ColorSpace, Image, ImageKind, ImageScaling, RasterFormat, SvgImage,
+    ColorSpace, ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat, SvgImage,
 };
 use typst_utils::Deferred;
 
@@ -126,11 +126,8 @@ pub fn deferred_image(
     pdfa: bool,
 ) -> (Deferred<StrResult<EncodedImage>>, Option<ColorSpace>) {
     let color_space = match image.kind() {
-        ImageKind::Raster(raster) if raster.icc_profile().is_none() => {
+        ImageKind::Raster(raster) if raster.icc().is_none() => {
             Some(to_color_space(raster.dynamic().color()))
-        }
-        ImageKind::Pixmap(pixmap) if pixmap.icc_profile().is_none() => {
-            Some(to_color_space(pixmap.to_dynamic().color()))
         }
         _ => None,
     };
@@ -141,29 +138,19 @@ pub fn deferred_image(
 
     let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
-            let format = if raster.format() == RasterFormat::Jpg {
+            let format = if raster.format() == RasterFormat::Exchange(ExchangeFormat::Jpg)
+            {
                 EncodeFormat::DctDecode
             } else {
                 EncodeFormat::Flate
             };
-            Ok(encode_raster_image(
-                raster.dynamic(),
-                raster.icc_profile(),
-                format,
-                interpolate,
-            ))
+            Ok(encode_raster_image(raster.dynamic(), raster.icc(), format, interpolate))
         }
         ImageKind::Svg(svg) => {
             let (chunk, id) = encode_svg(svg, pdfa)
                 .map_err(|err| eco_format!("failed to convert SVG to PDF: {err}"))?;
             Ok(EncodedImage::Svg(chunk, id))
         }
-        ImageKind::Pixmap(pixmap) => Ok(encode_raster_image(
-            &pixmap.to_dynamic(),
-            pixmap.icc_profile(),
-            EncodeFormat::Flate,
-            interpolate,
-        )),
     });
 
     (deferred, color_space)

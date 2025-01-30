@@ -1,17 +1,16 @@
 //! Image handling.
 
-mod pixmap;
 mod raster;
 mod svg;
 
-pub use self::pixmap::{PixmapFormat, PixmapImage, PixmapSource};
-pub use self::raster::{RasterFormat, RasterImage};
+pub use self::raster::{
+    ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
+};
 pub use self::svg::SvgImage;
 
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::Tracked;
 use ecow::EcoString;
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
@@ -26,7 +25,6 @@ use crate::layout::{BlockElem, Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, Readable};
 use crate::model::Figurable;
 use crate::text::LocalName;
-use crate::World;
 
 /// A raster or vector graphic.
 ///
@@ -48,34 +46,54 @@ use crate::World;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// The source to load the image from. Either of:
+    /// A path to an image file or raw bytes making up an image in one of the
+    /// supported [formats]($image.format).
     ///
-    /// - A path to an image file. For more details about paths, see the [Paths
-    ///   section]($syntax/#paths).
-    /// - Raw bytes making up an encoded image.
-    /// - A dictionary with the following keys:
-    ///   - `data` ([bytes]): Raw pixel data in the specified [`format`]($image.format).
-    ///   - `pixel-width` ([int]): The width in pixels.
-    ///   - `pixel-height` ([int]): The height in pixels.
-    ///   - `icc-profile` ([bytes], optional): An ICC profile for the image.
-    ///
-    ///   The width multiplied by the height multiplied by the channel count for
-    ///   the specified format must match the data length.
+    /// For more details about paths, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
-        let source = args.expect::<Spanned<ImageSource>>("source")?;
+        let source = args.expect::<Spanned<DataSource>>("source")?;
         let data = source.load(engine.world)?;
         Derived::new(source.v, data)
     )]
-    pub source: Derived<ImageSource, Bytes>,
+    pub source: Derived<DataSource, Bytes>,
 
-    /// The image's format. Detected automatically by default.
+    /// The image's format.
     ///
-    /// Supported image formats are PNG, JPEG, GIF, and SVG. Using a PDF as an image
-    /// is [not currently supported](https://github.com/typst/typst/issues/145).
+    /// By default, the format is detected automatically. Typically, you thus
+    /// only need to specify this when providing raw bytes as the `source` (
+    /// even then, Typst will try to figure out the format automatically, but
+    /// that's not always possible).
     ///
-    /// Aside from these encoded image formats, Typst also lets you provide raw
-    /// image data as the source. In this case, providing a format is mandatory.
+    /// Supported formats include common exchange image formats (`{"png"}`,
+    /// `{"jpg"}`, `{"gif"}`, and `{"svg"}`) as well as raw pixel data.
+    /// Embedding PDFs as images is [not currently
+    /// supported](https://github.com/typst/typst/issues/145).
+    ///
+    /// When providing raw pixel data as the [`source`]($image.source), you must
+    /// specify a dictionary with the following keys as the `format`:
+    /// - `encoding` ([str]): The encoding of the pixel data. One of:
+    ///   - `{"rgb8"}` (three 8-bit channels: Red, green, blue.)
+    ///   - `{"rgba8"}` (four 8-bit channels: Red, green, blue, alpha.)
+    ///   - `{"luma8"}` (one 8-bit channel: Brightness.)
+    ///   - `{"lumaa8"}` (two 8-bit channels: Brightness and alpha.)
+    /// - `width` ([int]): The pixel width of the image.
+    /// - `height` ([int]): The pixel height of the image.
+    ///
+    /// The pixel width multiplied by the height multiplied by the channel count
+    /// for the specified encoding must then match the `source` data.
+    ///
+    /// ```example
+    /// #image(
+    ///   bytes(range(16).map(x => x * 16)),
+    ///   format: (
+    ///     encoding: "luma8",
+    ///     width: 4,
+    ///     height: 4,
+    ///   ),
+    ///   width: 1cm,
+    /// )
+    /// ```
     pub format: Smart<ImageFormat>,
 
     /// The width of the image.
@@ -164,8 +182,7 @@ impl ImageElem {
         flatten_text: Option<bool>,
     ) -> StrResult<Content> {
         let bytes = data.into_bytes();
-        let source =
-            Derived::new(ImageSource::Data(DataSource::Bytes(bytes.clone())), bytes);
+        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);
@@ -278,7 +295,6 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.format().into(),
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
-            ImageKind::Pixmap(pixmap) => pixmap.format().into(),
         }
     }
 
@@ -287,7 +303,6 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
-            ImageKind::Pixmap(pixmap) => pixmap.width() as f64,
         }
     }
 
@@ -296,7 +311,6 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
-            ImageKind::Pixmap(pixmap) => pixmap.height() as f64,
         }
     }
 
@@ -305,7 +319,6 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
-            ImageKind::Pixmap(_) => None,
         }
     }
 
@@ -337,40 +350,6 @@ impl Debug for Image {
     }
 }
 
-/// Information specifying the source of an image's byte data.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum ImageSource {
-    Data(DataSource),
-    Pixmap(PixmapSource),
-}
-
-impl From<Bytes> for ImageSource {
-    fn from(bytes: Bytes) -> Self {
-        ImageSource::Data(DataSource::Bytes(bytes))
-    }
-}
-
-impl Load for Spanned<ImageSource> {
-    type Output = Bytes;
-
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
-        match &self.v {
-            ImageSource::Data(data) => Spanned::new(data, self.span).load(world),
-            ImageSource::Pixmap(pixmap) => Ok(pixmap.data.clone()),
-        }
-    }
-}
-
-cast! {
-    ImageSource,
-    self => match self {
-       Self::Data(data) => data.into_value(),
-       Self::Pixmap(pixmap) => pixmap.into_value(),
-    },
-    data: DataSource => Self::Data(data),
-    pixmap: PixmapSource => Self::Pixmap(pixmap),
-}
-
 /// A kind of image.
 #[derive(Clone, Hash)]
 pub enum ImageKind {
@@ -378,8 +357,6 @@ pub enum ImageKind {
     Raster(RasterImage),
     /// An SVG image.
     Svg(SvgImage),
-    /// An image constructed from a pixmap.
-    Pixmap(PixmapImage),
 }
 
 impl From<RasterImage> for ImageKind {
@@ -394,12 +371,6 @@ impl From<SvgImage> for ImageKind {
     }
 }
 
-impl From<PixmapImage> for ImageKind {
-    fn from(image: PixmapImage) -> Self {
-        Self::Pixmap(image)
-    }
-}
-
 /// A raster or vector image format.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ImageFormat {
@@ -407,15 +378,13 @@ pub enum ImageFormat {
     Raster(RasterFormat),
     /// A vector graphics format.
     Vector(VectorFormat),
-    /// A format made up of flat pixels without metadata or compression.
-    Pixmap(PixmapFormat),
 }
 
 impl ImageFormat {
     /// Try to detect the format of an image from data.
     pub fn detect(data: &[u8]) -> Option<Self> {
-        if let Some(format) = RasterFormat::detect(data) {
-            return Some(Self::Raster(format));
+        if let Some(format) = ExchangeFormat::detect(data) {
+            return Some(Self::Raster(RasterFormat::Exchange(format)));
         }
 
         // SVG or compressed SVG.
@@ -434,9 +403,12 @@ pub enum VectorFormat {
     Svg,
 }
 
-impl From<RasterFormat> for ImageFormat {
-    fn from(format: RasterFormat) -> Self {
-        Self::Raster(format)
+impl<R> From<R> for ImageFormat
+where
+    R: Into<RasterFormat>,
+{
+    fn from(format: R) -> Self {
+        Self::Raster(format.into())
     }
 }
 
@@ -446,22 +418,14 @@ impl From<VectorFormat> for ImageFormat {
     }
 }
 
-impl From<PixmapFormat> for ImageFormat {
-    fn from(format: PixmapFormat) -> Self {
-        Self::Pixmap(format)
-    }
-}
-
 cast! {
     ImageFormat,
     self => match self {
         Self::Raster(v) => v.into_value(),
         Self::Vector(v) => v.into_value(),
-        Self::Pixmap(v) => v.into_value(),
     },
     v: RasterFormat => Self::Raster(v),
     v: VectorFormat => Self::Vector(v),
-    v: PixmapFormat => Self::Pixmap(v),
 }
 
 /// The image scaling algorithm a viewer should use.

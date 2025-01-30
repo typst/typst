@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
+use typst_library::diag::{warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
 use typst_library::introspection::Locator;
@@ -10,8 +10,8 @@ use typst_library::layout::{
 use typst_library::loading::DataSource;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Curve, Image, ImageElem, ImageFit, ImageFormat, ImageKind, ImageSource, PixmapImage,
-    RasterFormat, RasterImage, SvgImage, VectorFormat,
+    Curve, ExchangeFormat, Image, ImageElem, ImageFit, ImageFormat, ImageKind,
+    RasterImage, SvgImage, VectorFormat,
 };
 
 /// Layout the image.
@@ -50,14 +50,11 @@ pub fn layout_image(
     }
 
     // Construct the image itself.
-    let kind = match (format, source) {
-        (ImageFormat::Pixmap(format), ImageSource::Pixmap(source)) => {
-            ImageKind::Pixmap(PixmapImage::new(source.clone(), format).at(span)?)
-        }
-        (ImageFormat::Raster(format), ImageSource::Data(_)) => {
+    let kind = match format {
+        ImageFormat::Raster(format) => {
             ImageKind::Raster(RasterImage::new(data.clone(), format).at(span)?)
         }
-        (ImageFormat::Vector(VectorFormat::Svg), ImageSource::Data(_)) => ImageKind::Svg(
+        ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
             SvgImage::with_fonts(
                 data.clone(),
                 engine.world,
@@ -66,10 +63,6 @@ pub fn layout_image(
             )
             .at(span)?,
         ),
-        (ImageFormat::Pixmap(_), _) => bail!(span, "source must be a pixmap"),
-        (ImageFormat::Raster(_) | ImageFormat::Vector(_), _) => {
-            bail!(span, "expected readable source for the given format (str or bytes)")
-        }
     };
 
     let image = Image::new(kind, elem.alt(styles), elem.scaling(styles));
@@ -135,26 +128,20 @@ pub fn layout_image(
 }
 
 /// Try to determine the image format based on the data.
-fn determine_format(source: &ImageSource, data: &Bytes) -> StrResult<ImageFormat> {
-    match source {
-        ImageSource::Data(DataSource::Path(path)) => {
-            let ext = std::path::Path::new(path.as_str())
-                .extension()
-                .and_then(OsStr::to_str)
-                .unwrap_or_default()
-                .to_lowercase();
+fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat> {
+    if let DataSource::Path(path) = source {
+        let ext = std::path::Path::new(path.as_str())
+            .extension()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default()
+            .to_lowercase();
 
-            match ext.as_str() {
-                "png" => return Ok(ImageFormat::Raster(RasterFormat::Png)),
-                "jpg" | "jpeg" => return Ok(ImageFormat::Raster(RasterFormat::Jpg)),
-                "gif" => return Ok(ImageFormat::Raster(RasterFormat::Gif)),
-                "svg" | "svgz" => return Ok(ImageFormat::Vector(VectorFormat::Svg)),
-                _ => {}
-            }
-        }
-        ImageSource::Data(DataSource::Bytes(_)) => {}
-        ImageSource::Pixmap(_) => {
-            bail!("pixmaps require an explicit image format to be given")
+        match ext.as_str() {
+            "png" => return Ok(ExchangeFormat::Png.into()),
+            "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
+            "gif" => return Ok(ExchangeFormat::Gif.into()),
+            "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
+            _ => {}
         }
     }
 

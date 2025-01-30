@@ -64,9 +64,6 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
         ImageKind::Raster(raster) => {
             scale_image(&mut texture, raster.dynamic(), image.scaling())
         }
-        ImageKind::Pixmap(pixmap) => {
-            scale_image(&mut texture, &pixmap.to_dynamic(), image.scaling())
-        }
         ImageKind::Svg(svg) => {
             let tree = svg.tree();
             let ts = tiny_skia::Transform::from_scale(

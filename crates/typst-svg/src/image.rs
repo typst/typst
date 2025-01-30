@@ -4,7 +4,8 @@ use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
-    Image, ImageFormat, ImageKind, ImageScaling, RasterFormat, VectorFormat,
+    ExchangeFormat, Image, ImageFormat, ImageKind, ImageScaling, RasterFormat,
+    VectorFormat,
 };
 
 use crate::SVGRenderer;
@@ -38,30 +39,32 @@ impl SVGRenderer {
 #[comemo::memoize]
 pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
     let format = match image.format() {
-        ImageFormat::Raster(f) => match f {
-            RasterFormat::Png => "png",
-            RasterFormat::Jpg => "jpeg",
-            RasterFormat::Gif => "gif",
+        ImageFormat::Raster(RasterFormat::Exchange(f)) => match f {
+            ExchangeFormat::Png => "png",
+            ExchangeFormat::Jpg => "jpeg",
+            ExchangeFormat::Gif => "gif",
         },
+        ImageFormat::Raster(RasterFormat::Pixel(_)) => "png",
         ImageFormat::Vector(f) => match f {
             VectorFormat::Svg => "svg+xml",
         },
-        ImageFormat::Pixmap(_) => "png",
     };
 
     let mut buf;
     let data = match image.kind() {
-        ImageKind::Raster(raster) => raster.data(),
-        ImageKind::Svg(svg) => svg.data(),
-        ImageKind::Pixmap(pixmap) => {
-            buf = vec![];
-            let mut encoder = PngEncoder::new(&mut buf);
-            if let Some(icc_profile) = pixmap.icc_profile() {
-                encoder.set_icc_profile(icc_profile.to_vec()).ok();
+        ImageKind::Raster(raster) => match raster.format() {
+            RasterFormat::Exchange(_) => raster.data(),
+            RasterFormat::Pixel(_) => {
+                buf = vec![];
+                let mut encoder = PngEncoder::new(&mut buf);
+                if let Some(icc_profile) = raster.icc() {
+                    encoder.set_icc_profile(icc_profile.to_vec()).ok();
+                }
+                raster.dynamic().write_with_encoder(encoder).unwrap();
+                buf.as_slice()
             }
-            pixmap.to_dynamic().write_with_encoder(encoder).unwrap();
-            buf.as_slice()
-        }
+        },
+        ImageKind::Svg(svg) => svg.data(),
     };
 
     let mut url = eco_format!("data:image/{format};base64,");

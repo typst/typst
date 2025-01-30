@@ -7,10 +7,12 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
-use image::{guess_format, DynamicImage, ImageDecoder, ImageResult, Limits};
+use image::{
+    guess_format, DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel,
+};
 
 use crate::diag::{bail, StrResult};
-use crate::foundations::{Bytes, Cast};
+use crate::foundations::{cast, dict, Bytes, Cast, Dict, Value};
 
 /// A decoded raster image.
 #[derive(Clone, Hash)]
@@ -21,46 +23,111 @@ struct Repr {
     data: Bytes,
     format: RasterFormat,
     dynamic: image::DynamicImage,
-    icc_profile: Option<Vec<u8>>,
+    icc: Option<Vec<u8>>,
     dpi: Option<f64>,
 }
 
 impl RasterImage {
     /// Decode a raster image.
+    pub fn new(data: Bytes, format: impl Into<RasterFormat>) -> StrResult<RasterImage> {
+        Self::new_impl(data, format.into())
+    }
+
+    /// The internal, non-generic implementation.
     #[comemo::memoize]
     #[typst_macros::time(name = "load raster image")]
-    pub fn new(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
-        fn decode_with<T: ImageDecoder>(
-            decoder: ImageResult<T>,
-        ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
-            let mut decoder = decoder?;
-            let icc = decoder.icc_profile().ok().flatten().filter(|icc| !icc.is_empty());
-            decoder.set_limits(Limits::default())?;
-            let dynamic = image::DynamicImage::from_decoder(decoder)?;
-            Ok((dynamic, icc))
-        }
+    fn new_impl(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
+        let (dynamic, icc, dpi) = match format {
+            RasterFormat::Exchange(format) => {
+                fn decode_with<T: ImageDecoder>(
+                    decoder: ImageResult<T>,
+                ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
+                    let mut decoder = decoder?;
+                    let icc = decoder
+                        .icc_profile()
+                        .ok()
+                        .flatten()
+                        .filter(|icc| !icc.is_empty());
+                    decoder.set_limits(Limits::default())?;
+                    let dynamic = image::DynamicImage::from_decoder(decoder)?;
+                    Ok((dynamic, icc))
+                }
 
-        let cursor = io::Cursor::new(&data);
-        let (mut dynamic, icc_profile) = match format {
-            RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
-            RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
-            RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
-        }
-        .map_err(format_image_error)?;
+                let cursor = io::Cursor::new(&data);
+                let (mut dynamic, icc) = match format {
+                    ExchangeFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
+                    ExchangeFormat::Png => decode_with(PngDecoder::new(cursor)),
+                    ExchangeFormat::Gif => decode_with(GifDecoder::new(cursor)),
+                }
+                .map_err(format_image_error)?;
 
-        let exif = exif::Reader::new()
-            .read_from_container(&mut std::io::Cursor::new(&data))
-            .ok();
+                let exif = exif::Reader::new()
+                    .read_from_container(&mut std::io::Cursor::new(&data))
+                    .ok();
 
-        // Apply rotation from EXIF metadata.
-        if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
-            apply_rotation(&mut dynamic, rotation);
-        }
+                // Apply rotation from EXIF metadata.
+                if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
+                    apply_rotation(&mut dynamic, rotation);
+                }
 
-        // Extract pixel density.
-        let dpi = determine_dpi(&data, exif.as_ref());
+                // Extract pixel density.
+                let dpi = determine_dpi(&data, exif.as_ref());
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc_profile, dpi })))
+                (dynamic, icc, dpi)
+            }
+
+            RasterFormat::Pixel(format) => {
+                if format.width == 0 || format.height == 0 {
+                    bail!("zero-sized images are not allowed");
+                }
+
+                let channels = match format.encoding {
+                    PixelEncoding::Rgb8 => 3,
+                    PixelEncoding::Rgba8 => 4,
+                    PixelEncoding::Luma8 => 1,
+                    PixelEncoding::Lumaa8 => 2,
+                };
+
+                let Some(expected_size) = format
+                    .width
+                    .checked_mul(format.height)
+                    .and_then(|size| size.checked_mul(channels))
+                else {
+                    bail!("pixel dimensions are too large");
+                };
+
+                if expected_size as usize != data.len() {
+                    bail!("pixel dimensions and pixel data do not match");
+                }
+
+                fn cast_as<P: Pixel<Subpixel = u8>>(
+                    data: &Bytes,
+                    format: PixelFormat,
+                ) -> ImageBuffer<P, Vec<u8>> {
+                    ImageBuffer::from_raw(format.width, format.height, data.to_vec())
+                        .unwrap()
+                }
+
+                let dynamic = match format.encoding {
+                    PixelEncoding::Rgb8 => {
+                        cast_as::<image::Rgb<u8>>(&data, format).into()
+                    }
+                    PixelEncoding::Rgba8 => {
+                        cast_as::<image::Rgba<u8>>(&data, format).into()
+                    }
+                    PixelEncoding::Luma8 => {
+                        cast_as::<image::Luma<u8>>(&data, format).into()
+                    }
+                    PixelEncoding::Lumaa8 => {
+                        cast_as::<image::LumaA<u8>>(&data, format).into()
+                    }
+                };
+
+                (dynamic, None, None)
+            }
+        };
+
+        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
     }
 
     /// The raw image data.
@@ -94,8 +161,8 @@ impl RasterImage {
     }
 
     /// Access the ICC profile, if any.
-    pub fn icc_profile(&self) -> Option<&[u8]> {
-        self.0.icc_profile.as_deref()
+    pub fn icc(&self) -> Option<&[u8]> {
+        self.0.icc.as_deref()
     }
 }
 
@@ -108,8 +175,39 @@ impl Hash for Repr {
 }
 
 /// A raster graphics format.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum RasterFormat {
+    /// A format used in image exchange.
+    Exchange(ExchangeFormat),
+    /// A format of raw pixel data.
+    Pixel(PixelFormat),
+}
+
+impl From<ExchangeFormat> for RasterFormat {
+    fn from(format: ExchangeFormat) -> Self {
+        Self::Exchange(format)
+    }
+}
+
+impl From<PixelFormat> for RasterFormat {
+    fn from(format: PixelFormat) -> Self {
+        Self::Pixel(format)
+    }
+}
+
+cast! {
+    RasterFormat,
+    self => match self {
+        Self::Exchange(v) => v.into_value(),
+        Self::Pixel(v) => v.into_value(),
+    },
+    v: ExchangeFormat => Self::Exchange(v),
+    v: PixelFormat => Self::Pixel(v),
+}
+
+/// An raster format typically used in image exchange, with efficient encoding.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum ExchangeFormat {
     /// Raster format for illustrations and transparent graphics.
     Png,
     /// Lossy raster format suitable for photos.
@@ -118,33 +216,81 @@ pub enum RasterFormat {
     Gif,
 }
 
-impl RasterFormat {
+impl ExchangeFormat {
     /// Try to detect the format of data in a buffer.
     pub fn detect(data: &[u8]) -> Option<Self> {
         guess_format(data).ok().and_then(|format| format.try_into().ok())
     }
 }
 
-impl From<RasterFormat> for image::ImageFormat {
-    fn from(format: RasterFormat) -> Self {
+impl From<ExchangeFormat> for image::ImageFormat {
+    fn from(format: ExchangeFormat) -> Self {
         match format {
-            RasterFormat::Png => image::ImageFormat::Png,
-            RasterFormat::Jpg => image::ImageFormat::Jpeg,
-            RasterFormat::Gif => image::ImageFormat::Gif,
+            ExchangeFormat::Png => image::ImageFormat::Png,
+            ExchangeFormat::Jpg => image::ImageFormat::Jpeg,
+            ExchangeFormat::Gif => image::ImageFormat::Gif,
         }
     }
 }
 
-impl TryFrom<image::ImageFormat> for RasterFormat {
+impl TryFrom<image::ImageFormat> for ExchangeFormat {
     type Error = EcoString;
 
     fn try_from(format: image::ImageFormat) -> StrResult<Self> {
         Ok(match format {
-            image::ImageFormat::Png => RasterFormat::Png,
-            image::ImageFormat::Jpeg => RasterFormat::Jpg,
-            image::ImageFormat::Gif => RasterFormat::Gif,
-            _ => bail!("Format not yet supported."),
+            image::ImageFormat::Png => ExchangeFormat::Png,
+            image::ImageFormat::Jpeg => ExchangeFormat::Jpg,
+            image::ImageFormat::Gif => ExchangeFormat::Gif,
+            _ => bail!("format not yet supported"),
         })
+    }
+}
+
+/// Information that is needed to understand a pixmap buffer.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct PixelFormat {
+    /// The channel encoding.
+    encoding: PixelEncoding,
+    /// The pixel width.
+    width: u32,
+    /// The pixel height.
+    height: u32,
+}
+
+/// Determines the channel encoding of raw pixel data.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum PixelEncoding {
+    /// Raw image data with three 8-bit channels: Red, green, blue.
+    Rgb8,
+    /// Raw image data with four 8-bit channels: Red, green, blue, alpha.
+    Rgba8,
+    /// Raw image data with one 8-bit channel: Brightness.
+    Luma8,
+    /// Raw image data with two 8-bit channels: Brightness and alpha.
+    Lumaa8,
+}
+
+cast! {
+    PixelFormat,
+    self => Value::Dict(self.into()),
+    mut dict: Dict => {
+        let format = Self {
+            encoding: dict.take("encoding")?.cast()?,
+            width: dict.take("width")?.cast()?,
+            height: dict.take("height")?.cast()?,
+        };
+        dict.finish(&["encoding", "width", "height"])?;
+        format
+    }
+}
+
+impl From<PixelFormat> for Dict {
+    fn from(format: PixelFormat) -> Self {
+        dict! {
+            "encoding" => format.encoding,
+            "width" => format.width,
+            "height" => format.height,
+        }
     }
 }
 
@@ -267,21 +413,21 @@ fn format_image_error(error: image::ImageError) -> EcoString {
 
 #[cfg(test)]
 mod tests {
-    use super::{RasterFormat, RasterImage};
+    use super::{ExchangeFormat, RasterImage};
     use crate::foundations::Bytes;
 
     #[test]
     fn test_image_dpi() {
         #[track_caller]
-        fn test(path: &str, format: RasterFormat, dpi: f64) {
+        fn test(path: &str, format: ExchangeFormat, dpi: f64) {
             let data = typst_dev_assets::get(path).unwrap();
             let bytes = Bytes::new(data);
             let image = RasterImage::new(bytes, format).unwrap();
             assert_eq!(image.dpi().map(f64::round), Some(dpi));
         }
 
-        test("images/f2t.jpg", RasterFormat::Jpg, 220.0);
-        test("images/tiger.jpg", RasterFormat::Jpg, 72.0);
-        test("images/graph.png", RasterFormat::Png, 144.0);
+        test("images/f2t.jpg", ExchangeFormat::Jpg, 220.0);
+        test("images/tiger.jpg", ExchangeFormat::Jpg, 72.0);
+        test("images/graph.png", ExchangeFormat::Png, 144.0);
     }
 }

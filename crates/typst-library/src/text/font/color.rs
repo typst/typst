@@ -11,7 +11,7 @@ use crate::foundations::{Bytes, Smart};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::text::{Font, Glyph};
 use crate::visualize::{
-    FixedStroke, Geometry, Image, RasterFormat, RasterImage, SvgImage,
+    ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, SvgImage,
 };
 
 /// Whether this glyph should be rendered via simple outlining instead of via
@@ -106,7 +106,7 @@ fn draw_raster_glyph(
 ) -> Option<()> {
     let data = Bytes::new(raster_image.data.to_vec());
     let image =
-        Image::new(RasterImage::new(data, RasterFormat::Png).ok()?, None, Smart::Auto);
+        Image::new(RasterImage::new(data, ExchangeFormat::Png).ok()?, None, Smart::Auto);
 
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
