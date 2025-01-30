@@ -247,7 +247,12 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
         return None;
     }
     let image = Image::new(
-        RasterImage::new(Bytes::new(raster.data.to_vec()), ExchangeFormat::Png).ok()?,
+        RasterImage::new(
+            Bytes::new(raster.data.to_vec()),
+            ExchangeFormat::Png,
+            Smart::Auto,
+        )
+        .ok()?,
         None,
         Smart::Auto,
     );

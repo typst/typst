@@ -127,6 +127,21 @@ pub struct ImageElem {
     /// _Note:_ The exact look may differ across PDF viewers.
     pub scaling: Smart<ImageScaling>,
 
+    /// An ICC profile for the image.
+    ///
+    /// ICC profiles define how to interpret the colors in an image. When set
+    /// to `{auto}`, Typst will try to extract an ICC profile from the image.
+    #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
+        Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
+            let data = Spanned::new(&source, span).load(engine.world)?;
+            Derived::new(source, data)
+        })),
+        Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
+        None => None,
+    })]
+    #[borrowed]
+    pub icc: Smart<Derived<DataSource, Bytes>>,
+
     /// Whether text in SVG images should be converted into curves before
     /// embedding. This will result in the text becoming unselectable in the
     /// output.

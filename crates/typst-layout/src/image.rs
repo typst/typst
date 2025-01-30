@@ -51,9 +51,14 @@ pub fn layout_image(
 
     // Construct the image itself.
     let kind = match format {
-        ImageFormat::Raster(format) => {
-            ImageKind::Raster(RasterImage::new(data.clone(), format).at(span)?)
-        }
+        ImageFormat::Raster(format) => ImageKind::Raster(
+            RasterImage::new(
+                data.clone(),
+                format,
+                elem.icc(styles).as_ref().map(|icc| icc.derived.clone()),
+            )
+            .at(span)?,
+        ),
         ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
             SvgImage::with_fonts(
                 data.clone(),

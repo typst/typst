@@ -12,7 +12,7 @@ use image::{
 };
 
 use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, dict, Bytes, Cast, Dict, Value};
+use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
 
 /// A decoded raster image.
 #[derive(Clone, Hash)]
@@ -23,31 +23,43 @@ struct Repr {
     data: Bytes,
     format: RasterFormat,
     dynamic: image::DynamicImage,
-    icc: Option<Vec<u8>>,
+    icc: Option<Bytes>,
     dpi: Option<f64>,
 }
 
 impl RasterImage {
     /// Decode a raster image.
-    pub fn new(data: Bytes, format: impl Into<RasterFormat>) -> StrResult<RasterImage> {
-        Self::new_impl(data, format.into())
+    pub fn new(
+        data: Bytes,
+        format: impl Into<RasterFormat>,
+        icc: Smart<Bytes>,
+    ) -> StrResult<RasterImage> {
+        Self::new_impl(data, format.into(), icc)
     }
 
     /// The internal, non-generic implementation.
     #[comemo::memoize]
     #[typst_macros::time(name = "load raster image")]
-    fn new_impl(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
+    fn new_impl(
+        data: Bytes,
+        format: RasterFormat,
+        icc: Smart<Bytes>,
+    ) -> StrResult<RasterImage> {
         let (dynamic, icc, dpi) = match format {
             RasterFormat::Exchange(format) => {
-                fn decode_with<T: ImageDecoder>(
+                fn decode<T: ImageDecoder>(
                     decoder: ImageResult<T>,
-                ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
+                    icc: Smart<Bytes>,
+                ) -> ImageResult<(image::DynamicImage, Option<Bytes>)> {
                     let mut decoder = decoder?;
-                    let icc = decoder
-                        .icc_profile()
-                        .ok()
-                        .flatten()
-                        .filter(|icc| !icc.is_empty());
+                    let icc = icc.custom().or_else(|| {
+                        decoder
+                            .icc_profile()
+                            .ok()
+                            .flatten()
+                            .filter(|icc| !icc.is_empty())
+                            .map(Bytes::new)
+                    });
                     decoder.set_limits(Limits::default())?;
                     let dynamic = image::DynamicImage::from_decoder(decoder)?;
                     Ok((dynamic, icc))
@@ -55,9 +67,9 @@ impl RasterImage {
 
                 let cursor = io::Cursor::new(&data);
                 let (mut dynamic, icc) = match format {
-                    ExchangeFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
-                    ExchangeFormat::Png => decode_with(PngDecoder::new(cursor)),
-                    ExchangeFormat::Gif => decode_with(GifDecoder::new(cursor)),
+                    ExchangeFormat::Jpg => decode(JpegDecoder::new(cursor), icc),
+                    ExchangeFormat::Png => decode(PngDecoder::new(cursor), icc),
+                    ExchangeFormat::Gif => decode(GifDecoder::new(cursor), icc),
                 }
                 .map_err(format_image_error)?;
 
@@ -115,7 +127,7 @@ impl RasterImage {
                     PixelEncoding::Lumaa8 => to::<image::LumaA<u8>>(&data, format).into(),
                 };
 
-                (dynamic, None, None)
+                (dynamic, icc.custom(), None)
             }
         };
 
@@ -405,8 +417,7 @@ fn format_image_error(error: image::ImageError) -> EcoString {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExchangeFormat, RasterImage};
-    use crate::foundations::Bytes;
+    use super::*;
 
     #[test]
     fn test_image_dpi() {
@@ -414,7 +425,7 @@ mod tests {
         fn test(path: &str, format: ExchangeFormat, dpi: f64) {
             let data = typst_dev_assets::get(path).unwrap();
             let bytes = Bytes::new(data);
-            let image = RasterImage::new(bytes, format).unwrap();
+            let image = RasterImage::new(bytes, format, Smart::Auto).unwrap();
             assert_eq!(image.dpi().map(f64::round), Some(dpi));
         }
 

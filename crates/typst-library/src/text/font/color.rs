@@ -105,8 +105,11 @@ fn draw_raster_glyph(
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<()> {
     let data = Bytes::new(raster_image.data.to_vec());
-    let image =
-        Image::new(RasterImage::new(data, ExchangeFormat::Png).ok()?, None, Smart::Auto);
+    let image = Image::new(
+        RasterImage::new(data, ExchangeFormat::Png, Smart::Auto).ok()?,
+        None,
+        Smart::Auto,
+    );
 
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
