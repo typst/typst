@@ -3,7 +3,7 @@ use std::io::Read;
 use base64::Engine;
 use ecow::EcoString;
 use ttf_parser::GlyphId;
-use typst_library::foundations::{Bytes, Smart};
+use typst_library::foundations::Bytes;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{
@@ -246,15 +246,8 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
     if raster.format != ttf_parser::RasterImageFormat::PNG {
         return None;
     }
-    let image = Image::new(
-        RasterImage::new(
-            Bytes::new(raster.data.to_vec()),
-            ExchangeFormat::Png,
-            Smart::Auto,
-        )
-        .ok()?,
-        None,
-        Smart::Auto,
+    let image = Image::plain(
+        RasterImage::plain(Bytes::new(raster.data.to_vec()), ExchangeFormat::Png).ok()?,
     );
     Some((image, raster.x as f64, raster.y as f64))
 }

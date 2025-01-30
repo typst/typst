@@ -7,7 +7,7 @@ use typst_syntax::Span;
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
-use crate::foundations::{Bytes, Smart};
+use crate::foundations::Bytes;
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::text::{Font, Glyph};
 use crate::visualize::{
@@ -105,11 +105,7 @@ fn draw_raster_glyph(
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<()> {
     let data = Bytes::new(raster_image.data.to_vec());
-    let image = Image::new(
-        RasterImage::new(data, ExchangeFormat::Png, Smart::Auto).ok()?,
-        None,
-        Smart::Auto,
-    );
+    let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
@@ -181,7 +177,7 @@ fn draw_colr_glyph(
     svg.end_element();
 
     let data = Bytes::from_string(svg.end_document());
-    let image = Image::new(SvgImage::new(data).ok()?, None, Smart::Auto);
+    let image = Image::plain(SvgImage::new(data).ok()?);
 
     let y_shift = Abs::pt(upem.to_pt() - y_max);
     let position = Point::new(Abs::pt(x_min), y_shift);
@@ -257,7 +253,7 @@ fn draw_svg_glyph(
     );
 
     let data = Bytes::from_string(wrapper_svg);
-    let image = Image::new(SvgImage::new(data).ok()?, None, Smart::Auto);
+    let image = Image::plain(SvgImage::new(data).ok()?);
 
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Size::new(Abs::pt(width), Abs::pt(height));

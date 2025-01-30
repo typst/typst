@@ -290,6 +290,11 @@ impl Image {
         Self::new_impl(kind.into(), alt, scaling)
     }
 
+    /// Create an image with optional properties set to the default.
+    pub fn plain(kind: impl Into<ImageKind>) -> Self {
+        Self::new(kind, None, Smart::Auto)
+    }
+
     /// The internal, non-generic implementation. This is memoized to reuse
     /// the `Arc` and `LazyHash`.
     #[comemo::memoize]
