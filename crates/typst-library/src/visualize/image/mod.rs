@@ -17,7 +17,7 @@ use pixmap::{Pixmap, PixmapFormat, PixmapSource};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, AutoValue, Bytes, Cast, Content, Derived, Dict, NativeElement,
@@ -54,11 +54,11 @@ pub struct ImageElem {
     /// For more details about paths, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
-        let source = args.expect::<Spanned<DataSource>>("source")?;
+        let source = args.expect::<Spanned<ImageSource>>("source")?;
         let data = source.load(engine.world)?;
         Derived::new(source.v, data)
     )]
-    pub source: Derived<DataSource, Bytes>,
+    pub source: Derived<ImageSource, Bytes>,
 
     /// The image's format. Detected automatically by default.
     ///
@@ -124,7 +124,7 @@ impl ImageElem {
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
-        source: ImageSource,
+        data: Readable,
         /// The image's format. Detected automatically by default.
         #[named]
         format: Option<Smart<ImageFormat>>,
@@ -148,7 +148,7 @@ impl ImageElem {
         scaling: Option<ImageScaling>,
     ) -> StrResult<Content> {
         let bytes = data.into_bytes();
-        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
+        let source = Derived::new(ImageSource::DataSource(DataSource::Bytes(bytes.clone())), bytes);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);
@@ -240,25 +240,25 @@ impl Image {
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
     pub fn new(
-        source: ImageSource,
+        data: Derived<ImageSource, Bytes>,
         format: ImageFormat,
         options: &ImageOptions,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                let ImageSource::Readable(readable) = source else {
-                    bail!("expected readable source for the given format (str or bytes)");
+                let ImageSource::DataSource(_) = data.source else {
+                    bail!("expected non-pixmap source for the given format");
                 };
-                ImageKind::Raster(RasterImage::new(readable.into(), format)?)
+                ImageKind::Raster(RasterImage::new(data.derived, format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                let ImageSource::Readable(readable) = source else {
-                    bail!("expected readable source for the given format (str or bytes)");
+                let ImageSource::DataSource(_) = data.source else {
+                    bail!("expected non-pixmap source for the given format");
                 };
-                ImageKind::Svg(SvgImage::new(readable.into(), options)?)
+                ImageKind::Svg(SvgImage::new(data.derived, options)?)
             }
             ImageFormat::Pixmap(format) => {
-                let ImageSource::Pixmap(source) = source else {
+                let ImageSource::Pixmap(source) = data.source else {
                     bail!("source must be a pixmap");
                 };
                 ImageKind::Pixmap(Pixmap::new(source, format)?)
@@ -336,22 +336,37 @@ impl Debug for Image {
     }
 }
 
-/// Information required to decode an image.
+/// Information specifying the source of an image's byte data.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ImageSource {
-    Readable(Readable),
+    DataSource(DataSource),
     Pixmap(Arc<PixmapSource>),
 }
 
 impl From<Bytes> for ImageSource {
     fn from(bytes: Bytes) -> Self {
-        ImageSource::Readable(Readable::Bytes(bytes))
+        ImageSource::DataSource(DataSource::Bytes(bytes))
+    }
+}
+
+impl Load for Spanned<ImageSource> {
+    type Output = Bytes;
+
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
+        match &self.v {
+            ImageSource::DataSource(data_source) => Spanned::new(data_source, self.span).load(world),
+            ImageSource::Pixmap(pixmap_source) => Ok(pixmap_source.data.clone()),
+        }
     }
 }
 
 cast! {
     ImageSource,
-    data: Readable => ImageSource::Readable(data),
+    self => match self {
+       Self::DataSource(data) => data.into_value(),
+       Self::Pixmap(pixmap) => pixmap.into_value(),
+    },
+    data: DataSource => ImageSource::DataSource(data),
     mut dict: Dict => {
         let source = ImageSource::Pixmap(Arc::new(PixmapSource {
             data: dict.take("data")?.cast()?,

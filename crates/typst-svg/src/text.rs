@@ -244,9 +244,12 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
     if raster.format != ttf_parser::RasterImageFormat::PNG {
         return None;
     }
-    let image =
-        Image::new(Bytes::new(raster.data.to_vec()).into(), RasterFormat::Png.into(), &Default::default(),)
-            .ok()?;
+    let image = Image::new(
+        Bytes::new(raster.data.to_vec()).into(),
+        RasterFormat::Png.into(),
+        &Default::default(),
+    )
+    .ok()?;
     Some((image, raster.x as f64, raster.y as f64))
 }
 

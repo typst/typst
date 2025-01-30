@@ -3,14 +3,29 @@ use std::sync::Arc;
 use image::{DynamicImage, ImageBuffer, Pixel};
 
 use crate::diag::{bail, StrResult};
-use crate::foundations::{Bytes, Cast};
+use crate::foundations::{cast, dict, Bytes, Cast, Dict};
 
-#[derive(Debug, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct PixmapSource {
     pub data: Bytes,
     pub pixel_width: u32,
     pub pixel_height: u32,
     pub icc_profile: Option<Bytes>,
+}
+
+cast! {
+    Arc<PixmapSource>,
+    self => dict!("data" => self.data.clone(), "pixel_width" => self.pixel_width, "pixel_height" => self.pixel_height, "icc_profile" => self.icc_profile.clone()).into_value(),
+    mut dict: Dict => {
+        let source = Arc::new(PixmapSource {
+            data: dict.take("data")?.cast()?,
+            pixel_width: dict.take("pixel-width")?.cast()?,
+            pixel_height: dict.take("pixel-height")?.cast()?,
+            icc_profile: dict.take("icc-profile").ok().map(|value| value.cast()).transpose()?,
+        });
+        dict.finish(&["data", "pixel-width", "pixel-height", "icc-profile"])?;
+        source
+    }
 }
 
 /// A raster image based on a flat pixmap.
