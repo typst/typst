@@ -198,14 +198,11 @@ impl ImageElem {
         if let Some(fit) = fit {
             elem.push_fit(fit);
         }
-        if let Some(fit) = fit {
-            elem.push_fit(fit);
+        if let Some(scaling) = scaling {
+            elem.push_scaling(scaling);
         }
         if let Some(flatten_text) = flatten_text {
             elem.push_flatten_text(flatten_text);
-        }
-        if let Some(scaling) = scaling {
-            elem.push_scaling(scaling);
         }
         Ok(elem.pack().spanned(span))
     }
