@@ -5,44 +5,22 @@ use image::{DynamicImage, ImageBuffer, Pixel};
 use crate::diag::{bail, StrResult};
 use crate::foundations::{cast, dict, Bytes, Cast, Dict};
 
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub struct PixmapSource {
-    pub data: Bytes,
-    pub pixel_width: u32,
-    pub pixel_height: u32,
-    pub icc_profile: Option<Bytes>,
-}
-
-cast! {
-    Arc<PixmapSource>,
-    self => dict!("data" => self.data.clone(), "pixel_width" => self.pixel_width, "pixel_height" => self.pixel_height, "icc_profile" => self.icc_profile.clone()).into_value(),
-    mut dict: Dict => {
-        let source = Arc::new(PixmapSource {
-            data: dict.take("data")?.cast()?,
-            pixel_width: dict.take("pixel-width")?.cast()?,
-            pixel_height: dict.take("pixel-height")?.cast()?,
-            icc_profile: dict.take("icc-profile").ok().map(|value| value.cast()).transpose()?,
-        });
-        dict.finish(&["data", "pixel-width", "pixel-height", "icc-profile"])?;
-        source
-    }
-}
-
 /// A raster image based on a flat pixmap.
 #[derive(Clone, Hash)]
-pub struct Pixmap(Arc<Repr>);
+pub struct PixmapImage(Arc<Repr>);
 
 /// The internal representation.
 #[derive(Hash)]
 struct Repr {
-    source: Arc<PixmapSource>,
+    source: PixmapSource,
     format: PixmapFormat,
 }
 
-impl Pixmap {
+impl PixmapImage {
     /// Build a new [`Pixmap`] from a flat, uncompressed byte sequence.
     #[comemo::memoize]
-    pub fn new(source: Arc<PixmapSource>, format: PixmapFormat) -> StrResult<Pixmap> {
+    #[typst_macros::time(name = "load pixmap")]
+    pub fn new(source: PixmapSource, format: PixmapFormat) -> StrResult<PixmapImage> {
         if source.pixel_width == 0 || source.pixel_height == 0 {
             bail!("zero-sized images are not allowed");
         }
@@ -53,6 +31,7 @@ impl Pixmap {
             PixmapFormat::Luma8 => 1,
             PixmapFormat::Lumaa8 => 2,
         };
+
         let Some(expected_size) = source
             .pixel_width
             .checked_mul(source.pixel_height)
@@ -60,6 +39,7 @@ impl Pixmap {
         else {
             bail!("provided pixel dimensions are too large");
         };
+
         if expected_size as usize != source.data.len() {
             bail!("provided pixel dimensions and pixmap data do not match");
         }
@@ -83,14 +63,14 @@ impl Pixmap {
     }
 
     /// The raw data encoded in the given format.
-    pub fn data(&self) -> &[u8] {
-        self.0.source.data.as_slice()
+    pub fn data(&self) -> &Bytes {
+        &self.0.source.data
     }
 
-    /// Transform the image data into an [`DynamicImage`].
+    /// Transform the image data into a [`DynamicImage`].
     #[comemo::memoize]
     pub fn to_image(&self) -> Arc<DynamicImage> {
-        // TODO optimize by returning a `View` if possible?
+        // TODO: Optimize by returning a `View` if possible?
         fn decode<P: Pixel<Subpixel = u8>>(
             source: &PixmapSource,
         ) -> ImageBuffer<P, Vec<u8>> {
@@ -118,13 +98,42 @@ impl Pixmap {
 /// Determines how the given image is interpreted and encoded.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum PixmapFormat {
-    /// The red, green, and blue channels are each eight bit integers.
-    /// There is no alpha channel.
+    /// Red, green, and blue channels, one byte per channel.
+    /// No alpha channel.
     Rgb8,
-    /// The red, green, blue, and alpha channels are each eight bit integers.
+    /// Red, green, blue, and alpha channels, one byte per channel.
     Rgba8,
-    /// A single eight bit channel representing brightness.
+    /// A single byte channel representing brightness.
     Luma8,
-    /// One byte of brightness, another for alpha.
+    /// Brightness and alpha, one byte per channel.
     Lumaa8,
+}
+
+/// Raw pixmap data and relevant metadata.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct PixmapSource {
+    pub data: Bytes,
+    pub pixel_width: u32,
+    pub pixel_height: u32,
+    pub icc_profile: Option<Bytes>,
+}
+
+cast! {
+    PixmapSource,
+    self => dict! {
+        "data" => self.data.clone(),
+        "pixel-width" => self.pixel_width,
+        "pixel-height" => self.pixel_height,
+        "icc-profile" => self.icc_profile.clone()
+    }.into_value(),
+    mut dict: Dict => {
+        let source = PixmapSource {
+            data: dict.take("data")?.cast()?,
+            pixel_width: dict.take("pixel-width")?.cast()?,
+            pixel_height: dict.take("pixel-height")?.cast()?,
+            icc_profile: dict.take("icc-profile").ok().map(|v| v.cast()).transpose()?,
+        };
+        dict.finish(&["data", "pixel-width", "pixel-height", "icc-profile"])?;
+        source
+    }
 }

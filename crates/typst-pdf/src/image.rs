@@ -5,6 +5,7 @@ use ecow::eco_format;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
+use typst_library::foundations::Smart;
 use typst_library::visualize::{
     ColorSpace, Image, ImageKind, ImageScaling, RasterFormat, SvgImage,
 };
@@ -136,7 +137,7 @@ pub fn deferred_image(
 
     // PDF/A does not appear to allow interpolation[^1].
     // [^1]: https://github.com/typst/typst/issues/2942
-    let interpolate = image.scaling() == ImageScaling::Smooth && !pdfa;
+    let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth) && !pdfa;
 
     let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {

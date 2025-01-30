@@ -66,7 +66,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-pixmap-rgb8 ---
-#image.decode(
+#image(
   (
     data: bytes((
       0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
@@ -81,7 +81,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-pixmap-rgba8 ---
-#image.decode(
+#image(
   (
     data: bytes((
       0xFF, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0xFF,
@@ -96,7 +96,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-pixmap-luma8 ---
-#image.decode(
+#image(
   (
     data: bytes(range(16).map(x => x * 16)),
     pixel-width: 4,
@@ -107,7 +107,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-pixmap-lumaa8 ---
-#image.decode(
+#image(
   (
     data: bytes(range(16).map(x => (0x80, x * 16)).flatten()),
     pixel-width: 4,
@@ -118,7 +118,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 )
 
 --- image-scaling-methods ---
-#let img(scaling) = image.decode(
+#let img(scaling) = image(
   (
     data: bytes((
       0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
@@ -179,8 +179,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
 
 --- image-pixmap-empty ---
-// Error: 1:2-8:2 zero-sized images are not allowed 
-#image.decode(
+// Error: 1:2-8:2 zero-sized images are not allowed
+#image(
   (
     data: bytes(()),
     pixel-width: 0,
@@ -191,7 +191,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 --- image-pixmap-invalid-size ---
 // Error: 1:2-8:2 provided pixel dimensions and pixmap data do not match
-#image.decode(
+#image(
   (
     data: bytes((0x00, 0x00, 0x00)),
     pixel-width: 16,
@@ -202,7 +202,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 --- image-pixmap-unknown-attribute ---
 // Error: 2:3-7:4 unexpected key "stowaway", valid keys are "data", "pixel-width", "pixel-height", and "icc-profile"
-#image.decode(
+#image(
   (
     data: bytes((0x00, 0x00, 0x00)),
     pixel-width: 1,
@@ -214,7 +214,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 --- image-pixmap-but-png-format ---
 // Error: 1:2-8:2 expected readable source for the given format (str or bytes)
-#image.decode(
+#image(
   (
     data: bytes((0x00, 0x00, 0x00)),
     pixel-width: 1,
@@ -225,7 +225,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 --- image-png-but-pixmap-format ---
 // Error: 1:2-4:2 source must be a pixmap
-#image.decode(
+#image(
   read("/assets/images/tiger.jpg", encoding: none),
   format: "rgba8",
 )

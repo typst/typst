@@ -7,12 +7,11 @@ use typst_syntax::Span;
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
 
-use crate::foundations::Bytes;
+use crate::foundations::{Bytes, Smart};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
-use crate::loading::Readable;
 use crate::text::{Font, Glyph};
 use crate::visualize::{
-    FixedStroke, Geometry, Image, ImageSource, RasterFormat, VectorFormat,
+    FixedStroke, Geometry, Image, RasterFormat, RasterImage, SvgImage,
 };
 
 /// Whether this glyph should be rendered via simple outlining instead of via
@@ -105,12 +104,9 @@ fn draw_raster_glyph(
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<()> {
-    let image = Image::new(
-        Bytes::new(raster_image.data).to_vec(),
-        RasterFormat::Png.into(),
-        &Default::default(),
-    )
-    .ok()?;
+    let data = Bytes::new(raster_image.data.to_vec());
+    let image =
+        Image::new(RasterImage::new(data, RasterFormat::Png).ok()?, None, Smart::Auto);
 
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
@@ -181,14 +177,8 @@ fn draw_colr_glyph(
     ttf.paint_color_glyph(glyph_id, 0, RgbaColor::new(0, 0, 0, 255), &mut glyph_painter)?;
     svg.end_element();
 
-    let data = svg.end_document().into_bytes();
-
-    let image = Image::new(
-        Bytes::new(data).into(),
-        VectorFormat::Svg.into(),
-        &Default::default(),
-    )
-    .ok()?;
+    let data = Bytes::from_string(svg.end_document());
+    let image = Image::new(SvgImage::new(data).ok()?, None, Smart::Auto);
 
     let y_shift = Abs::pt(upem.to_pt() - y_max);
     let position = Point::new(Abs::pt(x_min), y_shift);
@@ -263,8 +253,8 @@ fn draw_svg_glyph(
         ty = -top,
     );
 
-    let source = ImageSource::Readable(Readable::Str(wrapper_svg.into()));
-    let image = Image::new(source, VectorFormat::Svg.into(), &Default::default()).ok()?;
+    let data = Bytes::from_string(wrapper_svg);
+    let image = Image::new(SvgImage::new(data).ok()?, None, Smart::Auto);
 
     let position = Point::new(Abs::pt(left), Abs::pt(top) + upem);
     let size = Size::new(Abs::pt(width), Abs::pt(height));

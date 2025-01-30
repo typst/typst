@@ -3,10 +3,12 @@ use std::io::Read;
 use base64::Engine;
 use ecow::EcoString;
 use ttf_parser::GlyphId;
-use typst_library::foundations::Bytes;
+use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::text::{Font, TextItem};
-use typst_library::visualize::{FillRule, Image, Paint, RasterFormat, RelativeTo};
+use typst_library::visualize::{
+    FillRule, Image, Paint, RasterFormat, RasterImage, RelativeTo,
+};
 use typst_utils::hash128;
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
@@ -245,11 +247,10 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
         return None;
     }
     let image = Image::new(
-        Bytes::new(raster.data.to_vec()).into(),
-        RasterFormat::Png.into(),
-        &Default::default(),
-    )
-    .ok()?;
+        RasterImage::new(Bytes::new(raster.data.to_vec()), RasterFormat::Png).ok()?,
+        None,
+        Smart::Auto,
+    );
     Some((image, raster.x as f64, raster.y as f64))
 }
 

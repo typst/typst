@@ -3,6 +3,7 @@ use std::sync::Arc;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
+use typst_library::foundations::Smart;
 use typst_library::layout::Size;
 use typst_library::visualize::{Image, ImageKind, ImageScaling};
 
@@ -81,7 +82,7 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 /// Scale a rastered image to a given size and return texture.
 fn scale_image(
     image: &image::DynamicImage,
-    scaling: ImageScaling,
+    scaling: Smart<ImageScaling>,
     w: u32,
     h: u32,
 ) -> Option<Arc<sk::Pixmap>> {
@@ -93,9 +94,10 @@ fn scale_image(
     } else {
         let upscale = w > image.width();
         let filter = match scaling {
-            ImageScaling::Auto if upscale => FilterType::CatmullRom,
-            ImageScaling::Smooth if upscale => FilterType::CatmullRom,
-            ImageScaling::Pixelated => FilterType::Nearest,
+            Smart::Auto | Smart::Custom(ImageScaling::Smooth) if upscale => {
+                FilterType::CatmullRom
+            }
+            Smart::Custom(ImageScaling::Pixelated) => FilterType::Nearest,
             _ => FilterType::Lanczos3, // downscale
         };
         buf = image.resize_exact(w, h, filter);

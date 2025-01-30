@@ -10,8 +10,8 @@ use typst_library::layout::{
 use typst_library::loading::DataSource;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Curve, Image, ImageElem, ImageFit, ImageFormat, ImageOptions, ImageSource,
-    RasterFormat, VectorFormat,
+    Curve, Image, ImageElem, ImageFit, ImageFormat, ImageKind, ImageSource, PixmapImage,
+    RasterFormat, RasterImage, SvgImage, VectorFormat,
 };
 
 /// Layout the image.
@@ -28,47 +28,51 @@ pub fn layout_image(
     // Take the format that was explicitly defined, or parse the extension,
     // or try to detect the format.
     let Derived { source, derived: data } = &elem.source;
-    let format = match (elem.format(styles), source) {
-        (Smart::Custom(v), _) => v,
-        (Smart::Auto, ImageSource::Readable(data)) => {
-            determine_format(elem.path().as_str(), data).at(span)?
-        }
-        (Smart::Auto, ImageSource::Pixmap(_)) => {
-            bail!(span, "pixmaps require an explicit image format to be given");
-        }
+    let format = match elem.format(styles) {
+        Smart::Custom(v) => v,
+        Smart::Auto => determine_format(source, data).at(span)?,
     };
 
     // Warn the user if the image contains a foreign object. Not perfect
     // because the svg could also be encoded, but that's an edge case.
-    if let ImageSource::Readable(data) = source {
-        if format == ImageFormat::Vector(VectorFormat::Svg) {
-            let has_foreign_object =
-                data.as_str().is_some_and(|s| s.contains("<foreignObject"));
+    if format == ImageFormat::Vector(VectorFormat::Svg) {
+        let has_foreign_object =
+            data.as_str().is_ok_and(|s| s.contains("<foreignObject"));
 
-            if has_foreign_object {
-                engine.sink.warn(warning!(
+        if has_foreign_object {
+            engine.sink.warn(warning!(
                     span,
                     "image contains foreign object";
                     hint: "SVG images with foreign objects might render incorrectly in typst";
                     hint: "see https://github.com/typst/typst/issues/1421 for more information"
                 ));
-            }
         }
     }
 
     // Construct the image itself.
-    let image = Image::new(
-        source.clone(),
-        format,
-        &ImageOptions {
-            alt: elem.alt(styles),
-            world: Some(engine.world),
-            families: &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-            flatten_text: elem.flatten_text(styles),
-            scaling: elem.scaling(styles),
-        },
-    )
-    .at(span)?;
+    let kind = match (format, source) {
+        (ImageFormat::Pixmap(format), ImageSource::Pixmap(source)) => {
+            ImageKind::Pixmap(PixmapImage::new(source.clone(), format).at(span)?)
+        }
+        (ImageFormat::Raster(format), ImageSource::Data(_)) => {
+            ImageKind::Raster(RasterImage::new(data.clone(), format).at(span)?)
+        }
+        (ImageFormat::Vector(VectorFormat::Svg), ImageSource::Data(_)) => ImageKind::Svg(
+            SvgImage::with_fonts(
+                data.clone(),
+                engine.world,
+                elem.flatten_text(styles),
+                &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+            )
+            .at(span)?,
+        ),
+        (ImageFormat::Pixmap(_), _) => bail!(span, "source must be a pixmap"),
+        (ImageFormat::Raster(_) | ImageFormat::Vector(_), _) => {
+            bail!(span, "expected readable source for the given format (str or bytes)")
+        }
+    };
+
+    let image = Image::new(kind, elem.alt(styles), elem.scaling(styles));
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();
@@ -131,20 +135,26 @@ pub fn layout_image(
 }
 
 /// Try to determine the image format based on the data.
-fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat> {
-    if let DataSource::Path(path) = source {
-        let ext = std::path::Path::new(path.as_str())
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default()
-            .to_lowercase();
+fn determine_format(source: &ImageSource, data: &Bytes) -> StrResult<ImageFormat> {
+    match source {
+        ImageSource::Data(DataSource::Path(path)) => {
+            let ext = std::path::Path::new(path.as_str())
+                .extension()
+                .and_then(OsStr::to_str)
+                .unwrap_or_default()
+                .to_lowercase();
 
-        match ext.as_str() {
-            "png" => return Ok(ImageFormat::Raster(RasterFormat::Png)),
-            "jpg" | "jpeg" => return Ok(ImageFormat::Raster(RasterFormat::Jpg)),
-            "gif" => return Ok(ImageFormat::Raster(RasterFormat::Gif)),
-            "svg" | "svgz" => return Ok(ImageFormat::Vector(VectorFormat::Svg)),
-            _ => {}
+            match ext.as_str() {
+                "png" => return Ok(ImageFormat::Raster(RasterFormat::Png)),
+                "jpg" | "jpeg" => return Ok(ImageFormat::Raster(RasterFormat::Jpg)),
+                "gif" => return Ok(ImageFormat::Raster(RasterFormat::Gif)),
+                "svg" | "svgz" => return Ok(ImageFormat::Vector(VectorFormat::Svg)),
+                _ => {}
+            }
+        }
+        ImageSource::Data(DataSource::Bytes(_)) => {}
+        ImageSource::Pixmap(_) => {
+            bail!("pixmaps require an explicit image format to be given")
         }
     }
 

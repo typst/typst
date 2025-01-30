@@ -4,6 +4,7 @@ mod pixmap;
 mod raster;
 mod svg;
 
+pub use self::pixmap::{PixmapFormat, PixmapImage, PixmapSource};
 pub use self::raster::{RasterFormat, RasterImage};
 pub use self::svg::SvgImage;
 
@@ -13,15 +14,14 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::EcoString;
-use pixmap::{Pixmap, PixmapFormat, PixmapSource};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, AutoValue, Bytes, Cast, Content, Derived, Dict, NativeElement,
-    Packed, Show, Smart, StyleChain, Value,
+    cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Show,
+    Smart, StyleChain,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, Readable};
@@ -97,9 +97,9 @@ pub struct ImageElem {
 
     /// A hint to the viewer how it should scale the image.
     ///
-    /// **Note:** This option may be ignored and results look different
-    /// depending on the format and viewer.
-    pub scaling: ImageScaling,
+    /// _Note:_ This option may be ignored and results look different depending
+    /// on the format and viewer.
+    pub scaling: Smart<ImageScaling>,
 }
 
 #[scope]
@@ -145,10 +145,11 @@ impl ImageElem {
         flatten_text: Option<bool>,
         /// How the image should be scaled by the viewer.
         #[named]
-        scaling: Option<ImageScaling>,
+        scaling: Option<Smart<ImageScaling>>,
     ) -> StrResult<Content> {
         let bytes = data.into_bytes();
-        let source = Derived::new(ImageSource::DataSource(DataSource::Bytes(bytes.clone())), bytes);
+        let source =
+            Derived::new(ImageSource::Data(DataSource::Bytes(bytes.clone())), bytes);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);
@@ -225,7 +226,7 @@ struct Repr {
     /// A text describing the image.
     alt: Option<EcoString>,
     /// The scaling algorithm to use.
-    scaling: ImageScaling,
+    scaling: Smart<ImageScaling>,
 }
 
 impl Image {
@@ -236,40 +237,24 @@ impl Image {
     /// Should always be the same as the default DPI used by usvg.
     pub const USVG_DEFAULT_DPI: f64 = 96.0;
 
-    /// Create an image from a source and a format.
-    #[comemo::memoize]
-    #[typst_macros::time(name = "load image")]
+    /// Create an image from a kind.
     pub fn new(
-        data: Derived<ImageSource, Bytes>,
-        format: ImageFormat,
-        options: &ImageOptions,
-    ) -> StrResult<Image> {
-        let kind = match format {
-            ImageFormat::Raster(format) => {
-                let ImageSource::DataSource(_) = data.source else {
-                    bail!("expected non-pixmap source for the given format");
-                };
-                ImageKind::Raster(RasterImage::new(data.derived, format)?)
-            }
-            ImageFormat::Vector(VectorFormat::Svg) => {
-                let ImageSource::DataSource(_) = data.source else {
-                    bail!("expected non-pixmap source for the given format");
-                };
-                ImageKind::Svg(SvgImage::new(data.derived, options)?)
-            }
-            ImageFormat::Pixmap(format) => {
-                let ImageSource::Pixmap(source) = data.source else {
-                    bail!("source must be a pixmap");
-                };
-                ImageKind::Pixmap(Pixmap::new(source, format)?)
-            }
-        };
+        kind: impl Into<ImageKind>,
+        alt: Option<EcoString>,
+        scaling: Smart<ImageScaling>,
+    ) -> Self {
+        Self::new_impl(kind.into(), alt, scaling)
+    }
 
-        Ok(Self(Arc::new(LazyHash::new(Repr {
-            kind,
-            alt: options.alt.clone(),
-            scaling: options.scaling,
-        }))))
+    /// The internal, non-generic implementation. This is memoized to reuse
+    /// the `Arc` and `LazyHash`.
+    #[comemo::memoize]
+    fn new_impl(
+        kind: ImageKind,
+        alt: Option<EcoString>,
+        scaling: Smart<ImageScaling>,
+    ) -> Image {
+        Self(Arc::new(LazyHash::new(Repr { kind, alt, scaling })))
     }
 
     /// The format of the image.
@@ -314,7 +299,7 @@ impl Image {
     }
 
     /// The image scaling algorithm to use for this image.
-    pub fn scaling(&self) -> ImageScaling {
+    pub fn scaling(&self) -> Smart<ImageScaling> {
         self.0.scaling
     }
 
@@ -339,13 +324,13 @@ impl Debug for Image {
 /// Information specifying the source of an image's byte data.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ImageSource {
-    DataSource(DataSource),
-    Pixmap(Arc<PixmapSource>),
+    Data(DataSource),
+    Pixmap(PixmapSource),
 }
 
 impl From<Bytes> for ImageSource {
     fn from(bytes: Bytes) -> Self {
-        ImageSource::DataSource(DataSource::Bytes(bytes))
+        ImageSource::Data(DataSource::Bytes(bytes))
     }
 }
 
@@ -354,8 +339,8 @@ impl Load for Spanned<ImageSource> {
 
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         match &self.v {
-            ImageSource::DataSource(data_source) => Spanned::new(data_source, self.span).load(world),
-            ImageSource::Pixmap(pixmap_source) => Ok(pixmap_source.data.clone()),
+            ImageSource::Data(data) => Spanned::new(data, self.span).load(world),
+            ImageSource::Pixmap(pixmap) => Ok(pixmap.data.clone()),
         }
     }
 }
@@ -363,20 +348,40 @@ impl Load for Spanned<ImageSource> {
 cast! {
     ImageSource,
     self => match self {
-       Self::DataSource(data) => data.into_value(),
+       Self::Data(data) => data.into_value(),
        Self::Pixmap(pixmap) => pixmap.into_value(),
     },
-    data: DataSource => ImageSource::DataSource(data),
-    mut dict: Dict => {
-        let source = ImageSource::Pixmap(Arc::new(PixmapSource {
-            data: dict.take("data")?.cast()?,
-            pixel_width: dict.take("pixel-width")?.cast()?,
-            pixel_height: dict.take("pixel-height")?.cast()?,
-            icc_profile: dict.take("icc-profile").ok().map(|value| value.cast()).transpose()?,
-        }));
-        dict.finish(&["data", "pixel-width", "pixel-height", "icc-profile"])?;
-        source
-    },
+    data: DataSource => Self::Data(data),
+    pixmap: PixmapSource => Self::Pixmap(pixmap),
+}
+
+/// A kind of image.
+#[derive(Clone, Hash)]
+pub enum ImageKind {
+    /// A raster image.
+    Raster(RasterImage),
+    /// An SVG image.
+    Svg(SvgImage),
+    /// An image constructed from a pixmap.
+    Pixmap(PixmapImage),
+}
+
+impl From<RasterImage> for ImageKind {
+    fn from(image: RasterImage) -> Self {
+        Self::Raster(image)
+    }
+}
+
+impl From<SvgImage> for ImageKind {
+    fn from(image: SvgImage) -> Self {
+        Self::Svg(image)
+    }
+}
+
+impl From<PixmapImage> for ImageKind {
+    fn from(image: PixmapImage) -> Self {
+        Self::Pixmap(image)
+    }
 }
 
 /// A raster or vector image format.
@@ -444,66 +449,11 @@ cast! {
 }
 
 /// The image scaling algorithm a viewer should use.
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ImageScaling {
-    /// Use the default scaling algorithm.
-    #[default]
-    Auto,
     /// Scale photos with a smoothing algorithm such as bilinear interpolation.
     Smooth,
     /// Scale with nearest neighbor or similar to preserve the pixelated look
     /// of the image.
     Pixelated,
-}
-
-cast! {
-    ImageScaling,
-    self => match self {
-        ImageScaling::Auto => Value::Auto,
-        ImageScaling::Pixelated => "pixelated".into_value(),
-        ImageScaling::Smooth => "smooth".into_value(),
-    },
-    _: AutoValue => ImageScaling::Auto,
-    "pixelated" => ImageScaling::Pixelated,
-    "smooth" => ImageScaling::Smooth,
-}
-
-/// A kind of image.
-#[derive(Hash)]
-pub enum ImageKind {
-    /// A raster image.
-    Raster(RasterImage),
-    /// An SVG image.
-    Svg(SvgImage),
-    /// An image constructed from a pixmap.
-    Pixmap(Pixmap),
-}
-
-pub struct ImageOptions<'a> {
-    pub alt: Option<EcoString>,
-    pub scaling: ImageScaling,
-    pub world: Option<Tracked<'a, dyn World + 'a>>,
-    pub families: &'a [&'a str],
-    pub flatten_text: bool,
-}
-
-impl Default for ImageOptions<'_> {
-    fn default() -> Self {
-        ImageOptions {
-            alt: None,
-            scaling: ImageScaling::Auto,
-            world: None,
-            families: &[],
-            flatten_text: false,
-        }
-    }
-}
-
-impl Hash for ImageOptions<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.alt.hash(state);
-        self.scaling.hash(state);
-        self.families.hash(state);
-        self.flatten_text.hash(state);
-    }
 }

@@ -4,6 +4,7 @@ use base64::Engine;
 use ecow::{eco_format, EcoString};
 use image::error::UnsupportedError;
 use image::{codecs::png::PngEncoder, ImageEncoder};
+use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
     Image, ImageFormat, ImageKind, ImageScaling, RasterFormat, VectorFormat,
@@ -21,13 +22,13 @@ impl SVGRenderer {
         self.xml.write_attribute("height", &size.y.to_pt());
         self.xml.write_attribute("preserveAspectRatio", "none");
         match image.scaling() {
-            ImageScaling::Auto => {}
-            ImageScaling::Smooth => {
+            Smart::Auto => {}
+            Smart::Custom(ImageScaling::Smooth) => {
                 // This is still experimental and not implemented in all major browsers[^1].
                 // [^1]: https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering#browser_compatibility
                 self.xml.write_attribute("style", "image-rendering: smooth")
             }
-            ImageScaling::Pixelated => {
+            Smart::Custom(ImageScaling::Pixelated) => {
                 self.xml.write_attribute("style", "image-rendering: pixelated")
             }
         }
