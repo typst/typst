@@ -176,6 +176,13 @@ impl plugin {
     /// derived module will observe the addition. Meanwhile the original module
     /// remains untouched as demonstrated by the `base.get()` call.
     ///
+    /// _Note:_ Due to limitations in the internal WebAssembly implementation,
+    /// the transition API can only guarantee to reflect changes in the plugin's
+    /// memory, not in WebAssembly globals. If your plugin relies on changes to
+    /// globals being visible after transition, you might want to avoid use of
+    /// the transition API for now. We hope to lift this limitation in the
+    /// future.
+    ///
     /// ```typ
     /// #let base = plugin("hello-mut.wasm")
     /// #assert.eq(base.get(), "[]")
