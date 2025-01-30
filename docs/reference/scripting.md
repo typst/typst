@@ -363,7 +363,7 @@ and can be achieved using functions from the
 | `{not in}` | Check if not in collection      | Binary |     4      |
 |  `{not}`   | Logical "not"                   | Unary  |     3      |
 |  `{and}`   | Short-circuiting logical "and"  | Binary |     3      |
-|  `{or}`    | Short-circuiting logical "or    | Binary |     2      |
+|  `{or}`    | Short-circuiting logical "or"   | Binary |     2      |
 |  `{=}`     | Assignment                      | Binary |     1      |
 |  `{+=}`    | Add-Assignment                  | Binary |     1      |
 |  `{-=}`    | Subtraction-Assignment          | Binary |     1      |
