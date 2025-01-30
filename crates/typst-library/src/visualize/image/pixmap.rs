@@ -67,9 +67,9 @@ impl PixmapImage {
         &self.0.source.data
     }
 
-    /// Transform the image data into a [`DynamicImage`].
+    /// Transform the image data to a [`DynamicImage`].
     #[comemo::memoize]
-    pub fn to_image(&self) -> Arc<DynamicImage> {
+    pub fn to_dynamic(&self) -> Arc<DynamicImage> {
         // TODO: Optimize by returning a `View` if possible?
         fn decode<P: Pixel<Subpixel = u8>>(
             source: &PixmapSource,

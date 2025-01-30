@@ -1,8 +1,5 @@
-use std::io::Cursor;
-
 use base64::Engine;
 use ecow::{eco_format, EcoString};
-use image::error::UnsupportedError;
 use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
@@ -24,8 +21,8 @@ impl SVGRenderer {
         match image.scaling() {
             Smart::Auto => {}
             Smart::Custom(ImageScaling::Smooth) => {
-                // This is still experimental and not implemented in all major browsers[^1].
-                // [^1]: https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering#browser_compatibility
+                // This is still experimental and not implemented in all major browsers.
+                // https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering#browser_compatibility
                 self.xml.write_attribute("style", "image-rendering: smooth")
             }
             Smart::Custom(ImageScaling::Pixelated) => {
@@ -51,20 +48,19 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
         },
         ImageFormat::Pixmap(_) => "png",
     };
-    let data_owned;
+
+    let mut buf;
     let data = match image.kind() {
         ImageKind::Raster(raster) => raster.data(),
         ImageKind::Svg(svg) => svg.data(),
         ImageKind::Pixmap(pixmap) => {
-            let mut data = Cursor::new(vec![]);
-            let mut encoder = PngEncoder::new(&mut data);
+            buf = vec![];
+            let mut encoder = PngEncoder::new(&mut buf);
             if let Some(icc_profile) = pixmap.icc_profile() {
-                let _: Result<(), UnsupportedError> =
-                    encoder.set_icc_profile(icc_profile.to_vec());
+                encoder.set_icc_profile(icc_profile.to_vec()).ok();
             }
-            pixmap.to_image().write_with_encoder(encoder).unwrap();
-            data_owned = data.into_inner();
-            &*data_owned
+            pixmap.to_dynamic().write_with_encoder(encoder).unwrap();
+            buf.as_slice()
         }
     };
 

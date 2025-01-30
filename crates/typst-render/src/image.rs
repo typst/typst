@@ -59,34 +59,35 @@ pub fn render_image(
 /// Prepare a texture for an image at a scaled size.
 #[comemo::memoize]
 fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
+    let mut texture = sk::Pixmap::new(w, h)?;
     match image.kind() {
-        ImageKind::Raster(raster) => scale_image(raster.dynamic(), image.scaling(), w, h),
-        ImageKind::Pixmap(raster) => {
-            scale_image(&raster.to_image(), image.scaling(), w, h)
+        ImageKind::Raster(raster) => {
+            scale_image(&mut texture, raster.dynamic(), image.scaling())
         }
-        // Safety: We do not keep any references to tree nodes beyond the scope
-        // of `with`.
+        ImageKind::Pixmap(pixmap) => {
+            scale_image(&mut texture, &pixmap.to_dynamic(), image.scaling())
+        }
         ImageKind::Svg(svg) => {
-            let mut pixmap = sk::Pixmap::new(w, h)?;
             let tree = svg.tree();
             let ts = tiny_skia::Transform::from_scale(
                 w as f32 / tree.size().width(),
                 h as f32 / tree.size().height(),
             );
-            resvg::render(tree, ts, &mut pixmap.as_mut());
-            Some(Arc::new(pixmap))
+            resvg::render(tree, ts, &mut texture.as_mut());
         }
     }
+    Some(Arc::new(texture))
 }
 
-/// Scale a rastered image to a given size and return texture.
+/// Scale a rastered image to a given size and write it into the `texture`.
 fn scale_image(
+    texture: &mut sk::Pixmap,
     image: &image::DynamicImage,
     scaling: Smart<ImageScaling>,
-    w: u32,
-    h: u32,
-) -> Option<Arc<sk::Pixmap>> {
-    let mut pixmap = sk::Pixmap::new(w, h)?;
+) {
+    let w = texture.width();
+    let h = texture.height();
+
     let buf;
     let resized = if (w, h) == (image.width(), image.height()) {
         // Small optimization to not allocate in case image is not resized.
@@ -94,18 +95,16 @@ fn scale_image(
     } else {
         let upscale = w > image.width();
         let filter = match scaling {
-            Smart::Auto | Smart::Custom(ImageScaling::Smooth) if upscale => {
-                FilterType::CatmullRom
-            }
             Smart::Custom(ImageScaling::Pixelated) => FilterType::Nearest,
+            _ if upscale => FilterType::CatmullRom,
             _ => FilterType::Lanczos3, // downscale
         };
         buf = image.resize_exact(w, h, filter);
         &buf
     };
-    for ((_, _, src), dest) in resized.pixels().zip(pixmap.pixels_mut()) {
+
+    for ((_, _, src), dest) in resized.pixels().zip(texture.pixels_mut()) {
         let Rgba([r, g, b, a]) = src;
         *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
     }
-    Some(Arc::new(pixmap))
 }

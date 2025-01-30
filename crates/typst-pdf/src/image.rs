@@ -130,14 +130,14 @@ pub fn deferred_image(
             Some(to_color_space(raster.dynamic().color()))
         }
         ImageKind::Pixmap(pixmap) if pixmap.icc_profile().is_none() => {
-            Some(to_color_space(pixmap.to_image().color()))
+            Some(to_color_space(pixmap.to_dynamic().color()))
         }
         _ => None,
     };
 
-    // PDF/A does not appear to allow interpolation[^1].
-    // [^1]: https://github.com/typst/typst/issues/2942
-    let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth) && !pdfa;
+    // PDF/A does not appear to allow interpolation.
+    // See https://github.com/typst/typst/issues/2942.
+    let interpolate = !pdfa && image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
     let deferred = Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
@@ -159,7 +159,7 @@ pub fn deferred_image(
             Ok(EncodedImage::Svg(chunk, id))
         }
         ImageKind::Pixmap(pixmap) => Ok(encode_raster_image(
-            &pixmap.to_image(),
+            &pixmap.to_dynamic(),
             pixmap.icc_profile(),
             EncodeFormat::Flate,
             interpolate,
@@ -212,16 +212,6 @@ fn encode_raster_image(
         compressed_icc,
         alpha,
         interpolate,
-    }
-}
-
-/// Matches an [`image::ColorType`] to [`ColorSpace`].
-fn to_color_space(color: image::ColorType) -> ColorSpace {
-    use image::ColorType::*;
-    match color {
-        L8 | La8 | L16 | La16 => ColorSpace::D65Gray,
-        Rgb8 | Rgba8 | Rgb16 | Rgba16 | Rgb32F | Rgba32F => ColorSpace::Srgb,
-        _ => unimplemented!(),
     }
 }
 
@@ -281,4 +271,14 @@ pub enum EncodedImage {
 enum EncodeFormat {
     DctDecode,
     Flate,
+}
+
+/// Matches an [`image::ColorType`] to [`ColorSpace`].
+fn to_color_space(color: image::ColorType) -> ColorSpace {
+    use image::ColorType::*;
+    match color {
+        L8 | La8 | L16 | La16 => ColorSpace::D65Gray,
+        Rgb8 | Rgba8 | Rgb16 | Rgba16 | Rgb32F | Rgba32F => ColorSpace::Srgb,
+        _ => unimplemented!(),
+    }
 }

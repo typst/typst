@@ -9,7 +9,6 @@ pub use self::raster::{RasterFormat, RasterImage};
 pub use self::svg::SvgImage;
 
 use std::fmt::{self, Debug, Formatter};
-use std::hash::Hash;
 use std::sync::Arc;
 
 use comemo::Tracked;
