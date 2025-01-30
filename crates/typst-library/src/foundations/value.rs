@@ -15,8 +15,8 @@ use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
     fields, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime,
     Decimal, Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module,
-    NativeElement, NativeType, NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str,
-    Styles, Symbol, SymbolElem, Type, Version,
+    NativeElement, NativeType, NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles,
+    Symbol, SymbolElem, Type, Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::text::{RawContent, RawElem, TextElem};
@@ -84,8 +84,6 @@ pub enum Value {
     Type(Type),
     /// A module.
     Module(Module),
-    /// A WebAssembly plugin.
-    Plugin(Plugin),
     /// A dynamic value.
     Dyn(Dynamic),
 }
@@ -147,7 +145,6 @@ impl Value {
             Self::Args(_) => Type::of::<Args>(),
             Self::Type(_) => Type::of::<Type>(),
             Self::Module(_) => Type::of::<Module>(),
-            Self::Plugin(_) => Type::of::<Plugin>(),
             Self::Dyn(v) => v.ty(),
         }
     }
@@ -251,7 +248,6 @@ impl Debug for Value {
             Self::Args(v) => Debug::fmt(v, f),
             Self::Type(v) => Debug::fmt(v, f),
             Self::Module(v) => Debug::fmt(v, f),
-            Self::Plugin(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -289,7 +285,6 @@ impl Repr for Value {
             Self::Args(v) => v.repr(),
             Self::Type(v) => v.repr(),
             Self::Module(v) => v.repr(),
-            Self::Plugin(v) => v.repr(),
             Self::Dyn(v) => v.repr(),
         }
     }
@@ -340,7 +335,6 @@ impl Hash for Value {
             Self::Args(v) => v.hash(state),
             Self::Type(v) => v.hash(state),
             Self::Module(v) => v.hash(state),
-            Self::Plugin(v) => v.hash(state),
             Self::Dyn(v) => v.hash(state),
         }
     }
@@ -661,7 +655,6 @@ primitive! {
 primitive! { Args: "arguments", Args }
 primitive! { Type: "type", Type }
 primitive! { Module: "module", Module }
-primitive! { Plugin: "plugin", Plugin }
 
 impl<T: Reflect> Reflect for Arc<T> {
     fn input() -> CastInfo {

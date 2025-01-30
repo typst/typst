@@ -452,16 +452,6 @@ fn field_access_completions(
                 }
             }
         }
-        Value::Plugin(plugin) => {
-            for name in plugin.iter() {
-                ctx.completions.push(Completion {
-                    kind: CompletionKind::Func,
-                    label: name.clone(),
-                    apply: None,
-                    detail: None,
-                })
-            }
-        }
         _ => {}
     }
 }

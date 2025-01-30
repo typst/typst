@@ -25,7 +25,8 @@ mod int;
 mod label;
 mod module;
 mod none;
-mod plugin;
+#[path = "plugin.rs"]
+mod plugin_;
 mod scope;
 mod selector;
 mod str;
@@ -56,7 +57,7 @@ pub use self::int::*;
 pub use self::label::*;
 pub use self::module::*;
 pub use self::none::*;
-pub use self::plugin::*;
+pub use self::plugin_::*;
 pub use self::repr::Repr;
 pub use self::scope::*;
 pub use self::selector::*;
@@ -114,11 +115,11 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Symbol>();
     global.define_type::<Duration>();
     global.define_type::<Version>();
-    global.define_type::<Plugin>();
     global.define_func::<repr::repr>();
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
+    global.define_func::<plugin>();
     if features.is_enabled(Feature::Html) {
         global.define_func::<target>();
     }

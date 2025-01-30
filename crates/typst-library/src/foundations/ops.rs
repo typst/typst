@@ -447,7 +447,6 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Args(a), Args(b)) => a == b,
         (Type(a), Type(b)) => a == b,
         (Module(a), Module(b)) => a == b,
-        (Plugin(a), Plugin(b)) => a == b,
         (Datetime(a), Datetime(b)) => a == b,
         (Duration(a), Duration(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
