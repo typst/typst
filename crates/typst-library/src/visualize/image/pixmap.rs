@@ -17,7 +17,7 @@ struct Repr {
 }
 
 impl PixmapImage {
-    /// Build a new [`Pixmap`] from a flat, uncompressed byte sequence.
+    /// Builds a new [`PixmapImage`] from a flat, uncompressed byte sequence.
     #[comemo::memoize]
     #[typst_macros::time(name = "load pixmap")]
     pub fn new(source: PixmapSource, format: PixmapFormat) -> StrResult<PixmapImage> {
