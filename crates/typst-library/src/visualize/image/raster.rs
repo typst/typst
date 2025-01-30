@@ -100,7 +100,7 @@ impl RasterImage {
                     bail!("pixel dimensions and pixel data do not match");
                 }
 
-                fn cast_as<P: Pixel<Subpixel = u8>>(
+                fn to<P: Pixel<Subpixel = u8>>(
                     data: &Bytes,
                     format: PixelFormat,
                 ) -> ImageBuffer<P, Vec<u8>> {
@@ -109,18 +109,10 @@ impl RasterImage {
                 }
 
                 let dynamic = match format.encoding {
-                    PixelEncoding::Rgb8 => {
-                        cast_as::<image::Rgb<u8>>(&data, format).into()
-                    }
-                    PixelEncoding::Rgba8 => {
-                        cast_as::<image::Rgba<u8>>(&data, format).into()
-                    }
-                    PixelEncoding::Luma8 => {
-                        cast_as::<image::Luma<u8>>(&data, format).into()
-                    }
-                    PixelEncoding::Lumaa8 => {
-                        cast_as::<image::LumaA<u8>>(&data, format).into()
-                    }
+                    PixelEncoding::Rgb8 => to::<image::Rgb<u8>>(&data, format).into(),
+                    PixelEncoding::Rgba8 => to::<image::Rgba<u8>>(&data, format).into(),
+                    PixelEncoding::Luma8 => to::<image::Luma<u8>>(&data, format).into(),
+                    PixelEncoding::Lumaa8 => to::<image::LumaA<u8>>(&data, format).into(),
                 };
 
                 (dynamic, None, None)
@@ -177,7 +169,7 @@ impl Hash for Repr {
 /// A raster graphics format.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum RasterFormat {
-    /// A format used in image exchange.
+    /// A format typically used in image exchange.
     Exchange(ExchangeFormat),
     /// A format of raw pixel data.
     Pixel(PixelFormat),
@@ -205,7 +197,7 @@ cast! {
     v: PixelFormat => Self::Pixel(v),
 }
 
-/// An raster format typically used in image exchange, with efficient encoding.
+/// A raster format typically used in image exchange, with efficient encoding.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ExchangeFormat {
     /// Raster format for illustrations and transparent graphics.
@@ -260,13 +252,13 @@ pub struct PixelFormat {
 /// Determines the channel encoding of raw pixel data.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum PixelEncoding {
-    /// Raw image data with three 8-bit channels: Red, green, blue.
+    /// Three 8-bit channels: Red, green, blue.
     Rgb8,
-    /// Raw image data with four 8-bit channels: Red, green, blue, alpha.
+    /// Four 8-bit channels: Red, green, blue, alpha.
     Rgba8,
-    /// Raw image data with one 8-bit channel: Brightness.
+    /// One 8-bit channel: Brightness.
     Luma8,
-    /// Raw image data with two 8-bit channels: Brightness and alpha.
+    /// Two 8-bit channels: Brightness and alpha.
     Lumaa8,
 }
 

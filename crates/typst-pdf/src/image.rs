@@ -7,7 +7,8 @@ use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst_library::diag::{At, SourceResult, StrResult};
 use typst_library::foundations::Smart;
 use typst_library::visualize::{
-    ColorSpace, ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat, SvgImage,
+    ColorSpace, ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat,
+    RasterImage, SvgImage,
 };
 use typst_utils::Deferred;
 
@@ -137,15 +138,7 @@ pub fn deferred_image(
     let interpolate = !pdfa && image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
     let deferred = Deferred::new(move || match image.kind() {
-        ImageKind::Raster(raster) => {
-            let format = if raster.format() == RasterFormat::Exchange(ExchangeFormat::Jpg)
-            {
-                EncodeFormat::DctDecode
-            } else {
-                EncodeFormat::Flate
-            };
-            Ok(encode_raster_image(raster.dynamic(), raster.icc(), format, interpolate))
-        }
+        ImageKind::Raster(raster) => Ok(encode_raster_image(raster, interpolate)),
         ImageKind::Svg(svg) => {
             let (chunk, id) = encode_svg(svg, pdfa)
                 .map_err(|err| eco_format!("failed to convert SVG to PDF: {err}"))?;
@@ -158,36 +151,31 @@ pub fn deferred_image(
 
 /// Encode an image with a suitable filter.
 #[typst_macros::time(name = "encode raster image")]
-fn encode_raster_image(
-    image: &DynamicImage,
-    icc_profile: Option<&[u8]>,
-    format: EncodeFormat,
-    interpolate: bool,
-) -> EncodedImage {
-    let color_space = to_color_space(image.color());
+fn encode_raster_image(image: &RasterImage, interpolate: bool) -> EncodedImage {
+    let dynamic = image.dynamic();
+    let color_space = to_color_space(dynamic.color());
 
-    let (filter, data, bits_per_component) = match format {
-        EncodeFormat::DctDecode => {
+    let (filter, data, bits_per_component) =
+        if image.format() == RasterFormat::Exchange(ExchangeFormat::Jpg) {
             let mut data = Cursor::new(vec![]);
-            image.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
+            dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
             (Filter::DctDecode, data.into_inner(), 8)
-        }
-        EncodeFormat::Flate => {
+        } else {
             // TODO: Encode flate streams with PNG-predictor?
-            let (data, bits_per_component) = match (image, color_space) {
+            let (data, bits_per_component) = match (dynamic, color_space) {
+                // RGB image.
                 (DynamicImage::ImageRgb8(rgb), _) => (deflate(rgb.as_raw()), 8),
                 // Grayscale image
                 (DynamicImage::ImageLuma8(luma), _) => (deflate(luma.as_raw()), 8),
-                (_, ColorSpace::D65Gray) => (deflate(image.to_luma8().as_raw()), 8),
+                (_, ColorSpace::D65Gray) => (deflate(dynamic.to_luma8().as_raw()), 8),
                 // Anything else
-                _ => (deflate(image.to_rgb8().as_raw()), 8),
+                _ => (deflate(dynamic.to_rgb8().as_raw()), 8),
             };
             (Filter::FlateDecode, data, bits_per_component)
-        }
-    };
+        };
 
-    let compressed_icc = icc_profile.map(deflate);
-    let alpha = image.color().has_alpha().then(|| encode_alpha(image));
+    let compressed_icc = image.icc().map(deflate);
+    let alpha = dynamic.color().has_alpha().then(|| encode_alpha(dynamic));
 
     EncodedImage::Raster {
         data,
@@ -252,12 +240,6 @@ pub enum EncodedImage {
     ///
     /// The chunk is the SVG converted to PDF objects.
     Svg(Chunk, Ref),
-}
-
-/// How the raster image should be encoded.
-enum EncodeFormat {
-    DctDecode,
-    Flate,
 }
 
 /// Matches an [`image::ColorType`] to [`ColorSpace`].

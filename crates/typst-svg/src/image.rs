@@ -4,8 +4,7 @@ use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
-    ExchangeFormat, Image, ImageFormat, ImageKind, ImageScaling, RasterFormat,
-    VectorFormat,
+    ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat,
 };
 
 use crate::SVGRenderer;
@@ -38,23 +37,18 @@ impl SVGRenderer {
 /// `data:image/{format};base64,`.
 #[comemo::memoize]
 pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
-    let format = match image.format() {
-        ImageFormat::Raster(RasterFormat::Exchange(f)) => match f {
-            ExchangeFormat::Png => "png",
-            ExchangeFormat::Jpg => "jpeg",
-            ExchangeFormat::Gif => "gif",
-        },
-        ImageFormat::Raster(RasterFormat::Pixel(_)) => "png",
-        ImageFormat::Vector(f) => match f {
-            VectorFormat::Svg => "svg+xml",
-        },
-    };
-
     let mut buf;
-    let data = match image.kind() {
+    let (format, data): (&str, &[u8]) = match image.kind() {
         ImageKind::Raster(raster) => match raster.format() {
-            RasterFormat::Exchange(_) => raster.data(),
-            RasterFormat::Pixel(_) => {
+            RasterFormat::Exchange(format) => (
+                match format {
+                    ExchangeFormat::Png => "png",
+                    ExchangeFormat::Jpg => "jpeg",
+                    ExchangeFormat::Gif => "gif",
+                },
+                raster.data(),
+            ),
+            RasterFormat::Pixel(_) => ("png", {
                 buf = vec![];
                 let mut encoder = PngEncoder::new(&mut buf);
                 if let Some(icc_profile) = raster.icc() {
@@ -62,9 +56,9 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
                 }
                 raster.dynamic().write_with_encoder(encoder).unwrap();
                 buf.as_slice()
-            }
+            }),
         },
-        ImageKind::Svg(svg) => svg.data(),
+        ImageKind::Svg(svg) => ("svg+xml", svg.data()),
     };
 
     let mut url = eco_format!("data:image/{format};base64,");

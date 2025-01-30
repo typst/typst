@@ -61,22 +61,21 @@ pub struct ImageElem {
     /// The image's format.
     ///
     /// By default, the format is detected automatically. Typically, you thus
-    /// only need to specify this when providing raw bytes as the `source` (
-    /// even then, Typst will try to figure out the format automatically, but
-    /// that's not always possible).
+    /// only need to specify this when providing raw bytes as the
+    /// [`source`]($image.source) (even then, Typst will try to figure out the
+    /// format automatically, but that's not always possible).
     ///
-    /// Supported formats include common exchange image formats (`{"png"}`,
-    /// `{"jpg"}`, `{"gif"}`, and `{"svg"}`) as well as raw pixel data.
-    /// Embedding PDFs as images is [not currently
-    /// supported](https://github.com/typst/typst/issues/145).
+    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}` as well
+    /// as raw pixel data. Embedding PDFs as images is
+    /// [not currently supported](https://github.com/typst/typst/issues/145).
     ///
-    /// When providing raw pixel data as the [`source`]($image.source), you must
-    /// specify a dictionary with the following keys as the `format`:
+    /// When providing raw pixel data as the `source`, you must specify a
+    /// dictionary with the following keys as the `format`:
     /// - `encoding` ([str]): The encoding of the pixel data. One of:
-    ///   - `{"rgb8"}` (three 8-bit channels: Red, green, blue.)
-    ///   - `{"rgba8"}` (four 8-bit channels: Red, green, blue, alpha.)
-    ///   - `{"luma8"}` (one 8-bit channel: Brightness.)
-    ///   - `{"lumaa8"}` (two 8-bit channels: Brightness and alpha.)
+    ///   - `{"rgb8"}` (three 8-bit channels: red, green, blue.)
+    ///   - `{"rgba8"}` (four 8-bit channels: red, green, blue, alpha.)
+    ///   - `{"luma8"}` (one 8-bit channel: brightness.)
+    ///   - `{"lumaa8"}` (two 8-bit channels: brightness and alpha.)
     /// - `width` ([int]): The pixel width of the image.
     /// - `height` ([int]): The pixel height of the image.
     ///
@@ -270,7 +269,7 @@ impl Image {
     /// Should always be the same as the default DPI used by usvg.
     pub const USVG_DEFAULT_DPI: f64 = 96.0;
 
-    /// Create an image from a kind.
+    /// Create an image from a `RasterImage` or `SvgImage`.
     pub fn new(
         kind: impl Into<ImageKind>,
         alt: Option<EcoString>,
