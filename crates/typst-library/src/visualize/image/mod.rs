@@ -72,10 +72,10 @@ pub struct ImageElem {
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
     /// - `encoding` ([str]): The encoding of the pixel data. One of:
-    ///   - `{"rgb8"}` (three 8-bit channels: red, green, blue.)
-    ///   - `{"rgba8"}` (four 8-bit channels: red, green, blue, alpha.)
-    ///   - `{"luma8"}` (one 8-bit channel: brightness.)
-    ///   - `{"lumaa8"}` (two 8-bit channels: brightness and alpha.)
+    ///   - `{"rgb8"}` (three 8-bit channels: red, green, blue)
+    ///   - `{"rgba8"}` (four 8-bit channels: red, green, blue, alpha)
+    ///   - `{"luma8"}` (one 8-bit channel)
+    ///   - `{"lumaa8"}` (two 8-bit channels: luma and alpha)
     /// - `width` ([int]): The pixel width of the image.
     /// - `height` ([int]): The pixel height of the image.
     ///

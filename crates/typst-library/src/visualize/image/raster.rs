@@ -275,9 +275,9 @@ pub enum PixelEncoding {
     Rgb8,
     /// Four 8-bit channels: Red, green, blue, alpha.
     Rgba8,
-    /// One 8-bit channel: Brightness.
+    /// One 8-bit channel.
     Luma8,
-    /// Two 8-bit channels: Brightness and alpha.
+    /// Two 8-bit channels: Luma and alpha.
     Lumaa8,
 }
 
