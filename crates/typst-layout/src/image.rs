@@ -10,7 +10,8 @@ use typst_library::layout::{
 use typst_library::loading::DataSource;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Curve, Image, ImageElem, ImageFit, ImageFormat, RasterFormat, VectorFormat,
+    Curve, ExchangeFormat, Image, ImageElem, ImageFit, ImageFormat, ImageKind,
+    RasterImage, SvgImage, VectorFormat,
 };
 
 /// Layout the image.
@@ -49,15 +50,27 @@ pub fn layout_image(
     }
 
     // Construct the image itself.
-    let image = Image::with_fonts(
-        data.clone(),
-        format,
-        elem.alt(styles),
-        engine.world,
-        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-        elem.flatten_text(styles),
-    )
-    .at(span)?;
+    let kind = match format {
+        ImageFormat::Raster(format) => ImageKind::Raster(
+            RasterImage::new(
+                data.clone(),
+                format,
+                elem.icc(styles).as_ref().map(|icc| icc.derived.clone()),
+            )
+            .at(span)?,
+        ),
+        ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
+            SvgImage::with_fonts(
+                data.clone(),
+                engine.world,
+                elem.flatten_text(styles),
+                &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+            )
+            .at(span)?,
+        ),
+    };
+
+    let image = Image::new(kind, elem.alt(styles), elem.scaling(styles));
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();
@@ -129,10 +142,10 @@ fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat>
             .to_lowercase();
 
         match ext.as_str() {
-            "png" => return Ok(ImageFormat::Raster(RasterFormat::Png)),
-            "jpg" | "jpeg" => return Ok(ImageFormat::Raster(RasterFormat::Jpg)),
-            "gif" => return Ok(ImageFormat::Raster(RasterFormat::Gif)),
-            "svg" | "svgz" => return Ok(ImageFormat::Vector(VectorFormat::Svg)),
+            "png" => return Ok(ExchangeFormat::Png.into()),
+            "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
+            "gif" => return Ok(ExchangeFormat::Gif.into()),
+            "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
             _ => {}
         }
     }

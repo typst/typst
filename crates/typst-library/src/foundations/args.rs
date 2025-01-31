@@ -305,8 +305,6 @@ impl Args {
     /// ```
     #[func(constructor)]
     pub fn construct(
-        /// The real arguments (the other argument is just for the docs).
-        /// The docs argument cannot be called `args`.
         args: &mut Args,
         /// The arguments to construct.
         #[external]

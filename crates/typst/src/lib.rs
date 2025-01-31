@@ -333,8 +333,6 @@ pub static ROUTINES: Routines = Routines {
     realize: typst_realize::realize,
     layout_fragment: typst_layout::layout_fragment,
     layout_frame: typst_layout::layout_frame,
-    layout_inline: typst_layout::layout_inline,
-    layout_box: typst_layout::layout_box,
     layout_list: typst_layout::layout_list,
     layout_enum: typst_layout::layout_enum,
     layout_grid: typst_layout::layout_grid,

@@ -7,14 +7,20 @@ use typst_syntax::FileId;
 use crate::diag::StrResult;
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
-/// An evaluated module, either built-in or resulting from a file.
+/// An module of definitions.
 ///
-/// You can access definitions from the module using
-/// [field access notation]($scripting/#fields) and interact with it using the
-/// [import and include syntaxes]($scripting/#modules). Alternatively, it is
-/// possible to convert a module to a dictionary, and therefore access its
-/// contents dynamically, using the
-/// [dictionary constructor]($dictionary/#constructor).
+/// A module
+/// - be built-in
+/// - stem from a [file import]($scripting/#modules)
+/// - stem from a [package import]($scripting/#packages) (and thus indirectly
+///   its entrypoint file)
+/// - result from a call to the [plugin]($plugin) function
+///
+/// You can access definitions from the module using [field access
+/// notation]($scripting/#fields) and interact with it using the [import and
+/// include syntaxes]($scripting/#modules). Alternatively, it is possible to
+/// convert a module to a dictionary, and therefore access its contents
+/// dynamically, using the [dictionary constructor]($dictionary/#constructor).
 ///
 /// # Example
 /// ```example
@@ -32,7 +38,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
-    name: EcoString,
+    name: Option<EcoString>,
     /// The reference-counted inner fields.
     inner: Arc<Repr>,
 }
@@ -52,14 +58,22 @@ impl Module {
     /// Create a new module.
     pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
-            name: name.into(),
+            name: Some(name.into()),
+            inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
+        }
+    }
+
+    /// Create a new anonymous module without a name.
+    pub fn anonymous(scope: Scope) -> Self {
+        Self {
+            name: None,
             inner: Arc::new(Repr { scope, content: Content::empty(), file_id: None }),
         }
     }
 
     /// Update the module's name.
     pub fn with_name(mut self, name: impl Into<EcoString>) -> Self {
-        self.name = name.into();
+        self.name = Some(name.into());
         self
     }
 
@@ -82,8 +96,8 @@ impl Module {
     }
 
     /// Get the module's name.
-    pub fn name(&self) -> &EcoString {
-        &self.name
+    pub fn name(&self) -> Option<&EcoString> {
+        self.name.as_ref()
     }
 
     /// Access the module's scope.
@@ -105,8 +119,9 @@ impl Module {
 
     /// Try to access a definition in the module.
     pub fn field(&self, name: &str) -> StrResult<&Value> {
-        self.scope().get(name).ok_or_else(|| {
-            eco_format!("module `{}` does not contain `{name}`", self.name())
+        self.scope().get(name).ok_or_else(|| match &self.name {
+            Some(module) => eco_format!("module `{module}` does not contain `{name}`"),
+            None => eco_format!("module does not contain `{name}`"),
         })
     }
 
@@ -131,7 +146,10 @@ impl Debug for Module {
 
 impl repr::Repr for Module {
     fn repr(&self) -> EcoString {
-        eco_format!("<module {}>", self.name())
+        match &self.name {
+            Some(module) => eco_format!("<module {module}>"),
+            None => "<module>".into(),
+        }
     }
 }
 

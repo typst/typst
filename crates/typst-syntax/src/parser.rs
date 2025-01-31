@@ -3,6 +3,7 @@ use std::mem;
 use std::ops::{Index, IndexMut, Range};
 
 use ecow::{eco_format, EcoString};
+use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use crate::set::{syntax_set, SyntaxSet};
@@ -93,6 +94,8 @@ fn markup_expr(p: &mut Parser, at_start: bool, nesting: &mut usize) {
             p.hint("try using a backslash escape: \\]");
         }
 
+        SyntaxKind::Shebang => p.eat(),
+
         SyntaxKind::Text
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape
@@ -160,7 +163,7 @@ fn list_item(p: &mut Parser) {
     p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::ListMarker);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::ListItem);
     });
 }
@@ -170,7 +173,7 @@ fn enum_item(p: &mut Parser) {
     p.with_nl_mode(AtNewline::RequireColumn(p.current_column()), |p| {
         let m = p.marker();
         p.assert(SyntaxKind::EnumMarker);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::EnumItem);
     });
 }
@@ -184,7 +187,7 @@ fn term_item(p: &mut Parser) {
             markup(p, false, false, syntax_set!(Colon, RightBracket, End));
         });
         p.expect(SyntaxKind::Colon);
-        markup(p, false, false, syntax_set!(RightBracket, End));
+        markup(p, true, false, syntax_set!(RightBracket, End));
         p.wrap(m, SyntaxKind::TermItem);
     });
 }
@@ -250,7 +253,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
-            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
+            if min_prec < 3
+                && p.directly_at(SyntaxKind::MathText)
+                && p.current_text() == "("
             {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
@@ -262,10 +267,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
         | SyntaxKind::RightParen => {
-            p.convert_and_eat(SyntaxKind::Text);
+            p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathShorthand => {
+        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
             continuable = matches!(
                 math_class(p.current_text()),
                 None | Some(MathClass::Alphabetic)
@@ -314,7 +319,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut primed = false;
 
     while !p.end() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
+        if p.directly_at(SyntaxKind::MathText) && p.current_text() == "!" {
             p.eat();
             p.wrap(m, SyntaxKind::Math);
             continue;
@@ -412,7 +417,7 @@ fn math_delimited(p: &mut Parser) {
             // We could be at the shorthand `|]`, which shouldn't be converted
             // to a `Text` kind.
             if p.at(SyntaxKind::RightParen) {
-                p.convert_and_eat(SyntaxKind::Text);
+                p.convert_and_eat(SyntaxKind::MathText);
             } else {
                 p.eat();
             }
@@ -442,10 +447,10 @@ fn math_unparen(p: &mut Parser, m: Marker) {
         if first.text() == "(" && last.text() == ")" {
             first.convert_to_kind(SyntaxKind::LeftParen);
             last.convert_to_kind(SyntaxKind::RightParen);
+            // Only convert if we did have regular parens.
+            node.convert_to_kind(SyntaxKind::Math);
         }
     }
-
-    node.convert_to_kind(SyntaxKind::Math);
 }
 
 /// The unicode math class of a string. Only returns `Some` if `text` has
@@ -464,7 +469,7 @@ fn math_class(text: &str) -> Option<MathClass> {
     chars
         .next()
         .filter(|_| chars.next().is_none())
-        .and_then(unicode_math_class::class)
+        .and_then(default_math_class)
 }
 
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
@@ -533,7 +538,7 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) -> bool {
     }
 
     let mut positional = true;
-    if p.at_set(syntax_set!(Text, MathIdent, Underscore)) {
+    if p.at_set(syntax_set!(MathText, MathIdent, Underscore)) {
         // Parses a named argument: `thickness: #12pt`.
         if let Some(named) = p.lexer.maybe_math_named_arg(start) {
             p.token.node = named;
@@ -1605,10 +1610,12 @@ impl AtNewline {
                 _ => true,
             },
             AtNewline::StopParBreak => parbreak,
-            AtNewline::RequireColumn(min_col) => match column {
-                Some(column) => column <= min_col,
-                None => false, // Don't stop if we had no column.
-            },
+            AtNewline::RequireColumn(min_col) => {
+                // Don't stop if this newline doesn't start a column (this may
+                // be checked on the boundary of lexer modes, since we only
+                // report a column in Markup).
+                column.is_some_and(|column| column <= min_col)
+            }
         }
     }
 }
@@ -1703,10 +1710,13 @@ impl<'s> Parser<'s> {
         self.token.newline.is_some()
     }
 
-    /// The number of characters until the most recent newline from the current
-    /// token, or 0 if it did not follow a newline.
+    /// The number of characters until the most recent newline from the start of
+    /// the current token. Uses a cached value from the newline mode if present.
     fn current_column(&self) -> usize {
-        self.token.newline.and_then(|newline| newline.column).unwrap_or(0)
+        self.token
+            .newline
+            .and_then(|newline| newline.column)
+            .unwrap_or_else(|| self.lexer.column(self.token.start))
     }
 
     /// The current token's text.

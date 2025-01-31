@@ -43,3 +43,8 @@ $sum_(k in NN)^prime 1/k^2$
 // Test script-script in a fraction.
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
+
+--- math-par ---
+// Ensure that math does not produce paragraphs.
+#show par: highlight
+$ a + "bc" + #[c] + #box[d] + #block[e] $

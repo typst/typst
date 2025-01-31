@@ -101,6 +101,13 @@ a + 0.
   [Red], [Green], [Blue], [Red],
 )
 
+--- enum-start html ---
+#enum(
+  start: 3,
+  [Skipping],
+  [Ahead],
+)
+
 --- enum-numbering-closure-nested ---
 // Test numbering with closure and nested lists.
 #set enum(numbering: n => super[#n])
@@ -176,19 +183,51 @@ a + 0.
 #set enum(number-align: horizon)
 #set enum(number-align: bottom)
 
+--- enum-par render html ---
+// Check whether the contents of enum items become paragraphs.
+#show par: it => if target() != "html" { highlight(it) } else { it }
+
+// No paragraphs.
+#block[
+  + Hello
+  + World
+]
+
+#block[
+  + Hello // Paragraphs
+
+    From
+  + World // No paragraph because it's a tight enum
+]
+
+#block[
+  + Hello // Paragraphs
+
+    From
+
+    The
+
+  + World // Paragraph because it's a wide enum
+]
+
 --- issue-2530-enum-item-panic ---
 // Enum item (pre-emptive)
 #enum.item(none)[Hello]
 #enum.item(17)[Hello]
 
---- issue-5503-enum-interrupted-by-par-align ---
-// `align` is block-level and should interrupt an enum
-// but not a `par`
+--- issue-5503-enum-in-align ---
+// `align` is block-level and should interrupt an enum.
 + a
 + b
-#par(leading: 5em)[+ par]
+#align(right)[+ c]
 + d
-#par[+ par]
-+ f
-#align(right)[+ align]
-+ h
+
+--- issue-5719-enum-nested ---
+// Enums can be immediately nested.
+1. A
+2. 1. B
+   2. C
++ + D
+  + E
++ = F
+  G

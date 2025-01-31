@@ -50,7 +50,6 @@ use crate::loading::{DataSource, Load, Readable};
 /// ```
 #[func(scope, title = "JSON")]
 pub fn json(
-    /// The engine.
     engine: &mut Engine,
     /// Path to a JSON file or raw JSON bytes.
     ///
@@ -71,7 +70,6 @@ impl json {
     /// directly.
     #[func(title = "Decode JSON")]
     pub fn decode(
-        /// The engine.
         engine: &mut Engine,
         /// JSON data.
         data: Spanned<Readable>,

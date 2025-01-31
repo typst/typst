@@ -44,9 +44,6 @@ use crate::introspection::Location;
 /// ```
 /// Refer to the [`selector`] type for more details on before/after selectors.
 #[func(contextual)]
-pub fn here(
-    /// The callsite context.
-    context: Tracked<Context>,
-) -> HintedStrResult<Location> {
+pub fn here(context: Tracked<Context>) -> HintedStrResult<Location> {
     context.location()
 }

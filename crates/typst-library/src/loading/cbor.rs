@@ -19,7 +19,6 @@ use crate::loading::{DataSource, Load};
 /// floating point numbers, which may result in an approximative value.
 #[func(scope, title = "CBOR")]
 pub fn cbor(
-    /// The engine.
     engine: &mut Engine,
     /// A path to a CBOR file or raw CBOR bytes.
     ///
@@ -40,7 +39,6 @@ impl cbor {
     /// directly.
     #[func(title = "Decode CBOR")]
     pub fn decode(
-        /// The engine.
         engine: &mut Engine,
         /// CBOR data.
         data: Spanned<Bytes>,

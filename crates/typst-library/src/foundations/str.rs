@@ -425,9 +425,7 @@ impl Str {
     #[func]
     pub fn replace(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The pattern to search for.
         pattern: StrPattern,

@@ -65,6 +65,82 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   caption: [Bilingual text]
 )
 
+--- image-pixmap-rgb8 ---
+#image(
+  bytes((
+    0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
+    0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80,
+    0x80, 0x80, 0x00, 0x00, 0x80, 0x80, 0x80, 0x00, 0x80,
+  )),
+  format: (
+    encoding: "rgb8",
+    width: 3,
+    height: 3,
+  ),
+  width: 1cm,
+)
+
+--- image-pixmap-rgba8 ---
+#image(
+  bytes((
+    0xFF, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0xFF,
+    0xFF, 0x00, 0x00, 0x80, 0x00, 0xFF, 0x00, 0x80, 0x00, 0x00, 0xFF, 0x80,
+    0xFF, 0x00, 0x00, 0x10, 0x00, 0xFF, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x10,
+  )),
+  format: (
+    encoding: "rgba8",
+    width: 3,
+    height: 3,
+  ),
+  width: 1cm,
+)
+
+--- image-pixmap-luma8 ---
+#image(
+  bytes(range(16).map(x => x * 16)),
+  format: (
+    encoding: "luma8",
+    width: 4,
+    height: 4,
+  ),
+  width: 1cm,
+)
+
+--- image-pixmap-lumaa8 ---
+#image(
+  bytes(range(16).map(x => (0x80, x * 16)).flatten()),
+  format: (
+    encoding: "lumaa8",
+    width: 4,
+    height: 4,
+  ),
+  width: 1cm,
+)
+
+--- image-scaling-methods ---
+#let img(scaling) = image(
+  bytes((
+    0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
+    0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80,
+    0x80, 0x80, 0x00, 0x00, 0x80, 0x80, 0x80, 0x00, 0x80,
+  )),
+  format: (
+    encoding: "rgb8",
+    width: 3,
+    height: 3,
+  ),
+  width: 1cm,
+  scaling: scaling,
+)
+
+#stack(
+  dir: ltr,
+  spacing: 4pt,
+  img(auto),
+  img("smooth"),
+  img("pixelated"),
+)
+
 --- image-natural-dpi-sizing ---
 // Test that images aren't upscaled.
 // Image is just 48x80 at 220dpi. It should not be scaled to fit the page
@@ -102,6 +178,58 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-decode-specify-wrong-format ---
 // Error: 2-91 failed to decode image (Format error decoding Png: Invalid PNG signature.)
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
+
+--- image-pixmap-empty ---
+// Error: 1:2-8:2 zero-sized images are not allowed
+#image(
+  bytes(()),
+  format: (
+    encoding: "rgb8",
+    width: 0,
+    height: 0,
+  ),
+)
+
+--- image-pixmap-invalid-size ---
+// Error: 1:2-8:2 pixel dimensions and pixel data do not match
+#image(
+  bytes((0x00, 0x00, 0x00)),
+  format: (
+    encoding: "rgb8",
+    width: 16,
+    height: 16,
+  ),
+)
+
+--- image-pixmap-unknown-attribute ---
+#image(
+  bytes((0x00, 0x00, 0x00)),
+  // Error: 1:11-6:4 unexpected key "stowaway", valid keys are "encoding", "width", and "height"
+  format: (
+    encoding: "rgb8",
+    width: 1,
+    height: 1,
+    stowaway: "I do work here, promise",
+  ),
+)
+
+--- image-pixmap-but-png-format ---
+#image(
+  bytes((0x00, 0x00, 0x00)),
+  // Error: 1:11-5:4 expected "rgb8", "rgba8", "luma8", or "lumaa8"
+  format: (
+    encoding: "png",
+    width: 1,
+    height: 1,
+  ),
+)
+
+--- image-png-but-pixmap-format ---
+#image(
+  read("/assets/images/tiger.jpg", encoding: none),
+  // Error: 11-18 expected "png", "jpg", "gif", dictionary, "svg", or auto
+  format: "rgba8",
+)
 
 --- issue-870-image-rotation ---
 // Ensure that EXIF rotation is applied.

@@ -19,6 +19,105 @@ heaven Would through the airy region stream so bright That birds would sing and
 think it were not night. See, how she leans her cheek upon her hand! O, that I
 were a glove upon that hand, That I might touch that cheek!
 
+--- par-semantic ---
+#show par: highlight
+
+I'm a paragraph.
+
+#align(center, table(
+  columns: 3,
+
+  // No paragraphs.
+  [A],
+  block[B],
+  block[C *D*],
+
+  // Paragraphs.
+  par[E],
+  [
+
+    F
+  ],
+  [
+    G
+
+  ],
+
+  // Paragraphs.
+  parbreak() + [H],
+  [I] + parbreak(),
+  parbreak() +  [J] + parbreak(),
+
+  // Paragraphs.
+  [K #v(10pt)],
+  [#v(10pt) L],
+  [#place[] M],
+
+  // Paragraphs.
+  [
+    N
+
+    O
+  ],
+  [#par[P]#par[Q]],
+  // No paragraphs.
+  [#block[R]#block[S]],
+))
+
+--- par-semantic-html html ---
+= Heading is no paragraph
+
+I'm a paragraph.
+
+#html.elem("div")[I'm not.]
+
+#html.elem("div")[
+  We are two.
+
+  So we are paragraphs.
+]
+
+--- par-semantic-tag ---
+#show par: highlight
+#block[
+  #metadata(none) <hi1>
+  A
+  #metadata(none) <hi2>
+]
+
+#block(width: 100%, metadata(none) + align(center)[A])
+#block(width: 100%, align(center)[A] + metadata(none))
+
+--- par-semantic-align ---
+#show par: highlight
+#show bibliography: none
+#set block(width: 100%, stroke: 1pt, inset: 5pt)
+
+#bibliography("/assets/bib/works.bib")
+
+#block[
+  #set align(right)
+  Hello
+]
+
+#block[
+  #set align(right)
+  Hello
+  @netwok
+]
+
+#block[
+  Hello
+  #align(right)[World]
+  You
+]
+
+#block[
+  Hello
+  #align(right)[@netwok]
+  You
+]
+
 --- par-leading-and-spacing ---
 // Test changing leading and spacing.
 #set par(spacing: 1em, leading: 2pt)
@@ -57,6 +156,57 @@ starts a paragraph, also with indent.
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
 
+--- par-first-line-indent-all ---
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+#set block(spacing: 1.2em)
+#show heading: set text(size: 10pt)
+
+= Heading
+All paragraphs are indented.
+
+Even the first.
+
+--- par-first-line-indent-all-list ---
+#show list.where(tight: false): set list(spacing: 1.2em)
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+
+- A #parbreak() B #line(length: 100%) C
+
+- D
+
+--- par-first-line-indent-all-enum ---
+#show enum.where(tight: false): set enum(spacing: 1.2em)
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+
++ A #parbreak() B #line(length: 100%) C
+
++ D
+
+--- par-first-line-indent-all-terms ---
+#show terms.where(tight: false): set terms(spacing: 1.2em)
+#set terms(hanging-indent: 10pt)
+#set par(
+  first-line-indent: (amount: 12pt, all: true),
+  spacing: 5pt,
+  leading: 5pt,
+)
+
+/ Term A: B \ C #parbreak() D #line(length: 100%) E
+
+/ Term F: G
+
 --- par-spacing-and-first-line-indent ---
 // This is madness.
 #set par(first-line-indent: 12pt)
@@ -68,6 +218,12 @@ Why would anybody ever ...
 // Test hanging indent.
 #set par(hanging-indent: 15pt, justify: true)
 #lorem(10)
+
+--- par-hanging-indent-semantic ---
+#set par(hanging-indent: 15pt)
+= I am not affected
+
+I am affected by hanging indent.
 
 --- par-hanging-indent-manual-linebreak ---
 #set par(hanging-indent: 1em)
@@ -83,6 +239,22 @@ Welcome \ here. Does this work well?
 // Ensure that trailing whitespace layouts as intended.
 #box(fill: aqua, " ")
 
+--- par-contains-parbreak ---
+#par[
+  Hello
+  // Warning: 4-14 parbreak may not occur inside of a paragraph and was ignored
+  #parbreak()
+  World
+]
+
+--- par-contains-block ---
+#par[
+  Hello
+  // Warning: 4-11 block may not occur inside of a paragraph and was ignored
+  #block[]
+  World
+]
+
 --- par-empty-metadata ---
 // Check that metadata still works in a zero length paragraph.
 #block(height: 0pt)[#""#metadata(false)<hi>]
@@ -93,6 +265,49 @@ Welcome \ here. Does this work well?
 #set par(justify: true, linebreaks: "simple")
 #set text(hyphenate: false)
 Lorem ipsum dolor #metadata(none) nonumy eirmod tempor.
+
+--- par-show-children ---
+// Variant 1: Prevent recursion by checking the children.
+#let p = counter("p")
+#let step = p.step()
+#let nr = context p.display()
+#show par: it => {
+  if it.body.at("children", default: ()).at(0, default: none) == step {
+    return it
+  }
+  par(step + [§#nr ] + it.body)
+}
+
+= A
+
+B
+
+C #parbreak() D
+
+#block[E]
+
+#block[F #parbreak() G]
+
+--- par-show-styles ---
+// Variant 2: Prevent recursion by observing a style.
+#let revoke = metadata("revoke")
+#show par: it => {
+  if bibliography.title == revoke { return it }
+  set bibliography(title: revoke)
+  let p = counter("p")
+  par[#p.step()§#context p.display() #it.body]
+}
+
+= A
+
+B
+
+C
+
+--- par-explicit-trim-space ---
+A
+
+#par[ B ]
 
 --- issue-4278-par-trim-before-equation ---
 #set par(justify: true)

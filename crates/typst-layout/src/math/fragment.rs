@@ -1,23 +1,23 @@
 use std::fmt::{self, Debug, Formatter};
 
 use rustybuzz::Feature;
-use smallvec::SmallVec;
 use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::opentype_layout::LayoutTable;
 use ttf_parser::{GlyphId, Rect};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axis, Corner, Em, Frame, FrameItem, HideElem, Point, Size, VAlignment,
+    Abs, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::model::{Destination, LinkElem};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
+use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use super::{stretch_glyph, MathContext, Scaled};
+use crate::modifiers::{FrameModifiers, FrameModify};
 
 #[derive(Debug, Clone)]
 pub enum MathFragment {
@@ -245,8 +245,7 @@ pub struct GlyphFragment {
     pub class: MathClass,
     pub math_size: MathSize,
     pub span: Span,
-    pub dests: SmallVec<[Destination; 1]>,
-    pub hidden: bool,
+    pub modifiers: FrameModifiers,
     pub limits: Limits,
     pub extended_shape: bool,
 }
@@ -277,11 +276,7 @@ impl GlyphFragment {
         span: Span,
     ) -> Self {
         let class = EquationElem::class_in(styles)
-            .or_else(|| match c {
-                ':' => Some(MathClass::Relation),
-                '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
-                _ => unicode_math_class::class(c),
-            })
+            .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
         let mut fragment = Self {
@@ -302,8 +297,7 @@ impl GlyphFragment {
             accent_attach: Abs::zero(),
             class,
             span,
-            dests: LinkElem::dests_in(styles),
-            hidden: HideElem::hidden_in(styles),
+            modifiers: FrameModifiers::get_in(styles),
             extended_shape: false,
         };
         fragment.set_id(ctx, id);
@@ -390,7 +384,7 @@ impl GlyphFragment {
         let mut frame = Frame::soft(size);
         frame.set_baseline(self.ascent);
         frame.push(Point::with_y(self.ascent + self.shift), FrameItem::Text(item));
-        frame.post_process_raw(self.dests, self.hidden);
+        frame.modify(&self.modifiers);
         frame
     }
 
@@ -516,7 +510,7 @@ impl FrameFragment {
         let base_ascent = frame.ascent();
         let accent_attach = frame.width() / 2.0;
         Self {
-            frame: frame.post_processed(styles),
+            frame: frame.modified(&FrameModifiers::get_in(styles)),
             font_size: TextElem::size_in(styles),
             class: EquationElem::class_in(styles).unwrap_or(MathClass::Normal),
             math_size: EquationElem::size_in(styles),
@@ -632,7 +626,7 @@ pub enum Limits {
 impl Limits {
     /// The default limit configuration if the given character is the base.
     pub fn for_char(c: char) -> Self {
-        match unicode_math_class::class(c) {
+        match default_math_class(c) {
             Some(MathClass::Large) => {
                 if is_integral_char(c) {
                     Limits::Never

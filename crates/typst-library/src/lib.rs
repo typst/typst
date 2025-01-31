@@ -244,7 +244,7 @@ fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();
-    global.define_module(math);
+    global.define("math", math);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
     self::introspection::define(&mut global);
@@ -253,7 +253,7 @@ fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     self::pdf::define(&mut global);
     global.reset_category();
     if features.is_enabled(Feature::Html) {
-        global.define_module(self::html::module());
+        global.define("html", self::html::module());
     }
     prelude(&mut global);
     Module::new("global", global)

@@ -23,7 +23,7 @@ pub enum Item<'a> {
 /// things like tags and weak pagebreaks.
 pub fn collect<'a>(
     mut children: &'a mut [Pair<'a>],
-    mut locator: SplitLocator<'a>,
+    locator: &mut SplitLocator<'a>,
     mut initial: StyleChain<'a>,
 ) -> Vec<Item<'a>> {
     // The collected page-level items.

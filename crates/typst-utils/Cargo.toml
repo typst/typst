@@ -18,6 +18,7 @@ portable-atomic = { workspace = true }
 rayon = { workspace = true }
 siphasher = { workspace = true }
 thin-vec = { workspace = true }
+unicode-math-class = { workspace = true }
 
 [lints]
 workspace = true

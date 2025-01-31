@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use typst_library::diag::{bail, At, SourceResult, StrResult};
 use typst_library::foundations::Repr;
-use typst_library::html::{charsets, tag, HtmlDocument, HtmlElement, HtmlNode};
+use typst_library::html::{charsets, tag, HtmlDocument, HtmlElement, HtmlNode, HtmlTag};
 use typst_library::layout::Frame;
 use typst_syntax::Span;
 
@@ -20,10 +20,11 @@ pub fn html(document: &HtmlDocument) -> SourceResult<String> {
 
 #[derive(Default)]
 struct Writer {
+    /// The output buffer.
     buf: String,
-    /// current indentation level
+    /// The current indentation level
     level: usize,
-    /// pretty printing enabled?
+    /// Whether pretty printing is enabled.
     pretty: bool,
 }
 
@@ -88,26 +89,32 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 
     let pretty = w.pretty;
     if !element.children.is_empty() {
-        w.pretty &= is_pretty(element);
+        let pretty_inside = allows_pretty_inside(element.tag)
+            && element.children.iter().any(|node| match node {
+                HtmlNode::Element(child) => wants_pretty_around(child.tag),
+                _ => false,
+            });
+
+        w.pretty &= pretty_inside;
         let mut indent = w.pretty;
 
         w.level += 1;
         for c in &element.children {
-            let pretty_child = match c {
+            let pretty_around = match c {
                 HtmlNode::Tag(_) => continue,
-                HtmlNode::Element(element) => is_pretty(element),
+                HtmlNode::Element(child) => w.pretty && wants_pretty_around(child.tag),
                 HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
             };
 
-            if core::mem::take(&mut indent) || pretty_child {
+            if core::mem::take(&mut indent) || pretty_around {
                 write_indent(w);
             }
             write_node(w, c)?;
-            indent = pretty_child;
+            indent = pretty_around;
         }
         w.level -= 1;
 
-        write_indent(w)
+        write_indent(w);
     }
     w.pretty = pretty;
 
@@ -118,9 +125,27 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     Ok(())
 }
 
-/// Whether the element should be pretty-printed.
-fn is_pretty(element: &HtmlElement) -> bool {
-    tag::is_block_by_default(element.tag) || matches!(element.tag, tag::meta)
+/// Whether we are allowed to add an extra newline at the start and end of the
+/// element's contents.
+///
+/// Technically, users can change CSS `display` properties such that the
+/// insertion of whitespace may actually impact the visual output. For example,
+/// <https://www.w3.org/TR/css-text-3/#example-af2745cd> shows how adding CSS
+/// rules to `<p>` can make it sensitive to whitespace. For this reason, we
+/// should also respect the `style` tag in the future.
+fn allows_pretty_inside(tag: HtmlTag) -> bool {
+    (tag::is_block_by_default(tag) && tag != tag::pre)
+        || tag::is_tabular_by_default(tag)
+        || tag == tag::li
+}
+
+/// Whether newlines should be added before and after the element if the parent
+/// allows it.
+///
+/// In contrast to `allows_pretty_inside`, which is purely spec-driven, this is
+/// more subjective and depends on preference.
+fn wants_pretty_around(tag: HtmlTag) -> bool {
+    allows_pretty_inside(tag) || tag::is_metadata(tag) || tag == tag::pre
 }
 
 /// Escape a character.

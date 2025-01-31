@@ -67,8 +67,8 @@ impl PolygonElem {
     /// ```
     #[func(title = "Regular Polygon")]
     pub fn regular(
-        /// The call span of this function.
         span: Span,
+
         /// How to fill the polygon. See the general
         /// [polygon's documentation]($polygon.fill) for more details.
         #[named]
