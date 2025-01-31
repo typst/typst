@@ -150,12 +150,6 @@ pub struct ImageElem {
     })]
     #[borrowed]
     pub icc: Smart<Derived<DataSource, Bytes>>,
-
-    /// Whether text in SVG images should be converted into curves before
-    /// embedding. This will result in the text becoming unselectable in the
-    /// output.
-    #[default(false)]
-    pub flatten_text: bool,
 }
 
 #[scope]
@@ -199,10 +193,6 @@ impl ImageElem {
         /// A hint to viewers how they should scale the image.
         #[named]
         scaling: Option<Smart<ImageScaling>>,
-        /// Whether text in SVG images should be converted into curves before
-        /// embedding.
-        #[named]
-        flatten_text: Option<bool>,
     ) -> StrResult<Content> {
         let bytes = data.into_bytes();
         let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
@@ -224,9 +214,6 @@ impl ImageElem {
         }
         if let Some(scaling) = scaling {
             elem.push_scaling(scaling);
-        }
-        if let Some(flatten_text) = flatten_text {
-            elem.push_flatten_text(flatten_text);
         }
         Ok(elem.pack().spanned(span))
     }

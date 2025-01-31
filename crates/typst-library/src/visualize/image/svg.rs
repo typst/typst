@@ -22,7 +22,6 @@ pub struct SvgImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     size: Axes<f64>,
-    flatten_text: bool,
     font_hash: u128,
     tree: usvg::Tree,
 }
@@ -38,7 +37,6 @@ impl SvgImage {
             data,
             size: tree_size(&tree),
             font_hash: 0,
-            flatten_text: false,
             tree,
         })))
     }
@@ -49,7 +47,6 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        flatten_text: bool,
         families: &[&str],
     ) -> StrResult<SvgImage> {
         let book = world.book();
@@ -74,7 +71,6 @@ impl SvgImage {
             data,
             size: tree_size(&tree),
             font_hash,
-            flatten_text,
             tree,
         })))
     }
@@ -87,11 +83,6 @@ impl SvgImage {
     /// The SVG's width in pixels.
     pub fn width(&self) -> f64 {
         self.0.size.x
-    }
-
-    /// Whether the SVG's text should be flattened.
-    pub fn flatten_text(&self) -> bool {
-        self.0.flatten_text
     }
 
     /// The SVG's height in pixels.
@@ -112,7 +103,6 @@ impl Hash for Repr {
         // all used fonts gives us something similar.
         self.data.hash(state);
         self.font_hash.hash(state);
-        self.flatten_text.hash(state);
     }
 }
 

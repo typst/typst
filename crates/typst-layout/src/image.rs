@@ -63,7 +63,6 @@ pub fn layout_image(
             SvgImage::with_fonts(
                 data.clone(),
                 engine.world,
-                elem.flatten_text(styles),
                 &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
             )
             .at(span)?,
