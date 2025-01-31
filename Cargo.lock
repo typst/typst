@@ -3106,6 +3106,7 @@ dependencies = [
  "rayon",
  "siphasher 1.0.1",
  "thin-vec",
+ "unicode-math-class",
 ]
 
 [[package]]
