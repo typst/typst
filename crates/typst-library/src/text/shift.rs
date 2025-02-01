@@ -16,7 +16,8 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 pub struct SubElem {
     /// Whether to use the `subs` OpenType feature to render the glyphs.
     ///
-    /// Do not use this is the body contains non-text elements.
+    /// When this is set to `{true}`, if the body contains non-text elements,
+    /// they will not visually appear in subscript position.
     ///
     /// Note that some fonts might not support this feature, or not support it
     /// for all characters.
@@ -80,7 +81,8 @@ impl Show for Packed<SubElem> {
 pub struct SuperElem {
     /// Whether to use the `sups` OpenType feature to render the glyphs.
     ///
-    /// Do not use this is the body contains non-text elements.
+    /// When this is set to `{true}`, if the body contains non-text elements,
+    /// they will not visually appear in superscript position.
     ///
     /// Note that some fonts might not support this feature, or not support it
     /// for all characters.
