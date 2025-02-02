@@ -154,6 +154,17 @@ Cannot be used as @intro
 // Hint: 1-16 you may want to restructure your document so that it doesn't contain deep headings
 ======= Level 7
 
+--- heading-spacing-to-numbering ---
+#set heading(numbering: "1.")
+#heading[Default]
+
+#heading(spacing-to-numbering: 3em)[3em]
+
+#heading(spacing-to-numbering: 0em)[0em]
+
+#heading(spacing-to-numbering: 2cm)[2cm]
+
+
 --- issue-5719-heading-nested ---
 // Headings may not be nested like this.
 = = A
