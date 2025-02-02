@@ -181,9 +181,9 @@ pub struct HeadingElem {
     pub hanging_indent: Smart<Length>,
 
     /// The spacing between the numbering and the heading's title.
-    /// 
+    ///
     /// The default value is `{0.3em}`.
-    /// 
+    ///
     /// ```example
     /// #set heading(numbering: "1.")
     /// #heading[This is a heading with 0.3em spacing]
@@ -270,7 +270,9 @@ impl Show for Packed<HeadingElem> {
             let spacing = if html {
                 SpaceElem::shared().clone()
             } else {
-                HElem::new(spacing_to_numbering.resolve(styles).into()).with_weak(true).pack()
+                HElem::new(spacing_to_numbering.resolve(styles).into())
+                    .with_weak(true)
+                    .pack()
             };
 
             realized = numbering + spacing + realized;
