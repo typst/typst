@@ -180,6 +180,18 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
 
+    /// The spacing between the numbering and the heading's title.
+    /// 
+    /// The default value is `{0.3em}`.
+    /// 
+    /// ```example
+    /// #set heading(numbering: "1.")
+    /// #heading[This is a heading with 0.3em spacing]
+    /// #heading(spacing-to-numbering: 0em)[This is a heading with 0em spacing]
+    /// ```
+    #[default(Em::new(0.3).into())]
+    pub spacing_to_numbering: Length,
+
     /// The heading's title.
     #[required]
     pub body: Content,
@@ -220,8 +232,6 @@ impl Show for Packed<HeadingElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let html = TargetElem::target_in(styles).is_html();
 
-        const SPACING_TO_NUMBERING: Em = Em::new(0.3);
-
         let span = self.span();
         let mut realized = self.body.clone();
 
@@ -230,6 +240,8 @@ impl Show for Packed<HeadingElem> {
             Smart::Custom(length) => length.resolve(styles),
             Smart::Auto => Abs::zero(),
         };
+
+        let spacing_to_numbering: Length = self.spacing_to_numbering.unwrap();
 
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
             let location = self.location().unwrap();
@@ -252,13 +264,13 @@ impl Show for Packed<HeadingElem> {
                 )?
                 .size();
 
-                indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
+                indent = size.x + spacing_to_numbering.resolve(styles);
             }
 
             let spacing = if html {
                 SpaceElem::shared().clone()
             } else {
-                HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack()
+                HElem::new(spacing_to_numbering.resolve(styles).into()).with_weak(true).pack()
             };
 
             realized = numbering + spacing + realized;
