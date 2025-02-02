@@ -22,7 +22,6 @@ pub struct SvgImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     size: Axes<f64>,
-    flatten_text: bool,
     font_hash: u128,
     tree: usvg::Tree,
 }
@@ -34,13 +33,7 @@ impl SvgImage {
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
         let tree =
             usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash: 0,
-            flatten_text: false,
-            tree,
-        })))
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
     /// Decode an SVG image with access to fonts.
@@ -49,7 +42,6 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        flatten_text: bool,
         families: &[&str],
     ) -> StrResult<SvgImage> {
         let book = world.book();
@@ -70,13 +62,7 @@ impl SvgImage {
         )
         .map_err(format_usvg_error)?;
         let font_hash = resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash,
-            flatten_text,
-            tree,
-        })))
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -87,11 +73,6 @@ impl SvgImage {
     /// The SVG's width in pixels.
     pub fn width(&self) -> f64 {
         self.0.size.x
-    }
-
-    /// Whether the SVG's text should be flattened.
-    pub fn flatten_text(&self) -> bool {
-        self.0.flatten_text
     }
 
     /// The SVG's height in pixels.
@@ -112,7 +93,6 @@ impl Hash for Repr {
         // all used fonts gives us something similar.
         self.data.hash(state);
         self.font_hash.hash(state);
-        self.flatten_text.hash(state);
     }
 }
 
