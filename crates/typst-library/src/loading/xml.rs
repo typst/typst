@@ -81,6 +81,7 @@ impl xml {
     /// This function is deprecated. The [`xml`] function now accepts bytes
     /// directly.
     #[func(title = "Decode XML")]
+    #[deprecated = "`xml.decode` is deprecated, directly pass bytes to `xml` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// XML data.

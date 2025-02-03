@@ -48,6 +48,7 @@ impl toml {
     /// This function is deprecated. The [`toml`] function now accepts bytes
     /// directly.
     #[func(title = "Decode TOML")]
+    #[deprecated = "`toml.decode` is deprecated, directly pass bytes to `toml` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// TOML data.

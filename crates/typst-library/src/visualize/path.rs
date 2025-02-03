@@ -23,7 +23,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 /// ```
 ///
 /// # Deprecation
-/// This element is deprecated. The [`curve`] element should be used instead.
+/// This function is deprecated. The [`curve`] function should be used instead.
 #[elem(Show)]
 pub struct PathElem {
     /// How to fill the path.

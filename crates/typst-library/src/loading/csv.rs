@@ -100,6 +100,7 @@ impl csv {
     /// This function is deprecated. The [`csv`] function now accepts bytes
     /// directly.
     #[func(title = "Decode CSV")]
+    #[deprecated = "`csv.decode` is deprecated, directly pass bytes to `csv` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// CSV data.

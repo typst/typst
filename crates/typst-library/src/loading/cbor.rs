@@ -38,6 +38,7 @@ impl cbor {
     /// This function is deprecated. The [`cbor`] function now accepts bytes
     /// directly.
     #[func(title = "Decode CBOR")]
+    #[deprecated = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// CBOR data.
