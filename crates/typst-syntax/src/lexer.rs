@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use ecow::{eco_format, EcoString};
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_script::{Script, UnicodeScript};
@@ -825,9 +827,9 @@ impl Lexer<'_> {
 
         // Read the first part (integer or fractional depending on `first`).
         self.s.eat_while(if base == 16 {
-            char::is_ascii_alphanumeric
+            is_ascii_alphanumeric_or_underscore
         } else {
-            char::is_ascii_digit
+            is_ascii_digit_or_underscore
         });
 
         // Read the fractional part if not already done.
@@ -838,7 +840,7 @@ impl Lexer<'_> {
             && self.s.eat_if('.')
             && base == 10
         {
-            self.s.eat_while(char::is_ascii_digit);
+            self.s.eat_while(is_ascii_digit_or_underscore);
         }
 
         // Read the exponent.
@@ -855,8 +857,9 @@ impl Lexer<'_> {
 
         let number = self.s.get(start..suffix_start);
         let suffix = self.s.from(suffix_start);
+        let number = ignore_underscores(number);
 
-        let kind = if i64::from_str_radix(number, base).is_ok() {
+        let kind = if i64::from_str_radix(&number, base).is_ok() {
             SyntaxKind::Int
         } else if base == 10 && number.parse::<f64>().is_ok() {
             SyntaxKind::Float
@@ -1097,4 +1100,22 @@ fn is_valid_in_label_literal(c: char) -> bool {
 /// Returns true if this string is valid in a label literal.
 pub fn is_valid_label_literal_id(id: &str) -> bool {
     !id.is_empty() && id.chars().all(is_valid_in_label_literal)
+}
+
+#[inline]
+fn is_ascii_digit_or_underscore(c: char) -> bool {
+    c.is_ascii_digit() || c == '_'
+}
+
+#[inline]
+fn is_ascii_alphanumeric_or_underscore(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+pub(crate) fn ignore_underscores(s: &str) -> Cow<'_, str> {
+    if s.contains('_') {
+        Cow::Owned(s.chars().filter(|c| *c != '_').collect())
+    } else {
+        Cow::Borrowed(s)
+    }
 }

@@ -108,3 +108,11 @@
 --- number-invalid-suffix ---
 // Error: 2-4 invalid number suffix: u
 #1u
+
+--- int-digit-separators ---
+// Test digit separators in integer litereals.
+
+#test(123_456_789, 123456789)
+#test(0b0101_1010, 90)
+#test(0x1234_5678, 305419896)
+#test(0o222_333_444, 38385444)
