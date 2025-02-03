@@ -116,3 +116,9 @@
 #test(0b0101_1010, 90)
 #test(0x1234_5678, 305419896)
 #test(0o222_333_444, 38385444)
+
+--- number-invalid-underscore ---
+// Error: 2-5 number literals may not start or end with an underscore
+#12_
+// Error: 2-7 number literals may not start or end with an underscore
+#0x_1A

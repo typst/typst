@@ -857,6 +857,11 @@ impl Lexer<'_> {
 
         let number = self.s.get(start..suffix_start);
         let suffix = self.s.from(suffix_start);
+        if number.starts_with('_') || number.ends_with('_') {
+            return self.error(eco_format!(
+                "number literals may not start or end with an underscore"
+            ));
+        }
         let number = ignore_underscores(number);
 
         let kind = if i64::from_str_radix(&number, base).is_ok() {
