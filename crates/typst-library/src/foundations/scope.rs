@@ -10,7 +10,7 @@ use indexmap::IndexMap;
 use typst_syntax::Span;
 use typst_utils::Static;
 
-use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
+use crate::diag::{bail, DeprecationSink, HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
     Element, Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType,
     Type, Value,
@@ -258,6 +258,8 @@ pub struct Binding {
     span: Span,
     /// The category of the binding.
     category: Option<Category>,
+    /// A deprecation message for the definition.
+    deprecation: Option<&'static str>,
 }
 
 /// The different kinds of slots.
@@ -277,6 +279,7 @@ impl Binding {
             span,
             kind: BindingKind::Normal,
             category: None,
+            deprecation: None,
         }
     }
 
@@ -285,8 +288,26 @@ impl Binding {
         Self::new(value, Span::detached())
     }
 
+    /// Marks this binding as deprecated, with the given `message`.
+    pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
+        self.deprecation = Some(message);
+        self
+    }
+
     /// Read the value.
     pub fn read(&self) -> &Value {
+        &self.value
+    }
+
+    /// Read the value, checking for deprecation.
+    ///
+    /// As the `sink`
+    /// - pass `()` to ignore the message.
+    /// - pass `(&mut engine, span)` to emit a warning into the engine.
+    pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
+        if let Some(message) = self.deprecation {
+            sink.emit(message);
+        }
         &self.value
     }
 
@@ -318,6 +339,11 @@ impl Binding {
     /// A span associated with the stored value.
     pub fn span(&self) -> Span {
         self.span
+    }
+
+    /// A deprecation message for the value, if any.
+    pub fn deprecation(&self) -> Option<&'static str> {
+        self.deprecation
     }
 
     /// The category of the value, if any.
