@@ -154,7 +154,7 @@ impl Eval for ast::Ident<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        vm.scopes.get(&self).cloned().at(self.span())
+        Ok(vm.scopes.get(&self).at(self.span())?.read().clone())
     }
 }
 

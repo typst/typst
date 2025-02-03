@@ -94,7 +94,7 @@ pub static FOUNDATIONS: Category;
 
 /// Hook up all `foundations` definitions.
 pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
-    global.category(FOUNDATIONS);
+    global.start_category(FOUNDATIONS);
     global.define_type::<bool>();
     global.define_type::<i64>();
     global.define_type::<f64>();
@@ -301,7 +301,7 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define_spanned(key, value, span);
+        scope.bind(key.into(), Binding::new(value, span));
     }
     (engine.routines.eval_string)(engine.routines, engine.world, &text, span, mode, scope)
 }

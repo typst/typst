@@ -8,7 +8,7 @@ use wasmi::Memory;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Bytes, Func, Module, Scope, Value};
+use crate::foundations::{cast, func, scope, Binding, Bytes, Func, Module, Scope, Value};
 use crate::loading::{DataSource, Load};
 
 /// Loads a WebAssembly module.
@@ -369,7 +369,7 @@ impl Plugin {
             if matches!(export.ty(), wasmi::ExternType::Func(_)) {
                 let name = EcoString::from(export.name());
                 let func = PluginFunc { plugin: shared.clone(), name: name.clone() };
-                scope.define(name, Func::from(func));
+                scope.bind(name, Binding::detached(Func::from(func)));
             }
         }
 

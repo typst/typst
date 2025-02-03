@@ -42,7 +42,7 @@ pub static INTROSPECTION: Category;
 
 /// Hook up all `introspection` definitions.
 pub fn define(global: &mut Scope) {
-    global.category(INTROSPECTION);
+    global.start_category(INTROSPECTION);
     global.define_type::<Location>();
     global.define_type::<Counter>();
     global.define_type::<State>();

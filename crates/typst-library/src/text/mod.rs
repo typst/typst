@@ -63,7 +63,7 @@ pub static TEXT: Category;
 
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(TEXT);
+    global.start_category(TEXT);
     global.define_elem::<TextElem>();
     global.define_elem::<LinebreakElem>();
     global.define_elem::<SmartQuoteElem>();

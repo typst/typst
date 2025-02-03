@@ -16,6 +16,7 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
 use typst::diag::{bail, StrResult};
+use typst::foundations::Binding;
 use typst::foundations::{
     AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
     Scope, Smart, Type, Value, FOUNDATIONS,
@@ -47,8 +48,8 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
                 .module()
                 .scope()
                 .iter()
-                .filter(|(_, v, _)| matches!(v, Value::Func(_)))
-                .map(|(k, _, _)| k.clone())
+                .filter(|(_, b)| matches!(b.read(), Value::Func(_)))
+                .map(|(k, _)| k.clone())
                 .collect();
         }
     }
@@ -60,7 +61,7 @@ static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     let scope = lib.global.scope_mut();
 
     // Add those types, so that they show up in the docs.
-    scope.category(FOUNDATIONS);
+    scope.start_category(FOUNDATIONS);
     scope.define_type::<NoneValue>();
     scope.define_type::<AutoValue>();
 
@@ -270,8 +271,8 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
 
     // Add values and types.
     let scope = module.scope();
-    for (name, value, _) in scope.iter() {
-        if scope.get_category(name) != Some(category) {
+    for (name, binding) in scope.iter() {
+        if binding.category() != Some(category) {
             continue;
         }
 
@@ -279,7 +280,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
             continue;
         }
 
-        match value {
+        match binding.read() {
             Value::Func(func) => {
                 let name = func.name().unwrap();
 
@@ -476,8 +477,8 @@ fn casts(
 fn scope_models(resolver: &dyn Resolver, name: &str, scope: &Scope) -> Vec<FuncModel> {
     scope
         .iter()
-        .filter_map(|(_, value, _)| {
-            let Value::Func(func) = value else { return None };
+        .filter_map(|(_, binding)| {
+            let Value::Func(func) = binding.read() else { return None };
             Some(func_model(resolver, func, &[name], true))
         })
         .collect()
@@ -554,7 +555,7 @@ fn group_page(
 
     let mut outline_items = vec![];
     for name in &group.filter {
-        let value = group.module().scope().get(name).unwrap();
+        let value = group.module().scope().get(name).unwrap().read();
         let Ok(ref func) = value.clone().cast::<Func>() else { panic!("not a function") };
         let func = func_model(resolver, func, &path, true);
         let id_base = urlify(&eco_format!("functions-{}", func.name));
@@ -662,8 +663,8 @@ fn symbols_page(resolver: &dyn Resolver, parent: &str, group: &GroupData) -> Pag
 /// Produce a symbol list's model.
 fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
-    for (name, value, _) in group.module().scope().iter() {
-        let Value::Symbol(symbol) = value else { continue };
+    for (name, binding) in group.module().scope().iter() {
+        let Value::Symbol(symbol) = binding.read() else { continue };
         let complete = |variant: &str| {
             if variant.is_empty() {
                 name.clone()
@@ -703,7 +704,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 /// Extract a module from another module.
 #[track_caller]
 fn get_module<'a>(parent: &'a Module, name: &str) -> StrResult<&'a Module> {
-    match parent.scope().get(name) {
+    match parent.scope().get(name).map(Binding::read) {
         Some(Value::Module(module)) => Ok(module),
         _ => bail!("module doesn't contain module `{name}`"),
     }

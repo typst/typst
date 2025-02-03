@@ -15,7 +15,7 @@ pub static HTML: Category;
 /// Create a module with all HTML definitions.
 pub fn module() -> Module {
     let mut html = Scope::deduplicating();
-    html.category(HTML);
+    html.start_category(HTML);
     html.define_elem::<HtmlElem>();
     html.define_elem::<FrameElem>();
     Module::new("html", html)

@@ -41,7 +41,7 @@ pub static DATA_LOADING: Category;
 
 /// Hook up all `data-loading` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(DATA_LOADING);
+    global.start_category(DATA_LOADING);
     global.define_func::<read>();
     global.define_func::<csv>();
     global.define_func::<json>();

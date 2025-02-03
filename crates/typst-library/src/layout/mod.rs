@@ -74,7 +74,7 @@ pub static LAYOUT: Category;
 
 /// Hook up all `layout` definitions.
 pub fn define(global: &mut Scope) {
-    global.category(LAYOUT);
+    global.start_category(LAYOUT);
     global.define_type::<Length>();
     global.define_type::<Angle>();
     global.define_type::<Ratio>();
