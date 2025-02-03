@@ -7,10 +7,14 @@
 --- int-base-binary-invalid ---
 // Error: 2-7 invalid binary number: 0b123
 #0b123
+// Error: 2-8 invalid binary number: 0b1_23
+#0b1_23
 
 --- int-base-hex-invalid ---
 // Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
+// Error: 2-9 invalid hexadecimal number: 0x12_3z
+#0x12_3z
 
 --- int-constructor ---
 // Test conversion to numbers.

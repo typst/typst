@@ -862,11 +862,11 @@ impl Lexer<'_> {
                 "number literals may not start or end with an underscore"
             ));
         }
-        let number = ignore_underscores(number);
+        let number2 = ignore_underscores(number);
 
-        let kind = if i64::from_str_radix(&number, base).is_ok() {
+        let kind = if i64::from_str_radix(&number2, base).is_ok() {
             SyntaxKind::Int
-        } else if base == 10 && number.parse::<f64>().is_ok() {
+        } else if base == 10 && number2.parse::<f64>().is_ok() {
             SyntaxKind::Float
         } else {
             return self.error(match base {
