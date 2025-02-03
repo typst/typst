@@ -4,7 +4,7 @@ use typst_library::diag::{
     bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Module, Value};
+use typst_library::foundations::{Binding, Content, Module, Value};
 use typst_library::World;
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
@@ -43,7 +43,7 @@ impl Eval for ast::ModuleImport<'_> {
             }
         }
 
-        // Source itself is imported if there is no import list or a rename.
+        // If there is a rename, import the source itself under that name.
         let bare_name = self.bare_name();
         let new_name = self.new_name();
         if let Some(new_name) = new_name {
@@ -57,8 +57,7 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
 
-            // Define renamed module on the scope.
-            vm.scopes.top.define_ident(new_name, source.clone());
+            vm.define(new_name, source.clone());
         }
 
         let scope = source.scope().unwrap();
@@ -76,7 +75,7 @@ impl Eval for ast::ModuleImport<'_> {
                                     "this import has no effect",
                                 ));
                             }
-                            vm.scopes.top.define_spanned(name, source, source_span);
+                            vm.scopes.top.bind(name, Binding::new(source, source_span));
                         }
                         Ok(_) | Err(BareImportError::Dynamic) => bail!(
                             source_span, "dynamic import requires an explicit name";
@@ -92,8 +91,8 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
             Some(ast::Imports::Wildcard) => {
-                for (var, value, span) in scope.iter() {
-                    vm.scopes.top.define_spanned(var.clone(), value.clone(), span);
+                for (var, binding) in scope.iter() {
+                    vm.scopes.top.bind(var.clone(), binding.clone());
                 }
             }
             Some(ast::Imports::Items(items)) => {
@@ -103,7 +102,7 @@ impl Eval for ast::ModuleImport<'_> {
                     let mut scope = scope;
 
                     while let Some(component) = &path.next() {
-                        let Some(value) = scope.get(component) else {
+                        let Some(binding) = scope.get(component) else {
                             errors.push(error!(component.span(), "unresolved import"));
                             break;
                         };
@@ -111,6 +110,7 @@ impl Eval for ast::ModuleImport<'_> {
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.
                             // This must be a submodule.
+                            let value = binding.read();
                             let Some(submodule) = value.scope() else {
                                 let error = if matches!(value, Value::Func(function) if function.scope().is_none())
                                 {
@@ -153,7 +153,7 @@ impl Eval for ast::ModuleImport<'_> {
                                 }
                             }
 
-                            vm.define(item.bound_name(), value.clone());
+                            vm.bind(item.bound_name(), binding.clone());
                         }
                     }
                 }

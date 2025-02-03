@@ -259,7 +259,7 @@ impl Func {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
-            Some(field) => Ok(field),
+            Some(binding) => Ok(binding.read()),
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),
                 None => bail!("function does not contain field `{field}`"),

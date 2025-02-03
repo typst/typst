@@ -12,7 +12,7 @@ pub static PDF: Category;
 
 /// Hook up the `pdf` module.
 pub(super) fn define(global: &mut Scope) {
-    global.category(PDF);
+    global.start_category(PDF);
     global.define("pdf", module());
 }
 

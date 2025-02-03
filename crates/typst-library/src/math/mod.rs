@@ -150,7 +150,7 @@ pub const WIDE: Em = Em::new(2.0);
 /// Create a module with all math definitions.
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
-    math.category(MATH);
+    math.start_category(MATH);
     math.define_elem::<EquationElem>();
     math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();

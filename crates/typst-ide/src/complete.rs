@@ -398,13 +398,13 @@ fn field_access_completions(
     value: &Value,
     styles: &Option<Styles>,
 ) {
-    for (name, value, _) in value.ty().scope().iter() {
-        ctx.call_completion(name.clone(), value);
+    for (name, binding) in value.ty().scope().iter() {
+        ctx.call_completion(name.clone(), binding.read());
     }
 
     if let Some(scope) = value.scope() {
-        for (name, value, _) in scope.iter() {
-            ctx.call_completion(name.clone(), value);
+        for (name, binding) in scope.iter() {
+            ctx.call_completion(name.clone(), binding.read());
         }
     }
 
@@ -541,9 +541,9 @@ fn import_item_completions<'a>(
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value, _) in scope.iter() {
+    for (name, binding) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(name.clone(), value);
+            ctx.value_completion(name.clone(), binding.read());
         }
     }
 }
@@ -846,13 +846,11 @@ fn resolve_global_callee<'a>(
 ) -> Option<&'a Func> {
     let globals = globals(ctx.world, ctx.leaf);
     let value = match callee {
-        ast::Expr::Ident(ident) => globals.get(&ident)?,
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match globals.get(&target)? {
-                Value::Module(module) => module.field(&access.field()).ok()?,
-                Value::Func(func) => func.field(&access.field()).ok()?,
-                _ => return None,
-            },
+            ast::Expr::Ident(target) => {
+                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
+            }
             _ => return None,
         },
         _ => return None,
@@ -1464,7 +1462,8 @@ impl<'a> CompletionContext<'a> {
             }
         }
 
-        for (name, value, _) in globals(self.world, self.leaf).iter() {
+        for (name, binding) in globals(self.world, self.leaf).iter() {
+            let value = binding.read();
             if filter(value) && !defined.contains_key(name) {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }

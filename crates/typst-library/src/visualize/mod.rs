@@ -36,7 +36,7 @@ pub static VISUALIZE: Category;
 
 /// Hook up all visualize definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(VISUALIZE);
+    global.start_category(VISUALIZE);
     global.define_type::<Color>();
     global.define_type::<Gradient>();
     global.define_type::<Tiling>();

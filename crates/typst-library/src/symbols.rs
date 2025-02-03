@@ -39,7 +39,7 @@ fn extend_scope_from_codex_module(scope: &mut Scope, module: codex::Module) {
 
 /// Hook up all `symbol` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(SYMBOLS);
+    global.start_category(SYMBOLS);
     extend_scope_from_codex_module(global, codex::ROOT);
 }
 

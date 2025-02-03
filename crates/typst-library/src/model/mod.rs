@@ -52,7 +52,7 @@ pub static MODEL: Category;
 
 /// Hook up all `model` definitions.
 pub fn define(global: &mut Scope) {
-    global.category(MODEL);
+    global.start_category(MODEL);
     global.define_elem::<DocumentElem>();
     global.define_elem::<RefElem>();
     global.define_elem::<LinkElem>();

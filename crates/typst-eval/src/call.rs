@@ -6,8 +6,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Capturer, Closure, Content, Context, Func, NativeElement, Scope, Scopes,
-    SymbolElem, Value,
+    Arg, Args, Binding, Capturer, Closure, Content, Context, Func, NativeElement, Scope,
+    Scopes, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -196,7 +196,7 @@ pub fn eval_closure(
 
     // Provide the closure itself for recursive calls.
     if let Some(name) = name {
-        vm.define(name, Value::Func(func.clone()));
+        vm.define(name, func.clone());
     }
 
     let num_pos_args = args.to_pos().len();
@@ -317,11 +317,11 @@ fn eval_field_call(
 
     if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
-        Ok(FieldCall::Normal(callee.clone(), args))
+        Ok(FieldCall::Normal(callee.read().clone(), args))
     } else if let Value::Content(content) = &target {
         if let Some(callee) = content.elem().scope().get(&field) {
             args.insert(0, target_expr.span(), target);
-            Ok(FieldCall::Normal(callee.clone(), args))
+            Ok(FieldCall::Normal(callee.read().clone(), args))
         } else {
             bail!(missing_field_call_error(target, field))
         }
@@ -458,11 +458,9 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => {
-                self.capture(ident.get(), ident.span(), Scopes::get)
-            }
+            Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), ident.span(), Scopes::get_in_math)
+                self.capture(ident.get(), Scopes::get_in_math)
             }
 
             // Code and content blocks create a scope.
@@ -570,32 +568,34 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     fn bind(&mut self, ident: ast::Ident) {
-        self.internal.top.define_ident(ident, Value::None);
+        // The concrete value does not matter as we only use the scoping
+        // mechanism of `Scopes`, not the values themselves.
+        self.internal
+            .top
+            .bind(ident.get().clone(), Binding::detached(Value::None));
     }
 
     /// Capture a variable if it isn't internal.
     fn capture(
         &mut self,
         ident: &EcoString,
-        span: Span,
-        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Binding>,
     ) {
-        if self.internal.get(ident).is_err() {
-            let Some(value) = self
-                .external
-                .map(|external| getter(external, ident).ok())
-                .unwrap_or(Some(&Value::None))
-            else {
-                return;
-            };
-
-            self.captures.define_captured(
-                ident.clone(),
-                value.clone(),
-                self.capturer,
-                span,
-            );
+        if self.internal.get(ident).is_ok() {
+            return;
         }
+
+        let binding = match self.external {
+            Some(external) => match getter(external, ident) {
+                Ok(binding) => binding.capture(self.capturer),
+                Err(_) => return,
+            },
+            // The external scopes are only `None` when we are doing IDE capture
+            // analysis, in which case the concrete value doesn't matter.
+            None => Binding::detached(Value::None),
+        };
+
+        self.captures.bind(ident.clone(), binding);
     }
 }
 

@@ -1,5 +1,5 @@
 use typst::diag::{bail, StrResult};
-use typst::foundations::Func;
+use typst::foundations::{Binding, Func};
 
 use crate::{get_module, GROUPS, LIBRARY};
 
@@ -59,7 +59,7 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
 
     while let Some(name) = parts.peek() {
         if category.is_none() {
-            category = focus.scope().get_category(name);
+            category = focus.scope().get(name).and_then(Binding::category);
         }
         let Ok(module) = get_module(focus, name) else { break };
         focus = module;

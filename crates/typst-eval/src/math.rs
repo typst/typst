@@ -35,7 +35,7 @@ impl Eval for ast::MathIdent<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        vm.scopes.get_in_math(&self).cloned().at(self.span())
+        Ok(vm.scopes.get_in_math(&self).at(self.span())?.read().clone())
     }
 }
 

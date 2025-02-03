@@ -76,8 +76,12 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source_value.and_then(Value::scope) {
-                            for (name, value, span) in scope.iter() {
-                                let item = NamedItem::Import(name, span, Some(value));
+                            for (name, binding) in scope.iter() {
+                                let item = NamedItem::Import(
+                                    name,
+                                    binding.span(),
+                                    Some(binding.read()),
+                                );
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -89,24 +93,26 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
+                            let mut iter = item.path().iter();
+                            let mut binding = source_value
+                                .and_then(Value::scope)
+                                .zip(iter.next())
+                                .and_then(|(scope, first)| scope.get(&first));
+
+                            for ident in iter {
+                                binding = binding.and_then(|binding| {
+                                    binding.read().scope()?.get(&ident)
+                                });
+                            }
+
                             let bound = item.bound_name();
+                            let (span, value) = match binding {
+                                Some(binding) => (binding.span(), Some(binding.read())),
+                                None => (bound.span(), None),
+                            };
 
-                            let (span, value) = item.path().iter().fold(
-                                (bound.span(), source_value),
-                                |(span, value), path_ident| {
-                                    let scope = value.and_then(|v| v.scope());
-                                    let span = scope
-                                        .and_then(|s| s.get_span(&path_ident))
-                                        .unwrap_or(Span::detached())
-                                        .or(span);
-                                    let value = scope.and_then(|s| s.get(&path_ident));
-                                    (span, value)
-                                },
-                            );
-
-                            if let Some(res) =
-                                recv(NamedItem::Import(bound.get(), span, value))
-                            {
+                            let item = NamedItem::Import(bound.get(), span, value);
+                            if let Some(res) = recv(item) {
                                 return Some(res);
                             }
                         }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use typst_syntax::FileId;
 
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
 /// An module of definitions.
@@ -118,11 +118,14 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, name: &str) -> StrResult<&Value> {
-        self.scope().get(name).ok_or_else(|| match &self.name {
-            Some(module) => eco_format!("module `{module}` does not contain `{name}`"),
-            None => eco_format!("module does not contain `{name}`"),
-        })
+    pub fn field(&self, field: &str) -> StrResult<&Value> {
+        match self.scope().get(field) {
+            Some(binding) => Ok(binding.read()),
+            None => match &self.name {
+                Some(name) => bail!("module `{name}` does not contain `{field}`"),
+                None => bail!("module does not contain `{field}`"),
+            },
+        }
     }
 
     /// Extract the module's content.

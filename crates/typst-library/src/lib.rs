@@ -33,7 +33,7 @@ use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
-use crate::foundations::{Array, Bytes, Datetime, Dict, Module, Scope, Styles, Value};
+use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
 use crate::layout::{Alignment, Dir};
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
@@ -148,7 +148,7 @@ pub struct Library {
     /// everything else configurable via set and show rules).
     pub styles: Styles,
     /// The standard library as a value. Used to provide the `std` variable.
-    pub std: Value,
+    pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
 }
@@ -196,12 +196,11 @@ impl LibraryBuilder {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
         let global = global(math.clone(), inputs, &self.features);
-        let std = Value::Module(global.clone());
         Library {
-            global,
+            global: global.clone(),
             math,
             styles: Styles::new(),
-            std,
+            std: Binding::detached(global),
             features: self.features,
         }
     }
