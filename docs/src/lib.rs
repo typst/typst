@@ -21,6 +21,7 @@ use typst::foundations::{
     AutoValue, Bytes, CastInfo, Category, Func, Module, NoneValue, ParamInfo, Repr,
     Scope, Smart, Type, Value, FOUNDATIONS,
 };
+use typst::html::HTML;
 use typst::introspection::INTROSPECTION;
 use typst::layout::{Abs, Margin, PageElem, PagedDocument, LAYOUT};
 use typst::loading::DATA_LOADING;
@@ -31,7 +32,7 @@ use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
 use typst::utils::LazyHash;
 use typst::visualize::VISUALIZE;
-use typst::Library;
+use typst::{Feature, Library, LibraryBuilder};
 
 macro_rules! load {
     ($path:literal) => {
@@ -57,7 +58,9 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = Library::default();
+    let mut lib = LibraryBuilder::default()
+        .with_features([Feature::Html].into_iter().collect())
+        .build();
     let scope = lib.global.scope_mut();
 
     // Add those types, so that they show up in the docs.
@@ -166,6 +169,7 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
         category_page(resolver, INTROSPECTION),
         category_page(resolver, DATA_LOADING),
         category_page(resolver, PDF),
+        category_page(resolver, HTML),
     ];
     page
 }
