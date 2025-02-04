@@ -24,7 +24,7 @@ pub use self::shape::*;
 pub use self::stroke::*;
 pub use self::tiling::*;
 
-use crate::foundations::{category, Category, Scope, Type};
+use crate::foundations::{category, Category, Element, Scope, Type};
 
 /// Drawing and data visualization.
 ///
@@ -49,8 +49,10 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<CircleElem>();
     global.define_elem::<PolygonElem>();
     global.define_elem::<CurveElem>();
-    global.define_elem::<PathElem>();
-
-    // Compatibility.
-    global.define("pattern", Type::of::<Tiling>());
+    global
+        .define("path", Element::of::<PathElem>())
+        .deprecated("the `path` function is deprecated, use `curve` instead");
+    global
+        .define("pattern", Type::of::<Tiling>())
+        .deprecated("the name `pattern` is deprecated, use `tiling` instead");
 }

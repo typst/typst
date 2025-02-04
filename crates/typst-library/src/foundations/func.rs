@@ -9,7 +9,7 @@ use ecow::{eco_format, EcoString};
 use typst_syntax::{ast, Span, SyntaxNode};
 use typst_utils::{singleton, LazyHash, Static};
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, DeprecationSink, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, repr, scope, ty, Args, Bytes, CastInfo, Content, Context, Element, IntoArgs,
@@ -255,11 +255,15 @@ impl Func {
     }
 
     /// Get a field from this function's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
+    pub fn field(
+        &self,
+        field: &str,
+        sink: impl DeprecationSink,
+    ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
-            Some(binding) => Ok(binding.read()),
+            Some(binding) => Ok(binding.read_checked(sink)),
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),
                 None => bail!("function does not contain field `{field}`"),

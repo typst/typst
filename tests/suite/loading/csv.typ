@@ -29,3 +29,7 @@
 --- csv-invalid-delimiter ---
 // Error: 41-51 delimiter must be an ASCII character
 #csv("/assets/data/zoo.csv", delimiter: "\u{2008}")
+
+--- csv-decode-deprecated ---
+// Warning: 14-20 `csv.decode` is deprecated, directly pass bytes to `csv` instead
+#let _ = csv.decode

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use typst_syntax::FileId;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
 /// An module of definitions.
@@ -118,9 +118,9 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, field: &str) -> StrResult<&Value> {
+    pub fn field(&self, field: &str, sink: impl DeprecationSink) -> StrResult<&Value> {
         match self.scope().get(field) {
-            Some(binding) => Ok(binding.read()),
+            Some(binding) => Ok(binding.read_checked(sink)),
             None => match &self.name {
                 Some(name) => bail!("module `{name}` does not contain `{field}`"),
                 None => bail!("module does not contain `{field}`"),

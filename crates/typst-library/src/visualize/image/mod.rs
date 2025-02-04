@@ -171,6 +171,7 @@ impl ImageElem {
     /// #image.decode(changed)
     /// ```
     #[func(title = "Decode Image")]
+    #[deprecated = "`image.decode` is deprecated, directly pass bytes to `image` instead"]
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
