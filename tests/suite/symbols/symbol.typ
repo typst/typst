@@ -147,3 +147,7 @@
   repr(envelope.fly),
   `symbol("🖅")`.text,
 )
+
+--- symbol-sect-deprecated ---
+// Warning: 5-9 `sect` is deprecated, use `inter` instead
+$ A sect B = A inter B $
