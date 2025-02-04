@@ -61,7 +61,7 @@ pub fn layout_mat(
         let ncols = rows.first().map_or(0, |row| row.len());
 
         for &offset in &aug.vline.0 {
-            if offset == 0 || offset.unsigned_abs() >= ncols {
+            if offset > ncols as isize || offset.unsigned_abs() > ncols + 1 {
                 bail!(
                         elem.span(),
                         "cannot draw a vertical line after column {} of a matrix with {} columns",
@@ -216,6 +216,14 @@ fn layout_mat_body(
 
     let mut x = Abs::zero();
 
+    if vline.0.contains(&(0_isize)) || vline.0.contains(&-(ncols as isize + 1)) {
+        frame.push(
+            Point::with_x(x + half_gap.x),
+            line_item(total_height, true, stroke.clone(), span),
+        );
+        x += gap.x;
+    }
+
     for (index, col) in cols.into_iter().enumerate() {
         let AlignmentResult { points, width: rcol } = alignments(&col);
 
@@ -242,7 +250,7 @@ fn layout_mat_body(
 
         // If a vertical line should be inserted after this column
         if vline.0.contains(&(index as isize + 1))
-            || vline.0.contains(&(1 - ((ncols - index) as isize)))
+            || (vline.0.contains(&(index as isize - ncols as isize)))
         {
             frame.push(
                 Point::with_x(x + half_gap.x),
@@ -254,8 +262,12 @@ fn layout_mat_body(
         x += gap.x;
     }
 
-    // Once all the columns are laid out, the total width can be calculated
-    let total_width = x - gap.x;
+    let total_width =
+        if !(vline.0.contains(&(ncols as isize)) || vline.0.contains(&-1_isize)) {
+            x - gap.x
+        } else {
+            x
+        };
 
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
