@@ -29,19 +29,12 @@ pub use self::yaml_::*;
 
 use crate::diag::{At, SourceResult};
 use crate::foundations::OneOrMultiple;
-use crate::foundations::{cast, category, Bytes, Category, Scope, Str};
+use crate::foundations::{cast, Bytes, Scope, Str};
 use crate::World;
-
-/// Data loading from external files.
-///
-/// These functions help you with loading and embedding data, for example from
-/// the results of an experiment.
-#[category]
-pub static DATA_LOADING: Category;
 
 /// Hook up all `data-loading` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.start_category(DATA_LOADING);
+    global.start_category(crate::Category::DataLoading);
     global.define_func::<read>();
     global.define_func::<csv>();
     global.define_func::<json>();
@@ -49,6 +42,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<yaml>();
     global.define_func::<cbor>();
     global.define_func::<xml>();
+    global.reset_category();
 }
 
 /// Something we can retrieve byte data from.

@@ -44,6 +44,8 @@ fn resolve_known(head: &str, base: &str) -> Option<String> {
         "$styling" => format!("{base}reference/styling"),
         "$scripting" => format!("{base}reference/scripting"),
         "$context" => format!("{base}reference/context"),
+        "$html" => format!("{base}reference/html"),
+        "$pdf" => format!("{base}reference/pdf"),
         "$guides" => format!("{base}guides"),
         "$changelog" => format!("{base}changelog"),
         "$universe" => "https://typst.app/universe".into(),
@@ -73,11 +75,14 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
 
     // Handle grouped functions.
     if let Some(group) = GROUPS.iter().find(|group| {
-        group.category == category.name() && group.filter.iter().any(|func| func == name)
+        group.category == category && group.filter.iter().any(|func| func == name)
     }) {
         let mut route = format!(
             "{}reference/{}/{}/#functions-{}",
-            base, group.category, group.name, name
+            base,
+            group.category.name(),
+            group.name,
+            name
         );
         if let Some(param) = parts.next() {
             route.push('-');

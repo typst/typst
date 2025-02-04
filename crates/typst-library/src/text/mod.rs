@@ -45,9 +45,9 @@ use typst_utils::singleton;
 use crate::diag::{bail, warning, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr,
-    Resolve, Scope, Set, Smart, StyleChain,
+    cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
+    NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set,
+    Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
@@ -55,15 +55,9 @@ use crate::model::ParElem;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 use crate::World;
 
-/// Text styling.
-///
-/// The [text function]($text) is of particular interest.
-#[category]
-pub static TEXT: Category;
-
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.start_category(TEXT);
+    global.start_category(crate::Category::Text);
     global.define_elem::<TextElem>();
     global.define_elem::<LinebreakElem>();
     global.define_elem::<SmartQuoteElem>();
@@ -78,6 +72,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<lower>();
     global.define_func::<upper>();
     global.define_func::<lorem>();
+    global.reset_category();
 }
 
 /// Customizes the look and layout of text in a variety of ways.
