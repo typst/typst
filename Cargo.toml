@@ -52,7 +52,7 @@ color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
 ctrlc = "3.4.1"
-dirs = "5"
+dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
@@ -69,13 +69,13 @@ icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
-kamadak-exif = "0.5"
+kamadak-exif = "0.6"
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 miniz_oxide = "0.8"
 native-tls = "0.2"
-notify = "6"
+notify = "8"
 once_cell = "1"
 open = "5.0.1"
 openssl = "0.10"
@@ -83,7 +83,7 @@ oxipng = { version = "9.0", default-features = false, features = ["filetime", "p
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
-pdf-writer = "0.12"
+pdf-writer = "0.12.1"
 phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.5.1"
 png = "0.17"
@@ -133,11 +133,11 @@ unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.43", default-features = false, features = ["text"] }
 walkdir = "2"
-wasmi = "0.39.0"
+wasmi = "0.40.0"
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
-xmp-writer = "0.3"
+xmp-writer = "0.3.1"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
