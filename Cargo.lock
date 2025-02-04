@@ -2718,9 +2718,9 @@ dependencies = [
 
 [[package]]
 name = "two-face"
-version = "0.4.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9094d135e70a13e98be717063aa3fda2761946182a40584ed9941f52d8a768a"
+checksum = "0ccd4843ea031c609fe9c16cae00e9657bad8a9f735a3cc2e420955d802b4268"
 dependencies = [
  "once_cell",
  "serde",
