@@ -796,7 +796,7 @@ impl Array {
     /// function. The sorting algorithm used is stable.
     ///
     /// Returns an error if two values could not be compared or if the key
-    /// function (if given) yields an error.
+    /// or comparison function (if given) yields an error.
     ///
     /// To sort according to multiple criteria at once, e.g. in case of equality
     /// between some criteria, the key function can return an array. The results
@@ -820,31 +820,61 @@ impl Array {
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
+        /// If given, uses this function to compare elements in the array.
+        ///
+        /// This function should return an integer, whose sign is used to
+        /// determine the relative order of two given elements: Negative if the
+        /// first element is smaller, positive if the second element is smaller.
+        /// If `{0}` is returned, the order of the elements is not modified.
+        ///
+        /// When used together with `key`, `by` will be passed the keys instead
+        /// of the elements.
+        ///
+        /// ```example
+        /// #(
+        ///   "sorted",
+        ///   "by",
+        ///   "decreasing",
+        ///   "length",
+        /// ).sorted(
+        ///   key: s => s.len(),
+        ///   by: (x, y) => y - x,
+        /// )
+        /// ```
+        #[named]
+        by: Option<Func>,
     ) -> SourceResult<Array> {
         let mut result = Ok(());
         let mut vec = self.0;
-        let mut key_of = |x: Value| match &key {
-            // NOTE: We are relying on `comemo`'s memoization of function
-            // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, context, [x]),
-            None => Ok(x),
-        };
-        vec.make_mut().sort_by(|a, b| {
-            // Until we get `try` blocks :)
-            match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
-                    if result.is_ok() {
-                        result = Err(err).at(span);
+        let mut compare = |x: Value, y: Value| {
+            let mut key_of = |x: Value| match &key {
+                // NOTE: We are relying on `comemo`'s memoization of function
+                // evaluation to not excessively reevaluate the `key`.
+                Some(f) => f.call(engine, context, [x]),
+                None => Ok(x),
+            };
+            let x = key_of(x)?;
+            let y = key_of(y)?;
+            match &by {
+                Some(f) => Ok(match f.call(engine, context, [x, y])? {
+                    Value::Int(x) => x.cmp(&0),
+                    x => {
+                        bail!(span, "expected integer from `by` function, got {}", x.ty())
                     }
-                    Ordering::Equal
                 }),
-                (Err(e), _) | (_, Err(e)) => {
-                    if result.is_ok() {
-                        result = Err(e);
-                    }
-                    Ordering::Equal
-                }
+                None => ops::compare(&x, &y).at(span),
             }
+        };
+        // We use `glidesort` instead of the standard library sorting algorithm
+        // to prevent panics (see https://github.com/typst/typst/pull/5627).
+        glidesort::sort_by(vec.make_mut(), |a, b| {
+            // Until we get `try` blocks :)
+            compare(a.clone(), b.clone()).unwrap_or_else(|err| {
+                if result.is_ok() {
+                    result = Err(err);
+                }
+                Ordering::Equal
+            })
         });
         result.map(|_| vec.into())
     }
