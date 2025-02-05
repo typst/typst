@@ -28,6 +28,7 @@ $
 
 --- math-align-toggle ---
 // Test #460 equations.
+#set math.equation(column-gap: 0em)
 $
 a &=b & quad c&=d \
 e &=f & g&=h
