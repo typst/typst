@@ -644,7 +644,7 @@ fn layout_h(
 }
 
 /// Lays out a [`ClassElem`].
-#[typst_macros::time(name = "math.op", span = elem.span())]
+#[typst_macros::time(name = "math.class", span = elem.span())]
 fn layout_class(
     elem: &Packed<ClassElem>,
     ctx: &mut MathContext,
