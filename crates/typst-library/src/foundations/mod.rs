@@ -85,16 +85,9 @@ use crate::engine::Engine;
 use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
-/// Foundational types and functions.
-///
-/// Here, you'll find documentation for basic data types like [integers]($int)
-/// and [strings]($str) as well as details about core computational functions.
-#[category]
-pub static FOUNDATIONS: Category;
-
 /// Hook up all `foundations` definitions.
 pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
-    global.start_category(FOUNDATIONS);
+    global.start_category(crate::Category::Foundations);
     global.define_type::<bool>();
     global.define_type::<i64>();
     global.define_type::<f64>();
@@ -125,6 +118,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     }
     global.define("calc", calc::module());
     global.define("sys", sys::module(inputs));
+    global.reset_category();
 }
 
 /// Fails with an error.

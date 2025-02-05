@@ -1,19 +1,12 @@
 //! Modifiable symbols.
 
-use crate::foundations::{category, Category, Module, Scope, Symbol, Value};
-
-/// These two modules give names to symbols and emoji to make them easy to
-/// insert with a normal keyboard. Alternatively, you can also always directly
-/// enter Unicode symbols into your text and formulas. In addition to the
-/// symbols listed below, math mode defines `dif` and `Dif`. These are not
-/// normal symbol values because they also affect spacing and font style.
-#[category]
-pub static SYMBOLS: Category;
+use crate::foundations::{Module, Scope, Symbol, Value};
 
 /// Hook up all `symbol` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.start_category(SYMBOLS);
+    global.start_category(crate::Category::Symbols);
     extend_scope_from_codex_module(global, codex::ROOT);
+    global.reset_category();
 }
 
 /// Hook up all math `symbol` definitions, i.e., elements of the `sym` module.

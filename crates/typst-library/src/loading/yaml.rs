@@ -55,9 +55,6 @@ pub fn yaml(
 #[scope]
 impl yaml {
     /// Reads structured data from a YAML string/bytes.
-    ///
-    /// This function is deprecated. The [`yaml`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode YAML")]
     #[deprecated = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead"]
     pub fn decode(

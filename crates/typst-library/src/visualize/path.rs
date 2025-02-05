@@ -21,9 +21,6 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-///
-/// # Deprecation
-/// This function is deprecated. The [`curve`] function should be used instead.
 #[elem(Show)]
 pub struct PathElem {
     /// How to fill the path.

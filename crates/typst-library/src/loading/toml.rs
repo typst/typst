@@ -44,9 +44,6 @@ pub fn toml(
 #[scope]
 impl toml {
     /// Reads structured data from a TOML string/bytes.
-    ///
-    /// This function is deprecated. The [`toml`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode TOML")]
     #[deprecated = "`toml.decode` is deprecated, directly pass bytes to `toml` instead"]
     pub fn decode(

@@ -2822,6 +2822,8 @@ dependencies = [
  "typst-assets",
  "typst-dev-assets",
  "typst-render",
+ "typst-utils",
+ "unicode-math-class",
  "unscanny",
  "yaml-front-matter",
 ]
