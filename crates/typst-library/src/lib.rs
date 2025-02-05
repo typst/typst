@@ -29,6 +29,7 @@ pub mod visualize;
 
 use std::ops::{Deref, Range};
 
+use serde::{Deserialize, Serialize};
 use typst_syntax::{FileId, Source, Span};
 use typst_utils::{LazyHash, SmallBitSet};
 
@@ -236,31 +237,72 @@ pub enum Feature {
     Html,
 }
 
+/// A group of related standard library definitions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Category {
+    Foundations,
+    Introspection,
+    Layout,
+    DataLoading,
+    Math,
+    Model,
+    Symbols,
+    Text,
+    Visualize,
+    Pdf,
+    Html,
+    Svg,
+    Png,
+}
+
+impl Category {
+    /// The kebab-case name of the category.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Foundations => "foundations",
+            Self::Introspection => "introspection",
+            Self::Layout => "layout",
+            Self::DataLoading => "data-loading",
+            Self::Math => "math",
+            Self::Model => "model",
+            Self::Symbols => "symbols",
+            Self::Text => "text",
+            Self::Visualize => "visualize",
+            Self::Pdf => "pdf",
+            Self::Html => "html",
+            Self::Svg => "svg",
+            Self::Png => "png",
+        }
+    }
+}
+
 /// Construct the module with global definitions.
 fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     let mut global = Scope::deduplicating();
+
     self::foundations::define(&mut global, inputs, features);
     self::model::define(&mut global);
     self::text::define(&mut global);
-    global.reset_category();
-    global.define("math", math);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
-    self::pdf::define(&mut global);
-    global.reset_category();
+
+    global.define("math", math);
+    global.define("pdf", self::pdf::module());
     if features.is_enabled(Feature::Html) {
         global.define("html", self::html::module());
     }
+
     prelude(&mut global);
+
     Module::new("global", global)
 }
 
 /// Defines scoped values that are globally available, too.
 fn prelude(global: &mut Scope) {
-    global.reset_category();
     global.define("black", Color::BLACK);
     global.define("gray", Color::GRAY);
     global.define("silver", Color::SILVER);

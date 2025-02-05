@@ -50,6 +50,17 @@ pub struct ImageElem {
     /// supported [formats]($image.format).
     ///
     /// For more details about paths, see the [Paths section]($syntax/#paths).
+    ///
+    /// ```example
+    /// #let original = read("diagram.svg")
+    /// #let changed = original.replace(
+    ///   "#2B80FF", // blue
+    ///   green.to-hex(),
+    /// )
+    ///
+    /// #image(bytes(original))
+    /// #image(bytes(changed))
+    /// ```
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
@@ -156,21 +167,8 @@ pub struct ImageElem {
 #[allow(clippy::too_many_arguments)]
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
-    ///
-    /// This function is deprecated. The [`image`] function now accepts bytes
-    /// directly.
-    ///
-    /// ```example
-    /// #let original = read("diagram.svg")
-    /// #let changed = original.replace(
-    ///   "#2B80FF", // blue
-    ///   green.to-hex(),
-    /// )
-    ///
-    /// #image.decode(original)
-    /// #image.decode(changed)
-    /// ```
     #[func(title = "Decode Image")]
+    #[deprecated = "`image.decode` is deprecated, directly pass bytes to `image` instead"]
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.

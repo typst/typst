@@ -96,10 +96,8 @@ pub fn csv(
 #[scope]
 impl csv {
     /// Reads structured data from a CSV string/bytes.
-    ///
-    /// This function is deprecated. The [`csv`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode CSV")]
+    #[deprecated = "`csv.decode` is deprecated, directly pass bytes to `csv` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// CSV data.

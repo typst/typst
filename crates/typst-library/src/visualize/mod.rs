@@ -24,19 +24,11 @@ pub use self::shape::*;
 pub use self::stroke::*;
 pub use self::tiling::*;
 
-use crate::foundations::{category, Category, Scope, Type};
-
-/// Drawing and data visualization.
-///
-/// If you want to create more advanced drawings or plots, also have a look at
-/// the [CetZ](https://github.com/johannes-wolf/cetz) package as well as more
-/// specialized [packages]($universe) for your use case.
-#[category]
-pub static VISUALIZE: Category;
+use crate::foundations::{Element, Scope, Type};
 
 /// Hook up all visualize definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.start_category(VISUALIZE);
+    global.start_category(crate::Category::Visualize);
     global.define_type::<Color>();
     global.define_type::<Gradient>();
     global.define_type::<Tiling>();
@@ -49,8 +41,11 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<CircleElem>();
     global.define_elem::<PolygonElem>();
     global.define_elem::<CurveElem>();
-    global.define_elem::<PathElem>();
-
-    // Compatibility.
-    global.define("pattern", Type::of::<Tiling>());
+    global
+        .define("path", Element::of::<PathElem>())
+        .deprecated("the `path` function is deprecated, use `curve` instead");
+    global
+        .define("pattern", Type::of::<Tiling>())
+        .deprecated("the name `pattern` is deprecated, use `tiling` instead");
+    global.reset_category();
 }

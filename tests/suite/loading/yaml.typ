@@ -15,3 +15,7 @@
 --- yaml-invalid ---
 // Error: 7-30 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/assets/data/bad.yaml")
+
+--- yaml-decode-deprecated ---
+// Warning: 15-21 `yaml.decode` is deprecated, directly pass bytes to `yaml` instead
+#let _ = yaml.decode

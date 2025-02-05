@@ -1,6 +1,3 @@
-#[doc(inline)]
-pub use typst_macros::category;
-
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -8,14 +5,13 @@ use ecow::{eco_format, EcoString};
 use indexmap::map::Entry;
 use indexmap::IndexMap;
 use typst_syntax::Span;
-use typst_utils::Static;
 
-use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
+use crate::diag::{bail, DeprecationSink, HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
     Element, Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType,
     Type, Value,
 };
-use crate::Library;
+use crate::{Category, Library};
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -258,6 +254,8 @@ pub struct Binding {
     span: Span,
     /// The category of the binding.
     category: Option<Category>,
+    /// A deprecation message for the definition.
+    deprecation: Option<&'static str>,
 }
 
 /// The different kinds of slots.
@@ -277,6 +275,7 @@ impl Binding {
             span,
             kind: BindingKind::Normal,
             category: None,
+            deprecation: None,
         }
     }
 
@@ -285,8 +284,26 @@ impl Binding {
         Self::new(value, Span::detached())
     }
 
+    /// Marks this binding as deprecated, with the given `message`.
+    pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
+        self.deprecation = Some(message);
+        self
+    }
+
     /// Read the value.
     pub fn read(&self) -> &Value {
+        &self.value
+    }
+
+    /// Read the value, checking for deprecation.
+    ///
+    /// As the `sink`
+    /// - pass `()` to ignore the message.
+    /// - pass `(&mut engine, span)` to emit a warning into the engine.
+    pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
+        if let Some(message) = self.deprecation {
+            sink.emit(message);
+        }
         &self.value
     }
 
@@ -320,6 +337,11 @@ impl Binding {
         self.span
     }
 
+    /// A deprecation message for the value, if any.
+    pub fn deprecation(&self) -> Option<&'static str> {
+        self.deprecation
+    }
+
     /// The category of the value, if any.
     pub fn category(&self) -> Option<Category> {
         self.category
@@ -333,46 +355,6 @@ pub enum Capturer {
     Function,
     /// Captured by a context expression.
     Context,
-}
-
-/// A group of related definitions.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Category(Static<CategoryData>);
-
-impl Category {
-    /// Create a new category from raw data.
-    pub const fn from_data(data: &'static CategoryData) -> Self {
-        Self(Static(data))
-    }
-
-    /// The category's name.
-    pub fn name(&self) -> &'static str {
-        self.0.name
-    }
-
-    /// The type's title case name, for use in documentation (e.g. `String`).
-    pub fn title(&self) -> &'static str {
-        self.0.title
-    }
-
-    /// Documentation for the category.
-    pub fn docs(&self) -> &'static str {
-        self.0.docs
-    }
-}
-
-impl Debug for Category {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Category({})", self.name())
-    }
-}
-
-/// Defines a category.
-#[derive(Debug)]
-pub struct CategoryData {
-    pub name: &'static str,
-    pub title: &'static str,
-    pub docs: &'static str,
 }
 
 /// The error message when trying to mutate a variable from the standard

@@ -315,13 +315,15 @@ fn eval_field_call(
         (target, args)
     };
 
+    let field_span = field.span();
+    let sink = (&mut vm.engine, field_span);
     if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
-        Ok(FieldCall::Normal(callee.read().clone(), args))
+        Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
     } else if let Value::Content(content) = &target {
         if let Some(callee) = content.elem().scope().get(&field) {
             args.insert(0, target_expr.span(), target);
-            Ok(FieldCall::Normal(callee.read().clone(), args))
+            Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
         } else {
             bail!(missing_field_call_error(target, field))
         }
@@ -331,7 +333,7 @@ fn eval_field_call(
     ) {
         // Certain value types may have their own ways to access method fields.
         // e.g. `$arrow.r(v)$`, `table.cell[..]`
-        let value = target.field(&field).at(field.span())?;
+        let value = target.field(&field, sink).at(field_span)?;
         Ok(FieldCall::Normal(value, args))
     } else {
         // Otherwise we cannot call this field.
@@ -364,7 +366,7 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
                 field.as_str(),
             ));
         }
-        _ if target.field(&field).is_ok() => {
+        _ if target.field(&field, ()).is_ok() => {
             error.hint(eco_format!(
                 "did you mean to access the field `{}`?",
                 field.as_str(),

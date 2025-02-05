@@ -65,10 +65,8 @@ pub fn json(
 #[scope]
 impl json {
     /// Reads structured data from a JSON string/bytes.
-    ///
-    /// This function is deprecated. The [`json`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode JSON")]
+    #[deprecated = "`json.decode` is deprecated, directly pass bytes to `json` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// JSON data.
