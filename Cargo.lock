@@ -312,9 +312,9 @@ dependencies = [
 
 [[package]]
 name = "citationberg"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92fea693c83bd967604be367dc1e1b4895625eabafec2eec66c51092e18e700e"
+checksum = "e4595e03beafb40235070080b5286d3662525efc622cca599585ff1d63f844fa"
 dependencies = [
  "quick-xml 0.36.2",
  "serde",
@@ -398,9 +398,9 @@ dependencies = [
 
 [[package]]
 name = "codex"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e0ee2092c3513f63588d51c3f81b98e6b1aa8ddcca3b5892b288f093516497d"
+checksum = "724d27a0ee38b700e5e164350e79aba601a0db673ac47fce1cb74c3e38864036"
 
 [[package]]
 name = "color-print"
@@ -898,9 +898,9 @@ dependencies = [
 
 [[package]]
 name = "hayagriva"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a3635c2577f77499c9dc3dceeef2e64e6c146e711b1861507a0f15b20641348"
+checksum = "954907554bb7fcba29a4f917c2d43e289ec21b69d872ccf97db160eca6caeed8"
 dependencies = [
  "biblatex",
  "ciborium",
@@ -2718,9 +2718,9 @@ dependencies = [
 
 [[package]]
 name = "two-face"
-version = "0.4.0"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ccd4843ea031c609fe9c16cae00e9657bad8a9f735a3cc2e420955d802b4268"
+checksum = "384eda438ddf62e2c6f39a174452d952d9d9df5a8ad5ade22198609f8dcaf852"
 dependencies = [
  "once_cell",
  "serde",
