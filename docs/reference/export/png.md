@@ -11,7 +11,7 @@ the PNG you exported, you will notice a loss of quality. Typst calculates the
 resolution of your PNGs based on each page's physical dimensions and the PPI. If
 you need guidance for choosing a PPI value, consider the following:
 
-- A DPI value of 300 or 600 is typical for desktop printing.
+- A value of 300 or 600 is typical for desktop printing.
 - Professional prints of detailed graphics can go up to 1200 PPI.
 - If your document is only viewed at a distance, e.g. a poster, you may choose a
   smaller value than 300.
