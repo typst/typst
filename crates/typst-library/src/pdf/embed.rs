@@ -32,12 +32,10 @@ use crate::World;
 ///   embedded file conforms to PDF/A-1 or PDF/A-2.
 #[elem(Show, Locatable)]
 pub struct EmbedElem {
-    /// Path of the file to be embedded.
+    /// The [path]($syntax/#paths) of the file to be embedded.
     ///
     /// Must always be specified, but is only read from if no data is provided
     /// in the following argument.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
     #[required]
     #[parse(
         let Spanned { v: path, span } =
