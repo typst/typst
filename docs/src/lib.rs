@@ -550,8 +550,6 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
                     .collect(),
             });
         }
-
-        outline.extend(scope_outline(&model.scope));
     } else {
         outline.extend(model.params.iter().map(|param| OutlineItem {
             id: eco_format!("{id_base}-{}", urlify(param.name)),
@@ -560,27 +558,30 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
         }));
     }
 
+    outline.extend(scope_outline(&model.scope, id_base));
+
     outline
 }
 
 /// Produce an outline for a function scope.
-fn scope_outline(scope: &[FuncModel]) -> Option<OutlineItem> {
+fn scope_outline(scope: &[FuncModel], id_base: &str) -> Option<OutlineItem> {
     if scope.is_empty() {
         return None;
     }
 
-    Some(OutlineItem {
-        id: "definitions".into(),
-        name: "Definitions".into(),
-        children: scope
-            .iter()
-            .map(|func| {
-                let id = urlify(&eco_format!("definitions-{}", func.name));
-                let children = func_outline(func, &id);
-                OutlineItem { id, name: func.title.into(), children }
-            })
-            .collect(),
-    })
+    let dash = if id_base.is_empty() { "" } else { "-" };
+    let id = eco_format!("{id_base}{dash}definitions");
+
+    let children = scope
+        .iter()
+        .map(|func| {
+            let id = urlify(&eco_format!("{id}-{}", func.name));
+            let children = func_outline(func, &id);
+            OutlineItem { id, name: func.title.into(), children }
+        })
+        .collect();
+
+    Some(OutlineItem { id, name: "Definitions".into(), children })
 }
 
 /// Create a page for a group of functions.
@@ -687,7 +688,7 @@ fn type_outline(model: &TypeModel) -> Vec<OutlineItem> {
         });
     }
 
-    outline.extend(scope_outline(&model.scope));
+    outline.extend(scope_outline(&model.scope, ""));
     outline
 }
 
