@@ -623,7 +623,7 @@ impl OutlineEntry {
 
     /// The content which is displayed in place of the referred element at its
     /// entry in the outline. For a heading, this is its
-    /// [`body`]($heading.body), for a figure a caption, and for equations it is
+    /// [`body`]($heading.body); for a figure a caption and for equations, it is
     /// empty.
     #[func]
     pub fn body(&self) -> StrResult<Content> {
