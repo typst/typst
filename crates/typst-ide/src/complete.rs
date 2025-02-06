@@ -407,9 +407,17 @@ fn field_access_completions(
         elem.into_iter().chain(Some(ty))
     };
 
-    // Autocomplete methods from the element's or type's scope.
+    // Autocomplete methods from the element's or type's scope. We only complete
+    // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
-        ctx.call_completion(name.clone(), binding.read());
+        let Ok(func) = binding.read().clone().cast::<Func>() else { continue };
+        if func
+            .params()
+            .and_then(|params| params.first())
+            .is_some_and(|param| param.name == "self")
+        {
+            ctx.call_completion(name.clone(), binding.read());
+        }
     }
 
     if let Some(scope) = value.scope() {
@@ -1761,6 +1769,7 @@ mod tests {
     #[test]
     fn test_autocomplete_type_methods() {
         test("#\"hello\".", -1).must_include(["len", "contains"]);
+        test("#table().", -1).must_exclude(["cell"]);
     }
 
     #[test]
