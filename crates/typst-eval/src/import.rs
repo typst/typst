@@ -44,11 +44,10 @@ impl Eval for ast::ModuleImport<'_> {
         }
 
         // If there is a rename, import the source itself under that name.
-        let bare_name = self.bare_name();
         let new_name = self.new_name();
         if let Some(new_name) = new_name {
-            if let Ok(source_name) = &bare_name {
-                if source_name == new_name.as_str() {
+            if let ast::Expr::Ident(ident) = self.source() {
+                if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
                     vm.engine.sink.warn(warning!(
                         new_name.span(),
@@ -57,6 +56,7 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
 
+            // Define renamed module on the scope.
             vm.define(new_name, source.clone());
         }
 
