@@ -398,7 +398,17 @@ fn field_access_completions(
     value: &Value,
     styles: &Option<Styles>,
 ) {
-    for (name, binding) in value.ty().scope().iter() {
+    let scopes = {
+        let ty = value.ty().scope();
+        let elem = match value {
+            Value::Content(content) => Some(content.elem().scope()),
+            _ => None,
+        };
+        elem.into_iter().chain(Some(ty))
+    };
+
+    // Autocomplete methods from the element's or type's scope.
+    for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
         ctx.call_completion(name.clone(), binding.read());
     }
 
@@ -1746,5 +1756,16 @@ mod tests {
         test(&world, ("second.typ", 23))
             .must_include(["this", "that"])
             .must_exclude(["*", "figure"]);
+    }
+
+    #[test]
+    fn test_autocomplete_type_methods() {
+        test("#\"hello\".", -1).must_include(["len", "contains"]);
+    }
+
+    #[test]
+    fn test_autocomplete_content_methods() {
+        test("#show outline.entry: it => it.\n#outline()\n= Hi", 30)
+            .must_include(["indented", "body", "page"]);
     }
 }
