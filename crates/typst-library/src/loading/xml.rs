@@ -58,9 +58,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "XML")]
 pub fn xml(
     engine: &mut Engine,
-    /// A path to an XML file or raw XML bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to an XML file or raw XML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;

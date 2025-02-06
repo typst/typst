@@ -46,10 +46,11 @@ use crate::text::LocalName;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A path to an image file or raw bytes making up an image in one of the
-    /// supported [formats]($image.format).
+    /// A [path]($syntax/#paths) to an image file or raw bytes making up an
+    /// image in one of the supported [formats]($image.format).
     ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// Bytes can be used to specify raw pixel data in a row-major,
+    /// left-to-right, top-to-bottom format.
     ///
     /// ```example
     /// #let original = read("diagram.svg")

@@ -20,9 +20,7 @@ use crate::loading::{DataSource, Load};
 #[func(scope, title = "CBOR")]
 pub fn cbor(
     engine: &mut Engine,
-    /// A path to a CBOR file or raw CBOR bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a CBOR file or raw CBOR bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
