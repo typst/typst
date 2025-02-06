@@ -698,6 +698,10 @@ impl Debug for Items<'_> {
 }
 
 /// A reference to or a boxed item.
+///
+/// This is conceptually similar to a [`Cow<'a, Item<'a>>`][std::borrow::Cow],
+/// but we box owned items since an [`Item`] is much bigger than
+/// a box.
 pub enum ItemEntry<'a> {
     Ref(&'a Item<'a>),
     Box(Box<Item<'a>>),
