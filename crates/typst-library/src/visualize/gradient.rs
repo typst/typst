@@ -582,12 +582,11 @@ impl Gradient {
                 let mut stops = stops
                     .iter()
                     .map(move |&(color, offset)| {
-                        let t = i as f64 / n as f64;
                         let r = offset.get();
                         if i % 2 == 1 && mirror {
-                            (color, Ratio::new(t + (1.0 - r) / n as f64))
+                            (color, Ratio::new((i as f64 + 1.0 - r) / n as f64))
                         } else {
-                            (color, Ratio::new(t + r / n as f64))
+                            (color, Ratio::new((i as f64 + r) / n as f64))
                         }
                     })
                     .collect::<Vec<_>>();
