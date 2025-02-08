@@ -2010,11 +2010,11 @@ impl<'a> LetBindingKind<'a> {
 impl<'a> LetBinding<'a> {
     /// The kind of the let binding.
     pub fn kind(self) -> LetBindingKind<'a> {
-        match self.0.try_cast_first::<Pattern>() {
-            Some(Pattern::Normal(Expr::Closure(closure))) => {
+        match self.0.cast_first() {
+            Pattern::Normal(Expr::Closure(closure)) => {
                 LetBindingKind::Closure(closure.name().unwrap_or_default())
             }
-            pattern => LetBindingKind::Normal(pattern.unwrap_or_default()),
+            pattern => LetBindingKind::Normal(pattern),
         }
     }
 
@@ -2350,11 +2350,7 @@ impl<'a> RenamedImportItem<'a> {
 
     /// The new name of the imported item (`d` in `a as d`).
     pub fn new_name(self) -> Ident<'a> {
-        self.0
-            .children()
-            .filter_map(SyntaxNode::cast)
-            .last()
-            .unwrap_or_default()
+        self.0.cast_last()
     }
 }
 
