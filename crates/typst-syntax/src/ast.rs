@@ -309,6 +309,7 @@ impl<'a> Expr<'a> {
 impl<'a> AstNode<'a> for Expr<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
+            SyntaxKind::Space => Option::None, // Skipped unless using `cast_with_space`.
             SyntaxKind::Linebreak => Some(Self::Linebreak(Linebreak(node))),
             SyntaxKind::Parbreak => Some(Self::Parbreak(Parbreak(node))),
             SyntaxKind::Text => Some(Self::Text(Text(node))),
