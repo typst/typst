@@ -102,6 +102,29 @@ pub trait AstNode<'a>: Sized {
     }
 }
 
+// A generic interface for converting untyped nodes into typed AST nodes.
+impl SyntaxNode {
+    /// Whether the node can be cast to the given AST node.
+    pub fn is<'a, T: AstNode<'a>>(&'a self) -> bool {
+        self.cast::<T>().is_some()
+    }
+
+    /// Try to convert the node to a typed AST node.
+    pub fn cast<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
+        T::from_untyped(self)
+    }
+
+    /// Find the first child that can cast to the AST type `T`.
+    fn cast_first_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
+        self.children().find_map(Self::cast)
+    }
+
+    /// Find the last child that can cast to the AST type `T`.
+    fn cast_last_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
+        self.children().rev().find_map(Self::cast)
+    }
+}
+
 /// Implements [`AstNode`] for a struct whose name matches a [`SyntaxKind`]
 /// variant.
 ///

@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::ast::AstNode;
 use crate::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
@@ -117,26 +116,6 @@ impl SyntaxNode {
             Repr::Leaf(_) | Repr::Error(_) => [].iter(),
             Repr::Inner(inner) => inner.children.iter(),
         }
-    }
-
-    /// Whether the node can be cast to the given AST node.
-    pub fn is<'a, T: AstNode<'a>>(&'a self) -> bool {
-        self.cast::<T>().is_some()
-    }
-
-    /// Try to convert the node to a typed AST node.
-    pub fn cast<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
-        T::from_untyped(self)
-    }
-
-    /// Cast the first child that can cast to the AST type `T`.
-    pub fn cast_first_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
-        self.children().find_map(Self::cast)
-    }
-
-    /// Cast the last child that can cast to the AST type `T`.
-    pub fn cast_last_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
-        self.children().rev().find_map(Self::cast)
     }
 
     /// Whether the node or its children contain an error.
