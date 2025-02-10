@@ -333,7 +333,7 @@ A
   first-line-indent: (amount: 1em, all: true),
   hanging-indent: 5pt,
 )[
-  The par function has a constructor.
+  The par function has a constructor and justification.
 ]
 
 --- show-par-set-block-hint ---
