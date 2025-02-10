@@ -822,14 +822,13 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 
 /// Whether hyphenation is enabled at the given offset.
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
-    p.config
-        .hyphenate
-        .or_else(|| {
-            let (_, item) = p.get(offset);
-            let styles = item.text()?.styles;
-            Some(TextElem::hyphenate_in(styles))
-        })
-        .unwrap_or(false)
+    p.config.hyphenate.unwrap_or_else(|| {
+        let (_, item) = p.get(offset);
+        match item.text() {
+            Some(text) => TextElem::hyphenate_in(text.styles).unwrap_or(p.config.justify),
+            None => false,
+        }
+    })
 }
 
 /// The text language at the given offset.

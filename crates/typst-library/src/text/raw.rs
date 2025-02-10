@@ -21,9 +21,7 @@ use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
-use crate::text::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, TextElem, TextSize,
-};
+use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
 use crate::World;
 
@@ -472,7 +470,7 @@ impl ShowSet for Packed<RawElem> {
         let mut out = Styles::new();
         out.set(TextElem::set_overhang(false));
         out.set(TextElem::set_lang(Lang::ENGLISH));
-        out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
+        out.set(TextElem::set_hyphenate(Smart::Custom(false)));
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
         out.set(TextElem::set_cjk_latin_spacing(Smart::Custom(None)));

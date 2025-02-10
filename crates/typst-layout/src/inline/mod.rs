@@ -183,13 +183,14 @@ fn configuration(
     shared: StyleChain,
     situation: Option<ParSituation>,
 ) -> Config {
+    let justify = base.justify;
     let font_size = TextElem::size_in(shared);
     let dir = TextElem::dir_in(shared);
 
     Config {
-        justify: base.justify,
+        justify,
         linebreaks: base.linebreaks.unwrap_or_else(|| {
-            if base.justify {
+            if justify {
                 Linebreaks::Optimized
             } else {
                 Linebreaks::Simple
@@ -232,7 +233,8 @@ fn configuration(
         align: AlignElem::alignment_in(shared).fix(dir).x,
         font_size,
         dir,
-        hyphenate: shared_get(children, shared, TextElem::hyphenate_in),
+        hyphenate: shared_get(children, shared, TextElem::hyphenate_in)
+            .map(|uniform| uniform.unwrap_or(justify)),
         lang: shared_get(children, shared, TextElem::lang_in),
         fallback: TextElem::fallback_in(shared),
         cjk_latin_spacing: TextElem::cjk_latin_spacing_in(shared).is_auto(),
