@@ -11,7 +11,7 @@ use crate::foundations::{
 use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::Location;
 use crate::layout::Position;
-use crate::text::{Hyphenate, TextElem};
+use crate::text::TextElem;
 
 /// Links to a URL or a location in the document.
 ///
@@ -138,7 +138,7 @@ impl Show for Packed<LinkElem> {
 impl ShowSet for Packed<LinkElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
+        out.set(TextElem::set_hyphenate(Smart::Custom(false)));
         out
     }
 }

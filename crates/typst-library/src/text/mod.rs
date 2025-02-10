@@ -51,7 +51,6 @@ use crate::foundations::{
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
-use crate::model::ParElem;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 use crate::World;
 
@@ -504,9 +503,8 @@ pub struct TextElem {
     /// enabling hyphenation can
     /// improve justification.
     /// ```
-    #[resolve]
     #[ghost]
-    pub hyphenate: Hyphenate,
+    pub hyphenate: Smart<bool>,
 
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
@@ -1106,27 +1104,6 @@ impl Resolve for TextDir {
         match self.0 {
             Smart::Auto => TextElem::lang_in(styles).dir(),
             Smart::Custom(dir) => dir,
-        }
-    }
-}
-
-/// Whether to hyphenate text.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Hyphenate(pub Smart<bool>);
-
-cast! {
-    Hyphenate,
-    self => self.0.into_value(),
-    v: Smart<bool> => Self(v),
-}
-
-impl Resolve for Hyphenate {
-    type Output = bool;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        match self.0 {
-            Smart::Auto => ParElem::justify_in(styles),
-            Smart::Custom(v) => v,
         }
     }
 }
