@@ -124,7 +124,6 @@ impl<'a> Collector<'a, '_, '_> {
             styles,
             self.base,
             self.expand,
-            None,
         )?
         .into_frames();
 
@@ -133,7 +132,8 @@ impl<'a> Collector<'a, '_, '_> {
             self.output.push(Child::Tag(&elem.tag));
         }
 
-        self.lines(lines, styles);
+        let leading = ParElem::leading_in(styles);
+        self.lines(lines, leading, styles);
 
         for (c, _) in &self.children[end..] {
             let elem = c.to_packed::<TagElem>().unwrap();
@@ -169,10 +169,12 @@ impl<'a> Collector<'a, '_, '_> {
         )?
         .into_frames();
 
-        let spacing = ParElem::spacing_in(styles);
+        let spacing = elem.spacing(styles);
+        let leading = elem.leading(styles);
+
         self.output.push(Child::Rel(spacing.into(), 4));
 
-        self.lines(lines, styles);
+        self.lines(lines, leading, styles);
 
         self.output.push(Child::Rel(spacing.into(), 4));
         self.par_situation = ParSituation::Consecutive;
@@ -181,9 +183,8 @@ impl<'a> Collector<'a, '_, '_> {
     }
 
     /// Collect laid-out lines.
-    fn lines(&mut self, lines: Vec<Frame>, styles: StyleChain<'a>) {
+    fn lines(&mut self, lines: Vec<Frame>, leading: Abs, styles: StyleChain<'a>) {
         let align = AlignElem::alignment_in(styles).resolve(styles);
-        let leading = ParElem::leading_in(styles);
         let costs = TextElem::costs_in(styles);
 
         // Determine whether to prevent widow and orphans.
