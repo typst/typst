@@ -15,12 +15,9 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
-use typst_library::layout::{
-    Abs, AlignElem, Dir, FixedAlignment, Fragment, HAlignment, Length, OuterHAlignment,
-    Size,
-};
+use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, Linebreaks, ListElem, Numbering, ParElem, ParLine,
+    EnumElem, FirstLineIndent, Linebreaks, ListElem, ParElem, ParLine, ParLineMarker,
     TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
@@ -221,13 +218,16 @@ fn configuration(
         } else {
             Abs::zero()
         },
-        numbering: ParLine::numbering_in(shared).map(|numbering| LineNumberingConfig {
-            numbering,
-            align: ParLine::number_align_in(shared),
-            margin: ParLine::number_margin_in(shared),
-            // Delay resolving the number clearance until line numbers are laid
-            // out to avoid inconsistent spacing depending on varying font size.
-            clearance: ParLine::number_clearance_in(shared),
+        numbering_marker: ParLine::numbering_in(shared).map(|numbering| {
+            Packed::new(ParLineMarker::new(
+                numbering,
+                ParLine::number_align_in(shared),
+                ParLine::number_margin_in(shared),
+                // Delay resolving the number clearance until line numbers are
+                // laid out to avoid inconsistent spacing depending on varying
+                // font size.
+                ParLine::number_clearance_in(shared),
+            ))
         }),
         align: AlignElem::alignment_in(shared).fix(dir).x,
         font_size,
@@ -273,7 +273,7 @@ struct Config {
     /// The indent that all but the first line of a paragraph should have.
     hanging_indent: Abs,
     /// Configuration for line numbering.
-    numbering: Option<LineNumberingConfig>,
+    numbering_marker: Option<Packed<ParLineMarker>>,
     /// The resolved horizontal alignment.
     align: FixedAlignment,
     /// The text size.
@@ -292,14 +292,6 @@ struct Config {
     cjk_latin_spacing: bool,
     /// Costs for various layout decisions.
     costs: Costs,
-}
-
-/// Configuration for paragraph lines.
-struct LineNumberingConfig {
-    numbering: Numbering,
-    align: Smart<HAlignment>,
-    margin: OuterHAlignment,
-    clearance: Smart<Length>,
 }
 
 /// Get a style property, but only if it is the same for all of the children.

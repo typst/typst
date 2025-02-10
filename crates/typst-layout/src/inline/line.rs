@@ -2,7 +2,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::NativeElement;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
@@ -556,8 +555,8 @@ pub fn commit(
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 
-    if let Some(config) = &p.config.numbering {
-        add_par_line_marker(&mut output, config, engine, locator, top);
+    if let Some(marker) = &p.config.numbering_marker {
+        add_par_line_marker(&mut output, marker, engine, locator, top);
     }
 
     // Construct the line's frame.
@@ -579,7 +578,7 @@ pub fn commit(
 /// number in the margin, is aligned to the line's baseline.
 fn add_par_line_marker(
     output: &mut Frame,
-    config: &LineNumberingConfig,
+    marker: &Packed<ParLineMarker>,
     engine: &mut Engine,
     locator: &mut SplitLocator,
     top: Abs,
@@ -590,13 +589,7 @@ fn add_par_line_marker(
     // manually search for it in the frame later (when building a root flow,
     // where line numbers can be displayed), so we just need it to be in a tag
     // and to be valid (to have a location).
-    let mut marker = ParLineMarker::new(
-        config.numbering.clone(),
-        config.align,
-        config.margin,
-        config.clearance,
-    )
-    .pack();
+    let mut marker = marker.clone();
     let key = typst_utils::hash128(&marker);
     let loc = locator.next_location(engine.introspector, key);
     marker.set_location(loc);
@@ -608,7 +601,7 @@ fn add_par_line_marker(
     // line's general baseline. However, the line number will still need to
     // manually adjust its own 'y' position based on its own baseline.
     let pos = Point::with_y(top);
-    output.push(pos, FrameItem::Tag(Tag::Start(marker)));
+    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack())));
     output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
 }
 
