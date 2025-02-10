@@ -1,9 +1,12 @@
 use ecow::EcoString;
+use typst_library::foundations::Target;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{warning, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain};
+use crate::foundations::{
+    elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain, TargetElem,
+};
 use crate::introspection::Locatable;
 use crate::World;
 
@@ -78,7 +81,12 @@ pub struct EmbedElem {
 }
 
 impl Show for Packed<EmbedElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles) == Target::Html {
+            engine
+                .sink
+                .warn(warning!(self.span(), "embed was ignored during HTML export"));
+        }
         Ok(Content::empty())
     }
 }
