@@ -1229,7 +1229,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             };
 
             if stop.get() < last_stop {
-                bail!(*span, "offsets must be in strictly monotonic order");
+                bail!(*span, "offsets must be in monotonic order");
             }
 
             last_stop = stop.get();
