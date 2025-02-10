@@ -322,6 +322,20 @@ A
 
 #context test(query(<a>).len(), 1)
 
+--- issue-5831-par-constructor-args ---
+// Make sure that all arguments are also respected in the constructor.
+A
+#par(
+  leading: 2pt,
+  spacing: 20pt,
+  justify: true,
+  linebreaks: "simple",
+  first-line-indent: (amount: 1em, all: true),
+  hanging-indent: 5pt,
+)[
+  The par function has a constructor.
+]
+
 --- show-par-set-block-hint ---
 // Warning: 2-36 `show par: set block(spacing: ..)` has no effect anymore
 // Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
