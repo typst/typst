@@ -121,7 +121,6 @@ fn layout_par_impl(
 }
 
 /// Lays out realized content with inline layout.
-#[allow(clippy::too_many_arguments)]
 pub fn layout_inline<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
@@ -147,7 +146,7 @@ pub fn layout_inline<'a>(
     )
 }
 
-/// Lays out realized content with inline layout.
+/// The internal implementation of [`layout_inline`].
 #[allow(clippy::too_many_arguments)]
 fn layout_inline_impl<'a>(
     engine: &mut Engine,
