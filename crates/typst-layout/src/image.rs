@@ -95,6 +95,8 @@ pub fn layout_image(
     } else {
         // If neither is forced, take the natural image size at the image's
         // DPI bounded by the available space.
+        //
+        // Division by DPI is fine since it's guaranteed to be positive.
         let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
         let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
         Size::new(

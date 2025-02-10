@@ -160,6 +160,8 @@ impl RasterImage {
     }
 
     /// The image's pixel density in pixels per inch, if known.
+    ///
+    /// This is guaranteed to be positive.
     pub fn dpi(&self) -> Option<f64> {
         self.0.dpi
     }
@@ -334,6 +336,9 @@ fn apply_rotation(image: &mut DynamicImage, rotation: u32) {
 }
 
 /// Try to determine the DPI (dots per inch) of the image.
+///
+/// This is guaranteed to be a positive value, or `None` if invalid or
+/// unspecified.
 fn determine_dpi(data: &[u8], exif: Option<&exif::Exif>) -> Option<f64> {
     // Try to extract the DPI from the EXIF metadata. If that doesn't yield
     // anything, fall back to specialized procedures for extracting JPEG or PNG
@@ -341,6 +346,7 @@ fn determine_dpi(data: &[u8], exif: Option<&exif::Exif>) -> Option<f64> {
     exif.and_then(exif_dpi)
         .or_else(|| jpeg_dpi(data))
         .or_else(|| png_dpi(data))
+        .filter(|&dpi| dpi > 0.0)
 }
 
 /// Try to get the DPI from the EXIF metadata.
