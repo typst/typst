@@ -2901,6 +2901,8 @@ dependencies = [
  "native-tls",
  "once_cell",
  "openssl",
+ "serde",
+ "serde_json",
  "tar",
  "typst-assets",
  "typst-library",
