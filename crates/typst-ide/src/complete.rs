@@ -306,7 +306,10 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathIdent) {
+    if matches!(
+        ctx.leaf.kind(),
+        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathIdent
+    ) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -358,7 +361,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
-            || (ctx.leaf.kind() == SyntaxKind::Text
+            || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
@@ -1767,5 +1770,15 @@ mod tests {
     fn test_autocomplete_content_methods() {
         test("#show outline.entry: it => it.\n#outline()\n= Hi", 30)
             .must_include(["indented", "body", "page"]);
+    }
+
+    #[test]
+    fn test_autocomplete_symbol_variants() {
+        test("#sym.arrow.", -1)
+            .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
+        test("$ arrow. $", -3)
+            .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
     }
 }
