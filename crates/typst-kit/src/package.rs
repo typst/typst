@@ -7,11 +7,10 @@ use std::path::{Path, PathBuf};
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use serde_json;
 use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
-use typst_syntax::package::{
-    PackageInfo, PackageSpec, PackageVersion, VersionlessPackageSpec,
-};
+use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::download::{Downloader, Progress};
 
@@ -124,7 +123,7 @@ impl PackageStorage {
             // version.
             self.download_index()?
                 .iter()
-                .lazy_deser::<PackageInfo>()
+                .lazy_deser::<MinimalPackageInfo>()
                 .filter_map(|res| res.ok())
                 .filter(|package| package.name == spec.name)
                 .map(|package| package.version)
@@ -202,6 +201,14 @@ impl PackageStorage {
             PackageError::MalformedArchive(Some(eco_format!("{err}")))
         })
     }
+}
+
+/// Minimal information required about a package to determine its latest
+/// version.
+#[derive(Deserialize)]
+struct MinimalPackageInfo {
+    name: String,
+    version: PackageVersion,
 }
 
 /// An iterator that deserializes its items lazily.
