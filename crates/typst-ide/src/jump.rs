@@ -73,7 +73,10 @@ pub fn jump_from_click(
                         let Some(id) = span.id() else { continue };
                         let source = world.source(id).ok()?;
                         let node = source.find(span)?;
-                        let pos = if node.kind() == SyntaxKind::Text {
+                        let pos = if matches!(
+                            node.kind(),
+                            SyntaxKind::Text | SyntaxKind::MathText
+                        ) {
                             let range = node.range();
                             let mut offset = range.start + usize::from(span_offset);
                             if (click.x - pos.x) > width / 2.0 {
@@ -115,7 +118,7 @@ pub fn jump_from_cursor(
     cursor: usize,
 ) -> Vec<Position> {
     fn is_text(node: &LinkedNode) -> bool {
-        node.get().kind() == SyntaxKind::Text
+        matches!(node.kind(), SyntaxKind::Text | SyntaxKind::MathText)
     }
 
     let root = LinkedNode::new(source.root());
@@ -262,10 +265,20 @@ mod tests {
     }
 
     #[test]
+    fn test_jump_from_click_math() {
+        test_click("$a + b$", point(28.0, 14.0), cursor(5));
+    }
+
+    #[test]
     fn test_jump_from_cursor() {
         let s = "*Hello* #box[ABC] World";
         test_cursor(s, 12, None);
         test_cursor(s, 14, pos(1, 37.55, 16.58));
+    }
+
+    #[test]
+    fn test_jump_from_cursor_math() {
+        test_cursor("$a + b$", -3, pos(1, 27.51, 16.83));
     }
 
     #[test]
