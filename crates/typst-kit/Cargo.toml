@@ -23,6 +23,8 @@ flate2 = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 once_cell = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 tar = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
 
