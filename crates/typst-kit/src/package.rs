@@ -1,14 +1,11 @@
 //! Download and unpack packages and package indices.
 
 use std::fs;
-use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use serde_json;
 use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
 use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
@@ -123,8 +120,7 @@ impl PackageStorage {
             // version.
             self.download_index()?
                 .iter()
-                .lazy_deser::<MinimalPackageInfo>()
-                .filter_map(|res| res.ok())
+                .filter_map(|value| MinimalPackageInfo::deserialize(value).ok())
                 .filter(|package| package.name == spec.name)
                 .map(|package| package.version)
                 .max()
@@ -209,40 +205,6 @@ impl PackageStorage {
 struct MinimalPackageInfo {
     name: String,
     version: PackageVersion,
-}
-
-/// An iterator that deserializes its items lazily.
-struct LazyDeser<T, I> {
-    inner: I,
-    _phantom: PhantomData<T>,
-}
-
-trait LazyDeserExt: Sized {
-    /// Creates an iterator that returns deserialized items from the current
-    /// iterator.
-    fn lazy_deser<T>(self) -> LazyDeser<T, Self>;
-}
-
-impl<'a, I> LazyDeserExt for I
-where
-    I: Iterator<Item = &'a serde_json::Value>,
-{
-    fn lazy_deser<T>(self) -> LazyDeser<T, Self> {
-        LazyDeser { inner: self, _phantom: PhantomData }
-    }
-}
-
-impl<'a, T, I> Iterator for LazyDeser<T, I>
-where
-    T: DeserializeOwned,
-    I: Iterator<Item = &'a serde_json::Value>,
-{
-    type Item = Result<T, serde_json::Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let inner = self.inner.next()?;
-        Some(serde_json::from_value(inner.clone()))
-    }
 }
 
 #[cfg(test)]
