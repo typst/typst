@@ -312,8 +312,8 @@ impl Route<'_> {
         if !self.within(Route::MAX_SHOW_RULE_DEPTH) {
             bail!(
                 "maximum show rule depth exceeded";
-                hint: "check whether a show rule matches its own output";
-                hint: "this may be due to having too deeply nested elements"
+                hint: "maybe a show rule matches its own output";
+                hint: "maybe there are too deeply nested elements"
             );
         }
         Ok(())
