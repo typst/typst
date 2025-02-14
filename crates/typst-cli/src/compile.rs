@@ -539,6 +539,10 @@ fn write_make_deps(
                     res.push('$');
                     slashes = 0;
                 }
+                ':' => {
+                    res.push('\\');
+                    slashes = 0;
+                }
                 ' ' | '\t' => {
                     // `munge`'s source contains a comment here that says: "A
                     // space or tab preceded by 2N+1 backslashes represents N
