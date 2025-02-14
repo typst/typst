@@ -8,6 +8,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::eco_format;
 use parking_lot::RwLock;
+use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{
     bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
@@ -570,6 +571,8 @@ fn write_make_deps(
         dependencies: impl Iterator<Item = PathBuf>,
     ) -> io::Result<()> {
         let mut file = File::create(make_deps_path)?;
+        let current_dir = std::env::current_dir()?;
+        let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
 
         for (i, output_path) in output_paths.into_iter().enumerate() {
             if i != 0 {
@@ -579,9 +582,13 @@ fn write_make_deps(
         }
         file.write_all(b":")?;
         for dependency in dependencies {
-            let Some(dependency) =
-                dependency.strip_prefix(&root).unwrap_or(&dependency).to_str()
-            else {
+            let relative_dependency = match dependency.strip_prefix(&root) {
+                Ok(root_relative_dependency) => {
+                    relative_root.join(root_relative_dependency)
+                }
+                Err(_) => dependency,
+            };
+            let Some(relative_dependency) = relative_dependency.to_str() else {
                 // Silently skip paths that aren't valid unicode so we still
                 // produce a rule that will work for the other paths that can be
                 // processed.
@@ -589,7 +596,7 @@ fn write_make_deps(
             };
 
             file.write_all(b" ")?;
-            file.write_all(munge(dependency).as_bytes())?;
+            file.write_all(munge(relative_dependency).as_bytes())?;
         }
         file.write_all(b"\n")?;
 
