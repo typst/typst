@@ -844,8 +844,8 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 /// Whether hyphenation is enabled at the given offset.
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.config.hyphenate.unwrap_or_else(|| {
-        let (_, item) = p.get(offset);
-        match item.text() {
+        let run = p.get(offset);
+        match run.item.text() {
             Some(text) => TextElem::hyphenate_in(text.styles).unwrap_or(p.config.justify),
             None => false,
         }
@@ -855,8 +855,8 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
 /// The text language at the given offset.
 fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.config.lang.or_else(|| {
-        let (_, item) = p.get(offset);
-        let styles = item.text()?.styles;
+        let run = p.get(offset);
+        let styles = run.item.text()?.styles;
         Some(TextElem::lang_in(styles))
     })?;
 
@@ -921,8 +921,8 @@ impl Estimates {
         let mut shrinkability = CumulativeVec::with_capacity(cap);
         let mut justifiables = CumulativeVec::with_capacity(cap);
 
-        for (range, item) in p.items.iter() {
-            if let Item::Text(shaped) = item {
+        for run in p.items.iter() {
+            if let Item::Text(shaped) = &run.item {
                 for g in shaped.glyphs.iter() {
                     let byte_len = g.range.len();
                     let stretch = g.stretchability().0 + g.stretchability().1;
@@ -933,13 +933,13 @@ impl Estimates {
                     justifiables.push(byte_len, g.is_justifiable() as usize);
                 }
             } else {
-                widths.push(range.len(), item.natural_width());
+                widths.push(run.range.len(), run.item.natural_width());
             }
 
-            widths.adjust(range.end);
-            stretchability.adjust(range.end);
-            shrinkability.adjust(range.end);
-            justifiables.adjust(range.end);
+            widths.adjust(run.range.end);
+            stretchability.adjust(run.range.end);
+            shrinkability.adjust(run.range.end);
+            justifiables.adjust(run.range.end);
         }
 
         Self {

@@ -3,6 +3,12 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
 use super::*;
 
+#[derive(Debug)]
+pub struct Run<'a> {
+    pub item: Item<'a>,
+    pub range: Range,
+}
+
 /// A representation in which children are already layouted and text is already
 /// preshaped.
 ///
@@ -20,7 +26,7 @@ pub struct Preparation<'a> {
     /// direction).
     pub bidi: Option<BidiInfo<'a>>,
     /// Text runs, spacing and layouted elements.
-    pub items: Vec<(Range, Item<'a>)>,
+    pub items: Vec<Run<'a>>,
     /// Maps from byte indices to item indices.
     pub indices: Vec<usize>,
     /// The span mapper.
@@ -29,13 +35,13 @@ pub struct Preparation<'a> {
 
 impl<'a> Preparation<'a> {
     /// Get the item that contains the given `text_offset`.
-    pub fn get(&self, offset: usize) -> &(Range, Item<'a>) {
+    pub fn get(&self, offset: usize) -> &Run {
         let idx = self.indices.get(offset).copied().unwrap_or(0);
         &self.items[idx]
     }
 
     /// Iterate over the items that intersect the given `sliced` range.
-    pub fn slice(&self, sliced: Range) -> impl Iterator<Item = &(Range, Item<'a>)> {
+    pub fn slice(&self, sliced: Range) -> impl Iterator<Item = &Run> {
         // Usually, we don't want empty-range items at the start of the line
         // (because they will be part of the previous line), but for the first
         // line, we need to keep them.
@@ -43,8 +49,8 @@ impl<'a> Preparation<'a> {
             0 => 0,
             n => self.indices.get(n).copied().unwrap_or(0),
         };
-        self.items[start..].iter().take_while(move |(range, _)| {
-            range.start < sliced.end || range.end <= sliced.end
+        self.items[start..].iter().take_while(move |run| {
+            run.range.start < sliced.end || run.range.end <= sliced.end
         })
     }
 }
@@ -84,7 +90,7 @@ pub fn prepare<'a>(
             Segment::Text(_, styles) => {
                 shape_range(&mut items, engine, text, &bidi, range, styles);
             }
-            Segment::Item(item) => items.push((range, item)),
+            Segment::Item(item) => items.push(Run { range, item }),
         }
 
         cursor = end;
@@ -92,8 +98,8 @@ pub fn prepare<'a>(
 
     // Build the mapping from byte to item indices.
     let mut indices = Vec::with_capacity(text.len());
-    for (i, (range, _)) in items.iter().enumerate() {
-        indices.extend(range.clone().map(|_| i));
+    for (i, run) in items.iter().enumerate() {
+        indices.extend(run.range.clone().map(|_| i));
     }
 
     if config.cjk_latin_spacing {
@@ -113,15 +119,15 @@ pub fn prepare<'a>(
 /// Add some spacing between Han characters and western characters. See
 /// Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition
 /// in Horizontal Written Mode
-fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
+fn add_cjk_latin_spacing(items: &mut [Run]) {
     let mut items = items
         .iter_mut()
-        .filter(|(_, x)| !matches!(x, Item::Tag(_)))
+        .filter(|run| !matches!(run.item, Item::Tag(_)))
         .peekable();
 
     let mut prev: Option<&ShapedGlyph> = None;
-    while let Some((_, item)) = items.next() {
-        let Some(text) = item.text_mut() else {
+    while let Some(run) = items.next() {
+        let Some(text) = run.item.text_mut() else {
             prev = None;
             continue;
         };
@@ -135,7 +141,7 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
             let next = glyphs.peek().map(|n| n as _).or_else(|| {
                 items
                     .peek()
-                    .and_then(|(_, i)| i.text())
+                    .and_then(|run| run.item.text())
                     .and_then(|shaped| shaped.glyphs.first())
             });
 
