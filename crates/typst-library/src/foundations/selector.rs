@@ -93,9 +93,8 @@ pub enum Selector {
     Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
     /// Matches all matches of `selector` after `start`.
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
-    /// Matches all children of `selector` matchin `c`
-    /// TODO: Better name
-    Contains { selector: Arc<Self>, c: Arc<Self> },
+    /// Matches all children of `selector` matching `children_selector`
+    Contains { selector: Arc<Self>, children_selector: Arc<Self> },
 }
 
 impl Selector {
@@ -228,9 +227,14 @@ impl Selector {
         }
     }
 
+    /// Returns a modified selector that only matches children of what `self`
+    /// selects that match `children_selector`.
     #[func]
-    pub fn contains(self, c: LocatableSelector) -> Selector {
-        Self::Contains { selector: Arc::new(self), c: Arc::new(c.0) }
+    pub fn contains(self, children_selector: LocatableSelector) -> Selector {
+        Self::Contains {
+            selector: Arc::new(self),
+            children_selector: Arc::new(children_selector.0),
+        }
     }
 }
 
@@ -277,7 +281,9 @@ impl Repr for Selector {
                     inclusive_arg
                 )
             }
-            Self::Contains { .. } => todo!(),
+            Self::Contains { selector, children_selector } => {
+                eco_format!("{}.contains({})", selector.repr(), children_selector.repr())
+            }
         }
     }
 }
@@ -365,7 +371,7 @@ impl FromValue for LocatableSelector {
                 }
                 Selector::Before { selector, end: split, .. }
                 | Selector::After { selector, start: split, .. }
-                | Selector::Contains { selector, c: split } => {
+                | Selector::Contains { selector, children_selector: split } => {
                     for selector in [selector, split] {
                         validate(selector)?;
                     }
