@@ -110,10 +110,10 @@ pub fn linebreak<'a>(
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
-    match p.config.linebreaks {
+    dbg!(match p.config.linebreaks {
         Linebreaks::Simple => linebreak_simple(engine, p, width),
         Linebreaks::Optimized => linebreak_optimized(engine, p, width),
-    }
+    })
 }
 
 /// Performs line breaking in simple first-fit style. This means that we build

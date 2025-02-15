@@ -118,7 +118,6 @@ pub fn prepare<'a>(
     if config.cjk_latin_spacing {
         add_cjk_latin_spacing(&mut items);
     }
-    dbg!(&items);
 
     Ok(Preparation {
         config,
