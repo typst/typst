@@ -185,6 +185,11 @@ impl Introspector {
                 }
                 list
             }
+            Selector::Contains { selector, c } => self
+                .query(selector)
+                .iter()
+                .flat_map(|children| children.query(c))
+                .collect(),
             // Not supported here.
             Selector::Can(_) | Selector::Regex(_) => EcoVec::new(),
         };

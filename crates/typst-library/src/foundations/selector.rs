@@ -93,6 +93,9 @@ pub enum Selector {
     Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
     /// Matches all matches of `selector` after `start`.
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
+    /// Matches all children of `selector` matchin `c`
+    /// TODO: Better name
+    Contains { selector: Arc<Self>, c: Arc<Self> },
 }
 
 impl Selector {
@@ -139,7 +142,10 @@ impl Selector {
             }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
-            Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
+            Self::Regex(_)
+            | Self::Before { .. }
+            | Self::After { .. }
+            | Self::Contains { .. } => false,
         }
     }
 }
@@ -221,6 +227,11 @@ impl Selector {
             inclusive,
         }
     }
+
+    #[func]
+    pub fn contains(self, c: LocatableSelector) -> Selector {
+        Self::Contains { selector: Arc::new(self), c: Arc::new(c.0) }
+    }
 }
 
 impl From<Location> for Selector {
@@ -266,6 +277,7 @@ impl Repr for Selector {
                     inclusive_arg
                 )
             }
+            Self::Contains { .. } => todo!(),
         }
     }
 }
@@ -352,7 +364,8 @@ impl FromValue for LocatableSelector {
                     }
                 }
                 Selector::Before { selector, end: split, .. }
-                | Selector::After { selector, start: split, .. } => {
+                | Selector::After { selector, start: split, .. }
+                | Selector::Contains { selector, c: split } => {
                     for selector in [selector, split] {
                         validate(selector)?;
                     }
@@ -431,7 +444,8 @@ impl FromValue for ShowableSelector {
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
-                | Selector::After { .. } => {
+                | Selector::After { .. }
+                | Selector::Contains { .. } => {
                     bail!("this selector cannot be used with show")
                 }
             }

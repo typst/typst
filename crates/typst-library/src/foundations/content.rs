@@ -412,7 +412,7 @@ impl Content {
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
+    pub fn query(&self, selector: &Selector) -> Vec<Content> {
         let mut results = Vec::new();
         self.traverse(&mut |element| {
             if selector.matches(&element, None) {
