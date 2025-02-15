@@ -560,6 +560,7 @@ impl IntoValue for CslSource {
 /// memoization) for the whole document. This setup is necessary because
 /// citation formatting is inherently stateful and we need access to all
 /// citations to do it.
+#[derive(Debug)]
 pub(super) struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: HashMap<Location, SourceResult<Content>>,
