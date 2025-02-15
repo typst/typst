@@ -26,6 +26,7 @@ const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified b
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
 /// the break index is safe-to-break per rustybuzz.
+#[derive(Debug)]
 pub struct Line<'a> {
     /// The items the line is made of.
     pub items: Items<'a>,
@@ -219,7 +220,7 @@ fn collect_items<'a>(
     // Add fallback text to expand the line height, if necessary.
     if !items.iter().any(|item| matches!(item, Item::Text(_))) {
         if let Some(fallback) = fallback {
-            items.push(fallback);
+            items.push(fallback, usize::MAX);
         }
     }
 
@@ -273,7 +274,7 @@ fn collect_range<'a>(
     for run in p.slice(range.clone()) {
         // All non-text items are just kept, they can't be split.
         let Item::Text(shaped) = &run.item else {
-            items.push(&run.item);
+            items.push(&run.item, run.idx);
             continue;
         };
         let subrange = &run.range;
@@ -294,10 +295,10 @@ fn collect_range<'a>(
         } else if split {
             // When the item is split in half, reshape it.
             let reshaped = shaped.reshape(engine, sliced);
-            items.push(Item::Text(reshaped));
+            items.push(Item::Text(reshaped), run.idx);
         } else {
             // When the item is fully contained, just keep it.
-            items.push(&run.item);
+            items.push(&run.item, run.idx);
         }
     }
 }
@@ -628,7 +629,7 @@ fn overhang(c: char) -> f64 {
 }
 
 /// A collection of owned or borrowed inline items.
-pub struct Items<'a>(Vec<ItemEntry<'a>>);
+pub struct Items<'a>(Vec<IndexedItemEntry<'a>>);
 
 impl<'a> Items<'a> {
     /// Create empty items.
@@ -637,33 +638,33 @@ impl<'a> Items<'a> {
     }
 
     /// Push a new item.
-    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>) {
-        self.0.push(entry.into());
+    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: usize) {
+        self.0.push(IndexedItemEntry { item: entry.into(), idx });
     }
 
     /// Iterate over the items
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
-        self.0.iter().map(|item| &**item)
+        self.0.iter().map(|item| &*item.item)
     }
 
     /// Access the first item.
     pub fn first(&self) -> Option<&Item<'a>> {
-        self.0.first().map(|item| &**item)
+        self.0.first().map(|item| &*item.item)
     }
 
     /// Access the last item.
     pub fn last(&self) -> Option<&Item<'a>> {
-        self.0.last().map(|item| &**item)
+        self.0.last().map(|item| &*item.item)
     }
 
     /// Access the first item mutably, if it is text.
     pub fn first_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.first_mut()?.text_mut()
+        self.0.first_mut()?.item.text_mut()
     }
 
     /// Access the last item mutably, if it is text.
     pub fn last_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.last_mut()?.text_mut()
+        self.0.last_mut()?.item.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -674,12 +675,17 @@ impl<'a> Items<'a> {
 
 impl<'a> FromIterator<ItemEntry<'a>> for Items<'a> {
     fn from_iter<I: IntoIterator<Item = ItemEntry<'a>>>(iter: I) -> Self {
-        Self(iter.into_iter().collect())
+        Self(
+            iter.into_iter()
+                .enumerate()
+                .map(|(idx, item)| IndexedItemEntry { item, idx })
+                .collect(),
+        )
     }
 }
 
 impl<'a> Deref for Items<'a> {
-    type Target = Vec<ItemEntry<'a>>;
+    type Target = Vec<IndexedItemEntry<'a>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -696,6 +702,13 @@ impl Debug for Items<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(&self.0).finish()
     }
+}
+
+/// An item accompanied by its position within a line.
+#[derive(Debug)]
+pub struct IndexedItemEntry<'a> {
+    pub item: ItemEntry<'a>,
+    pub idx: usize,
 }
 
 /// A reference to or a boxed item.
