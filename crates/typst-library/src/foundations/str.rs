@@ -827,7 +827,7 @@ pub enum UnicodeNormalForm {
     Nfd,
     /// `"nfc"` (compose) but using the Unicode compatibility decompositions of
     /// the characters
-    #[string("nkfc")]
+    #[string("nfkc")]
     Nfkc,
     /// `"nfd"` (decompose) but compatibility-decomposing the characters first
     #[string("nfkd")]

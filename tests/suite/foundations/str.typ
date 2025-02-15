@@ -88,10 +88,10 @@
 
 --- str-normalize ---
 // Test the `normalize` method.
-#test("e\u{0301}".normalize("NFC"), "é")
-#test("é".normalize("NFD"), "e\u{0301}")
-#test("ſ\u{0301}".normalize("NFKC"), "ś")
-#test("ſ\u{0301}".normalize("NFKD"), "s\u{0301}")
+#test("e\u{0301}".normalize(form: "nfc"), "é")
+#test("é".normalize(form: "nfd"), "e\u{0301}")
+#test("ſ\u{0301}".normalize(form: "nfkc"), "ś")
+#test("ſ\u{0301}".normalize(form: "nfkd"), "s\u{0301}")
 
 --- string-len ---
 // Test the `len` method.
