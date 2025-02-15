@@ -599,6 +599,7 @@ pub fn shape_range<'a>(
     bidi: &BidiInfo<'a>,
     range: Range,
     styles: StyleChain<'a>,
+    next_idx: &mut usize,
 ) {
     let script = TextElem::script_in(styles);
     let lang = TextElem::lang_in(styles);
@@ -607,7 +608,8 @@ pub fn shape_range<'a>(
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
         let shaped =
             shape(engine, range.start, &text[range.clone()], styles, dir, lang, region);
-        items.push(Run { range, item: Item::Text(shaped) });
+        items.push(Run { range, item: Item::Text(shaped), idx: *next_idx });
+        *next_idx += 1;
     };
 
     let mut prev_level = BidiLevel::ltr();
