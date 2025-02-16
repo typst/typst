@@ -83,6 +83,18 @@
   grid.cell(y: 1)[c],
 )
 
+--- grid-footer-cell-with-x ---
+#grid(
+  columns: 2,
+  stroke: black,
+  inset: 5pt,
+  grid.cell(x: 1)[a],
+  // Error: 3-56 footer must end at the last row
+  grid.footer(grid.cell(x: 0)[b1], grid.cell(x: 0)[b2]),
+  // This should skip the footer
+  grid.cell(x: 1)[c]
+)
+
 --- grid-footer-expand ---
 // Ensure footer properly expands
 #grid(

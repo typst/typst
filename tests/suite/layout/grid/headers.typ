@@ -60,6 +60,17 @@
   grid.cell(y: 2)[c]
 )
 
+--- grid-header-cell-with-x ---
+#grid(
+  columns: 2,
+  stroke: black,
+  inset: 5pt,
+  // grid.cell(x: 1)[a],
+  grid.header(grid.cell(x: 0)[b1], grid.cell(x: 0)[b2]),
+  // This should skip the header
+  grid.cell(x: 1)[c]
+)
+
 --- grid-header-last-child ---
 // When the header is the last grid child, it shouldn't include the gutter row
 // after it, because there is none.

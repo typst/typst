@@ -1738,13 +1738,44 @@ fn resolve_cell_position(
                 // 'first_available_row'). Otherwise, start searching at the
                 // first row.
                 let mut resolved_y = first_available_row;
-                while let Some(Some(_)) =
-                    resolved_cells.get(cell_index(cell_x, resolved_y)?)
-                {
-                    // Try each row until either we reach an absent position
-                    // (`Some(None)`) or an out of bounds position (`None`),
-                    // in which case we'd create a new row to place this cell in.
-                    resolved_y += 1;
+                if header.is_some() || footer.is_some() {
+                    // There are row groups, so we have to not only skip
+                    // rows where the requested column is occupied to find the
+                    // first suitable row, but also skip rows belonging to
+                    // headers or footers.
+                    loop {
+                        if let Some(Some(_)) =
+                            resolved_cells.get(cell_index(cell_x, resolved_y)?)
+                        {
+                            // Try each row until either we reach an absent position
+                            // (`Some(None)`) or an out of bounds position (`None`),
+                            // in which case we'd create a new row to place this cell in.
+                            resolved_y += 1;
+                        } else if let Some(header) =
+                            header.filter(|header| resolved_y < header.end)
+                        {
+                            // Skip header
+                            resolved_y = header.end;
+                        } else if let Some((footer_end, _, _)) =
+                            footer.filter(|(end, _, footer)| {
+                                resolved_y >= footer.start && resolved_y < *end
+                            })
+                        {
+                            // Skip footer
+                            resolved_y = *footer_end;
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    // No row groups to skip, so only skip a row if the
+                    // requested column is occupied, and find the first row
+                    // where it isn't.
+                    while let Some(Some(_)) =
+                        resolved_cells.get(cell_index(cell_x, resolved_y)?)
+                    {
+                        resolved_y += 1;
+                    }
                 }
                 cell_index(cell_x, resolved_y)
             }
