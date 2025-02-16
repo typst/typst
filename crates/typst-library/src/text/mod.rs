@@ -1380,24 +1380,7 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        let found = book.contains_family(family.as_str());
-        if family.as_str() == "linux libertine" {
-            let mut warning = warning!(
-                list.span,
-                "Typst's default font has changed from Linux Libertine to its successor Libertinus Serif";
-                hint: "please set the font to `\"Libertinus Serif\"` instead"
-            );
-
-            if found {
-                warning.hint(
-                    "Linux Libertine is available on your system - \
-                     you can ignore this warning if you are sure you want to use it",
-                );
-                warning.hint("this warning will be removed in Typst 0.13");
-            }
-
-            engine.sink.warn(warning);
-        } else if !found {
+        if !book.contains_family(family.as_str()) {
             engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
