@@ -2753,7 +2753,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.12.0"
-source = "git+https://github.com/typst/typst-assets?rev=8cccef9#8cccef93b5da73a1c80389722cf2b655b624f577"
+source = "git+https://github.com/typst/typst-assets?rev=8536748#8536748e4350198f34e519adff8593f258259cca"
 
 [[package]]
 name = "typst-cli"
@@ -2901,6 +2901,8 @@ dependencies = [
  "native-tls",
  "once_cell",
  "openssl",
+ "serde",
+ "serde_json",
  "tar",
  "typst-assets",
  "typst-library",

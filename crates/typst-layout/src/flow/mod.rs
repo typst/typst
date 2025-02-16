@@ -197,7 +197,50 @@ pub fn layout_flow<'a>(
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = Config {
+    let config = configuration(shared, regions, columns, column_gutter, mode);
+
+    // Collect the elements into pre-processed children. These are much easier
+    // to handle than the raw elements.
+    let bump = Bump::new();
+    let children = collect(
+        engine,
+        &bump,
+        children,
+        locator.next(&()),
+        Size::new(config.columns.width, regions.full),
+        regions.expand.x,
+        mode,
+    )?;
+
+    let mut work = Work::new(&children);
+    let mut finished = vec![];
+
+    // This loop runs once per region produced by the flow layout.
+    loop {
+        let frame = compose(engine, &mut work, &config, locator.next(&()), regions)?;
+        finished.push(frame);
+
+        // Terminate the loop when everything is processed, though draining the
+        // backlog if necessary.
+        if work.done() && (!regions.expand.y || regions.backlog.is_empty()) {
+            break;
+        }
+
+        regions.next();
+    }
+
+    Ok(Fragment::frames(finished))
+}
+
+/// Determine the flow's configuration.
+fn configuration<'x>(
+    shared: StyleChain<'x>,
+    regions: Regions,
+    columns: NonZeroUsize,
+    column_gutter: Rel<Abs>,
+    mode: FlowMode,
+) -> Config<'x> {
+    Config {
         mode,
         shared,
         columns: {
@@ -235,39 +278,7 @@ pub fn layout_flow<'a>(
                 )
             },
         }),
-    };
-
-    // Collect the elements into pre-processed children. These are much easier
-    // to handle than the raw elements.
-    let bump = Bump::new();
-    let children = collect(
-        engine,
-        &bump,
-        children,
-        locator.next(&()),
-        Size::new(config.columns.width, regions.full),
-        regions.expand.x,
-        mode,
-    )?;
-
-    let mut work = Work::new(&children);
-    let mut finished = vec![];
-
-    // This loop runs once per region produced by the flow layout.
-    loop {
-        let frame = compose(engine, &mut work, &config, locator.next(&()), regions)?;
-        finished.push(frame);
-
-        // Terminate the loop when everything is processed, though draining the
-        // backlog if necessary.
-        if work.done() && (!regions.expand.y || regions.backlog.is_empty()) {
-            break;
-        }
-
-        regions.next();
     }
-
-    Ok(Fragment::frames(finished))
 }
 
 /// The work that is left to do by flow layout.
