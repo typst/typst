@@ -280,8 +280,8 @@ impl Repr for Selector {
                     inclusive_arg
                 )
             }
-            Self::Within { selector, ancestor: children_selector } => {
-                eco_format!("{}.contains({})", selector.repr(), children_selector.repr())
+            Self::Within { selector, ancestor } => {
+                eco_format!("{}.within({})", selector.repr(), ancestor.repr())
             }
         }
     }
