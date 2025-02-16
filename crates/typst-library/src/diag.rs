@@ -232,17 +232,41 @@ impl From<SyntaxError> for SourceDiagnostic {
 /// Destination for a deprecation message when accessing a deprecated value.
 pub trait DeprecationSink {
     /// Emits the given deprecation message into this sink.
-    fn emit(self, message: &str);
+    fn emit(&mut self, message: &str);
+
+    /// Emits the given deprecation message into this sink, with the given
+    /// hints.
+    fn emit_with_hints(&mut self, message: &str, hints: &[&str]);
 }
 
 impl DeprecationSink for () {
-    fn emit(self, _: &str) {}
+    fn emit(&mut self, _: &str) {}
+    fn emit_with_hints(&mut self, _: &str, _: &[&str]) {}
+}
+
+impl DeprecationSink for (&mut Vec<SourceDiagnostic>, Span) {
+    fn emit(&mut self, message: &str) {
+        self.0.push(SourceDiagnostic::warning(self.1, message));
+    }
+
+    fn emit_with_hints(&mut self, message: &str, hints: &[&str]) {
+        self.0.push(
+            SourceDiagnostic::warning(self.1, message)
+                .with_hints(hints.iter().copied().map(Into::into)),
+        );
+    }
 }
 
 impl DeprecationSink for (&mut Engine<'_>, Span) {
-    /// Emits the deprecation message as a warning.
-    fn emit(self, message: &str) {
+    fn emit(&mut self, message: &str) {
         self.0.sink.warn(SourceDiagnostic::warning(self.1, message));
+    }
+
+    fn emit_with_hints(&mut self, message: &str, hints: &[&str]) {
+        self.0.sink.warn(
+            SourceDiagnostic::warning(self.1, message)
+                .with_hints(hints.iter().copied().map(Into::into)),
+        );
     }
 }
 

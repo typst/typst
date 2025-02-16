@@ -300,7 +300,7 @@ impl Binding {
     /// As the `sink`
     /// - pass `()` to ignore the message.
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
-    pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
+    pub fn read_checked(&self, mut sink: impl DeprecationSink) -> &Value {
         if let Some(message) = self.deprecation {
             sink.emit(message);
         }
