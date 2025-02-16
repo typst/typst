@@ -93,8 +93,8 @@ pub enum Selector {
     Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
     /// Matches all matches of `selector` after `start`.
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
-    /// Matches all children of `selector` matching `children_selector`
-    Contains { selector: Arc<Self>, children_selector: Arc<Self> },
+    /// Matches all children of `ancestor` matching `selector`
+    Within { selector: Arc<Self>, ancestor: Arc<Self> },
 }
 
 impl Selector {
@@ -144,7 +144,7 @@ impl Selector {
             Self::Regex(_)
             | Self::Before { .. }
             | Self::After { .. }
-            | Self::Contains { .. } => false,
+            | Self::Within { .. } => false,
         }
     }
 }
@@ -227,13 +227,12 @@ impl Selector {
         }
     }
 
-    /// Returns a modified selector that only matches children of what `self`
-    /// selects that match `children_selector`.
+    /// Returns a modified selector that only matches `self` if it is contained in an `ancestor`.
     #[func]
-    pub fn contains(self, children_selector: LocatableSelector) -> Selector {
-        Self::Contains {
+    pub fn within(self, ancestor: LocatableSelector) -> Selector {
+        Self::Within {
             selector: Arc::new(self),
-            children_selector: Arc::new(children_selector.0),
+            ancestor: Arc::new(ancestor.0),
         }
     }
 }
@@ -281,7 +280,7 @@ impl Repr for Selector {
                     inclusive_arg
                 )
             }
-            Self::Contains { selector, children_selector } => {
+            Self::Within { selector, ancestor: children_selector } => {
                 eco_format!("{}.contains({})", selector.repr(), children_selector.repr())
             }
         }
@@ -371,7 +370,7 @@ impl FromValue for LocatableSelector {
                 }
                 Selector::Before { selector, end: split, .. }
                 | Selector::After { selector, start: split, .. }
-                | Selector::Contains { selector, children_selector: split } => {
+                | Selector::Within { selector, ancestor: split } => {
                     for selector in [selector, split] {
                         validate(selector)?;
                     }
@@ -451,7 +450,7 @@ impl FromValue for ShowableSelector {
                 | Selector::Can(_)
                 | Selector::Before { .. }
                 | Selector::After { .. }
-                | Selector::Contains { .. } => {
+                | Selector::Within { .. } => {
                     bail!("this selector cannot be used with show")
                 }
             }
