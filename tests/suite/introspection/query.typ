@@ -250,3 +250,27 @@
   t("b")
   block(height: 1fr, metadata("b"))
 }
+
+--- query-within ---
+
+#let test-selector(selector, ref) = context {
+  test(query(selector).map(e => e.body), ref)
+}
+
+= A #strong[a] #label("strong")
+
+#strong[b] #label("strong")
+
+== B
+
+== C #strong[c] #label("strong")
+>
+#test-selector(
+  selector(<strong>).within(heading),
+  ([a], [c]),
+)
+
+#test-selector(
+  selector(<strong>).within(heading.where(level: 2)),
+  ([c], ),
+)
