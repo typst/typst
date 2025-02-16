@@ -368,3 +368,15 @@
     [b]
   )
 )
+
+--- issue-5359-column-override-stays-inside-header ---
+#table(
+  columns: 3,
+  [Outside],
+  // Error: 1:3-4:4 header must start at the first row
+  // Hint: 1:3-4:4 remove any rows before the header
+  table.header(
+    [A], table.cell(x: 1)[B], [C],
+    table.cell(x: 1)[D],
+  ),
+)

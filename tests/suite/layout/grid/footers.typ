@@ -385,8 +385,8 @@
 #table(
   columns: 3,
   inset: 1.5pt,
-  table.cell(y: 0)[a],
   table.footer(
+    table.cell(y: 0)[a],
     table.hline(stroke: red),
     table.hline(y: 1, stroke: aqua),
     table.cell(y: 0)[b],
@@ -403,4 +403,30 @@
   inset: 1.5pt,
   table.cell(rowspan: 2)[a], table.cell(rowspan: 2)[b],
   table.footer()
+)
+
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-outside ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  table.cell(y: 0)[a],
+  table.footer(
+    table.hline(stroke: red),
+    table.hline(y: 1, stroke: aqua),
+    // Error: 5-24 cell in a header or footer cannot be placed in a row with cells outside that header or footer
+    table.cell(y: 0)[b],
+    [c]
+  )
+)
+
+--- issue-5359-column-override-stays-inside-footer ---
+#table(
+  columns: 3,
+  [Outside],
+  table.footer(
+    [A], table.cell(x: 1)[B], [C],
+    table.cell(x: 1)[D],
+  ),
 )
