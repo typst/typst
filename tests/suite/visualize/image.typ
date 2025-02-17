@@ -65,6 +65,17 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   caption: [Bilingual text]
 )
 
+--- image-svg-auto-detection ---
+#image(bytes(
+  ```
+  <?xml version="1.0" encoding="utf-8"?>
+  <!-- An SVG -->
+  <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+    <rect fill="red" stroke="black" x="25" y="25" width="150" height="100"/>
+  </svg>
+  ```.text
+))
+
 --- image-pixmap-rgb8 ---
 #image(
   bytes((
@@ -152,8 +163,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("path/does/not/exist")
 
 --- image-bad-format ---
-// Error: 2-22 unknown image format
-#image("./image.typ")
+// Error: 2-37 unknown image format
+#image("/assets/plugins/hello.wasm")
 
 --- image-bad-svg ---
 // Error: 2-33 failed to parse SVG (found closing tag 'g' instead of 'style' in line 4)
