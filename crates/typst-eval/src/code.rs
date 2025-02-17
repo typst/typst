@@ -55,7 +55,7 @@ fn eval_code<'a>(
             _ => expr.eval(vm)?,
         };
 
-        output = ops::join(output, value).at(span)?;
+        output = ops::join(output, value, &mut (&mut vm.engine, span)).at(span)?;
 
         if let Some(event) = &vm.flow {
             warn_for_discarded_content(&mut vm.engine, event, &output);

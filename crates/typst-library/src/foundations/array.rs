@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{
+    bail, At, DeprecationSink, HintedStrResult, SourceDiagnostic, SourceResult, StrResult,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, func, ops, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue,
@@ -142,6 +144,11 @@ impl Array {
             .ok_or_else(|| format!("cannot repeat this array {n} times"))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
+    }
+
+    /// The internal implementation of [`Array::contains`].
+    pub fn contains_impl(&self, value: &Value, sink: &mut dyn DeprecationSink) -> bool {
+        self.0.iter().any(|v| ops::equal(v, value, sink))
     }
 }
 
@@ -290,10 +297,12 @@ impl Array {
     #[func]
     pub fn contains(
         &self,
+        engine: &mut Engine,
+        span: Span,
         /// The value to search for.
         value: Value,
     ) -> bool {
-        self.0.contains(&value)
+        self.contains_impl(&value, &mut (engine, span))
     }
 
     /// Searches for an item for which the given function returns `{true}` and
@@ -576,6 +585,8 @@ impl Array {
     #[func]
     pub fn sum(
         self,
+        engine: &mut Engine,
+        span: Span,
         /// What to return if the array is empty. Must be set if the array can
         /// be empty.
         #[named]
@@ -587,7 +598,7 @@ impl Array {
             .or(default)
             .ok_or("cannot calculate sum of empty array with no default")?;
         for item in iter {
-            acc = ops::add(acc, item)?;
+            acc = ops::add(acc, item, &mut (&mut *engine, span))?;
         }
         Ok(acc)
     }
@@ -686,6 +697,8 @@ impl Array {
     #[func]
     pub fn join(
         self,
+        engine: &mut Engine,
+        span: Span,
         /// A value to insert between each item of the array.
         #[default]
         separator: Option<Value>,
@@ -701,13 +714,18 @@ impl Array {
         for (i, value) in self.into_iter().enumerate() {
             if i > 0 {
                 if i + 1 == len && last.is_some() {
-                    result = ops::join(result, last.take().unwrap())?;
+                    result = ops::join(
+                        result,
+                        last.take().unwrap(),
+                        &mut (&mut *engine, span),
+                    )?;
                 } else {
-                    result = ops::join(result, separator.clone())?;
+                    result =
+                        ops::join(result, separator.clone(), &mut (&mut *engine, span))?;
                 }
             }
 
-            result = ops::join(result, value)?;
+            result = ops::join(result, value, &mut (&mut *engine, span))?;
         }
 
         Ok(result)
@@ -862,13 +880,14 @@ impl Array {
         self,
         engine: &mut Engine,
         context: Tracked<Context>,
+        span: Span,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]
         key: Option<Func>,
     ) -> SourceResult<Array> {
         let mut out = EcoVec::with_capacity(self.0.len());
-        let mut key_of = |x: Value| match &key {
+        let key_of = |engine: &mut Engine, x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
             Some(f) => f.call(engine, context, [x]),
@@ -879,14 +898,18 @@ impl Array {
         // 1. We would like to preserve the order of the elements.
         // 2. We cannot hash arbitrary `Value`.
         'outer: for value in self {
-            let key = key_of(value.clone())?;
+            let key = key_of(&mut *engine, value.clone())?;
             if out.is_empty() {
                 out.push(value);
                 continue;
             }
 
             for second in out.iter() {
-                if ops::equal(&key, &key_of(second.clone())?) {
+                if ops::equal(
+                    &key,
+                    &key_of(&mut *engine, second.clone())?,
+                    &mut (&mut *engine, span),
+                ) {
                     continue 'outer;
                 }
             }

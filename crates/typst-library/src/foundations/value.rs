@@ -292,7 +292,8 @@ impl Repr for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        ops::equal(self, other)
+        // No way to emit deprecation warnings here :(
+        ops::equal(self, other, &mut ())
     }
 }
 

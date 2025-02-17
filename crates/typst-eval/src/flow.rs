@@ -83,7 +83,8 @@ impl Eval for ast::WhileLoop<'_> {
             }
 
             let value = body.eval(vm)?;
-            output = ops::join(output, value).at(body.span())?;
+            let span = body.span();
+            output = ops::join(output, value, &mut (&mut vm.engine, span)).at(span)?;
 
             match vm.flow {
                 Some(FlowEvent::Break(_)) => {
@@ -129,7 +130,9 @@ impl Eval for ast::ForLoop<'_> {
 
                     let body = self.body();
                     let value = body.eval(vm)?;
-                    output = ops::join(output, value).at(body.span())?;
+                    let span = body.span();
+                    output =
+                        ops::join(output, value, &mut (&mut vm.engine, span)).at(span)?;
 
                     match vm.flow {
                         Some(FlowEvent::Break(_)) => {
