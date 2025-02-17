@@ -2966,6 +2966,7 @@ dependencies = [
  "kamadak-exif",
  "kurbo",
  "lipsum",
+ "memchr",
  "palette",
  "phf",
  "png",

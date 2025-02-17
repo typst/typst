@@ -398,13 +398,27 @@ impl ImageFormat {
             return Some(Self::Raster(RasterFormat::Exchange(format)));
         }
 
-        // SVG or compressed SVG.
-        if data.starts_with(b"<svg") || data.starts_with(&[0x1f, 0x8b]) {
+        if is_svg(data) {
             return Some(Self::Vector(VectorFormat::Svg));
         }
 
         None
     }
+}
+
+/// Checks whether the data looks like an SVG or a compressed SVG.
+fn is_svg(data: &[u8]) -> bool {
+    // Check for the gzip magic bytes. This check is perhaps a bit too
+    // permissive as other formats than SVGZ could use gzip.
+    if data.starts_with(&[0x1f, 0x8b]) {
+        return true;
+    }
+
+    // If the first 2048 bytes contain the SVG namespace declaration, we assume
+    // that it's an SVG. Note that, if the SVG does not contain a namespace
+    // declaration, usvg will reject it.
+    let head = &data[..data.len().min(2048)];
+    memchr::memmem::find(head, b"http://www.w3.org/2000/svg").is_some()
 }
 
 /// A vector graphics format.
