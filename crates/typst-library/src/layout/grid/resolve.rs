@@ -1030,6 +1030,111 @@ impl<'a> CellGrid<'a> {
                     styles,
                 );
 
+                // Check if the cell's header or footer can expand to the
+                // cell's position before placing it.
+                if is_row_group {
+                    // Ensure each cell in a header or footer is fully
+                    // contained within it by expanding the header or footer
+                    // towards this new cell.
+                    let new_child_start = child_start.min(y);
+                    let new_child_end = child_end.max(y + rowspan);
+
+                    // TODO: Maybe remove this check and just keep the loop,
+                    // we will loop in the "good case" anyway
+                    //
+                    // Quickly detect the case:
+                    // y = 0 => occupied
+                    // y = 1 => empty
+                    // y = 2 => header
+                    // and header tries to expand to y = 0 - invalid, as
+                    // `y = 1` is the earliest row it can occupy.
+                    if new_child_start < first_available_row {
+                        bail!(
+                            cell_span,
+                            "cell would cause header or footer to expand to a non-empty row";
+                            hint: "try moving its cells to later rows"
+                        );
+                    }
+
+                    // The check above isn't enough, however, even when the
+                    // header is expanding upwards, as it might expand upwards
+                    // towards an occupied row after the first empty row, e.g.
+                    // y = 0 => occupied
+                    // y = 1 => empty (first_available_row = 1)
+                    // y = 2 => occupied
+                    // y = 3 => header
+                    // Here, we should bail if the header tries to expand
+                    // upwards. Note that expanding upwards is only possible
+                    // when row-positioned cells are specified, in one of the
+                    // following cases:
+                    //
+                    // 1. We place e.g. `table.cell(y: 3)` followed by
+                    // `table.cell(y: 2)` (earlier row => upwards);
+                    // 2. We place e.g. `table.cell(y: 3)` followed by
+                    // `[a]` (auto-pos cell favors 'first_available_row', so
+                    // the header tries to expand upwards to place the cell at
+                    // `y = 1`).
+                    //
+                    // Of course, we also need to check for downward expansion
+                    // as there could be a non-empty row below the header, but
+                    // the upward case is highlighted due to its differences.
+                    let new_rows = (new_child_start..child_start.min(new_child_end))
+                        .chain(child_end.max(new_child_start + 1)..new_child_end);
+
+                    // Note that simply checking for non-empty rows like below
+                    // not only prevents conflicts with top-level cells
+                    // (outside of headers and footers), but also prevents
+                    // conflicts with other headers or footers, since we have
+                    // an invariant that even empty headers and footers must
+                    // contain at least one 'Some(...)' position in
+                    // 'resolved_cells'. More precisely, each header and footer
+                    // has at least one 'Some(...)' cell at 'child_start' and
+                    // at 'child_end - 1' - non-empty headers and footers don't
+                    // span any unnecessary rows.
+                    for new_y in new_rows {
+                        if let Some(new_row @ [_non_empty, ..]) = resolved_cells
+                            .get(new_y * c..)
+                            .map(|cells| &cells[..c.min(cells.len())])
+                        {
+                            if new_row.iter().any(Option::is_some) {
+                                // TODO:
+                                // - Later/earlier rows might be confusing
+                                // (moving to the end always works...)
+                                // - Detect when header or footer collided with
+                                // another header or footer and provide a
+                                // better error message if so.
+                                if new_y < child_start.min(new_child_end) {
+                                    bail!(
+                                        cell_span,
+                                        "cell would cause header or footer to expand to a non-empty row";
+                                        hint: "try moving its cells to later rows"
+                                    );
+                                } else {
+                                    bail!(
+                                        cell_span,
+                                        "cell would cause header or footer to expand to a non-empty row";
+                                        hint: "try moving its cells to earlier rows"
+                                    );
+                                }
+                            }
+                        } else {
+                            // Received `None` or an empty slice, so we are
+                            // expanding the header or footer into new rows,
+                            // which is always valid and cannot conflict with
+                            // existing cells. (Note that we only resize
+                            // `resolved_cells` after this check, so, if this
+                            // header or footer is at the bottom of the table
+                            // so far, this loop will end quite early,
+                            // regardless of where this cell was placed or of
+                            // its rowspan value.)
+                            break;
+                        }
+                    }
+
+                    child_start = new_child_start;
+                    child_end = new_child_end;
+                }
+
                 if largest_index >= resolved_cells.len() {
                     // Ensure the length of the vector of resolved cells is
                     // always a multiple of 'c' by pushing full rows every
@@ -1098,16 +1203,9 @@ impl<'a> CellGrid<'a> {
                         *slot = Some(Entry::Merged { parent: resolved_index });
                     }
                 }
-
-                if is_header || is_footer {
-                    // Ensure each cell in a header or footer is fully
-                    // contained within it.
-                    child_start = child_start.min(y);
-                    child_end = child_end.max(y + rowspan);
-                }
             }
 
-            if (is_header || is_footer) && child_start == usize::MAX {
+            if is_row_group && child_start == usize::MAX {
                 // Empty header/footer: consider the header/footer to be
                 // at the next empty row after the latest auto index.
                 local_auto_index = first_available_row * c;
@@ -1118,6 +1216,29 @@ impl<'a> CellGrid<'a> {
                     // Ensure the automatically chosen row actually exists.
                     resolved_cells.resize_with(c * (child_start + 1), || None);
                 }
+
+                // Even though this header or footer is fully empty, we add one
+                // default cell to maintain the invariant that each header and
+                // footer has at least one `Some(...)` cell at its first row
+                // and at least one at its last row (here they are the same
+                // row, of course). This invariant is important to ensure
+                // `find_next_empty_row` will skip through any existing headers
+                // and footers without having to loop through them each time.
+                // Cells themselves, unfortunately, still have to.
+                assert!(resolved_cells[local_auto_index].is_none());
+                let (first_x, first_y) = (0, first_available_row);
+                resolved_cells[local_auto_index] =
+                    Some(Entry::Cell(T::default().resolve_cell(
+                        first_x,
+                        first_y,
+                        &fill.resolve(engine, styles, first_x, first_y)?,
+                        align.resolve(engine, styles, first_x, first_y)?,
+                        inset.resolve(engine, styles, first_x, first_y)?,
+                        stroke.resolve(engine, styles, first_x, first_y)?,
+                        resolve_breakable(first_y, 1),
+                        locator.next(&()),
+                        styles,
+                    )));
             }
 
             if is_header {
@@ -1782,12 +1903,6 @@ fn resolve_cell_position(
         }
         // Cell has only chosen its row, not its column.
         (Smart::Auto, Smart::Custom(cell_y)) => {
-            if cell_y < first_available_row {
-                bail!(
-                    "cell in a header or footer cannot be placed in a row with cells outside that header or footer"
-                );
-            }
-
             // Let's find the first column which has that row available.
             let first_row_pos = cell_index(0, cell_y)?;
             let last_row_pos = first_row_pos

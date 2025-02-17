@@ -417,7 +417,7 @@
   table.footer()
 )
 
---- grid-footer-row-pos-cell-inside-conflicts-with-row-outside ---
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-before ---
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -427,10 +427,53 @@
   table.footer(
     table.hline(stroke: red),
     table.hline(y: 1, stroke: aqua),
-    // Error: 5-24 cell in a header or footer cannot be placed in a row with cells outside that header or footer
+    // Error: 5-24 cell would cause header or footer to expand to a non-empty row
+    // Hint: 5-24 try moving its cells to later rows
     table.cell(y: 0)[b],
     [c]
   )
+)
+
+--- grid-footer-auto-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 1)[a],
+  table.footer(
+    [b], [c],
+    // TODO: Why is the span just the letter 'd'?
+    // Error: 6-7 cell would cause header or footer to expand to a non-empty row
+    // Hint: 6-7 try moving its cells to earlier rows
+    [d],
+  ),
+)
+
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 2)[a],
+  table.footer(
+    [b], [c],
+    // Error: 5-24 cell would cause header or footer to expand to a non-empty row
+    // Hint: 5-24 try moving its cells to earlier rows
+    table.cell(y: 3)[d],
+  ),
+)
+
+--- grid-footer-conflicts-with-empty-header ---
+#table(
+  columns: 2,
+  table.header(),
+  table.footer(
+    // Error: 5-24 cell would cause header or footer to expand to a non-empty row
+    // Hint: 5-24 try moving its cells to later rows
+    table.cell(y: 0)[a]
+  ),
 )
 
 --- issue-5359-column-override-stays-inside-footer ---

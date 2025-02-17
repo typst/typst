@@ -380,6 +380,73 @@
   )
 )
 
+--- grid-header-row-pos-cell-inside-conflicts-with-row-before ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  table.cell(y: 0)[a],
+  table.header(
+    table.hline(stroke: red),
+    table.hline(y: 1, stroke: aqua),
+    // Error: 5-24 cell would cause header or footer to expand to a non-empty row
+    // Hint: 5-24 try moving its cells to later rows
+    table.cell(y: 0)[b],
+    [c]
+  )
+)
+
+--- grid-header-row-pos-cell-inside-conflicts-with-row-before-after-first-empty-row ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  // Rows: Occupied, Empty, Occupied, Empty, Empty, ...
+  // Should not be able to expand header from the second Empty to the second Occupied.
+  table.cell(y: 0)[a],
+  table.cell(y: 2)[a],
+  table.header(
+    table.hline(stroke: red),
+    table.hline(y: 3, stroke: aqua),
+    // Error: 5-24 cell would cause header or footer to expand to a non-empty row
+    // Hint: 5-24 try moving its cells to later rows
+    table.cell(y: 2)[b],
+  )
+)
+
+--- grid-header-auto-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 1)[a],
+  table.header(
+    [b], [c],
+    // TODO: A bit odd that this span is just the letter 'd'
+    // Error: 6-7 cell would cause header or footer to expand to a non-empty row
+    // Hint: 6-7 try moving its cells to earlier rows
+    [d],
+  ),
+)
+
+--- grid-header-row-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 2)[a],
+  table.header(
+    [b], [c],
+    // Error: 5-24 cell would cause header or footer to expand to a non-empty row
+    // Hint: 5-24 try moving its cells to earlier rows
+    table.cell(y: 3)[d],
+  ),
+)
+
 --- issue-5359-column-override-stays-inside-header ---
 #table(
   columns: 3,
