@@ -33,7 +33,7 @@ pub struct Preparation<'a> {
     pub spans: SpanMapper,
 }
 
-impl<'a> Preparation<'a> {
+impl Preparation<'_> {
     /// Get the item that contains the given `text_offset`.
     pub fn get(&self, offset: usize) -> &Run {
         let idx = self.indices.get(offset).copied().unwrap_or(0);
