@@ -7,7 +7,6 @@ use super::*;
 pub struct Run<'a> {
     pub item: Item<'a>,
     pub range: Range,
-    pub idx: usize,
 }
 
 /// A representation in which children are already layouted and text is already
@@ -80,7 +79,6 @@ pub fn prepare<'a>(
 
     let mut cursor = 0;
     let mut items = Vec::with_capacity(segments.len());
-    let mut next_idx = 0;
 
     // Shape the text to finalize the items.
     for segment in segments {
@@ -90,19 +88,10 @@ pub fn prepare<'a>(
 
         match segment {
             Segment::Text(_, styles) => {
-                shape_range(
-                    &mut items,
-                    engine,
-                    text,
-                    &bidi,
-                    range,
-                    styles,
-                    &mut next_idx,
-                );
+                shape_range(&mut items, engine, text, &bidi, range, styles);
             }
             Segment::Item(item) => {
-                items.push(Run { range, item, idx: next_idx });
-                next_idx += 1;
+                items.push(Run { range, item });
             }
         }
 
