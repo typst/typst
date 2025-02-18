@@ -2,8 +2,10 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, NativeElement, Packed, Show, StyleChain};
-use crate::layout::{BlockElem, Dir, Spacing};
+use crate::foundations::{
+    cast, elem, Content, NativeElement, Packed, Show, Smart, StyleChain,
+};
+use crate::layout::{Alignment, BlockElem, Dir, Spacing};
 
 /// Arranges content and spacing horizontally or vertically.
 ///
@@ -41,6 +43,11 @@ pub struct StackElem {
 
     /// Spacing to insert between items where no explicit spacing was provided.
     pub spacing: Option<Spacing>,
+
+    /// How to align the items.
+    ///
+    /// If set to `{auto}`, the outer alignment is used.
+    pub align: Smart<Alignment>,
 
     /// The children to stack along the axis.
     #[variadic]
