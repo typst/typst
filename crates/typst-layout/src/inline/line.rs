@@ -501,16 +501,16 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for item in line.items.iter() {
-        let mut push = |offset: &mut Abs, frame: Frame| {
+    for item in line.items.indexed_iter() {
+        let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
-            frames.push((*offset, frame));
+            frames.push((*offset, frame, idx));
             *offset += width;
         };
 
-        match item {
+        match &*item.item {
             Item::Absolute(v, _) => {
                 offset += *v;
             }
@@ -522,7 +522,7 @@ pub fn commit(
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
                     apply_baseline_shift(&mut frame, *styles);
-                    push(&mut offset, frame);
+                    push(&mut offset, frame, item.idx);
                 } else {
                     offset += amount;
                 }
@@ -534,15 +534,15 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame);
+                push(&mut offset, frame, item.idx);
             }
             Item::Frame(frame) => {
-                push(&mut offset, frame.clone());
+                push(&mut offset, frame.clone(), item.idx);
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame));
+                frames.push((offset, frame, item.idx));
             }
             Item::Skip(_) => {}
         }
@@ -561,8 +561,9 @@ pub fn commit(
         add_par_line_marker(&mut output, marker, engine, locator, top);
     }
 
+    frames.sort_by_key(|(_, _, idx)| *idx);
     // Construct the line's frame.
-    for (offset, frame) in frames {
+    for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
         let y = top - frame.baseline();
         output.push_frame(Point::new(x, y), frame);
@@ -645,6 +646,11 @@ impl<'a> Items<'a> {
     /// Iterate over the items
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
         self.0.iter().map(|item| &*item.item)
+    }
+
+    /// Iterate over the items with indices
+    pub fn indexed_iter(&self) -> impl Iterator<Item = &IndexedItemEntry<'a>> {
+        self.0.iter()
     }
 
     /// Access the first item.
