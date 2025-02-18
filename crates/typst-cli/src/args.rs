@@ -224,6 +224,10 @@ pub struct CompileArgs {
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
+    /// Directory to write output to.
+    #[clap(long = "output-path", env = "TYPST_OUTPUT_PATH", value_name = "DIR")]
+    pub output_path: Option<PathBuf>,
+
     /// World arguments.
     #[clap(flatten)]
     pub world: WorldArgs,

@@ -112,7 +112,7 @@ impl CompileConfig {
             OutputFormat::Pdf
         };
 
-        let output = args.output.clone().unwrap_or_else(|| {
+        let mut output = args.output.clone().unwrap_or_else(|| {
             let Input::Path(path) = &input else {
                 panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
@@ -125,6 +125,19 @@ impl CompileConfig {
                 },
             ))
         });
+
+        if let (Some(output_path), Output::Path(output_file_name)) =
+            (args.output_path.as_ref(), &mut output)
+        {
+            if !output_file_name.is_absolute() {
+                if !output_path.exists() {
+                    fs::create_dir_all(output_path)
+                        .expect("could not create output path: {err}");
+                }
+                *output_file_name =
+                    output_path.join(&output_file_name.file_name().unwrap());
+            }
+        }
 
         let pages = args.pages.as_ref().map(|export_ranges| {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
