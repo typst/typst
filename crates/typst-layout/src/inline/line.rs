@@ -271,10 +271,10 @@ fn collect_range<'a>(
     items: &mut Items<'a>,
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
-    for run in p.slice(range.clone()) {
+    for (idx, run) in p.slice(range.clone()).enumerate() {
         // All non-text items are just kept, they can't be split.
         let Item::Text(shaped) = &run.item else {
-            items.push(&run.item, run.idx);
+            items.push(&run.item, idx);
             continue;
         };
         let subrange = &run.range;
@@ -295,10 +295,10 @@ fn collect_range<'a>(
         } else if split {
             // When the item is split in half, reshape it.
             let reshaped = shaped.reshape(engine, sliced);
-            items.push(Item::Text(reshaped), run.idx);
+            items.push(Item::Text(reshaped), idx);
         } else {
             // When the item is fully contained, just keep it.
-            items.push(&run.item, run.idx);
+            items.push(&run.item, idx);
         }
     }
 }
