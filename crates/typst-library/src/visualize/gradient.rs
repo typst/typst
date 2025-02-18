@@ -70,6 +70,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// Typst predefines color maps that you can use as stops. See the
+/// [`color`]($color/#predefined-color-maps) documentation for more details.
+///
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops depends on the dimensions
 /// of a container. This container can either be the shape that it is being
@@ -156,10 +159,6 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///   square(fill: gradient.linear(red, blue, angle: 270deg)),
 /// )
 /// ```
-///
-/// # Presets
-/// Typst predefines color maps that you can use with your gradients. See the
-/// [`color`]($color/#predefined-color-maps) documentation for more details.
 ///
 /// # Note on file sizes
 ///
