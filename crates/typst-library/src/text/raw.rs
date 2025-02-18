@@ -446,10 +446,14 @@ impl Show for Packed<RawElem> {
         let mut realized = Content::sequence(seq);
 
         if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::pre)
-                .with_body(Some(realized))
-                .pack()
-                .spanned(self.span()));
+            return Ok(HtmlElem::new(if self.block(styles) {
+                tag::pre
+            } else {
+                tag::code
+            })
+            .with_body(Some(realized))
+            .pack()
+            .spanned(self.span()));
         }
 
         if self.block(styles) {
