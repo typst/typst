@@ -253,11 +253,11 @@ impl Watcher {
         };
 
         // Never recompile because the output file changed.
-        return type_relevant
+        type_relevant
             && !event
                 .paths
                 .iter()
-                .all(|path| is_same_file(path, &self.output).unwrap_or(false));
+                .all(|path| is_same_file(path, &self.output).unwrap_or(false))
     }
 }
 
