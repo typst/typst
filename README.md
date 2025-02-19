@@ -117,6 +117,9 @@ Typst's CLI is available from different sources:
   - macOS: `brew install typst`
   - Windows: `winget install --id Typst.Typst`
 
+- Snap users can install Typst with
+  `sudo snap install typst`
+
 - If you have a [Rust][rust] toolchain installed, you can install
   - the latest released Typst version with
     `cargo install --locked typst-cli`
