@@ -287,7 +287,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
         /// The color [stops](#stops) of the gradient.
@@ -401,7 +401,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
         /// The color [stops](#stops) of the gradient.
