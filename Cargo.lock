@@ -2735,7 +2735,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2752,12 +2752,13 @@ dependencies = [
 
 [[package]]
 name = "typst-assets"
-version = "0.13.0-rc1"
-source = "git+https://github.com/typst/typst-assets?rev=7eb87f5#7eb87f5496aff556ace09cf574d11d90d90543ca"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1051c56bbbf74d31ea6c6b1661e62fa0ebb8104403ee53f6dcd321600426e0b6"
 
 [[package]]
 name = "typst-cli"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2802,12 +2803,12 @@ dependencies = [
 
 [[package]]
 name = "typst-dev-assets"
-version = "0.12.0"
-source = "git+https://github.com/typst/typst-dev-assets?rev=7f8999d#7f8999d19907cd6e1148b295efbc844921c0761c"
+version = "0.13.0"
+source = "git+https://github.com/typst/typst-dev-assets?tag=v0.13.0#61aebe9575a5abff889f76d73c7b01dc8e17e340"
 
 [[package]]
 name = "typst-docs"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "clap",
  "ecow",
@@ -2830,7 +2831,7 @@ dependencies = [
 
 [[package]]
 name = "typst-eval"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2848,7 +2849,7 @@ dependencies = [
 
 [[package]]
 name = "typst-fuzz"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "comemo",
  "libfuzzer-sys",
@@ -2860,7 +2861,7 @@ dependencies = [
 
 [[package]]
 name = "typst-html"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2874,7 +2875,7 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2891,7 +2892,7 @@ dependencies = [
 
 [[package]]
 name = "typst-kit"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "dirs",
  "ecow",
@@ -2914,7 +2915,7 @@ dependencies = [
 
 [[package]]
 name = "typst-layout"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "az",
  "bumpalo",
@@ -2944,7 +2945,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "az",
  "bitflags 2.8.0",
@@ -3004,7 +3005,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3014,7 +3015,7 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "arrayvec",
  "base64",
@@ -3040,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "typst-realize"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -3056,7 +3057,7 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "bytemuck",
  "comemo",
@@ -3072,7 +3073,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "base64",
  "comemo",
@@ -3090,7 +3091,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "ecow",
  "serde",
@@ -3106,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "clap",
  "comemo",
@@ -3131,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "typst-timing"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "parking_lot",
  "serde",
@@ -3141,7 +3142,7 @@ dependencies = [
 
 [[package]]
 name = "typst-utils"
-version = "0.13.0-rc1"
+version = "0.13.0"
 dependencies = [
  "once_cell",
  "portable-atomic",
