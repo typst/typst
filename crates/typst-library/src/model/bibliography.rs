@@ -16,6 +16,7 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
+use typst_macros::{cast, scope};
 use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
@@ -28,8 +29,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
-    Sides, Sizing, TrackSizings,
+    BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, Length,
+    PadElem, Rel, Sides, Sizing, Spacing, TrackSizings,
 };
 use crate::loading::{DataSource, Load};
 use crate::model::{
@@ -85,7 +86,7 @@ use crate::World;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
+#[elem(scope, Locatable, Synthesize, Show, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yml` and/or
     /// BibLaTeX `.bib` files.
@@ -150,6 +151,12 @@ pub struct BibliographyElem {
     #[internal]
     #[synthesized]
     pub region: Option<Region>,
+}
+
+#[scope]
+impl BibliographyElem {
+    #[elem]
+    type BibliographyEntry;
 }
 
 impl BibliographyElem {
@@ -220,6 +227,8 @@ impl Show for Packed<BibliographyElem> {
             );
         }
 
+        // TODO: Does this get the keys in the same order as the loop below with references?
+        let keys = BibliographyElem::keys(engine.introspector);
         let works = Works::generate(engine).at(span)?;
         let references = works
             .references
@@ -229,17 +238,24 @@ impl Show for Packed<BibliographyElem> {
 
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let row_gutter = ParElem::spacing_in(styles);
-
             let mut cells = vec![];
-            for (prefix, reference) in references {
-                cells.push(GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                        .spanned(span),
-                )));
-                cells.push(GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(reference.clone())).spanned(span),
-                )));
+
+            // FIXME: Not quite correct as `prefix` and `body` are now one grid cell instead of two (how to "split" content?)!
+            for (idx, (prefix, reference)) in references.iter().enumerate() {
+                let indent =
+                    if works.hanging_indent { Some(INDENT.into()) } else { None };
+                let entry = BibliographyEntry::new(keys[idx].0, reference.clone())
+                    .with_prefix(prefix.clone())
+                    .with_indent(indent);
+
+                cells.push(
+                    entry
+                        .pack()
+                        .try_into()
+                        .expect("todo: conversion content to GridChild"),
+                );
             }
+
             seq.push(
                 GridElem::new(cells)
                     .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
@@ -249,20 +265,9 @@ impl Show for Packed<BibliographyElem> {
                     .spanned(span),
             );
         } else {
-            for (_, reference) in references {
-                let realized = reference.clone();
-                let block = if works.hanging_indent {
-                    let body = HElem::new((-INDENT).into()).pack() + realized;
-                    let inset = Sides::default()
-                        .with(TextElem::dir_in(styles).start(), Some(INDENT.into()));
-                    BlockElem::new()
-                        .with_body(Some(BlockBody::Content(body)))
-                        .with_inset(inset)
-                } else {
-                    BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-                };
-
-                seq.push(block.pack().spanned(span));
+            for (idx, (_, reference)) in references.iter().enumerate() {
+                let entry = BibliographyEntry::new(keys[idx].0, reference.clone());
+                seq.push(entry.pack().spanned(span));
             }
         }
 
@@ -348,6 +353,67 @@ impl Debug for Bibliography {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_set().entries(self.0.keys()).finish()
     }
+}
+
+/// Represents a single entry in a bibliography.
+///
+/// Exposes the citation key, the citation prefix and the formatted entry.
+#[elem(scope, name = "entry", title = "Bibliography Entry", Show)]
+pub struct BibliographyEntry {
+    /// The citation key that identifies the entry in the bibliography.
+    #[required]
+    pub key: Label,
+
+    /// The fully formatted entry body.
+    #[required]
+    pub body: Content,
+
+    /// Optional prefix for citation styles which use them, e.g., IEEE.
+    pub prefix: Option<Content>,
+
+    /// Whether the citation style has a hanging indent.
+    indent: Option<Rel<Length>>,
+}
+
+#[scope]
+impl BibliographyEntry {}
+
+impl Show for Packed<BibliographyEntry> {
+    #[typst_macros::time(name = "bibliography.entry", span = self.span())]
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if self.prefix.is_some() {
+            let prefix = GridChild::Item(GridItem::Cell(
+                Packed::new(GridCell::new(self.prefix(styles).unwrap()))
+                    .spanned(self.span()),
+            ))
+            .into_value();
+            let body = GridChild::Item(GridItem::Cell(
+                Packed::new(GridCell::new(self.body.clone())).spanned(self.span()),
+            ))
+            .into_value();
+
+            return Ok(Content::sequence([prefix.display(), body.display()]));
+        } else {
+            let block = if let Some(indent) = self.indent(styles) {
+                let body = HElem::new(Spacing::Rel(-indent)).pack() + self.body.clone();
+                let inset =
+                    Sides::default().with(TextElem::dir_in(styles).start(), Some(indent));
+
+                BlockElem::new()
+                    .with_body(Some(BlockBody::Content(body)))
+                    .with_inset(inset)
+            } else {
+                BlockElem::new().with_body(Some(BlockBody::Content(self.body.clone())))
+            };
+
+            return Ok(block.pack().spanned(self.span()));
+        }
+    }
+}
+
+cast! {
+    BibliographyEntry,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected bibliography entry")?
 }
 
 /// Decode on library from one data source.
