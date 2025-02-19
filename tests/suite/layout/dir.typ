@@ -1,9 +1,16 @@
---- dir-axis ---
 // Test direction methods.
+
+--- dir-axis ---
 #test(ltr.axis(), "horizontal")
 #test(rtl.axis(), "horizontal")
 #test(ttb.axis(), "vertical")
 #test(btt.axis(), "vertical")
+
+--- dir-sign ---
+#test(ltr.sign(), 1)
+#test(rtl.sign(), -1)
+#test(ttb.sign(), 1)
+#test(btt.sign(), -1)
 
 --- dir-start ---
 #test(ltr.start(), left)

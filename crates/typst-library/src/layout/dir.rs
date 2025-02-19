@@ -65,6 +65,22 @@ impl Dir {
         }
     }
 
+    /// The corresponding sign, for use in calculations.
+    ///
+    /// ```example
+    /// #ltr.sign() \
+    /// #rtl.sign() \
+    /// #ttb.sign() \
+    /// #btt.sign()
+    /// ```
+    #[func]
+    pub const fn sign(self) -> i64 {
+        match self {
+            Self::LTR | Self::TTB => 1,
+            Self::RTL | Self::BTT => -1,
+        }
+    }
+
     /// The start point of this direction, as an alignment.
     ///
     /// ```example
