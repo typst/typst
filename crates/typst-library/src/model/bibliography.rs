@@ -227,8 +227,9 @@ impl Show for Packed<BibliographyElem> {
             );
         }
 
-        // TODO: Does this get the keys in the same order as the loop below with references?
+        // FIXME: This is always lexicographically ordered which violates "citation-order" styles!
         let keys = BibliographyElem::keys(engine.introspector);
+
         let works = Works::generate(engine).at(span)?;
         let references = works
             .references
@@ -240,20 +241,21 @@ impl Show for Packed<BibliographyElem> {
             let row_gutter = ParElem::spacing_in(styles);
             let mut cells = vec![];
 
-            // FIXME: Not quite correct as `prefix` and `body` are now one grid cell instead of two (how to "split" content?)!
             for (idx, (prefix, reference)) in references.iter().enumerate() {
-                let indent =
-                    if works.hanging_indent { Some(INDENT.into()) } else { None };
                 let entry = BibliographyEntry::new(keys[idx].0, reference.clone())
                     .with_prefix(prefix.clone())
-                    .with_indent(indent);
+                    .pack()
+                    .spanned(span);
 
-                cells.push(
-                    entry
-                        .pack()
-                        .try_into()
-                        .expect("todo: conversion content to GridChild"),
+                // FIXME: This does not work, unaffected by show-rules! 
+                // (Just using `entry` as-is would work, however that would eliminate the grid)
+                let (e_prefix, body) = (
+                    entry.field_by_name("prefix").unwrap(),
+                    entry.field_by_name("body").unwrap(),
                 );
+
+                cells.push(e_prefix.display().try_into().expect("aaah"));
+                cells.push(body.display().try_into().expect("aaah"));
             }
 
             seq.push(
@@ -266,7 +268,10 @@ impl Show for Packed<BibliographyElem> {
             );
         } else {
             for (idx, (_, reference)) in references.iter().enumerate() {
-                let entry = BibliographyEntry::new(keys[idx].0, reference.clone());
+                let entry =
+                    BibliographyEntry::new(keys[idx].0, reference.clone()).with_indent(
+                        if works.hanging_indent { Some(INDENT.into()) } else { None },
+                    );
                 seq.push(entry.pack().spanned(span));
             }
         }
@@ -381,18 +386,16 @@ impl BibliographyEntry {}
 impl Show for Packed<BibliographyEntry> {
     #[typst_macros::time(name = "bibliography.entry", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if self.prefix.is_some() {
+        if self.prefix(styles).is_some() {
             let prefix = GridChild::Item(GridItem::Cell(
                 Packed::new(GridCell::new(self.prefix(styles).unwrap()))
                     .spanned(self.span()),
-            ))
-            .into_value();
+            ));
             let body = GridChild::Item(GridItem::Cell(
                 Packed::new(GridCell::new(self.body.clone())).spanned(self.span()),
-            ))
-            .into_value();
+            ));
 
-            return Ok(Content::sequence([prefix.display(), body.display()]));
+            Ok(GridElem::new(vec![prefix, body]).pack().spanned(self.span()))
         } else {
             let block = if let Some(indent) = self.indent(styles) {
                 let body = HElem::new(Spacing::Rel(-indent)).pack() + self.body.clone();
@@ -406,7 +409,7 @@ impl Show for Packed<BibliographyEntry> {
                 BlockElem::new().with_body(Some(BlockBody::Content(self.body.clone())))
             };
 
-            return Ok(block.pack().spanned(self.span()));
+            Ok(block.pack().spanned(self.span()))
         }
     }
 }
