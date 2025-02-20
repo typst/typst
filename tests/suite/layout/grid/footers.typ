@@ -95,12 +95,28 @@
   grid.cell(x: 1)[c]
 )
 
---- grid-footer-expand ---
-// Ensure footer properly expands
+--- grid-footer-no-expand ---
 #grid(
   columns: 2,
   [a], [],
   [b], [],
+  fill: (_, y) => if calc.odd(y) { blue } else { red },
+  inset: 5pt,
+  grid.cell(x: 1, y: 3, rowspan: 4)[b],
+  grid.cell(y: 2, rowspan: 2)[a],
+  grid.footer(),
+  // Error: 3-33 cell would conflict with footer spanning the same position
+  // Hint: 3-33 try reducing the cell's rowspan or moving the footer
+  grid.cell(y: 6, rowspan: 2)[d],
+)
+
+--- grid-footer-moved-to-bottom-of-rowspans ---
+#grid(
+  columns: 2,
+  [a], [],
+  [b], [],
+  stroke: red,
+  inset: 5pt,
   grid.cell(x: 1, y: 3, rowspan: 4)[b],
   grid.cell(y: 2, rowspan: 2)[a],
   grid.footer(),
@@ -125,13 +141,13 @@
 )
 
 --- grid-footer-overlap ---
-// Error: 4:3-4:19 footer would conflict with a cell placed before it at column 1 row 0
-// Hint: 4:3-4:19 try reducing that cell's rowspan or moving the footer
 #grid(
   columns: 2,
   grid.header(),
-  grid.footer([a]),
-  grid.cell(x: 1, y: 0, rowspan: 2)[a],
+  grid.footer(grid.cell(y: 2)[a]),
+  // Error: 3-39 cell would conflict with footer spanning the same position
+  // Hint: 3-39 try reducing the cell's rowspan or moving the footer
+  grid.cell(x: 1, y: 1, rowspan: 2)[a],
 )
 
 --- grid-footer-multiple ---
@@ -386,8 +402,8 @@
     table.hline(stroke: red),
     table.vline(stroke: green),
     [b],
+    [c]
   ),
-  table.cell(x: 1, y: 3)[c]
 )
 
 --- grid-footer-hline-and-vline-2 ---

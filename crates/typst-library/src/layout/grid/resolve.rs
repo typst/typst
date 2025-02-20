@@ -1134,6 +1134,34 @@ impl<'a> CellGrid<'a> {
 
                     child_start = new_child_start;
                     child_end = new_child_end;
+                } else {
+                    // TODO: Perhaps do this during cell resolving?
+                    // This is unnecessary for non-row-positioned cells, as
+                    // they skip headers and footers already.
+                    if let Some(header) = &header {
+                        // TODO: check start (right now zero, always satisfied)
+                        if y < header.end {
+                            bail!(
+                                cell_span,
+                                "cell would conflict with header spanning the same position";
+                                hint: "try moving the cell or the header"
+                            );
+                        }
+                    }
+                    if let Some((footer_end, _, footer)) = &footer {
+                        // NOTE: y + rowspan >, not >=, footer.start, to
+                        // check if the rowspan enters the footer. For example,
+                        // rowspan of 1: y + 1 = footer.start means
+                        // `y < footer.start`, and it only occupies one row
+                        // (`y`), so the cell is safe.
+                        if y < *footer_end && y + rowspan > footer.start {
+                            bail!(
+                                cell_span,
+                                "cell would conflict with footer spanning the same position";
+                                hint: "try reducing the cell's rowspan or moving the footer"
+                            );
+                        }
+                    }
                 }
 
                 if largest_index >= resolved_cells.len() {
@@ -1278,23 +1306,6 @@ impl<'a> CellGrid<'a> {
                 ));
             }
 
-            if is_header || is_footer {
-                // Next automatically positioned cell goes under this header.
-                // FIXME: Consider only doing this if the header has any fully
-                // automatically positioned cells. Otherwise,
-                // `resolve_cell_position` should be smart enough to skip
-                // upcoming headers.
-                // Additionally, consider that cells with just an 'x' override
-                // could end up going too far back and making previous
-                // non-header rows into header rows (maybe they should be
-                // placed at the first row that is fully empty or something).
-                // Nothing we can do when both 'x' and 'y' were overridden, of
-                // course.
-                // None of the above are concerns for now, as headers must
-                // start at the first row.
-                local_auto_index = local_auto_index.max(c * child_end);
-            }
-
             if !is_row_group {
                 // The child was a single cell outside headers or footers.
                 // Therefore, 'local_auto_index' for this table child was
@@ -1326,51 +1337,6 @@ impl<'a> CellGrid<'a> {
             .enumerate()
             .map(|(i, cell)| {
                 if let Some(cell) = cell {
-                    if let Some(parent_cell) = cell.as_cell() {
-                        if let Some(header) = &mut header
-                        {
-                            let y = i / c;
-                            if y < header.end {
-                                // Ensure the header expands enough such that
-                                // all cells inside it, even those added later,
-                                // are fully contained within the header.
-                                // FIXME: check if start < y < end when start can
-                                // be != 0.
-                                // FIXME: when start can be != 0, decide what
-                                // happens when a cell after the header placed
-                                // above it tries to span the header (either
-                                // error or expand upwards).
-                                header.end = header.end.max(y + parent_cell.rowspan.get());
-                            }
-                        }
-
-                        if let Some((end, footer_span, footer)) = &mut footer {
-                            let x = i % c;
-                            let y = i / c;
-                            let cell_end = y + parent_cell.rowspan.get();
-                            if y < footer.start && cell_end > footer.start {
-                                // Don't allow a cell before the footer to span
-                                // it. Surely, we could move the footer to
-                                // start at where this cell starts, so this is
-                                // more of a design choice, as it's unlikely
-                                // for the user to intentionally include a cell
-                                // before the footer spanning it but not
-                                // being repeated with it.
-                                bail!(
-                                    *footer_span,
-                                    "footer would conflict with a cell placed before it at column {x} row {y}";
-                                    hint: "try reducing that cell's rowspan or moving the footer"
-                                );
-                            }
-                            if y >= footer.start && y < *end {
-                                // Expand the footer to include all rows
-                                // spanned by this cell, as it is inside the
-                                // footer.
-                                *end = (*end).max(cell_end);
-                            }
-                        }
-                    }
-
                     Ok(cell)
                 } else {
                     let x = i % c;
@@ -1531,10 +1497,6 @@ impl<'a> CellGrid<'a> {
                     if header_end != Some(footer.start) {
                         footer.start = footer.start.saturating_sub(1);
                     }
-                }
-
-                if header_end.is_some_and(|header_end| header_end > footer.start) {
-                    bail!(footer_span, "header and footer must not have common rows");
                 }
 
                 Ok(footer)

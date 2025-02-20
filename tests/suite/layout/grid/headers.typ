@@ -284,8 +284,7 @@
 )
 #context count.display()
 
---- grid-header-expand ---
-// Ensure header expands to fit cell placed in it after its declaration
+--- grid-header-no-expand ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -293,6 +292,8 @@
     [a], [b],
     [c],
   ),
+  // Error: 3-48 cell would conflict with header spanning the same position
+  // Hint: 3-48 try moving the cell or the header
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
 )
 
