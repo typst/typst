@@ -1051,7 +1051,8 @@ impl<'a> CellGrid<'a> {
                     if new_child_start < first_available_row {
                         bail!(
                             cell_span,
-                            "cell would cause header or footer to expand to a non-empty row";
+                            "cell would cause header or footer to expand to non-empty row {}",
+                            first_available_row.saturating_sub(1);
                             hint: "try moving its cells to later rows"
                         );
                     }
@@ -1106,13 +1107,13 @@ impl<'a> CellGrid<'a> {
                                 if new_y < child_start.min(new_child_end) {
                                     bail!(
                                         cell_span,
-                                        "cell would cause header or footer to expand to a non-empty row";
+                                        "cell would cause header or footer to expand to non-empty row {new_y}";
                                         hint: "try moving its cells to later rows"
                                     );
                                 } else {
                                     bail!(
                                         cell_span,
-                                        "cell would cause header or footer to expand to a non-empty row";
+                                        "cell would cause header or footer to expand to non-empty row {new_y}";
                                         hint: "try moving its cells to earlier rows"
                                     );
                                 }
