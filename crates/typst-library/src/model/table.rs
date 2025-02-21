@@ -282,7 +282,7 @@ fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
 
 fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
     let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
-    let mut rows: Vec<_> = grid.entries.chunks(grid.cols.len()).collect();
+    let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
 
     let tr = |tag, row: &[Entry]| {
         let row = row
