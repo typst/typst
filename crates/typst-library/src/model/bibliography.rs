@@ -27,10 +27,10 @@ use crate::foundations::{
     OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
     Synthesize, Value,
 };
-use crate::introspection::{Introspector, Locatable, Location};
+use crate::introspection::{Introspector, Locatable, Location, Locator, LocatorLink};
 use crate::layout::{
-    BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, Length,
-    PadElem, Rel, Sides, Sizing, Spacing, TrackSizings,
+    Abs, Axes, BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem,
+    Length, PadElem, Rel, Sides, Sizing, Spacing, TrackSizings,
 };
 use crate::loading::{DataSource, Load};
 use crate::model::{
@@ -210,7 +210,7 @@ impl Synthesize for Packed<BibliographyElem> {
 impl Show for Packed<BibliographyElem> {
     #[typst_macros::time(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        const COLUMN_GUTTER: Em = Em::new(0.65);
+        const _COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
         let span = self.span();
@@ -227,9 +227,6 @@ impl Show for Packed<BibliographyElem> {
             );
         }
 
-        // FIXME: This is always lexicographically ordered which violates "citation-order" styles!
-        let keys = BibliographyElem::keys(engine.introspector);
-
         let works = Works::generate(engine).at(span)?;
         let references = works
             .references
@@ -237,41 +234,38 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        if references.iter().any(|(prefix, _)| prefix.is_some()) {
+        if references.iter().any(|(_, prefix, _)| prefix.is_some()) {
             let row_gutter = ParElem::spacing_in(styles);
             let mut cells = vec![];
 
-            for (idx, (prefix, reference)) in references.iter().enumerate() {
-                let entry = BibliographyEntry::new(keys[idx].0, reference.clone())
+            for (key, prefix, reference) in references {
+                let label = Label::new(PicoStr::intern(key));
+                let entry = BibliographyEntry::new(label, reference.clone())
                     .with_prefix(prefix.clone())
                     .pack()
                     .spanned(span);
 
-                // FIXME: This does not work, unaffected by show-rules! 
-                // (Just using `entry` as-is would work, however that would eliminate the grid)
-                let (e_prefix, body) = (
-                    entry.field_by_name("prefix").unwrap(),
-                    entry.field_by_name("body").unwrap(),
+                cells.push(
+                    entry
+                        .try_into()
+                        .expect("conversion from Content to GridChild should not fail"),
                 );
-
-                cells.push(e_prefix.display().try_into().expect("aaah"));
-                cells.push(body.display().try_into().expect("aaah"));
             }
 
             seq.push(
                 GridElem::new(cells)
-                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                    .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 1]))
+                    // .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                     .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
                     .pack()
                     .spanned(span),
             );
         } else {
-            for (idx, (_, reference)) in references.iter().enumerate() {
-                let entry =
-                    BibliographyEntry::new(keys[idx].0, reference.clone()).with_indent(
-                        if works.hanging_indent { Some(INDENT.into()) } else { None },
-                    );
+            for (key, _, reference) in references {
+                let label = Label::new(PicoStr::intern(key));
+                let entry = BibliographyEntry::new(label, reference.clone()).with_indent(
+                    if works.hanging_indent { Some(INDENT.into()) } else { None },
+                );
                 seq.push(entry.pack().spanned(span));
             }
         }
@@ -286,6 +280,9 @@ impl ShowSet for Packed<BibliographyElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::set_numbering(None));
         out.set(PadElem::set_left(INDENT.into()));
+        // Makes the bibliography itself available to its entries. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        out.set(BibliographyEntry::set_parent(Some(self.clone())));
         out
     }
 }
@@ -377,7 +374,13 @@ pub struct BibliographyEntry {
     pub prefix: Option<Content>,
 
     /// Whether the citation style has a hanging indent.
-    indent: Option<Rel<Length>>,
+    pub indent: Option<Rel<Length>>,
+
+    /// Lets bibliography entries access the bibliography they are part of. This is a bit
+    /// of a hack and should be superseded by a proper ancestry mechanism.
+    #[ghost]
+    #[internal]
+    pub parent: Option<Packed<BibliographyElem>>,
 }
 
 #[scope]
@@ -385,17 +388,46 @@ impl BibliographyEntry {}
 
 impl Show for Packed<BibliographyEntry> {
     #[typst_macros::time(name = "bibliography.entry", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         if self.prefix(styles).is_some() {
-            let prefix = GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(self.prefix(styles).unwrap()))
-                    .spanned(self.span()),
-            ));
-            let body = GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(self.body.clone())).spanned(self.span()),
-            ));
+            let prefix = self.prefix(styles).unwrap();
+            let body = self.body.clone();
 
-            Ok(GridElem::new(vec![prefix, body]).pack().spanned(self.span()))
+            let prefix_width = {
+                let layout_frame = engine.routines.layout_frame;
+                let bibliography = BibliographyEntry::parent_in(styles)
+                    .ok_or("must be called within the context of a bibliography")
+                    .at(span)?;
+                let bibliography_loc = bibliography.location().unwrap();
+
+                let pod = crate::layout::Region::new(
+                    Axes::splat(Abs::inf()),
+                    Axes::splat(false),
+                );
+                let link = LocatorLink::measure(bibliography_loc);
+                let frame =
+                    layout_frame(engine, &prefix, Locator::link(&link), styles, pod)?;
+
+                frame.width()
+            };
+            let hanging_indent =
+                prefix_width + Em::new(0.65).at(TextElem::size_in(styles));
+            let inset = Sides::default()
+                .with(TextElem::dir_in(styles).start(), Some(Rel::from(hanging_indent)));
+
+            let body_seq = Content::sequence([
+                HElem::new((-hanging_indent).into()).pack(),
+                prefix,
+                HElem::new((hanging_indent - prefix_width).into()).pack(),
+                body,
+            ]);
+
+            Ok(BlockElem::new()
+                .with_inset(inset)
+                .with_body(Some(BlockBody::Content(body_seq)))
+                .pack()
+                .spanned(span))
         } else {
             let block = if let Some(indent) = self.indent(styles) {
                 let body = HElem::new(Spacing::Rel(-indent)).pack() + self.body.clone();
@@ -409,7 +441,7 @@ impl Show for Packed<BibliographyEntry> {
                 BlockElem::new().with_body(Some(BlockBody::Content(self.body.clone())))
             };
 
-            Ok(block.pack().spanned(self.span()))
+            Ok(block.pack().spanned(span))
         }
     }
 }
@@ -613,7 +645,7 @@ pub(super) struct Works {
     pub citations: HashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(Option<Content>, Content)>>,
+    pub references: Option<Vec<(EcoString, Option<Content>, Content)>>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -881,7 +913,7 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(Option<Content>, Content)>>> {
+    ) -> StrResult<Option<Vec<(EcoString, Option<Content>, Content)>>> {
         let Some(rendered) = &rendered.bibliography else { return Ok(None) };
 
         // Determine for each citation key where it first occurred, so that we
@@ -912,6 +944,9 @@ impl<'a> Generator<'a> {
             // citations can link to them.
             let backlink = location.variant(k + 1);
 
+            // Store the label name for `bibliography.entry`.
+            let label = EcoString::from(item.key.clone());
+
             // Render the first field.
             let mut prefix = item
                 .first_field
@@ -935,7 +970,7 @@ impl<'a> Generator<'a> {
             // we can link to the bibliography entry.
             prefix.as_mut().unwrap_or(&mut reference).set_location(backlink);
 
-            output.push((prefix, reference));
+            output.push((label, prefix, reference));
         }
 
         Ok(Some(output))
