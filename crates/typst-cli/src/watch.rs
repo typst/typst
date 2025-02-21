@@ -237,7 +237,7 @@ impl Watcher {
 
     /// Whether a watch event is relevant for compilation.
     fn is_event_relevant(&self, event: &notify::Event) -> bool {
-        let type_relevant = match &event.kind {
+        let kind_relevant = match &event.kind {
             notify::EventKind::Any => true,
             notify::EventKind::Access(_) => false,
             notify::EventKind::Create(_) => true,
@@ -252,12 +252,20 @@ impl Watcher {
             notify::EventKind::Other => false,
         };
 
+        if !kind_relevant {
+            return false;
+        }
+
         // Never recompile because the output file changed.
-        type_relevant
-            && !event
-                .paths
-                .iter()
-                .all(|path| is_same_file(path, &self.output).unwrap_or(false))
+        if event
+            .paths
+            .iter()
+            .all(|path| is_same_file(path, &self.output).unwrap_or(false))
+        {
+            return false;
+        }
+
+        true
     }
 }
 
