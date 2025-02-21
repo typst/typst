@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::sync::Arc;
 
 use ecow::eco_format;
@@ -778,11 +779,16 @@ impl<'a> CellGrid<'a> {
             // instead, and use a separate counter outside them.
             let mut local_auto_index = auto_index;
 
-            // The index of the first cell within this child in the grid. Note
-            // that cells outside headers and footers are children with a
-            // single cell inside, in which case 'child_start == child_end'.
-            let mut child_start = usize::MAX;
-            let mut child_end = 0;
+            // The range of rows of cells inside this child in the grid. The
+            // first and last rows are guaranteed to have cells (an exception
+            // is made when there is gutter, in which case the child range may
+            // be expanded to include an additional gutter row when there is a
+            // repeatable header or footer).
+            //
+            // Note that cells outside headers and footers are children
+            // with a single cell inside, in which case the range has a single
+            // row.
+            let mut child_range: Option<Range<usize>> = None;
             let mut child_span = Span::detached();
 
             // The first row in which this table child can fit.
@@ -1036,8 +1042,10 @@ impl<'a> CellGrid<'a> {
                     // Ensure each cell in a header or footer is fully
                     // contained within it by expanding the header or footer
                     // towards this new cell.
-                    let new_child_start = child_start.min(y);
-                    let new_child_end = child_end.max(y + rowspan);
+                    let (new_child_start, new_child_end) =
+                        child_range.clone().map_or((y, y + rowspan), |r| {
+                            (r.start.min(y), r.end.max(y + rowspan))
+                        });
 
                     // TODO: Maybe remove this check and just keep the loop,
                     // we will loop in the "good case" anyway
@@ -1079,8 +1087,15 @@ impl<'a> CellGrid<'a> {
                     // Of course, we also need to check for downward expansion
                     // as there could be a non-empty row below the header, but
                     // the upward case is highlighted due to its differences.
-                    let new_rows = (new_child_start..child_start.min(new_child_end))
-                        .chain(child_end.max(new_child_start + 1)..new_child_end);
+                    let new_rows = child_range.clone().map_or(
+                        (new_child_start..new_child_end).chain(0..0),
+                        |r| {
+                            // NOTE: To keep types the same, we have to always
+                            // return (range).chain(range), which justifies
+                            // chaining an empty range above.
+                            (new_child_start..r.start).chain(r.end..new_child_end)
+                        },
+                    );
 
                     // Note that simply checking for non-empty rows like below
                     // not only prevents conflicts with top-level cells
@@ -1089,9 +1104,9 @@ impl<'a> CellGrid<'a> {
                     // an invariant that even empty headers and footers must
                     // contain at least one 'Some(...)' position in
                     // 'resolved_cells'. More precisely, each header and footer
-                    // has at least one 'Some(...)' cell at 'child_start' and
-                    // at 'child_end - 1' - non-empty headers and footers don't
-                    // span any unnecessary rows.
+                    // has at least one 'Some(...)' cell at 'child_range.start'
+                    // and at 'child_range.end - 1' - non-empty headers and
+                    // footers don't span any unnecessary rows.
                     for new_y in new_rows {
                         if let Some(new_row @ [_non_empty, ..]) = resolved_cells
                             .get(new_y * c..)
@@ -1104,7 +1119,7 @@ impl<'a> CellGrid<'a> {
                                 // - Detect when header or footer collided with
                                 // another header or footer and provide a
                                 // better error message if so.
-                                if new_y < child_start.min(new_child_end) {
+                                if child_range.map_or(true, |r| new_y < r.start) {
                                     bail!(
                                         cell_span,
                                         "cell would cause header or footer to expand to non-empty row {new_y}";
@@ -1132,8 +1147,7 @@ impl<'a> CellGrid<'a> {
                         }
                     }
 
-                    child_start = new_child_start;
-                    child_end = new_child_end;
+                    child_range = Some(new_child_start..new_child_end);
                 } else {
                     // TODO: Perhaps do this during cell resolving?
                     // This is unnecessary for non-row-positioned cells, as
@@ -1234,79 +1248,85 @@ impl<'a> CellGrid<'a> {
                 }
             }
 
-            if is_row_group && child_start == usize::MAX {
-                // Empty header/footer: consider the header/footer to be
-                // at the next empty row after the latest auto index.
-                local_auto_index = first_available_row * c;
-                child_start = first_available_row;
-                child_end = child_start + 1;
+            if is_row_group {
+                let child_range = match child_range {
+                    Some(child_range) => child_range,
 
-                if resolved_cells.len() <= c * child_start {
-                    // Ensure the automatically chosen row actually exists.
-                    resolved_cells.resize_with(c * (child_start + 1), || None);
-                }
+                    None => {
+                        // Empty header/footer: consider the header/footer to be
+                        // at the next empty row after the latest auto index.
+                        local_auto_index = first_available_row * c;
+                        let child_start = first_available_row;
+                        let child_end = child_start + 1;
 
-                // Even though this header or footer is fully empty, we add one
-                // default cell to maintain the invariant that each header and
-                // footer has at least one `Some(...)` cell at its first row
-                // and at least one at its last row (here they are the same
-                // row, of course). This invariant is important to ensure
-                // `find_next_empty_row` will skip through any existing headers
-                // and footers without having to loop through them each time.
-                // Cells themselves, unfortunately, still have to.
-                assert!(resolved_cells[local_auto_index].is_none());
-                let (first_x, first_y) = (0, first_available_row);
-                resolved_cells[local_auto_index] =
-                    Some(Entry::Cell(T::default().resolve_cell(
-                        first_x,
-                        first_y,
-                        &fill.resolve(engine, styles, first_x, first_y)?,
-                        align.resolve(engine, styles, first_x, first_y)?,
-                        inset.resolve(engine, styles, first_x, first_y)?,
-                        stroke.resolve(engine, styles, first_x, first_y)?,
-                        resolve_breakable(first_y, 1),
-                        locator.next(&()),
-                        styles,
-                    )));
-            }
+                        if resolved_cells.len() <= c * child_start {
+                            // Ensure the automatically chosen row actually exists.
+                            resolved_cells.resize_with(c * (child_start + 1), || None);
+                        }
 
-            if is_header {
-                if child_start != 0 {
-                    bail!(
-                        child_span,
-                        "header must start at the first row";
-                        hint: "remove any rows before the header"
-                    );
-                }
+                        // Even though this header or footer is fully empty, we add one
+                        // default cell to maintain the invariant that each header and
+                        // footer has at least one `Some(...)` cell at its first row
+                        // and at least one at its last row (here they are the same
+                        // row, of course). This invariant is important to ensure
+                        // `find_next_empty_row` will skip through any existing headers
+                        // and footers without having to loop through them each time.
+                        // Cells themselves, unfortunately, still have to.
+                        assert!(resolved_cells[local_auto_index].is_none());
+                        let (first_x, first_y) = (0, first_available_row);
+                        resolved_cells[local_auto_index] =
+                            Some(Entry::Cell(T::default().resolve_cell(
+                                first_x,
+                                first_y,
+                                &fill.resolve(engine, styles, first_x, first_y)?,
+                                align.resolve(engine, styles, first_x, first_y)?,
+                                inset.resolve(engine, styles, first_x, first_y)?,
+                                stroke.resolve(engine, styles, first_x, first_y)?,
+                                resolve_breakable(first_y, 1),
+                                locator.next(&()),
+                                styles,
+                            )));
 
-                header = Some(Header {
-                    // Later on, we have to correct this number in case there
-                    // is gutter. But only once all cells have been analyzed
-                    // and the header has fully expanded in the fixup loop
-                    // below.
-                    end: child_end,
-                });
-            }
+                        child_start..child_end
+                    }
+                };
 
-            if is_footer {
-                // Only check if the footer is at the end later, once we know
-                // the final amount of rows.
-                footer = Some((
-                    child_end,
-                    child_span,
-                    Footer {
+                if is_header {
+                    if child_range.start != 0 {
+                        bail!(
+                            child_span,
+                            "header must start at the first row";
+                            hint: "remove any rows before the header"
+                        );
+                    }
+
+                    header = Some(Header {
                         // Later on, we have to correct this number in case there
-                        // is gutter, but only once all cells have been analyzed
-                        // and the header's and footer's exact boundaries are
-                        // known. That is because the gutter row immediately
-                        // before the footer might not be included as part of
-                        // the footer if it is contained within the header.
-                        start: child_start,
-                    },
-                ));
-            }
+                        // is gutter. But only once all cells have been analyzed
+                        // and the header has fully expanded in the fixup loop
+                        // below.
+                        end: child_range.end,
+                    });
+                }
 
-            if !is_row_group {
+                if is_footer {
+                    // Only check if the footer is at the end later, once we know
+                    // the final amount of rows.
+                    footer = Some((
+                        child_range.end,
+                        child_span,
+                        Footer {
+                            // Later on, we have to correct this number in case there
+                            // is gutter, but only once all cells have been analyzed
+                            // and the header's and footer's exact boundaries are
+                            // known. That is because the gutter row immediately
+                            // before the footer might not be included as part of
+                            // the footer if it is contained within the header.
+                            start: child_range.start,
+                        },
+                    ));
+                }
+            } else {
                 // The child was a single cell outside headers or footers.
                 // Therefore, 'local_auto_index' for this table child was
                 // simply an alias for 'auto_index', so we update it as needed.
