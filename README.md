@@ -118,8 +118,10 @@ Typst's CLI is available from different sources:
   - Windows: `winget install --id Typst.Typst`
 
 - If you have a [Rust][rust] toolchain installed, you can install
-  - the latest released Typst version with
+  - the latest released Typst version from source with
     `cargo install --locked typst-cli`
+  - the latest released Typst version from binary with
+    `cargo binstall --locked typst-cli`
   - a development version with
     `cargo install --git https://github.com/typst/typst --locked typst-cli`
 
