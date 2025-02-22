@@ -13,6 +13,11 @@ $ underline(f' : NN -> RR) \
     1 - 0 thick &...,
   ) $
 
+--- math-shorthands-noncontinuable ---
+// Test that shorthands are not continuable.
+$ x >=(y) / z \
+  x >= (y) / z $
+
 --- math-common-symbols ---
 // Test common symbols.
 $ dot \ dots \ ast \ tilde \ star $
