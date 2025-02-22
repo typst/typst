@@ -34,8 +34,7 @@ use crate::layout::{
 };
 use crate::loading::{DataSource, Load};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
-    Url,
+    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, Url,
 };
 use crate::routines::{EvalMode, Routines};
 use crate::text::{
@@ -210,12 +209,11 @@ impl Synthesize for Packed<BibliographyElem> {
 impl Show for Packed<BibliographyElem> {
     #[typst_macros::time(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        const _COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
         let span = self.span();
-
         let mut seq = vec![];
+
         if let Some(title) = self.title(styles).unwrap_or_else(|| {
             Some(TextElem::packed(Self::local_name_in(styles)).spanned(span))
         }) {
@@ -234,40 +232,16 @@ impl Show for Packed<BibliographyElem> {
             .ok_or("CSL style is not suitable for bibliographies")
             .at(span)?;
 
-        if references.iter().any(|(_, prefix, _)| prefix.is_some()) {
-            let row_gutter = ParElem::spacing_in(styles);
-            let mut cells = vec![];
+        for (key, prefix, reference) in references {
+            let label = Label::new(PicoStr::intern(key));
+            let indent = if works.hanging_indent { Some(INDENT.into()) } else { None };
+            let entry = BibliographyEntry::new(label, reference.clone())
+                .with_prefix(prefix.clone())
+                .with_indent(indent)
+                .pack()
+                .spanned(span);
 
-            for (key, prefix, reference) in references {
-                let label = Label::new(PicoStr::intern(key));
-                let entry = BibliographyEntry::new(label, reference.clone())
-                    .with_prefix(prefix.clone())
-                    .pack()
-                    .spanned(span);
-
-                cells.push(
-                    entry
-                        .try_into()
-                        .expect("conversion from Content to GridChild should not fail"),
-                );
-            }
-
-            seq.push(
-                GridElem::new(cells)
-                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 1]))
-                    // .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                    .pack()
-                    .spanned(span),
-            );
-        } else {
-            for (key, _, reference) in references {
-                let label = Label::new(PicoStr::intern(key));
-                let entry = BibliographyEntry::new(label, reference.clone()).with_indent(
-                    if works.hanging_indent { Some(INDENT.into()) } else { None },
-                );
-                seq.push(entry.pack().spanned(span));
-            }
+            seq.push(entry);
         }
 
         Ok(Content::sequence(seq))
@@ -389,7 +363,9 @@ impl BibliographyEntry {}
 impl Show for Packed<BibliographyEntry> {
     #[typst_macros::time(name = "bibliography.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        const COLUMN_GUTTER: Em = Em::new(0.65);
         let span = self.span();
+
         if self.prefix(styles).is_some() {
             let prefix = self.prefix(styles).unwrap();
             let body = self.body.clone();
@@ -412,7 +388,7 @@ impl Show for Packed<BibliographyEntry> {
                 frame.width()
             };
             let hanging_indent =
-                prefix_width + Em::new(0.65).at(TextElem::size_in(styles));
+                prefix_width + COLUMN_GUTTER.at(TextElem::size_in(styles));
             let inset = Sides::default()
                 .with(TextElem::dir_in(styles).start(), Some(Rel::from(hanging_indent)));
 
