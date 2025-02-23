@@ -313,6 +313,17 @@ impl Frame {
         });
     }
 
+    /// Convert this frame into a watermarked (non-selectable) frame.
+    pub fn watermarked(self) -> Self {
+        if self.is_empty() {
+            return self;
+        }
+        let mut frame = Frame::soft(self.size());
+        frame.baseline = self.baseline;
+        frame.push(Point::zero(), FrameItem::Watermark(self));
+        frame
+    }
+
     /// Add a background fill.
     pub fn fill(&mut self, fill: impl Into<Paint>) {
         self.prepend(
@@ -476,6 +487,8 @@ pub enum FrameItem {
     Link(Destination, Size),
     /// An introspectable element that produced something within this frame.
     Tag(Tag),
+    /// A watermarked (non-selectable) frame.
+    Watermark(Frame),
 }
 
 impl Debug for FrameItem {
@@ -487,6 +500,7 @@ impl Debug for FrameItem {
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
             Self::Tag(tag) => write!(f, "{tag:?}"),
+            Self::Watermark(frame) => write!(f, "Watermark({frame:?})"),
         }
     }
 }

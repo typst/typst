@@ -230,6 +230,13 @@ impl SVGRenderer {
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
                 FrameItem::Link(_, _) => unreachable!(),
                 FrameItem::Tag(_) => unreachable!(),
+                FrameItem::Watermark(frame) => {
+                    // Add user-select: none CSS property for SVG watermarks
+                    self.xml.start_element("g");
+                    self.xml.write_attribute("style", "user-select: none");
+                    self.render_frame(state.pre_translate(*pos), Transform::identity(), frame);
+                    self.xml.end_element();
+                }
             };
 
             self.xml.end_element();

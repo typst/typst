@@ -381,8 +381,29 @@ pub(crate) fn write_frame(ctx: &mut Builder, frame: &Frame) -> SourceResult<()> 
             }
             FrameItem::Link(dest, size) => write_link(ctx, pos, dest, *size),
             FrameItem::Tag(_) => {}
+            FrameItem::Watermark(frame) => write_watermark(ctx, pos, frame)?,
         }
     }
+    Ok(())
+}
+
+/// Encode a watermarked frame into the content stream.
+fn write_watermark(ctx: &mut Builder, pos: Point, frame: &Frame) -> SourceResult<()> {
+    ctx.save_state()?;
+
+    // Begin PDF artifact marking
+    ctx.content.begin_marked_content(Name(b"Artifact"));
+
+    // Transform to position
+    ctx.transform(Transform::translate(pos.x, pos.y));
+
+    // Write the frame contents
+    write_frame(ctx, frame)?;
+
+    // End PDF artifact marking
+    ctx.content.end_marked_content();
+
+    ctx.restore_state();
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Fragment, Frame, FrameItem, HideElem, Point};
-use typst_library::model::{Destination, LinkElem};
+use typst_library::model::{Destination, LinkElem, WatermarkElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -23,6 +23,8 @@ pub struct FrameModifiers {
     dest: Option<Destination>,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
+    /// Whether the contents should be watermarked (non-selectable).
+    watermarked: bool,
 }
 
 impl FrameModifiers {
@@ -31,6 +33,7 @@ impl FrameModifiers {
         Self {
             dest: LinkElem::current_in(styles),
             hidden: HideElem::hidden_in(styles),
+            watermarked: WatermarkElem::watermarked_in(styles),
         }
     }
 }
@@ -59,6 +62,10 @@ impl FrameModify for Frame {
 
         if modifiers.hidden {
             self.hide();
+        }
+
+        if modifiers.watermarked {
+            *self = self.clone().watermarked();
         }
     }
 }

@@ -169,6 +169,11 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             }
             FrameItem::Link(_, _) => {}
             FrameItem::Tag(_) => {}
+            FrameItem::Watermark(frame) => {
+                // For raster output, just render the frame normally since
+                // selectability doesn't apply
+                render_frame(canvas, state, frame);
+            }
         }
     }
 }
