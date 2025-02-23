@@ -130,7 +130,7 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
 ///
 /// # Predefined color maps
 /// Typst also includes a number of preset color maps that can be used for
-/// [gradients]($gradient.linear). These are simply arrays of colors defined in
+/// [gradients]($gradient/#stops). These are simply arrays of colors defined in
 /// the module `color.map`.
 ///
 /// ```example
