@@ -312,14 +312,8 @@ fn layout_underoverspreader(
         }
     };
 
-    let frame = stack(
-        rows,
-        FixedAlignment::Center,
-        gap,
-        baseline,
-        LeftRightAlternator::Right,
-        None,
-    );
+    let frame =
+        stack(rows, FixedAlignment::Center, gap, baseline, LeftRightAlternator::Right);
     ctx.push(FrameFragment::new(styles, frame).with_class(body_class));
 
     Ok(())
