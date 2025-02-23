@@ -1,4 +1,4 @@
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{bail, warning, SourceResult};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Point, Ratio, Rel, Size,
@@ -9,7 +9,7 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, delimiter_alignment, stack, style_for_denominator, AlignmentResult,
+    alignments, delimiter_alignment, style_for_denominator, AlignmentResult,
     FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
 };
 
@@ -23,67 +23,22 @@ pub fn layout_vec(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let delim = elem.delim(styles);
-    let frame = layout_vec_body(
+    let span = elem.span();
+
+    let column: Vec<&Content> = elem.children.iter().collect();
+    let frame = layout_body(
         ctx,
         styles,
-        &elem.children,
+        &[column],
         elem.align(styles),
-        elem.gap(styles),
         LeftRightAlternator::Right,
+        None,
+        Axes::with_y(elem.gap(styles)),
+        span,
     )?;
-
-    layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), elem.span())
-}
-
-/// Lays out a [`MatElem`].
-#[typst_macros::time(name = "math.mat", span = elem.span())]
-pub fn layout_mat(
-    elem: &Packed<MatElem>,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> SourceResult<()> {
-    let augment = elem.augment(styles);
-    let rows = &elem.rows;
-
-    if let Some(aug) = &augment {
-        for &offset in &aug.hline.0 {
-            if offset == 0 || offset.unsigned_abs() >= rows.len() {
-                bail!(
-                    elem.span(),
-                    "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                    if offset < 0 { rows.len() as isize + offset } else { offset },
-                    rows.len()
-                );
-            }
-        }
-
-        let ncols = rows.first().map_or(0, |row| row.len());
-
-        for &offset in &aug.vline.0 {
-            if offset == 0 || offset.unsigned_abs() >= ncols {
-                bail!(
-                        elem.span(),
-                        "cannot draw a vertical line after column {} of a matrix with {} columns",
-                        if offset < 0 { ncols as isize + offset } else { offset },
-                        ncols
-                    );
-            }
-        }
-    }
 
     let delim = elem.delim(styles);
-    let frame = layout_mat_body(
-        ctx,
-        styles,
-        rows,
-        elem.align(styles),
-        augment,
-        Axes::new(elem.column_gap(styles), elem.row_gap(styles)),
-        elem.span(),
-    )?;
-
-    layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), elem.span())
+    layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
 }
 
 /// Lays out a [`CasesElem`].
@@ -93,60 +48,97 @@ pub fn layout_cases(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let delim = elem.delim(styles);
-    let frame = layout_vec_body(
+    let span = elem.span();
+
+    let column: Vec<&Content> = elem.children.iter().collect();
+    let frame = layout_body(
         ctx,
         styles,
-        &elem.children,
+        &[column],
         FixedAlignment::Start,
-        elem.gap(styles),
         LeftRightAlternator::None,
+        None,
+        Axes::with_y(elem.gap(styles)),
+        span,
     )?;
 
+    let delim = elem.delim(styles);
     let (open, close) =
         if elem.reverse(styles) { (None, delim.close()) } else { (delim.open(), None) };
-
-    layout_delimiters(ctx, styles, frame, open, close, elem.span())
+    layout_delimiters(ctx, styles, frame, open, close, span)
 }
 
-/// Layout the inner contents of a vector.
-fn layout_vec_body(
+/// Lays out a [`MatElem`].
+#[typst_macros::time(name = "math.mat", span = elem.span())]
+pub fn layout_mat(
+    elem: &Packed<MatElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
-    column: &[Content],
-    align: FixedAlignment,
-    row_gap: Rel<Abs>,
-    alternator: LeftRightAlternator,
-) -> SourceResult<Frame> {
-    let gap = row_gap.relative_to(ctx.region.size.y);
+) -> SourceResult<()> {
+    let span = elem.span();
+    let rows = &elem.rows;
+    let ncols = rows.first().map_or(0, |row| row.len());
 
-    let denom_style = style_for_denominator(styles);
-    let mut flat = vec![];
-    for child in column {
-        // We allow linebreaks in cases and vectors, which are functionally
-        // identical to commas.
-        flat.extend(ctx.layout_into_run(child, styles.chain(&denom_style))?.rows());
+    let augment = elem.augment(styles);
+    if let Some(aug) = &augment {
+        for &offset in &aug.hline.0 {
+            if offset == 0 || offset.unsigned_abs() >= rows.len() {
+                bail!(
+                    span,
+                    "cannot draw a horizontal line after row {} of a matrix with {} rows",
+                    if offset < 0 { rows.len() as isize + offset } else { offset },
+                    rows.len()
+                );
+            }
+        }
+
+        for &offset in &aug.vline.0 {
+            if offset == 0 || offset.unsigned_abs() >= ncols {
+                bail!(
+                        span,
+                        "cannot draw a vertical line after column {} of a matrix with {} columns",
+                        if offset < 0 { ncols as isize + offset } else { offset },
+                        ncols
+                    );
+            }
+        }
     }
-    // We pad ascent and descent with the ascent and descent of the paren
-    // to ensure that normal vectors are aligned with others unless they are
-    // way too big.
-    let paren =
-        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
-    Ok(stack(flat, align, gap, 0, alternator, Some((paren.ascent, paren.descent))))
+
+    // Transpose rows of the matrix into columns.
+    let mut row_iters: Vec<_> = rows.iter().map(|i| i.iter()).collect();
+    let columns: Vec<Vec<_>> = (0..ncols)
+        .map(|_| row_iters.iter_mut().map(|i| i.next().unwrap()).collect())
+        .collect();
+
+    let frame = layout_body(
+        ctx,
+        styles,
+        &columns,
+        elem.align(styles),
+        LeftRightAlternator::Right,
+        augment,
+        Axes::new(elem.column_gap(styles), elem.row_gap(styles)),
+        span,
+    )?;
+
+    let delim = elem.delim(styles);
+    layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
 }
 
-/// Layout the inner contents of a matrix.
-fn layout_mat_body(
+/// Layout the inner contents of a matrix, vector, or cases.
+#[allow(clippy::too_many_arguments)]
+fn layout_body(
     ctx: &mut MathContext,
     styles: StyleChain,
-    rows: &[Vec<Content>],
+    columns: &[Vec<&Content>],
     align: FixedAlignment,
+    alternator: LeftRightAlternator,
     augment: Option<Augment<Abs>>,
     gap: Axes<Rel<Abs>>,
     span: Span,
 ) -> SourceResult<Frame> {
-    let ncols = rows.first().map_or(0, |row| row.len());
-    let nrows = rows.len();
+    let nrows = columns.first().map_or(0, |col| col.len());
+    let ncols = columns.len();
     if ncols == 0 || nrows == 0 {
         return Ok(Frame::soft(Size::zero()));
     }
@@ -178,15 +170,10 @@ fn layout_mat_body(
     // Before the full matrix body can be laid out, the
     // individual cells must first be independently laid out
     // so we can ensure alignment across rows and columns.
+    let mut cols = vec![vec![]; ncols];
 
     // This variable stores the maximum ascent and descent for each row.
     let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
-
-    // We want to transpose our data layout to columns
-    // before final layout. For efficiency, the columns
-    // variable is set up here and newly generated
-    // individual cells are then added to it.
-    let mut cols = vec![vec![]; ncols];
 
     let denom_style = style_for_denominator(styles);
     // We pad ascent and descent with the ascent and descent of the paren
@@ -195,9 +182,21 @@ fn layout_mat_body(
     let paren =
         GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
 
-    for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
-        for (cell, col) in row.iter().zip(&mut cols) {
+    for (column, col) in columns.iter().zip(&mut cols) {
+        for (cell, (ascent, descent)) in column.iter().zip(&mut heights) {
+            let cell_span = cell.span();
             let cell = ctx.layout_into_run(cell, styles.chain(&denom_style))?;
+
+            // We ignore linebreaks in the cells as we can't differentiate
+            // alignment points for the whole body from ones for a specific
+            // cell, and multiline cells don't quite make sense at the moment.
+            if cell.is_multiline() {
+                ctx.engine.sink.warn(warning!(
+                   cell_span,
+                   "linebreaks are ignored in cells";
+                   hint: "use commas instead to separate each line"
+                ));
+            }
 
             ascent.set_max(cell.ascent().max(paren.ascent));
             descent.set_max(cell.descent().max(paren.descent));
@@ -222,7 +221,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_line_frame(&points, LeftRightAlternator::Right);
+            let cell = cell.into_line_frame(&points, alternator);
             let pos = Point::new(
                 if points.is_empty() {
                     x + align.position(rcol - cell.width())
