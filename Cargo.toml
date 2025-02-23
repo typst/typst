@@ -100,7 +100,6 @@ resvg = { version = "0.43", default-features = false, features = ["raster-images
 roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustybuzz = "0.18"
-same-file = "1"
 self-replace = "1.3.7"
 semver = "1"
 serde = { version = "1.0.184", features = ["derive"] }

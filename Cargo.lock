@@ -2774,7 +2774,6 @@ dependencies = [
  "parking_lot",
  "pathdiff",
  "rayon",
- "same-file",
  "self-replace",
  "semver",
  "serde",
