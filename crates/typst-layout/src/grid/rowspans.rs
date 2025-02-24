@@ -588,7 +588,7 @@ impl GridLayouter<'_> {
         measurement_data: &CellMeasurementData<'_>,
     ) -> bool {
         if sizes.len() <= 1
-            && sizes.first().map_or(true, |&first_frame_size| {
+            && sizes.first().is_none_or( |&first_frame_size| {
                 first_frame_size <= measurement_data.height_in_this_region
             })
         {

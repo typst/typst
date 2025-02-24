@@ -1377,7 +1377,7 @@ impl<'a> GridLayouter<'a> {
                     .footer
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
-                    .map_or(true, |footer| footer.start != header.end)
+                    .is_none_or(|footer| footer.start != header.end)
                 && self.lrows.last().is_some_and(|row| row.index() < header.end)
                 && !in_last_with_offset(
                     self.regions,
@@ -1446,7 +1446,7 @@ impl<'a> GridLayouter<'a> {
                 .iter_mut()
                 .filter(|rowspan| (rowspan.y..rowspan.y + rowspan.rowspan).contains(&y))
                 .filter(|rowspan| {
-                    rowspan.max_resolved_row.map_or(true, |max_row| y > max_row)
+                    rowspan.max_resolved_row.is_none_or(|max_row| y > max_row)
                 })
             {
                 // If the first region wasn't defined yet, it will have the
@@ -1494,7 +1494,7 @@ impl<'a> GridLayouter<'a> {
                 // laid out at the first frame of the row).
                 // Any rowspans ending before this row are laid out even
                 // on this row's first frame.
-                if laid_out_footer_start.map_or(true, |footer_start| {
+                if laid_out_footer_start.is_none_or(|footer_start| {
                     // If this is a footer row, then only lay out this rowspan
                     // if the rowspan is contained within the footer.
                     y < footer_start || rowspan.y >= footer_start
@@ -1580,5 +1580,5 @@ pub(super) fn points(
 /// our case, headers).
 pub(super) fn in_last_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
     regions.backlog.is_empty()
-        && regions.last.map_or(true, |height| regions.size.y + offset == height)
+        && regions.last.is_none_or(|height| regions.size.y + offset == height)
 }

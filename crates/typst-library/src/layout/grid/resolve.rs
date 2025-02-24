@@ -1387,7 +1387,7 @@ impl<'a> CellGrid<'a> {
                     // Include the gutter right before the footer, unless there is
                     // none, or the gutter is already included in the header (no
                     // rows between the header and the footer).
-                    if header_end.map_or(true, |header_end| header_end != footer.start) {
+                    if header_end != Some(footer.start) {
                         footer.start = footer.start.saturating_sub(1);
                     }
                 }

@@ -753,7 +753,7 @@ impl<'a> LinkedNode<'a> {
                 // sibling's span number is larger than the target span's number.
                 if children
                     .peek()
-                    .map_or(true, |next| next.span().number() > span.number())
+                    .is_none_or(|next| next.span().number() > span.number())
                 {
                     if let Some(found) = child.find(span) {
                         return Some(found);

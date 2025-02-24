@@ -411,7 +411,7 @@ fn find<'a>(
         }
 
         let score = (matching, Reverse(total));
-        if best_score.map_or(true, |b| score > b) {
+        if best_score.is_none_or(|b| score > b) {
             best = Some(candidate.1);
             best_score = Some(score);
         }
