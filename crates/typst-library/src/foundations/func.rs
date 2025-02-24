@@ -437,10 +437,10 @@ impl PartialEq for Func {
     }
 }
 
-impl PartialEq<&NativeFuncData> for Func {
-    fn eq(&self, other: &&NativeFuncData) -> bool {
+impl PartialEq<&'static NativeFuncData> for Func {
+    fn eq(&self, other: &&'static NativeFuncData) -> bool {
         match &self.repr {
-            Repr::Native(native) => native.function == other.function,
+            Repr::Native(native) => *native == Static(*other),
             _ => false,
         }
     }
