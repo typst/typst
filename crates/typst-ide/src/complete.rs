@@ -1455,7 +1455,7 @@ impl<'a> CompletionContext<'a> {
         let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
         named_items(self.world, self.leaf.clone(), |item| {
             let name = item.name();
-            if !name.is_empty() && item.value().as_ref().map_or(true, filter) {
+            if !name.is_empty() && item.value().as_ref().is_none_or(filter) {
                 defined.insert(name.clone(), item.value());
             }
 

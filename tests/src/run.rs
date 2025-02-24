@@ -161,7 +161,7 @@ impl<'a> Runner<'a> {
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
-        if ref_data.as_ref().map_or(false, |r| D::matches(&live, r)) {
+        if ref_data.as_ref().is_ok_and(|r| D::matches(&live, r)) {
             return;
         }
 

@@ -465,7 +465,7 @@ impl<'a> ShapedText<'a> {
             None
         };
         let mut chain = families(self.styles)
-            .filter(|family| family.covers().map_or(true, |c| c.is_match("-")))
+            .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
             .map(|family| book.select(family.as_str(), self.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
@@ -570,7 +570,7 @@ impl<'a> ShapedText<'a> {
         // for the next line.
         let dec = if ltr { usize::checked_sub } else { usize::checked_add };
         while let Some(next) = dec(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.range.start != text_index) {
+            if self.glyphs.get(next).is_none_or(|g| g.range.start != text_index) {
                 break;
             }
             idx = next;
@@ -812,7 +812,7 @@ fn shape_segment<'a>(
             .nth(1)
             .map(|(i, _)| offset + i)
             .unwrap_or(text.len());
-        covers.map_or(true, |cov| cov.is_match(&text[offset..end]))
+        covers.is_none_or(|cov| cov.is_match(&text[offset..end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with

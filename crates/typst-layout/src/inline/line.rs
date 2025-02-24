@@ -154,7 +154,7 @@ pub fn line<'a>(
     let mut items = collect_items(engine, p, range, trim);
 
     // Add a hyphen at the line start, if a previous dash should be repeated.
-    if pred.map_or(false, |pred| should_repeat_hyphen(pred, full)) {
+    if pred.is_some_and(|pred| should_repeat_hyphen(pred, full)) {
         if let Some(shaped) = items.first_text_mut() {
             shaped.prepend_hyphen(engine, p.config.fallback);
         }
@@ -406,7 +406,7 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
         //
         // See § 4.1.1.1.2.e on the "Ortografía de la lengua española"
         // https://www.rae.es/ortografía/como-signo-de-división-de-palabras-a-final-de-línea
-        Lang::SPANISH => text.chars().next().map_or(false, |c| !c.is_uppercase()),
+        Lang::SPANISH => text.chars().next().is_some_and(|c| !c.is_uppercase()),
 
         _ => false,
     }
