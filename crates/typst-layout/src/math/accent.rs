@@ -34,7 +34,7 @@ pub fn layout_accent(
 
     // Try to replace accent glyph with flattened variant.
     let flattened_base_height = scaled!(ctx, styles, flattened_accent_base_height);
-    if base.height() > flattened_base_height {
+    if base.ascent() > flattened_base_height {
         glyph.make_flattened_accent_form(ctx);
     }
 
