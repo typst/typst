@@ -307,21 +307,18 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 
 /// Determine which kind of output the user generated.
 fn classify_output(mut output: Vec<HtmlNode>) -> SourceResult<OutputKind> {
-    let html_elem_count = output
-        .iter()
-        .filter(|node| matches!(node, HtmlNode::Element(_)))
-        .count();
+    let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
     for node in &mut output {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         let mut take = || std::mem::replace(elem, HtmlElement::new(tag::html));
-        match (tag, html_elem_count) {
+        match (tag, count) {
             (tag::html, 1) => return Ok(OutputKind::Html(take())),
             (tag::body, 1) => return Ok(OutputKind::Body(take())),
             (tag::html | tag::body, _) => bail!(
                 elem.span,
-                "`{}` element must be the only html element in the document, but there are {}",
-                elem.tag, html_elem_count
+                "`{}` element must be the only element in the document",
+                elem.tag,
             ),
             _ => {}
         }
