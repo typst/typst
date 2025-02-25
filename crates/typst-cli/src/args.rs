@@ -326,6 +326,12 @@ pub struct ProcessArgs {
     /// The format to emit diagnostics in.
     #[clap(long, default_value_t)]
     pub diagnostic_format: DiagnosticFormat,
+
+    /// Determines the maximum number of layout iterations the compiler will perform in an attempt
+    /// to reach a stable state. If the document fails to stabilize within this limit, the compilation
+    /// process will give up with a warning.
+    #[arg(long = "max-layout-iterations", default_value_t = 5)]
+    pub max_iterations: usize,
 }
 
 /// Arguments related to where packages are stored in the system.

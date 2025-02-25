@@ -48,6 +48,8 @@ pub struct SystemWorld {
     /// always the same within one compilation.
     /// Reset between compilations if not [`Now::Fixed`].
     now: Now,
+    /// The maximum number of layout iterations.
+    max_iterations: usize,
 }
 
 impl SystemWorld {
@@ -142,6 +144,7 @@ impl SystemWorld {
             slots: Mutex::new(HashMap::new()),
             package_storage: package::storage(&world_args.package),
             now,
+            max_iterations: process_args.max_iterations,
         })
     }
 
@@ -233,6 +236,10 @@ impl World for SystemWorld {
             with_offset.month().try_into().ok()?,
             with_offset.day().try_into().ok()?,
         )
+    }
+
+    fn max_iterations(&self) -> usize {
+        self.max_iterations
     }
 }
 

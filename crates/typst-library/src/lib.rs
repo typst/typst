@@ -84,6 +84,10 @@ pub trait World: Send + Sync {
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
+
+
+    /// Get the maximum number of layout iterations.
+    fn max_iterations(&self) -> usize;
 }
 
 macro_rules! world_impl {
@@ -115,6 +119,10 @@ macro_rules! world_impl {
 
             fn today(&self, offset: Option<i64>) -> Option<Datetime> {
                 self.deref().today(offset)
+            }
+            
+            fn max_iterations(&self) -> usize {
+                self.deref().max_iterations()
             }
         }
     };
