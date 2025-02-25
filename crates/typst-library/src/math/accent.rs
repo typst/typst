@@ -13,8 +13,8 @@ use crate::math::Mathy;
 /// ```
 #[elem(Mathy)]
 pub struct AccentElem {
-    /// The base to which the accent is applied.
-    /// May consist of multiple letters.
+    /// The base to which the accent is applied. May consist of multiple
+    /// letters.
     ///
     /// ```example
     /// $arrow(A B C)$
@@ -51,9 +51,24 @@ pub struct AccentElem {
     pub accent: Accent,
 
     /// The size of the accent, relative to the width of the base.
+    ///
+    /// ```example
+    /// $dash(A, size: #150%)$
+    /// ```
     #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
+
+    /// Whether to remove the dot on top of lowercase i and j when adding a top
+    /// accent.
+    ///
+    /// This enables the `dtls` OpenType feature.
+    ///
+    /// ```example
+    /// $hat(dotless: #false, i)$
+    /// ```
+    #[default(true)]
+    pub dotless: bool,
 }
 
 /// An accent character.
@@ -103,10 +118,17 @@ macro_rules! accents {
                 /// The size of the accent, relative to the width of the base.
                 #[named]
                 size: Option<Rel<Length>>,
+                /// Whether to remove the dot on top of lowercase i and j when
+                /// adding a top accent.
+                #[named]
+                dotless: Option<bool>,
             ) -> Content {
                 let mut accent = AccentElem::new(base, Accent::new($primary));
                 if let Some(size) = size {
                     accent = accent.with_size(size);
+                }
+                if let Some(dotless) = dotless {
+                    accent = accent.with_dotless(dotless)
                 }
                 accent.pack()
             }
