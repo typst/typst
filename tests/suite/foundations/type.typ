@@ -30,6 +30,8 @@
 // Hint: 7-26 compare with the literal type instead
 // Hint: 7-26 this comparison will always return `false` in future Typst releases
 #test(type(10) != "float", true)
+// This is not a warning.
+#test(type(10) in ("any", str, int), true)
 
 --- type-string-compatibility-in-array ---
 // Warning: 7-35 comparing strings with types is deprecated
