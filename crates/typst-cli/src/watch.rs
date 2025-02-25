@@ -9,6 +9,7 @@ use codespan_reporting::term::termcolor::WriteColor;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
+use same_file::is_same_file;
 use typst::diag::{bail, StrResult};
 use typst::utils::format_duration;
 
@@ -22,12 +23,12 @@ use crate::{print_error, terminal};
 pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
     let mut config = CompileConfig::watching(command)?;
 
-    let Output::Path(_) = &config.output else {
+    let Output::Path(output) = &config.output else {
         bail!("cannot write document to stdout in watch mode");
     };
 
     // Create a file system watcher.
-    let mut watcher = Watcher::new()?;
+    let mut watcher = Watcher::new(output.clone())?;
 
     // Create the world that serves sources, files, and fonts.
     // Additionally, if any files do not exist, wait until they do.
@@ -78,6 +79,8 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
 /// Watches file system activity.
 struct Watcher {
+    /// The output file. We ignore any events for it.
+    output: PathBuf,
     /// The underlying watcher.
     watcher: RecommendedWatcher,
     /// Notify event receiver.
@@ -104,7 +107,7 @@ impl Watcher {
     const POLL_INTERVAL: Duration = Duration::from_millis(300);
 
     /// Create a new, blank watcher.
-    fn new() -> StrResult<Self> {
+    fn new(output: PathBuf) -> StrResult<Self> {
         // Setup file watching.
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -118,6 +121,7 @@ impl Watcher {
             .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
 
         Ok(Self {
+            output,
             rx,
             watcher,
             watched: HashMap::new(),
@@ -200,6 +204,10 @@ impl Watcher {
                 let event = event
                     .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
 
+                if !is_relevant_event_kind(&event.kind) {
+                    continue;
+                }
+
                 // Workaround for notify-rs' implicit unwatch on remove/rename
                 // (triggered by some editors when saving files) with the
                 // inotify backend. By keeping track of the potentially
@@ -220,7 +228,17 @@ impl Watcher {
                     }
                 }
 
-                relevant |= self.is_event_relevant(&event);
+                // Don't recompile because the output file changed.
+                // FIXME: This doesn't work properly for multifile image export.
+                if event
+                    .paths
+                    .iter()
+                    .all(|path| is_same_file(path, &self.output).unwrap_or(false))
+                {
+                    continue;
+                }
+
+                relevant = true;
             }
 
             // If we found a relevant event or if any of the missing files now
@@ -230,23 +248,23 @@ impl Watcher {
             }
         }
     }
+}
 
-    /// Whether a watch event is relevant for compilation.
-    fn is_event_relevant(&self, event: &notify::Event) -> bool {
-        match &event.kind {
-            notify::EventKind::Any => true,
-            notify::EventKind::Access(_) => false,
-            notify::EventKind::Create(_) => true,
-            notify::EventKind::Modify(kind) => match kind {
-                notify::event::ModifyKind::Any => true,
-                notify::event::ModifyKind::Data(_) => true,
-                notify::event::ModifyKind::Metadata(_) => false,
-                notify::event::ModifyKind::Name(_) => true,
-                notify::event::ModifyKind::Other => false,
-            },
-            notify::EventKind::Remove(_) => true,
-            notify::EventKind::Other => false,
-        }
+/// Whether a kind of watch event is relevant for compilation.
+fn is_relevant_event_kind(kind: &notify::EventKind) -> bool {
+    match kind {
+        notify::EventKind::Any => true,
+        notify::EventKind::Access(_) => false,
+        notify::EventKind::Create(_) => true,
+        notify::EventKind::Modify(kind) => match kind {
+            notify::event::ModifyKind::Any => true,
+            notify::event::ModifyKind::Data(_) => true,
+            notify::event::ModifyKind::Metadata(_) => false,
+            notify::event::ModifyKind::Name(_) => true,
+            notify::event::ModifyKind::Other => false,
+        },
+        notify::EventKind::Remove(_) => true,
+        notify::EventKind::Other => false,
     }
 }
 
