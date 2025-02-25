@@ -287,12 +287,14 @@ impl Str {
         Ok(c.into())
     }
 
-    /// Normalizes the string to the given Unicode Normalization Form. This is useful when
-    /// manipulating strings containing combining Unicode characters.
+    /// Normalizes the string to the given Unicode normal form.
+    ///
+    /// This is useful when manipulating strings containing Unicode combining
+    /// characters.
     ///
     /// ```typ
-    /// #assert.eq("é".normalize("NFD"), "e\u{0301}")\
-    /// #assert.eq("ſ́".normalize("NFKC"), "ś")
+    /// #assert.eq("é".normalize(form: "nfd"), "e\u{0301}")
+    /// #assert.eq("ſ́".normalize(form: "nfkc"), "ś")
     /// ```
     #[func]
     pub fn normalize(
@@ -811,20 +813,21 @@ cast! {
     v: Str => Self::Str(v),
 }
 
+/// A Unicode normalization form.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum UnicodeNormalForm {
-    /// Converts letters with accents, for example, into one Unicode character
+    /// Canonical composition where e.g. accented letters are turned into a
+    /// single Unicode codepoint.
     #[string("nfc")]
     Nfc,
-    /// Decomposes accented characters into the base and the diacritic
-    /// separately
+    /// Canonical decomposition where e.g. accented letters are split into a
+    /// separate base and diacritic.
     #[string("nfd")]
     Nfd,
-    /// `"nfc"` (compose) but using the Unicode compatibility decompositions of
-    /// the characters
+    /// Like NFC, but using the Unicode compatibility decompositions.
     #[string("nfkc")]
     Nfkc,
-    /// `"nfd"` (decompose) but compatibility-decomposing the characters first
+    /// Like NFD, but using the Unicode compatibility decompositions.
     #[string("nfkd")]
     Nfkd,
 }
