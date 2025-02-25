@@ -271,10 +271,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
-            continuable = matches!(
-                math_class(p.current_text()),
-                None | Some(MathClass::Alphabetic)
-            );
+            continuable = !p.at(SyntaxKind::MathShorthand)
+                && matches!(
+                    math_class(p.current_text()),
+                    None | Some(MathClass::Alphabetic)
+                );
             if !maybe_delimited(p) {
                 p.eat();
             }

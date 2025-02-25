@@ -350,7 +350,7 @@ fn export_image(
         .iter()
         .enumerate()
         .filter(|(i, _)| {
-            config.pages.as_ref().map_or(true, |exported_page_ranges| {
+            config.pages.as_ref().is_none_or(|exported_page_ranges| {
                 exported_page_ranges.includes_page_index(*i)
             })
         })

@@ -83,8 +83,8 @@ fn html_document_impl(
     )?;
 
     let output = handle_list(&mut engine, &mut locator, children.iter().copied())?;
+    let introspector = Introspector::html(&output);
     let root = root_element(output, &info)?;
-    let introspector = Introspector::html(&root);
 
     Ok(HtmlDocument { info, root, introspector })
 }
@@ -307,18 +307,18 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 
 /// Determine which kind of output the user generated.
 fn classify_output(mut output: Vec<HtmlNode>) -> SourceResult<OutputKind> {
-    let len = output.len();
+    let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
     for node in &mut output {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         let mut take = || std::mem::replace(elem, HtmlElement::new(tag::html));
-        match (tag, len) {
+        match (tag, count) {
             (tag::html, 1) => return Ok(OutputKind::Html(take())),
             (tag::body, 1) => return Ok(OutputKind::Body(take())),
             (tag::html | tag::body, _) => bail!(
                 elem.span,
                 "`{}` element must be the only element in the document",
-                elem.tag
+                elem.tag,
             ),
             _ => {}
         }

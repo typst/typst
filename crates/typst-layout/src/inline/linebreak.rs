@@ -290,7 +290,7 @@ fn linebreak_optimized_bounded<'a>(
             }
 
             // If this attempt is better than what we had before, take it!
-            if best.as_ref().map_or(true, |best| best.total >= total) {
+            if best.as_ref().is_none_or(|best| best.total >= total) {
                 best = Some(Entry { pred: pred_index, total, line: attempt, end });
             }
         }
@@ -423,7 +423,7 @@ fn linebreak_optimized_approximate(
             let total = pred.total + line_cost;
 
             // If this attempt is better than what we had before, take it!
-            if best.as_ref().map_or(true, |best| best.total >= total) {
+            if best.as_ref().is_none_or(|best| best.total >= total) {
                 best = Some(Entry {
                     pred: pred_index,
                     total,

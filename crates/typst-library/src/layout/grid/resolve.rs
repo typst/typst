@@ -1387,7 +1387,7 @@ impl<'a> CellGrid<'a> {
                     // Include the gutter right before the footer, unless there is
                     // none, or the gutter is already included in the header (no
                     // rows between the header and the footer).
-                    if header_end.map_or(true, |header_end| header_end != footer.start) {
+                    if header_end != Some(footer.start) {
                         footer.start = footer.start.saturating_sub(1);
                     }
                 }
@@ -1526,11 +1526,7 @@ impl<'a> CellGrid<'a> {
         self.entry(x, y).map(|entry| match entry {
             Entry::Cell(_) => Axes::new(x, y),
             Entry::Merged { parent } => {
-                let c = if self.has_gutter {
-                    1 + self.cols.len() / 2
-                } else {
-                    self.cols.len()
-                };
+                let c = self.non_gutter_column_count();
                 let factor = if self.has_gutter { 2 } else { 1 };
                 Axes::new(factor * (*parent % c), factor * (*parent / c))
             }
@@ -1600,6 +1596,21 @@ impl<'a> CellGrid<'a> {
             2 * cell.rowspan.get() - 1
         } else {
             cell.rowspan.get()
+        }
+    }
+
+    #[inline]
+    pub fn non_gutter_column_count(&self) -> usize {
+        if self.has_gutter {
+            // Calculation: With gutters, we have
+            // 'cols = 2 * (non-gutter cols) - 1', since there is a gutter
+            // column between each regular column. Therefore,
+            // 'floor(cols / 2)' will be equal to
+            // 'floor(non-gutter cols - 1/2) = non-gutter-cols - 1',
+            // so 'non-gutter cols = 1 + floor(cols / 2)'.
+            1 + self.cols.len() / 2
+        } else {
+            self.cols.len()
         }
     }
 }
