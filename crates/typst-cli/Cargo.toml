@@ -40,6 +40,7 @@ open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
+same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }
 serde = { workspace = true }
