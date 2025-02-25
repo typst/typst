@@ -55,11 +55,11 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut config))??;
 
-    // Watch all dependencies of the initial compilation.
-    watcher.update(world.dependencies())?;
-
     // Recompile whenever something relevant happens.
     loop {
+        // Watch all dependencies of the most recent compilation.
+        watcher.update(world.dependencies())?;
+
         // Wait until anything relevant happens.
         watcher.wait()?;
 
@@ -71,9 +71,6 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
         // Evict the cache.
         comemo::evict(10);
-
-        // Adjust the file watching.
-        watcher.update(world.dependencies())?;
     }
 }
 
