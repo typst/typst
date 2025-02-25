@@ -498,7 +498,7 @@ pub fn equal(lhs: &Value, rhs: &Value, sink: &mut dyn DeprecationSink) -> bool {
 
         // Type compatibility.
         (Type(ty), Str(str)) | (Str(str), Type(ty)) => {
-            warn_type_str_equal(sink);
+            warn_type_str_equal(sink, str);
             ty.compat_name() == str.as_str()
         }
 
@@ -647,14 +647,17 @@ fn warn_type_str_join(sink: &mut dyn DeprecationSink) {
 }
 
 #[cold]
-fn warn_type_str_equal(sink: &mut dyn DeprecationSink) {
-    sink.emit_with_hints(
-        "comparing strings with types is deprecated",
-        &[
-            "compare with the literal type instead",
-            "this comparison will always return `false` in future Typst releases",
-        ],
-    );
+fn warn_type_str_equal(sink: &mut dyn DeprecationSink, s: &str) {
+    // Only warn if `s` looks like a type name to prevent false positives.
+    if is_compat_type_name(s) {
+        sink.emit_with_hints(
+            "comparing strings with types is deprecated",
+            &[
+                "compare with the literal type instead",
+                "this comparison will always return `false` in future Typst releases",
+            ],
+        );
+    }
 }
 
 #[cold]
@@ -671,4 +674,45 @@ fn warn_type_in_dict(sink: &mut dyn DeprecationSink) {
         "checking whether a type is contained in a dictionary is deprecated",
         &["this compatibility behavior only exists because `type` used to return a string"],
     );
+}
+
+fn is_compat_type_name(s: &str) -> bool {
+    matches!(
+        s,
+        "boolean"
+            | "alignment"
+            | "angle"
+            | "arguments"
+            | "array"
+            | "bytes"
+            | "color"
+            | "content"
+            | "counter"
+            | "datetime"
+            | "decimal"
+            | "dictionary"
+            | "direction"
+            | "duration"
+            | "float"
+            | "fraction"
+            | "function"
+            | "gradient"
+            | "integer"
+            | "label"
+            | "length"
+            | "location"
+            | "module"
+            | "pattern"
+            | "ratio"
+            | "regex"
+            | "relative length"
+            | "selector"
+            | "state"
+            | "string"
+            | "stroke"
+            | "symbol"
+            | "tiling"
+            | "type"
+            | "version"
+    )
 }
