@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind, SyntaxNode};
+use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 
 use crate::{analyze_import, IdeWorld};
 
@@ -30,38 +30,38 @@ pub fn named_items<T>(
 
             if let Some(v) = node.cast::<ast::ModuleImport>() {
                 let imports = v.imports();
-                let source = node
-                    .children()
-                    .find(|child| child.is::<ast::Expr>())
-                    .and_then(|source: LinkedNode| {
-                        Some((analyze_import(world, &source)?, source))
-                    });
-                let source = source.as_ref();
+                let source = v.source();
+
+                let source_value = node
+                    .find(source.span())
+                    .and_then(|source| analyze_import(world, &source));
+                let source_value = source_value.as_ref();
+
+                let module = source_value.and_then(|value| match value {
+                    Value::Module(module) => Some(module),
+                    _ => None,
+                });
+
+                let name_and_span = match (imports, v.new_name()) {
+                    // ```plain
+                    // import "foo" as name
+                    // import "foo" as name: ..
+                    // ```
+                    (_, Some(name)) => Some((name.get().clone(), name.span())),
+                    // ```plain
+                    // import "foo"
+                    // ```
+                    (None, None) => v.bare_name().ok().map(|name| (name, source.span())),
+                    // ```plain
+                    // import "foo": ..
+                    // ```
+                    (Some(..), None) => None,
+                };
 
                 // Seeing the module itself.
-                if let Some((value, source)) = source {
-                    let site = match (imports, v.new_name()) {
-                        // ```plain
-                        // import "foo" as name;
-                        // import "foo" as name: ..;
-                        // ```
-                        (_, Some(name)) => Some(name.to_untyped()),
-                        // ```plain
-                        // import "foo";
-                        // ```
-                        (None, None) => Some(source.get()),
-                        // ```plain
-                        // import "foo": ..;
-                        // ```
-                        (Some(..), None) => None,
-                    };
-
-                    if let Some((site, value)) =
-                        site.zip(value.clone().cast::<Module>().ok())
-                    {
-                        if let Some(res) = recv(NamedItem::Module(&value, site)) {
-                            return Some(res);
-                        }
+                if let Some((name, span)) = name_and_span {
+                    if let Some(res) = recv(NamedItem::Module(&name, span, module)) {
+                        return Some(res);
                     }
                 }
 
@@ -75,9 +75,13 @@ pub fn named_items<T>(
                     // import "foo": *;
                     // ```
                     Some(ast::Imports::Wildcard) => {
-                        if let Some(scope) = source.and_then(|(value, _)| value.scope()) {
-                            for (name, value, span) in scope.iter() {
-                                let item = NamedItem::Import(name, span, Some(value));
+                        if let Some(scope) = source_value.and_then(Value::scope) {
+                            for (name, binding) in scope.iter() {
+                                let item = NamedItem::Import(
+                                    name,
+                                    binding.span(),
+                                    Some(binding.read()),
+                                );
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -89,18 +93,26 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Items(items)) => {
                         for item in items.iter() {
-                            let original = item.original_name();
-                            let bound = item.bound_name();
-                            let scope = source.and_then(|(value, _)| value.scope());
-                            let span = scope
-                                .and_then(|s| s.get_span(&original))
-                                .unwrap_or(Span::detached())
-                                .or(bound.span());
+                            let mut iter = item.path().iter();
+                            let mut binding = source_value
+                                .and_then(Value::scope)
+                                .zip(iter.next())
+                                .and_then(|(scope, first)| scope.get(&first));
 
-                            let value = scope.and_then(|s| s.get(&original));
-                            if let Some(res) =
-                                recv(NamedItem::Import(bound.get(), span, value))
-                            {
+                            for ident in iter {
+                                binding = binding.and_then(|binding| {
+                                    binding.read().scope()?.get(&ident)
+                                });
+                            }
+
+                            let bound = item.bound_name();
+                            let (span, value) = match binding {
+                                Some(binding) => (binding.span(), Some(binding.read())),
+                                None => (bound.span(), None),
+                            };
+
+                            let item = NamedItem::Import(bound.get(), span, value);
+                            if let Some(res) = recv(item) {
                                 return Some(res);
                             }
                         }
@@ -169,8 +181,8 @@ pub enum NamedItem<'a> {
     Var(ast::Ident<'a>),
     /// A function item.
     Fn(ast::Ident<'a>),
-    /// A (imported) module item.
-    Module(&'a Module, &'a SyntaxNode),
+    /// A (imported) module.
+    Module(&'a EcoString, Span, Option<&'a Module>),
     /// An imported item.
     Import(&'a EcoString, Span, Option<&'a Value>),
 }
@@ -180,7 +192,7 @@ impl<'a> NamedItem<'a> {
         match self {
             NamedItem::Var(ident) => ident.get(),
             NamedItem::Fn(ident) => ident.get(),
-            NamedItem::Module(value, _) => value.name(),
+            NamedItem::Module(name, _, _) => name,
             NamedItem::Import(name, _, _) => name,
         }
     }
@@ -188,7 +200,7 @@ impl<'a> NamedItem<'a> {
     pub(crate) fn value(&self) -> Option<Value> {
         match self {
             NamedItem::Var(..) | NamedItem::Fn(..) => None,
-            NamedItem::Module(value, _) => Some(Value::Module((*value).clone())),
+            NamedItem::Module(_, _, value) => value.cloned().map(Value::Module),
             NamedItem::Import(_, _, value) => value.cloned(),
         }
     }
@@ -196,7 +208,7 @@ impl<'a> NamedItem<'a> {
     pub(crate) fn span(&self) -> Span {
         match *self {
             NamedItem::Var(name) | NamedItem::Fn(name) => name.span(),
-            NamedItem::Module(_, site) => site.span(),
+            NamedItem::Module(_, span, _) => span,
             NamedItem::Import(_, span, _) => span,
         }
     }
@@ -269,16 +281,18 @@ mod tests {
     use std::borrow::Borrow;
 
     use ecow::EcoString;
+    use typst::foundations::Value;
     use typst::syntax::{LinkedNode, Side};
 
     use super::named_items;
-    use crate::tests::{FilePos, WorldLike};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
-    type Response = Vec<EcoString>;
+    type Response = Vec<(EcoString, Option<Value>)>;
 
     trait ResponseExt {
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
+        fn must_include_value(&self, name_value: (&str, Option<&Value>)) -> &Self;
     }
 
     impl ResponseExt for Response {
@@ -286,7 +300,7 @@ mod tests {
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self {
             for item in includes {
                 assert!(
-                    self.iter().any(|v| v == item),
+                    self.iter().any(|v| v.0 == item),
                     "{item:?} was not contained in {self:?}",
                 );
             }
@@ -297,10 +311,19 @@ mod tests {
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self {
             for item in excludes {
                 assert!(
-                    !self.iter().any(|v| v == item),
+                    !self.iter().any(|v| v.0 == item),
                     "{item:?} was wrongly contained in {self:?}",
                 );
             }
+            self
+        }
+
+        #[track_caller]
+        fn must_include_value(&self, name_value: (&str, Option<&Value>)) -> &Self {
+            assert!(
+                self.iter().any(|v| (v.0.as_str(), v.1.as_ref()) == name_value),
+                "{name_value:?} was not contained in {self:?}",
+            );
             self
         }
     }
@@ -314,7 +337,7 @@ mod tests {
         let leaf = node.leaf_at(cursor, Side::After).unwrap();
         let mut items = vec![];
         named_items(world, leaf, |s| {
-            items.push(s.name().clone());
+            items.push((s.name().clone(), s.value().clone()));
             None::<()>
         });
         items
@@ -339,6 +362,21 @@ mod tests {
 
     #[test]
     fn test_named_items_import() {
-        test("#import \"foo.typ\": a; #(a);", 2).must_include(["a"]);
+        test("#import \"foo.typ\"", 2).must_include(["foo"]);
+        test("#import \"foo.typ\" as bar", 2)
+            .must_include(["bar"])
+            .must_exclude(["foo"]);
+    }
+
+    #[test]
+    fn test_named_items_import_items() {
+        test("#import \"foo.typ\": a; #(a);", 2)
+            .must_include(["a"])
+            .must_exclude(["foo"]);
+
+        let world = TestWorld::new("#import \"foo.typ\": a.b; #(b);")
+            .with_source("foo.typ", "#import \"a.typ\"")
+            .with_source("a.typ", "#let b = 1;");
+        test(&world, 2).must_include_value(("b", Some(&Value::Int(1))));
     }
 }

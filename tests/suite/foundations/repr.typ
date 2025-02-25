@@ -37,8 +37,8 @@
 #t(() => none, `(..) => ..`)
 
 // Types.
-#t(int, `integer`)
-#t(type("hi"), `string`)
+#t(int, `int`)
+#t(type("hi"), `str`)
 #t(type((a: 1)), `dictionary`)
 
 // Constants.

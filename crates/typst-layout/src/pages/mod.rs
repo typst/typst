@@ -83,7 +83,7 @@ fn layout_document_impl(
         styles,
     )?;
 
-    let pages = layout_pages(&mut engine, &mut children, locator, styles)?;
+    let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
     let introspector = Introspector::paged(&pages);
 
     Ok(PagedDocument { pages, info, introspector })
@@ -93,7 +93,7 @@ fn layout_document_impl(
 fn layout_pages<'a>(
     engine: &mut Engine,
     children: &'a mut [Pair<'a>],
-    locator: SplitLocator<'a>,
+    locator: &mut SplitLocator<'a>,
     styles: StyleChain<'a>,
 ) -> SourceResult<Vec<Page>> {
     // Slice up the children into logical parts.

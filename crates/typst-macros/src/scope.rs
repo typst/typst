@@ -31,18 +31,37 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     let mut definitions = vec![];
     let mut constructor = quote! { None };
     for child in &mut item.items {
-        let def = match child {
-            syn::ImplItem::Const(item) => handle_const(&self_ty_expr, item)?,
-            syn::ImplItem::Fn(item) => match handle_fn(self_ty, item)? {
-                FnKind::Member(tokens) => tokens,
-                FnKind::Constructor(tokens) => {
-                    constructor = tokens;
-                    continue;
-                }
-            },
-            syn::ImplItem::Verbatim(item) => handle_type_or_elem(item)?,
+        let bare: BareType;
+        let (mut def, attrs) = match child {
+            syn::ImplItem::Const(item) => {
+                (handle_const(&self_ty_expr, item)?, &item.attrs)
+            }
+            syn::ImplItem::Fn(item) => (
+                match handle_fn(self_ty, item)? {
+                    FnKind::Member(tokens) => tokens,
+                    FnKind::Constructor(tokens) => {
+                        constructor = tokens;
+                        continue;
+                    }
+                },
+                &item.attrs,
+            ),
+            syn::ImplItem::Verbatim(item) => {
+                bare = syn::parse2(item.clone())?;
+                (handle_type_or_elem(&bare)?, &bare.attrs)
+            }
             _ => bail!(child, "unexpected item in scope"),
         };
+
+        if let Some(message) = attrs.iter().find_map(|attr| match &attr.meta {
+            syn::Meta::NameValue(pair) if pair.path.is_ident("deprecated") => {
+                Some(&pair.value)
+            }
+            _ => None,
+        }) {
+            def = quote! { #def.deprecated(#message) }
+        }
+
         definitions.push(def);
     }
 
@@ -61,6 +80,7 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
                 #constructor
             }
 
+            #[allow(deprecated)]
             fn scope() -> #foundations::Scope {
                 let mut scope = #foundations::Scope::deduplicating();
                 #(#definitions;)*
@@ -78,8 +98,7 @@ fn handle_const(self_ty: &TokenStream, item: &syn::ImplItemConst) -> Result<Toke
 }
 
 /// Process a type item.
-fn handle_type_or_elem(item: &TokenStream) -> Result<TokenStream> {
-    let item: BareType = syn::parse2(item.clone())?;
+fn handle_type_or_elem(item: &BareType) -> Result<TokenStream> {
     let ident = &item.ident;
     let define = if item.attrs.iter().any(|attr| attr.path().is_ident("elem")) {
         quote! { define_elem }

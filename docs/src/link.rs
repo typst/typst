@@ -1,5 +1,5 @@
 use typst::diag::{bail, StrResult};
-use typst::foundations::Func;
+use typst::foundations::{Binding, Func};
 
 use crate::{get_module, GROUPS, LIBRARY};
 
@@ -44,6 +44,8 @@ fn resolve_known(head: &str, base: &str) -> Option<String> {
         "$styling" => format!("{base}reference/styling"),
         "$scripting" => format!("{base}reference/scripting"),
         "$context" => format!("{base}reference/context"),
+        "$html" => format!("{base}reference/html"),
+        "$pdf" => format!("{base}reference/pdf"),
         "$guides" => format!("{base}guides"),
         "$changelog" => format!("{base}changelog"),
         "$universe" => "https://typst.app/universe".into(),
@@ -59,7 +61,7 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
 
     while let Some(name) = parts.peek() {
         if category.is_none() {
-            category = focus.scope().get_category(name);
+            category = focus.scope().get(name).and_then(Binding::category);
         }
         let Ok(module) = get_module(focus, name) else { break };
         focus = module;
@@ -69,15 +71,18 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
     let Some(category) = category else { bail!("{head} has no category") };
 
     let name = parts.next().ok_or("link is missing first part")?;
-    let value = focus.field(name)?;
+    let value = focus.field(name, ())?;
 
     // Handle grouped functions.
     if let Some(group) = GROUPS.iter().find(|group| {
-        group.category == category.name() && group.filter.iter().any(|func| func == name)
+        group.category == category && group.filter.iter().any(|func| func == name)
     }) {
         let mut route = format!(
             "{}reference/{}/{}/#functions-{}",
-            base, group.category, group.name, name
+            base,
+            group.category.name(),
+            group.name,
+            name
         );
         if let Some(param) = parts.next() {
             route.push('-');
@@ -88,7 +93,7 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
 
     let mut route = format!("{}reference/{}/{name}", base, category.name());
     if let Some(next) = parts.next() {
-        if let Ok(field) = value.field(next) {
+        if let Ok(field) = value.field(next, ()) {
             route.push_str("/#definitions-");
             route.push_str(next);
             if let Some(next) = parts.next() {

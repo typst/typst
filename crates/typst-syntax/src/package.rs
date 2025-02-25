@@ -327,8 +327,8 @@ impl PackageVersion {
     /// missing in the bound are ignored.
     pub fn matches_eq(&self, bound: &VersionBound) -> bool {
         self.major == bound.major
-            && bound.minor.map_or(true, |minor| self.minor == minor)
-            && bound.patch.map_or(true, |patch| self.patch == patch)
+            && bound.minor.is_none_or(|minor| self.minor == minor)
+            && bound.patch.is_none_or(|patch| self.patch == patch)
     }
 
     /// Performs a `>` match with the given version bound. The match only

@@ -306,7 +306,10 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathIdent) {
+    if matches!(
+        ctx.leaf.kind(),
+        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathIdent
+    ) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -358,7 +361,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
-            || (ctx.leaf.kind() == SyntaxKind::Text
+            || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
@@ -398,13 +401,23 @@ fn field_access_completions(
     value: &Value,
     styles: &Option<Styles>,
 ) {
-    for (name, value, _) in value.ty().scope().iter() {
-        ctx.call_completion(name.clone(), value);
+    let scopes = {
+        let ty = value.ty().scope();
+        let elem = match value {
+            Value::Content(content) => Some(content.elem().scope()),
+            _ => None,
+        };
+        elem.into_iter().chain(Some(ty))
+    };
+
+    // Autocomplete methods from the element's or type's scope.
+    for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
+        ctx.call_completion(name.clone(), binding.read());
     }
 
     if let Some(scope) = value.scope() {
-        for (name, value, _) in scope.iter() {
-            ctx.call_completion(name.clone(), value);
+        for (name, binding) in scope.iter() {
+            ctx.call_completion(name.clone(), binding.read());
         }
     }
 
@@ -414,7 +427,7 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(field, &value.field(field).unwrap());
+        ctx.value_completion(field, &value.field(field, ()).unwrap());
     }
 
     match value {
@@ -450,16 +463,6 @@ fn field_access_completions(
                         ctx.value_completion(param.name, &value);
                     }
                 }
-            }
-        }
-        Value::Plugin(plugin) => {
-            for name in plugin.iter() {
-                ctx.completions.push(Completion {
-                    kind: CompletionKind::Func,
-                    label: name.clone(),
-                    apply: None,
-                    detail: None,
-                })
             }
         }
         _ => {}
@@ -551,9 +554,9 @@ fn import_item_completions<'a>(
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value, _) in scope.iter() {
+    for (name, binding) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(name.clone(), value);
+            ctx.value_completion(name.clone(), binding.read());
         }
     }
 }
@@ -817,25 +820,36 @@ fn param_value_completions<'a>(
 ) {
     if param.name == "font" {
         ctx.font_completions();
-    } else if param.name == "path" {
-        ctx.file_completions_with_extensions(match func.name() {
-            Some("image") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
-            Some("csv") => &["csv"],
-            Some("plugin") => &["wasm"],
-            Some("cbor") => &["cbor"],
-            Some("json") => &["json"],
-            Some("toml") => &["toml"],
-            Some("xml") => &["xml"],
-            Some("yaml") => &["yml", "yaml"],
-            Some("bibliography") => &["bib", "yml", "yaml"],
-            _ => &[],
-        });
+    } else if let Some(extensions) = path_completion(func, param) {
+        ctx.file_completions_with_extensions(extensions);
     } else if func.name() == Some("figure") && param.name == "body" {
         ctx.snippet_completion("image", "image(\"${}\"),", "An image in a figure.");
         ctx.snippet_completion("table", "table(\n  ${}\n),", "A table in a figure.");
     }
 
     ctx.cast_completions(&param.input);
+}
+
+/// Returns which file extensions to complete for the given parameter if any.
+fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
+    Some(match (func.name(), param.name) {
+        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("csv"), "source") => &["csv"],
+        (Some("plugin"), "source") => &["wasm"],
+        (Some("cbor"), "source") => &["cbor"],
+        (Some("json"), "source") => &["json"],
+        (Some("toml"), "source") => &["toml"],
+        (Some("xml"), "source") => &["xml"],
+        (Some("yaml"), "source") => &["yml", "yaml"],
+        (Some("bibliography"), "sources") => &["bib", "yml", "yaml"],
+        (Some("bibliography"), "style") => &["csl"],
+        (Some("cite"), "style") => &["csl"],
+        (Some("raw"), "syntaxes") => &["sublime-syntax"],
+        (Some("raw"), "theme") => &["tmtheme"],
+        (Some("embed"), "path") => &[],
+        (None, "path") => &[],
+        _ => return None,
+    })
 }
 
 /// Resolve a callee expression to a global function.
@@ -845,13 +859,11 @@ fn resolve_global_callee<'a>(
 ) -> Option<&'a Func> {
     let globals = globals(ctx.world, ctx.leaf);
     let value = match callee {
-        ast::Expr::Ident(ident) => globals.get(&ident)?,
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match globals.get(&target)? {
-                Value::Module(module) => module.field(&access.field()).ok()?,
-                Value::Func(func) => func.field(&access.field()).ok()?,
-                _ => return None,
-            },
+            ast::Expr::Ident(target) => {
+                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
+            }
             _ => return None,
         },
         _ => return None,
@@ -1443,7 +1455,7 @@ impl<'a> CompletionContext<'a> {
         let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
         named_items(self.world, self.leaf.clone(), |item| {
             let name = item.name();
-            if !name.is_empty() && item.value().as_ref().map_or(true, filter) {
+            if !name.is_empty() && item.value().as_ref().is_none_or(filter) {
                 defined.insert(name.clone(), item.value());
             }
 
@@ -1463,7 +1475,8 @@ impl<'a> CompletionContext<'a> {
             }
         }
 
-        for (name, value, _) in globals(self.world, self.leaf).iter() {
+        for (name, binding) in globals(self.world, self.leaf).iter() {
+            let value = binding.read();
             if filter(value) && !defined.contains_key(name) {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
@@ -1746,5 +1759,26 @@ mod tests {
         test(&world, ("second.typ", 23))
             .must_include(["this", "that"])
             .must_exclude(["*", "figure"]);
+    }
+
+    #[test]
+    fn test_autocomplete_type_methods() {
+        test("#\"hello\".", -1).must_include(["len", "contains"]);
+    }
+
+    #[test]
+    fn test_autocomplete_content_methods() {
+        test("#show outline.entry: it => it.\n#outline()\n= Hi", 30)
+            .must_include(["indented", "body", "page"]);
+    }
+
+    #[test]
+    fn test_autocomplete_symbol_variants() {
+        test("#sym.arrow.", -1)
+            .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
+        test("$ arrow. $", -3)
+            .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
     }
 }

@@ -210,7 +210,10 @@ impl HtmlAttr {
 
     /// Creates a compile-time constant `HtmlAttr`.
     ///
-    /// Should only be used in const contexts because it can panic.
+    /// Must only be used in const contexts (in a constant definition or
+    /// explicit `const { .. }` block) because otherwise a panic for a malformed
+    /// attribute or not auto-internible constant will only be caught at
+    /// runtime.
     #[track_caller]
     pub const fn constant(string: &'static str) -> Self {
         if string.is_empty() {
@@ -472,17 +475,55 @@ pub mod tag {
         wbr
     }
 
+    /// Whether this is a void tag whose associated element may not have a
+    /// children.
+    pub fn is_void(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::area
+                | self::base
+                | self::br
+                | self::col
+                | self::embed
+                | self::hr
+                | self::img
+                | self::input
+                | self::link
+                | self::meta
+                | self::param
+                | self::source
+                | self::track
+                | self::wbr
+        )
+    }
+
+    /// Whether this is a tag containing raw text.
+    pub fn is_raw(tag: HtmlTag) -> bool {
+        matches!(tag, self::script | self::style)
+    }
+
+    /// Whether this is a tag containing escapable raw text.
+    pub fn is_escapable_raw(tag: HtmlTag) -> bool {
+        matches!(tag, self::textarea | self::title)
+    }
+
+    /// Whether an element is considered metadata.
+    pub fn is_metadata(tag: HtmlTag) -> bool {
+        matches!(
+            tag,
+            self::base
+                | self::link
+                | self::meta
+                | self::noscript
+                | self::script
+                | self::style
+                | self::template
+                | self::title
+        )
+    }
+
     /// Whether nodes with the tag have the CSS property `display: block` by
     /// default.
-    ///
-    /// If this is true, then pretty-printing can insert spaces around such
-    /// nodes and around the contents of such nodes.
-    ///
-    /// However, when users change the properties of such tags via CSS, the
-    /// insertion of whitespace may actually impact the visual output; for
-    /// example, <https://www.w3.org/TR/css-text-3/#example-af2745cd> shows how
-    /// adding CSS rules to `<p>` can make it sensitive to whitespace. In such
-    /// cases, users should disable pretty-printing.
     pub fn is_block_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,
@@ -569,42 +610,29 @@ pub mod tag {
         )
     }
 
-    /// Whether this is a void tag whose associated element may not have a
-    /// children.
-    pub fn is_void(tag: HtmlTag) -> bool {
+    /// Whether nodes with the tag have the CSS property `display: table(-.*)?`
+    /// by default.
+    pub fn is_tabular_by_default(tag: HtmlTag) -> bool {
         matches!(
             tag,
-            self::area
-                | self::base
-                | self::br
+            self::table
+                | self::thead
+                | self::tbody
+                | self::tfoot
+                | self::tr
+                | self::th
+                | self::td
+                | self::caption
                 | self::col
-                | self::embed
-                | self::hr
-                | self::img
-                | self::input
-                | self::link
-                | self::meta
-                | self::param
-                | self::source
-                | self::track
-                | self::wbr
+                | self::colgroup
         )
-    }
-
-    /// Whether this is a tag containing raw text.
-    pub fn is_raw(tag: HtmlTag) -> bool {
-        matches!(tag, self::script | self::style)
-    }
-
-    /// Whether this is a tag containing escapable raw text.
-    pub fn is_escapable_raw(tag: HtmlTag) -> bool {
-        matches!(tag, self::textarea | self::title)
     }
 }
 
 /// Predefined constants for HTML attributes.
 ///
 /// Note: These are very incomplete.
+#[allow(non_upper_case_globals)]
 pub mod attr {
     use super::HtmlAttr;
 
@@ -619,13 +647,18 @@ pub mod attr {
 
     attrs! {
         charset
+        cite
+        colspan
         content
         href
         name
-        value
+        reversed
         role
+        rowspan
+        start
+        style
+        value
     }
 
-    #[allow(non_upper_case_globals)]
     pub const aria_level: HtmlAttr = HtmlAttr::constant("aria-level");
 }

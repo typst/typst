@@ -59,6 +59,34 @@ Not in list
 // Error: 8 expected colon
 / Hello
 
+--- terms-par render html ---
+// Check whether the contents of term list items become paragraphs.
+#show par: it => if target() != "html" { highlight(it) } else { it }
+
+// No paragraphs.
+#block[
+  / Hello: A
+  / World: B
+]
+
+#block[
+  / Hello: A // Paragraphs
+
+    From
+  / World: B // No paragraphs because it's a tight term list.
+]
+
+#block[
+  / Hello: A // Paragraphs
+
+    From
+
+    The
+
+  / World: B // Paragraph because it's a wide term list.
+]
+
+
 --- issue-1050-terms-indent ---
 #set page(width: 110pt)
 #set par(first-line-indent: 0.5cm)
@@ -76,17 +104,15 @@ Not in list
 // Term item (pre-emptive)
 #terms.item[Hello][World!]
 
---- issue-5503-terms-interrupted-by-par-align ---
-// `align` is block-level and should interrupt a `terms`
-// but not a `par`
+--- issue-5503-terms-in-align ---
+// `align` is block-level and should interrupt a `terms`.
 #show terms: [Terms]
 / a: a
-/ b: b
-#par(leading: 5em)[/ c: c]
-/ d: d
-/ e: e
-#par[/ f: f]
-/ g: g
-/ h: h
 #align(right)[/ i: i]
 / j: j
+
+--- issue-5719-terms-nested ---
+// Term lists can be immediately nested.
+/ Term A: 1
+/ Term B: / Term C: 2
+          / Term D: 3

@@ -70,7 +70,7 @@ pub(crate) fn write_outline(
             // (not exceeding whichever is the most restrictive depth limit
             // of those two).
             while children.last().is_some_and(|last| {
-                last_skipped_level.map_or(true, |l| last.level < l)
+                last_skipped_level.is_none_or(|l| last.level < l)
                     && last.level < leaf.level
             }) {
                 children = &mut children.last_mut().unwrap().children;
@@ -83,7 +83,7 @@ pub(crate) fn write_outline(
             // needed, following the usual rules listed above.
             last_skipped_level = None;
             children.push(leaf);
-        } else if last_skipped_level.map_or(true, |l| leaf.level < l) {
+        } else if last_skipped_level.is_none_or(|l| leaf.level < l) {
             // Only the topmost / lowest-level skipped heading matters when you
             // have consecutive skipped headings (since none of them are being
             // added to the bookmark tree), hence the condition above.
@@ -184,8 +184,7 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    let body = node.element.body();
-    outline.title(TextStr::trimmed(body.plain_text().trim()));
+    outline.title(TextStr::trimmed(node.element.body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.document.introspector.position(loc);

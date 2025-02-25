@@ -4,8 +4,8 @@ default-members = ["crates/typst-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.12.0"
-rust-version = "1.80" # also change in ci.yml
+version = "0.13.0"
+rust-version = "1.83" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"
 homepage = "https://typst.app"
@@ -16,24 +16,24 @@ keywords = ["typst"]
 readme = "README.md"
 
 [workspace.dependencies]
-typst = { path = "crates/typst", version = "0.12.0" }
-typst-cli = { path = "crates/typst-cli", version = "0.12.0" }
-typst-eval = { path = "crates/typst-eval", version = "0.12.0" }
-typst-html = { path = "crates/typst-html", version = "0.12.0" }
-typst-ide = { path = "crates/typst-ide", version = "0.12.0" }
-typst-kit = { path = "crates/typst-kit", version = "0.12.0" }
-typst-layout = { path = "crates/typst-layout", version = "0.12.0" }
-typst-library = { path = "crates/typst-library", version = "0.12.0" }
-typst-macros = { path = "crates/typst-macros", version = "0.12.0" }
-typst-pdf = { path = "crates/typst-pdf", version = "0.12.0" }
-typst-realize = { path = "crates/typst-realize", version = "0.12.0" }
-typst-render = { path = "crates/typst-render", version = "0.12.0" }
-typst-svg = { path = "crates/typst-svg", version = "0.12.0" }
-typst-syntax = { path = "crates/typst-syntax", version = "0.12.0" }
-typst-timing = { path = "crates/typst-timing", version = "0.12.0" }
-typst-utils = { path = "crates/typst-utils", version = "0.12.0" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "8cccef9" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "b07d156" }
+typst = { path = "crates/typst", version = "0.13.0" }
+typst-cli = { path = "crates/typst-cli", version = "0.13.0" }
+typst-eval = { path = "crates/typst-eval", version = "0.13.0" }
+typst-html = { path = "crates/typst-html", version = "0.13.0" }
+typst-ide = { path = "crates/typst-ide", version = "0.13.0" }
+typst-kit = { path = "crates/typst-kit", version = "0.13.0" }
+typst-layout = { path = "crates/typst-layout", version = "0.13.0" }
+typst-library = { path = "crates/typst-library", version = "0.13.0" }
+typst-macros = { path = "crates/typst-macros", version = "0.13.0" }
+typst-pdf = { path = "crates/typst-pdf", version = "0.13.0" }
+typst-realize = { path = "crates/typst-realize", version = "0.13.0" }
+typst-render = { path = "crates/typst-render", version = "0.13.0" }
+typst-svg = { path = "crates/typst-svg", version = "0.13.0" }
+typst-syntax = { path = "crates/typst-syntax", version = "0.13.0" }
+typst-timing = { path = "crates/typst-timing", version = "0.13.0" }
+typst-utils = { path = "crates/typst-utils", version = "0.13.0" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "fa0f8a4" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "61aebe9" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -47,18 +47,18 @@ clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = { git = "https://github.com/typst/codex", rev = "343a9b1" }
+codex = "0.1.1"
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
 ctrlc = "3.4.1"
-dirs = "5"
+dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
 fontdb = { version = "0.21", default-features = false }
 fs_extra = "1.3"
-hayagriva = "0.8"
+hayagriva = "0.8.1"
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }
@@ -67,15 +67,16 @@ icu_provider_adapters = "1.4"
 icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
-image = { version = "0.25.2", default-features = false, features = ["png", "jpeg", "gif"] }
+image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
-kamadak-exif = "0.5"
+kamadak-exif = "0.6"
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
+memchr = "2"
 miniz_oxide = "0.8"
 native-tls = "0.2"
-notify = "6"
+notify = "8"
 once_cell = "1"
 open = "5.0.1"
 openssl = "0.10"
@@ -83,7 +84,7 @@ oxipng = { version = "9.0", default-features = false, features = ["filetime", "p
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
-pdf-writer = "0.12"
+pdf-writer = "0.12.1"
 phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.5.1"
 png = "0.17"
@@ -122,7 +123,7 @@ tiny_http = "0.12"
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
 ttf-parser = "0.24.1"
-two-face = { version = "0.4.0", default-features = false, features = ["syntect-fancy"] }
+two-face = { version = "0.4.3", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
 unicode-bidi = "0.3.18"
 unicode-ident = "1.0"
@@ -134,10 +135,11 @@ unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.43", default-features = false, features = ["text"] }
 walkdir = "2"
-wasmi = "0.39.0"
+wasmi = "0.40.0"
+web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
-xmp-writer = "0.3"
+xmp-writer = "0.3.1"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
 zip = { version = "2", default-features = false, features = ["deflate"] }

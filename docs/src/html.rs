@@ -301,7 +301,10 @@ impl<'a> Handler<'a> {
             return;
         }
 
-        let default = self.peeked.as_ref().map(|text| text.to_kebab_case());
+        let body = self.peeked.as_ref();
+        let default = body.map(|text| text.to_kebab_case());
+        let has_id = id_slot.is_some();
+
         let id: &'a str = match (&id_slot, default) {
             (Some(id), default) => {
                 if Some(*id) == default.as_deref() {
@@ -316,10 +319,10 @@ impl<'a> Handler<'a> {
         *id_slot = (!id.is_empty()).then_some(id);
 
         // Special case for things like "v0.3.0".
-        let name = if id.starts_with('v') && id.contains('.') {
-            id.into()
-        } else {
-            id.to_title_case().into()
+        let name = match &body {
+            _ if id.starts_with('v') && id.contains('.') => id.into(),
+            Some(body) if !has_id => body.as_ref().into(),
+            _ => id.to_title_case().into(),
         };
 
         let mut children = &mut self.outline;
@@ -486,7 +489,7 @@ impl World for DocWorld {
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
-        Ok(Bytes::from_static(
+        Ok(Bytes::new(
             typst_dev_assets::get_by_name(
                 &id.vpath().as_rootless_path().to_string_lossy(),
             )

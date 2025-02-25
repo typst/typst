@@ -77,6 +77,49 @@ _Shopping list_
 
 #test(indented, manual)
 
+--- list-indent-bracket-nesting ---
+// Test list indent nesting behavior when directly at a starting bracket.
+
+#let indented = {
+  [- indented
+  - less
+  ]
+  [- indented
+   - same
+  - then less
+   - then same
+  ]
+  [- indented
+    - more
+   - then same
+  - then less
+  ]
+}
+
+#let item = list.item
+#let manual = {
+    {
+      item[indented]; [ ]
+      item[less]; [ ]
+    }
+    {
+      item[indented]; [ ]
+      item[same]; [ ]
+      item[then less #{
+        item[then same]
+      }]; [ ]
+    }
+    {
+      item[indented #{
+        item[more]
+      }]; [ ]
+      item[then same]; [ ]
+      item[then less]; [ ]
+    }
+}
+
+#test(indented, manual)
+
 --- list-tabs ---
 // This works because tabs are used consistently.
 	- A with 1 tab
@@ -195,6 +238,33 @@ World
 #text(red)[- World]
 #text(green)[- What up?]
 
+--- list-par render html ---
+// Check whether the contents of list items become paragraphs.
+#show par: it => if target() != "html" { highlight(it) } else { it }
+
+#block[
+  // No paragraphs.
+  - Hello
+  - World
+]
+
+#block[
+  - Hello // Paragraphs
+
+    From
+  - World // No paragraph because it's a tight list.
+]
+
+#block[
+  - Hello // Paragraphs either way
+
+    From
+
+    The
+
+  - World // Paragraph because it's a wide list.
+]
+
 --- issue-2530-list-item-panic ---
 // List item (pre-emptive)
 #list.item[Hello]
@@ -219,17 +289,18 @@ World
   part($ x $ + parbreak() + parbreak() + list[A])
 }
 
---- issue-5503-list-interrupted-by-par-align ---
-// `align` is block-level and should interrupt a list
-// but not a `par`
+--- issue-5503-list-in-align ---
+// `align` is block-level and should interrupt a list.
 #show list: [List]
 - a
 - b
-#par(leading: 5em)[- c]
-- d
-- e
-#par[- f]
-- g
-- h
 #align(right)[- i]
 - j
+
+--- issue-5719-list-nested ---
+// Lists can be immediately nested.
+- A
+- - B
+  - C
+- = D
+  E

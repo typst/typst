@@ -38,6 +38,7 @@ indexmap = { workspace = true }
 kamadak-exif = { workspace = true }
 kurbo = { workspace = true }
 lipsum = { workspace = true }
+memchr = { workspace = true }
 palette = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }

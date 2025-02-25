@@ -70,6 +70,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// Typst predefines color maps that you can use as stops. See the
+/// [`color`]($color/#predefined-color-maps) documentation for more details.
+///
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops depends on the dimensions
 /// of a container. This container can either be the shape that it is being
@@ -157,10 +160,6 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// )
 /// ```
 ///
-/// # Presets
-/// Typst predefines color maps that you can use with your gradients. See the
-/// [`color`]($color/#predefined-color-maps) documentation for more details.
-///
 /// # Note on file sizes
 ///
 /// Gradients can be quite large, especially if they have many stops. This is
@@ -200,9 +199,7 @@ impl Gradient {
     /// ```
     #[func(title = "Linear Gradient")]
     pub fn linear(
-        /// The args of this function.
         args: &mut Args,
-        /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]
@@ -290,9 +287,8 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Radial Gradient")]
     fn radial(
-        /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]
@@ -405,9 +401,8 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Conic Gradient")]
     pub fn conic(
-        /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]
@@ -586,12 +581,11 @@ impl Gradient {
                 let mut stops = stops
                     .iter()
                     .map(move |&(color, offset)| {
-                        let t = i as f64 / n as f64;
                         let r = offset.get();
                         if i % 2 == 1 && mirror {
-                            (color, Ratio::new(t + (1.0 - r) / n as f64))
+                            (color, Ratio::new((i as f64 + 1.0 - r) / n as f64))
                         } else {
-                            (color, Ratio::new(t + r / n as f64))
+                            (color, Ratio::new((i as f64 + r) / n as f64))
                         }
                     })
                     .collect::<Vec<_>>();
@@ -1234,7 +1228,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             };
 
             if stop.get() < last_stop {
-                bail!(*span, "offsets must be in strictly monotonic order");
+                bail!(*span, "offsets must be in monotonic order");
             }
 
             last_stop = stop.get();

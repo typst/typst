@@ -4,16 +4,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::foundations::{cast, dict, Dict, Label, StyleChain, Value};
+use crate::foundations::{cast, dict, Dict, Label, Value};
 use crate::introspection::{Location, Tag};
-use crate::layout::{
-    Abs, Axes, FixedAlignment, HideElem, Length, Point, Size, Transform,
-};
-use crate::model::{Destination, LinkElem};
+use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
+use crate::model::Destination;
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
 
@@ -300,49 +297,6 @@ impl Frame {
             }
             for (point, _) in Arc::make_mut(&mut self.items).iter_mut() {
                 *point += offset;
-            }
-        }
-    }
-
-    /// Apply late-stage properties from the style chain to this frame. This
-    /// includes:
-    /// - `HideElem::hidden`
-    /// - `LinkElem::dests`
-    ///
-    /// This must be called on all frames produced by elements
-    /// that manually handle styles (because their children can have varying
-    /// styles). This currently includes flow, par, and equation.
-    ///
-    /// Other elements don't manually need to handle it because their parents
-    /// that result from realization will take care of it and the styles can
-    /// only apply to them as a whole, not part of it (because they don't manage
-    /// styles).
-    pub fn post_processed(mut self, styles: StyleChain) -> Self {
-        self.post_process(styles);
-        self
-    }
-
-    /// Post process in place.
-    pub fn post_process(&mut self, styles: StyleChain) {
-        if !self.is_empty() {
-            self.post_process_raw(
-                LinkElem::dests_in(styles),
-                HideElem::hidden_in(styles),
-            );
-        }
-    }
-
-    /// Apply raw late-stage properties from the raw data.
-    pub fn post_process_raw(&mut self, dests: SmallVec<[Destination; 1]>, hide: bool) {
-        if !self.is_empty() {
-            let size = self.size;
-            self.push_multiple(
-                dests
-                    .into_iter()
-                    .map(|dest| (Point::zero(), FrameItem::Link(dest, size))),
-            );
-            if hide {
-                self.hide();
             }
         }
     }

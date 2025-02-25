@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::eco_format;
-use typst_utils::NonZeroExt;
+use typst_utils::{Get, NonZeroExt};
 
 use crate::diag::{warning, SourceResult};
 use crate::engine::Engine;
@@ -13,8 +13,8 @@ use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
-use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region};
-use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region, Sides};
+use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 
 /// A section heading.
@@ -223,7 +223,7 @@ impl Show for Packed<HeadingElem> {
         const SPACING_TO_NUMBERING: Em = Em::new(0.3);
 
         let span = self.span();
-        let mut realized = self.body().clone();
+        let mut realized = self.body.clone();
 
         let hanging_indent = self.hanging_indent(styles);
         let mut indent = match hanging_indent {
@@ -264,10 +264,6 @@ impl Show for Packed<HeadingElem> {
             realized = numbering + spacing + realized;
         }
 
-        if indent != Abs::zero() && !html {
-            realized = realized.styled(ParElem::set_hanging_indent(indent.into()));
-        }
-
         Ok(if html {
             // HTML's h1 is closer to a title element. There should only be one.
             // Meanwhile, a level 1 Typst heading is a section heading. For this
@@ -294,8 +290,17 @@ impl Show for Packed<HeadingElem> {
                 HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
             }
         } else {
-            let realized = BlockBody::Content(realized);
-            BlockElem::new().with_body(Some(realized)).pack().spanned(span)
+            let block = if indent != Abs::zero() {
+                let body = HElem::new((-indent).into()).pack() + realized;
+                let inset = Sides::default()
+                    .with(TextElem::dir_in(styles).start(), Some(indent.into()));
+                BlockElem::new()
+                    .with_body(Some(BlockBody::Content(body)))
+                    .with_inset(inset)
+            } else {
+                BlockElem::new().with_body(Some(BlockBody::Content(realized)))
+            };
+            block.pack().spanned(span)
         })
     }
 }
@@ -351,31 +356,20 @@ impl Refable for Packed<HeadingElem> {
 }
 
 impl Outlinable for Packed<HeadingElem> {
-    fn outline(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Option<Content>> {
-        if !self.outlined(StyleChain::default()) {
-            return Ok(None);
-        }
-
-        let mut content = self.body().clone();
-        if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
-            let numbers = Counter::of(HeadingElem::elem()).display_at_loc(
-                engine,
-                self.location().unwrap(),
-                styles,
-                numbering,
-            )?;
-            content = numbers + SpaceElem::shared().clone() + content;
-        };
-
-        Ok(Some(content))
+    fn outlined(&self) -> bool {
+        (**self).outlined(StyleChain::default())
     }
 
     fn level(&self) -> NonZeroUsize {
         (**self).resolve_level(StyleChain::default())
+    }
+
+    fn prefix(&self, numbers: Content) -> Content {
+        numbers
+    }
+
+    fn body(&self) -> Content {
+        self.body.clone()
     }
 }
 

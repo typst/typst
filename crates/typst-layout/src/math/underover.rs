@@ -32,7 +32,7 @@ pub fn layout_underline(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_underoverline(ctx, styles, elem.body(), elem.span(), Position::Under)
+    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Under)
 }
 
 /// Lays out an [`OverlineElem`].
@@ -42,7 +42,7 @@ pub fn layout_overline(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_underoverline(ctx, styles, elem.body(), elem.span(), Position::Over)
+    layout_underoverline(ctx, styles, &elem.body, elem.span(), Position::Over)
 }
 
 /// Lays out an [`UnderbraceElem`].
@@ -55,7 +55,7 @@ pub fn layout_underbrace(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⏟',
         BRACE_GAP,
@@ -74,7 +74,7 @@ pub fn layout_overbrace(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⏞',
         BRACE_GAP,
@@ -93,7 +93,7 @@ pub fn layout_underbracket(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⎵',
         BRACKET_GAP,
@@ -112,7 +112,7 @@ pub fn layout_overbracket(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⎴',
         BRACKET_GAP,
@@ -131,7 +131,7 @@ pub fn layout_underparen(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⏝',
         PAREN_GAP,
@@ -150,7 +150,7 @@ pub fn layout_overparen(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⏜',
         PAREN_GAP,
@@ -169,7 +169,7 @@ pub fn layout_undershell(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⏡',
         SHELL_GAP,
@@ -188,7 +188,7 @@ pub fn layout_overshell(
     layout_underoverspreader(
         ctx,
         styles,
-        elem.body(),
+        &elem.body,
         &elem.annotation(styles),
         '⏠',
         SHELL_GAP,

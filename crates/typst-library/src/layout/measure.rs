@@ -43,11 +43,8 @@ use crate::layout::{Abs, Axes, Length, Region, Size};
 /// `height`, both of type [`length`].
 #[func(contextual)]
 pub fn measure(
-    /// The engine.
     engine: &mut Engine,
-    /// The callsite context.
     context: Tracked<Context>,
-    /// The callsite span.
     span: Span,
     /// The width available to layout the content.
     ///

@@ -2,14 +2,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::NativeElement;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
-use typst_library::model::{ParLine, ParLineMarker};
+use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -17,12 +17,12 @@ const EN_DASH: char = '–';
 const EM_DASH: char = '—';
 const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified breaks.
 
-/// A layouted line, consisting of a sequence of layouted paragraph items that
-/// are mostly borrowed from the preparation phase. This type enables you to
-/// measure the size of a line in a range before committing to building the
-/// line's frame.
+/// A layouted line, consisting of a sequence of layouted inline items that are
+/// mostly borrowed from the preparation phase. This type enables you to measure
+/// the size of a line in a range before committing to building the line's
+/// frame.
 ///
-/// At most two paragraph items must be created individually for this line: The
+/// At most two inline items must be created individually for this line: The
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
 /// the break index is safe-to-break per rustybuzz.
@@ -93,7 +93,7 @@ impl Line<'_> {
     pub fn has_negative_width_items(&self) -> bool {
         self.items.iter().any(|item| match item {
             Item::Absolute(amount, _) => *amount < Abs::zero(),
-            Item::Frame(frame, _) => frame.width() < Abs::zero(),
+            Item::Frame(frame) => frame.width() < Abs::zero(),
             _ => false,
         })
     }
@@ -134,7 +134,7 @@ pub fn line<'a>(
 
     // Whether the line is justified.
     let justify = full.ends_with(LINE_SEPARATOR)
-        || (p.justify && breakpoint != Breakpoint::Mandatory);
+        || (p.config.justify && breakpoint != Breakpoint::Mandatory);
 
     // Process dashes.
     let dash = if breakpoint.is_hyphen() || full.ends_with(SHY) {
@@ -154,16 +154,16 @@ pub fn line<'a>(
     let mut items = collect_items(engine, p, range, trim);
 
     // Add a hyphen at the line start, if a previous dash should be repeated.
-    if pred.map_or(false, |pred| should_repeat_hyphen(pred, full)) {
+    if pred.is_some_and(|pred| should_repeat_hyphen(pred, full)) {
         if let Some(shaped) = items.first_text_mut() {
-            shaped.prepend_hyphen(engine, p.fallback);
+            shaped.prepend_hyphen(engine, p.config.fallback);
         }
     }
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft) {
         if let Some(shaped) = items.last_text_mut() {
-            shaped.push_hyphen(engine, p.fallback);
+            shaped.push_hyphen(engine, p.config.fallback);
         }
     }
 
@@ -233,13 +233,13 @@ where
 {
     // If there is nothing bidirectional going on, skip reordering.
     let Some(bidi) = &p.bidi else {
-        f(range, p.dir == Dir::RTL);
+        f(range, p.config.dir == Dir::RTL);
         return;
     };
 
     // The bidi crate panics for empty lines.
     if range.is_empty() {
-        f(range, p.dir == Dir::RTL);
+        f(range, p.config.dir == Dir::RTL);
         return;
     }
 
@@ -307,13 +307,13 @@ fn collect_range<'a>(
 /// punctuation marks at line start or line end.
 fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) {
     if text.starts_with(BEGIN_PUNCT_PAT)
-        || (p.cjk_latin_spacing && text.starts_with(is_of_cj_script))
+        || (p.config.cjk_latin_spacing && text.starts_with(is_of_cj_script))
     {
         adjust_cj_at_line_start(p, items);
     }
 
     if text.ends_with(END_PUNCT_PAT)
-        || (p.cjk_latin_spacing && text.ends_with(is_of_cj_script))
+        || (p.config.cjk_latin_spacing && text.ends_with(is_of_cj_script))
     {
         adjust_cj_at_line_end(p, items);
     }
@@ -331,7 +331,10 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         let shrink = glyph.shrinkability().0;
         glyph.shrink_left(shrink);
         shaped.width -= shrink.at(shaped.size);
-    } else if p.cjk_latin_spacing && glyph.is_cj_script() && glyph.x_offset > Em::zero() {
+    } else if p.config.cjk_latin_spacing
+        && glyph.is_cj_script()
+        && glyph.x_offset > Em::zero()
+    {
         // If the first glyph is a CJK character adjusted by
         // [`add_cjk_latin_spacing`], restore the original width.
         let glyph = shaped.glyphs.to_mut().first_mut().unwrap();
@@ -358,7 +361,7 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let punct = shaped.glyphs.to_mut().last_mut().unwrap();
         punct.shrink_right(shrink);
         shaped.width -= shrink.at(shaped.size);
-    } else if p.cjk_latin_spacing
+    } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && (glyph.x_advance - glyph.x_offset) > Em::one()
     {
@@ -403,10 +406,15 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
         //
         // See § 4.1.1.1.2.e on the "Ortografía de la lengua española"
         // https://www.rae.es/ortografía/como-signo-de-división-de-palabras-a-final-de-línea
-        Lang::SPANISH => text.chars().next().map_or(false, |c| !c.is_uppercase()),
+        Lang::SPANISH => text.chars().next().is_some_and(|c| !c.is_uppercase()),
 
         _ => false,
     }
+}
+
+/// Apply the current baseline shift to a frame.
+pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
+    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
 }
 
 /// Commit to a line and build its frame.
@@ -418,16 +426,15 @@ pub fn commit(
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
-    styles: StyleChain,
 ) -> SourceResult<Frame> {
-    let mut remaining = width - line.width - p.hang;
+    let mut remaining = width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
 
     // We always build the line from left to right. In an LTR paragraph, we must
-    // thus add the hanging indent to the offset. When the paragraph is RTL, the
+    // thus add the hanging indent to the offset. In an RTL paragraph, the
     // hanging indent arises naturally due to the line width.
-    if p.dir == Dir::LTR {
-        offset += p.hang;
+    if p.config.dir == Dir::LTR {
+        offset += p.config.hanging_indent;
     }
 
     // Handle hanging punctuation to the left.
@@ -509,10 +516,11 @@ pub fn commit(
                 let amount = v.share(fr, remaining);
                 if let Some((elem, loc, styles)) = elem {
                     let region = Size::new(amount, full);
-                    let mut frame =
-                        layout_box(elem, engine, loc.relayout(), *styles, region)?;
-                    frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                    push(&mut offset, frame.post_processed(*styles));
+                    let mut frame = layout_and_modify(*styles, |styles| {
+                        layout_box(elem, engine, loc.relayout(), styles, region)
+                    })?;
+                    apply_baseline_shift(&mut frame, *styles);
+                    push(&mut offset, frame);
                 } else {
                     offset += amount;
                 }
@@ -524,12 +532,10 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame.post_processed(shaped.styles));
+                push(&mut offset, frame);
             }
-            Item::Frame(frame, styles) => {
-                let mut frame = frame.clone();
-                frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
-                push(&mut offset, frame.post_processed(*styles));
+            Item::Frame(frame) => {
+                push(&mut offset, frame.clone());
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
@@ -549,11 +555,13 @@ pub fn commit(
     let mut output = Frame::soft(size);
     output.set_baseline(top);
 
-    add_par_line_marker(&mut output, styles, engine, locator, top);
+    if let Some(marker) = &p.config.numbering_marker {
+        add_par_line_marker(&mut output, marker, engine, locator, top);
+    }
 
     // Construct the line's frame.
     for (offset, frame) in frames {
-        let x = offset + p.align.position(remaining);
+        let x = offset + p.config.align.position(remaining);
         let y = top - frame.baseline();
         output.push_frame(Point::new(x, y), frame);
     }
@@ -570,26 +578,18 @@ pub fn commit(
 /// number in the margin, is aligned to the line's baseline.
 fn add_par_line_marker(
     output: &mut Frame,
-    styles: StyleChain,
+    marker: &Packed<ParLineMarker>,
     engine: &mut Engine,
     locator: &mut SplitLocator,
     top: Abs,
 ) {
-    let Some(numbering) = ParLine::numbering_in(styles) else { return };
-    let margin = ParLine::number_margin_in(styles);
-    let align = ParLine::number_align_in(styles);
-
-    // Delay resolving the number clearance until line numbers are laid out to
-    // avoid inconsistent spacing depending on varying font size.
-    let clearance = ParLine::number_clearance_in(styles);
-
     // Elements in tags must have a location for introspection to work. We do
     // the work here instead of going through all of the realization process
     // just for this, given we don't need to actually place the marker as we
     // manually search for it in the frame later (when building a root flow,
     // where line numbers can be displayed), so we just need it to be in a tag
     // and to be valid (to have a location).
-    let mut marker = ParLineMarker::new(numbering, align, margin, clearance).pack();
+    let mut marker = marker.clone();
     let key = typst_utils::hash128(&marker);
     let loc = locator.next_location(engine.introspector, key);
     marker.set_location(loc);
@@ -601,7 +601,7 @@ fn add_par_line_marker(
     // line's general baseline. However, the line number will still need to
     // manually adjust its own 'y' position based on its own baseline.
     let pos = Point::with_y(top);
-    output.push(pos, FrameItem::Tag(Tag::Start(marker)));
+    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack())));
     output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
 }
 
@@ -626,7 +626,7 @@ fn overhang(c: char) -> f64 {
     }
 }
 
-/// A collection of owned or borrowed paragraph items.
+/// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<ItemEntry<'a>>);
 
 impl<'a> Items<'a> {

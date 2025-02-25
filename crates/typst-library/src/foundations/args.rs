@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Add;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use typst_syntax::{Span, Spanned};
@@ -304,8 +305,6 @@ impl Args {
     /// ```
     #[func(constructor)]
     pub fn construct(
-        /// The real arguments (the other argument is just for the docs).
-        /// The docs argument cannot be called `args`.
         args: &mut Args,
         /// The arguments to construct.
         #[external]
@@ -366,13 +365,28 @@ impl Debug for Args {
 impl Repr for Args {
     fn repr(&self) -> EcoString {
         let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
-        repr::pretty_array_like(&pieces, false).into()
+        eco_format!("arguments{}", repr::pretty_array_like(&pieces, false))
     }
 }
 
 impl PartialEq for Args {
     fn eq(&self, other: &Self) -> bool {
         self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
+    }
+}
+
+impl Add for Args {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.items.retain(|item| {
+            !item.name.as_ref().is_some_and(|name| {
+                rhs.items.iter().any(|a| a.name.as_ref() == Some(name))
+            })
+        });
+        self.items.extend(rhs.items);
+        self.span = Span::detached();
+        self
     }
 }
 

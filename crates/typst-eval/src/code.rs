@@ -99,6 +99,7 @@ impl Eval for ast::Expr<'_> {
             Self::Term(v) => v.eval(vm).map(Value::Content),
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
+            Self::MathText(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
@@ -153,7 +154,13 @@ impl Eval for ast::Ident<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        vm.scopes.get(&self).cloned().at(self.span())
+        let span = self.span();
+        Ok(vm
+            .scopes
+            .get(&self)
+            .at(span)?
+            .read_checked((&mut vm.engine, span))
+            .clone())
     }
 }
 
@@ -309,8 +316,9 @@ impl Eval for ast::FieldAccess<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
         let field = self.field();
+        let field_span = field.span();
 
-        let err = match value.field(&field).at(field.span()) {
+        let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
             Ok(value) => return Ok(value),
             Err(err) => err,
         };

@@ -62,7 +62,7 @@ pub fn layout_path(
         axes.resolve(styles).zip_map(region.size, Rel::relative_to).to_point()
     };
 
-    let vertices = elem.vertices();
+    let vertices = &elem.vertices;
     let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
 
     let mut size = Size::zero();
@@ -150,7 +150,7 @@ pub fn layout_curve(
 ) -> SourceResult<Frame> {
     let mut builder = CurveBuilder::new(region, styles);
 
-    for item in elem.components() {
+    for item in &elem.components {
         match item {
             CurveComponent::Move(element) => {
                 let relative = element.relative(styles);
@@ -399,7 +399,7 @@ pub fn layout_polygon(
     region: Region,
 ) -> SourceResult<Frame> {
     let points: Vec<Point> = elem
-        .vertices()
+        .vertices
         .iter()
         .map(|c| c.resolve(styles).zip_map(region.size, Rel::relative_to).to_point())
         .collect();
@@ -1281,7 +1281,7 @@ impl ControlPoints {
     }
 }
 
-/// Helper to draw arcs with bezier curves.
+/// Helper to draw arcs with Bézier curves.
 trait CurveExt {
     fn arc(&mut self, start: Point, center: Point, end: Point);
     fn arc_move(&mut self, start: Point, center: Point, end: Point);
@@ -1305,7 +1305,7 @@ impl CurveExt for Curve {
     }
 }
 
-/// Get the control points for a bezier curve that approximates a circular arc for
+/// Get the control points for a Bézier curve that approximates a circular arc for
 /// a start point, an end point and a center of the circle whose arc connects
 /// the two.
 fn bezier_arc_control(start: Point, center: Point, end: Point) -> [Point; 2] {

@@ -20,6 +20,7 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
 use super::{decorate, Item, Range, SpanMapper};
+use crate::modifiers::{FrameModifiers, FrameModify};
 
 /// The result of shaping text.
 ///
@@ -28,7 +29,7 @@ use super::{decorate, Item, Range, SpanMapper};
 /// frame.
 #[derive(Clone)]
 pub struct ShapedText<'a> {
-    /// The start of the text in the full paragraph.
+    /// The start of the text in the full text.
     pub base: usize,
     /// The text that was shaped.
     pub text: &'a str,
@@ -65,9 +66,9 @@ pub struct ShapedGlyph {
     pub y_offset: Em,
     /// The adjustability of the glyph.
     pub adjustability: Adjustability,
-    /// The byte range of this glyph's cluster in the full paragraph. A cluster
-    /// is a sequence of one or multiple glyphs that cannot be separated and
-    /// must always be treated as a union.
+    /// The byte range of this glyph's cluster in the full inline layout. A
+    /// cluster is a sequence of one or multiple glyphs that cannot be separated
+    /// and must always be treated as a union.
     ///
     /// The range values of the glyphs in a [`ShapedText`] should not overlap
     /// with each other, and they should be monotonically increasing (for
@@ -326,6 +327,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
+        frame.modify(&FrameModifiers::get_in(self.styles));
         frame
     }
 
@@ -403,7 +405,7 @@ impl<'a> ShapedText<'a> {
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
     ///
-    /// The text `range` is relative to the whole paragraph.
+    /// The text `range` is relative to the whole inline layout.
     pub fn reshape(&'a self, engine: &Engine, text_range: Range) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
@@ -463,7 +465,7 @@ impl<'a> ShapedText<'a> {
             None
         };
         let mut chain = families(self.styles)
-            .filter(|family| family.covers().map_or(true, |c| c.is_match("-")))
+            .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
             .map(|family| book.select(family.as_str(), self.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
@@ -568,7 +570,7 @@ impl<'a> ShapedText<'a> {
         // for the next line.
         let dec = if ltr { usize::checked_sub } else { usize::checked_add };
         while let Some(next) = dec(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.range.start != text_index) {
+            if self.glyphs.get(next).is_none_or(|g| g.range.start != text_index) {
                 break;
             }
             idx = next;
@@ -810,7 +812,7 @@ fn shape_segment<'a>(
             .nth(1)
             .map(|(i, _)| offset + i)
             .unwrap_or(text.len());
-        covers.map_or(true, |cov| cov.is_match(&text[offset..end]))
+        covers.is_none_or(|cov| cov.is_match(&text[offset..end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with

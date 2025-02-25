@@ -11,6 +11,7 @@ use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Span, Spanned, SyntaxError};
 
+use crate::engine::Engine;
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -225,6 +226,23 @@ impl From<SyntaxError> for SourceDiagnostic {
             trace: eco_vec![],
             hints: error.hints,
         }
+    }
+}
+
+/// Destination for a deprecation message when accessing a deprecated value.
+pub trait DeprecationSink {
+    /// Emits the given deprecation message into this sink.
+    fn emit(self, message: &str);
+}
+
+impl DeprecationSink for () {
+    fn emit(self, _: &str) {}
+}
+
+impl DeprecationSink for (&mut Engine<'_>, Span) {
+    /// Emits the deprecation message as a warning.
+    fn emit(self, message: &str) {
+        self.0.sink.warn(SourceDiagnostic::warning(self.1, message));
     }
 }
 
