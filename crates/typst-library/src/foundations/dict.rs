@@ -6,10 +6,10 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use typst_syntax::is_ident;
+use typst_syntax::{is_ident, Span};
 use typst_utils::ArcExt;
 
-use crate::diag::{Hint, HintedStrResult, StrResult};
+use crate::diag::{bail, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
 };
@@ -156,6 +156,22 @@ impl Dict {
 
         msg.into()
     }
+
+    /// Deep merge the dictionary with another, modifying the dictionary in
+    /// place.
+    fn merge_with(&mut self, other: Dict) {
+        let map = Arc::make_mut(&mut self.0);
+        for (key, value) in other {
+            match (map.get_mut(&key), value) {
+                (Some(Value::Dict(existing)), Value::Dict(value_dict)) => {
+                    existing.merge_with(value_dict);
+                }
+                (_, value) => {
+                    map.insert(key, value);
+                }
+            }
+        }
+    }
 }
 
 #[scope]
@@ -253,6 +269,45 @@ impl Dict {
             .iter()
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
+    }
+
+    /// Returns a new dictionary by recursively merging the dictionary with
+    /// other dictionaries. This behaves similarly to the `+` operator, but
+    /// nested dictionaries are merged instead of replacing each other.
+    ///
+    /// ```example
+    /// #let dict = (
+    ///   point: (x: 1, y: 2),
+    ///   info: (name: "dict")
+    /// )
+    /// #let other = (
+    ///   point: (z: 3),
+    ///   info: none
+    /// )
+    /// #(dict + other) \ // shallow
+    /// #dict.deep-merge(other)
+    /// ```
+    #[func]
+    pub fn deep_merge(
+        &self,
+        /// The call site of this function.
+        span: Span,
+        /// The dictionaries to merge with. Values in later dictionaries take
+        /// precedence over values in earlier dictionaries. At least one
+        /// dictionary is required.
+        #[variadic]
+        dicts: Vec<Dict>,
+    ) -> SourceResult<Dict> {
+        if dicts.is_empty() {
+            bail!(span, "expected at least one dictionary");
+        }
+
+        let mut merged = self.clone();
+        for dict in dicts {
+            merged.merge_with(dict);
+        }
+
+        Ok(merged)
     }
 }
 
