@@ -83,8 +83,8 @@ fn html_document_impl(
     )?;
 
     let output = handle_list(&mut engine, &mut locator, children.iter().copied())?;
+    let introspector = Introspector::html(&output);
     let root = root_element(output, &info)?;
-    let introspector = Introspector::html(&root);
 
     Ok(HtmlDocument { info, root, introspector })
 }
