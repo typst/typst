@@ -19,8 +19,10 @@ pub fn layout_accent(
     let mut base = ctx.layout_into_fragment(&elem.base, styles.chain(&cramped))?;
 
     // Try to replace a glyph with its dotless variant.
-    if let MathFragment::Glyph(glyph) = &mut base {
-        glyph.make_dotless_form(ctx);
+    if elem.dotless(styles) {
+        if let MathFragment::Glyph(glyph) = &mut base {
+            glyph.make_dotless_form(ctx);
+        }
     }
 
     // Preserve class to preserve automatic spacing.
