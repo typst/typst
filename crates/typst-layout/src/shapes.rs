@@ -284,6 +284,7 @@ impl<'a> CurveBuilder<'a> {
         self.last_point = point;
         self.last_control_from = point;
         self.is_started = true;
+        self.is_empty = true;
     }
 
     /// Add a line segment.
