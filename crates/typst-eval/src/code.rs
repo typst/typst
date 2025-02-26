@@ -30,7 +30,7 @@ fn eval_code<'a>(
     while let Some(expr) = exprs.next() {
         let span = expr.span();
         let value = match expr {
-            ast::Expr::Set(set) => {
+            ast::Expr::SetRule(set) => {
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -39,7 +39,7 @@ fn eval_code<'a>(
                 let tail = eval_code(vm, exprs)?.display();
                 Value::Content(tail.styled_with_map(styles))
             }
-            ast::Expr::Show(show) => {
+            ast::Expr::ShowRule(show) => {
                 let recipe = show.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -94,9 +94,9 @@ impl Eval for ast::Expr<'_> {
             Self::Label(v) => v.eval(vm),
             Self::Ref(v) => v.eval(vm).map(Value::Content),
             Self::Heading(v) => v.eval(vm).map(Value::Content),
-            Self::List(v) => v.eval(vm).map(Value::Content),
-            Self::Enum(v) => v.eval(vm).map(Value::Content),
-            Self::Term(v) => v.eval(vm).map(Value::Content),
+            Self::ListItem(v) => v.eval(vm).map(Value::Content),
+            Self::EnumItem(v) => v.eval(vm).map(Value::Content),
+            Self::TermItem(v) => v.eval(vm).map(Value::Content),
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathText(v) => v.eval(vm).map(Value::Content),
@@ -116,8 +116,8 @@ impl Eval for ast::Expr<'_> {
             Self::Float(v) => v.eval(vm),
             Self::Numeric(v) => v.eval(vm),
             Self::Str(v) => v.eval(vm),
-            Self::Code(v) => v.eval(vm),
-            Self::Content(v) => v.eval(vm).map(Value::Content),
+            Self::CodeBlock(v) => v.eval(vm),
+            Self::ContentBlock(v) => v.eval(vm).map(Value::Content),
             Self::Array(v) => v.eval(vm).map(Value::Array),
             Self::Dict(v) => v.eval(vm).map(Value::Dict),
             Self::Parenthesized(v) => v.eval(vm),
@@ -126,19 +126,19 @@ impl Eval for ast::Expr<'_> {
             Self::Closure(v) => v.eval(vm),
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
-            Self::Let(v) => v.eval(vm),
-            Self::DestructAssign(v) => v.eval(vm),
-            Self::Set(_) => bail!(forbidden("set")),
-            Self::Show(_) => bail!(forbidden("show")),
+            Self::LetBinding(v) => v.eval(vm),
+            Self::DestructAssignment(v) => v.eval(vm),
+            Self::SetRule(_) => bail!(forbidden("set")),
+            Self::ShowRule(_) => bail!(forbidden("show")),
             Self::Contextual(v) => v.eval(vm).map(Value::Content),
             Self::Conditional(v) => v.eval(vm),
-            Self::While(v) => v.eval(vm),
-            Self::For(v) => v.eval(vm),
-            Self::Import(v) => v.eval(vm),
-            Self::Include(v) => v.eval(vm).map(Value::Content),
-            Self::Break(v) => v.eval(vm),
-            Self::Continue(v) => v.eval(vm),
-            Self::Return(v) => v.eval(vm),
+            Self::WhileLoop(v) => v.eval(vm),
+            Self::ForLoop(v) => v.eval(vm),
+            Self::ModuleImport(v) => v.eval(vm),
+            Self::ModuleInclude(v) => v.eval(vm).map(Value::Content),
+            Self::LoopBreak(v) => v.eval(vm),
+            Self::LoopContinue(v) => v.eval(vm),
+            Self::FuncReturn(v) => v.eval(vm),
         }?
         .spanned(span);
 

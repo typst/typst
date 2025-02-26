@@ -466,7 +466,7 @@ impl<'a> CapturesVisitor<'a> {
             }
 
             // Code and content blocks create a scope.
-            Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
+            Some(ast::Expr::CodeBlock(_) | ast::Expr::ContentBlock(_)) => {
                 self.internal.enter();
                 for child in node.children() {
                     self.visit(child);
@@ -516,7 +516,7 @@ impl<'a> CapturesVisitor<'a> {
 
             // A let expression contains a binding, but that binding is only
             // active after the body is evaluated.
-            Some(ast::Expr::Let(expr)) => {
+            Some(ast::Expr::LetBinding(expr)) => {
                 if let Some(init) = expr.init() {
                     self.visit(init.to_untyped());
                 }
@@ -529,7 +529,7 @@ impl<'a> CapturesVisitor<'a> {
             // A for loop contains one or two bindings in its pattern. These are
             // active after the iterable is evaluated but before the body is
             // evaluated.
-            Some(ast::Expr::For(expr)) => {
+            Some(ast::Expr::ForLoop(expr)) => {
                 self.visit(expr.iterable().to_untyped());
                 self.internal.enter();
 
@@ -544,7 +544,7 @@ impl<'a> CapturesVisitor<'a> {
 
             // An import contains items, but these are active only after the
             // path is evaluated.
-            Some(ast::Expr::Import(expr)) => {
+            Some(ast::Expr::ModuleImport(expr)) => {
                 self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
                     for item in items.iter() {
