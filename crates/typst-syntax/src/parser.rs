@@ -272,6 +272,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 
         SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
             continuable = !p.at(SyntaxKind::MathShorthand)
+                && !p.current_text().chars().all(char::is_numeric)
                 && matches!(
                     math_class(p.current_text()),
                     None | Some(MathClass::Alphabetic)
