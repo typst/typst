@@ -785,13 +785,13 @@ impl<'a> CellGrid<'a> {
             // first and last rows are guaranteed to have cells (an exception
             // is made when there is gutter, in which case the group range may
             // be expanded to include an additional gutter row when there is a
-            // repeatable header or footer). This is `None` until the first
+            // repeatable header or footer). This is 'None' until the first
             // cell of the row group is placed, then it is continually adjusted
             // to fit the cells inside the row group.
             //
             // Note that cells outside headers and footers are grid children
             // with a single cell inside, and thus not considered row groups,
-            // in which case this variable remains `None`.
+            // in which case this variable remains 'None'.
             let mut group_range: Option<Range<usize>> = None;
             let mut group_span = Span::detached();
 
@@ -1136,10 +1136,10 @@ impl<'a> CellGrid<'a> {
 
                         // Even though this header or footer is fully empty, we add one
                         // default cell to maintain the invariant that each header and
-                        // footer has at least one `Some(...)` cell at its first row
+                        // footer has at least one 'Some(...)' cell at its first row
                         // and at least one at its last row (here they are the same
                         // row, of course). This invariant is important to ensure
-                        // `find_next_empty_row` will skip through any existing headers
+                        // 'find_next_empty_row' will skip through any existing headers
                         // and footers without having to loop through them each time.
                         // Cells themselves, unfortunately, still have to.
                         assert!(resolved_cells[local_auto_index].is_none());
