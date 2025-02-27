@@ -107,7 +107,10 @@
 #1.2e-0%
 #0.0e0deg
 #0.%
+// Error: 2-6 invalid number suffix: in%
 #5in%
+// Error: 2-6 invalid number suffix: %in
+#5%in
 // Error: 2-8 invalid number suffix: hello
 #1hello
 // Error: 2-7 invalid number suffix: infr

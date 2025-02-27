@@ -846,14 +846,8 @@ impl Lexer<'_> {
             }
         }
 
-        // Read the suffix.
-        let suffix_start = self.s.cursor();
-        if !self.s.eat_if('%') {
-            self.s.eat_while(char::is_ascii_alphanumeric);
-        }
-
-        let number = self.s.get(start..suffix_start);
-        let suffix = self.s.from(suffix_start);
+        let number = self.s.from(start);
+        let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
 
         let mut suffix_result = match suffix {
             "" => Ok(None),
