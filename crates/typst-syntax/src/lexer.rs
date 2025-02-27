@@ -807,20 +807,14 @@ impl Lexer<'_> {
         }
     }
 
-    fn number(&mut self, mut start: usize, first_c: char) -> SyntaxKind {
+    fn number(&mut self, start: usize, first_c: char) -> SyntaxKind {
         // Handle alternative integer bases.
-        let mut base = 10;
-        let mut is_float = false; // `true` implies `base == 10`
-        match first_c {
-            '0' if self.s.eat_if('b') => base = 2,
-            '0' if self.s.eat_if('o') => base = 8,
-            '0' if self.s.eat_if('x') => base = 16,
-            '.' => is_float = true,
-            _ => {}
-        }
-        if base != 10 {
-            start = self.s.cursor();
-        }
+        let base = match first_c {
+            '0' if self.s.eat_if('b') => 2,
+            '0' if self.s.eat_if('o') => 8,
+            '0' if self.s.eat_if('x') => 16,
+            _ => 10,
+        };
 
         // Read the initial digits.
         if base == 16 {
@@ -829,12 +823,14 @@ impl Lexer<'_> {
             self.s.eat_while(char::is_ascii_digit);
         }
 
-        // Maybe read a floating point number.
+        // Read floating point digits and exponents.
+        let mut is_float = false;
         if base == 10 {
-            // Read the fractional part if not already done.
-            // Make sure not to confuse a range for the decimal separator.
-            if first_c != '.'
-                && !self.s.at("..")
+            // Read digits following a dot. Make sure not to confuse a spread
+            // operator or a method call for the decimal separator.
+            if first_c == '.' {
+                is_float = true; // We already ate the trailing digits above.
+            } else if !self.s.at("..")
                 && !self.s.scout(1).is_some_and(is_id_start)
                 && self.s.eat_if('.')
             {
@@ -872,13 +868,14 @@ impl Lexer<'_> {
         } else if base == 10 {
             Ok(())
         } else {
-            let (name, prefix) = match base {
-                2 => ("binary", "0b"),
-                8 => ("octal", "0o"),
-                16 => ("hexadecimal", "0x"),
+            let name = match base {
+                2 => "binary",
+                8 => "octal",
+                16 => "hexadecimal",
                 _ => unreachable!(),
             };
-            match i64::from_str_radix(number, base) {
+            // The index `[2..]` skips the leading `0b`/`0o`/`0x`.
+            match i64::from_str_radix(&number[2..], base) {
                 Ok(_) if suffix.is_empty() => Ok(()),
                 Ok(value) => {
                     if suffix_result.is_ok() {
@@ -888,7 +885,7 @@ impl Lexer<'_> {
                     }
                     Err(eco_format!("{name} numbers cannot have a suffix"))
                 }
-                Err(_) => Err(eco_format!("invalid {name} number: {prefix}{number}")),
+                Err(_) => Err(eco_format!("invalid {name} number: {number}")),
             }
         };
 
