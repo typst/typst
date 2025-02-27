@@ -785,7 +785,9 @@ impl<'a> CellGrid<'a> {
             // first and last rows are guaranteed to have cells (an exception
             // is made when there is gutter, in which case the group range may
             // be expanded to include an additional gutter row when there is a
-            // repeatable header or footer).
+            // repeatable header or footer). This is `None` until the first
+            // cell of the row group is placed, then it is continually adjusted
+            // to fit the cells inside the row group.
             //
             // Note that cells outside headers and footers are grid children
             // with a single cell inside, and thus not considered row groups,
@@ -841,15 +843,6 @@ impl<'a> CellGrid<'a> {
                     first_available_row =
                         find_next_empty_row(&resolved_cells, local_auto_index, c);
 
-                    // If any cell in the footer is automatically positioned,
-                    // have it skip to the next empty row. This is to avoid
-                    // having a footer after a partially filled row just add
-                    // cells to that row instead of starting a new one.
-                    //
-                    // Note that the first fully empty row is always after the
-                    // latest auto-position cell, since each auto-position cell
-                    // always occupies the first available position after the
-                    // previous one. Therefore, this will be >= auto_index.
                     local_auto_index = first_available_row * c;
 
                     (Some(items), None)
