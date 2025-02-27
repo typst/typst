@@ -174,15 +174,25 @@ impl Array {
     /// Returns the first item in the array. May be used on the left-hand side
     /// of an assignment. Fails with an error if the array is empty.
     #[func]
-    pub fn first(&self) -> StrResult<Value> {
-        self.0.first().cloned().ok_or_else(array_is_empty)
+    pub fn first(
+        &self,
+        /// A default value to return if the index is out of bounds.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.0.first().cloned().or(default).ok_or_else(array_is_empty)
     }
 
     /// Returns the last item in the array. May be used on the left-hand side of
     /// an assignment. Fails with an error if the array is empty.
     #[func]
-    pub fn last(&self) -> StrResult<Value> {
-        self.0.last().cloned().ok_or_else(array_is_empty)
+    pub fn last(
+        &self,
+        /// A default value to return if the index is out of bounds.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.0.last().cloned().or(default).ok_or_else(array_is_empty)
     }
 
     /// Returns the item at the specified index in the array. May be used on the
