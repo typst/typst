@@ -807,20 +807,14 @@ impl Lexer<'_> {
         }
     }
 
-    fn number(&mut self, mut start: usize, first_c: char) -> SyntaxKind {
+    fn number(&mut self, start: usize, first_c: char) -> SyntaxKind {
         // Handle alternative integer bases.
-        let mut base = 10;
-        let mut is_float = false; // `true` implies `base == 10`
-        match first_c {
-            '0' if self.s.eat_if('b') => base = 2,
-            '0' if self.s.eat_if('o') => base = 8,
-            '0' if self.s.eat_if('x') => base = 16,
-            '.' => is_float = true,
-            _ => {}
-        }
-        if base != 10 {
-            start = self.s.cursor();
-        }
+        let base = match first_c {
+            '0' if self.s.eat_if('b') => 2,
+            '0' if self.s.eat_if('o') => 8,
+            '0' if self.s.eat_if('x') => 16,
+            _ => 10,
+        };
 
         // Read the first part (integer or fractional depending on `first`).
         if base == 16 {
@@ -830,11 +824,13 @@ impl Lexer<'_> {
         }
 
         // Maybe read a floating point number
+        let mut is_float = false; // `true` implies `base == 10`
         if base == 10 {
-            // Read the fractional part if not already done.
-            // Make sure not to confuse a range for the decimal separator.
-            if first_c != '.'
-                && !self.s.at("..")
+            // Read digits following a dot. Make sure not to confuse a spread
+            // operator or a method call for the decimal separator.
+            if first_c == '.' {
+                is_float = true; // We already ate the trailing digits above.
+            } else if !self.s.at("..")
                 && !self.s.scout(1).is_some_and(is_id_start)
                 && self.s.eat_if('.')
             {
@@ -850,36 +846,36 @@ impl Lexer<'_> {
             }
         }
 
-        // Read the suffix.
-        let suffix_start = self.s.cursor();
-        if !self.s.eat_if('%') {
-            self.s.eat_while(char::is_ascii_alphanumeric);
-        }
-
-        let number = self.s.get(start..suffix_start);
-        let suffix = self.s.from(suffix_start);
-
+        // Prepare a number result, but don't return yet.
+        let number = self.s.from(start);
         let number_result = if is_float && number.parse::<f64>().is_err() {
             // The only invalid case should be when a float lacks digits after
             // the exponent: e.g. `1.2e` or `2.3E-`.
             Err(eco_format!("invalid floating point number: {number}"))
         } else if base != 10 {
-            match i64::from_str_radix(number, base) {
+            // The index `[2..]` skips the leading `0b`/`0o`/`0x`.
+            match i64::from_str_radix(&number[2..], base) {
                 Ok(int) => Ok(Some(int)), // Used for better errors below.
                 Err(_) => {
-                    let (name, prefix) = match base {
-                        2 => ("binary", "0b"),
-                        8 => ("octal", "0o"),
-                        16 => ("hexadecimal", "0x"),
+                    let name = match base {
+                        2 => "binary",
+                        8 => "octal",
+                        16 => "hexadecimal",
                         _ => unreachable!(),
                     };
-                    Err(eco_format!("invalid {name} number: {prefix}{number}"))
+                    Err(eco_format!("invalid {name} number: {number}"))
                 }
             }
         } else {
             Ok(None)
         };
 
+        // Read the suffix.
+        let suffix_start = self.s.cursor();
+        if !self.s.eat_if('%') {
+            self.s.eat_while(char::is_ascii_alphanumeric);
+        }
+        let suffix = self.s.from(suffix_start);
         let maybe_suffix_result = match suffix {
             "" => None,
             "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => Some(Ok(())),
