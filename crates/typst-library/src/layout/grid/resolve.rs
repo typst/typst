@@ -1889,7 +1889,7 @@ fn resolve_cell_position(
                 // first row.
                 let mut resolved_y = first_available_row;
 
-                // There are row groups, so we have to not only skip
+                // There may be row groups, so we have to not only skip
                 // rows where the requested column is occupied to find the
                 // first suitable row, but also skip rows belonging to
                 // headers or footers.
