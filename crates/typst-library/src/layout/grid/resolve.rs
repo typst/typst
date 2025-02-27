@@ -781,19 +781,19 @@ impl<'a> CellGrid<'a> {
             // instead, and use a separate counter outside them.
             let mut local_auto_index = auto_index;
 
-            // The range of rows of cells inside this child in the grid. The
+            // The range of rows of cells inside this grid row group. The
             // first and last rows are guaranteed to have cells (an exception
-            // is made when there is gutter, in which case the child range may
+            // is made when there is gutter, in which case the group range may
             // be expanded to include an additional gutter row when there is a
             // repeatable header or footer).
             //
-            // Note that cells outside headers and footers are children
-            // with a single cell inside, in which case the range has a single
-            // row.
-            let mut child_range: Option<Range<usize>> = None;
-            let mut child_span = Span::detached();
+            // Note that cells outside headers and footers are grid children
+            // with a single cell inside, and thus not considered row groups,
+            // in which case this variable remains `None`.
+            let mut group_range: Option<Range<usize>> = None;
+            let mut group_span = Span::detached();
 
-            // The first row in which this table child can fit.
+            // The first row in which this table group can fit.
             //
             // Within headers and footers, this will correspond to the first
             // fully empty row available in the grid. This is because headers
@@ -809,7 +809,7 @@ impl<'a> CellGrid<'a> {
 
                     is_header = true;
                     is_row_group = true;
-                    child_span = span;
+                    group_span = span;
                     repeat_header = repeat;
 
                     first_available_row =
@@ -835,7 +835,7 @@ impl<'a> CellGrid<'a> {
 
                     is_footer = true;
                     is_row_group = true;
-                    child_span = span;
+                    group_span = span;
                     repeat_footer = repeat;
 
                     first_available_row =
@@ -1028,10 +1028,10 @@ impl<'a> CellGrid<'a> {
                 // Cell's header or footer must expand to include the cell's
                 // occupied positions, if possible.
                 if is_row_group {
-                    child_range = Some(
+                    group_range = Some(
                         expand_row_group(
                             &resolved_cells,
-                            child_range.as_ref(),
+                            group_range.as_ref(),
                             first_available_row,
                             y,
                             rowspan,
@@ -1126,19 +1126,19 @@ impl<'a> CellGrid<'a> {
             }
 
             if is_row_group {
-                let child_range = match child_range {
-                    Some(child_range) => child_range,
+                let group_range = match group_range {
+                    Some(group_range) => group_range,
 
                     None => {
                         // Empty header/footer: consider the header/footer to be
                         // at the next empty row after the latest auto index.
                         local_auto_index = first_available_row * c;
-                        let child_start = first_available_row;
-                        let child_end = child_start + 1;
+                        let group_start = first_available_row;
+                        let group_end = group_start + 1;
 
-                        if resolved_cells.len() <= c * child_start {
+                        if resolved_cells.len() <= c * group_start {
                             // Ensure the automatically chosen row actually exists.
-                            resolved_cells.resize_with(c * (child_start + 1), || None);
+                            resolved_cells.resize_with(c * (group_start + 1), || None);
                         }
 
                         // Even though this header or footer is fully empty, we add one
@@ -1164,14 +1164,14 @@ impl<'a> CellGrid<'a> {
                                 styles,
                             )));
 
-                        child_start..child_end
+                        group_start..group_end
                     }
                 };
 
                 if is_header {
-                    if child_range.start != 0 {
+                    if group_range.start != 0 {
                         bail!(
-                            child_span,
+                            group_span,
                             "header must start at the first row";
                             hint: "remove any rows before the header"
                         );
@@ -1182,7 +1182,7 @@ impl<'a> CellGrid<'a> {
                         // is gutter. But only once all cells have been analyzed
                         // and the header has fully expanded in the fixup loop
                         // below.
-                        end: child_range.end,
+                        end: group_range.end,
                     });
                 }
 
@@ -1190,8 +1190,8 @@ impl<'a> CellGrid<'a> {
                     // Only check if the footer is at the end later, once we know
                     // the final amount of rows.
                     footer = Some((
-                        child_range.end,
-                        child_span,
+                        group_range.end,
+                        group_span,
                         Footer {
                             // Later on, we have to correct this number in case there
                             // is gutter, but only once all cells have been analyzed
@@ -1199,7 +1199,7 @@ impl<'a> CellGrid<'a> {
                             // known. That is because the gutter row immediately
                             // before the footer might not be included as part of
                             // the footer if it is contained within the header.
-                            start: child_range.start,
+                            start: group_range.start,
                         },
                     ));
                 }
@@ -1615,13 +1615,14 @@ impl<'a> CellGrid<'a> {
     }
 }
 
-/// Given the existing range of a row group (grid child), tries to expand it to
-/// fit the new cell placed inside it. If the newly-expanded row group would
-/// conflict with existing cells or other row groups, an error is returned.
-/// Otherwise, the new `start..end` range of rows in the row group is given.
+/// Given the existing range of a row group (header or footer), tries to expand
+/// it to fit the new cell placed inside it. If the newly-expanded row group
+/// would conflict with existing cells or other row groups, an error is
+/// returned. Otherwise, the new `start..end` range of rows in the row group is
+/// returned.
 fn expand_row_group(
     resolved_cells: &[Option<Entry<'_>>],
-    child_range: Option<&Range<usize>>,
+    group_range: Option<&Range<usize>>,
     first_available_row: usize,
     cell_y: usize,
     rowspan: usize,
@@ -1629,8 +1630,8 @@ fn expand_row_group(
 ) -> HintedStrResult<Range<usize>> {
     // Ensure each cell in a header or footer is fully contained within it by
     // expanding the header or footer towards this new cell.
-    let (new_child_start, new_child_end) =
-        child_range.clone().map_or((cell_y, cell_y + rowspan), |r| {
+    let (new_group_start, new_group_end) = group_range
+        .map_or((cell_y, cell_y + rowspan), |r| {
             (r.start.min(cell_y), r.end.max(cell_y + rowspan))
         });
 
@@ -1643,7 +1644,7 @@ fn expand_row_group(
     // y = 2 => header
     // and header tries to expand to y = 0 - invalid, as
     // 'y = 1' is the earliest row it can occupy.
-    if new_child_start < first_available_row {
+    if new_group_start < first_available_row {
         bail!(
             "cell would cause header or footer to expand to non-empty row {}",
             first_available_row.saturating_sub(1);
@@ -1652,14 +1653,18 @@ fn expand_row_group(
     }
 
     let new_rows =
-        child_range
-            .clone()
-            .map_or((new_child_start..new_child_end).chain(0..0), |r| {
-                // NOTE: To keep types the same, we have to always return
-                // '(range).chain(range)', which justifies chaining an empty
-                // range above.
-                (new_child_start..r.start).chain(r.end..new_child_end)
-            });
+        group_range.map_or((new_group_start..new_group_end).chain(0..0), |r| {
+            // NOTE: 'r.end' is one row AFTER the row group's last row, so it
+            // makes sense to check it if 'new_group_end > r.end', that is, if
+            // the row group is going to expand. It is NOT a duplicate check,
+            // as we hadn't checked it before (in a previous run, it was
+            // 'new_group_end' at the exclusive end of the range)!
+            //
+            // NOTE: To keep types the same, we have to always return
+            // '(range).chain(range)', which justifies chaining an empty
+            // range above.
+            (new_group_start..r.start).chain(r.end..new_group_end)
+        });
 
     // The check above isn't enough, however, even when the header is expanding
     // upwards, as it might expand upwards towards an occupied row after the
@@ -1696,7 +1701,7 @@ fn expand_row_group(
     // since we have an invariant that even empty headers and footers must
     // contain at least one 'Some(...)' position in 'resolved_cells'. More
     // precisely, each header and footer has at least one 'Some(...)' cell at
-    // 'child_range.start' and at 'child_range.end - 1' - non-empty headers and
+    // 'group_range.start' and at 'group_range.end - 1' - non-empty headers and
     // footers don't span any unnecessary rows. Therefore, we don't have to
     // loop over headers and footers, only check if the new rows are empty.
     for new_y in new_rows {
@@ -1711,7 +1716,7 @@ fn expand_row_group(
                 // - Detect when header or footer collided with
                 // another header or footer and provide a
                 // better error message if so.
-                if child_range.is_none_or(|r| new_y < r.start) {
+                if group_range.is_none_or(|r| new_y < r.start) {
                     bail!(
                         "cell would cause header or footer to expand to non-empty row {new_y}";
                         hint: "try moving its cells to later rows"
@@ -1735,7 +1740,7 @@ fn expand_row_group(
         }
     }
 
-    Ok(new_child_start..new_child_end)
+    Ok(new_group_start..new_group_end)
 }
 
 /// Check if a cell's fixed row would conflict with a header or footer.
