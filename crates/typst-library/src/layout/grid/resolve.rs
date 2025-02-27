@@ -422,12 +422,14 @@ pub struct Line {
 }
 
 /// A repeatable grid header. Starts at the first row.
+#[derive(Debug)]
 pub struct Header {
     /// The index after the last row included in this header.
     pub end: usize,
 }
 
 /// A repeatable grid footer. Stops at the last row.
+#[derive(Debug)]
 pub struct Footer {
     /// The first row included in this footer.
     pub start: usize,
@@ -994,6 +996,7 @@ impl<'a> CellGrid<'a> {
                         &mut local_auto_index,
                         first_available_row,
                         c,
+                        is_row_group,
                     )
                     .at(cell_span)?
                 };
@@ -1148,34 +1151,6 @@ impl<'a> CellGrid<'a> {
                     }
 
                     child_range = Some(new_child_start..new_child_end);
-                } else {
-                    // TODO: Perhaps do this during cell resolving?
-                    // This is unnecessary for non-row-positioned cells, as
-                    // they skip headers and footers already.
-                    if let Some(header) = &header {
-                        // TODO: check start (right now zero, always satisfied)
-                        if y < header.end {
-                            bail!(
-                                cell_span,
-                                "cell would conflict with header spanning the same position";
-                                hint: "try moving the cell or the header"
-                            );
-                        }
-                    }
-                    if let Some((footer_end, _, footer)) = &footer {
-                        // NOTE: y + rowspan >, not >=, footer.start, to
-                        // check if the rowspan enters the footer. For example,
-                        // rowspan of 1: y + 1 = footer.start means
-                        // `y < footer.start`, and it only occupies one row
-                        // (`y`), so the cell is safe.
-                        if y < *footer_end && y + rowspan > footer.start {
-                            bail!(
-                                cell_span,
-                                "cell would conflict with footer spanning the same position";
-                                hint: "try reducing the cell's rowspan or moving the footer"
-                            );
-                        }
-                    }
                 }
 
                 if largest_index >= resolved_cells.len() {
@@ -1738,6 +1713,40 @@ impl<'a> CellGrid<'a> {
     }
 }
 
+/// Check if a cell's fixed row would conflict with a header or footer.
+fn check_for_conflicting_cell_row(
+    header: Option<&Header>,
+    footer: Option<&(usize, Span, Footer)>,
+    cell_y: usize,
+    rowspan: usize,
+) -> HintedStrResult<()> {
+    if let Some(header) = header {
+        // TODO: check start (right now zero, always satisfied)
+        if cell_y < header.end {
+            bail!(
+                "cell would conflict with header spanning the same position";
+                hint: "try moving the cell or the header"
+            );
+        }
+    }
+
+    if let Some((footer_end, _, footer)) = footer {
+        // NOTE: y + rowspan >, not >=, footer.start, to check if the rowspan
+        // enters the footer. For example, consider a rowspan of 1: if
+        // `y + 1 = footer.start` holds, that means `y < footer.start`, and it
+        // only occupies one row (`y`), so the cell is actually not in
+        // conflict.
+        if cell_y < *footer_end && cell_y + rowspan > footer.start {
+            bail!(
+                "cell would conflict with footer spanning the same position";
+                hint: "try reducing the cell's rowspan or moving the footer"
+            );
+        }
+    }
+
+    Ok(())
+}
+
 /// Given a cell's requested x and y, the vector with the resolved cell
 /// positions, the `auto_index` counter (determines the position of the next
 /// `(auto, auto)` cell) and the amount of columns in the grid, returns the
@@ -1759,6 +1768,7 @@ fn resolve_cell_position(
     auto_index: &mut usize,
     first_available_row: usize,
     columns: usize,
+    is_row_group: bool,
 ) -> HintedStrResult<usize> {
     // Translates a (x, y) position to the equivalent index in the final cell vector.
     // Errors if the position would be too large.
@@ -1833,6 +1843,14 @@ fn resolve_cell_position(
             }
             if let Smart::Custom(cell_y) = cell_y {
                 // Cell has chosen its exact position.
+                //
+                // Ensure it doesn't conflict with an existing header or
+                // footer (but only if it isn't already in one, otherwise there
+                // will already be a separate check).
+                if !is_row_group {
+                    check_for_conflicting_cell_row(header, footer, cell_y, rowspan)?;
+                }
+
                 cell_index(cell_x, cell_y)
             } else {
                 // Cell has only chosen its column.
@@ -1886,6 +1904,13 @@ fn resolve_cell_position(
         }
         // Cell has only chosen its row, not its column.
         (Smart::Auto, Smart::Custom(cell_y)) => {
+            // Ensure it doesn't conflict with an existing header or
+            // footer (but only if it isn't already in one, otherwise there
+            // will already be a separate check).
+            if !is_row_group {
+                check_for_conflicting_cell_row(header, footer, cell_y, rowspan)?;
+            }
+
             // Let's find the first column which has that row available.
             let first_row_pos = cell_index(0, cell_y)?;
             let last_row_pos = first_row_pos

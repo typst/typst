@@ -95,7 +95,22 @@
   grid.cell(x: 1)[c]
 )
 
---- grid-footer-no-expand ---
+--- grid-footer-no-expand-with-col-and-row-pos-cell ---
+#grid(
+  columns: 2,
+  [a], [],
+  [b], [],
+  fill: (_, y) => if calc.odd(y) { blue } else { red },
+  inset: 5pt,
+  grid.cell(x: 1, y: 3, rowspan: 4)[b],
+  grid.cell(y: 2, rowspan: 2)[a],
+  grid.footer(),
+  // Error: 3-27 cell would conflict with footer spanning the same position
+  // Hint: 3-27 try reducing the cell's rowspan or moving the footer
+  grid.cell(x: 1, y: 7)[d],
+)
+
+--- grid-footer-no-expand-with-row-pos-cell ---
 #grid(
   columns: 2,
   [a], [],

@@ -284,7 +284,7 @@
 )
 #context count.display()
 
---- grid-header-no-expand ---
+--- grid-header-no-expand-with-col-and-row-pos-cell ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -295,6 +295,19 @@
   // Error: 3-48 cell would conflict with header spanning the same position
   // Hint: 3-48 try moving the cell or the header
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
+)
+
+--- grid-header-no-expand-with-row-pos-cell ---
+#set page(height: 10em)
+#table(
+  columns: 2,
+  table.header(
+    [a], [b],
+    [c],
+  ),
+  // Error: 3-42 cell would conflict with header spanning the same position
+  // Hint: 3-42 try moving the cell or the header
+  table.cell(y: 1, rowspan: 2, lorem(80))
 )
 
 --- grid-nested-with-headers ---
