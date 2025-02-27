@@ -1025,6 +1025,22 @@ impl<'a> CellGrid<'a> {
                     )
                 };
 
+                // Cell's header or footer must expand to include the cell's
+                // occupied positions, if possible.
+                if is_row_group {
+                    child_range = Some(
+                        expand_row_group(
+                            &resolved_cells,
+                            child_range.as_ref(),
+                            first_available_row,
+                            y,
+                            rowspan,
+                            c,
+                        )
+                        .at(cell_span)?,
+                    );
+                }
+
                 // Let's resolve the cell so it can determine its own fields
                 // based on its final position.
                 let cell = cell.resolve_cell(
@@ -1038,120 +1054,6 @@ impl<'a> CellGrid<'a> {
                     locator.next(&cell_span),
                     styles,
                 );
-
-                // Check if the cell's header or footer can expand to the
-                // cell's position before placing it.
-                if is_row_group {
-                    // Ensure each cell in a header or footer is fully
-                    // contained within it by expanding the header or footer
-                    // towards this new cell.
-                    let (new_child_start, new_child_end) =
-                        child_range.clone().map_or((y, y + rowspan), |r| {
-                            (r.start.min(y), r.end.max(y + rowspan))
-                        });
-
-                    // TODO: Maybe remove this check and just keep the loop,
-                    // we will loop in the "good case" anyway
-                    //
-                    // Quickly detect the case:
-                    // y = 0 => occupied
-                    // y = 1 => empty
-                    // y = 2 => header
-                    // and header tries to expand to y = 0 - invalid, as
-                    // `y = 1` is the earliest row it can occupy.
-                    if new_child_start < first_available_row {
-                        bail!(
-                            cell_span,
-                            "cell would cause header or footer to expand to non-empty row {}",
-                            first_available_row.saturating_sub(1);
-                            hint: "try moving its cells to later rows"
-                        );
-                    }
-
-                    // The check above isn't enough, however, even when the
-                    // header is expanding upwards, as it might expand upwards
-                    // towards an occupied row after the first empty row, e.g.
-                    // y = 0 => occupied
-                    // y = 1 => empty (first_available_row = 1)
-                    // y = 2 => occupied
-                    // y = 3 => header
-                    // Here, we should bail if the header tries to expand
-                    // upwards. Note that expanding upwards is only possible
-                    // when row-positioned cells are specified, in one of the
-                    // following cases:
-                    //
-                    // 1. We place e.g. `table.cell(y: 3)` followed by
-                    // `table.cell(y: 2)` (earlier row => upwards);
-                    // 2. We place e.g. `table.cell(y: 3)` followed by
-                    // `[a]` (auto-pos cell favors 'first_available_row', so
-                    // the header tries to expand upwards to place the cell at
-                    // `y = 1`).
-                    //
-                    // Of course, we also need to check for downward expansion
-                    // as there could be a non-empty row below the header, but
-                    // the upward case is highlighted due to its differences.
-                    let new_rows = child_range.clone().map_or(
-                        (new_child_start..new_child_end).chain(0..0),
-                        |r| {
-                            // NOTE: To keep types the same, we have to always
-                            // return (range).chain(range), which justifies
-                            // chaining an empty range above.
-                            (new_child_start..r.start).chain(r.end..new_child_end)
-                        },
-                    );
-
-                    // Note that simply checking for non-empty rows like below
-                    // not only prevents conflicts with top-level cells
-                    // (outside of headers and footers), but also prevents
-                    // conflicts with other headers or footers, since we have
-                    // an invariant that even empty headers and footers must
-                    // contain at least one 'Some(...)' position in
-                    // 'resolved_cells'. More precisely, each header and footer
-                    // has at least one 'Some(...)' cell at 'child_range.start'
-                    // and at 'child_range.end - 1' - non-empty headers and
-                    // footers don't span any unnecessary rows.
-                    for new_y in new_rows {
-                        if let Some(new_row @ [_non_empty, ..]) = resolved_cells
-                            .get(new_y * c..)
-                            .map(|cells| &cells[..c.min(cells.len())])
-                        {
-                            if new_row.iter().any(Option::is_some) {
-                                // TODO:
-                                // - Later/earlier rows might be confusing
-                                // (moving to the end always works...)
-                                // - Detect when header or footer collided with
-                                // another header or footer and provide a
-                                // better error message if so.
-                                if child_range.is_none_or(|r| new_y < r.start) {
-                                    bail!(
-                                        cell_span,
-                                        "cell would cause header or footer to expand to non-empty row {new_y}";
-                                        hint: "try moving its cells to later rows"
-                                    );
-                                } else {
-                                    bail!(
-                                        cell_span,
-                                        "cell would cause header or footer to expand to non-empty row {new_y}";
-                                        hint: "try moving its cells to earlier rows"
-                                    );
-                                }
-                            }
-                        } else {
-                            // Received `None` or an empty slice, so we are
-                            // expanding the header or footer into new rows,
-                            // which is always valid and cannot conflict with
-                            // existing cells. (Note that we only resize
-                            // `resolved_cells` after this check, so, if this
-                            // header or footer is at the bottom of the table
-                            // so far, this loop will end quite early,
-                            // regardless of where this cell was placed or of
-                            // its rowspan value.)
-                            break;
-                        }
-                    }
-
-                    child_range = Some(new_child_start..new_child_end);
-                }
 
                 if largest_index >= resolved_cells.len() {
                     // Ensure the length of the vector of resolved cells is
@@ -1711,6 +1613,129 @@ impl<'a> CellGrid<'a> {
             self.cols.len()
         }
     }
+}
+
+/// Given the existing range of a row group (grid child), tries to expand it to
+/// fit the new cell placed inside it. If the newly-expanded row group would
+/// conflict with existing cells or other row groups, an error is returned.
+/// Otherwise, the new `start..end` range of rows in the row group is given.
+fn expand_row_group(
+    resolved_cells: &[Option<Entry<'_>>],
+    child_range: Option<&Range<usize>>,
+    first_available_row: usize,
+    cell_y: usize,
+    rowspan: usize,
+    columns: usize,
+) -> HintedStrResult<Range<usize>> {
+    // Ensure each cell in a header or footer is fully contained within it by
+    // expanding the header or footer towards this new cell.
+    let (new_child_start, new_child_end) =
+        child_range.clone().map_or((cell_y, cell_y + rowspan), |r| {
+            (r.start.min(cell_y), r.end.max(cell_y + rowspan))
+        });
+
+    // This check might be unnecessary with the loop below, but let's keep it
+    // here for full correctness.
+    //
+    // Quickly detect the case:
+    // y = 0 => occupied
+    // y = 1 => empty
+    // y = 2 => header
+    // and header tries to expand to y = 0 - invalid, as
+    // 'y = 1' is the earliest row it can occupy.
+    if new_child_start < first_available_row {
+        bail!(
+            "cell would cause header or footer to expand to non-empty row {}",
+            first_available_row.saturating_sub(1);
+            hint: "try moving its cells to later rows"
+        );
+    }
+
+    let new_rows =
+        child_range
+            .clone()
+            .map_or((new_child_start..new_child_end).chain(0..0), |r| {
+                // NOTE: To keep types the same, we have to always return
+                // '(range).chain(range)', which justifies chaining an empty
+                // range above.
+                (new_child_start..r.start).chain(r.end..new_child_end)
+            });
+
+    // The check above isn't enough, however, even when the header is expanding
+    // upwards, as it might expand upwards towards an occupied row after the
+    // first empty row, e.g.
+    //
+    // y = 0 => occupied
+    // y = 1 => empty (first_available_row = 1)
+    // y = 2 => occupied
+    // y = 3 => header
+    //
+    // Here, we should bail if the header tries to expand upwards, regardless
+    // of the fact that the conflicting row (y = 2) comes after the first
+    // available row.
+    //
+    // Note that expanding upwards is only possible when row-positioned cells
+    // are specified, in one of the following cases:
+    //
+    // 1. We place e.g. 'table.cell(y: 3)' followed by 'table.cell(y: 2)'
+    // (earlier row => upwards);
+    //
+    // 2. We place e.g. 'table.cell(y: 3)' followed by '[a]' (auto-pos cell
+    // favors 'first_available_row', so the header tries to expand upwards to
+    // place the cell at 'y = 1' and conflicts at 'y = 2') or
+    // 'table.cell(x: 1)' (same deal).
+    //
+    // Of course, we also need to check for downward expansion as usual as
+    // there could be a non-empty row below the header, but the upward case is
+    // highlighted as it was checked separately before (and also to explain
+    // what kind of situation we are preventing with this check).
+    //
+    // Note that simply checking for non-empty rows like below not only
+    // prevents conflicts with top-level cells (outside of headers and
+    // footers), but also prevents conflicts with other headers or footers,
+    // since we have an invariant that even empty headers and footers must
+    // contain at least one 'Some(...)' position in 'resolved_cells'. More
+    // precisely, each header and footer has at least one 'Some(...)' cell at
+    // 'child_range.start' and at 'child_range.end - 1' - non-empty headers and
+    // footers don't span any unnecessary rows. Therefore, we don't have to
+    // loop over headers and footers, only check if the new rows are empty.
+    for new_y in new_rows {
+        if let Some(new_row @ [_non_empty, ..]) = resolved_cells
+            .get(new_y * columns..)
+            .map(|cells| &cells[..columns.min(cells.len())])
+        {
+            if new_row.iter().any(Option::is_some) {
+                // TODO:
+                // - Later/earlier rows might be confusing
+                // (moving to the end always works...)
+                // - Detect when header or footer collided with
+                // another header or footer and provide a
+                // better error message if so.
+                if child_range.is_none_or(|r| new_y < r.start) {
+                    bail!(
+                        "cell would cause header or footer to expand to non-empty row {new_y}";
+                        hint: "try moving its cells to later rows"
+                    );
+                } else {
+                    bail!(
+                        "cell would cause header or footer to expand to non-empty row {new_y}";
+                        hint: "try moving its cells to earlier rows"
+                    );
+                }
+            }
+        } else {
+            // Received 'None' or an empty slice, so we are expanding the
+            // header or footer into new rows, which is always valid and cannot
+            // conflict with existing cells. (Note that we only resize
+            // 'resolved_cells' after this function is called, so, if this
+            // header or footer is at the bottom of the table so far, this loop
+            // will end quite early, regardless of where this cell was placed
+            // or of its rowspan value.)
+            break;
+        }
+    }
+
+    Ok(new_child_start..new_child_end)
 }
 
 /// Check if a cell's fixed row would conflict with a header or footer.
