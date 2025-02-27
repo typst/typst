@@ -172,11 +172,12 @@ impl Array {
     }
 
     /// Returns the first item in the array. May be used on the left-hand side
-    /// of an assignment. Fails with an error if the array is empty.
+    /// an assignment. Returns the default value if the array is empty
+    /// or fails with an error is no default value was specified.
     #[func]
     pub fn first(
         &self,
-        /// A default value to return if the index is out of bounds.
+        /// A default value to return if the array is empty.
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
@@ -184,11 +185,12 @@ impl Array {
     }
 
     /// Returns the last item in the array. May be used on the left-hand side of
-    /// an assignment. Fails with an error if the array is empty.
+    /// an assignment. Returns the default value if the array is empty
+    /// or fails with an error is no default value was specified.
     #[func]
     pub fn last(
         &self,
-        /// A default value to return if the index is out of bounds.
+        /// A default value to return if the array is empty.
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
