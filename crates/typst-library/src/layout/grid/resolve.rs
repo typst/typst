@@ -1119,7 +1119,7 @@ impl<'a> CellGrid<'a> {
                                 // - Detect when header or footer collided with
                                 // another header or footer and provide a
                                 // better error message if so.
-                                if child_range.map_or(true, |r| new_y < r.start) {
+                                if child_range.is_none_or(|r| new_y < r.start) {
                                     bail!(
                                         cell_span,
                                         "cell would cause header or footer to expand to non-empty row {new_y}";
