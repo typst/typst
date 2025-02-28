@@ -1,6 +1,7 @@
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
 use ecow::{eco_format, EcoString};
+use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{
@@ -322,7 +323,7 @@ impl i64 {
             Endianness::Little => self.to_le_bytes(),
         };
 
-        let mut buf = vec![0u8; size];
+        let mut buf = SmallVec::<[u8; 8]>::from_elem(0, size);
         match endian {
             Endianness::Big => {
                 // Copy the bytes from the array to the buffer, starting from
@@ -339,7 +340,7 @@ impl i64 {
             }
         }
 
-        Bytes::from(buf)
+        Bytes::new(buf)
     }
 }
 

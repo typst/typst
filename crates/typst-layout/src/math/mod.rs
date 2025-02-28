@@ -17,7 +17,9 @@ use rustybuzz::Feature;
 use ttf_parser::Tag;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, Packed, Resolve, StyleChain};
+use typst_library::foundations::{
+    Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
+};
 use typst_library::introspection::{Counter, Locator, SplitLocator, TagElem};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, BoxElem, Em, FixedAlignment, Fragment, Frame, HElem,
@@ -200,8 +202,7 @@ pub fn layout_equation_block(
     let counter = Counter::of(EquationElem::elem())
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
         .spanned(span);
-    let number =
-        (engine.routines.layout_frame)(engine, &counter, locator.next(&()), styles, pod)?;
+    let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
@@ -535,6 +536,8 @@ fn layout_realized(
         layout_h(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<TextElem>() {
         self::text::layout_text(elem, ctx, styles)?;
+    } else if let Some(elem) = elem.to_packed::<SymbolElem>() {
+        self::text::layout_symbol(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<BoxElem>() {
         layout_box(elem, ctx, styles)?;
     } else if elem.is::<AlignPointElem>() {
@@ -615,7 +618,7 @@ fn layout_box(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let frame = (ctx.engine.routines.layout_box)(
+    let frame = crate::inline::layout_box(
         elem,
         ctx.engine,
         ctx.locator.next(&elem.span()),
@@ -632,7 +635,7 @@ fn layout_h(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    if let Spacing::Rel(rel) = elem.amount() {
+    if let Spacing::Rel(rel) = elem.amount {
         if rel.rel.is_zero() {
             ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
         }
@@ -641,17 +644,16 @@ fn layout_h(
 }
 
 /// Lays out a [`ClassElem`].
-#[typst_macros::time(name = "math.op", span = elem.span())]
+#[typst_macros::time(name = "math.class", span = elem.span())]
 fn layout_class(
     elem: &Packed<ClassElem>,
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let class = *elem.class();
-    let style = EquationElem::set_class(Some(class)).wrap();
-    let mut fragment = ctx.layout_into_fragment(elem.body(), styles.chain(&style))?;
-    fragment.set_class(class);
-    fragment.set_limits(Limits::for_class(class));
+    let style = EquationElem::set_class(Some(elem.class)).wrap();
+    let mut fragment = ctx.layout_into_fragment(&elem.body, styles.chain(&style))?;
+    fragment.set_class(elem.class);
+    fragment.set_limits(Limits::for_class(elem.class));
     ctx.push(fragment);
     Ok(())
 }
@@ -663,7 +665,7 @@ fn layout_op(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let fragment = ctx.layout_into_fragment(elem.text(), styles)?;
+    let fragment = ctx.layout_into_fragment(&elem.text, styles)?;
     let italics = fragment.italics_correction();
     let accent_attach = fragment.accent_attach();
     let text_like = fragment.is_text_like();
@@ -689,7 +691,7 @@ fn layout_external(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<Frame> {
-    (ctx.engine.routines.layout_frame)(
+    crate::layout_frame(
         ctx.engine,
         content,
         ctx.locator.next(&content.span()),

@@ -1,6 +1,6 @@
 use ecow::EcoString;
 
-use crate::foundations::{elem, Content, NativeElement, Scope};
+use crate::foundations::{elem, Content, NativeElement, Scope, SymbolElem};
 use crate::layout::HElem;
 use crate::math::{upright, Mathy, THIN};
 use crate::text::TextElem;
@@ -17,9 +17,9 @@ use crate::text::TextElem;
 /// # Predefined Operators { #predefined }
 /// Typst predefines the operators `arccos`, `arcsin`, `arctan`, `arg`, `cos`,
 /// `cosh`, `cot`, `coth`, `csc`, `csch`, `ctg`, `deg`, `det`, `dim`, `exp`,
-/// `gcd`, `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`, `limsup`,
-/// `ln`, `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sech`, `sin`, `sinc`,
-/// `sinh`, `sup`, `tan`, `tanh`, `tg` and `tr`.
+/// `gcd`, `lcm`, `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`,
+/// `limsup`, `ln`, `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sech`, `sin`,
+/// `sinc`, `sinh`, `sup`, `tan`, `tanh`, `tg` and `tr`.
 #[elem(title = "Text Operator", Mathy)]
 pub struct OpElem {
     /// The operator's text.
@@ -38,6 +38,7 @@ macro_rules! ops {
                 let operator = EcoString::from(ops!(@name $name $(: $value)?));
                 math.define(
                     stringify!($name),
+                    // Latex also uses their equivalent of `TextElem` here.
                     OpElem::new(TextElem::new(operator).into())
                         .with_limits(ops!(@limit $($tts)*))
                         .pack()
@@ -46,7 +47,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + upright(TextElem::packed(d))
+                    + upright(SymbolElem::packed(d))
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));
@@ -75,6 +76,7 @@ ops! {
     dim,
     exp,
     gcd (limits),
+    lcm (limits),
     hom,
     id,
     im,

@@ -77,11 +77,6 @@ I
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
 
---- text-font-linux-libertine ---
-// Warning: 17-34 Typst's default font has changed from Linux Libertine to its successor Libertinus Serif
-// Hint: 17-34 please set the font to `"Libertinus Serif"` instead
-#set text(font: "Linux Libertine")
-
 --- issue-5499-text-fill-in-clip-block ---
 
 #let t = tiling(

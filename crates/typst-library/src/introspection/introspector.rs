@@ -10,7 +10,7 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::html::{HtmlElement, HtmlNode};
+use crate::html::HtmlNode;
 use crate::introspection::{Location, Tag};
 use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
@@ -55,8 +55,8 @@ impl Introspector {
 
     /// Creates an introspector for HTML.
     #[typst_macros::time(name = "introspect html")]
-    pub fn html(root: &HtmlElement) -> Self {
-        IntrospectorBuilder::new().build_html(root)
+    pub fn html(output: &[HtmlNode]) -> Self {
+        IntrospectorBuilder::new().build_html(output)
     }
 
     /// Iterates over all locatable elements.
@@ -392,9 +392,9 @@ impl IntrospectorBuilder {
     }
 
     /// Build an introspector for an HTML document.
-    fn build_html(mut self, root: &HtmlElement) -> Introspector {
+    fn build_html(mut self, output: &[HtmlNode]) -> Introspector {
         let mut elems = Vec::new();
-        self.discover_in_html(&mut elems, root);
+        self.discover_in_html(&mut elems, output);
         self.finalize(elems)
     }
 
@@ -434,16 +434,16 @@ impl IntrospectorBuilder {
     }
 
     /// Processes the tags in the HTML element.
-    fn discover_in_html(&mut self, sink: &mut Vec<Pair>, elem: &HtmlElement) {
-        for child in &elem.children {
-            match child {
+    fn discover_in_html(&mut self, sink: &mut Vec<Pair>, nodes: &[HtmlNode]) {
+        for node in nodes {
+            match node {
                 HtmlNode::Tag(tag) => self.discover_in_tag(
                     sink,
                     tag,
                     Position { page: NonZeroUsize::ONE, point: Point::zero() },
                 ),
                 HtmlNode::Text(_, _) => {}
-                HtmlNode::Element(elem) => self.discover_in_html(sink, elem),
+                HtmlNode::Element(elem) => self.discover_in_html(sink, &elem.children),
                 HtmlNode::Frame(frame) => self.discover_in_frame(
                     sink,
                     frame,

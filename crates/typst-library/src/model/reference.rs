@@ -182,9 +182,8 @@ impl Synthesize for Packed<RefElem> {
         elem.push_citation(Some(citation));
         elem.push_element(None);
 
-        let target = *elem.target();
-        if !BibliographyElem::has(engine, target) {
-            if let Ok(found) = engine.introspector.query_label(target).cloned() {
+        if !BibliographyElem::has(engine, elem.target) {
+            if let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
                 elem.push_element(Some(found));
                 return Ok(());
             }
@@ -197,8 +196,7 @@ impl Synthesize for Packed<RefElem> {
 impl Show for Packed<RefElem> {
     #[typst_macros::time(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let target = *self.target();
-        let elem = engine.introspector.query_label(target);
+        let elem = engine.introspector.query_label(self.target);
         let span = self.span();
 
         let form = self.form(styles);
@@ -229,7 +227,7 @@ impl Show for Packed<RefElem> {
         }
         // RefForm::Normal
 
-        if BibliographyElem::has(engine, target) {
+        if BibliographyElem::has(engine, self.target) {
             if elem.is_ok() {
                 bail!(span, "label occurs in the document and its bibliography");
             }
@@ -240,7 +238,7 @@ impl Show for Packed<RefElem> {
         let elem = elem.at(span)?;
 
         if let Some(footnote) = elem.to_packed::<FootnoteElem>() {
-            return Ok(footnote.into_ref(target).pack().spanned(span));
+            return Ok(footnote.into_ref(self.target).pack().spanned(span));
         }
 
         let elem = elem.clone();
@@ -319,7 +317,7 @@ fn to_citation(
     engine: &mut Engine,
     styles: StyleChain,
 ) -> SourceResult<Packed<CiteElem>> {
-    let mut elem = Packed::new(CiteElem::new(*reference.target()).with_supplement(
+    let mut elem = Packed::new(CiteElem::new(reference.target).with_supplement(
         match reference.supplement(styles).clone() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,

@@ -412,7 +412,7 @@ pub enum Geometry {
     Line(Point),
     /// A rectangle with its origin in the topleft corner.
     Rect(Size),
-    /// A curve consisting of movements, lines, and Bezier segments.
+    /// A curve consisting of movements, lines, and Bézier segments.
     Curve(Curve),
 }
 

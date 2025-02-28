@@ -9,7 +9,10 @@ use typst_syntax::{is_ident, Span, Spanned};
 use typst_utils::hash128;
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as _};
+use crate::foundations::{
+    cast, elem, func, scope, ty, Array, Content, Func, NativeElement, NativeFunc, Packed,
+    PlainText, Repr as _,
+};
 
 /// A Unicode symbol.
 ///
@@ -18,6 +21,7 @@ use crate::foundations::{cast, func, scope, ty, Array, Func, NativeFunc, Repr as
 /// be accessed using [field access notation]($scripting/#fields):
 ///
 /// - General symbols are defined in the [`sym` module]($category/symbols/sym)
+///   and are accessible without the `sym.` prefix in math mode.
 /// - Emoji are defined in the [`emoji` module]($category/symbols/emoji)
 ///
 /// Moreover, you can define custom symbols with this type's constructor
@@ -187,7 +191,6 @@ impl Symbol {
     /// ```
     #[func(constructor)]
     pub fn construct(
-        /// The callsite span.
         span: Span,
         /// The variants of the symbol.
         ///
@@ -408,7 +411,7 @@ fn find<'a>(
         }
 
         let score = (matching, Reverse(total));
-        if best_score.map_or(true, |b| score > b) {
+        if best_score.is_none_or(|b| score > b) {
             best = Some(candidate.1);
             best_score = Some(score);
         }
@@ -425,4 +428,32 @@ fn parts(modifiers: &str) -> impl Iterator<Item = &str> {
 /// Whether the modifier string contains the modifier `m`.
 fn contained(modifiers: &str, m: &str) -> bool {
     parts(modifiers).any(|part| part == m)
+}
+
+/// A single character.
+#[elem(Repr, PlainText)]
+pub struct SymbolElem {
+    /// The symbol's character.
+    #[required]
+    pub text: char, // This is called `text` for consistency with `TextElem`.
+}
+
+impl SymbolElem {
+    /// Create a new packed symbol element.
+    pub fn packed(text: impl Into<char>) -> Content {
+        Self::new(text.into()).pack()
+    }
+}
+
+impl PlainText for Packed<SymbolElem> {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push(self.text);
+    }
+}
+
+impl crate::foundations::Repr for SymbolElem {
+    /// Use a custom repr that matches normal content.
+    fn repr(&self) -> EcoString {
+        eco_format!("[{}]", self.text)
+    }
 }

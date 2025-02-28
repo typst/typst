@@ -18,7 +18,6 @@ pub fn layout_root(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let index = elem.index(styles);
-    let radicand = elem.radicand();
     let span = elem.span();
 
     let gap = scaled!(
@@ -36,7 +35,7 @@ pub fn layout_root(
     let radicand = {
         let cramped = style_cramped();
         let styles = styles.chain(&cramped);
-        let run = ctx.layout_into_run(radicand, styles)?;
+        let run = ctx.layout_into_run(&elem.radicand, styles)?;
         let multiline = run.is_multiline();
         let mut radicand = run.into_fragment(styles).into_frame();
         if multiline {

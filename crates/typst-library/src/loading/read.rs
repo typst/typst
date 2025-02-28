@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, FileError, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, Cast};
 use crate::loading::Readable;
@@ -24,7 +24,6 @@ use crate::World;
 /// ```
 #[func]
 pub fn read(
-    /// The engine.
     engine: &mut Engine,
     /// Path to a file.
     ///
@@ -42,12 +41,9 @@ pub fn read(
     let data = engine.world.file(id).at(span)?;
     Ok(match encoding {
         None => Readable::Bytes(data),
-        Some(Encoding::Utf8) => Readable::Str(
-            std::str::from_utf8(&data)
-                .map_err(|_| "file is not valid utf-8")
-                .at(span)?
-                .into(),
-        ),
+        Some(Encoding::Utf8) => {
+            Readable::Str(data.to_str().map_err(FileError::from).at(span)?)
+        }
     })
 }
 

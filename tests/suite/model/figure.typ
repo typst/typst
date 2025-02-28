@@ -180,6 +180,17 @@ We can clearly see that @fig-cylinder and
   caption: [Underlined],
 )
 
+--- figure-par ---
+// Ensure that a figure body is considered a paragraph.
+#show par: highlight
+
+#figure[Text]
+
+#figure(
+  [Text],
+  caption: [A caption]
+)
+
 --- figure-and-caption-show ---
 // Test creating custom figure and custom caption
 
@@ -289,9 +300,3 @@ HI#footnote.entry(clearance: 2.5em)[There]
 )
 
 #c
-
---- issue-5370-figure-caption-separator-outline ---
-// Test that language-dependant caption separator is respected in outline.
-#outline(title: none, target: figure)
-#set text(lang: "ru")
-#figure(rect(), caption: [Rectangle])

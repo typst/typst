@@ -63,6 +63,11 @@ impl Elem {
         self.real_fields().filter(|field| !field.ghost)
     }
 
+    /// Fields that get accessor, with, and push methods.
+    fn accessor_fields(&self) -> impl Iterator<Item = &Field> + Clone {
+        self.struct_fields().filter(|field| !field.required)
+    }
+
     /// Fields that are relevant for equality.
     ///
     /// Synthesized fields are excluded to ensure equality before and after
@@ -442,9 +447,9 @@ fn create_inherent_impl(element: &Elem) -> TokenStream {
     let Elem { ident, .. } = element;
 
     let new_func = create_new_func(element);
-    let with_field_methods = element.struct_fields().map(create_with_field_method);
-    let push_field_methods = element.struct_fields().map(create_push_field_method);
-    let field_methods = element.struct_fields().map(create_field_method);
+    let with_field_methods = element.accessor_fields().map(create_with_field_method);
+    let push_field_methods = element.accessor_fields().map(create_push_field_method);
+    let field_methods = element.accessor_fields().map(create_field_method);
     let field_in_methods = element.style_fields().map(create_field_in_method);
     let set_field_methods = element.style_fields().map(create_set_field_method);
 

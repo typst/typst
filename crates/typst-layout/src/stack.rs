@@ -27,7 +27,7 @@ pub fn layout_stack(
     let spacing = elem.spacing(styles);
     let mut deferred = None;
 
-    for child in elem.children() {
+    for child in &elem.children {
         match child {
             StackChild::Spacing(kind) => {
                 layouter.layout_spacing(*kind);
@@ -36,14 +36,14 @@ pub fn layout_stack(
             StackChild::Block(block) => {
                 // Transparently handle `h`.
                 if let (Axis::X, Some(h)) = (axis, block.to_packed::<HElem>()) {
-                    layouter.layout_spacing(*h.amount());
+                    layouter.layout_spacing(h.amount);
                     deferred = None;
                     continue;
                 }
 
                 // Transparently handle `v`.
                 if let (Axis::Y, Some(v)) = (axis, block.to_packed::<VElem>()) {
-                    layouter.layout_spacing(*v.amount());
+                    layouter.layout_spacing(v.amount);
                     deferred = None;
                     continue;
                 }

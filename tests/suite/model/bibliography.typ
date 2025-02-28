@@ -53,6 +53,24 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 @Zee04
 #bibliography("/assets/bib/works_too.bib", style: "mla")
 
+--- bibliography-grid-par ---
+// Ensure that a grid-based bibliography does not produce paragraphs.
+#show par: highlight
+
+@Zee04
+@keshav2007read
+
+#bibliography("/assets/bib/works_too.bib")
+
+--- bibliography-indent-par ---
+// Ensure that an indent-based bibliography does not produce paragraphs.
+#show par: highlight
+
+@Zee04
+@keshav2007read
+
+#bibliography("/assets/bib/works_too.bib", style: "mla")
+
 --- issue-4618-bibliography-set-heading-level ---
 // Test that the bibliography block's heading is set to 2 by the show rule,
 // and therefore should be rendered like a level-2 heading. Notably, this

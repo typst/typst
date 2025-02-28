@@ -10,6 +10,7 @@ use super::{
     delimiter_alignment, GlyphFragment, MathContext, MathFragment, Scaled,
     VariantFragment,
 };
+use crate::modifiers::FrameModify;
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
@@ -21,7 +22,7 @@ pub fn layout_stretch(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let mut fragment = ctx.layout_into_fragment(elem.body(), styles)?;
+    let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
     stretch_fragment(
         ctx,
         styles,
@@ -265,7 +266,7 @@ fn assemble(
     let mut frame = Frame::soft(size);
     let mut offset = Abs::zero();
     frame.set_baseline(baseline);
-    frame.post_process_raw(base.dests, base.hidden);
+    frame.modify(&base.modifiers);
 
     for (fragment, advance) in selected {
         let pos = match axis {

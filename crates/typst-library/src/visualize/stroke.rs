@@ -97,8 +97,6 @@ impl Stroke {
     /// ```
     #[func(constructor)]
     pub fn construct(
-        /// The real arguments (the other arguments are just for the docs, this
-        /// function is a bit involved, so we parse the arguments manually).
         args: &mut Args,
 
         /// The color or gradient to use for the stroke.

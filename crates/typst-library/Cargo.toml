@@ -39,6 +39,7 @@ indexmap = { workspace = true }
 kamadak-exif = { workspace = true }
 kurbo = { workspace = true }
 lipsum = { workspace = true }
+memchr = { workspace = true }
 palette = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
@@ -61,6 +62,7 @@ ttf-parser = { workspace = true }
 two-face = { workspace = true }
 typed-arena = { workspace = true }
 unicode-math-class = { workspace = true }
+unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }

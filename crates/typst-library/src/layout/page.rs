@@ -270,7 +270,7 @@ pub struct PageElem {
     ///   margin: (top: 32pt, bottom: 20pt),
     ///   header: [
     ///     #set text(8pt)
-    ///     #smallcaps[Typst Academcy]
+    ///     #smallcaps[Typst Academy]
     ///     #h(1fr) _Exercise Sheet 3_
     ///   ],
     /// )

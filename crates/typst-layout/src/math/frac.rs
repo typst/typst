@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{BinomElem, FracElem};
 use typst_library::text::TextElem;
@@ -23,8 +23,8 @@ pub fn layout_frac(
     layout_frac_like(
         ctx,
         styles,
-        elem.num(),
-        std::slice::from_ref(elem.denom()),
+        &elem.num,
+        std::slice::from_ref(&elem.denom),
         false,
         elem.span(),
     )
@@ -37,7 +37,7 @@ pub fn layout_binom(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    layout_frac_like(ctx, styles, elem.upper(), elem.lower(), true, elem.span())
+    layout_frac_like(ctx, styles, &elem.upper, &elem.lower, true, elem.span())
 }
 
 /// Layout a fraction or binomial.
@@ -80,7 +80,10 @@ fn layout_frac_like(
     let denom = ctx.layout_into_frame(
         &Content::sequence(
             // Add a comma between each element.
-            denom.iter().flat_map(|a| [TextElem::packed(','), a.clone()]).skip(1),
+            denom
+                .iter()
+                .flat_map(|a| [SymbolElem::packed(','), a.clone()])
+                .skip(1),
         ),
         styles.chain(&denom_style),
     )?;

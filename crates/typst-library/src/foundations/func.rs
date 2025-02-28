@@ -9,11 +9,11 @@ use ecow::{eco_format, EcoString};
 use typst_syntax::{ast, Span, SyntaxNode};
 use typst_utils::{singleton, LazyHash, Static};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, At, DeprecationSink, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, CastInfo, Content, Context, Element, IntoArgs, Scope,
-    Selector, Type, Value,
+    cast, repr, scope, ty, Args, Bytes, CastInfo, Content, Context, Element, IntoArgs,
+    PluginFunc, Scope, Selector, Type, Value,
 };
 
 /// A mapping from argument values to a return value.
@@ -151,6 +151,8 @@ enum Repr {
     Element(Element),
     /// A user-defined closure.
     Closure(Arc<LazyHash<Closure>>),
+    /// A plugin WebAssembly function.
+    Plugin(Arc<PluginFunc>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -164,6 +166,7 @@ impl Func {
             Repr::Native(native) => Some(native.name),
             Repr::Element(elem) => Some(elem.name()),
             Repr::Closure(closure) => closure.name(),
+            Repr::Plugin(func) => Some(func.name()),
             Repr::With(with) => with.0.name(),
         }
     }
@@ -176,6 +179,7 @@ impl Func {
             Repr::Native(native) => Some(native.title),
             Repr::Element(elem) => Some(elem.title()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.title(),
         }
     }
@@ -186,6 +190,7 @@ impl Func {
             Repr::Native(native) => Some(native.docs),
             Repr::Element(elem) => Some(elem.docs()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.docs(),
         }
     }
@@ -204,6 +209,7 @@ impl Func {
             Repr::Native(native) => Some(&native.0.params),
             Repr::Element(elem) => Some(elem.params()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.params(),
         }
     }
@@ -221,6 +227,7 @@ impl Func {
                 Some(singleton!(CastInfo, CastInfo::Type(Type::of::<Content>())))
             }
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.returns(),
         }
     }
@@ -231,6 +238,7 @@ impl Func {
             Repr::Native(native) => native.keywords,
             Repr::Element(elem) => elem.keywords(),
             Repr::Closure(_) => &[],
+            Repr::Plugin(_) => &[],
             Repr::With(with) => with.0.keywords(),
         }
     }
@@ -241,16 +249,21 @@ impl Func {
             Repr::Native(native) => Some(&native.0.scope),
             Repr::Element(elem) => Some(elem.scope()),
             Repr::Closure(_) => None,
+            Repr::Plugin(_) => None,
             Repr::With(with) => with.0.scope(),
         }
     }
 
     /// Get a field from this function's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
+    pub fn field(
+        &self,
+        field: &str,
+        sink: impl DeprecationSink,
+    ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
-            Some(field) => Ok(field),
+            Some(binding) => Ok(binding.read_checked(sink)),
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),
                 None => bail!("function does not contain field `{field}`"),
@@ -262,6 +275,14 @@ impl Func {
     pub fn element(&self) -> Option<Element> {
         match self.repr {
             Repr::Element(func) => Some(func),
+            _ => None,
+        }
+    }
+
+    /// Extract the plugin function, if it is one.
+    pub fn to_plugin(&self) -> Option<&PluginFunc> {
+        match &self.repr {
+            Repr::Plugin(func) => Some(func),
             _ => None,
         }
     }
@@ -307,6 +328,12 @@ impl Func {
                 context,
                 args,
             ),
+            Repr::Plugin(func) => {
+                let inputs = args.all::<Bytes>()?;
+                let output = func.call(inputs).at(args.span)?;
+                args.finish()?;
+                Ok(Value::Bytes(output))
+            }
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, context, args)
@@ -334,8 +361,6 @@ impl Func {
     #[func]
     pub fn with(
         self,
-        /// The real arguments (the other argument is just for the docs).
-        /// The docs argument cannot be called `args`.
         args: &mut Args,
         /// The arguments to apply to the function.
         #[external]
@@ -361,8 +386,6 @@ impl Func {
     #[func]
     pub fn where_(
         self,
-        /// The real arguments (the other argument is just for the docs).
-        /// The docs argument cannot be called `args`.
         args: &mut Args,
         /// The fields to filter for.
         #[variadic]
@@ -414,10 +437,10 @@ impl PartialEq for Func {
     }
 }
 
-impl PartialEq<&NativeFuncData> for Func {
-    fn eq(&self, other: &&NativeFuncData) -> bool {
+impl PartialEq<&'static NativeFuncData> for Func {
+    fn eq(&self, other: &&'static NativeFuncData) -> bool {
         match &self.repr {
-            Repr::Native(native) => native.function == other.function,
+            Repr::Native(native) => *native == Static(*other),
             _ => false,
         }
     }
@@ -429,9 +452,27 @@ impl From<Repr> for Func {
     }
 }
 
+impl From<&'static NativeFuncData> for Func {
+    fn from(data: &'static NativeFuncData) -> Self {
+        Repr::Native(Static(data)).into()
+    }
+}
+
 impl From<Element> for Func {
     fn from(func: Element) -> Self {
         Repr::Element(func).into()
+    }
+}
+
+impl From<Closure> for Func {
+    fn from(closure: Closure) -> Self {
+        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
+    }
+}
+
+impl From<PluginFunc> for Func {
+    fn from(func: PluginFunc) -> Self {
+        Repr::Plugin(Arc::new(func)).into()
     }
 }
 
@@ -468,12 +509,6 @@ pub struct NativeFuncData {
     pub params: LazyLock<Vec<ParamInfo>>,
     /// Information about the return value of this function.
     pub returns: LazyLock<CastInfo>,
-}
-
-impl From<&'static NativeFuncData> for Func {
-    fn from(data: &'static NativeFuncData) -> Self {
-        Repr::Native(Static(data)).into()
-    }
 }
 
 cast! {
@@ -526,12 +561,6 @@ impl Closure {
     /// The name of the closure.
     pub fn name(&self) -> Option<&str> {
         self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
-    }
-}
-
-impl From<Closure> for Func {
-    fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
     }
 }
 

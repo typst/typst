@@ -1,23 +1,23 @@
-use typst_library::foundations::{Resolve, Smart};
-use typst_library::layout::{Abs, AlignElem, Dir, Em, FixedAlignment};
-use typst_library::model::Linebreaks;
-use typst_library::text::{Costs, Lang, TextElem};
+use typst_library::layout::{Dir, Em};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
 use super::*;
 
-/// A paragraph representation in which children are already layouted and text
-/// is already preshaped.
+/// A representation in which children are already layouted and text is already
+/// preshaped.
 ///
 /// In many cases, we can directly reuse these results when constructing a line.
 /// Only when a line break falls onto a text index that is not safe-to-break per
 /// rustybuzz, we have to reshape that portion.
 pub struct Preparation<'a> {
-    /// The paragraph's full text.
+    /// The full text.
     pub text: &'a str,
-    /// Bidirectional text embedding levels for the paragraph.
+    /// Configuration for inline layout.
+    pub config: &'a Config,
+    /// Bidirectional text embedding levels.
     ///
-    /// This is `None` if the paragraph is BiDi-uniform (all the base direction).
+    /// This is `None` if all text directions are uniform (all the base
+    /// direction).
     pub bidi: Option<BidiInfo<'a>>,
     /// Text runs, spacing and layouted elements.
     pub items: Vec<(Range, Item<'a>)>,
@@ -25,28 +25,6 @@ pub struct Preparation<'a> {
     pub indices: Vec<usize>,
     /// The span mapper.
     pub spans: SpanMapper,
-    /// Whether to hyphenate if it's the same for all children.
-    pub hyphenate: Option<bool>,
-    /// Costs for various layout decisions.
-    pub costs: Costs,
-    /// The dominant direction.
-    pub dir: Dir,
-    /// The text language if it's the same for all children.
-    pub lang: Option<Lang>,
-    /// The paragraph's resolved horizontal alignment.
-    pub align: FixedAlignment,
-    /// Whether to justify the paragraph.
-    pub justify: bool,
-    /// The paragraph's hanging indent.
-    pub hang: Abs,
-    /// Whether to add spacing between CJK and Latin characters.
-    pub cjk_latin_spacing: bool,
-    /// Whether font fallback is enabled for this paragraph.
-    pub fallback: bool,
-    /// How to determine line breaks.
-    pub linebreaks: Smart<Linebreaks>,
-    /// The text size.
-    pub size: Abs,
 }
 
 impl<'a> Preparation<'a> {
@@ -71,20 +49,18 @@ impl<'a> Preparation<'a> {
     }
 }
 
-/// Performs BiDi analysis and then prepares paragraph layout by building a
+/// Performs BiDi analysis and then prepares further layout by building a
 /// representation on which we can do line breaking without layouting each and
 /// every line from scratch.
 #[typst_macros::time]
 pub fn prepare<'a>(
     engine: &mut Engine,
-    children: &'a StyleVec,
+    config: &'a Config,
     text: &'a str,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
-    styles: StyleChain<'a>,
 ) -> SourceResult<Preparation<'a>> {
-    let dir = TextElem::dir_in(styles);
-    let default_level = match dir {
+    let default_level = match config.dir {
         Dir::RTL => BidiLevel::rtl(),
         _ => BidiLevel::ltr(),
     };
@@ -120,28 +96,17 @@ pub fn prepare<'a>(
         indices.extend(range.clone().map(|_| i));
     }
 
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(styles).is_auto();
-    if cjk_latin_spacing {
+    if config.cjk_latin_spacing {
         add_cjk_latin_spacing(&mut items);
     }
 
     Ok(Preparation {
+        config,
         text,
         bidi: is_bidi.then_some(bidi),
         items,
         indices,
         spans,
-        hyphenate: children.shared_get(styles, TextElem::hyphenate_in),
-        costs: TextElem::costs_in(styles),
-        dir,
-        lang: children.shared_get(styles, TextElem::lang_in),
-        align: AlignElem::alignment_in(styles).resolve(styles).x,
-        justify: ParElem::justify_in(styles),
-        hang: ParElem::hanging_indent_in(styles),
-        cjk_latin_spacing,
-        fallback: TextElem::fallback_in(styles),
-        linebreaks: ParElem::linebreaks_in(styles),
-        size: TextElem::size_in(styles),
     })
 }
 
