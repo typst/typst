@@ -822,10 +822,14 @@ impl Array {
         key: Option<Func>,
         /// If given, uses this function to compare elements in the array.
         ///
-        /// This function should return an integer, whose sign is used to
-        /// determine the relative order of two given elements: Negative if the
-        /// first element is smaller, positive if the second element is smaller.
-        /// If `{0}` is returned, the order of the elements is not modified.
+        /// This function should return a boolean: `{true}` indicates that the
+        /// elements are in order, while `{false}` indicates that they should be
+        /// swapped. To keep the sort stable, if the two elements are equal, the
+        /// function should return `{true}`.
+        ///
+        /// If this function does not order the elements properly (e.g., by
+        /// returning `{false}` for both `{(x, y)}` and `{(y, x)}`), the
+        /// resulting array will be unspecified order.
         ///
         /// When used together with `key`, `by` will be passed the keys instead
         /// of the elements.
@@ -838,45 +842,73 @@ impl Array {
         ///   "length",
         /// ).sorted(
         ///   key: s => s.len(),
-        ///   by: (x, y) => y - x,
+        ///   by: (l, r) => l >= r,
         /// )
         /// ```
         #[named]
         by: Option<Func>,
     ) -> SourceResult<Array> {
-        let mut result = Ok(());
-        let mut vec = self.0;
-        let mut compare = |x: Value, y: Value| {
-            let mut key_of = |x: Value| match &key {
-                // NOTE: We are relying on `comemo`'s memoization of function
-                // evaluation to not excessively reevaluate the `key`.
-                Some(f) => f.call(engine, context, [x]),
-                None => Ok(x),
-            };
-            let x = key_of(x)?;
-            let y = key_of(y)?;
+        let mut are_in_order = |mut x: Value, mut y: Value| {
+            if let Some(f) = &key {
+                x = f.call(engine, context, [x])?;
+                y = f.call(engine, context, [y])?;
+            }
             match &by {
-                Some(f) => Ok(match f.call(engine, context, [x, y])? {
-                    Value::Int(x) => x.cmp(&0),
+                Some(f) => match f.call(engine, context, [x, y])? {
+                    Value::Bool(b) => Ok(b),
                     x => {
-                        bail!(span, "expected integer from `by` function, got {}", x.ty())
+                        bail!(span, "expected boolean from `by` function, got {}", x.ty())
                     }
-                }),
-                None => ops::compare(&x, &y).at(span),
+                },
+                None => {
+                    // `x` and `y` are in order iff `y` is not strictly greater
+                    // than `y`.
+                    ops::compare(&x, &y).at(span).map(|o| o != Ordering::Greater)
+                }
             }
         };
+        let mut vec = self.0.into_iter().enumerate().collect::<Vec<_>>();
+        let mut result = Ok(());
         // We use `glidesort` instead of the standard library sorting algorithm
         // to prevent panics (see https://github.com/typst/typst/pull/5627).
-        glidesort::sort_by(vec.make_mut(), |a, b| {
-            // Until we get `try` blocks :)
-            compare(a.clone(), b.clone()).unwrap_or_else(|err| {
-                if result.is_ok() {
-                    result = Err(err);
+        glidesort::sort_by(&mut vec, |(i, x), (j, y)| {
+            // Because we use booleans for the comparison function, in order to
+            // keep the sort stable, we need to compare in the right order.
+            if i < j {
+                // If `x` and `y` appear in this order in the original array,
+                // then we should change their order (i.e., return
+                // `Ordering::Greater`) iff `y` is strictly less than `x` (i.e.,
+                // `compare(x, y)` returns `false`). Otherwise, we should keep
+                // them in the same order (i.e., return `Ordering::Less`).
+                match are_in_order(x.clone(), y.clone()) {
+                    Ok(false) => Ordering::Greater,
+                    Ok(true) => Ordering::Less,
+                    Err(err) => {
+                        if result.is_ok() {
+                            result = Err(err);
+                        }
+                        Ordering::Equal
+                    }
                 }
-                Ordering::Equal
-            })
+            } else {
+                // If `x` and `y` appear in the opposite order in the original
+                // array, then we should change their order (i.e., return
+                // `Ordering::Less`) iff `x` is strictly less than `y` (i.e.,
+                // `compare(y, x)` returns `false`). Otherwise, we should keep
+                // them in the same order (i.e., return `Ordering::Less`).
+                match are_in_order(y.clone(), x.clone()) {
+                    Ok(false) => Ordering::Less,
+                    Ok(true) => Ordering::Greater,
+                    Err(err) => {
+                        if result.is_ok() {
+                            result = Err(err);
+                        }
+                        Ordering::Equal
+                    }
+                }
+            }
         });
-        result.map(|_| vec.into())
+        result.map(|_| vec.into_iter().map(|(_, x)| x).collect())
     }
 
     /// Deduplicates all items in the array.

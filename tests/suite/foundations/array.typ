@@ -355,11 +355,11 @@
 #test((2, 1, 3, 10, 5, 8, 6, -7, 2).sorted(), (-7, 1, 2, 2, 3, 5, 6, 8, 10))
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x), (-10, -7, -5, 1, 2, 2, 3, 6, 8))
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x * x), (1, 2, 2, 3, -5, 6, -7, 8, -10))
-#test(("I", "the", "hi", "text").sorted(by: (x, y) => x.len() - y.len()), ("I", "hi", "the", "text"))
-#test(("I", "the", "hi", "text").sorted(key: x => x.len(), by: (x, y) => y - x), ("text", "the", "hi", "I"))
+#test(("I", "the", "hi", "text").sorted(by: (x, y) => x.len() < y.len()), ("I", "hi", "the", "text"))
+#test(("I", "the", "hi", "text").sorted(key: x => x.len(), by: (x, y) => y < x), ("text", "the", "hi", "I"))
 
 --- array-sorted-invalid-by-function ---
-// Error: 2-39 expected integer from `by` function, got string
+// Error: 2-39 expected boolean from `by` function, got string
 #(1, 2, 3).sorted(by: (_, _) => "hmm")
 
 --- array-sorted-key-function-positional-1 ---
@@ -451,7 +451,7 @@
 #([Hi], [There]).sorted()
 
 --- array-sorted-uncomparable-lengths ---
-// Error: 2-26 cannot compare 3em with 2pt
+// Error: 2-26 cannot compare 2pt with 3em
 #(1pt, 2pt, 3em).sorted()
 
 --- array-sorted-key-function-positional-2 ---
