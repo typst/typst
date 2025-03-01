@@ -34,7 +34,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///   let author = find-child(elem, "author")
 ///   let pars = find-child(elem, "content")
 ///
-///   heading(title.children.first())
+///   [= #title.children.first()]
 ///   text(10pt, weight: "medium")[
 ///     Published by
 ///     #author.children.first()
