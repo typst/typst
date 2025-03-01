@@ -113,7 +113,9 @@ Typst's CLI is available from different sources:
 
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
-  - Linux: View [Typst on Repology][repology]
+  - Linux: 
+      - View [Typst on Repology][repology]
+      - View [Typst's Snap][snap]
   - macOS: `brew install typst`
   - Windows: `winget install --id Typst.Typst`
 
@@ -254,3 +256,4 @@ instant preview. To achieve these goals, we follow three core design principles:
 [contributing]: https://github.com/typst/typst/blob/main/CONTRIBUTING.md
 [packages]: https://github.com/typst/packages/
 [`comemo`]: https://github.com/typst/comemo/
+[snap]: https://snapcraft.io/typst
