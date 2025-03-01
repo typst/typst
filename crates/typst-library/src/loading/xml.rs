@@ -41,7 +41,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///   ]
 ///
 ///   for p in pars.children {
-///     if (type(p) == "dictionary") {
+///     if (type(p) == dictionary) {
 ///       parbreak()
 ///       p.children.first()
 ///     }
@@ -50,7 +50,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// #let data = xml("example.xml")
 /// #for elem in data.first().children {
-///   if (type(elem) == "dictionary") {
+///   if (type(elem) == dictionary) {
 ///     article(elem)
 ///   }
 /// }
