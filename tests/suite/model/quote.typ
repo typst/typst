@@ -118,3 +118,9 @@ An inline #quote[quote.]
 #quote(block: true, attribution: [The Test Author])[
   A block-level quote.
 ]
+
+--- quote-inline-quotes-false ---
+// https://github.com/typst/typst/issues/5536
+Lorem ipsum dolor sit amet,
+#quote(block: false, quotes: false)[consectetur adipiscing elit,]
+sed do eiusmod tempor.
