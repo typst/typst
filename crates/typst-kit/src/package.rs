@@ -234,10 +234,30 @@ impl PackageStorage {
             })
         };
 
-        // - Assuming both paths are from the same mount point.
-        // - DirectoryNotEmpty error is assumed to happen only when another instance
-        //   already moved the package to the destination directory, therefore it is
-        //   safe to ignore it.
+        // As to not overcomplicate the code base to combat an already rare case
+        // where multiple instances try to download the same package version
+        // concurrently, we are abusing the behavior of the `rename` FS
+        // operation without the help of file locking.
+        //
+        // From the function's documentation it is stated that:
+        //
+        // > This will not work if the new name is on a different mount point.
+        //
+        // Hence, we assume that the `package_download_dir` and `package_dir`
+        // are on the same mount point.
+        //
+        // When trying to move (i.e., `rename`) directory from one place to
+        // another and the target/destination directory name is empty, then the
+        // operation will succeed (if it's atomic, or hardware doesn't fail, or
+        // power doesn't go off, etc.). If however the target directory is not
+        // empty, i.e., other instance already successfully moved the package,
+        // then we can safely ignore the `DirectoryNotEmpty` error.
+        //
+        // This means that we do not check the integrity of the existing moved
+        // package in a very rare case where it is broken, as it does not
+        // (currently) justify the additional code complexity. If such situation
+        // occur and it will be reported, then we probably would consider a
+        // better solution (i.e., file locking or checksums).
         match fs::rename(&package_download_dir, package_dir) {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::DirectoryNotEmpty => {
