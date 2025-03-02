@@ -233,9 +233,8 @@ impl Show for Packed<BibliographyElem> {
             .at(span)?;
 
         for (key, prefix, reference) in references {
-            let label = Label::new(PicoStr::intern(key));
             let indent = if works.hanging_indent { Some(INDENT.into()) } else { None };
-            let entry = BibliographyEntry::new(label, reference.clone())
+            let entry = BibliographyEntry::new(*key, reference.clone())
                 .with_prefix(prefix.clone())
                 .with_indent(indent)
                 .pack()
@@ -366,6 +365,7 @@ impl Show for Packed<BibliographyEntry> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         let span = self.span();
 
+        // FIXME: calculate width of longest prefix somehow (+ gap) and use that instead.
         if self.prefix(styles).is_some() {
             let prefix = self.prefix(styles).unwrap();
             let body = self.body.clone();
@@ -621,7 +621,7 @@ pub(super) struct Works {
     pub citations: HashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(EcoString, Option<Content>, Content)>>,
+    pub references: Option<Vec<(Label, Option<Content>, Content)>>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -889,7 +889,7 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(EcoString, Option<Content>, Content)>>> {
+    ) -> StrResult<Option<Vec<(Label, Option<Content>, Content)>>> {
         let Some(rendered) = &rendered.bibliography else { return Ok(None) };
 
         // Determine for each citation key where it first occurred, so that we
@@ -920,8 +920,8 @@ impl<'a> Generator<'a> {
             // citations can link to them.
             let backlink = location.variant(k + 1);
 
-            // Store the label name for `bibliography.entry`.
-            let label = EcoString::from(item.key.clone());
+            // Store and create the label for `bibliography.entry`.
+            let label = Label::new(PicoStr::intern(&item.key));
 
             // Render the first field.
             let mut prefix = item
