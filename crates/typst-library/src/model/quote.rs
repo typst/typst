@@ -161,7 +161,9 @@ impl Show for Packed<QuoteElem> {
         let block = self.block(styles);
         let html = TargetElem::target_in(styles).is_html();
 
-        if self.quotes(styles) == Smart::Custom(true) || !block {
+        if self.quotes(styles) == Smart::Custom(true)
+            || !block && self.quotes(styles) == Smart::Auto
+        {
             let quotes = SmartQuotes::get(
                 SmartQuoteElem::quotes_in(styles),
                 TextElem::lang_in(styles),
