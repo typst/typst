@@ -50,6 +50,42 @@ impl Dir {
     pub const TTB: Self = Self::TTB;
     pub const BTT: Self = Self::BTT;
 
+    /// Returns a direction from a starting point.
+    ///
+    /// ```example
+    /// direction.from(left) \
+    /// direction.from(right) \
+    /// direction.from(top) \
+    /// direction.from(bottom)
+    /// ```
+    #[func]
+    pub const fn from(side: Side) -> Dir {
+        match side {
+            Side::Left => Self::LTR,
+            Side::Right => Self::RTL,
+            Side::Top => Self::TTB,
+            Side::Bottom => Self::BTT,
+        }
+    }
+
+    /// Returns a direction from an end point.
+    ///
+    /// ```example
+    /// direction.to(left) \
+    /// direction.to(right) \
+    /// direction.to(top) \
+    /// direction.to(bottom)
+    /// ```
+    #[func]
+    pub const fn to(side: Side) -> Dir {
+        match side {
+            Side::Right => Self::LTR,
+            Side::Left => Self::RTL,
+            Side::Bottom => Self::TTB,
+            Side::Top => Self::BTT,
+        }
+    }
+
     /// The axis this direction belongs to, either `{"horizontal"}` or
     /// `{"vertical"}`.
     ///
@@ -62,6 +98,22 @@ impl Dir {
         match self {
             Self::LTR | Self::RTL => Axis::X,
             Self::TTB | Self::BTT => Axis::Y,
+        }
+    }
+
+    /// The corresponding sign, for use in calculations.
+    ///
+    /// ```example
+    /// #ltr.sign() \
+    /// #rtl.sign() \
+    /// #ttb.sign() \
+    /// #btt.sign()
+    /// ```
+    #[func]
+    pub const fn sign(self) -> i64 {
+        match self {
+            Self::LTR | Self::TTB => 1,
+            Self::RTL | Self::BTT => -1,
         }
     }
 

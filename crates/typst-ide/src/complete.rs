@@ -410,9 +410,17 @@ fn field_access_completions(
         elem.into_iter().chain(Some(ty))
     };
 
-    // Autocomplete methods from the element's or type's scope.
+    // Autocomplete methods from the element's or type's scope. We only complete
+    // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
-        ctx.call_completion(name.clone(), binding.read());
+        let Ok(func) = binding.read().clone().cast::<Func>() else { continue };
+        if func
+            .params()
+            .and_then(|params| params.first())
+            .is_some_and(|param| param.name == "self")
+        {
+            ctx.call_completion(name.clone(), binding.read());
+        }
     }
 
     if let Some(scope) = value.scope() {
@@ -509,7 +517,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // "#import "path.typ": a, b, |".
     if_chain! {
         if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::Import(import)) = prev.get().cast();
+        if let Some(ast::Expr::ModuleImport(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
         then {
@@ -528,7 +536,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(grand) = parent.parent();
         if grand.kind() == SyntaxKind::ImportItems;
         if let Some(great) = grand.parent();
-        if let Some(ast::Expr::Import(import)) = great.get().cast();
+        if let Some(ast::Expr::ModuleImport(import)) = great.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = great.children().find(|child| child.is::<ast::Expr>());
         then {
@@ -669,10 +677,10 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         if let Some(args) = parent.get().cast::<ast::Args>();
         if let Some(grand) = parent.parent();
         if let Some(expr) = grand.get().cast::<ast::Expr>();
-        let set = matches!(expr, ast::Expr::Set(_));
+        let set = matches!(expr, ast::Expr::SetRule(_));
         if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
-            ast::Expr::Set(set) => Some(set.target()),
+            ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
         };
         then {
@@ -1764,6 +1772,7 @@ mod tests {
     #[test]
     fn test_autocomplete_type_methods() {
         test("#\"hello\".", -1).must_include(["len", "contains"]);
+        test("#table().", -1).must_exclude(["cell"]);
     }
 
     #[test]

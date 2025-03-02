@@ -201,7 +201,7 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
         if let Some(expr) = grand_grand.cast::<ast::Expr>();
         if let Some(ast::Expr::Ident(callee)) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
-            ast::Expr::Set(set) => Some(set.target()),
+            ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
         };
 
