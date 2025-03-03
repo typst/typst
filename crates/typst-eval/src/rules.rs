@@ -45,7 +45,7 @@ impl Eval for ast::ShowRule<'_> {
 
         let transform = self.transform();
         let transform = match transform {
-            ast::Expr::Set(set) => Transformation::Style(set.eval(vm)?),
+            ast::Expr::SetRule(set) => Transformation::Style(set.eval(vm)?),
             expr => expr.eval(vm)?.cast::<Transformation>().at(transform.span())?,
         };
 

@@ -360,6 +360,21 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
         // https://github.com/typst/typst/pull/5714
         '\u{22A5}' => Some(MathClass::Normal),
 
+        // Used as a binary connector in linear logic, where it is referred to
+        // as "par".
+        // https://github.com/typst/typst/issues/5764
+        '⅋' => Some(MathClass::Binary),
+
+        // Those overrides should become the default in the next revision of
+        // MathClass.txt.
+        // https://github.com/typst/typst/issues/5764#issuecomment-2632435247
+        '⎰' | '⟅' => Some(MathClass::Opening),
+        '⎱' | '⟆' => Some(MathClass::Closing),
+
+        // Both ∨ and ⟑ are classified as Binary.
+        // https://github.com/typst/typst/issues/5764
+        '⟇' => Some(MathClass::Binary),
+
         c => unicode_math_class::class(c),
     }
 }

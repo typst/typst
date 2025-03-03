@@ -160,7 +160,7 @@ impl FontBook {
                 current.variant.weight.distance(variant.weight),
             );
 
-            if best_key.map_or(true, |b| key < b) {
+            if best_key.is_none_or(|b| key < b) {
                 best = Some(id);
                 best_key = Some(key);
             }

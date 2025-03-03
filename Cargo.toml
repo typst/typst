@@ -5,7 +5,7 @@ resolver = "2"
 
 [workspace.package]
 version = "0.13.0"
-rust-version = "1.80" # also change in ci.yml
+rust-version = "1.83" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"
 homepage = "https://typst.app"
@@ -129,6 +129,7 @@ unicode-bidi = "0.3.18"
 unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-script = "0.5"
+unicode-normalization = "0.1.24"
 unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }

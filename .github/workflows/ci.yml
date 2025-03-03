@@ -40,7 +40,7 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt update
           sudo apt install -y gcc-multilib libssl-dev:i386 pkg-config:i386
-      - uses: dtolnay/rust-toolchain@1.83.0
+      - uses: dtolnay/rust-toolchain@1.85.0
         with:
           targets: ${{ matrix.bits == 32 && 'i686-unknown-linux-gnu' || '' }}
       - uses: Swatinem/rust-cache@v2
@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.83.0
+      - uses: dtolnay/rust-toolchain@1.85.0
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.80.0
+      - uses: dtolnay/rust-toolchain@1.83.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
 

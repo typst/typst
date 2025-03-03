@@ -232,7 +232,9 @@ pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
         ast::Expr::FuncCall(call) => {
             DerefTarget::Callee(expr_node.find(call.callee().span())?)
         }
-        ast::Expr::Set(set) => DerefTarget::Callee(expr_node.find(set.target().span())?),
+        ast::Expr::SetRule(set) => {
+            DerefTarget::Callee(expr_node.find(set.target().span())?)
+        }
         ast::Expr::Ident(_) | ast::Expr::MathIdent(_) | ast::Expr::FieldAccess(_) => {
             DerefTarget::VarAccess(expr_node)
         }

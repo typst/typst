@@ -34,14 +34,14 @@ use crate::loading::{DataSource, Load, Readable};
 ///   let author = find-child(elem, "author")
 ///   let pars = find-child(elem, "content")
 ///
-///   heading(title.children.first())
+///   [= #title.children.first()]
 ///   text(10pt, weight: "medium")[
 ///     Published by
 ///     #author.children.first()
 ///   ]
 ///
 ///   for p in pars.children {
-///     if (type(p) == "dictionary") {
+///     if type(p) == dictionary {
 ///       parbreak()
 ///       p.children.first()
 ///     }
@@ -50,7 +50,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// #let data = xml("example.xml")
 /// #for elem in data.first().children {
-///   if (type(elem) == "dictionary") {
+///   if type(elem) == dictionary {
 ///     article(elem)
 ///   }
 /// }
