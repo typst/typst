@@ -769,7 +769,7 @@ impl Array {
     ///
     /// ```example
     /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
-    /// #array.chunks(3)
+    /// #array.chunks(3) \
     /// #array.chunks(3, exact: true)
     /// ```
     #[func]
