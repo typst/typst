@@ -56,7 +56,7 @@ jobs:
       - name: Update test artifacts
         if: failure()
         run: |
-          cargo test --workspace --test tests -- --update
+          cargo test --workspace --test tests ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }} -- --update
           echo 'updated_artifacts=1' >> "$GITHUB_ENV"
       - name: Upload updated reference output (for use if the test changes are desired)
         if: failure() && env.updated_artifacts
