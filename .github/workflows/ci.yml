@@ -44,6 +44,8 @@ jobs:
         with:
           targets: ${{ matrix.bits == 32 && 'i686-unknown-linux-gnu' || '' }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.bits }}
       - run: cargo test --workspace --no-run ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - run: cargo test --workspace --no-fail-fast ${{ matrix.bits == 32 && '--target i686-unknown-linux-gnu' || '' }}
       - name: Upload rendered test output
