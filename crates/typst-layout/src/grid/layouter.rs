@@ -134,7 +134,9 @@ impl<'a> GridLayouter<'a> {
             initial: regions.size,
             finished: vec![],
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
+            repeating_headers: vec![],
             upcoming_headers: &grid.headers,
+            pending_header_end: 0,
             header_height: Abs::zero(),
             footer_height: Abs::zero(),
             span,
@@ -149,8 +151,12 @@ impl<'a> GridLayouter<'a> {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
-            if matches!(self.grid.header, None | Some(Repeatable::NotRepeated(_))) {
-                // No repeatable header, so we won't subtract it later.
+            if !matches!(
+                self.grid.headers.first(),
+                Some(Repeatable::Repeated(Header { start: 0, .. }))
+            ) {
+                // No repeatable header at the very beginning, so we won't
+                // subtract it later.
                 self.regions.size.y -= self.footer_height;
             }
         }
