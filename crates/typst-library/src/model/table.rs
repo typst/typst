@@ -296,7 +296,9 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         let rows = rows.drain(ft.unwrap().start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
-    let header = grid.header.map(|hd| {
+    // TODO: Headers and footers in arbitrary positions
+    // Right now, only those at either end are accepted
+    let header = grid.headers.first().filter(|h| h.unwrap().start == 0).map(|hd| {
         let rows = rows.drain(..hd.unwrap().end);
         elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))
     });

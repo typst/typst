@@ -426,8 +426,24 @@ pub struct Line {
 /// A repeatable grid header. Starts at the first row.
 #[derive(Debug)]
 pub struct Header {
+    /// The first row included in this header.
+    pub start: usize,
     /// The index after the last row included in this header.
     pub end: usize,
+    /// The header's level.
+    ///
+    /// Higher level headers repeat together with lower level headers. If a
+    /// lower level header stops repeating, all higher level headers do as
+    /// well.
+    pub level: u32,
+}
+
+impl Header {
+    /// The header's range of included rows.
+    #[inline]
+    pub fn range(&self) -> Range<usize> {
+        self.start..self.end
+    }
 }
 
 /// A repeatable grid footer. Stops at the last row.
@@ -435,6 +451,20 @@ pub struct Header {
 pub struct Footer {
     /// The first row included in this footer.
     pub start: usize,
+    /// The index after the last row included in this footer.
+    pub end: usize,
+    /// The footer's level.
+    ///
+    /// Used similarly to header level.
+    pub level: u32,
+}
+
+impl Footer {
+    /// The footer's range of included rows.
+    #[inline]
+    pub fn range(&self) -> Range<usize> {
+        self.start..self.end
+    }
 }
 
 /// A possibly repeatable grid object.
@@ -638,10 +668,10 @@ pub struct CellGrid<'a> {
     /// Gutter rows are not included.
     /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
     pub hlines: Vec<Vec<Line>>,
-    /// The repeatable header of this grid.
-    pub header: Option<Repeatable<Header>>,
     /// The repeatable footer of this grid.
     pub footer: Option<Repeatable<Footer>>,
+    /// The repeatable headers of this grid.
+    pub headers: Vec<Repeatable<Header>>,
     /// Whether this grid has gutters.
     pub has_gutter: bool,
 }
@@ -717,8 +747,8 @@ impl<'a> CellGrid<'a> {
             entries,
             vlines,
             hlines,
-            header,
             footer,
+            headers: header.into_iter().collect(),
             has_gutter,
         }
     }
@@ -851,6 +881,11 @@ impl<'a> CellGrid<'a> {
         } else {
             self.cols.len()
         }
+    }
+
+    #[inline]
+    pub fn has_repeated_headers(&self) -> bool {
+        self.headers.iter().any(|h| matches!(h, Repeatable::Repeated(_)))
     }
 }
 
@@ -1492,11 +1527,15 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     }
 
                     *header = Some(Header {
+                        start: group_range.start,
+
                         // Later on, we have to correct this number in case there
                         // is gutter. But only once all cells have been analyzed
                         // and the header has fully expanded in the fixup loop
                         // below.
                         end: group_range.end,
+
+                        level: 1,
                     });
                 }
 
@@ -1514,6 +1553,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                             // before the footer might not be included as part of
                             // the footer if it is contained within the header.
                             start: group_range.start,
+                            end: group_range.end,
+                            level: 1,
                         },
                     ));
                 }
@@ -1940,8 +1981,12 @@ fn check_for_conflicting_cell_row(
     rowspan: usize,
 ) -> HintedStrResult<()> {
     if let Some(header) = header {
-        // TODO: check start (right now zero, always satisfied)
-        if cell_y < header.end {
+        // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
+        // enters the header. For example, consider a rowspan of 1: if
+        // `y + 1 = header.start` holds, that means `y < header.start`, and it
+        // only occupies one row (`y`), so the cell is actually not in
+        // conflict.
+        if cell_y < header.end && cell_y + rowspan > header.start {
             bail!(
                 "cell would conflict with header spanning the same position";
                 hint: "try moving the cell or the header"
@@ -1949,13 +1994,8 @@ fn check_for_conflicting_cell_row(
         }
     }
 
-    if let Some((footer_end, _, footer)) = footer {
-        // NOTE: y + rowspan >, not >=, footer.start, to check if the rowspan
-        // enters the footer. For example, consider a rowspan of 1: if
-        // `y + 1 = footer.start` holds, that means `y < footer.start`, and it
-        // only occupies one row (`y`), so the cell is actually not in
-        // conflict.
-        if cell_y < *footer_end && cell_y + rowspan > footer.start {
+    if let Some((_, _, footer)) = footer {
+        if cell_y < footer.end && cell_y + rowspan > footer.start {
             bail!(
                 "cell would conflict with footer spanning the same position";
                 hint: "try reducing the cell's rowspan or moving the footer"
