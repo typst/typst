@@ -160,6 +160,9 @@ impl GridLayouter<'_> {
                 // at a position after the sum of the laid out header
                 // rows).
                 if let Some(Repeatable::Repeated(header)) = &self.grid.header {
+                    // TODO: Need a way to distinguish header 'rrows' for each
+                    // region, as this calculation - i.e., header height at
+                    // each region - will change depending on'i'.
                     let header_rows = self
                         .rrows
                         .get(i)
