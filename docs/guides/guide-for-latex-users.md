@@ -447,7 +447,7 @@ document.
 To let a function style your whole document, the show rule processes everything
 that comes after it and calls the function specified after the colon with the
 result as an argument. The `.with` part is a _method_ that takes the `conf`
-function and pre-configures some if its arguments before passing it on to the
+function and pre-configures some of its arguments before passing it on to the
 show rule.
 </div>
 
