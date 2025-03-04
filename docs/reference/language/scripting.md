@@ -157,6 +157,8 @@ resulting from the else's body.
 ]
 ```
 
+Note that the opening brace or bracket of the body must be on the same
+line as the `#if` (unlike in many other languages).
 Each branch can have a code or content block as its body.
 
 - `{if condition {..}}`
@@ -187,6 +189,8 @@ together into one larger array.
 }
 ```
 
+Note that the opening brace or bracket of the body must be on the same
+line as the `#for` or `#whilde` (unlike in many other languages).
 For loops can iterate over a variety of collections:
 
 - `{for value in array {..}}` \
@@ -244,6 +248,10 @@ The value in question can be either:
   available fields match the arguments of the
   [element function]($function/#element-functions) that were given when the
   element was constructed.
+
+**Important:** Many fields of element functions are only visible and accessible 
+in a concrete context that disambiguates their meaning. Consult the chapter 
+on [Context] for more information.
 
 ```example
 #let it = [= Heading]
