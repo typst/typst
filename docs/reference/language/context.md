@@ -42,16 +42,14 @@ keyword refers to "right here":
 
 Note that calling `#text.lang` directly would be an error, because the request
 cannot be answered without knowledge of the context. The field names supported 
-by a given element function **always??|usually??** correspond to the names of 
-the optional arguments in the element's constructor. 
-_Remark: it would be nice to have a `.fields()` function for all types, 
-not just content._
+by a given element function always correspond to the named parameters documented 
+on each element's page.
 
 Moreover, some functions, such as [`to-absolute`]($length.to-absolute) 
-**(more examples)** are only applicable in a context, because their 
-results depend on the current settings of style properties. When another 
-function `foo()` calls a context-dependent function, it becomes itself 
-context-dependent:
+and [`counter.display`]($counter.display) are only applicable in a context, 
+because their results depend on the current settings of style properties. 
+When another function `foo()` calls a context-dependent function, it becomes 
+itself context-dependent:
 
 ```example
 #let foo() = 1em.to-absolute()
@@ -72,7 +70,7 @@ When a property is changed, the response to the query changes accordingly:
 ```
 
 The output of a `#context ...` call is _read-only_ in the form of opaque 
-`[content]`. Write access is prohibited, as it would often result in 
+`content`. Write access is prohibited, as it would often result in 
 invalid code: If the context changes between read and write, overwriting 
 a property would cause an inconsistent system state. In fact, 
 context-dependent property fields are read-only even within the context
