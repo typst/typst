@@ -63,17 +63,20 @@ use crate::World;
 /// ```
 ///
 /// # Styling
-///
 /// By default, the `raw` element uses the `DejaVu Sans Mono` font, available
 /// by default in Typst, with a smaller font size of `0.8em` (that is, 80% of
-/// the global font size). You can customize these properties with a show-set
-/// rule:
+/// the global font size). This is because monospace fonts tend to be visually
+/// larger than non-monospace fonts.
+///
+/// You can customize these properties with show-set rules:
 ///
 /// ````example
-/// // Switch to Cascadia Code for both inline and block raw.
+/// // Switch to Cascadia Code for
+/// // both inline and block raw.
 /// #show raw: set text(font: "Cascadia Code")
-/// // Make raw blocks 20% larger than normal text,
-/// // while keeping inline raw smaller than text.
+///
+/// // Make raw blocks 20% larger than their default size.
+/// // Keep inline raw at the same size.
 /// #show raw.where(block: true): set text(1.2em)
 ///
 /// Now using the `Cascadia Code` font for raw text.
