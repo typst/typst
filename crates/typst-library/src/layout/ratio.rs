@@ -10,6 +10,40 @@ use crate::foundations::{repr, ty, Repr};
 ///
 /// Written as a number, followed by a percent sign.
 ///
+/// A common use case is setting the width or height of a container (e.g.,
+/// [block], [rect], etc.), as it can be used as part of a [relative
+/// length]($relative) to represent a certain percentage of the size of the
+/// surrounding container or of the current page. For example:
+///
+/// ```example
+/// #block(width: 240pt, {
+///   rect(width: 25%, inset: 0pt, layout(size => size.width))
+/// })
+/// ```
+///
+/// Here the block width is set to `{240pt}` (just to demonstrate the use of
+/// ratio with containers), and inside of it the rectangle width is set to
+/// `{25%}`, which means "get 25% of the width of the innermost container" (240
+/// ⋅ 0.25 = 60). Notice that the inset is equal to `{0pt}`, if it's not set
+/// then it will show `{50pt}` instead of `{60pt}`, which is also why the number
+/// looks cramped.
+///
+/// See [relative length]($relative) for more details.
+///
+/// However, within your own code, you can use ratios as you'd like. You can
+/// multiply ratio by ratio, [length], [relative length]($relative), [angle],
+/// [int], [float], and [fraction].
+///
+/// |  Multiply by    |                     Example                      |
+/// |-----------------|--------------------------------------------------|
+/// | `{ratio}`       | `{27% * 10%}`                                    |
+/// | `{length}`      | `{27% * 100pt}`                                  |
+/// | `{relative}`    | `{27% * (10% + 100pt)}`                          |
+/// | `{angle}`       | `{27% * 100deg}`                                 |
+/// | `{int}`         | `{27% * 2}`                                      |
+/// | `{float}`       | `{27% * 0.37037 // Some rounding is happening.}` |
+/// | `{fraction}`    | `{27% * 3fr}`                                    |
+///
 /// # Example
 /// ```example
 /// #set align(center)
