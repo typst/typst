@@ -31,7 +31,7 @@ use crate::World;
 /// to embed computer code into your document.
 ///
 /// Note that text given to this element cannot contain arbitrary formatting,
-/// such as `{*strong*}` or `{_emphasis_}`, as it is displayed verbatim. If
+/// such as `[*strong*]` or `[_emphasis_]`, as it is displayed verbatim. If
 /// you'd like to display any kind of content with a monospace font, instead of
 /// using [`raw`], you should change its font to a monospace font using the
 /// [`text`]($text) function.
