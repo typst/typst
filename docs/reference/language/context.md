@@ -69,12 +69,12 @@ When a property is changed, the response to the query changes accordingly:
 #context text.lang
 ```
 
-The output of a `#context ...` call is _read-only_ in the form of opaque 
-`content`. Write access is prohibited, as it would often result in 
-invalid code: If the context changes between read and write, overwriting 
-a property would cause an inconsistent system state. In fact, 
-context-dependent property fields are read-only even within the context
-itself:
+The output of a `#context ...` call is static in the form of opaque 
+`content`. Write access to context output is prohibited, as it would 
+often result in invalid code: If the context changes between read and 
+write, overwriting a property would cause an inconsistent system state. 
+In fact, context-dependent property fields are immutable constants even 
+within the context itself:
 
 ```example
 #set text(lang: "en")
@@ -88,12 +88,13 @@ itself:
 
 Both calls have the same output 'en', because `text.lang` is assigned
 upon entry in the context and remains constant until the end of its scope 
-(the closing `]`). Compare this to the previous example: there we
-got two different results because we created two different contexts.
+(the closing `]`). It does not "see" the `#set text(lang: "fr")` before 
+call 2. Compare this to the previous example: there we got two different 
+results because we created two different contexts.
 
-However, the read-only restriction only applies to the property fields
-themselves. Content creation instructions _do_ see the effect of the 
-set rule. Consider the same example with font size:
+However, immutability only applies to the property fields themselves. 
+Content creation instructions within a context _do_ see the effect of 
+the set rule. Consider the same example with font size:
 
 ```example
 #set text(size: 50pt)
@@ -105,13 +106,12 @@ set rule. Consider the same example with font size:
 ]
 ```
 
-The second call still outputs '50pt', because `text.size` is a constant.
+Call 2 still outputs '50pt', because `text.size` is a constant.
 However, this output is printed in '25pt' font, as specified by the set
-rule before the call.  This illustrates the importance of picking the 
+rule before the call. This illustrates the importance of picking the 
 right insertion point for a context to get access to precisely the right 
-styles.
-If you need access to updated property fields after a set rule, you can 
-use nested contexts:
+styles. If you need access to updated property fields after a set rule, 
+you can use nested contexts:
 
 ```example
 #set text(lang: "en")
@@ -171,8 +171,9 @@ original size
 ```
 
 but convenient alternatives like this do not exist for most properties.
-For example, to double the spacing between the lines of an equation block,
-you can use the same technique in a show rule. In this case, explicitly
+This makes contexts a powerful and versatile concept. For example, 
+to double the spacing between the lines of an equation block, you can 
+use the same resizing technique in a show rule. In this case, explicitly
 adding the `context` keyword is not necessary, because a show rule
 establishes a context automatically:
 
