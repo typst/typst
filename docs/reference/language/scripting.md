@@ -190,7 +190,7 @@ together into one larger array.
 ```
 
 Note that the opening brace or bracket of the body must be on the same
-line as the `#for` or `#whilde` (unlike in many other languages).
+line as the `#for` or `#while` (unlike in many other languages).
 For loops can iterate over a variety of collections:
 
 - `{for value in array {..}}` \
