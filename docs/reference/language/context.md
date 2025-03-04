@@ -70,7 +70,7 @@ When a property is changed, the response to the query changes accordingly:
 ```
 
 The output of a `#context ...` call is static in the form of opaque 
-`content`. Write access to context output is prohibited, as it would 
+[`content`]. Write access to context output is prohibited, as it would 
 often result in invalid code: If the context changes between read and 
 write, overwriting a property would cause an inconsistent system state. 
 In fact, context-dependent property fields are immutable constants even 
