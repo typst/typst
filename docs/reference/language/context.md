@@ -25,51 +25,180 @@ in some places that are also aware of their location in the document:
 [Show rules]($styling/#show-rules) provide context[^1] and numberings in the
 outline, for instance, also provide the proper context to resolve counters.
 
-## Style context
-Style properties often change within a document, for example by applying set 
-rules. Consequently, to retrieve settings one must first specify the context 
-where the query is to be executed. Within a given context, the property 
-information is provided by a simple field access syntax. For example, 
-`text.lang` asks for the current language setting. In its simplest form, the
-`context` keyword refers to "right here":
+## Behavior of the context keyword
+Style properties frequently change within a document, for example by applying set 
+rules. To retrieve such poperties in a consistent way, one must first specify 
+the context where the query is to be executed. This is the purpose of the 
+`context` keyword. Once the context has been fixed, the property information 
+is available through a simple field access syntax. For example, `text.lang` 
+asks for the current language setting. In its simplest form, the `context` 
+keyword refers to "right here":
 
 ```example
 #set text(lang: "de")
+// query the language setting "here"
 #context text.lang
 ```
 
 Note that calling `#text.lang` directly would be an error, because the request
-cannot be answered without knowledge of the context. The fields supported by
-a given element function are documented **where??** and can be retrieved in a 
-document by calling **what?? (something like `fields()`)**.
+cannot be answered without knowledge of the context. The field names supported 
+by a given element function **always??|usually??** correspond to the names of 
+the optional arguments in the element's constructor. 
+_Remark: it would be nice to have a `.fields()` function for all types, 
+not just content._
 
-When the language setting changes, the responses to the query change accordingly: 
-_Remark: The old example with `#let value = context text.lang` is very confusing at 
-this early stage of the explanation and does more harm than good._
+Moreover, some functions, such as [`to-absolute`]($length.to-absolute) 
+**(more examples)** are only applicable in a context, because their 
+results depend on the current settings of style properties. When another 
+function `foo()` calls a context-dependent function, it becomes itself 
+context-dependent:
 
 ```example
+#let foo() = 1em.to-absolute()
+#context {
+  // foo() cannot be called outside of a context
+  foo() == text.size
+}
+```
+
+When a property is changed, the response to the query changes accordingly: 
+
+```example
+#set text(lang: "en")
 #context text.lang
 
 #set text(lang: "de")
 #context text.lang
-
-#set text(lang: "fr")
-#context text.lang
 ```
 
-The output of a `#context ...` call is _read-only_ (in the form of `[content]`).
-Allowing write access would likely result in invalid code, because the context
-might have already changed in the meantime. Therefore, temporary changes of
-settings must be done within the context, and they are only active until the 
-end of the context's scope:
+The output of a `#context ...` call is _read-only_ in the form of opaque 
+`[content]`. Write access is prohibited, as it would often result in 
+invalid code: If the context changes between read and write, overwriting 
+a property would cause an inconsistent system state. In fact, 
+context-dependent property fields are read-only even within the context
+itself:
+
+```example
+#set text(lang: "en")
+#context [
+  call 1: #text.lang \
+
+  #set text(lang: "fr")
+  call 2: #text.lang
+]
+```
+
+Both calls have the same output 'en', because `text.lang` is assigned
+upon entry in the context and remains constant until the end of its scope 
+(the closing `]`). Compare this to the previous example: there we
+got two different results because we created two different contexts.
+
+However, the read-only restriction only applies to the property fields
+themselves. Content creation instructions _do_ see the effect of the 
+set rule. Consider the same example with font size:
+
+```example
+#set text(size: 50pt)
+#context [
+  call 1: #text.size \
+
+  #set text(size: 25pt)
+  call 2: #text.size
+]
+```
+
+The second call still outputs '50pt', because `text.size` is a constant.
+However, this output is printed in '25pt' font, as specified by the set
+rule before the call.  This illustrates the importance of picking the 
+right insertion point for a context to get access to precisely the right 
+styles.
+If you need access to updated property fields after a set rule, you can 
+use nested contexts:
+
+```example
+#set text(lang: "en")
+#context [
+  call 1: #text.lang \
+
+  #set text(lang: "fr")
+  call 2: #context text.lang
+]
+```
+
+All of the above applies to `show` rules analogously, for example:
+
+```example
+#let template(body) = {
+  set text(size: 25pt)
+  body
+}
+
+#set text(size: 50pt)
+#context [
+  call 1: #text.size \
+
+  #show: template
+  call 2: #text.size \
+  call 3: #context text.size
+]
+```
+
+## Controlling content creation within a context
+
+The main purpose of retrieving the current values of properties is, 
+of course, to use them in the calculation of derived properties, 
+instead of setting those properties manually. For example, you can
+double the font size like this:
 
 ```example
 #context {
-  // the context allows you to retrieve the current text.size
+  // the context allows you to
+  // retrieve the current text.size
   set text(size: text.size * 200%)
-  [large text] 
+  [large text \ ] 
 }
 original size
+```
+
+Since set rules are only active until the end of the enclosing scope, 
+'original size' is printed with the original font size.
+The above example is equivalent to 
+
+```example
+#{
+  set text(size: 2em)
+  [large text \ ]
+}
+original size
+```
+
+but convenient alternatives like this do not exist for most properties.
+For example, to double the spacing between the lines of an equation block,
+you can use the same technique in a show rule. In this case, explicitly
+adding the `context` keyword is not necessary, because a show rule
+establishes a context automatically:
+
+```example
+#let spaced-eq(spacing: 100%, body) = {
+  show math.equation.where(block: true): it => {
+    // access current par.leading in the
+    // context of the show rule
+    set par(leading: par.leading * spacing)
+    it
+  }
+  body
+}
+
+normal spacing:
+$
+x \
+x
+$
+doubled spacing:
+#spaced-eq(spacing: 200%)[$
+z \
+z
+$]
 ```
 
 ## Location context
@@ -132,6 +261,23 @@ demonstrates this:
 ]
 ```
 
+The rule that context-dependent variables and functions remain constant 
+within a given `context` also applies to location context. The function
+`counter.display()` is an example for this behavior. Below, call A will 
+access the counter's value upon _entry_ into the context, i.e. '1' - it 
+cannot see the effect of `{c.update(2)}`. In contrast, call B accesses 
+the counter in a nested context and will thus see the updated value.
+
+```example
+#let c = counter("mycounter")
+#c.update(1)
+#context [
+  #c.update(2)
+  call A: #c.display() \
+  call B: #context c.display()
+]
+```
+
 As mentioned before, we can also use context to get the physical position of
 elements on the pages. We do this with the [`locate`] function, which works
 similarly to `counter.at`: It takes a location or other [selector] that resolves
@@ -153,73 +299,6 @@ Background is at: \
 There are other functions that make use of the location context, most
 prominently [`query`]. Take a look at the
 [introspection]($category/introspection) category for more details on those.
-
-## Nested contexts
-Context is also accessible from within function calls nested in context blocks.
-In the example below, `foo` itself becomes a contextual function, just like
-[`to-absolute`]($length.to-absolute) is.
-
-```example
-#let foo() = 1em.to-absolute()
-#context {
-  foo() == text.size
-}
-```
-
-Context blocks can be nested. Contextual code will then always access the
-innermost context. The example below demonstrates this: The first `text.lang`
-will access the outer context block's styles and as such, it will **not**
-see the effect of `{set text(lang: "fr")}`. The nested context block around the
-second `text.lang`, however, starts after the set rule and will thus show
-its effect.
-
-```example
-#set text(lang: "de")
-#context [
-  #set text(lang: "fr")
-  #text.lang \
-  #context text.lang
-]
-```
-
-You might wonder why Typst ignores the French set rule when computing the first
-`text.lang` in the example above. The reason is that, in the general case, Typst
-cannot know all the styles that will apply as set rules can be applied to
-content after it has been constructed. Below, `text.lang` is already computed
-when the template function is applied. As such, it cannot possibly be aware of
-the language change to French in the template.
-
-```example
-#let template(body) = {
-  set text(lang: "fr")
-  upper(body)
-}
-
-#set text(lang: "de")
-#context [
-  #show: template
-  #text.lang \
-  #context text.lang
-]
-```
-
-The second `text.lang`, however, _does_ react to the language change because
-evaluation of its surrounding context block is deferred until the styles for it
-are known. This illustrates the importance of picking the right insertion point for a context to get access to precisely the right styles.
-
-The same also holds true for the location context. Below, the first
-`{c.display()}` call will access the outer context block and will thus not see
-the effect of `{c.update(2)}` while the second `{c.display()}` accesses the inner context and will thus see it.
-
-```example
-#let c = counter("mycounter")
-#c.update(1)
-#context [
-  #c.update(2)
-  #c.display() \
-  #context c.display()
-]
-```
 
 ## Compiler iterations
 To resolve contextual interactions, the Typst compiler processes your document
