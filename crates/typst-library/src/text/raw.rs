@@ -30,6 +30,12 @@ use crate::World;
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
 ///
+/// Note that text given to this element cannot contain arbitrary formatting,
+/// such as `{*strong*}` or `{_emphasis_}`, as it is displayed verbatim. If
+/// you'd like to display any kind of content with a monospace font, instead of
+/// using [`raw`], you should change its font to a monospace font using the
+/// [`text`]($text) function.
+///
 /// # Example
 /// ````example
 /// Adding `rbx` to `rcx` gives
@@ -56,6 +62,35 @@ use crate::World;
 /// #raw("fn " + "main() {}", lang: "rust")
 /// ```
 ///
+/// # Styling
+///
+/// By default, the `raw` element uses the `DejaVu Sans Mono` font, available
+/// by default in Typst, with a smaller font size of `0.8em` (that is, 80% of
+/// the global font size). You can customize these properties with a show-set
+/// rule:
+///
+/// ````example
+/// // Switch to Cascadia Code for both inline and block raw.
+/// #show raw: set text(font: "Cascadia Code")
+/// // Make raw blocks 20% larger than normal text,
+/// // while keeping inline raw smaller than text.
+/// #show raw.where(block: true): set text(1.2em)
+///
+/// Now using the `Cascadia Code` font for raw text.
+/// Here's some Python code. It looks larger now:
+///
+/// ```py
+/// def python():
+///   return 5 + 5
+/// ```
+/// ````
+///
+/// In addition, you can customize the syntax highlighting colors by setting
+/// a custom theme through the [`theme`]($raw.theme) field.
+///
+/// For complete customization of the appearance of a raw block, a show rule
+/// on [`raw.line`]($raw.line) could be helpful, such as to add line numbers.
+///
 /// # Syntax
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
@@ -72,6 +107,10 @@ use crate::World;
 /// needed, start the text with a single space (which will be trimmed) or use
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
+///
+/// If no syntax highlighting is available by default for your specified
+/// language tag, you may provide a custom syntax specification file to the
+/// [`syntaxes`]($raw.syntaxes) field.
 #[elem(
     scope,
     title = "Raw Text / Code",
