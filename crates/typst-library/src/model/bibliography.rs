@@ -480,11 +480,11 @@ fn measure_prefix(
 /// entry with the given prefix inset.
 fn compute_auto_indent(
     introspector: Tracked<Introspector>,
-    outline_loc: Location,
+    bibliography_loc: Location,
     styles: StyleChain,
     prefix_inset: Option<Abs>,
 ) -> Option<Abs> {
-    let indent = query_prefix_width(introspector, outline_loc);
+    let indent = query_prefix_width(introspector, bibliography_loc);
     let fallback = Em::new(1.2).resolve(styles);
     prefix_inset.map(|p| p.max(indent.unwrap_or(fallback)))
 }
