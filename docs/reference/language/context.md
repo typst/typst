@@ -26,37 +26,51 @@ in some places that are also aware of their location in the document:
 outline, for instance, also provide the proper context to resolve counters.
 
 ## Style context
-With set rules, we can adjust style properties for parts or the whole of our
-document. We cannot access these without a known context, as they may change
-throughout the course of the document. When context is available, we can
-retrieve them simply by accessing them as fields on the respective element
-function.
+Style properties often change within a document, for example by applying set 
+rules. Consequently, to retrieve settings one must first specify the context 
+where the query is to be executed. Within a given context, the property 
+information is provided by a simple field access syntax. For example, 
+`text.lang` asks for the current language setting. In its simplest form, the
+`context` keyword refers to "right here":
 
 ```example
 #set text(lang: "de")
 #context text.lang
 ```
 
-As explained above, a context expression is reactive to the different
-environments it is placed into. In the example below, we create a single context
-expression, store it in the `value` variable and use it multiple times. Each use
-properly reacts to the current surroundings.
+Note that calling `#text.lang` directly would be an error, because the request
+cannot be answered without knowledge of the context. The fields supported by
+a given element function are documented **where??** and can be retrieved in a 
+document by calling **what?? (something like `fields()`)**.
+
+When the language setting changes, the responses to the query change accordingly: 
+_Remark: The old example with `#let value = context text.lang` is very confusing at 
+this early stage of the explanation and does more harm than good._
 
 ```example
-#let value = context text.lang
-#value
+#context text.lang
 
 #set text(lang: "de")
-#value
+#context text.lang
 
 #set text(lang: "fr")
-#value
+#context text.lang
 ```
 
-Crucially, upon creation, `value` becomes opaque [content] that we cannot peek
-into. It can only be resolved when placed somewhere because only then the
-context is known. The body of a context expression may be evaluated zero, one,
-or multiple times, depending on how many different places it is put into.
+The output of a `#context ...` call is _read-only_ (in the form of `[content]`).
+Allowing write access would likely result in invalid code, because the context
+might have already changed in the meantime. Therefore, temporary changes of
+settings must be done within the context, and they are only active until the 
+end of the context's scope:
+
+```example
+#context {
+  // the context allows you to retrieve the current text.size
+  set text(size: text.size * 200%)
+  [large text] 
+}
+original size
+```
 
 ## Location context
 We've already seen that context gives us access to set rule values. But it can
