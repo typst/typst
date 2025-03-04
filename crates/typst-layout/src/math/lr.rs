@@ -58,7 +58,7 @@ pub fn layout_lr(
         if let MathFragment::Variant(ref mut variant) = fragment {
             if variant.mid_stretched == Some(false) {
                 variant.mid_stretched = Some(true);
-                scale(ctx, styles, fragment, relative_to, height, Some(MathClass::Large));
+                scale(ctx, styles, fragment, relative_to, height, None);
             }
         }
     }

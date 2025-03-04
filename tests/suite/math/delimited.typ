@@ -77,6 +77,19 @@ $ lr(body) quad
   lr(size: #1em, body) quad
   lr(size: #(1em+20%), body) $
 
+--- math-lr-mid-class ---
+// Test that `mid` keeps the original class.
+$ (a |b) $
+$ (a mid(|)b) $
+--
+$ (a class("fence", |)b) $
+$ (a mid(class("fence", |))b) $
+$ (a class("fence", mid(|))b) $
+--
+$ (a class("binary", |)b) $
+$ (a mid(class("binary", |))b) $
+$ (a class("binary", mid(|))b) $
+
 --- math-lr-unbalanced ---
 // Test unbalanced delimiters.
 $ 1/(2 (x) $
