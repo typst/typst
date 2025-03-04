@@ -11,57 +11,39 @@ your report using Typst's styling system.
 
 ## Set rules
 As we have seen in the previous chapter, Typst has functions that _insert_
-content (e.g. the [`image`] function) and others that _manipulate_ content that
-they received as arguments (e.g. the [`align`] function). The first impulse you
-might have when you want, for example, to justify the report, could be to look
-for a function that does that and wrap the complete document in it.
+content (e.g., the [`image`] function) and others that _manipulate_ content that
+they received as arguments (e.g., the [`align`] function). The first impulse you
+might have when you want, for example, to underline text with dotted line, could
+be to look for a function that does that and wrap the desired text in it.
 
 ```example
-#par(justify: true)[
-  = Background
-  In the case of glaciers, fluid
-  dynamics principles can be used
-  to understand how the movement
-  and behaviour of the ice is
-  influenced by factors such as
-  temperature, pressure, and the
-  presence of other fluids (such as
-  water).
-]
+Let's make a #underline(stroke: (dash: "dotted"))[simple] sentence example
+and use it #underline(stroke: (dash: "dotted"))[here].
 ```
 
 Wait, shouldn't all arguments of a function be specified within parentheses? Why
 is there a second set of square brackets with content _after_ the parentheses?
 The answer is that, as passing content to a function is such a common thing to
 do in Typst, there is special syntax for it: Instead of putting the content
-inside of the argument list, you can write it in square brackets directly after
-the normal arguments, saving on punctuation.
+inside the argument list, you can write it in square brackets directly after the
+normal arguments, saving on punctuation.
 
-As seen above, that works. The [`par`] function justifies all paragraphs within
-it. However, wrapping the document in countless functions and applying styles
-selectively and in-situ can quickly become cumbersome.
+As seen above, that works. The [`underline`] function draws a dotted line under
+the text. However, wrapping the document in countless functions (or just a
+single bulky one) can quickly become cumbersome.
 
-Fortunately, Typst has a more elegant solution. With _set rules,_ you can apply
+Fortunately, Typst has a more elegant solution. With _set rules_, you can apply
 style properties to all occurrences of some kind of content. You write a set
 rule by entering the `{set}` keyword, followed by the name of the function whose
 properties you want to set, and a list of arguments in parentheses.
 
 ```example
-#set par(justify: true)
+#set underline(stroke: (dash: "dotted"))
 
-= Background
-In the case of glaciers, fluid
-dynamics principles can be used
-to understand how the movement
-and behaviour of the ice is
-influenced by factors such as
-temperature, pressure, and the
-presence of other fluids (such as
-water).
+Let's make a #underline[simple] sentence example and use it #underline[here].
 ```
 
 <div class="info-box">
-
 Want to know in more technical terms what is happening here?
 
 Set rules can be conceptualized as setting default values
