@@ -204,7 +204,7 @@ impl PackageStorage {
             "{}-{}-{}",
             spec.name,
             spec.version,
-            std::process::id() // Make directory name unique.
+            rand::random::<u32>() // Make directory name unique.
         ));
 
         let create_dir = |dir, dir_name| {
