@@ -7,6 +7,16 @@ Typst embeds a powerful scripting language. You can automate your documents and
 create more sophisticated styles with code. Below is an overview over the
 scripting concepts.
 
+## Identifiers
+
+Typst uses largely the same rules to define variables, function names etc.
+as most other languages, with one important exception: dashes are permitted
+as part of an identifier, e.g. the [`to-absolute`]($length.to-absolute) 
+function for a length or the [`first-line-indent`]($par.first-line-indent) 
+parameter of a paragraph. In fact, this convention is more common than 
+underscores or camel case. Since the dash is also the symbol for subtraction, 
+a minus must be disambiguated by surrounding white space in script mode.
+
 ## Expressions
 In Typst, markup and code are fused into one. All but the most common elements
 are created with _functions._ To make this as convenient as possible, Typst
