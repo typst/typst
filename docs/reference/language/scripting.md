@@ -251,7 +251,7 @@ The value in question can be either:
 
 **Important:** Many fields of element functions are only visible and accessible 
 in a concrete context that disambiguates their meaning. Consult the chapter 
-on [Context] for more information.
+on [Context]($context) for more information.
 
 ```example
 #let it = [= Heading]
