@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::Tracked;
+use comemo::{Track, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -16,16 +16,16 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
-use typst_macros::{cast, scope};
+use typst_macros::{cast, func, scope};
 use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value,
+    elem, select_where, Args, Bytes, CastInfo, Construct, Content, Context, Derived,
+    FromValue, IntoValue, Label, NativeElement, OneOrMultiple, Packed, Reflect, Resolve,
+    Scope, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator, LocatorLink};
 use crate::layout::{
@@ -209,8 +209,6 @@ impl Synthesize for Packed<BibliographyElem> {
 impl Show for Packed<BibliographyElem> {
     #[typst_macros::time(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        const INDENT: Em = Em::new(1.5);
-
         let span = self.span();
         let mut seq = vec![];
 
@@ -233,11 +231,10 @@ impl Show for Packed<BibliographyElem> {
             .at(span)?;
 
         for (key, prefix, reference) in references {
-            let indent = if works.hanging_indent { Some(INDENT.into()) } else { None };
             let entry = BibliographyEntry::new(*key, reference.clone())
                 .with_prefix(prefix.clone())
-                .with_indent(indent)
                 .pack()
+                .styled(BibliographyEntry::set_hanging_indent(works.hanging_indent))
                 .spanned(span);
 
             seq.push(entry);
@@ -346,8 +343,10 @@ pub struct BibliographyEntry {
     /// Optional prefix for citation styles which use them, e.g., IEEE.
     pub prefix: Option<Content>,
 
-    /// Whether the citation style has a hanging indent.
-    pub indent: Option<Rel<Length>>,
+    /// Whether the bibliography has a hanging indent.
+    #[ghost]
+    #[internal]
+    pub hanging_indent: bool,
 
     /// Lets bibliography entries access the bibliography they are part of. This is a bit
     /// of a hack and should be superseded by a proper ancestry mechanism.
@@ -357,64 +356,87 @@ pub struct BibliographyEntry {
 }
 
 #[scope]
-impl BibliographyEntry {}
+impl BibliographyEntry {
+    /// A helper function for producing an indented entry layout: Lays out a
+    /// prefix and the rest of the entry in an indent-aware way.
+    ///
+    /// If the bibliography style has a prefix, such as `[1]` within IEEE, the
+    /// inner content of all entries is aligned with the prefix that has the
+    /// biggest width, leaving at least `gap` space between the prefix and
+    /// inner parts.
+    ///
+    /// If the bibliography style is non-prefix based, `prefix` is `none` and
+    /// the entries are laid out as block elements consisting of `inner`, with
+    /// an optional inset if the style specifies a hanging indent.
+    #[func(contextual)]
+    pub fn indented(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        span: Span,
+        /// The `prefix` is aligned with the `inner` content of entries,
+        /// such that it acts like a grid of prefix + entry.
+        prefix: Option<Content>,
+        /// The formatted inner content of the entry.
+        ///
+        /// In the default show rule, this is just `it.body`, but it can be
+        /// freely customized.
+        inner: Content,
+        /// The gap between the prefix and the inner entry body.
+        #[named]
+        #[default(Em::new(0.65).into())]
+        gap: Length,
+    ) -> SourceResult<Content> {
+        let styles = context.styles().at(span)?;
+        if let Some(prefix) = prefix {
+            let bibliography = Self::parent_in(styles)
+                .ok_or("must be called within the context of a bibliography")
+                .at(span)?;
+            let bibliography_loc = bibliography.location().unwrap();
+            let prefix_width = measure_prefix(engine, &prefix, bibliography_loc, styles)?;
 
-impl Show for Packed<BibliographyEntry> {
-    #[typst_macros::time(name = "bibliography.entry", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        const COLUMN_GUTTER: Em = Em::new(0.65);
-        let span = self.span();
+            let prefix_inset = prefix_width + gap.resolve(styles);
+            let hanging_indent = compute_auto_indent(
+                engine.introspector,
+                bibliography_loc,
+                styles,
+                Some(prefix_inset),
+            )
+            .unwrap_or_default();
 
-        // FIXME: calculate width of longest prefix somehow (+ gap) and use that instead.
-        if self.prefix(styles).is_some() {
-            let prefix = self.prefix(styles).unwrap();
-            let body = self.body.clone();
+            // Save information about our prefix that other bibliography entries
+            // can query for (within `compute_auto_indent`) to align themselves.
+            let mut seq = Vec::with_capacity(5);
+            seq.push(PrefixInfo::new(bibliography_loc, prefix_inset).pack());
 
-            let prefix_width = {
-                let layout_frame = engine.routines.layout_frame;
-                let bibliography = BibliographyEntry::parent_in(styles)
-                    .ok_or("must be called within the context of a bibliography")
-                    .at(span)?;
-                let bibliography_loc = bibliography.location().unwrap();
-
-                let pod = crate::layout::Region::new(
-                    Axes::splat(Abs::inf()),
-                    Axes::splat(false),
-                );
-                let link = LocatorLink::measure(bibliography_loc);
-                let frame =
-                    layout_frame(engine, &prefix, Locator::link(&link), styles, pod)?;
-
-                frame.width()
-            };
-            let hanging_indent =
-                prefix_width + COLUMN_GUTTER.at(TextElem::size_in(styles));
-            let inset = Sides::default()
-                .with(TextElem::dir_in(styles).start(), Some(Rel::from(hanging_indent)));
-
-            let body_seq = Content::sequence([
+            seq.extend([
                 HElem::new((-hanging_indent).into()).pack(),
                 prefix,
                 HElem::new((hanging_indent - prefix_width).into()).pack(),
-                body,
+                inner,
             ]);
+
+            let inset = Sides::default()
+                .with(TextElem::dir_in(styles).start(), Some(Rel::from(hanging_indent)));
 
             Ok(BlockElem::new()
                 .with_inset(inset)
-                .with_body(Some(BlockBody::Content(body_seq)))
+                .with_body(Some(BlockBody::Content(Content::sequence(seq))))
                 .pack()
                 .spanned(span))
         } else {
-            let block = if let Some(indent) = self.indent(styles) {
-                let body = HElem::new(Spacing::Rel(-indent)).pack() + self.body.clone();
-                let inset =
-                    Sides::default().with(TextElem::dir_in(styles).start(), Some(indent));
+            let block = if Self::hanging_indent_in(styles) {
+                const INDENT: Em = Em::new(1.5);
+
+                let body = HElem::new(Spacing::Rel((-INDENT).into())).pack() + inner;
+                let inset = Sides::default()
+                    .with(TextElem::dir_in(styles).start(), Some(INDENT.into()));
 
                 BlockElem::new()
                     .with_body(Some(BlockBody::Content(body)))
                     .with_inset(inset)
             } else {
-                BlockElem::new().with_body(Some(BlockBody::Content(self.body.clone())))
+                BlockElem::new().with_body(Some(BlockBody::Content(inner)))
             };
 
             Ok(block.pack().spanned(span))
@@ -422,9 +444,91 @@ impl Show for Packed<BibliographyEntry> {
     }
 }
 
+impl Show for Packed<BibliographyEntry> {
+    #[typst_macros::time(name = "bibliography.entry", span = self.span())]
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
+        let context = Context::new(None, Some(styles));
+        let context = context.track();
+
+        let prefix = self.prefix(styles);
+        let body = self.body.clone();
+
+        self.indented(engine, context, span, prefix, body, Em::new(0.65).into())
+    }
+}
+
 cast! {
     BibliographyEntry,
     v: Content => v.unpack::<Self>().map_err(|_| "expected bibliography entry")?
+}
+
+/// Measures the width of a prefix.
+fn measure_prefix(
+    engine: &mut Engine,
+    prefix: &Content,
+    loc: Location,
+    styles: StyleChain,
+) -> SourceResult<Abs> {
+    let pod = crate::layout::Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
+    let link = LocatorLink::measure(loc);
+    Ok((engine.routines.layout_frame)(engine, prefix, Locator::link(&link), styles, pod)?
+        .width())
+}
+
+/// Compute the hanging indent for a prefix-based bibliography
+/// entry with the given prefix inset.
+fn compute_auto_indent(
+    introspector: Tracked<Introspector>,
+    outline_loc: Location,
+    styles: StyleChain,
+    prefix_inset: Option<Abs>,
+) -> Option<Abs> {
+    let indent = query_prefix_width(introspector, outline_loc);
+    let fallback = Em::new(1.2).resolve(styles);
+    prefix_inset.map(|p| p.max(indent.unwrap_or(fallback)))
+}
+
+/// Determines the maximum prefix inset (prefix width + gap)
+/// for the bibliography with the given `loc`.
+#[comemo::memoize]
+fn query_prefix_width(
+    introspector: Tracked<Introspector>,
+    bibliography_loc: Location,
+) -> Option<Abs> {
+    let mut width = None;
+    let elems = introspector.query(&select_where!(PrefixInfo, Key => bibliography_loc));
+    for elem in &elems {
+        let info = elem.to_packed::<PrefixInfo>().unwrap();
+        width.get_or_insert(info.inset).set_max(info.inset);
+    }
+    width
+}
+
+/// Helper type for introspection-based prefix alignment.
+#[elem(Construct, Locatable, Show)]
+struct PrefixInfo {
+    /// The location of the bibliography this prefix is part of. This is used to
+    /// scope prefix computations to a specific bibliography.
+    #[required]
+    key: Location,
+
+    /// The width of the prefix, including the gap.
+    #[required]
+    #[internal]
+    inset: Abs,
+}
+
+impl Construct for PrefixInfo {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<PrefixInfo> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(Content::empty())
+    }
 }
 
 /// Decode on library from one data source.
