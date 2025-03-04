@@ -249,8 +249,8 @@ The value in question can be either:
   [element function]($function/#element-functions) that were given when the
   element was constructed.
 
-**Important:** Many fields of element functions are only visible and accessible 
-in a concrete context that disambiguates their meaning. Consult the chapter 
+**Important:** Many fields of element functions are only accessible in a
+concrete context that disambiguates their meaning. Consult the chapter 
 on [Context]($context) for more information.
 
 ```example
