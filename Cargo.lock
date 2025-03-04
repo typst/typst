@@ -1115,6 +1115,16 @@ dependencies = [
 
 [[package]]
 name = "image-webp"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f79afb8cbee2ef20f59ccd477a218c12a93943d075b492015ecb1bb81f8ee904"
+dependencies = [
+ "byteorder-lite",
+ "quick-error",
+]
+
+[[package]]
+name = "image-webp"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e031e8e3d94711a9ccb5d6ea357439ef3dcbed361798bd4071dc4d9793fbe22f"
@@ -1994,17 +2004,35 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "resvg"
-version = "0.44.0"
-source = "git+https://github.com/linebender/resvg?rev=ac76721#ac767218d791fa42bb6da3a8cc85f0a4454685f1"
+version = "0.43.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7314563c59c7ce31c18e23ad3dd092c37b928a0fa4e1c0a1a6504351ab411d1"
 dependencies = [
  "gif",
- "image-webp",
+ "image-webp 0.1.3",
  "log",
  "pico-args",
  "rgb",
  "svgtypes",
  "tiny-skia",
- "usvg",
+ "usvg 0.43.0",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "resvg"
+version = "0.45.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd43d1c474e9dadf09a8fdf22d713ba668b499b5117b9b9079500224e26b5b29"
+dependencies = [
+ "gif",
+ "image-webp 0.2.0",
+ "log",
+ "pico-args",
+ "rgb",
+ "svgtypes",
+ "tiny-skia",
+ "usvg 0.45.0",
  "zune-jpeg",
 ]
 
@@ -2362,8 +2390,9 @@ checksum = "74f98178f34057d4d4de93d68104007c6dea4dfac930204a69ab4622daefa648"
 
 [[package]]
 name = "svg2pdf"
-version = "0.12.0"
-source = "git+https://github.com/alerque/svg2pdf?rev=5fa7e61#5fa7e616f3d08118bae44f6b6657f589fff3d08a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e50dc062439cc1a396181059c80932a6e6bd731b130e674c597c0c8874b6df22"
 dependencies = [
  "fontdb",
  "image",
@@ -2371,19 +2400,19 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
- "resvg",
+ "resvg 0.45.0",
  "siphasher 1.0.1",
  "subsetter",
  "tiny-skia",
  "ttf-parser",
- "usvg",
+ "usvg 0.45.0",
 ]
 
 [[package]]
 name = "svgtypes"
-version = "0.15.2"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "794de53cc48eaabeed0ab6a3404a65f40b3e38c067e4435883a65d2aa4ca000e"
+checksum = "68c7541fff44b35860c1a7a47a7cadf3e4a304c457b58f9870d9706ece028afc"
 dependencies = [
  "kurbo",
  "siphasher 1.0.1",
@@ -2889,7 +2918,7 @@ dependencies = [
  "unicode-math-class",
  "unicode-segmentation",
  "unscanny",
- "usvg",
+ "usvg 0.45.0",
  "wasmi",
  "xmlwriter",
 ]
@@ -2954,7 +2983,7 @@ dependencies = [
  "comemo",
  "image",
  "pixglyph",
- "resvg",
+ "resvg 0.43.0",
  "tiny-skia",
  "ttf-parser",
  "typst-library",
@@ -3178,8 +3207,31 @@ dependencies = [
 
 [[package]]
 name = "usvg"
-version = "0.44.0"
-source = "git+https://github.com/linebender/resvg?rev=ac76721#ac767218d791fa42bb6da3a8cc85f0a4454685f1"
+version = "0.43.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6803057b5cbb426e9fb8ce2216f3a9b4ca1dd2c705ba3cbebc13006e437735fd"
+dependencies = [
+ "base64",
+ "data-url",
+ "flate2",
+ "imagesize",
+ "kurbo",
+ "log",
+ "pico-args",
+ "roxmltree",
+ "simplecss",
+ "siphasher 1.0.1",
+ "strict-num",
+ "svgtypes",
+ "tiny-skia-path",
+ "xmlwriter",
+]
+
+[[package]]
+name = "usvg"
+version = "0.45.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ac8e0e3e4696253dc06167990b3fe9a2668ab66270adf949a464db4088cb354"
 dependencies = [
  "base64",
  "data-url",
