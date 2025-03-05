@@ -218,14 +218,6 @@ impl PackageStorage {
         create_dir(package_download_dir.as_path(), "download")?;
         create_dir(package_dir, "package")?;
 
-        let decompressed = flate2::read::GzDecoder::new(data.as_slice());
-        tar::Archive::new(decompressed)
-            .unpack(&package_download_dir)
-            .map_err(|err| {
-                fs::remove_dir_all(package_dir).ok();
-                PackageError::MalformedArchive(Some(eco_format!("{err}")))
-            })?;
-
         let removed_download_dir = || {
             fs::remove_dir_all(&package_download_dir).map_err(|err| {
                 PackageError::Other(Some(eco_format!(
@@ -233,6 +225,17 @@ impl PackageStorage {
                 )))
             })
         };
+
+        let decompressed = flate2::read::GzDecoder::new(data.as_slice());
+        tar::Archive::new(decompressed)
+            .unpack(&package_download_dir)
+            .map_err(|err| {
+                let message = match removed_download_dir() {
+                    Err(PackageError::Other(Some(str))) => eco_format!("{err}\n{str}"),
+                    _ => eco_format!("{err}"),
+                };
+                PackageError::MalformedArchive(Some(message))
+            })?;
 
         // As to not overcomplicate the code base to combat an already rare case
         // where multiple instances try to download the same package version
