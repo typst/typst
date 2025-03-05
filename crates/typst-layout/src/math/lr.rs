@@ -45,12 +45,26 @@ pub fn layout_lr(
 
     // Scale up fragments at both ends.
     match inner_fragments {
-        [one] => scale(ctx, styles, one, relative_to, height, None),
+        [one] => scale_if_delimiter(ctx, styles, one, relative_to, height, None),
         [first, .., last] => {
-            scale(ctx, styles, first, relative_to, height, Some(MathClass::Opening));
-            scale(ctx, styles, last, relative_to, height, Some(MathClass::Closing));
+            scale_if_delimiter(
+                ctx,
+                styles,
+                first,
+                relative_to,
+                height,
+                Some(MathClass::Opening),
+            );
+            scale_if_delimiter(
+                ctx,
+                styles,
+                last,
+                relative_to,
+                height,
+                Some(MathClass::Closing),
+            );
         }
-        _ => {}
+        [] => {}
     }
 
     // Handle MathFragment::Variant fragments that should be scaled up.
@@ -58,7 +72,7 @@ pub fn layout_lr(
         if let MathFragment::Variant(ref mut variant) = fragment {
             if variant.mid_stretched == Some(false) {
                 variant.mid_stretched = Some(true);
-                scale(ctx, styles, fragment, relative_to, height, None);
+                scale(ctx, styles, fragment, relative_to, height);
             }
         }
     }
@@ -99,12 +113,12 @@ pub fn layout_mid(
             MathFragment::Glyph(glyph) => {
                 let mut new = glyph.clone().into_variant();
                 new.mid_stretched = Some(false);
-                new.class = MathClass::Fence;
+                new.class = MathClass::Relation;
                 *fragment = MathFragment::Variant(new);
             }
             MathFragment::Variant(variant) => {
                 variant.mid_stretched = Some(false);
-                variant.class = MathClass::Fence;
+                variant.class = MathClass::Relation;
             }
             _ => {}
         }
@@ -114,8 +128,12 @@ pub fn layout_mid(
     Ok(())
 }
 
-/// Scale a math fragment to a height.
-fn scale(
+/// Scales a math fragment to a height if it has the class Opening, Closing, or
+/// Fence.
+///
+/// In case `apply` is `Some(class)`, `class` will be applied to the fragment if
+/// it is a delimiter, in a way that cannot be overridden by the user.
+fn scale_if_delimiter(
     ctx: &mut MathContext,
     styles: StyleChain,
     fragment: &mut MathFragment,
@@ -127,21 +145,32 @@ fn scale(
         fragment.class(),
         MathClass::Opening | MathClass::Closing | MathClass::Fence
     ) {
-        // This unwrap doesn't really matter. If it is None, then the fragment
-        // won't be stretchable anyways.
-        let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
-        stretch_fragment(
-            ctx,
-            styles,
-            fragment,
-            Some(Axis::Y),
-            Some(relative_to),
-            height,
-            short_fall,
-        );
+        scale(ctx, styles, fragment, relative_to, height);
 
         if let Some(class) = apply {
             fragment.set_class(class);
         }
     }
+}
+
+/// Scales a math fragment to a height.
+fn scale(
+    ctx: &mut MathContext,
+    styles: StyleChain,
+    fragment: &mut MathFragment,
+    relative_to: Abs,
+    height: Rel<Abs>,
+) {
+    // This unwrap doesn't really matter. If it is None, then the fragment
+    // won't be stretchable anyways.
+    let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
+    stretch_fragment(
+        ctx,
+        styles,
+        fragment,
+        Some(Axis::Y),
+        Some(relative_to),
+        height,
+        short_fall,
+    );
 }
