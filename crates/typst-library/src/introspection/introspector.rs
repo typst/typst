@@ -251,6 +251,60 @@ impl Introspector {
         }
     }
 
+    /// Count hierarchically.
+    pub fn count(
+        &self,
+        selectors: &[Selector],
+        // TODO remove Option as soon as there is a special `start` location
+        after: Option<Location>,
+        // TODO remove Option as soon as there is a special `end` location
+        before: Option<Location>,
+    ) -> SmallVec<[usize; 3]> {
+        let mut nums = SmallVec::with_capacity(selectors.len());
+
+        // can't write `mut` directly into function parameters because not supported by comemo
+        let mut after = after;
+
+        for selector in selectors.iter() {
+            let list = self.query(selector);
+
+            // count how many elements in `list` are between after and end
+            let index_start = if let Some(after) = after {
+                if let Some(after) = self.get_by_loc(&after) {
+                    match self.binary_search(&list, after) {
+                        Ok(i) => i, // TODO if after is exclusive then must add 1 here
+                        Err(i) => i,
+                    }
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+            let index_end = if let Some(before) = before {
+                if let Some(before) = self.get_by_loc(&before) {
+                    match self.binary_search(&list, before) {
+                        Ok(i) => i + 1,
+                        Err(i) => i,
+                    }
+                } else {
+                    list.len()
+                }
+            } else {
+                list.len()
+            };
+            nums.push(index_end - index_start);
+
+            // the next level should be counted only from
+            // the last element of the previous level on
+            if index_end != 0 {
+                after = Some(list[index_end - 1].location().unwrap());
+            }
+        }
+
+        nums
+    }
+
     /// The total number pages.
     pub fn pages(&self) -> NonZeroUsize {
         NonZeroUsize::new(self.pages).unwrap_or(NonZeroUsize::ONE)
