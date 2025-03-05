@@ -908,7 +908,7 @@ struct CellGridResolver<'a, 'b, 'x> {
     span: Span,
 }
 
-impl<'a, 'b, 'x> CellGridResolver<'a, 'b, 'x> {
+impl<'x> CellGridResolver<'_, '_, 'x> {
     fn resolve<T, C, I>(mut self, children: C) -> SourceResult<CellGrid<'x>>
     where
         T: ResolvableCell + Default,
@@ -1219,6 +1219,7 @@ impl<'a, 'b, 'x> CellGridResolver<'a, 'b, 'x> {
         ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn resolve_grid_child<T, I>(
         &mut self,
         c: usize,
@@ -1324,10 +1325,7 @@ impl<'a, 'b, 'x> CellGridResolver<'a, 'b, 'x> {
             ResolvableGridChild::Item(item) => (None, Some(item)),
         };
 
-        let items = header_footer_items
-            .into_iter()
-            .flatten()
-            .chain(simple_item.into_iter());
+        let items = header_footer_items.into_iter().flatten().chain(simple_item);
         for item in items {
             let cell = match item {
                 ResolvableGridItem::HLine { y, start, end, stroke, span, position } => {
