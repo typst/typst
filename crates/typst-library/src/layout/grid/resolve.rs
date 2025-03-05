@@ -908,6 +908,26 @@ struct CellGridResolver<'a, 'b, 'x> {
     span: Span,
 }
 
+enum RowGroupKind {
+    Header,
+    Footer,
+}
+
+struct RowGroupData {
+    /// The range of rows of cells inside this grid row group. The
+    /// first and last rows are guaranteed to have cells (an exception
+    /// is made when there is gutter, in which case the group range may
+    /// be expanded to include an additional gutter row when there is a
+    /// repeatable header or footer). This is `None` until the first
+    /// cell of the row group is placed, then it is continually adjusted
+    /// to fit the cells inside the row group.
+    ///
+    /// This stays as `None` for fully empty headers and footers.
+    range: Option<Range<usize>>,
+    span: Span,
+    kind: RowGroupKind,
+}
+
 impl<'x> CellGridResolver<'_, '_, 'x> {
     fn resolve<T, C, I>(mut self, children: C) -> SourceResult<CellGrid<'x>>
     where
@@ -1209,11 +1229,12 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         T: ResolvableCell + Default,
         I: Iterator<Item = ResolvableGridItem<T>>,
     {
-        let mut is_header = false;
-        let mut is_footer = false;
-
-        // This is true for any header or footer.
-        let mut is_row_group = false;
+        // Data for the row group in this iteration.
+        //
+        // Note that cells outside headers and footers are grid children
+        // with a single cell inside, and thus not considered row groups,
+        // in which case this variable remains 'None'.
+        let mut row_group_data: Option<RowGroupData> = None;
 
         // The normal auto index should only be stepped (upon placing an
         // automatically-positioned cell, to indicate the position of the
@@ -1226,20 +1247,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // row, so we must step a local index inside headers and footers
         // instead, and use a separate counter outside them.
         let mut local_auto_index = *auto_index;
-
-        // The range of rows of cells inside this grid row group. The
-        // first and last rows are guaranteed to have cells (an exception
-        // is made when there is gutter, in which case the group range may
-        // be expanded to include an additional gutter row when there is a
-        // repeatable header or footer). This is 'None' until the first
-        // cell of the row group is placed, then it is continually adjusted
-        // to fit the cells inside the row group.
-        //
-        // Note that cells outside headers and footers are grid children
-        // with a single cell inside, and thus not considered row groups,
-        // in which case this variable remains 'None'.
-        let mut group_range: Option<Range<usize>> = None;
-        let mut group_span = Span::detached();
 
         // The first row in which this table group can fit.
         //
@@ -1255,9 +1262,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     bail!(span, "cannot have more than one header");
                 }
 
-                is_header = true;
-                is_row_group = true;
-                group_span = span;
+                row_group_data =
+                    Some(RowGroupData { range: None, span, kind: RowGroupKind::Header });
+
                 *repeat_header = repeat;
 
                 first_available_row =
@@ -1281,9 +1288,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     bail!(span, "cannot have more than one footer");
                 }
 
-                is_footer = true;
-                is_row_group = true;
-                group_span = span;
+                row_group_data =
+                    Some(RowGroupData { range: None, span, kind: RowGroupKind::Footer });
+
                 *repeat_footer = repeat;
 
                 first_available_row =
@@ -1418,7 +1425,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     &mut local_auto_index,
                     first_available_row,
                     c,
-                    is_row_group,
+                    row_group_data.is_some(),
                 )
                 .at(cell_span)?
             };
@@ -1449,10 +1456,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
             // Cell's header or footer must expand to include the cell's
             // occupied positions, if possible.
-            if is_row_group {
-                group_range = Some(
+            if let Some(RowGroupData { range: group_range, .. }) = &mut row_group_data {
+                *group_range = Some(
                     expand_row_group(
-                        &*resolved_cells,
+                        resolved_cells,
                         group_range.as_ref(),
                         first_available_row,
                         y,
@@ -1534,8 +1541,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
             }
         }
-        if is_row_group {
-            let group_range = match group_range {
+
+        if let Some(row_group) = row_group_data {
+            let group_range = match row_group.range {
                 Some(group_range) => group_range,
 
                 None => {
@@ -1572,40 +1580,42 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
             };
 
-            if is_header {
-                if group_range.start != 0 {
-                    bail!(
-                        group_span,
-                        "header must start at the first row";
-                        hint: "remove any rows before the header"
-                    );
+            match row_group.kind {
+                RowGroupKind::Header => {
+                    if group_range.start != 0 {
+                        bail!(
+                            row_group.span,
+                            "header must start at the first row";
+                            hint: "remove any rows before the header"
+                        );
+                    }
+
+                    *header = Some(Header {
+                        // Later on, we have to correct this number in case there
+                        // is gutter. But only once all cells have been analyzed
+                        // and the header has fully expanded in the fixup loop
+                        // below.
+                        end: group_range.end,
+                    });
                 }
 
-                *header = Some(Header {
-                    // Later on, we have to correct this number in case there
-                    // is gutter. But only once all cells have been analyzed
-                    // and the header has fully expanded in the fixup loop
-                    // below.
-                    end: group_range.end,
-                });
-            }
-
-            if is_footer {
-                // Only check if the footer is at the end later, once we know
-                // the final amount of rows.
-                *footer = Some((
-                    group_range.end,
-                    group_span,
-                    Footer {
-                        // Later on, we have to correct this number in case there
-                        // is gutter, but only once all cells have been analyzed
-                        // and the header's and footer's exact boundaries are
-                        // known. That is because the gutter row immediately
-                        // before the footer might not be included as part of
-                        // the footer if it is contained within the header.
-                        start: group_range.start,
-                    },
-                ));
+                RowGroupKind::Footer => {
+                    // Only check if the footer is at the end later, once we know
+                    // the final amount of rows.
+                    *footer = Some((
+                        group_range.end,
+                        row_group.span,
+                        Footer {
+                            // Later on, we have to correct this number in case there
+                            // is gutter, but only once all cells have been analyzed
+                            // and the header's and footer's exact boundaries are
+                            // known. That is because the gutter row immediately
+                            // before the footer might not be included as part of
+                            // the footer if it is contained within the header.
+                            start: group_range.start,
+                        },
+                    ));
+                }
             }
         } else {
             // The child was a single cell outside headers or footers.
@@ -1848,7 +1858,7 @@ fn resolve_cell_position(
     auto_index: &mut usize,
     first_available_row: usize,
     columns: usize,
-    is_row_group: bool,
+    in_row_group: bool,
 ) -> HintedStrResult<usize> {
     // Translates a (x, y) position to the equivalent index in the final cell vector.
     // Errors if the position would be too large.
@@ -1925,7 +1935,7 @@ fn resolve_cell_position(
                 // Ensure it doesn't conflict with an existing header or
                 // footer (but only if it isn't already in one, otherwise there
                 // will already be a separate check).
-                if !is_row_group {
+                if !in_row_group {
                     check_for_conflicting_cell_row(header, footer, cell_y, rowspan)?;
                 }
 
@@ -1987,7 +1997,7 @@ fn resolve_cell_position(
             // Ensure it doesn't conflict with an existing header or
             // footer (but only if it isn't already in one, otherwise there
             // will already be a separate check).
-            if !is_row_group {
+            if !in_row_group {
                 check_for_conflicting_cell_row(header, footer, cell_y, rowspan)?;
             }
 
