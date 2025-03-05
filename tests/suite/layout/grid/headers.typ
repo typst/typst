@@ -438,7 +438,6 @@
   table.cell(y: 1)[a],
   table.header(
     [b], [c],
-    // TODO: A bit odd that this span is just the letter 'd'
     // Error: 6-7 cell would cause header or footer to expand to non-empty row 1
     // Hint: 6-7 try moving its cells to earlier rows
     [d],

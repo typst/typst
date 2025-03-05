@@ -474,7 +474,6 @@
   table.cell(y: 1)[a],
   table.footer(
     [b], [c],
-    // TODO: Why is the span just the letter 'd'?
     // Error: 6-7 cell would cause header or footer to expand to non-empty row 1
     // Hint: 6-7 try moving its cells to earlier rows
     [d],
