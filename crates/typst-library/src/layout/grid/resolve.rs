@@ -941,28 +941,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut footer: Option<(usize, Span, Footer)> = None;
         let mut repeat_footer = false;
 
-        // Resolves the breakability of a cell. Cells that span at least one
-        // auto-sized row or gutter are considered breakable.
-        let resolve_breakable = |y, rowspan| {
-            let auto = Sizing::Auto;
-            let zero = Sizing::Rel(Rel::zero());
-            self.tracks
-                .y
-                .iter()
-                .chain(std::iter::repeat(self.tracks.y.last().unwrap_or(&auto)))
-                .skip(y)
-                .take(rowspan)
-                .any(|row| row == &Sizing::Auto)
-                || self
-                    .gutter
-                    .y
-                    .iter()
-                    .chain(std::iter::repeat(self.gutter.y.last().unwrap_or(&zero)))
-                    .skip(y)
-                    .take(rowspan - 1)
-                    .any(|row_gutter| row_gutter == &Sizing::Auto)
-        };
-
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
         // positions, so the position of a cell in 'cells' can differ from its
@@ -1005,7 +983,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 &mut repeat_header,
                 &mut footer,
                 &mut repeat_footer,
-                resolve_breakable,
                 &mut auto_index,
                 &mut resolved_cells,
                 child,
@@ -1042,18 +1019,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                     // Ensure all absent entries are affected by show rules and
                     // grid styling by turning them into resolved empty cells.
-                    let new_cell = T::default().resolve_cell(
+                    Ok(Entry::Cell(self.resolve_cell(
+                        T::default(),
                         x,
                         y,
-                        &self.fill.resolve(self.engine, self.styles, x, y)?,
-                        self.align.resolve(self.engine, self.styles, x, y)?,
-                        self.inset.resolve(self.engine, self.styles, x, y)?,
-                        self.stroke.resolve(self.engine, self.styles, x, y)?,
-                        resolve_breakable(y, 1),
-                        self.locator.next(&()),
-                        self.styles,
-                    );
-                    Ok(Entry::Cell(new_cell))
+                        1,
+                        Span::detached(),
+                    )?))
                 }
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
@@ -1229,11 +1201,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         repeat_header: &mut bool,
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
-        resolve_breakable: impl Fn(usize, usize) -> bool,
         auto_index: &mut usize,
         resolved_cells: &mut Vec<Option<Entry<'x>>>,
         child: ResolvableGridChild<T, I>,
-    ) -> Result<(), ecow::EcoVec<crate::diag::SourceDiagnostic>>
+    ) -> SourceResult<()>
     where
         T: ResolvableCell + Default,
         I: Iterator<Item = ResolvableGridItem<T>>,
@@ -1494,17 +1465,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
-            let cell = cell.resolve_cell(
-                x,
-                y,
-                &self.fill.resolve(self.engine, self.styles, x, y)?,
-                self.align.resolve(self.engine, self.styles, x, y)?,
-                self.inset.resolve(self.engine, self.styles, x, y)?,
-                self.stroke.resolve(self.engine, self.styles, x, y)?,
-                resolve_breakable(y, rowspan),
-                self.locator.next(&cell_span),
-                self.styles,
-            );
+            let cell = self.resolve_cell(cell, x, y, rowspan, cell_span)?;
 
             if largest_index >= resolved_cells.len() {
                 // Ensure the length of the vector of resolved cells is
@@ -1598,39 +1559,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // and footers without having to loop through them each time.
                     // Cells themselves, unfortunately, still have to.
                     assert!(resolved_cells[local_auto_index].is_none());
-                    let (first_x, first_y) = (0, first_available_row);
                     resolved_cells[local_auto_index] =
-                        Some(Entry::Cell(T::default().resolve_cell(
-                            first_x,
-                            first_y,
-                            &self.fill.resolve(
-                                self.engine,
-                                self.styles,
-                                first_x,
-                                first_y,
-                            )?,
-                            self.align.resolve(
-                                self.engine,
-                                self.styles,
-                                first_x,
-                                first_y,
-                            )?,
-                            self.inset.resolve(
-                                self.engine,
-                                self.styles,
-                                first_x,
-                                first_y,
-                            )?,
-                            self.stroke.resolve(
-                                self.engine,
-                                self.styles,
-                                first_x,
-                                first_y,
-                            )?,
-                            resolve_breakable(first_y, 1),
-                            self.locator.next(&()),
-                            self.styles,
-                        )));
+                        Some(Entry::Cell(self.resolve_cell(
+                            T::default(),
+                            0,
+                            first_available_row,
+                            1,
+                            Span::detached(),
+                        )?));
 
                     group_start..group_end
                 }
@@ -1679,6 +1615,53 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         }
 
         Ok(())
+    }
+
+    /// Resolves the cell's fields based on grid-wide properties.
+    fn resolve_cell<T>(
+        &mut self,
+        cell: T,
+        x: usize,
+        y: usize,
+        rowspan: usize,
+        cell_span: Span,
+    ) -> SourceResult<Cell<'x>>
+    where
+        T: ResolvableCell + Default,
+    {
+        // Resolve the breakability of a cell. Cells that span at least one
+        // auto-sized row or gutter are considered breakable.
+        let breakable = {
+            let auto = Sizing::Auto;
+            let zero = Sizing::Rel(Rel::zero());
+            self.tracks
+                .y
+                .iter()
+                .chain(std::iter::repeat(self.tracks.y.last().unwrap_or(&auto)))
+                .skip(y)
+                .take(rowspan)
+                .any(|row| row == &Sizing::Auto)
+                || self
+                    .gutter
+                    .y
+                    .iter()
+                    .chain(std::iter::repeat(self.gutter.y.last().unwrap_or(&zero)))
+                    .skip(y)
+                    .take(rowspan - 1)
+                    .any(|row_gutter| row_gutter == &Sizing::Auto)
+        };
+
+        Ok(cell.resolve_cell(
+            x,
+            y,
+            &self.fill.resolve(self.engine, self.styles, x, y)?,
+            self.align.resolve(self.engine, self.styles, x, y)?,
+            self.inset.resolve(self.engine, self.styles, x, y)?,
+            self.stroke.resolve(self.engine, self.styles, x, y)?,
+            breakable,
+            self.locator.next(&cell_span),
+            self.styles,
+        ))
     }
 }
 
