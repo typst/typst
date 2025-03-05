@@ -1876,32 +1876,13 @@ fn resolve_cell_position(
             // Note that the counter ignores any cells with fixed positions,
             // but automatically-positioned cells will avoid conflicts by
             // simply skipping existing cells, headers and footers.
-            let mut resolved_index = *auto_index;
-
-            loop {
-                if let Some(Some(_)) = resolved_cells.get(resolved_index) {
-                    // Skip any non-absent cell positions (`Some(None)`) to
-                    // determine where this cell will be placed. An out of
-                    // bounds position (thus `None`) is also a valid new
-                    // position (only requires expanding the vector).
-                    resolved_index += 1;
-                } else if let Some(header) =
-                    header.filter(|header| resolved_index / columns < header.end)
-                {
-                    // Skip header
-                    resolved_index = header.end * columns;
-                } else if let Some((footer_end, _, _)) =
-                    footer.filter(|(end, _, footer)| {
-                        resolved_index / columns >= footer.start
-                            && resolved_index / columns < *end
-                    })
-                {
-                    // Skip footer
-                    resolved_index = *footer_end * columns;
-                } else {
-                    break;
-                }
-            }
+            let resolved_index = find_next_available_position::<false>(
+                header,
+                footer,
+                resolved_cells,
+                columns,
+                *auto_index,
+            )?;
 
             // Ensure the next cell with automatic position will be
             // placed after this one (maybe not immediately after).
@@ -1947,49 +1928,19 @@ fn resolve_cell_position(
                 // row / the header or footer's first row (specified through
                 // 'first_available_row'). Otherwise, start searching at the
                 // first row.
-                let mut resolved_y = first_available_row;
+                let initial_index = cell_index(cell_x, first_available_row)?;
 
-                // There may be row groups, so we have to not only skip
-                // rows where the requested column is occupied to find the
-                // first suitable row, but also skip rows belonging to
-                // headers or footers.
-                loop {
-                    if let Some(Some(_)) =
-                        resolved_cells.get(cell_index(cell_x, resolved_y)?)
-                    {
-                        // Try each row until either we reach an absent
-                        // position at the requested column (`Some(None)`)
-                        // or an out of bounds position (`None`), in which
-                        // case we'd create a new row to place this cell
-                        // in.
-                        //
-                        // Therefore, this loop will always finish, even if
-                        // the cell has to go all the way to the end to be
-                        // at its requested column. However, if the cell is
-                        // in a header or footer, that could cause the
-                        // header or footer to expand and conflict with
-                        // other cells along the way, but that is checked
-                        // separately later in the 'expand_row_group'
-                        // function.
-                        resolved_y += 1;
-                    } else if let Some(header) =
-                        header.filter(|header| resolved_y < header.end)
-                    {
-                        // Skip header
-                        resolved_y = header.end;
-                    } else if let Some((footer_end, _, _)) =
-                        footer.filter(|(end, _, footer)| {
-                            resolved_y >= footer.start && resolved_y < *end
-                        })
-                    {
-                        // Skip footer
-                        resolved_y = *footer_end;
-                    } else {
-                        break;
-                    }
-                }
-
-                cell_index(cell_x, resolved_y)
+                // Try each row until either we reach an absent position at the
+                // requested column ('Some(None)') or an out of bounds position
+                // ('None'), in which case we'd create a new row to place this
+                // cell in.
+                find_next_available_position::<true>(
+                    header,
+                    footer,
+                    resolved_cells,
+                    columns,
+                    initial_index,
+                )
             }
         }
         // Cell has only chosen its row, not its column.
@@ -2023,6 +1974,64 @@ fn resolve_cell_position(
                     )
                 })
                 .hint("try specifying your cells in a different order")
+        }
+    }
+}
+
+/// Finds the first available position after the initial index in the resolved
+/// grid of cells. Skips any non-absent positions (positions which already
+/// have cells specified by the user) as well as any headers and footers.
+#[inline]
+fn find_next_available_position<const SKIP_ROWS: bool>(
+    header: Option<&Header>,
+    footer: Option<&(usize, Span, Footer)>,
+    resolved_cells: &[Option<Entry<'_>>],
+    columns: usize,
+    initial_index: usize,
+) -> HintedStrResult<usize> {
+    let mut resolved_index = initial_index;
+
+    loop {
+        if let Some(Some(_)) = resolved_cells.get(resolved_index) {
+            // Skip any non-absent cell positions (`Some(None)`) to
+            // determine where this cell will be placed. An out of
+            // bounds position (thus `None`) is also a valid new
+            // position (only requires expanding the vector).
+            if SKIP_ROWS {
+                // Skip one row at a time (cell chose its column, so we don't
+                // change it).
+                resolved_index =
+                    resolved_index.checked_add(columns).ok_or_else(|| {
+                        HintedString::from(eco_format!("cell position too large"))
+                    })?;
+            } else {
+                // Ensure we don't run unnecessary checks in the hot path
+                // (for fully automatically-positioned cells). Memory usage
+                // would become impractically large before this overflows.
+                resolved_index += 1;
+            }
+        } else if let Some(header) =
+            header.filter(|header| resolved_index < header.end * columns)
+        {
+            // Skip header (can't place a cell inside it from outside it).
+            resolved_index = header.end * columns;
+
+            if SKIP_ROWS {
+                // Ensure the cell's chosen column is kept after the
+                // header.
+                resolved_index += initial_index % columns;
+            }
+        } else if let Some((footer_end, _, _)) = footer.filter(|(end, _, footer)| {
+            resolved_index >= footer.start * columns && resolved_index < *end * columns
+        }) {
+            // Skip footer, for the same reason.
+            resolved_index = *footer_end * columns;
+
+            if SKIP_ROWS {
+                resolved_index += initial_index % columns;
+            }
+        } else {
+            return Ok(resolved_index);
         }
     }
 }
