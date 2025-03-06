@@ -50,7 +50,7 @@ Scopes give rise to a common pitfall when you want to apply rules conditionally.
 // original behavior restored
 ```
 
-You must use a postfix conditional instead
+You must use the "set-if rule" instead
 
 ```typ
 #set text(size: 11pt) if some-condition()
