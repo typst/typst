@@ -124,15 +124,12 @@ Note that you cannot pass positional arguments in a set rule &ndash; a set rule
 is not really a function call, it just uses the same syntax for convenience.
 
 A set rule refers to all instances of the given EF type and stays in effect 
-until the end of the present scope.
-In particular, a top level set rule stays in effect until the end of the file 
-unless explicitly
-overridden by another set rule. To restrict a set rule's lifetime, you can 
-enclose it in a code
-block, i.e. in brackets or braces. Then, the rule expires at the end of the 
-block, and the previous behavior is restored.
-Below, we use a content block to apply the modified list styling only to the 
-list in brackets:
+until the end of the present scope. In particular, a top level set rule 
+stays in effect until the end of the file unless explicitly overridden by 
+another set rule. To restrict a set rule's lifetime, you can enclose it in 
+a code block, i.e. in brackets or braces. Then, the rule expires at the end
+of the block, and the previous behavior is restored. Below, we use a content
+block to apply the modified list styling only to the list in brackets:
 
 ```example
 This list is affected: #[
@@ -195,7 +192,7 @@ but unleashes the full range of customization options:
 }
 ```
 
-The [selector] pattern specifies the situation where the desired 
+The [selector]-pattern specifies the situation where the desired 
 modifications shall apply. 
 The most common form of `selector-pattern` is an [element 
 function]($function/#element-functions) identifier. This means that the 
@@ -230,10 +227,11 @@ Plain text stays black as well.
 
 A complete list of supported selector patterns is provided below.
 
-To overcome the limitations of set rules, you use the `function` variant of 
-the show rule. In this variant, the right-hand side is the name of an 
-arbitrary [function] that accepts exactly one positional argument (it can have 
-arbitrarily many named arguments) and returns arbitrary content:
+To overcome the limitations of set rules on the right-hand side, you use the 
+`function` variant of the show rule. In this variant, the right-hand side is 
+the name of an arbitrary [function] that accepts exactly one positional 
+argument (it can have additional named arguments) and returns arbitrary 
+content:
 
 ```example
 #let always-say-thank-you(it) = {
@@ -243,12 +241,11 @@ arbitrarily many named arguments) and returns arbitrary content:
 }
 
 #show heading: always-say-thank-you
-
 = This heading is boring
 ```
 
 The function's argument (conventionally called `it`) is the EF that matched 
-the left-hand side of the show rule. The function implements arbitrary 
+the left-hand side of the show rule. The function implements the desired 
 modifications (via embedded set and show rules or any other code) and then 
 forwards the content for further processing, returns entirely new content, or 
 a combination thereof. 
@@ -265,7 +262,8 @@ accessible.
 #let always-say-thank-you(it) = {
    it
    if it.depth == 1 {
-     set text(red, size: text.size * 150%)
+     set text(red,
+              size: text.size * 150%)
      [I don't care]
    } else {
      set text(green)
@@ -279,7 +277,7 @@ accessible.
 == This one is better
 ```
 
-In pratice, the function is usually implemented in-place as an unnamed function 
+In practice, the function is usually implemented in-place as an unnamed function 
 (aka. "lambda expression") with the syntax `it => { implementation }`  for an 
 implementation in script mode or `it => [ implementation ]` for an 
 implementation in markup mode. In this more involved example, we define a 
