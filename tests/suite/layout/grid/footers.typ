@@ -458,8 +458,8 @@
   table.footer(
     table.hline(stroke: red),
     table.hline(y: 1, stroke: aqua),
-    // Error: 5-24 cell would cause header or footer to expand to non-empty row 0
-    // Hint: 5-24 try moving its cells to later rows
+    // Error: 5-24 cell would cause footer to expand to non-empty row 0
+    // Hint: 5-24 try moving its cells to available rows
     table.cell(y: 0)[b],
     [c]
   )
@@ -474,8 +474,8 @@
   table.cell(y: 1)[a],
   table.footer(
     [b], [c],
-    // Error: 6-7 cell would cause header or footer to expand to non-empty row 1
-    // Hint: 6-7 try moving its cells to earlier rows
+    // Error: 6-7 cell would cause footer to expand to non-empty row 1
+    // Hint: 6-7 try moving its cells to available rows
     [d],
   ),
 )
@@ -489,8 +489,8 @@
   table.cell(y: 2)[a],
   table.footer(
     [b], [c],
-    // Error: 5-24 cell would cause header or footer to expand to non-empty row 2
-    // Hint: 5-24 try moving its cells to earlier rows
+    // Error: 5-24 cell would cause footer to expand to non-empty row 2
+    // Hint: 5-24 try moving its cells to available rows
     table.cell(y: 3)[d],
   ),
 )
@@ -500,8 +500,8 @@
   columns: 2,
   table.header(),
   table.footer(
-    // Error: 5-24 cell would cause header or footer to expand to non-empty row 0
-    // Hint: 5-24 try moving its cells to later rows
+    // Error: 5-24 cell would cause footer to expand to non-empty row 0
+    // Hint: 5-24 try moving its cells to available rows
     table.cell(y: 0)[a]
   ),
 )

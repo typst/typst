@@ -908,9 +908,19 @@ struct CellGridResolver<'a, 'b, 'x> {
     span: Span,
 }
 
+#[derive(Debug, Clone, Copy)]
 enum RowGroupKind {
     Header,
     Footer,
+}
+
+impl RowGroupKind {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Header => "header",
+            Self::Footer => "footer",
+        }
+    }
 }
 
 struct RowGroupData {
@@ -1456,11 +1466,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
             // Cell's header or footer must expand to include the cell's
             // occupied positions, if possible.
-            if let Some(RowGroupData { range: group_range, .. }) = &mut row_group_data {
+            if let Some(RowGroupData { range: group_range, kind, .. }) =
+                &mut row_group_data
+            {
                 *group_range = Some(
                     expand_row_group(
                         resolved_cells,
                         group_range.as_ref(),
+                        *kind,
                         first_available_row,
                         y,
                         rowspan,
@@ -1683,6 +1696,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 fn expand_row_group(
     resolved_cells: &[Option<Entry<'_>>],
     group_range: Option<&Range<usize>>,
+    group_kind: RowGroupKind,
     first_available_row: usize,
     cell_y: usize,
     rowspan: usize,
@@ -1706,9 +1720,10 @@ fn expand_row_group(
     // 'y = 1' is the earliest row it can occupy.
     if new_group_start < first_available_row {
         bail!(
-            "cell would cause header or footer to expand to non-empty row {}",
+            "cell would cause {} to expand to non-empty row {}",
+            group_kind.name(),
             first_available_row.saturating_sub(1);
-            hint: "try moving its cells to later rows"
+            hint: "try moving its cells to available rows"
         );
     }
 
@@ -1770,23 +1785,11 @@ fn expand_row_group(
             .map(|cells| &cells[..columns.min(cells.len())])
         {
             if new_row.iter().any(Option::is_some) {
-                // TODO:
-                // - Later/earlier rows might be confusing
-                // (moving to the end always works...)
-                // - Detect when header or footer collided with
-                // another header or footer and provide a
-                // better error message if so.
-                if group_range.is_none_or(|r| new_y < r.start) {
-                    bail!(
-                        "cell would cause header or footer to expand to non-empty row {new_y}";
-                        hint: "try moving its cells to later rows"
-                    );
-                } else {
-                    bail!(
-                        "cell would cause header or footer to expand to non-empty row {new_y}";
-                        hint: "try moving its cells to earlier rows"
-                    );
-                }
+                bail!(
+                    "cell would cause {} to expand to non-empty row {new_y}",
+                    group_kind.name();
+                    hint: "try moving its cells to available rows",
+                )
             }
         } else {
             // Received 'None' or an empty slice, so we are expanding the
