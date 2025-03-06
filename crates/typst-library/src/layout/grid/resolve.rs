@@ -1048,6 +1048,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         ))
     }
 
+    /// Resolve a grid child, which can be a header, a footer (both of which
+    /// are row groups, and thus contain multiple grid items inside them), or
+    /// a grid item - a cell, an hline or a vline.
+    ///
+    /// This process consists of placing the child and any sub-items into
+    /// appropriate positions in the resolved grid. This is mostly relevant for
+    /// items without fixed positions, such that they must be placed after the
+    /// previous one, perhaps skipping existing cells along the way.
     #[allow(clippy::too_many_arguments)]
     fn resolve_grid_child<T, I>(
         &mut self,
