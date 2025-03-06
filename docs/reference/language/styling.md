@@ -81,7 +81,7 @@ When several rules refering to the same parameter occur in the same scope,
 each one overrides the previous specification. Modifications applied outside 
 of any scope, i.e. at the top level of the document, remain active during the 
 entire typesetting process unless they are explicitly overridden. These global 
-settings are usually provided by a [style template]($making-a-template).
+settings are usually provided by a [style template]($tutorial/making-a-template).
 
 Now, let's delve into the details of set and show rules.
 
