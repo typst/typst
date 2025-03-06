@@ -151,3 +151,7 @@
 --- symbol-sect-deprecated ---
 // Warning: 5-9 `sect` is deprecated, use `inter` instead
 $ A sect B = A inter B $
+
+--- issue-5930-symbol-label ---
+#emoji.face<lab>
+#context test(query(<lab>).first().text, "😀")
