@@ -198,7 +198,7 @@ impl PackageStorage {
         //
         // To avoid name clashing we use PRNG to get unique directory name.
         let extracted_package_dir = package_base_dir.join(format!(
-            ".cache-{}-{}-{}",
+            ".tmp-{}-{}-{}",
             spec.name,
             spec.version,
             rand::random::<u32>()
