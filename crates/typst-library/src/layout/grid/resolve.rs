@@ -671,14 +671,14 @@ impl<'a> CellGrid<'a> {
         let mut rows = vec![];
 
         // Number of content columns: Always at least one.
-        let c = tracks.x.len().max(1);
+        let columns = tracks.x.len().max(1);
 
         // Number of content rows: At least as many as given, but also at least
         // as many as needed to place each item.
         let r = {
             let len = entries.len();
             let given = tracks.y.len();
-            let needed = len / c + (len % c).clamp(0, 1);
+            let needed = len / columns + (len % columns).clamp(0, 1);
             given.max(needed)
         };
 
@@ -690,7 +690,7 @@ impl<'a> CellGrid<'a> {
         };
 
         // Collect content and gutter columns.
-        for x in 0..c {
+        for x in 0..columns {
             cols.push(get_or(tracks.x, x, auto));
             if has_gutter {
                 cols.push(get_or(gutter.x, x, zero));
@@ -987,24 +987,18 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // automatically-positioned cell.
         let mut auto_index: usize = 0;
 
-        // We have to rebuild the grid to account for arbitrary positions.
+        // We have to rebuild the grid to account for fixed cell positions.
+        //
         // Create at least 'children.len()' positions, since there could be at
         // least 'children.len()' cells (if no explicit lines were specified),
-        // even though some of them might be placed in arbitrary positions and
-        // thus cause the grid to expand.
+        // even though some of them might be placed in fixed positions and thus
+        // cause the grid to expand.
         //
         // Additionally, make sure we allocate up to the next multiple of
         // 'columns', since each row will have 'columns' cells, even if the
         // last few cells weren't explicitly specified by the user.
-        //
-        // We apply '% columns' twice so that the amount of cells potentially
-        // missing is zero when 'children.len()' is already a multiple of
-        // 'columns' (thus 'children.len() % columns' would be zero).
         let children = children.into_iter();
-        let Some(child_count) = children
-            .len()
-            .checked_add((columns - children.len() % columns) % columns)
-        else {
+        let Some(child_count) = children.len().checked_next_multiple_of(columns) else {
             bail!(self.span, "too many cells or lines were given")
         };
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(child_count);
@@ -1057,7 +1051,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
     #[allow(clippy::too_many_arguments)]
     fn resolve_grid_child<T, I>(
         &mut self,
-        c: usize,
+        columns: usize,
         pending_hlines: &mut Vec<(Span, Line, bool)>,
         pending_vlines: &mut Vec<(Span, Line)>,
         header: &mut Option<Header>,
@@ -1111,7 +1105,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 *repeat_header = repeat;
 
                 first_available_row =
-                    find_next_empty_row(resolved_cells, local_auto_index, c);
+                    find_next_empty_row(resolved_cells, local_auto_index, columns);
 
                 // If any cell in the header is automatically positioned,
                 // have it skip to the next empty row. This is to avoid
@@ -1122,7 +1116,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // latest auto-position cell, since each auto-position cell
                 // always occupies the first available position after the
                 // previous one. Therefore, this will be >= auto_index.
-                local_auto_index = first_available_row * c;
+                local_auto_index = first_available_row * columns;
 
                 (Some(items), None)
             }
@@ -1137,9 +1131,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 *repeat_footer = repeat;
 
                 first_available_row =
-                    find_next_empty_row(resolved_cells, local_auto_index, c);
+                    find_next_empty_row(resolved_cells, local_auto_index, columns);
 
-                local_auto_index = first_available_row * c;
+                local_auto_index = first_available_row * columns;
 
                 (Some(items), None)
             }
@@ -1159,7 +1153,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         skip_auto_index_through_fully_merged_rows(
                             resolved_cells,
                             &mut local_auto_index,
-                            c,
+                            columns,
                         );
 
                         // When no 'y' is specified for the hline, we place
@@ -1184,7 +1178,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // that header's first row. Similarly for footers.
                         local_auto_index
                             .checked_sub(1)
-                            .map_or(0, |last_auto_index| last_auto_index / c + 1)
+                            .map_or(0, |last_auto_index| last_auto_index / columns + 1)
                     });
                     if end.is_some_and(|end| end.get() < start) {
                         bail!(span, "line cannot end before it starts");
@@ -1233,8 +1227,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // automatically positioned cell. Same for footers.
                         local_auto_index
                             .checked_sub(1)
-                            .filter(|_| local_auto_index > first_available_row * c)
-                            .map_or(0, |last_auto_index| last_auto_index % c + 1)
+                            .filter(|_| local_auto_index > first_available_row * columns)
+                            .map_or(0, |last_auto_index| last_auto_index % columns + 1)
                     });
                     if end.is_some_and(|end| end.get() < start) {
                         bail!(span, "line cannot end before it starts");
@@ -1267,15 +1261,15 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     resolved_cells,
                     &mut local_auto_index,
                     first_available_row,
-                    c,
+                    columns,
                     row_group_data.is_some(),
                 )
                 .at(cell_span)?
             };
-            let x = resolved_index % c;
-            let y = resolved_index / c;
+            let x = resolved_index % columns;
+            let y = resolved_index / columns;
 
-            if colspan > c - x {
+            if colspan > columns - x {
                 bail!(
                     cell_span,
                     "cell's colspan would cause it to exceed the available column(s)";
@@ -1283,7 +1277,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 )
             }
 
-            let Some(largest_index) = c
+            let Some(largest_index) = columns
                 .checked_mul(rowspan - 1)
                 .and_then(|full_rowspan_offset| {
                     resolved_index.checked_add(full_rowspan_offset)
@@ -1310,7 +1304,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         first_available_row,
                         y,
                         rowspan,
-                        c,
+                        columns,
                     )
                     .at(cell_span)?,
                 );
@@ -1322,7 +1316,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
             if largest_index >= resolved_cells.len() {
                 // Ensure the length of the vector of resolved cells is
-                // always a multiple of 'c' by pushing full rows every
+                // always a multiple of 'columns' by pushing full rows every
                 // time. Here, we add enough absent positions (later
                 // converted to empty cells) to ensure the last row in the
                 // new vector length is completely filled. This is
@@ -1332,7 +1326,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // resolved as empty cells in a second loop below.
                 let Some(new_len) = largest_index
                     .checked_add(1)
-                    .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
+                    .and_then(|new_len| new_len.checked_next_multiple_of(columns))
                 else {
                     bail!(cell_span, "cell position too large")
                 };
@@ -1367,7 +1361,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             // pointing to the original cell as its parent.
             for rowspan_offset in 0..rowspan {
                 let spanned_y = y + rowspan_offset;
-                let first_row_index = resolved_index + c * rowspan_offset;
+                let first_row_index = resolved_index + columns * rowspan_offset;
                 for (colspan_offset, slot) in
                     resolved_cells[first_row_index..][..colspan].iter_mut().enumerate()
                 {
@@ -1395,13 +1389,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 None => {
                     // Empty header/footer: consider the header/footer to be
                     // at the next empty row after the latest auto index.
-                    local_auto_index = first_available_row * c;
+                    local_auto_index = first_available_row * columns;
                     let group_start = first_available_row;
                     let group_end = group_start + 1;
 
-                    if resolved_cells.len() <= c * group_start {
+                    if resolved_cells.len() <= columns * group_start {
                         // Ensure the automatically chosen row actually exists.
-                        resolved_cells.resize_with(c * (group_start + 1), || None);
+                        resolved_cells.resize_with(columns * (group_start + 1), || None);
                     }
 
                     // Even though this header or footer is fully empty, we add one
