@@ -326,7 +326,10 @@ fn visit_math_rules<'a>(
         // Symbols in non-math content transparently convert to `TextElem` so we
         // don't have to handle them in non-math layout.
         if let Some(elem) = content.to_packed::<SymbolElem>() {
-            let text = TextElem::packed(elem.text).spanned(elem.span());
+            let mut text = TextElem::packed(elem.text).spanned(elem.span());
+            if let Some(label) = elem.label() {
+                text.set_label(label);
+            }
             visit(s, s.store(text), styles)?;
             return Ok(true);
         }
