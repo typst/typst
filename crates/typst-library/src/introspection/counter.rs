@@ -229,10 +229,10 @@ impl Counter {
         if self.is_page() {
             let at_delta =
                 engine.introspector.page(location).get().saturating_sub(at_page.get());
-            at_state.step(NonZeroUsize::ONE, at_delta);
+            at_state.step(NonZeroUsize::ONE, at_delta as u64);
             let final_delta =
                 engine.introspector.pages().get().saturating_sub(final_page.get());
-            final_state.step(NonZeroUsize::ONE, final_delta);
+            final_state.step(NonZeroUsize::ONE, final_delta as u64);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
     }
@@ -250,7 +250,7 @@ impl Counter {
         if self.is_page() {
             let delta =
                 engine.introspector.page(location).get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta);
+            state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
     }
@@ -319,7 +319,7 @@ impl Counter {
 
                 let delta = page.get() - prev.get();
                 if delta > 0 {
-                    state.step(NonZeroUsize::ONE, delta);
+                    state.step(NonZeroUsize::ONE, delta as u64);
                 }
             }
 
@@ -500,7 +500,7 @@ impl Counter {
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
             let delta = engine.introspector.pages().get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta);
+            state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
     }
@@ -616,13 +616,13 @@ pub trait Count {
 
 /// Counts through elements with different levels.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct CounterState(pub SmallVec<[usize; 3]>);
+pub struct CounterState(pub SmallVec<[u64; 3]>);
 
 impl CounterState {
     /// Get the initial counter state for the key.
     pub fn init(page: bool) -> Self {
         // Special case, because pages always start at one.
-        Self(smallvec![usize::from(page)])
+        Self(smallvec![u64::from(page)])
     }
 
     /// Advance the counter and return the numbers for the given heading.
@@ -645,7 +645,7 @@ impl CounterState {
     }
 
     /// Advance the number of the given level by the specified amount.
-    pub fn step(&mut self, level: NonZeroUsize, by: usize) {
+    pub fn step(&mut self, level: NonZeroUsize, by: u64) {
         let level = level.get();
 
         while self.0.len() < level {
@@ -657,7 +657,7 @@ impl CounterState {
     }
 
     /// Get the first number of the state.
-    pub fn first(&self) -> usize {
+    pub fn first(&self) -> u64 {
         self.0.first().copied().unwrap_or(1)
     }
 
@@ -675,7 +675,7 @@ impl CounterState {
 cast! {
     CounterState,
     self => Value::Array(self.0.into_iter().map(IntoValue::into_value).collect()),
-    num: usize => Self(smallvec![num]),
+    num: u64 => Self(smallvec![num]),
     array: Array => Self(array
         .into_iter()
         .map(Value::cast)
@@ -758,7 +758,7 @@ impl Show for Packed<CounterDisplayElem> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ManualPageCounter {
     physical: NonZeroUsize,
-    logical: usize,
+    logical: u64,
 }
 
 impl ManualPageCounter {
@@ -773,7 +773,7 @@ impl ManualPageCounter {
     }
 
     /// Get the current logical page counter state.
-    pub fn logical(&self) -> usize {
+    pub fn logical(&self) -> u64 {
         self.logical
     }
 

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::num::NonZeroUsize;
+use std::num::NonZeroU64;
 
 use ecow::EcoString;
 use pdf_writer::types::{ActionType, AnnotationFlags, AnnotationType, NumberingStyle};
@@ -48,7 +48,7 @@ pub fn traverse_pages(
                     // the real (not logical) page numbers. Here, the final PDF page number
                     // will differ, but we can at least use labels to indicate what was
                     // the corresponding real page number in the Typst document.
-                    (skipped_pages > 0).then(|| PdfPageLabel::arabic(i + 1))
+                    (skipped_pages > 0).then(|| PdfPageLabel::arabic((i + 1) as u64))
                 });
             pages.push(Some(encoded));
         }
@@ -219,7 +219,7 @@ pub(crate) struct PdfPageLabel {
     ///
     /// Describes where to start counting from when setting a style.
     /// (Has to be greater or equal than 1)
-    pub offset: Option<NonZeroUsize>,
+    pub offset: Option<NonZeroU64>,
 }
 
 /// A PDF page label number style.
@@ -242,7 +242,7 @@ pub enum PdfPageLabelStyle {
 impl PdfPageLabel {
     /// Create a new `PdfNumbering` from a `Numbering` applied to a page
     /// number.
-    fn generate(numbering: &Numbering, number: usize) -> Option<PdfPageLabel> {
+    fn generate(numbering: &Numbering, number: u64) -> Option<PdfPageLabel> {
         let Numbering::Pattern(pat) = numbering else {
             return None;
         };
@@ -275,18 +275,18 @@ impl PdfPageLabel {
             (!prefix.is_empty()).then(|| prefix.clone())
         };
 
-        let offset = style.and(NonZeroUsize::new(number));
+        let offset = style.and(NonZeroU64::new(number));
         Some(PdfPageLabel { prefix, style, offset })
     }
 
     /// Creates an arabic page label with the specified page number.
     /// For example, this will display page label `11` when given the page
     /// number 11.
-    fn arabic(number: usize) -> PdfPageLabel {
+    fn arabic(number: u64) -> PdfPageLabel {
         PdfPageLabel {
             prefix: None,
             style: Some(PdfPageLabelStyle::Arabic),
-            offset: NonZeroUsize::new(number),
+            offset: NonZeroU64::new(number),
         }
     }
 }
