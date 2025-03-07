@@ -347,6 +347,23 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             .unwrap_or(false);
 
         let mut stick_to_successor = || {
+            // If the frame is sticky and we haven't remembered a preceding
+            // sticky element, make a checkpoint which we can restore should we
+            // end on this sticky element.
+            //
+            // The first sticky block within consecutive sticky blocks
+            // determines whether this group of sticky blocks has stickiness
+            // disabled or not.
+            //
+            // The criteria used here is: if migrating this group of sticky
+            // blocks together with the "attached" block can't improve the lack
+            // of space, since we're at the start of the region, then we don't
+            // do so, and stickiness is disabled (at least, for this region).
+            // Otherwise, migration is allowed.
+            //
+            // Note that, since the whole region is checked, this ensures sticky
+            // blocks at the top of a block - but not necessarily of the page -
+            // can still be migrated.
             if self.sticky.is_none()
                 && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
             {
