@@ -25,6 +25,7 @@ struct Repr {
     dynamic: image::DynamicImage,
     icc: Option<Bytes>,
     dpi: Option<f64>,
+    source_color_type: image::ExtendedColorType,
 }
 
 impl RasterImage {
@@ -50,13 +51,18 @@ impl RasterImage {
         format: RasterFormat,
         icc: Smart<Bytes>,
     ) -> StrResult<RasterImage> {
-        let (dynamic, icc, dpi) = match format {
+        let (dynamic, icc, dpi, source_color_type) = match format {
             RasterFormat::Exchange(format) => {
                 fn decode<T: ImageDecoder>(
                     decoder: ImageResult<T>,
                     icc: Smart<Bytes>,
-                ) -> ImageResult<(image::DynamicImage, Option<Bytes>)> {
+                ) -> ImageResult<(
+                    image::DynamicImage,
+                    Option<Bytes>,
+                    image::ExtendedColorType,
+                )> {
                     let mut decoder = decoder?;
+                    let source_color_type = decoder.original_color_type();
                     let icc = icc.custom().or_else(|| {
                         decoder
                             .icc_profile()
@@ -67,11 +73,11 @@ impl RasterImage {
                     });
                     decoder.set_limits(Limits::default())?;
                     let dynamic = image::DynamicImage::from_decoder(decoder)?;
-                    Ok((dynamic, icc))
+                    Ok((dynamic, icc, source_color_type))
                 }
 
                 let cursor = io::Cursor::new(&data);
-                let (mut dynamic, icc) = match format {
+                let (mut dynamic, icc, source_color_type) = match format {
                     ExchangeFormat::Jpg => decode(JpegDecoder::new(cursor), icc),
                     ExchangeFormat::Png => decode(PngDecoder::new(cursor), icc),
                     ExchangeFormat::Gif => decode(GifDecoder::new(cursor), icc),
@@ -90,7 +96,7 @@ impl RasterImage {
                 // Extract pixel density.
                 let dpi = determine_dpi(&data, exif.as_ref());
 
-                (dynamic, icc, dpi)
+                (dynamic, icc, dpi, source_color_type)
             }
 
             RasterFormat::Pixel(format) => {
@@ -125,18 +131,19 @@ impl RasterImage {
                         .unwrap()
                 }
 
-                let dynamic = match format.encoding {
+                let dynamic: image::DynamicImage = match format.encoding {
                     PixelEncoding::Rgb8 => to::<image::Rgb<u8>>(&data, format).into(),
                     PixelEncoding::Rgba8 => to::<image::Rgba<u8>>(&data, format).into(),
                     PixelEncoding::Luma8 => to::<image::Luma<u8>>(&data, format).into(),
                     PixelEncoding::Lumaa8 => to::<image::LumaA<u8>>(&data, format).into(),
                 };
+                let source_color_type = dynamic.color().into();
 
-                (dynamic, icc.custom(), None)
+                (dynamic, icc.custom(), None, source_color_type)
             }
         };
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi, source_color_type })))
     }
 
     /// The raw image data.
@@ -174,6 +181,11 @@ impl RasterImage {
     /// Access the ICC profile, if any.
     pub fn icc(&self) -> Option<&Bytes> {
         self.0.icc.as_ref()
+    }
+
+    /// The output color type the image is encoded in.
+    pub fn source_color_type(&self) -> image::ExtendedColorType {
+        self.0.source_color_type
     }
 }
 
