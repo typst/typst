@@ -188,6 +188,7 @@ fn changelog_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("changelog/welcome.md"));
     let base = format!("{}changelog/", resolver.base());
     page.children = vec![
+        md_page(resolver, &base, load!("changelog/0.13.1.md")),
         md_page(resolver, &base, load!("changelog/0.13.0.md")),
         md_page(resolver, &base, load!("changelog/0.12.0.md")),
         md_page(resolver, &base, load!("changelog/0.11.1.md")),
