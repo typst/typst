@@ -166,13 +166,13 @@ F
 --- block-sticky-many ---
 #set page(height: 80pt)
 #set block(sticky: "below")
-#block[A]
-#block[B]
-#block[C]
-#block[D]
+#block(breakable: false)[A]
+#block(breakable: false)[B]
+#block(breakable: false)[C]
+#block(breakable: false)[D]
 E
-#block[F]
-#block[G]
+#block(breakable: false)[F]
+#block(breakable: false)[G]
 
 --- block-sticky-colbreak ---
 A
