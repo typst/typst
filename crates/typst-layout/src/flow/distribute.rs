@@ -336,12 +336,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             .iter()
             .skip(1)
             .find_map(|child| match child {
-                Child::Single(single) => {
-                    Some(single.sticky.as_ref().map(|s| s.is_sticky_above()).unwrap_or(false))
-                }
-                Child::Multi(multi) => {
-                    Some(multi.sticky.as_ref().map(|s| s.is_sticky_above()).unwrap_or(false))
-                }
+                Child::Single(single) => Some(
+                    single.sticky.as_ref().map(|s| s.is_sticky_above()).unwrap_or(false),
+                ),
+                Child::Multi(multi) => Some(
+                    multi.sticky.as_ref().map(|s| s.is_sticky_above()).unwrap_or(false),
+                ),
                 _ => None,
             })
             .unwrap_or(false);

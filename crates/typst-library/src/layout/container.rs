@@ -396,7 +396,7 @@ pub struct BlockElem {
     ///
     /// = Chapter
     /// #lorem(10)
-    /// 
+    ///
     /// #table(
     /// columns: 2,
     /// [A], [B],
