@@ -1,9 +1,7 @@
-use ecow::EcoString;
-
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Construct, Content, NativeElement, Packed, Repr, Smart,
+    cast, elem, Args, AutoValue, Cast, Construct, Content, NativeElement, Packed, Smart,
     StyleChain, Value,
 };
 use crate::introspection::Locator;
@@ -182,7 +180,7 @@ pub enum InlineItem {
 }
 
 /// Defines how a block sticks to adjacent content.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Cast, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Sticky {
     /// Block sticks to the content below it.
     Below,
@@ -190,27 +188,6 @@ pub enum Sticky {
     Above,
     /// Makes the block above and below stick to this block.
     Both,
-}
-
-impl Repr for Sticky {
-    fn repr(&self) -> EcoString {
-        match self {
-            Self::Below => "below".into(),
-            Self::Above => "above".into(),
-            Self::Both => "both".into(),
-        }
-    }
-}
-
-cast! {
-    Sticky,
-    self => self.repr().into_value(),
-    s: EcoString => match s.as_str() {
-        "below" => Self::Below,
-        "above" => Self::Above,
-        "both" => Self::Both,
-        _ => bail!("invalid sticky value"),
-    },
 }
 
 impl Sticky {
