@@ -20,10 +20,15 @@ pub const DEFAULT_NAMESPACE: &str = "preview";
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
+/// The default vendor sub directory within the project root.
+pub const DEFAULT_VENDOR_SUBDIR: &str = "vendor";
+
 /// Holds information about where packages should be stored and downloads them
 /// on demand, if possible.
 #[derive(Debug)]
 pub struct PackageStorage {
+    /// The path at which packages are stored by the vendor command.
+    package_vendor_path: Option<PathBuf>,
     /// The path at which non-local packages should be stored when downloaded.
     package_cache_path: Option<PathBuf>,
     /// The path at which local packages are stored.
@@ -38,9 +43,11 @@ impl PackageStorage {
     /// Creates a new package storage for the given package paths. Falls back to
     /// the recommended XDG directories if they are `None`.
     pub fn new(
+        package_vendor_path: Option<PathBuf>,
         package_cache_path: Option<PathBuf>,
         package_path: Option<PathBuf>,
         downloader: Downloader,
+        workdir: Option<PathBuf>,
     ) -> Self {
         Self::with_index(package_cache_path, package_path, downloader, OnceCell::new())
     }
@@ -55,6 +62,8 @@ impl PackageStorage {
         index: OnceCell<Vec<serde_json::Value>>,
     ) -> Self {
         Self {
+            package_vendor_path: package_vendor_path
+                .or_else(|| workdir.map(|workdir| workdir.join(DEFAULT_VENDOR_SUBDIR))),
             package_cache_path: package_cache_path.or_else(|| {
                 dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
             }),
@@ -84,6 +93,16 @@ impl PackageStorage {
         progress: &mut dyn Progress,
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
+
+        // Read from vendor dir if it exists.
+        if let Some(vendor_dir) = &self.package_vendor_path {
+            if let Ok(true) = vendor_dir.try_exists() {
+                let dir = vendor_dir.join(&subdir);
+                if dir.exists() {
+                    return Ok(dir);
+                }
+            }
+        }
 
         if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);
