@@ -77,7 +77,7 @@ using the lazy interface would only need to traverse each node once, improving
 throughput at the cost of initial latency and development flexibility.
 */
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroUsize, ParseIntError};
 use std::ops::Deref;
 use std::path::Path;
 use std::str::FromStr;
@@ -85,6 +85,7 @@ use std::str::FromStr;
 use ecow::EcoString;
 use unscanny::Scanner;
 
+use crate::lexer::ignore_underscores;
 use crate::package::PackageSpec;
 use crate::{is_ident, is_newline, Span, SyntaxKind, SyntaxNode};
 
@@ -1130,16 +1131,24 @@ impl Int<'_> {
     pub fn get(self) -> i64 {
         let text = self.0.text();
         if let Some(rest) = text.strip_prefix("0x") {
-            i64::from_str_radix(rest, 16)
+            int_from_str_radix_ignoring_underscores(rest, 16)
         } else if let Some(rest) = text.strip_prefix("0o") {
-            i64::from_str_radix(rest, 8)
+            int_from_str_radix_ignoring_underscores(rest, 8)
         } else if let Some(rest) = text.strip_prefix("0b") {
-            i64::from_str_radix(rest, 2)
+            int_from_str_radix_ignoring_underscores(rest, 2)
         } else {
-            text.parse()
+            int_from_str_radix_ignoring_underscores(text, 10)
         }
         .unwrap_or_default()
     }
+}
+
+fn int_from_str_radix_ignoring_underscores(
+    s: &str,
+    radix: u32,
+) -> Result<i64, ParseIntError> {
+    let s = ignore_underscores(s);
+    i64::from_str_radix(&s, radix)
 }
 
 node! {
@@ -1150,7 +1159,8 @@ node! {
 impl Float<'_> {
     /// Get the floating-point value.
     pub fn get(self) -> f64 {
-        self.0.text().parse().unwrap_or_default()
+        let s = ignore_underscores(self.0.text());
+        s.parse().unwrap_or_default()
     }
 }
 

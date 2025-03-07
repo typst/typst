@@ -7,10 +7,14 @@
 --- int-base-binary-invalid ---
 // Error: 2-7 invalid binary number: 0b123
 #0b123
+// Error: 2-8 invalid binary number: 0b1_23
+#0b1_23
 
 --- int-base-hex-invalid ---
 // Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
+// Error: 2-9 invalid hexadecimal number: 0x12_3z
+#0x12_3z
 
 --- int-constructor ---
 // Test conversion to numbers.
@@ -108,3 +112,17 @@
 --- number-invalid-suffix ---
 // Error: 2-4 invalid number suffix: u
 #1u
+
+--- int-digit-separators ---
+// Test digit separators in integer litereals.
+
+#test(123_456_789, 123456789)
+#test(0b0101_1010, 90)
+#test(0x1234_5678, 305419896)
+#test(0o222_333_444, 38385444)
+
+--- number-invalid-underscore ---
+// Error: 2-5 number literals may not start or end with an underscore
+#12_
+// Error: 2-7 number literals may not start or end with an underscore
+#0x_1A

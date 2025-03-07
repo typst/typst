@@ -115,3 +115,8 @@
 #.1E-
 // Error: 2-4 invalid number: 0e
 #0e
+
+--- float-digit-separators ---
+// Test digit separators in float litereals.
+
+#test(1_234.567_890, 1234.56789)
