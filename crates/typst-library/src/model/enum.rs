@@ -129,7 +129,7 @@ pub struct EnumElem {
     ///   [Ahead],
     /// )
     /// ```
-    pub start: Smart<usize>,
+    pub start: Smart<u64>,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -217,7 +217,7 @@ pub struct EnumElem {
     #[internal]
     #[fold]
     #[ghost]
-    pub parents: SmallVec<[usize; 4]>,
+    pub parents: SmallVec<[u64; 4]>,
 }
 
 #[scope]
@@ -274,7 +274,7 @@ impl Show for Packed<EnumElem> {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<usize>,
+    pub number: Option<u64>,
 
     /// The item's body.
     #[required]
