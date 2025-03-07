@@ -14,7 +14,7 @@ use typst_library::introspection::{
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem,
     Fr, Fragment, Frame, PagebreakElem, PlaceElem, PlacementScope, Ratio, Region,
-    Regions, Rel, Size, Sizing, Spacing, VElem,
+    Regions, Rel, Size, Sizing, Spacing, Sticky, VElem,
 };
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
@@ -375,7 +375,7 @@ pub struct LineChild {
 #[derive(Debug)]
 pub struct SingleChild<'a> {
     pub align: Axes<FixedAlignment>,
-    pub sticky: bool,
+    pub sticky: Option<Sticky>,
     pub alone: bool,
     pub fr: Option<Fr>,
     elem: &'a Packed<BlockElem>,
@@ -441,7 +441,7 @@ fn layout_single_impl(
 #[derive(Debug)]
 pub struct MultiChild<'a> {
     pub align: Axes<FixedAlignment>,
-    pub sticky: bool,
+    pub sticky: Option<Sticky>,
     alone: bool,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,

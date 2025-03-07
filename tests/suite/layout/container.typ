@@ -155,17 +155,17 @@ Paragraph
 --- block-sticky ---
 #set page(height: 100pt)
 #lines(3)
-#block(sticky: true)[D]
-#block(sticky: true)[E]
+#block(sticky: "below")[D]
+#block(sticky: "below")[E]
 F
 
 --- block-sticky-alone ---
 #set page(height: 50pt)
-#block(sticky: true)[A]
+#block(sticky: "below")[A]
 
 --- block-sticky-many ---
 #set page(height: 80pt)
-#set block(sticky: true)
+#set block(sticky: "below")
 #block[A]
 #block[B]
 #block[C]
@@ -176,15 +176,21 @@ E
 
 --- block-sticky-colbreak ---
 A
-#block(sticky: true)[B]
+#block(sticky: "below")[B]
 #colbreak()
 C
 
 --- block-sticky-breakable ---
 // Ensure that sticky blocks are still breakable.
 #set page(height: 60pt)
-#block(sticky: true, lines(4))
+#block(sticky: "below", lines(4))
 E
+
+--- block-sticky-above ---
+#set page(height: 50pt)
+#block(height: 15pt)[A]
+#block(height: 5pt, breakable: false)[B]
+#block(height: 5pt, sticky: "above")[C]
 
 --- box-clip-rect ---
 // Test box clipping with a rectangle
@@ -291,7 +297,7 @@ Paragraph
 #set page(height: 3cm)
 #v(1.6cm)
 #block(height: 2cm, breakable: true)[
-  #block(sticky: true)[*A*]
+  #block(sticky: "below")[*A*]
 
   b
 ]
@@ -300,7 +306,7 @@ Paragraph
 #set page(height: 3cm)
 #v(2cm)
 
-#block(sticky: true)[*A*]
+#block(sticky: "below")[*A*]
 
 b
 
@@ -308,7 +314,7 @@ b
 #set page(height: 3cm)
 #v(2cm, weak: true)
 
-#block(sticky: true)[*A*]
+#block(sticky: "below")[*A*]
 
 b
 

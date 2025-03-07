@@ -1,6 +1,7 @@
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel, Size,
+    Sticky,
 };
 use typst_utils::Numeric;
 
@@ -244,7 +245,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        self.frame(line.frame.clone(), line.align, false, false)
+        self.frame(line.frame.clone(), line.align, None, false)
     }
 
     /// Processes an unbreakable block.
@@ -307,7 +308,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Lay out the spilled remains.
         let align = spill.align();
         let (frame, spill) = spill.layout(self.composer.engine, self.regions)?;
-        self.frame(frame, align, false, true)?;
+        self.frame(frame, align, None, true)?;
 
         // If there's still more, save it into the `spill` and finish the
         // region.
@@ -324,38 +325,49 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         &mut self,
         frame: Frame,
         align: Axes<FixedAlignment>,
-        sticky: bool,
+        sticky: Option<Sticky>,
         breakable: bool,
     ) -> FlowResult<()> {
-        if sticky {
-            // If the frame is sticky and we haven't remembered a preceding
-            // sticky element, make a checkpoint which we can restore should we
-            // end on this sticky element.
-            //
-            // The first sticky block within consecutive sticky blocks
-            // determines whether this group of sticky blocks has stickiness
-            // disabled or not.
-            //
-            // The criteria used here is: if migrating this group of sticky
-            // blocks together with the "attached" block can't improve the lack
-            // of space, since we're at the start of the region, then we don't
-            // do so, and stickiness is disabled (at least, for this region).
-            // Otherwise, migration is allowed.
-            //
-            // Note that, since the whole region is checked, this ensures sticky
-            // blocks at the top of a block - but not necessarily of the page -
-            // can still be migrated.
+        // Check if the successor frame has sticky: above
+        let has_sticky_successor = self
+            .composer
+            .work
+            .children
+            .iter()
+            .skip(1)
+            .find_map(|child| match child {
+                Child::Single(single) => {
+                    Some(single.sticky.as_ref().map(|s| s.is_sticky_above()).unwrap_or(false))
+                }
+                Child::Multi(multi) => {
+                    Some(multi.sticky.as_ref().map(|s| s.is_sticky_above()).unwrap_or(false))
+                }
+                _ => None,
+            })
+            .unwrap_or(false);
+
+        let mut stick_to_successor = || {
             if self.sticky.is_none()
                 && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
             {
                 self.sticky = Some(self.snapshot());
             }
-        } else if !frame.is_empty() {
-            // If the frame isn't sticky, we can forget a previous snapshot. We
-            // interrupt a group of sticky blocks, if there was one, so we reset
-            // the saved stickable check for the next group of sticky blocks.
-            self.sticky = None;
-            self.stickable = None;
+        };
+
+        match sticky {
+            Some(Sticky::Below) => {
+                stick_to_successor();
+            }
+            _ if has_sticky_successor => {
+                stick_to_successor();
+            }
+            _ => {
+                // Only clear the snapshot if this frame isn't empty
+                if !frame.is_empty() {
+                    self.sticky = None;
+                    self.stickable = None;
+                }
+            }
         }
 
         // Handle footnotes.
@@ -443,7 +455,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // the flow, restore the saved checkpoint to move the sticky
             // suffix to the next region.
             if let Some(snapshot) = self.sticky.take() {
-                self.restore(snapshot)
+                // Only restore snapshot if there's no spill
+                // If a sticky breakable element can be spilled to the following page,
+                // it's fine to put some of it on this page, since the next page will still
+                // have the next element on the same page as *some* of the spilled content.
+                if self.composer.work.spill.is_none() {
+                    self.restore(snapshot)
+                }
             }
         }
 
