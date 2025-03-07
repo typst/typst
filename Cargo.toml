@@ -4,7 +4,7 @@ default-members = ["crates/typst-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.13.0"
+version = "0.13.1"
 rust-version = "1.83" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"
@@ -16,24 +16,24 @@ keywords = ["typst"]
 readme = "README.md"
 
 [workspace.dependencies]
-typst = { path = "crates/typst", version = "0.13.0" }
-typst-cli = { path = "crates/typst-cli", version = "0.13.0" }
-typst-eval = { path = "crates/typst-eval", version = "0.13.0" }
-typst-html = { path = "crates/typst-html", version = "0.13.0" }
-typst-ide = { path = "crates/typst-ide", version = "0.13.0" }
-typst-kit = { path = "crates/typst-kit", version = "0.13.0" }
-typst-layout = { path = "crates/typst-layout", version = "0.13.0" }
-typst-library = { path = "crates/typst-library", version = "0.13.0" }
-typst-macros = { path = "crates/typst-macros", version = "0.13.0" }
-typst-pdf = { path = "crates/typst-pdf", version = "0.13.0" }
-typst-realize = { path = "crates/typst-realize", version = "0.13.0" }
-typst-render = { path = "crates/typst-render", version = "0.13.0" }
-typst-svg = { path = "crates/typst-svg", version = "0.13.0" }
-typst-syntax = { path = "crates/typst-syntax", version = "0.13.0" }
-typst-timing = { path = "crates/typst-timing", version = "0.13.0" }
-typst-utils = { path = "crates/typst-utils", version = "0.13.0" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "fa0f8a4" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "61aebe9" }
+typst = { path = "crates/typst", version = "0.13.1" }
+typst-cli = { path = "crates/typst-cli", version = "0.13.1" }
+typst-eval = { path = "crates/typst-eval", version = "0.13.1" }
+typst-html = { path = "crates/typst-html", version = "0.13.1" }
+typst-ide = { path = "crates/typst-ide", version = "0.13.1" }
+typst-kit = { path = "crates/typst-kit", version = "0.13.1" }
+typst-layout = { path = "crates/typst-layout", version = "0.13.1" }
+typst-library = { path = "crates/typst-library", version = "0.13.1" }
+typst-macros = { path = "crates/typst-macros", version = "0.13.1" }
+typst-pdf = { path = "crates/typst-pdf", version = "0.13.1" }
+typst-realize = { path = "crates/typst-realize", version = "0.13.1" }
+typst-render = { path = "crates/typst-render", version = "0.13.1" }
+typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
+typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
+typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
+typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "9879589" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
