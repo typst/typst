@@ -29,6 +29,7 @@ csv = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
+glidesort = { workspace = true }
 hayagriva = { workspace = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }
