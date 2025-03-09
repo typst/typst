@@ -80,4 +80,13 @@ pub struct FrameElem {
     #[positional]
     #[required]
     pub body: Content,
+
+    #[default(false)]
+    pub inline: bool,
+}
+
+impl FrameElem {
+    pub fn is_inline(&self) -> bool {
+        self.inline.unwrap_or_default()
+    }
 }

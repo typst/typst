@@ -18,7 +18,7 @@ use typst_library::foundations::{
     SequenceElem, Show, ShowSet, Style, StyleChain, StyledElem, Styles, SymbolElem,
     Synthesize, Transformation,
 };
-use typst_library::html::{tag, HtmlElem};
+use typst_library::html::{tag, FrameElem, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -874,9 +874,12 @@ static PAR: GroupingRule = GroupingRule {
             || elem == InlineElem::elem()
             || elem == BoxElem::elem()
             || (kind.is_html()
-                && content
+                && (content
                     .to_packed::<HtmlElem>()
-                    .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
+                    .is_some_and(|elem| tag::is_inline_by_default(elem.tag))
+                    || content
+                        .to_packed::<FrameElem>()
+                        .is_some_and(|elem| elem.is_inline())))
     },
     inner: |content| content.elem() == SpaceElem::elem(),
     interrupt: |elem| elem == ParElem::elem() || elem == AlignElem::elem(),
