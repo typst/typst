@@ -6,9 +6,8 @@ use krilla::error::KrillaError;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
-use krilla::validation::ValidationError;
-use krilla::version::PdfVersion;
 use krilla::{Document, PageSettings, SerializeSettings};
+use krilla::configure::{Configuration, PdfVersion, ValidationError};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
@@ -34,7 +33,7 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
-    let version = get_version(options)?;
+    let configuration = get_configuration(options)?;
 
     let settings = SerializeSettings {
         compress_content_streams: true,
@@ -42,9 +41,8 @@ pub fn convert(
         ascii_compatible: false,
         xmp_metadata: true,
         cmyk_profile: None,
-        validator: options.validator,
+        configuration,
         enable_tagging: false,
-        pdf_version: version,
     };
 
     let mut document = Document::new_with(settings);
@@ -295,7 +293,7 @@ pub(crate) fn handle_group(
     fc.state_mut().pre_concat(group.transform);
 
     let clip_path = group
-        .clip_path
+        .clip
         .as_ref()
         .and_then(|p| {
             let mut builder = PathBuilder::new();
@@ -321,6 +319,8 @@ pub(crate) fn handle_group(
 
 /// Finish a krilla document and handle export errors.
 fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
+    let validator: krilla::configure::Validator = gc.options.validator.into();
+    
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -336,8 +336,9 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 // We can only produce 1 error, so just take the first one.
                 let prefix = format!(
                     "validated export for {} failed:",
-                    gc.options.validator.as_str()
+                    validator.as_str()
                 );
+                
                 match &ve[0] {
                     ValidationError::TooLongString => {
                         bail!(Span::detached(), "{prefix} a PDF string longer \
@@ -407,6 +408,16 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                             hint: "export using a different standard that supports transparency"
                         );
                     }
+                    ValidationError::ImageInterpolation => {
+                        bail!(Span::detached(), "{prefix} document contains an image with smooth interpolation";
+                            hint: "such images are not supported in this export mode"
+                        );
+                    }
+                    ValidationError::EmbeddedFile(_) => {
+                        bail!(Span::detached(), "{prefix} document contains an embedded file";
+                            hint: "embedded files are not supported in this export mode"
+                        );
+                    }
 
                     // The below errors cannot occur yet, only once Typst supports full PDF/A
                     // and PDF/UA.
@@ -423,14 +434,18 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                         bail!(Span::detached(), "{prefix} missing document language";
                             hint: "set the language of the document");
                     }
+                    
                     // Needs to be set by typst-pdf.
                     ValidationError::MissingHeadingTitle => {
                         bail!(Span::detached(), "{prefix} missing heading title";
                             hint: "please report this as a bug");
                     }
-                    // Needs to be set by typst-pdf.
                     ValidationError::MissingDocumentOutline => {
                         bail!(Span::detached(), "{prefix} missing document outline";
+                            hint: "please report this as a bug");
+                    }
+                    ValidationError::MissingTagging => {
+                        bail!(Span::detached(), "{prefix} missing document tags";
                             hint: "please report this as a bug");
                     }
                     ValidationError::NoDocumentTitle => {
@@ -494,21 +509,31 @@ fn collect_named_destinations(
     locs_to_names
 }
 
-fn get_version(options: &PdfOptions) -> SourceResult<PdfVersion> {
-    match options.pdf_version {
-        None => Ok(options.validator.recommended_version()),
-        Some(v) => {
-            if !options.validator.compatible_with_version(v) {
-                let v_string = v.as_str();
-                let s_string = options.validator.as_str();
-                let h_message = format!(
-                    "export using {} instead",
-                    options.validator.recommended_version().as_str()
-                );
-                bail!(Span::detached(), "{v_string} is not compatible with standard {s_string}"; hint: "{h_message}");
-            } else {
-                Ok(v)
+fn get_configuration(options: &PdfOptions) -> SourceResult<Configuration> {
+    let config = match (options.pdf_version, options.validator) {
+        (None, None) => Configuration::new_with_version(PdfVersion::Pdf17),
+        (Some(pdf), None) => Configuration::new_with_version(pdf.into()),
+        (None, Some(v)) => Configuration::new_with_validator(v.into()),
+        (Some(pdf), Some(v)) => {
+            let pdf = pdf.into();
+            let v = v.into();
+
+            match Configuration::new_with(v, pdf) {
+                Some(c) => c,
+                None => {
+                    let pdf_string = pdf.as_str();
+                    let s_string = v.as_str();
+
+                    let h_message = format!(
+                        "export using {} instead",
+                        v.recommended_version().as_str()
+                    );
+
+                    bail!(Span::detached(), "{pdf_string} is not compatible with standard {s_string}"; hint: "{h_message}");
+                }
             }
         }
-    }
+    };
+    
+    Ok(config)
 }

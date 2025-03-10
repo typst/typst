@@ -15,15 +15,78 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::{PageRanges, PagedDocument};
 
-pub use ::krilla::validation::Validator;
-pub use ::krilla::version::PdfVersion;
-
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
     convert::convert(document, options)
+}
+
+/// The version of a PDF document.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PdfVersion {
+    /// PDF 1.4.
+    Pdf14,
+    /// PDF 1.5.
+    Pdf15,
+    /// PDF 1.6.
+    Pdf16,
+    /// PDF 1.7.
+    Pdf17,
+    /// PDF 2.0.
+    Pdf20,
+}
+
+impl From<PdfVersion> for krilla::configure::PdfVersion {
+    fn from(value: PdfVersion) -> Self {
+        match value {
+            PdfVersion::Pdf14 => krilla::configure::PdfVersion::Pdf14,
+            PdfVersion::Pdf15 => krilla::configure::PdfVersion::Pdf15,
+            PdfVersion::Pdf16 => krilla::configure::PdfVersion::Pdf16,
+            PdfVersion::Pdf17 => krilla::configure::PdfVersion::Pdf17,
+            PdfVersion::Pdf20 => krilla::configure::PdfVersion::Pdf20,
+        }
+    }
+}
+
+/// A validator for exporting PDF documents to a specific subset of PDF.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Validator {
+    /// The validator for the PDF/A1-A standard.
+    A1_A,
+    /// The validator for the PDF/A1-B standard.
+    A1_B,
+    /// The validator for the PDF/A2-B standard.
+    A2_B,
+    /// The validator for the PDF/A2-U standard.
+    A2_U,
+    /// The validator for the PDF/A3-B standard.
+    A3_B,
+    /// The validator for the PDF/A3-U standard.
+    A3_U,
+    /// The validator for the PDF/A4 standard.
+    A4,
+    /// The validator for the PDF/A4f standard.
+    A4F,
+    /// The validator for the PDF/A4e standard.
+    A4E,
+}
+
+impl From<Validator> for krilla::configure::Validator {
+    fn from(value: Validator) -> Self {
+        match value {
+            Validator::A1_A => krilla::configure::Validator::A1_A,
+            Validator::A1_B => krilla::configure::Validator::A1_B,
+            Validator::A2_B => krilla::configure::Validator::A2_B,
+            Validator::A2_U => krilla::configure::Validator::A2_U,
+            Validator::A3_B => krilla::configure::Validator::A3_B,
+            Validator::A3_U => krilla::configure::Validator::A3_U,
+            Validator::A4 => krilla::configure::Validator::A4,
+            Validator::A4F => krilla::configure::Validator::A4F,
+            Validator::A4E => krilla::configure::Validator::A4E,
+        }
+    }
 }
 
 /// Settings for PDF export.
@@ -50,7 +113,7 @@ pub struct PdfOptions<'a> {
     /// The version that should be used to export the PDF.
     pub pdf_version: Option<PdfVersion>,
     /// A standard the PDF should conform to.
-    pub validator: Validator,
+    pub validator: Option<Validator>,
 }
 
 /// A timestamp with timezone information.

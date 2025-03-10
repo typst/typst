@@ -22,7 +22,7 @@ pub struct RasterImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     format: RasterFormat,
-    dynamic: image::DynamicImage,
+    dynamic: Arc<DynamicImage>,
     icc: Option<Bytes>,
     dpi: Option<f64>,
 }
@@ -136,7 +136,7 @@ impl RasterImage {
             }
         };
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr { data, format, dynamic: Arc::new(dynamic), icc, dpi })))
     }
 
     /// The raw image data.
@@ -167,7 +167,7 @@ impl RasterImage {
     }
 
     /// Access the underlying dynamic image.
-    pub fn dynamic(&self) -> &image::DynamicImage {
+    pub fn dynamic(&self) -> &Arc<DynamicImage> {
         &self.0.dynamic
     }
 

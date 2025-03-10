@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::surface::Surface;
 use krilla::SvgSettings;
@@ -137,7 +137,7 @@ impl CustomImage for PdfImage {
                 | DynamicImage::ImageRgb8(_)
                 | DynamicImage::ImageRgba8(_)
         ) {
-            self.raster.icc()
+            self.raster.icc().map(|b| b.as_bytes())
         } else {
             // In all other cases, the dynamic will be converted into RGB8 or LUMA8, so the ICC
             // profile may become invalid, and thus we don't include it.
