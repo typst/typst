@@ -70,7 +70,7 @@ if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.6"
-krilla = { path = "../krilla/crates/krilla" }
+krilla = { git = "https://github.com/LaurenzV/krilla", rev="e7006f2", features = ["svg", "raster-images", "comemo", "rayon"] }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"

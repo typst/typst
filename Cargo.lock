@@ -1345,9 +1345,11 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.3.0"
+source = "git+https://github.com/LaurenzV/krilla?rev=e7006f2#e7006f2f0ba598bbe426e8d63306fb2e007c4988"
 dependencies = [
  "base64",
  "bumpalo",
+ "comemo",
  "flate2",
  "float-cmp 0.10.0",
  "fontdb",
@@ -1357,6 +1359,7 @@ dependencies = [
  "miniz_oxide",
  "once_cell",
  "pdf-writer",
+ "rayon",
  "resvg",
  "rustybuzz",
  "siphasher",
