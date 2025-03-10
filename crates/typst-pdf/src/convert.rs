@@ -53,7 +53,7 @@ pub fn convert(
     );
 
     convert_pages(&mut gc, &mut document)?;
-    embed_files(&typst_document, &mut document)?;
+    embed_files(typst_document, &mut document)?;
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
