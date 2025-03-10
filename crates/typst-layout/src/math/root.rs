@@ -85,14 +85,15 @@ pub fn layout_root(
         ascent.set_max(shift_up + index.ascent());
     }
 
-    let radicand_x = sqrt_offset + sqrt.width();
+    let sqrt_x = sqrt_offset.max(Abs::zero());
+    let radicand_x = sqrt_x + sqrt.width();
     let radicand_y = ascent - radicand.ascent();
     let width = radicand_x + radicand.width();
     let size = Size::new(width, ascent + descent);
 
     // The extra "- thickness" comes from the fact that the sqrt is placed
     // in `push_frame` with respect to its top, not its baseline.
-    let sqrt_pos = Point::new(sqrt_offset, radicand_y - gap - thickness);
+    let sqrt_pos = Point::new(sqrt_x, radicand_y - gap - thickness);
     let line_pos = Point::new(radicand_x, radicand_y - gap - (thickness / 2.0));
     let radicand_pos = Point::new(radicand_x, radicand_y);
 
@@ -100,7 +101,8 @@ pub fn layout_root(
     frame.set_baseline(ascent);
 
     if let Some(index) = index {
-        let index_pos = Point::new(kern_before, ascent - index.ascent() - shift_up);
+        let index_x = -sqrt_offset.min(Abs::zero()) + kern_before;
+        let index_pos = Point::new(index_x, ascent - index.ascent() - shift_up);
         frame.push_frame(index_pos, index);
     }
 
