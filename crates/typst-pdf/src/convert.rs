@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use krilla::annotation::Annotation;
+use krilla::configure::{Configuration, PdfVersion, ValidationError};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::{Document, PageSettings, SerializeSettings};
-use krilla::configure::{Configuration, PdfVersion, ValidationError};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
@@ -319,8 +319,12 @@ pub(crate) fn handle_group(
 
 /// Finish a krilla document and handle export errors.
 fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
-    let validator: krilla::configure::Validator = gc.options.validator.map(|v| v.into()).unwrap_or(krilla::configure::Validator::None);
-    
+    let validator: krilla::configure::Validator = gc
+        .options
+        .validator
+        .map(|v| v.into())
+        .unwrap_or(krilla::configure::Validator::None);
+
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -334,11 +338,9 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
             }
             KrillaError::ValidationError(ve) => {
                 // We can only produce 1 error, so just take the first one.
-                let prefix = format!(
-                    "validated export for {} failed:",
-                    validator.as_str()
-                );
-                
+                let prefix =
+                    format!("validated export for {} failed:", validator.as_str());
+
                 match &ve[0] {
                     ValidationError::TooLongString => {
                         bail!(Span::detached(), "{prefix} a PDF string longer \
@@ -434,7 +436,7 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                         bail!(Span::detached(), "{prefix} missing document language";
                             hint: "set the language of the document");
                     }
-                    
+
                     // Needs to be set by typst-pdf.
                     ValidationError::MissingHeadingTitle => {
                         bail!(Span::detached(), "{prefix} missing heading title";
@@ -534,6 +536,6 @@ fn get_configuration(options: &PdfOptions) -> SourceResult<Configuration> {
             }
         }
     };
-    
+
     Ok(config)
 }

@@ -20,7 +20,10 @@ use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
 use typst_pdf::{PdfOptions, Timestamp, Validator};
 
-use crate::args::{CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat, PdfStandard, PdfVersion, WatchCommand};
+use crate::args::{
+    CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
+    PdfStandard, PdfVersion, WatchCommand,
+};
 #[cfg(feature = "http-server")]
 use crate::server::HtmlServer;
 use crate::timings::Timer;
@@ -298,14 +301,14 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
                     PdfStandard::A_3u => Validator::A_3u,
                     PdfStandard::A_4 => Validator::A_4,
                     PdfStandard::A_4f => Validator::A_4f,
-                    PdfStandard::A_4e => Validator::A_4e
+                    PdfStandard::A_4e => Validator::A_4e,
                 }
             };
-            
+
             Some(validator)
         }
     };
-    
+
     let pdf_version = config.pdf_version.map(|v| match v {
         PdfVersion::V_1_4 => typst_pdf::PdfVersion::Pdf14,
         PdfVersion::V_1_5 => typst_pdf::PdfVersion::Pdf15,
@@ -313,13 +316,13 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         PdfVersion::V_1_7 => typst_pdf::PdfVersion::Pdf17,
         PdfVersion::V_2_0 => typst_pdf::PdfVersion::Pdf20,
     });
-    
+
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
         page_ranges: config.pages.clone(),
-        validator, 
-        pdf_version
+        validator,
+        pdf_version,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config

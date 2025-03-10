@@ -8,7 +8,9 @@ use krilla::SvgSettings;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;
-use typst_library::visualize::{ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat, RasterImage};
+use typst_library::visualize::{
+    ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat, RasterImage,
+};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
@@ -23,7 +25,7 @@ pub(crate) fn handle_image(
     span: Span,
 ) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform().to_krilla());
-    
+
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
     match image.kind() {
@@ -43,10 +45,7 @@ pub(crate) fn handle_image(
             surface.draw_svg(
                 svg.tree(),
                 size.to_krilla(),
-                SvgSettings {
-                    embed_text: true,
-                    ..Default::default()
-                },
+                SvgSettings { embed_text: true, ..Default::default() },
             );
         }
     }
@@ -159,12 +158,16 @@ impl CustomImage for PdfImage {
 }
 
 #[comemo::memoize]
-fn convert_raster(raster: RasterImage, interpolate: bool) -> Option<krilla::image::Image> {
+fn convert_raster(
+    raster: RasterImage,
+    interpolate: bool,
+) -> Option<krilla::image::Image> {
     match raster.format() {
         RasterFormat::Exchange(e) => match e {
             ExchangeFormat::Jpg => {
                 if !raster.is_rotated() {
-                    let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(raster.data().clone());
+                    let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                        Arc::new(raster.data().clone());
                     krilla::image::Image::from_jpeg(image_data.into(), interpolate)
                 } else {
                     // Can't embed original JPEG data if it had to be rotated.
@@ -172,7 +175,9 @@ fn convert_raster(raster: RasterImage, interpolate: bool) -> Option<krilla::imag
                 }
             }
             _ => krilla::image::Image::from_custom(PdfImage::new(raster), interpolate),
+        },
+        RasterFormat::Pixel(_) => {
+            krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
         }
-        RasterFormat::Pixel(_) => krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
     }
 }

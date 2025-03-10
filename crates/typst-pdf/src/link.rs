@@ -41,7 +41,7 @@ pub(crate) fn handle_link(
     let y2 = max_y.to_f32();
 
     let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
-    
+
     // TODO: Support quad points.
 
     let pos = match dest {

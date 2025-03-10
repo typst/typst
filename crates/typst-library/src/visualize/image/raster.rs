@@ -52,7 +52,7 @@ impl RasterImage {
         icc: Smart<Bytes>,
     ) -> StrResult<RasterImage> {
         let mut is_rotated = false;
-        
+
         let (dynamic, icc, dpi) = match format {
             RasterFormat::Exchange(format) => {
                 fn decode<T: ImageDecoder>(
@@ -140,7 +140,14 @@ impl RasterImage {
             }
         };
 
-        Ok(Self(Arc::new(Repr { data, format, is_rotated, dynamic: Arc::new(dynamic), icc, dpi })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            format,
+            is_rotated,
+            dynamic: Arc::new(dynamic),
+            icc,
+            dpi,
+        })))
     }
 
     /// The raw image data.
@@ -167,7 +174,7 @@ impl RasterImage {
     pub fn is_rotated(&self) -> bool {
         self.0.is_rotated
     }
-    
+
     /// The image's pixel density in pixels per inch, if known.
     ///
     /// This is guaranteed to be positive.

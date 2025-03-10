@@ -6,7 +6,9 @@ use krilla::path as kp;
 use krilla::path::PathBuilder;
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;
-use typst_library::visualize::{Color, ColorSpace, Curve, CurveItem, FillRule, LineCap, LineJoin};
+use typst_library::visualize::{
+    Color, ColorSpace, Curve, CurveItem, FillRule, LineCap, LineJoin,
+};
 
 pub(crate) trait SizeExt {
     fn to_krilla(&self) -> kg::Size;
