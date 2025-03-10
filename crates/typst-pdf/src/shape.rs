@@ -85,8 +85,8 @@ fn convert_geometry(geometry: &Geometry) -> Option<Path> {
                 path_builder.push_rect(rect);
             }
         }
-        Geometry::Path(p) => {
-            convert_path(p, &mut path_builder);
+        Geometry::Curve(c) => {
+            convert_path(c, &mut path_builder);
         }
     }
 

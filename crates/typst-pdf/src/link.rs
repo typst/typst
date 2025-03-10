@@ -41,12 +41,15 @@ pub(crate) fn handle_link(
     let y2 = max_y.to_f32();
 
     let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
+    
+    // TODO: Support quad points.
 
     let pos = match dest {
         Destination::Url(u) => {
             fc.push_annotation(
                 LinkAnnotation::new(
                     rect,
+                    None,
                     Target::Action(Action::Link(LinkAction::new(u.to_string()))),
                 )
                 .into(),
@@ -61,6 +64,7 @@ pub(crate) fn handle_link(
                 fc.push_annotation(
                     LinkAnnotation::new(
                         rect,
+                        None,
                         Target::Destination(krilla::destination::Destination::Named(
                             nd.clone(),
                         )),
@@ -79,6 +83,7 @@ pub(crate) fn handle_link(
         fc.push_annotation(
             LinkAnnotation::new(
                 rect,
+                None,
                 Target::Destination(krilla::destination::Destination::Xyz(
                     XyzDestination::new(page_index, pos.point.to_krilla()),
                 )),

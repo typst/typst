@@ -124,7 +124,7 @@ impl<'a> HeadingNode<'a> {
 
     fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
         let loc = self.element.location().unwrap();
-        let title = self.element.body().plain_text().to_string();
+        let title = self.element.body.plain_text().to_string();
         let pos = gc.document.introspector.position(loc);
         let page_index = pos.page.get() - 1;
 

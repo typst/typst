@@ -56,7 +56,7 @@ dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
-fontdb = { version = "0.21", default-features = false }
+fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 hayagriva = "0.8.1"
 heck = "0.5"
@@ -70,7 +70,7 @@ if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.6"
-krilla = { git = "https://github.com/LaurenzV/krilla" }
+krilla = { path = "../krilla/crates/krilla" }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -87,7 +87,7 @@ parking_lot = "0.12.1"
 pathdiff = "0.2"
 pdf-writer = "0.12.1"
 phf = { version = "0.11", features = ["macros"] }
-pixglyph = "0.5.1"
+pixglyph = "0.6.0"
 png = "0.17"
 portable-atomic = "1.6"
 proc-macro2 = "1"

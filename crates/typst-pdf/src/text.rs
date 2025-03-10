@@ -79,8 +79,9 @@ fn convert_font(
     if let Some(font) = gc.fonts_forward.get(&typst_font) {
         Ok(font.clone())
     } else {
+        let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(typst_font.data().clone());
         let font = match krilla::font::Font::new(
-            Arc::new(typst_font.data().clone()),
+            font_data.into(),
             typst_font.index(),
             true,
         ) {

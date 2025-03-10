@@ -23,6 +23,7 @@ struct Repr {
     data: Bytes,
     format: RasterFormat,
     dynamic: Arc<DynamicImage>,
+    is_rotated: bool,
     icc: Option<Bytes>,
     dpi: Option<f64>,
 }
@@ -50,6 +51,8 @@ impl RasterImage {
         format: RasterFormat,
         icc: Smart<Bytes>,
     ) -> StrResult<RasterImage> {
+        let mut is_rotated = false;
+        
         let (dynamic, icc, dpi) = match format {
             RasterFormat::Exchange(format) => {
                 fn decode<T: ImageDecoder>(
@@ -85,6 +88,7 @@ impl RasterImage {
                 // Apply rotation from EXIF metadata.
                 if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
                     apply_rotation(&mut dynamic, rotation);
+                    is_rotated = true;
                 }
 
                 // Extract pixel density.
@@ -136,7 +140,7 @@ impl RasterImage {
             }
         };
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic: Arc::new(dynamic), icc, dpi })))
+        Ok(Self(Arc::new(Repr { data, format, is_rotated, dynamic: Arc::new(dynamic), icc, dpi })))
     }
 
     /// The raw image data.
@@ -159,6 +163,11 @@ impl RasterImage {
         self.dynamic().height()
     }
 
+    /// Whether the image has been rotated due to EXIF metadata.
+    pub fn is_rotated(&self) -> bool {
+        self.0.is_rotated
+    }
+    
     /// The image's pixel density in pixels per inch, if known.
     ///
     /// This is guaranteed to be positive.

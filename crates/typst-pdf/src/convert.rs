@@ -319,7 +319,7 @@ pub(crate) fn handle_group(
 
 /// Finish a krilla document and handle export errors.
 fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
-    let validator: krilla::configure::Validator = gc.options.validator.into();
+    let validator: krilla::configure::Validator = gc.options.validator.map(|v| v.into()).unwrap_or(krilla::configure::Validator::None);
     
     match document.finish() {
         Ok(r) => Ok(r),
