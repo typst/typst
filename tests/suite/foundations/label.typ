@@ -88,3 +88,7 @@ _Visible_
 #set heading(numbering: "1.")
 // Warning: 1-4 label `<a>` is not attached to anything
 <a>
+
+--- label-non-existent-error ---
+// Error: 5-10 sequence does not have field "label"
+#[].label

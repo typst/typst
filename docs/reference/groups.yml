@@ -170,8 +170,8 @@
   category: symbols
   path: ["emoji"]
   details: |
-    Named emoji.
+    Named emojis.
 
     For example, `#emoji.face` produces the 😀 emoji. If you frequently use
     certain emojis, you can also import them from the `emoji` module (`[#import
-    emoji: face]`) to use them without the `#emoji.` prefix.
+    emoji: face]`) to use them without the `emoji.` prefix.

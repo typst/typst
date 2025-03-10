@@ -1,10 +1,10 @@
-use typst_library::diag::bail;
+use typst_library::diag::warning;
 use typst_library::foundations::{Packed, Resolve};
 use typst_library::introspection::{SplitLocator, Tag, TagElem};
 use typst_library::layout::{
-    Abs, AlignElem, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing,
-    Spacing,
+    Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
 };
+use typst_library::routines::Pair;
 use typst_library::text::{
     is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
     SpaceElem, TextElem,
@@ -13,9 +13,10 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
+use crate::modifiers::{layout_and_modify, FrameModifiers, FrameModify};
 
 // The characters by which spacing, inline content and pins are replaced in the
-// paragraph's full text.
+// full text.
 const SPACING_REPLACE: &str = " "; // Space
 const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
 
@@ -26,7 +27,7 @@ const POP_EMBEDDING: &str = "\u{202C}";
 const LTR_ISOLATE: &str = "\u{2066}";
 const POP_ISOLATE: &str = "\u{2069}";
 
-/// A prepared item in a paragraph layout.
+/// A prepared item in a inline layout.
 #[derive(Debug)]
 pub enum Item<'a> {
     /// A shaped text run with consistent style and direction.
@@ -36,7 +37,7 @@ pub enum Item<'a> {
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, Locator<'a>, StyleChain<'a>)>),
     /// Layouted inline-level content.
-    Frame(Frame, StyleChain<'a>),
+    Frame(Frame),
     /// A tag.
     Tag(&'a Tag),
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
@@ -67,7 +68,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.text,
             Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
-            Self::Frame(_, _) => OBJ_REPLACE,
+            Self::Frame(_) => OBJ_REPLACE,
             Self::Tag(_) => "",
             Self::Skip(s) => s,
         }
@@ -83,7 +84,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v, _) => *v,
-            Self::Frame(frame, _) => frame.width(),
+            Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
@@ -112,38 +113,31 @@ impl Segment<'_> {
     }
 }
 
-/// Collects all text of the paragraph into one string and a collection of
-/// segments that correspond to pieces of that string. This also performs
-/// string-level preprocessing like case transformations.
+/// Collects all text into one string and a collection of segments that
+/// correspond to pieces of that string. This also performs string-level
+/// preprocessing like case transformations.
 #[typst_macros::time]
 pub fn collect<'a>(
-    children: &'a StyleVec,
+    children: &[Pair<'a>],
     engine: &mut Engine<'_>,
     locator: &mut SplitLocator<'a>,
-    styles: &'a StyleChain<'a>,
+    config: &Config,
     region: Size,
-    consecutive: bool,
 ) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
-    let outer_dir = TextElem::dir_in(*styles);
-    let first_line_indent = ParElem::first_line_indent_in(*styles);
-    if !first_line_indent.is_zero()
-        && consecutive
-        && AlignElem::alignment_in(*styles).resolve(*styles).x == outer_dir.start().into()
-    {
-        collector.push_item(Item::Absolute(first_line_indent.resolve(*styles), false));
+    if !config.first_line_indent.is_zero() {
+        collector.push_item(Item::Absolute(config.first_line_indent, false));
         collector.spans.push(1, Span::detached());
     }
 
-    let hang = ParElem::hanging_indent_in(*styles);
-    if !hang.is_zero() {
-        collector.push_item(Item::Absolute(-hang, false));
+    if !config.hanging_indent.is_zero() {
+        collector.push_item(Item::Absolute(-config.hanging_indent, false));
         collector.spans.push(1, Span::detached());
     }
 
-    for (child, styles) in children.iter(styles) {
+    for &(child, styles) in children {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
@@ -151,7 +145,7 @@ pub fn collect<'a>(
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             collector.build_text(styles, |full| {
                 let dir = TextElem::dir_in(styles);
-                if dir != outer_dir {
+                if dir != config.dir {
                     // Insert "Explicit Directional Embedding".
                     match dir {
                         Dir::LTR => full.push_str(LTR_EMBEDDING),
@@ -161,24 +155,23 @@ pub fn collect<'a>(
                 }
 
                 if let Some(case) = TextElem::case_in(styles) {
-                    full.push_str(&case.apply(elem.text()));
+                    full.push_str(&case.apply(&elem.text));
                 } else {
-                    full.push_str(elem.text());
+                    full.push_str(&elem.text);
                 }
 
-                if dir != outer_dir {
+                if dir != config.dir {
                     // Insert "Pop Directional Formatting".
                     full.push_str(POP_EMBEDDING);
                 }
             });
         } else if let Some(elem) = child.to_packed::<HElem>() {
-            let amount = elem.amount();
-            if amount.is_zero() {
+            if elem.amount.is_zero() {
                 continue;
             }
 
-            collector.push_item(match amount {
-                Spacing::Fr(fr) => Item::Fractional(*fr, None),
+            collector.push_item(match elem.amount {
+                Spacing::Fr(fr) => Item::Fractional(fr, None),
                 Spacing::Rel(rel) => Item::Absolute(
                     rel.resolve(styles).relative_to(region.x),
                     elem.weak(styles),
@@ -211,8 +204,10 @@ pub fn collect<'a>(
                     InlineItem::Space(space, weak) => {
                         collector.push_item(Item::Absolute(space, weak));
                     }
-                    InlineItem::Frame(frame) => {
-                        collector.push_item(Item::Frame(frame, styles));
+                    InlineItem::Frame(mut frame) => {
+                        frame.modify(&FrameModifiers::get_in(styles));
+                        apply_baseline_shift(&mut frame, styles);
+                        collector.push_item(Item::Frame(frame));
                     }
                 }
             }
@@ -223,13 +218,22 @@ pub fn collect<'a>(
             if let Sizing::Fr(v) = elem.width(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let frame = layout_box(elem, engine, loc, styles, region)?;
-                collector.push_item(Item::Frame(frame, styles));
+                let mut frame = layout_and_modify(styles, |styles| {
+                    layout_box(elem, engine, loc, styles, region)
+                })?;
+                apply_baseline_shift(&mut frame, styles);
+                collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
             collector.push_item(Item::Tag(&elem.tag));
         } else {
-            bail!(child.span(), "unexpected paragraph child");
+            // Non-paragraph inline layout should never trigger this since it
+            // only won't be triggered if we see any non-inline content.
+            engine.sink.warn(warning!(
+                child.span(),
+                "{} may not occur inside of a paragraph and was ignored",
+                child.func().name()
+            ));
         };
 
         let len = collector.full.len() - prev_len;

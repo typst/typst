@@ -103,6 +103,7 @@ impl Lexer<'_> {
         self.newline = false;
         let kind = match self.s.eat() {
             Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+            Some('#') if start == 0 && self.s.eat_if('!') => self.shebang(),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -149,6 +150,11 @@ impl Lexer<'_> {
         } else {
             SyntaxKind::Space
         }
+    }
+
+    fn shebang(&mut self) -> SyntaxKind {
+        self.s.eat_until(is_newline);
+        SyntaxKind::Shebang
     }
 
     fn line_comment(&mut self) -> SyntaxKind {
@@ -616,6 +622,11 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '*' | '-' | '~' => SyntaxKind::MathShorthand,
 
+            '.' => SyntaxKind::Dot,
+            ',' => SyntaxKind::Comma,
+            ';' => SyntaxKind::Semicolon,
+            ')' => SyntaxKind::RightParen,
+
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
@@ -674,6 +685,7 @@ impl Lexer<'_> {
             if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
                 self.s = s;
             }
+            SyntaxKind::MathText
         } else {
             let len = self
                 .s
@@ -682,8 +694,53 @@ impl Lexer<'_> {
                 .next()
                 .map_or(0, str::len);
             self.s.jump(start + len);
+            if len > c.len_utf8() {
+                // Grapheme clusters are treated as normal text and stay grouped
+                // This may need to change in the future.
+                SyntaxKind::Text
+            } else {
+                SyntaxKind::MathText
+            }
         }
-        SyntaxKind::Text
+    }
+
+    /// Handle named arguments in math function call.
+    pub fn maybe_math_named_arg(&mut self, start: usize) -> Option<SyntaxNode> {
+        let cursor = self.s.cursor();
+        self.s.jump(start);
+        if self.s.eat_if(is_id_start) {
+            self.s.eat_while(is_id_continue);
+            // Check that a colon directly follows the identifier, and not the
+            // `:=` or `::=` math shorthands.
+            if self.s.at(':') && !self.s.at(":=") && !self.s.at("::=") {
+                // Check that the identifier is not just `_`.
+                let node = if self.s.from(start) != "_" {
+                    SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start))
+                } else {
+                    let msg = SyntaxError::new("expected identifier, found underscore");
+                    SyntaxNode::error(msg, self.s.from(start))
+                };
+                return Some(node);
+            }
+        }
+        self.s.jump(cursor);
+        None
+    }
+
+    /// Handle spread arguments in math function call.
+    pub fn maybe_math_spread_arg(&mut self, start: usize) -> Option<SyntaxNode> {
+        let cursor = self.s.cursor();
+        self.s.jump(start);
+        if self.s.eat_if("..") {
+            // Check that neither a space nor a dot follows the spread syntax.
+            // A dot would clash with the `...` math shorthand.
+            if !self.space_or_end() && !self.s.at('.') {
+                let node = SyntaxNode::leaf(SyntaxKind::Dots, self.s.from(start));
+                return Some(node);
+            }
+        }
+        self.s.jump(cursor);
+        None
     }
 }
 

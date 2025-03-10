@@ -59,24 +59,20 @@
 #table(columns: 2, stroke: none)[A][B]
 #table(columns: 2, stroke: 0pt)[A][B]
 
-#path(
-  fill: red,
+#curve(
   stroke: none,
-  closed: true,
-  ((0%, 0%), (4%, -4%)),
-  ((50%, 50%), (4%, -4%)),
-  ((0%, 50%), (4%, 4%)),
-  ((50%, 0%), (4%, 4%)),
+  curve.move((0pt,  30pt)),
+  curve.line((30pt, 30pt)),
+  curve.line((15pt, 0pt)),
+  curve.close()
 )
 
-#path(
-  fill: red,
+#curve(
   stroke: 0pt,
-  closed: true,
-  ((0%, 0%), (4%, -4%)),
-  ((50%, 50%), (4%, -4%)),
-  ((0%, 50%), (4%, 4%)),
-  ((50%, 0%), (4%, 4%)),
+  curve.move((0pt,  30pt)),
+  curve.line((30pt, 30pt)),
+  curve.line((15pt, 0pt)),
+  curve.close()
 )
 
 --- stroke-text ---

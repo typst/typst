@@ -20,12 +20,16 @@ use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::TextElem;
 use typst_library::World;
+use typst_utils::SliceExt;
 
-use super::{layout_multi_block, layout_single_block};
+use super::{layout_multi_block, layout_single_block, FlowMode};
+use crate::inline::ParSituation;
+use crate::modifiers::layout_and_modify;
 
 /// Collects all elements of the flow into prepared children. These are much
 /// simpler to handle than the raw elements.
 #[typst_macros::time]
+#[allow(clippy::too_many_arguments)]
 pub fn collect<'a>(
     engine: &mut Engine,
     bump: &'a Bump,
@@ -33,6 +37,7 @@ pub fn collect<'a>(
     locator: Locator<'a>,
     base: Size,
     expand: bool,
+    mode: FlowMode,
 ) -> SourceResult<Vec<Child<'a>>> {
     Collector {
         engine,
@@ -42,9 +47,9 @@ pub fn collect<'a>(
         base,
         expand,
         output: Vec::with_capacity(children.len()),
-        last_was_par: false,
+        par_situation: ParSituation::First,
     }
-    .run()
+    .run(mode)
 }
 
 /// State for collection.
@@ -56,12 +61,20 @@ struct Collector<'a, 'x, 'y> {
     expand: bool,
     locator: SplitLocator<'a>,
     output: Vec<Child<'a>>,
-    last_was_par: bool,
+    par_situation: ParSituation,
 }
 
 impl<'a> Collector<'a, '_, '_> {
     /// Perform the collection.
-    fn run(mut self) -> SourceResult<Vec<Child<'a>>> {
+    fn run(self, mode: FlowMode) -> SourceResult<Vec<Child<'a>>> {
+        match mode {
+            FlowMode::Root | FlowMode::Block => self.run_block(),
+            FlowMode::Inline => self.run_inline(),
+        }
+    }
+
+    /// Perform collection for block-level children.
+    fn run_block(mut self) -> SourceResult<Vec<Child<'a>>> {
         for &(child, styles) in self.children {
             if let Some(elem) = child.to_packed::<TagElem>() {
                 self.output.push(Child::Tag(&elem.tag));
@@ -94,6 +107,42 @@ impl<'a> Collector<'a, '_, '_> {
         Ok(self.output)
     }
 
+    /// Perform collection for inline-level children.
+    fn run_inline(mut self) -> SourceResult<Vec<Child<'a>>> {
+        // Extract leading and trailing tags.
+        let (start, end) = self.children.split_prefix_suffix(|(c, _)| c.is::<TagElem>());
+        let inner = &self.children[start..end];
+
+        // Compute the shared styles, ignoring tags.
+        let styles = StyleChain::trunk(inner.iter().map(|&(_, s)| s)).unwrap_or_default();
+
+        // Layout the lines.
+        let lines = crate::inline::layout_inline(
+            self.engine,
+            inner,
+            &mut self.locator,
+            styles,
+            self.base,
+            self.expand,
+        )?
+        .into_frames();
+
+        for (c, _) in &self.children[..start] {
+            let elem = c.to_packed::<TagElem>().unwrap();
+            self.output.push(Child::Tag(&elem.tag));
+        }
+
+        let leading = ParElem::leading_in(styles);
+        self.lines(lines, leading, styles);
+
+        for (c, _) in &self.children[end..] {
+            let elem = c.to_packed::<TagElem>().unwrap();
+            self.output.push(Child::Tag(&elem.tag));
+        }
+
+        Ok(self.output)
+    }
+
     /// Collect vertical spacing into a relative or fractional child.
     fn v(&mut self, elem: &'a Packed<VElem>, styles: StyleChain<'a>) {
         self.output.push(match elem.amount {
@@ -109,23 +158,34 @@ impl<'a> Collector<'a, '_, '_> {
         elem: &'a Packed<ParElem>,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let align = AlignElem::alignment_in(styles).resolve(styles);
-        let leading = ParElem::leading_in(styles);
-        let spacing = ParElem::spacing_in(styles);
-        let costs = TextElem::costs_in(styles);
-
-        let lines = crate::layout_inline(
+        let lines = crate::inline::layout_par(
+            elem,
             self.engine,
-            &elem.children,
             self.locator.next(&elem.span()),
             styles,
-            self.last_was_par,
             self.base,
             self.expand,
+            self.par_situation,
         )?
         .into_frames();
 
+        let spacing = elem.spacing(styles);
+        let leading = elem.leading(styles);
+
         self.output.push(Child::Rel(spacing.into(), 4));
+
+        self.lines(lines, leading, styles);
+
+        self.output.push(Child::Rel(spacing.into(), 4));
+        self.par_situation = ParSituation::Consecutive;
+
+        Ok(())
+    }
+
+    /// Collect laid-out lines.
+    fn lines(&mut self, lines: Vec<Frame>, leading: Abs, styles: StyleChain<'a>) {
+        let align = AlignElem::alignment_in(styles).resolve(styles);
+        let costs = TextElem::costs_in(styles);
 
         // Determine whether to prevent widow and orphans.
         let len = lines.len();
@@ -165,11 +225,6 @@ impl<'a> Collector<'a, '_, '_> {
             self.output
                 .push(Child::Line(self.boxed(LineChild { frame, align, need })));
         }
-
-        self.output.push(Child::Rel(spacing.into(), 4));
-        self.last_was_par = true;
-
-        Ok(())
     }
 
     /// Collect a block into a [`SingleChild`] or [`MultiChild`] depending on
@@ -218,7 +273,7 @@ impl<'a> Collector<'a, '_, '_> {
         };
 
         self.output.push(spacing(elem.below(styles)));
-        self.last_was_par = false;
+        self.par_situation = ParSituation::Other;
     }
 
     /// Collects a placed element into a [`PlacedChild`].
@@ -377,8 +432,9 @@ fn layout_single_impl(
         route: Route::extend(route),
     };
 
-    layout_single_block(elem, &mut engine, locator, styles, region)
-        .map(|frame| frame.post_processed(styles))
+    layout_and_modify(styles, |styles| {
+        layout_single_block(elem, &mut engine, locator, styles, region)
+    })
 }
 
 /// A child that encapsulates a prepared breakable block.
@@ -473,11 +529,8 @@ fn layout_multi_impl(
         route: Route::extend(route),
     };
 
-    layout_multi_block(elem, &mut engine, locator, styles, regions).map(|mut fragment| {
-        for frame in &mut fragment {
-            frame.post_process(styles);
-        }
-        fragment
+    layout_and_modify(styles, |styles| {
+        layout_multi_block(elem, &mut engine, locator, styles, regions)
     })
 }
 
@@ -579,20 +632,23 @@ impl PlacedChild<'_> {
         self.cell.get_or_init(base, |base| {
             let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
             let aligned = AlignElem::set_alignment(align).wrap();
+            let styles = self.styles.chain(&aligned);
 
-            let mut frame = crate::layout_frame(
-                engine,
-                &self.elem.body,
-                self.locator.relayout(),
-                self.styles.chain(&aligned),
-                Region::new(base, Axes::splat(false)),
-            )?;
+            let mut frame = layout_and_modify(styles, |styles| {
+                crate::layout_frame(
+                    engine,
+                    &self.elem.body,
+                    self.locator.relayout(),
+                    styles,
+                    Region::new(base, Axes::splat(false)),
+                )
+            })?;
 
             if self.float {
                 frame.set_parent(self.elem.location().unwrap());
             }
 
-            Ok(frame.post_processed(self.styles))
+            Ok(frame)
         })
     }
 

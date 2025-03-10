@@ -97,7 +97,6 @@ cast! {
 /// ```
 #[func(title = "Power")]
 pub fn pow(
-    /// The callsite span.
     span: Span,
     /// The base of the power.
     ///
@@ -159,7 +158,6 @@ pub fn pow(
 /// ```
 #[func(title = "Exponential")]
 pub fn exp(
-    /// The callsite span.
     span: Span,
     /// The exponent of the power.
     exponent: Spanned<Num>,
@@ -412,7 +410,6 @@ pub fn tanh(
 /// ```
 #[func(title = "Logarithm")]
 pub fn log(
-    /// The callsite span.
     span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
     value: Spanned<Num>,
@@ -454,7 +451,6 @@ pub fn log(
 /// ```
 #[func(title = "Natural Logarithm")]
 pub fn ln(
-    /// The callsite span.
     span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
     value: Spanned<Num>,
@@ -782,7 +778,6 @@ pub fn round(
 /// ```
 #[func]
 pub fn clamp(
-    /// The callsite span.
     span: Span,
     /// The number to clamp.
     value: DecNum,
@@ -815,7 +810,6 @@ pub fn clamp(
 /// ```
 #[func(title = "Minimum")]
 pub fn min(
-    /// The callsite span.
     span: Span,
     /// The sequence of values from which to extract the minimum.
     /// Must not be empty.
@@ -833,7 +827,6 @@ pub fn min(
 /// ```
 #[func(title = "Maximum")]
 pub fn max(
-    /// The callsite span.
     span: Span,
     /// The sequence of values from which to extract the maximum.
     /// Must not be empty.
@@ -911,7 +904,6 @@ pub fn odd(
 /// ```
 #[func(title = "Remainder")]
 pub fn rem(
-    /// The span of the function call.
     span: Span,
     /// The dividend of the remainder.
     dividend: DecNum,
@@ -950,7 +942,6 @@ pub fn rem(
 /// ```
 #[func(title = "Euclidean Division")]
 pub fn div_euclid(
-    /// The callsite span.
     span: Span,
     /// The dividend of the division.
     dividend: DecNum,
@@ -992,9 +983,8 @@ pub fn div_euclid(
 /// #calc.rem-euclid(1.75, 0.5) \
 /// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Remainder")]
+#[func(title = "Euclidean Remainder", keywords = ["modulo", "modulus"])]
 pub fn rem_euclid(
-    /// The callsite span.
     span: Span,
     /// The dividend of the remainder.
     dividend: DecNum,
@@ -1031,7 +1021,6 @@ pub fn rem_euclid(
 /// ```
 #[func(title = "Quotient")]
 pub fn quo(
-    /// The span of the function call.
     span: Span,
     /// The dividend of the quotient.
     dividend: DecNum,

@@ -1,11 +1,10 @@
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use typst_syntax::Spanned;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a YAML file.
 ///
@@ -41,31 +40,27 @@ use crate::World;
 /// ```
 #[func(scope, title = "YAML")]
 pub fn yaml(
-    /// The engine.
     engine: &mut Engine,
-    /// Path to a YAML file.
-    ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// A [path]($syntax/#paths) to a YAML file or raw YAML bytes.
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    yaml::decode(Spanned::new(Readable::Bytes(data), span))
+    let data = source.load(engine.world)?;
+    serde_yaml::from_slice(data.as_slice())
+        .map_err(|err| eco_format!("failed to parse YAML ({err})"))
+        .at(source.span)
 }
 
 #[scope]
 impl yaml {
     /// Reads structured data from a YAML string/bytes.
     #[func(title = "Decode YAML")]
+    #[deprecated = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead"]
     pub fn decode(
+        engine: &mut Engine,
         /// YAML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        serde_yaml::from_slice(data.as_slice())
-            .map_err(|err| eco_format!("failed to parse YAML ({err})"))
-            .at(span)
+        yaml(engine, data.map(Readable::into_source))
     }
 
     /// Encode structured data into a YAML string.

@@ -1,105 +1,107 @@
 {
-  "name": "typst-test-helper",
-  "publisher": "typst",
-  "displayName": "Typst Test Helper",
-  "description": "Helps to run, compare and update Typst tests.",
-  "version": "0.0.1",
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "workspaceContains:tests/suite/playground.typ"
-  ],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "typst-test-helper.refreshFromPreview",
-        "title": "Refresh preview",
-        "category": "Typst Test Helper",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "typst-test-helper.runFromPreview",
-        "title": "Run test",
-        "category": "Typst Test Helper",
-        "icon": "$(debug-start)",
-        "enablement": "typst-test-helper.runButtonEnabled"
-      },
-      {
-        "command": "typst-test-helper.saveFromPreview",
-        "title": "Run and save reference image",
-        "category": "Typst Test Helper",
-        "icon": "$(save)",
-        "enablement": "typst-test-helper.runButtonEnabled"
-      },
-      {
-        "command": "typst-test-helper.copyImageFilePathFromPreviewContext",
-        "title": "Copy image file path",
-        "category": "Typst Test Helper"
-      },
-      {
-        "command": "typst-test-helper.increaseResolution",
-        "title": "Render at higher resolution",
-        "category": "Typst Test Helper",
-        "icon": "$(zoom-in)",
-        "enablement": "typst-test-helper.runButtonEnabled"
-      },
-      {
-        "command": "typst-test-helper.decreaseResolution",
-        "title": "Render at lower resolution",
-        "category": "Typst Test Helper",
-        "icon": "$(zoom-out)",
-        "enablement": "typst-test-helper.runButtonEnabled"
-      }
-    ],
-    "menus": {
-      "editor/title": [
-        {
-          "when": "activeWebviewPanelId == typst-test-helper.preview",
-          "command": "typst-test-helper.refreshFromPreview",
-          "group": "navigation@1"
-        },
-        {
-          "when": "activeWebviewPanelId == typst-test-helper.preview",
-          "command": "typst-test-helper.runFromPreview",
-          "group": "navigation@2"
-        },
-        {
-          "when": "activeWebviewPanelId == typst-test-helper.preview",
-          "command": "typst-test-helper.saveFromPreview",
-          "group": "navigation@3"
-        },
-        {
-          "when": "activeWebviewPanelId == typst-test-helper.preview",
-          "command": "typst-test-helper.increaseResolution",
-          "group": "navigation@4"
-        },
-        {
-          "when": "activeWebviewPanelId == typst-test-helper.preview",
-          "command": "typst-test-helper.decreaseResolution",
-          "group": "navigation@4"
-        }
-      ],
-      "webview/context": [
-        {
-          "command": "typst-test-helper.copyImageFilePathFromPreviewContext",
-          "when": "webviewId == typst-test-helper.preview && (webviewSection == png || webviewSection == ref)"
-        }
-      ]
-    }
-  },
-  "scripts": {
-    "build": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
-  "devDependencies": {
-    "@types/node": "18.x",
-    "@types/vscode": "^1.88.0",
-    "typescript": "^5.3.3"
-  },
-  "engines": {
-    "vscode": "^1.88.0"
-  }
+	"name": "typst-test-helper",
+	"publisher": "typst",
+	"displayName": "Typst Test Helper",
+	"description": "Helps to run, compare and update Typst tests.",
+	"version": "0.0.1",
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"workspaceContains:tests/suite/playground.typ"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "typst-test-helper.refreshFromPreview",
+				"title": "Refresh preview",
+				"category": "Typst Test Helper",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "typst-test-helper.runFromPreview",
+				"title": "Run test",
+				"category": "Typst Test Helper",
+				"icon": "$(debug-start)",
+				"enablement": "typst-test-helper.runButtonEnabled"
+			},
+			{
+				"command": "typst-test-helper.saveFromPreview",
+				"title": "Run and save reference output",
+				"category": "Typst Test Helper",
+				"icon": "$(save)",
+				"enablement": "typst-test-helper.runButtonEnabled"
+			},
+			{
+				"command": "typst-test-helper.copyImageFilePathFromPreviewContext",
+				"title": "Copy image file path",
+				"category": "Typst Test Helper"
+			},
+			{
+				"command": "typst-test-helper.increaseResolution",
+				"title": "Render at higher resolution",
+				"category": "Typst Test Helper",
+				"icon": "$(zoom-in)",
+				"enablement": "typst-test-helper.runButtonEnabled"
+			},
+			{
+				"command": "typst-test-helper.decreaseResolution",
+				"title": "Render at lower resolution",
+				"category": "Typst Test Helper",
+				"icon": "$(zoom-out)",
+				"enablement": "typst-test-helper.runButtonEnabled"
+			}
+		],
+		"menus": {
+			"editor/title": [
+				{
+					"when": "activeWebviewPanelId == typst-test-helper.preview",
+					"command": "typst-test-helper.refreshFromPreview",
+					"group": "navigation@1"
+				},
+				{
+					"when": "activeWebviewPanelId == typst-test-helper.preview",
+					"command": "typst-test-helper.runFromPreview",
+					"group": "navigation@2"
+				},
+				{
+					"when": "activeWebviewPanelId == typst-test-helper.preview",
+					"command": "typst-test-helper.saveFromPreview",
+					"group": "navigation@3"
+				},
+				{
+					"when": "activeWebviewPanelId == typst-test-helper.preview",
+					"command": "typst-test-helper.increaseResolution",
+					"group": "navigation@4"
+				},
+				{
+					"when": "activeWebviewPanelId == typst-test-helper.preview",
+					"command": "typst-test-helper.decreaseResolution",
+					"group": "navigation@4"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "typst-test-helper.copyImageFilePathFromPreviewContext",
+					"when": "webviewId == typst-test-helper.preview && (webviewSection == png || webviewSection == ref)"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"build": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "18.x",
+		"@types/vscode": "^1.88.0",
+		"typescript": "^5.3.3"
+	},
+	"engines": {
+		"vscode": "^1.88.0"
+	},
+	"__metadata": {
+		"size": 35098973
+	}
 }
-

@@ -428,11 +428,8 @@ impl Counter {
     #[func(contextual)]
     pub fn get(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
     ) -> SourceResult<CounterState> {
         let loc = context.location().at(span)?;
@@ -444,11 +441,8 @@ impl Counter {
     #[func(contextual)]
     pub fn display(
         self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The call span of the display.
         span: Span,
         /// A [numbering pattern or a function]($numbering), which specifies how
         /// to display the counter. If given a function, that function receives
@@ -482,11 +476,8 @@ impl Counter {
     #[func(contextual)]
     pub fn at(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
         /// The place at which the counter's value should be retrieved.
         selector: LocatableSelector,
@@ -500,11 +491,8 @@ impl Counter {
     #[func(contextual)]
     pub fn final_(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
-        /// The callsite span.
         span: Span,
     ) -> SourceResult<CounterState> {
         context.introspect().at(span)?;
@@ -528,7 +516,6 @@ impl Counter {
     #[func]
     pub fn step(
         self,
-        /// The call span of the update.
         span: Span,
         /// The depth at which to step the counter. Defaults to `{1}`.
         #[named]
@@ -545,7 +532,6 @@ impl Counter {
     #[func]
     pub fn update(
         self,
-        /// The call span of the update.
         span: Span,
         /// If given an integer or array of integers, sets the counter to that
         /// value. If given a function, that function receives the previous
@@ -800,7 +786,7 @@ impl ManualPageCounter {
                     let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };
-                    if *elem.key() == CounterKey::Page {
+                    if elem.key == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
                         state.update(engine, elem.update.clone())?;
                         self.logical = state.first();

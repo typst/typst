@@ -1,6 +1,3 @@
-use kurbo::ParamCurveExtrema;
-use typst_utils::Numeric;
-
 use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
@@ -8,10 +5,10 @@ use crate::foundations::{
     array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Show, Smart,
     StyleChain,
 };
-use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
+use crate::layout::{Axes, BlockElem, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 
-/// A path through a list of points, connected by Bezier curves.
+/// A path through a list of points, connected by Bézier curves.
 ///
 /// # Example
 /// ```example
@@ -62,8 +59,8 @@ pub struct PathElem {
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
-    /// Whether to close this path with one last bezier curve. This curve will
-    /// takes into account the adjacent control points. If you want to close
+    /// Whether to close this path with one last Bézier curve. This curve will
+    /// take into account the adjacent control points. If you want to close
     /// with a straight line, simply add one last point that's the same as the
     /// start point.
     #[default(false)]
@@ -155,142 +152,4 @@ cast! {
             _ => bail!("path vertex must have 1, 2, or 3 points"),
         }
     },
-}
-
-/// A bezier path.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct Path(pub Vec<PathItem>);
-
-/// An item in a bezier path.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum PathItem {
-    MoveTo(Point),
-    LineTo(Point),
-    CubicTo(Point, Point, Point),
-    ClosePath,
-}
-
-impl Path {
-    /// Create an empty path.
-    pub const fn new() -> Self {
-        Self(vec![])
-    }
-
-    /// Create a path that describes a rectangle.
-    pub fn rect(size: Size) -> Self {
-        let z = Abs::zero();
-        let point = Point::new;
-        let mut path = Self::new();
-        path.move_to(point(z, z));
-        path.line_to(point(size.x, z));
-        path.line_to(point(size.x, size.y));
-        path.line_to(point(z, size.y));
-        path.close_path();
-        path
-    }
-
-    /// Create a path that describes an axis-aligned ellipse.
-    pub fn ellipse(size: Size) -> Self {
-        // https://stackoverflow.com/a/2007782
-        let z = Abs::zero();
-        let rx = size.x / 2.0;
-        let ry = size.y / 2.0;
-        let m = 0.551784;
-        let mx = m * rx;
-        let my = m * ry;
-        let point = |x, y| Point::new(x + rx, y + ry);
-
-        let mut path = Path::new();
-        path.move_to(point(-rx, z));
-        path.cubic_to(point(-rx, -my), point(-mx, -ry), point(z, -ry));
-        path.cubic_to(point(mx, -ry), point(rx, -my), point(rx, z));
-        path.cubic_to(point(rx, my), point(mx, ry), point(z, ry));
-        path.cubic_to(point(-mx, ry), point(-rx, my), point(-rx, z));
-        path
-    }
-
-    /// Push a [`MoveTo`](PathItem::MoveTo) item.
-    pub fn move_to(&mut self, p: Point) {
-        self.0.push(PathItem::MoveTo(p));
-    }
-
-    /// Push a [`LineTo`](PathItem::LineTo) item.
-    pub fn line_to(&mut self, p: Point) {
-        self.0.push(PathItem::LineTo(p));
-    }
-
-    /// Push a [`CubicTo`](PathItem::CubicTo) item.
-    pub fn cubic_to(&mut self, p1: Point, p2: Point, p3: Point) {
-        self.0.push(PathItem::CubicTo(p1, p2, p3));
-    }
-
-    /// Push a [`ClosePath`](PathItem::ClosePath) item.
-    pub fn close_path(&mut self) {
-        self.0.push(PathItem::ClosePath);
-    }
-
-    /// Translate all points in this path by the given offset.
-    pub fn translate(&mut self, offset: Point) {
-        if offset.is_zero() {
-            return;
-        }
-        for item in self.0.iter_mut() {
-            match item {
-                PathItem::MoveTo(p) => *p += offset,
-                PathItem::LineTo(p) => *p += offset,
-                PathItem::CubicTo(p1, p2, p3) => {
-                    *p1 += offset;
-                    *p2 += offset;
-                    *p3 += offset;
-                }
-                PathItem::ClosePath => (),
-            }
-        }
-    }
-
-    /// Computes the size of bounding box of this path.
-    pub fn bbox_size(&self) -> Size {
-        let mut min_x = Abs::inf();
-        let mut min_y = Abs::inf();
-        let mut max_x = -Abs::inf();
-        let mut max_y = -Abs::inf();
-
-        let mut cursor = Point::zero();
-        for item in self.0.iter() {
-            match item {
-                PathItem::MoveTo(to) => {
-                    min_x = min_x.min(cursor.x);
-                    min_y = min_y.min(cursor.y);
-                    max_x = max_x.max(cursor.x);
-                    max_y = max_y.max(cursor.y);
-                    cursor = *to;
-                }
-                PathItem::LineTo(to) => {
-                    min_x = min_x.min(cursor.x);
-                    min_y = min_y.min(cursor.y);
-                    max_x = max_x.max(cursor.x);
-                    max_y = max_y.max(cursor.y);
-                    cursor = *to;
-                }
-                PathItem::CubicTo(c0, c1, end) => {
-                    let cubic = kurbo::CubicBez::new(
-                        kurbo::Point::new(cursor.x.to_pt(), cursor.y.to_pt()),
-                        kurbo::Point::new(c0.x.to_pt(), c0.y.to_pt()),
-                        kurbo::Point::new(c1.x.to_pt(), c1.y.to_pt()),
-                        kurbo::Point::new(end.x.to_pt(), end.y.to_pt()),
-                    );
-
-                    let bbox = cubic.bounding_box();
-                    min_x = min_x.min(Abs::pt(bbox.x0)).min(Abs::pt(bbox.x1));
-                    min_y = min_y.min(Abs::pt(bbox.y0)).min(Abs::pt(bbox.y1));
-                    max_x = max_x.max(Abs::pt(bbox.x0)).max(Abs::pt(bbox.x1));
-                    max_y = max_y.max(Abs::pt(bbox.y0)).max(Abs::pt(bbox.y1));
-                    cursor = *end;
-                }
-                PathItem::ClosePath => (),
-            }
-        }
-
-        Size::new(max_x - min_x, max_y - min_y)
-    }
 }

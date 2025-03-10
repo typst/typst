@@ -7,12 +7,13 @@ use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
+use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Cast, Context, Decimal, Dict, Func,
     IntoValue, Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
@@ -286,6 +287,30 @@ impl Str {
         Ok(c.into())
     }
 
+    /// Normalizes the string to the given Unicode normal form.
+    ///
+    /// This is useful when manipulating strings containing Unicode combining
+    /// characters.
+    ///
+    /// ```typ
+    /// #assert.eq("é".normalize(form: "nfd"), "e\u{0301}")
+    /// #assert.eq("ſ́".normalize(form: "nfkc"), "ś")
+    /// ```
+    #[func]
+    pub fn normalize(
+        &self,
+        #[named]
+        #[default(UnicodeNormalForm::Nfc)]
+        form: UnicodeNormalForm,
+    ) -> Str {
+        match form {
+            UnicodeNormalForm::Nfc => self.nfc().collect(),
+            UnicodeNormalForm::Nfd => self.nfd().collect(),
+            UnicodeNormalForm::Nfkc => self.nfkc().collect(),
+            UnicodeNormalForm::Nfkd => self.nfkd().collect(),
+        }
+    }
+
     /// Whether the string contains the specified pattern.
     ///
     /// This method also has dedicated syntax: You can write `{"bc" in "abcd"}`
@@ -425,9 +450,7 @@ impl Str {
     #[func]
     pub fn replace(
         &self,
-        /// The engine.
         engine: &mut Engine,
-        /// The callsite context.
         context: Tracked<Context>,
         /// The pattern to search for.
         pattern: StrPattern,
@@ -575,6 +598,12 @@ impl Str {
 
     /// Splits a string at matches of a specified pattern and returns an array
     /// of the resulting parts.
+    ///
+    /// When the empty string is used as a separator, it separates every
+    /// character (i.e., Unicode code point) in the string, along with the
+    /// beginning and end of the string. In practice, this means that the
+    /// resulting list of parts will contain the empty string at the start
+    /// and end of the list.
     #[func]
     pub fn split(
         &self,
@@ -778,14 +807,29 @@ cast! {
     v: f64 => Self::Str(repr::display_float(v).into()),
     v: Decimal => Self::Str(format_str!("{}", v)),
     v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(
-        std::str::from_utf8(&v)
-            .map_err(|_| "bytes are not valid utf-8")?
-            .into()
-    ),
+    v: Bytes => Self::Str(v.to_str().map_err(|_| "bytes are not valid utf-8")?),
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
+}
+
+/// A Unicode normalization form.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum UnicodeNormalForm {
+    /// Canonical composition where e.g. accented letters are turned into a
+    /// single Unicode codepoint.
+    #[string("nfc")]
+    Nfc,
+    /// Canonical decomposition where e.g. accented letters are split into a
+    /// separate base and diacritic.
+    #[string("nfd")]
+    Nfd,
+    /// Like NFC, but using the Unicode compatibility decompositions.
+    #[string("nfkc")]
+    Nfkc,
+    /// Like NFD, but using the Unicode compatibility decompositions.
+    #[string("nfkd")]
+    Nfkd,
 }
 
 /// Convert an item of std's `match_indices` to a dictionary.

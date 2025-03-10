@@ -1,7 +1,6 @@
-use crate::foundations::{elem, func, Content, NativeElement, Smart};
+use crate::foundations::{elem, func, Content, NativeElement, SymbolElem};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
-use crate::text::TextElem;
 
 /// Scales delimiters.
 ///
@@ -10,14 +9,16 @@ use crate::text::TextElem;
 #[elem(title = "Left/Right", Mathy)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
-    pub size: Smart<Rel<Length>>,
+    #[resolve]
+    #[default(Rel::one())]
+    pub size: Rel<Length>,
 
     /// The delimited content, including the delimiters.
     #[required]
     #[parse(
         let mut arguments = args.all::<Content>()?.into_iter();
         let mut body = arguments.next().unwrap_or_default();
-        arguments.for_each(|arg| body += TextElem::packed(',') + arg);
+        arguments.for_each(|arg| body += SymbolElem::packed(',') + arg);
         body
     )]
     pub body: Content,
@@ -44,7 +45,7 @@ pub struct MidElem {
 pub fn floor(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    size: Option<Smart<Rel<Length>>>,
+    size: Option<Rel<Length>>,
     /// The expression to floor.
     body: Content,
 ) -> Content {
@@ -60,7 +61,7 @@ pub fn floor(
 pub fn ceil(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    size: Option<Smart<Rel<Length>>>,
+    size: Option<Rel<Length>>,
     /// The expression to ceil.
     body: Content,
 ) -> Content {
@@ -76,7 +77,7 @@ pub fn ceil(
 pub fn round(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    size: Option<Smart<Rel<Length>>>,
+    size: Option<Rel<Length>>,
     /// The expression to round.
     body: Content,
 ) -> Content {
@@ -92,7 +93,7 @@ pub fn round(
 pub fn abs(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    size: Option<Smart<Rel<Length>>>,
+    size: Option<Rel<Length>>,
     /// The expression to take the absolute value of.
     body: Content,
 ) -> Content {
@@ -108,7 +109,7 @@ pub fn abs(
 pub fn norm(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    size: Option<Smart<Rel<Length>>>,
+    size: Option<Rel<Length>>,
     /// The expression to take the norm of.
     body: Content,
 ) -> Content {
@@ -119,13 +120,13 @@ fn delimited(
     body: Content,
     left: char,
     right: char,
-    size: Option<Smart<Rel<Length>>>,
+    size: Option<Rel<Length>>,
 ) -> Content {
     let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
-        TextElem::packed(left),
+        SymbolElem::packed(left),
         body,
-        TextElem::packed(right),
+        SymbolElem::packed(right),
     ]));
     // Push size only if size is provided
     if let Some(size) = size {

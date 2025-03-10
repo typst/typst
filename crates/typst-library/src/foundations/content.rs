@@ -9,7 +9,6 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
-use smallvec::smallvec;
 use typst_syntax::Span;
 use typst_utils::{fat, singleton, LazyHash, SmallBitSet};
 
@@ -211,9 +210,10 @@ impl Content {
     /// instead.
     pub fn get_by_name(&self, name: &str) -> Result<Value, FieldAccessError> {
         if name == "label" {
-            if let Some(label) = self.label() {
-                return Ok(label.into_value());
-            }
+            return self
+                .label()
+                .map(|label| label.into_value())
+                .ok_or(FieldAccessError::Unknown);
         }
         let id = self.elem().field_id(name).ok_or(FieldAccessError::Unknown)?;
         self.get(id, None)
@@ -499,7 +499,7 @@ impl Content {
 
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
-        self.styled(LinkElem::set_dests(smallvec![dest]))
+        self.styled(LinkElem::set_current(Some(dest)))
     }
 
     /// Set alignments for this content.

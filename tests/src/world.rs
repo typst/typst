@@ -19,7 +19,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
-use typst::{Library, World};
+use typst::{Feature, Library, World};
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -98,7 +98,7 @@ impl Default for TestBase {
     fn default() -> Self {
         let fonts: Vec<_> = typst_assets::fonts()
             .chain(typst_dev_assets::fonts())
-            .flat_map(|data| Font::iter(Bytes::from_static(data)))
+            .flat_map(|data| Font::iter(Bytes::new(data)))
             .collect();
 
         Self {
@@ -140,8 +140,8 @@ impl FileSlot {
         self.file
             .get_or_init(|| {
                 read(&system_path(self.id)?).map(|cow| match cow {
-                    Cow::Owned(buf) => buf.into(),
-                    Cow::Borrowed(buf) => Bytes::from_static(buf),
+                    Cow::Owned(buf) => Bytes::new(buf),
+                    Cow::Borrowed(buf) => Bytes::new(buf),
                 })
             })
             .clone()
@@ -180,7 +180,9 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::default();
+    let mut lib = Library::builder()
+        .with_features([Feature::Html].into_iter().collect())
+        .build();
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();

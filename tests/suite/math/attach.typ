@@ -167,9 +167,22 @@ $ attach(a^b, b: c) quad
 
 #let a0 = math.attach(math.alpha, b: [0])
 #let a1 = $alpha^1$
+#let a2 = $attach(a1, bl: 3)$
 
 $ a0 + a1 + a0_2 \
-  a1_2 + a0^2 + a1^2 $
+  a1_2 + a0^2 + a1^2 \
+  a2 + a2_2 + a2^2 $
+
+--- math-attach-nested-deep-base ---
+// Test attachments when the base has attachments and is nested arbitrarily
+// deep.
+#{
+  let var = $x^1$
+  for i in range(24) {
+    var = $var$    
+  }
+  $var_2$
+}
 
 --- math-attach-scripts-extended-shapes ---
 // Test script attachments positioning if the base is an extended shape (or a

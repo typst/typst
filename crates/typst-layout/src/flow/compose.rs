@@ -15,9 +15,11 @@ use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_syntax::Span;
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, Numeric};
 
-use super::{distribute, Config, FlowResult, LineNumberConfig, PlacedChild, Stop, Work};
+use super::{
+    distribute, Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work,
+};
 
 /// Composes the contents of a single page/region. A region can have multiple
 /// columns/subregions.
@@ -356,7 +358,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         migratable: bool,
     ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
-        if !self.config.root {
+        if self.config.mode != FlowMode::Root {
             return Ok(());
         }
 
@@ -374,7 +376,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let mut relayout = false;
         let mut regions = *regions;
-        let mut migratable = migratable && !breakable && regions.may_progress();
+
+        // The first footnote's origin frame should be migratable if the region
+        // may progress (already checked by the footnote function) and if the
+        // origin frame isn't breakable (checked here).
+        let mut migratable = migratable && !breakable;
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the
@@ -464,11 +470,35 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // If the first frame is empty, then none of its content fit. If
         // possible, we then migrate the origin frame to the next region to
         // uphold the footnote invariant (that marker and entry are on the same
-        // page). If not, we just queue the footnote for the next page.
+        // page). If not, we just queue the footnote for the next page, but
+        // only if that would actually make a difference (that is, if the
+        // footnote isn't alone in the page after not fitting in any previous
+        // pages, as it probably won't ever fit then).
+        //
+        // Note that a non-zero flow need also indicates that queueing would
+        // make a difference, because the flow need is subtracted from the
+        // available height in the entry's pod even if what caused that need
+        // wasn't considered for the input `regions`. For example, floats just
+        // pass the `regions` they received along to their footnotes, which
+        // don't take into account the space occupied by the floats themselves,
+        // but they do indicate their footnotes have a non-zero flow need, so
+        // queueing them can matter as, in the following pages, the flow need
+        // will be set to zero and the footnote will be alone in the page.
+        // Then, `may_progress()` will also be false (this time, correctly) and
+        // the footnote is laid out, as queueing wouldn't improve the lack of
+        // space anymore and would result in an infinite loop.
+        //
+        // However, it is worth noting that migration does take into account
+        // the original region, before inserting what prompted the flow need.
+        // Logically, if moving the original frame can't improve the lack of
+        // space, then migration should be inhibited. The space occupied by the
+        // original frame is not relevant for that check. Therefore,
+        // `regions.may_progress()` must still be checked separately for
+        // migration, regardless of the presence of flow need.
         if first.is_empty() && exist_non_empty_frame {
-            if migratable {
+            if migratable && regions.may_progress() {
                 return Err(Stop::Finish(false));
-            } else {
+            } else if regions.may_progress() || !flow_need.is_zero() {
                 self.footnote_queue.push(elem);
                 return Ok(());
             }

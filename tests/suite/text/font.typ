@@ -77,11 +77,6 @@ I
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
 
---- text-font-linux-libertine ---
-// Warning: 17-34 Typst's default font has changed from Linux Libertine to its successor Libertinus Serif
-// Hint: 17-34 please set the font to `"Libertinus Serif"` instead
-#set text(font: "Linux Libertine")
-
 --- issue-5499-text-fill-in-clip-block ---
 
 #let t = tiling(
@@ -149,3 +144,8 @@ The number 123.
 // Error: 17-65 coverage regex may only use dot, letters, and character classes
 // Hint: 17-65 the regex is applied to each letter individually
 #set text(font: (name: "Ubuntu", covers: regex("\u{20}-\u{10}")))
+
+--- issue-5262-text-negative-size ---
+#set text(-1pt)
+
+a

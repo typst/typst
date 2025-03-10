@@ -3,8 +3,8 @@ use ecow::EcoString;
 use crate::diag::{bail, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Fields, Smart, StyleChain,
-    Styles, Value,
+    cast, elem, Args, Array, Construct, Content, Datetime, Fields, OneOrMultiple, Smart,
+    StyleChain, Styles, Value,
 };
 
 /// The root element of a document and its metadata.
@@ -35,7 +35,7 @@ pub struct DocumentElem {
 
     /// The document's authors.
     #[ghost]
-    pub author: Author,
+    pub author: OneOrMultiple<EcoString>,
 
     /// The document's description.
     #[ghost]
@@ -43,7 +43,7 @@ pub struct DocumentElem {
 
     /// The document's keywords.
     #[ghost]
-    pub keywords: Keywords,
+    pub keywords: OneOrMultiple<EcoString>,
 
     /// The document's creation date.
     ///
@@ -93,7 +93,7 @@ cast! {
 pub struct DocumentInfo {
     /// The document's title.
     pub title: Option<EcoString>,
-    /// The document's author.
+    /// The document's author(s).
     pub author: Vec<EcoString>,
     /// The document's description.
     pub description: Option<EcoString>,

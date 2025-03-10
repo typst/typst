@@ -7,7 +7,7 @@ use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
-use super::{scaled_font_size, FrameFragment, MathContext};
+use super::{FrameFragment, MathContext};
 
 /// Lays out a [`CancelElem`].
 #[typst_macros::time(name = "math.cancel", span = elem.span())]
@@ -16,7 +16,7 @@ pub fn layout_cancel(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let body = ctx.layout_into_fragment(elem.body(), styles)?;
+    let body = ctx.layout_into_fragment(&elem.body, styles)?;
 
     // Preserve properties of body.
     let body_class = body.class();
@@ -27,7 +27,7 @@ pub fn layout_cancel(
     let mut body = body.into_frame();
     let body_size = body.size();
     let span = elem.span();
-    let length = elem.length(styles).at(scaled_font_size(ctx, styles));
+    let length = elem.length(styles);
 
     let stroke = elem.stroke(styles).unwrap_or(FixedStroke {
         paint: TextElem::fill_in(styles).as_decoration(),
@@ -63,7 +63,7 @@ pub fn layout_cancel(
     }
 
     ctx.push(
-        FrameFragment::new(ctx, styles, body)
+        FrameFragment::new(styles, body)
             .with_class(body_class)
             .with_italics_correction(body_italics)
             .with_accent_attach(body_attach)

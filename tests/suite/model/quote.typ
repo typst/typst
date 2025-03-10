@@ -84,3 +84,40 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 // With custom quotes.
 #set smartquote(quotes: (single: ("<", ">"), double: ("(", ")")))
 #quote[A #quote[nested] quote]
+
+--- quote-plato html ---
+#set quote(block: true)
+
+#quote(attribution: [Plato])[
+  ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
+  ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
+]
+#quote(attribution: [from the Henry Cary literal translation of 1897])[
+  ... I seem, then, in just this little thing to be wiser than this man at
+  any rate, that what I do not know I do not think I know either.
+]
+
+--- quote-nesting-html html ---
+When you said that #quote[he surely meant that #quote[she intended to say #quote[I'm sorry]]], I was quite confused.
+
+--- quote-attribution-link html ---
+#quote(
+  block: true,
+  attribution: link("https://typst.app/home")[typst.com]
+)[
+  Compose papers faster
+]
+
+--- quote-par ---
+// Ensure that an inline quote is part of a paragraph, but a block quote
+// does not result in paragraphs.
+#show par: highlight
+
+An inline #quote[quote.]
+
+#quote(block: true, attribution: [The Test Author])[
+  A block-level quote.
+]
+
+--- issue-5536-quote-inline-quotes-false ---
+Lorem #quote(block: false, quotes: false)[dolor].

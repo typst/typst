@@ -241,10 +241,6 @@ pub struct CompileArgs {
     #[arg(long = "pages", value_delimiter = ',')]
     pub pages: Option<Vec<Pages>>,
 
-    /// The version of the produced PDF.
-    #[arg(long = "pdf-version")]
-    pub pdf_version: Option<PdfVersion>,
-
     /// One (or multiple comma-separated) PDF standards that Typst will enforce
     /// conformance with.
     #[arg(long = "pdf-standard", value_delimiter = ',')]
@@ -467,45 +463,19 @@ pub enum Feature {
 
 display_possible_values!(Feature);
 
-/// A PDF version.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
-#[allow(non_camel_case_types)]
-pub enum PdfVersion {
-    /// PDF 1.4.
-    #[value(name = "1.4")]
-    V_1_4,
-    /// PDF 1.5.
-    #[value(name = "1.5")]
-    V_1_5,
-    /// PDF 1.5.
-    #[value(name = "1.6")]
-    V_1_6,
-    /// PDF 1.7.
-    #[value(name = "1.7")]
-    V_1_7,
-}
-
-display_possible_values!(PdfVersion);
-
 /// A PDF standard that Typst can enforce conformance with.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum PdfStandard {
-    /// PDF/A-1b.
-    #[value(name = "a-1b")]
-    A_1b,
+    /// PDF 1.7.
+    #[value(name = "1.7")]
+    V_1_7,
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
-    /// PDF/A-2u.
-    #[value(name = "a-2u")]
-    A_2u,
-    /// PDF/A-3u.
+    /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
-    /// PDF/A-2b.
-    #[value(name = "a-3u")]
-    A_3u,
 }
 
 display_possible_values!(PdfStandard);

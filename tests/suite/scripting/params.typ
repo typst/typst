@@ -29,17 +29,17 @@
 // Spread at beginning.
 #{
   let f(..a, b) = (a, b)
-  test(repr(f(1)), "((), 1)")
-  test(repr(f(1, 2, 3)), "((1, 2), 3)")
-  test(repr(f(1, 2, 3, 4, 5)), "((1, 2, 3, 4), 5)")
+  test(repr(f(1)), "(arguments(), 1)")
+  test(repr(f(1, 2, 3)), "(arguments(1, 2), 3)")
+  test(repr(f(1, 2, 3, 4, 5)), "(arguments(1, 2, 3, 4), 5)")
 }
 
 --- params-sink-in-middle ---
 // Spread in the middle.
 #{
   let f(a, ..b, c) = (a, b, c)
-  test(repr(f(1, 2)), "(1, (), 2)")
-  test(repr(f(1, 2, 3, 4, 5)), "(1, (2, 3, 4), 5)")
+  test(repr(f(1, 2)), "(1, arguments(), 2)")
+  test(repr(f(1, 2, 3, 4, 5)), "(1, arguments(2, 3, 4), 5)")
 }
 
 --- params-sink-unnamed-empty ---

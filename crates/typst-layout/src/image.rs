@@ -1,16 +1,17 @@
 use std::ffi::OsStr;
 
-use typst_library::diag::{bail, warning, At, SourceResult, StrResult};
+use typst_library::diag::{warning, At, SourceResult, StrResult};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Smart, StyleChain};
+use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
 };
-use typst_library::loading::Readable;
+use typst_library::loading::DataSource;
 use typst_library::text::families;
 use typst_library::visualize::{
-    Image, ImageElem, ImageFit, ImageFormat, Path, RasterFormat, VectorFormat,
+    Curve, ExchangeFormat, Image, ImageElem, ImageFit, ImageFormat, ImageKind,
+    RasterImage, SvgImage, VectorFormat,
 };
 
 /// Layout the image.
@@ -26,17 +27,17 @@ pub fn layout_image(
 
     // Take the format that was explicitly defined, or parse the extension,
     // or try to detect the format.
-    let data = elem.data();
+    let Derived { source, derived: data } = &elem.source;
     let format = match elem.format(styles) {
         Smart::Custom(v) => v,
-        Smart::Auto => determine_format(elem.path().as_str(), data).at(span)?,
+        Smart::Auto => determine_format(source, data).at(span)?,
     };
 
     // Warn the user if the image contains a foreign object. Not perfect
     // because the svg could also be encoded, but that's an edge case.
     if format == ImageFormat::Vector(VectorFormat::Svg) {
         let has_foreign_object =
-            data.as_str().is_some_and(|s| s.contains("<foreignObject"));
+            data.as_str().is_ok_and(|s| s.contains("<foreignObject"));
 
         if has_foreign_object {
             engine.sink.warn(warning!(
@@ -49,15 +50,26 @@ pub fn layout_image(
     }
 
     // Construct the image itself.
-    let image = Image::with_fonts(
-        data.clone().into(),
-        format,
-        elem.alt(styles),
-        engine.world,
-        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-        elem.flatten_text(styles),
-    )
-    .at(span)?;
+    let kind = match format {
+        ImageFormat::Raster(format) => ImageKind::Raster(
+            RasterImage::new(
+                data.clone(),
+                format,
+                elem.icc(styles).as_ref().map(|icc| icc.derived.clone()),
+            )
+            .at(span)?,
+        ),
+        ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
+            SvgImage::with_fonts(
+                data.clone(),
+                engine.world,
+                &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+            )
+            .at(span)?,
+        ),
+    };
+
+    let image = Image::new(kind, elem.alt(styles), elem.scaling(styles));
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();
@@ -83,6 +95,8 @@ pub fn layout_image(
     } else {
         // If neither is forced, take the natural image size at the image's
         // DPI bounded by the available space.
+        //
+        // Division by DPI is fine since it's guaranteed to be positive.
         let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
         let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
         Size::new(
@@ -113,31 +127,29 @@ pub fn layout_image(
 
     // Create a clipping group if only part of the image should be visible.
     if fit == ImageFit::Cover && !target.fits(fitted) {
-        frame.clip(Path::rect(frame.size()));
+        frame.clip(Curve::rect(frame.size()));
     }
 
     Ok(frame)
 }
 
-/// Determine the image format based on path and data.
-fn determine_format(path: &str, data: &Readable) -> StrResult<ImageFormat> {
-    let ext = std::path::Path::new(path)
-        .extension()
-        .and_then(OsStr::to_str)
-        .unwrap_or_default()
-        .to_lowercase();
+/// Try to determine the image format based on the data.
+fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat> {
+    if let DataSource::Path(path) = source {
+        let ext = std::path::Path::new(path.as_str())
+            .extension()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default()
+            .to_lowercase();
 
-    Ok(match ext.as_str() {
-        "png" => ImageFormat::Raster(RasterFormat::Png),
-        "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
-        "gif" => ImageFormat::Raster(RasterFormat::Gif),
-        "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-        _ => match &data {
-            Readable::Str(_) => ImageFormat::Vector(VectorFormat::Svg),
-            Readable::Bytes(bytes) => match RasterFormat::detect(bytes) {
-                Some(f) => ImageFormat::Raster(f),
-                None => bail!("unknown image format"),
-            },
-        },
-    })
+        match ext.as_str() {
+            "png" => return Ok(ExchangeFormat::Png.into()),
+            "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
+            "gif" => return Ok(ExchangeFormat::Gif.into()),
+            "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
+            _ => {}
+        }
+    }
+
+    Ok(ImageFormat::detect(data).ok_or("unknown image format")?)
 }

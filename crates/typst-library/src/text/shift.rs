@@ -50,7 +50,7 @@ pub struct SubElem {
 impl Show for Packed<SubElem> {
     #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body().clone();
+        let body = self.body.clone();
 
         if self.typographic(styles) {
             if let Some(text) = convert_script(&body, true) {
@@ -109,7 +109,7 @@ pub struct SuperElem {
 impl Show for Packed<SuperElem> {
     #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body().clone();
+        let body = self.body.clone();
 
         if self.typographic(styles) {
             if let Some(text) = convert_script(&body, false) {
@@ -132,9 +132,9 @@ fn convert_script(content: &Content, sub: bool) -> Option<EcoString> {
         Some(' '.into())
     } else if let Some(elem) = content.to_packed::<TextElem>() {
         if sub {
-            elem.text().chars().map(to_subscript_codepoint).collect()
+            elem.text.chars().map(to_subscript_codepoint).collect()
         } else {
-            elem.text().chars().map(to_superscript_codepoint).collect()
+            elem.text.chars().map(to_superscript_codepoint).collect()
         }
     } else if let Some(sequence) = content.to_packed::<SequenceElem>() {
         sequence
@@ -159,7 +159,7 @@ fn is_shapable(engine: &Engine, text: &str, styles: StyleChain) -> bool {
         {
             let covers = family.covers();
             return text.chars().all(|c| {
-                covers.map_or(true, |cov| cov.is_match(c.encode_utf8(&mut [0; 4])))
+                covers.is_none_or(|cov| cov.is_match(c.encode_utf8(&mut [0; 4])))
                     && font.ttf().glyph_index(c).is_some()
             });
         }

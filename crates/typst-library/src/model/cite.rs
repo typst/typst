@@ -1,11 +1,14 @@
+use typst_syntax::Spanned;
+
 use crate::diag::{error, At, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Label, Packed, Show, Smart, StyleChain, Synthesize,
+    cast, elem, Cast, Content, Derived, Label, Packed, Show, Smart, StyleChain,
+    Synthesize,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
-use crate::model::CslStyle;
+use crate::model::{CslSource, CslStyle};
 use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
@@ -87,15 +90,24 @@ pub struct CiteElem {
 
     /// The citation style.
     ///
-    /// Should be either `{auto}`, one of the built-in styles (see below) or a
-    /// path to a [CSL file](https://citationstyles.org/). Some of the styles
-    /// listed below appear twice, once with their full name and once with a
-    /// short alias.
-    ///
-    /// When set to `{auto}`, automatically use the
-    /// [bibliography's style]($bibliography.style) for the citations.
-    #[parse(CslStyle::parse_smart(engine, args)?)]
-    pub style: Smart<CslStyle>,
+    /// This can be:
+    /// - `{auto}` to automatically use the
+    ///   [bibliography's style]($bibliography.style) for citations.
+    /// - A string with the name of one of the built-in styles (see below). Some
+    ///   of the styles listed below appear twice, once with their full name and
+    ///   once with a short alias.
+    /// - A path string to a [CSL file](https://citationstyles.org/). For more
+    ///   details about paths, see the [Paths section]($syntax/#paths).
+    /// - Raw bytes from which a CSL style should be decoded.
+    #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
+        Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
+            CslStyle::load(engine.world, Spanned::new(source, span))?
+        )),
+        Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
+        None => None,
+    })]
+    #[borrowed]
+    pub style: Smart<Derived<CslSource, CslStyle>>,
 
     /// The text language setting where the citation is.
     #[internal]

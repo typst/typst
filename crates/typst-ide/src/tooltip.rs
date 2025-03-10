@@ -3,7 +3,7 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::engine::Sink;
-use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
+use typst::foundations::{repr, Binding, Capturer, CastInfo, Repr, Value};
 use typst::layout::{Length, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
@@ -201,12 +201,17 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
         if let Some(expr) = grand_grand.cast::<ast::Expr>();
         if let Some(ast::Expr::Ident(callee)) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
-            ast::Expr::Set(set) => Some(set.target()),
+            ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
         };
 
         // Find metadata about the function.
-        if let Some(Value::Func(func)) = world.library().global.scope().get(&callee);
+        if let Some(Value::Func(func)) = world
+            .library()
+            .global
+            .scope()
+            .get(&callee)
+            .map(Binding::read);
         then { (func, named) }
         else { return None; }
     };
@@ -274,10 +279,12 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
     use typst::syntax::Side;
 
     use super::{tooltip, Tooltip};
-    use crate::tests::{SourceExt, TestWorld};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = Option<Tooltip>;
 
@@ -308,21 +315,17 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: isize, side: Side) -> Response {
-        let world = TestWorld::new(text);
-        test_with_world(&world, cursor, side)
-    }
-
-    #[track_caller]
-    fn test_with_world(world: &TestWorld, cursor: isize, side: Side) -> Response {
-        let source = &world.main;
-        let doc = typst::compile(&world).output.ok();
-        tooltip(world, doc.as_ref(), source, source.cursor(cursor), side)
+    fn test(world: impl WorldLike, pos: impl FilePos, side: Side) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let (source, cursor) = pos.resolve(world);
+        let doc = typst::compile(world).output.ok();
+        tooltip(world, doc.as_ref(), &source, cursor, side)
     }
 
     #[test]
     fn test_tooltip() {
-        test("#let x = 1 + 2", 14, Side::After).must_be_none();
+        test("#let x = 1 + 2", -1, Side::After).must_be_none();
         test("#let x = 1 + 2", 5, Side::After).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
         test("#let x = 1 + 2", 6, Side::Before).must_be_code("3");
@@ -330,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_tooltip_empty_contextual() {
-        test("#{context}", 10, Side::Before).must_be_code("context()");
+        test("#{context}", -1, Side::Before).must_be_code("context()");
     }
 
     #[test]
@@ -355,11 +358,17 @@ mod tests {
     }
 
     #[test]
+    fn test_tooltip_import() {
+        let world = TestWorld::new("#import \"other.typ\": a, b")
+            .with_source("other.typ", "#let (a, b, c) = (1, 2, 3)");
+        test(&world, -5, Side::After).must_be_code("1");
+    }
+
+    #[test]
     fn test_tooltip_star_import() {
         let world = TestWorld::new("#import \"other.typ\": *")
             .with_source("other.typ", "#let (a, b, c) = (1, 2, 3)");
-        test_with_world(&world, 21, Side::Before).must_be_none();
-        test_with_world(&world, 21, Side::After)
-            .must_be_text("This star imports `a`, `b`, and `c`");
+        test(&world, -2, Side::Before).must_be_none();
+        test(&world, -2, Side::After).must_be_text("This star imports `a`, `b`, and `c`");
     }
 }

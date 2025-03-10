@@ -63,8 +63,8 @@ $ ext(bar.v) quad ext(bar.v.double) quad
 // Test stretch when base is given with shorthand.
 $stretch(||, size: #2em)$
 $stretch(\(, size: #2em)$
-$stretch("⟧", size: #2em)$
-$stretch("|", size: #2em)$
+$stretch(⟧, size: #2em)$
+$stretch(|, size: #2em)$
 $stretch(->, size: #2em)$
 $stretch(↣, size: #2em)$
 
@@ -83,3 +83,11 @@ $ stretch(base, size: #50%) $
 // Test stretching with attachments when nested in an equation.
 #let body = $stretch(=)$
 $ body^"text" $
+
+#{
+  let body = $stretch(=)$
+  for i in range(24) {
+    body = $body$
+  }
+  $body^"long text"$
+}

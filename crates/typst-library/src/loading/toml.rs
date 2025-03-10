@@ -1,11 +1,10 @@
 use ecow::{eco_format, EcoString};
 use typst_syntax::{is_newline, Spanned};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, FileError, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a TOML file.
 ///
@@ -29,34 +28,28 @@ use crate::World;
 /// ```
 #[func(scope, title = "TOML")]
 pub fn toml(
-    /// The engine.
     engine: &mut Engine,
-    /// Path to a TOML file.
-    ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// A [path]($syntax/#paths) to a TOML file or raw TOML bytes.
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    toml::decode(Spanned::new(Readable::Bytes(data), span))
+    let data = source.load(engine.world)?;
+    let raw = data.as_str().map_err(FileError::from).at(source.span)?;
+    ::toml::from_str(raw)
+        .map_err(|err| format_toml_error(err, raw))
+        .at(source.span)
 }
 
 #[scope]
 impl toml {
     /// Reads structured data from a TOML string/bytes.
     #[func(title = "Decode TOML")]
+    #[deprecated = "`toml.decode` is deprecated, directly pass bytes to `toml` instead"]
     pub fn decode(
+        engine: &mut Engine,
         /// TOML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        let raw = std::str::from_utf8(data.as_slice())
-            .map_err(|_| "file is not valid utf-8")
-            .at(span)?;
-        ::toml::from_str(raw)
-            .map_err(|err| format_toml_error(err, raw))
-            .at(span)
+        toml(engine, data.map(Readable::into_source))
     }
 
     /// Encodes structured data into a TOML string.

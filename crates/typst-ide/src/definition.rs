@@ -55,8 +55,8 @@ pub fn definition(
                 }
             }
 
-            if let Some(value) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(value.clone()));
+            if let Some(binding) = globals(world, &leaf).get(&name) {
+                return Some(Definition::Std(binding.read().clone()));
             }
         }
 
@@ -86,6 +86,7 @@ pub fn definition(
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
     use std::ops::Range;
 
     use typst::foundations::{IntoValue, NativeElement};
@@ -93,7 +94,7 @@ mod tests {
     use typst::WorldExt;
 
     use super::{definition, Definition};
-    use crate::tests::{SourceExt, TestWorld};
+    use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = (TestWorld, Option<Definition>);
 
@@ -132,23 +133,19 @@ mod tests {
     }
 
     #[track_caller]
-    fn test(text: &str, cursor: isize, side: Side) -> Response {
-        let world = TestWorld::new(text);
-        test_with_world(world, cursor, side)
-    }
-
-    #[track_caller]
-    fn test_with_world(world: TestWorld, cursor: isize, side: Side) -> Response {
-        let doc = typst::compile(&world).output.ok();
-        let source = &world.main;
-        let def = definition(&world, doc.as_ref(), source, source.cursor(cursor), side);
-        (world, def)
+    fn test(world: impl WorldLike, pos: impl FilePos, side: Side) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc = typst::compile(world).output.ok();
+        let (source, cursor) = pos.resolve(world);
+        let def = definition(world, doc.as_ref(), &source, cursor, side);
+        (world.clone(), def)
     }
 
     #[test]
     fn test_definition_let() {
-        test("#let x; #x", 9, Side::After).must_be_at("main.typ", 5..6);
-        test("#let x() = {}; #x", 16, Side::After).must_be_at("main.typ", 5..6);
+        test("#let x; #x", -2, Side::After).must_be_at("main.typ", 5..6);
+        test("#let x() = {}; #x", -2, Side::After).must_be_at("main.typ", 5..6);
     }
 
     #[test]
@@ -158,33 +155,33 @@ mod tests {
 
         // The span is at the args here because that's what the function value's
         // span is. Not ideal, but also not too big of a big deal.
-        test_with_world(world, -1, Side::Before).must_be_at("other.typ", 8..11);
+        test(&world, -2, Side::Before).must_be_at("other.typ", 8..11);
     }
 
     #[test]
     fn test_definition_cross_file() {
         let world = TestWorld::new("#import \"other.typ\": x; #x")
             .with_source("other.typ", "#let x = 1");
-        test_with_world(world, -1, Side::After).must_be_at("other.typ", 5..6);
+        test(&world, -2, Side::After).must_be_at("other.typ", 5..6);
     }
 
     #[test]
     fn test_definition_import() {
         let world = TestWorld::new("#import \"other.typ\" as o: x")
             .with_source("other.typ", "#let x = 1");
-        test_with_world(world, 14, Side::Before).must_be_at("other.typ", 0..0);
+        test(&world, 14, Side::Before).must_be_at("other.typ", 0..0);
     }
 
     #[test]
     fn test_definition_include() {
         let world = TestWorld::new("#include \"other.typ\"")
             .with_source("other.typ", "Hello there");
-        test_with_world(world, 14, Side::Before).must_be_at("other.typ", 0..0);
+        test(&world, 14, Side::Before).must_be_at("other.typ", 0..0);
     }
 
     #[test]
     fn test_definition_ref() {
-        test("#figure[] <hi> See @hi", 21, Side::After).must_be_at("main.typ", 1..9);
+        test("#figure[] <hi> See @hi", -2, Side::After).must_be_at("main.typ", 1..9);
     }
 
     #[test]

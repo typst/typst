@@ -100,7 +100,7 @@ pub struct AlignElem {
 impl Show for Packed<AlignElem> {
     #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().aligned(self.alignment(styles)))
+        Ok(self.body.clone().aligned(self.alignment(styles)))
     }
 }
 

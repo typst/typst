@@ -5,8 +5,7 @@ use typst_syntax::Spanned;
 use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from an XML file.
 ///
@@ -35,14 +34,14 @@ use crate::World;
 ///   let author = find-child(elem, "author")
 ///   let pars = find-child(elem, "content")
 ///
-///   heading(title.children.first())
+///   [= #title.children.first()]
 ///   text(10pt, weight: "medium")[
 ///     Published by
 ///     #author.children.first()
 ///   ]
 ///
 ///   for p in pars.children {
-///     if (type(p) == "dictionary") {
+///     if type(p) == dictionary {
 ///       parbreak()
 ///       p.children.first()
 ///     }
@@ -51,45 +50,39 @@ use crate::World;
 ///
 /// #let data = xml("example.xml")
 /// #for elem in data.first().children {
-///   if (type(elem) == "dictionary") {
+///   if type(elem) == dictionary {
 ///     article(elem)
 ///   }
 /// }
 /// ```
 #[func(scope, title = "XML")]
 pub fn xml(
-    /// The engine.
     engine: &mut Engine,
-    /// Path to an XML file.
-    ///
-    /// For more details, see the [Paths section]($syntax/#paths).
-    path: Spanned<EcoString>,
+    /// A [path]($syntax/#paths) to an XML file or raw XML bytes.
+    source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
-    xml::decode(Spanned::new(Readable::Bytes(data), span))
+    let data = source.load(engine.world)?;
+    let text = data.as_str().map_err(FileError::from).at(source.span)?;
+    let document = roxmltree::Document::parse_with_options(
+        text,
+        ParsingOptions { allow_dtd: true, ..Default::default() },
+    )
+    .map_err(format_xml_error)
+    .at(source.span)?;
+    Ok(convert_xml(document.root()))
 }
 
 #[scope]
 impl xml {
     /// Reads structured data from an XML string/bytes.
     #[func(title = "Decode XML")]
+    #[deprecated = "`xml.decode` is deprecated, directly pass bytes to `xml` instead"]
     pub fn decode(
+        engine: &mut Engine,
         /// XML data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        let Spanned { v: data, span } = data;
-        let text = std::str::from_utf8(data.as_slice())
-            .map_err(FileError::from)
-            .at(span)?;
-        let document = roxmltree::Document::parse_with_options(
-            text,
-            ParsingOptions { allow_dtd: true, ..Default::default() },
-        )
-        .map_err(format_xml_error)
-        .at(span)?;
-        Ok(convert_xml(document.root()))
+        xml(engine, data.map(Readable::into_source))
     }
 }
 

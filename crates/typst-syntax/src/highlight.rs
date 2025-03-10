@@ -171,6 +171,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Equation => None,
 
         SyntaxKind::Math => None,
+        SyntaxKind::MathText => None,
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
@@ -287,6 +288,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Destructuring => None,
         SyntaxKind::DestructAssignment => None,
 
+        SyntaxKind::Shebang => Some(Tag::Comment),
         SyntaxKind::LineComment => Some(Tag::Comment),
         SyntaxKind::BlockComment => Some(Tag::Comment),
         SyntaxKind::Error => Some(Tag::Error),

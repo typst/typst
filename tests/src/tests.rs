@@ -37,13 +37,13 @@ const STORE_PATH: &str = "tests/store";
 /// The directory where syntax trees are stored.
 const SYNTAX_PATH: &str = "tests/store/syntax";
 
-/// The directory where the reference images are stored.
+/// The directory where the reference output is stored.
 const REF_PATH: &str = "tests/ref";
 
 /// The file where the skipped tests are stored.
 const SKIP_PATH: &str = "tests/skip.txt";
 
-/// The maximum size of reference images that aren't marked as `// LARGE`.
+/// The maximum size of reference output that isn't marked as `large`.
 const REF_LIMIT: usize = 20 * 1024;
 
 fn main() {
@@ -62,7 +62,7 @@ fn setup() {
     std::env::set_current_dir("..").unwrap();
 
     // Create the storage.
-    for ext in ["render", "pdf", "svg"] {
+    for ext in ["render", "html", "pdf", "svg"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(ext)).unwrap();
     }
 
@@ -156,10 +156,10 @@ fn clean() {
 
 fn undangle() {
     match crate::collect::collect() {
-        Ok(_) => eprintln!("no danging reference images"),
+        Ok(_) => eprintln!("no danging reference output"),
         Err(errors) => {
             for error in errors {
-                if error.message == "dangling reference image" {
+                if error.message == "dangling reference output" {
                     std::fs::remove_file(&error.pos.path).unwrap();
                     eprintln!("✅ deleted {}", error.pos.path.display());
                 }
@@ -188,7 +188,7 @@ fn run_parser_test(
     let mut result = TestResult {
         errors: String::new(),
         infos: String::new(),
-        mismatched_image: false,
+        mismatched_output: false,
     };
 
     let syntax_file = live_path.join(format!("{}.syntax", test.name));
