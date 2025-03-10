@@ -139,7 +139,6 @@ wasmi = "0.40.0"
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
-xmp-writer = "0.3.1"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
