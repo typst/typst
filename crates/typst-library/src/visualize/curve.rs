@@ -530,3 +530,30 @@ impl Curve {
         Size::new(max_x - min_x, max_y - min_y)
     }
 }
+
+fn point_to_kurbo(point: Point) -> kurbo::Point {
+    kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
+}
+
+impl Curve {
+    fn to_kurbo(&self) -> kurbo::BezPath {
+        use kurbo::{BezPath, PathEl};
+
+        let path = self.0.iter().map(|item| match *item {
+            CurveItem::Move(point) => PathEl::MoveTo(point_to_kurbo(point)),
+            CurveItem::Line(point) => PathEl::LineTo(point_to_kurbo(point)),
+            CurveItem::Cubic(point, point1, point2) => PathEl::CurveTo(
+                point_to_kurbo(point),
+                point_to_kurbo(point1),
+                point_to_kurbo(point2),
+            ),
+            CurveItem::Close => PathEl::ClosePath,
+        });
+        BezPath::from_vec(path.collect())
+    }
+
+    /// When this curve is interpreted as a clip mask, would it contain `point`?
+    pub fn contains(&self, needle: Point) -> bool {
+        kurbo::Shape::contains(&self.to_kurbo(), point_to_kurbo(needle))
+    }
+}

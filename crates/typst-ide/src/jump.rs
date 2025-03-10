@@ -53,10 +53,14 @@ pub fn jump_from_click(
     for (mut pos, item) in frame.items().rev() {
         match item {
             FrameItem::Group(group) => {
-                // TODO: Handle transformation.
-                if let Some(span) =
-                    jump_from_click(world, document, &group.frame, click - pos)
-                {
+                let pos = click - pos;
+                if let Some(clip) = &group.clip {
+                    if !clip.contains(pos) {
+                        continue;
+                    }
+                }
+                let pos = pos.transform_inf(group.transform.invert().unwrap());
+                if let Some(span) = jump_from_click(world, document, &group.frame, pos) {
                     return Some(span);
                 }
             }
@@ -146,9 +150,8 @@ pub fn jump_from_cursor(
 fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
     for (mut pos, item) in frame.items() {
         if let FrameItem::Group(group) = item {
-            // TODO: Handle transformation.
             if let Some(point) = find_in_frame(&group.frame, span) {
-                return Some(point + pos);
+                return Some(pos + point.transform(group.transform));
             }
         }
 
@@ -270,6 +273,42 @@ mod tests {
     }
 
     #[test]
+    fn test_jump_from_click_transform_clip() {
+        let margin = point(10.0, 10.0);
+        test_click(
+            "#rect(width: 20pt, height: 20pt)",
+            point(10.0, 10.0) + margin,
+            cursor(1),
+        );
+        test_click("#rect(width: 60pt, height: 10pt)", point(5.0, 30.0) + margin, None);
+        test_click(
+            "#rotate(90deg, origin: bottom + left, rect(width: 60pt, height: 10pt))",
+            point(5.0, 30.0) + margin,
+            cursor(38),
+        );
+        test_click(
+            "#scale(x: 300%, y: 300%, origin: top + left, rect(width: 10pt, height: 10pt))",
+            point(20.0, 20.0) + margin,
+            cursor(45),
+        );
+        test_click(
+            "#box(width: 10pt, height: 10pt, clip: true, scale(x: 300%, y: 300%, origin: top + left, rect(width: 10pt, height: 10pt)))",
+            point(20.0, 20.0) + margin,
+            None,
+        );
+        test_click(
+            "#box(width: 10pt, height: 10pt, clip: false, rect(width: 30pt, height: 30pt))",
+            point(20.0, 20.0) + margin,
+            cursor(45),
+        );
+        test_click(
+            "#box(width: 10pt, height: 10pt, clip: true, rect(width: 30pt, height: 30pt))",
+            point(20.0, 20.0) + margin,
+            None,
+        );
+    }
+
+    #[test]
     fn test_jump_from_cursor() {
         let s = "*Hello* #box[ABC] World";
         test_cursor(s, 12, None);
@@ -279,6 +318,15 @@ mod tests {
     #[test]
     fn test_jump_from_cursor_math() {
         test_cursor("$a + b$", -3, pos(1, 27.51, 16.83));
+    }
+
+    #[test]
+    fn test_jump_from_cursor_transform() {
+        test_cursor(
+            r#"#rotate(90deg, origin: bottom + left, [hello world])"#,
+            -5,
+            pos(1, 10.0, 16.58),
+        );
     }
 
     #[test]
