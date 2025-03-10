@@ -1,5 +1,15 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use crate::embed::embed_files;
+use crate::image::handle_image;
+use crate::link::handle_link;
+use crate::metadata::build_metadata;
+use crate::outline::build_outline;
+use crate::page::PageLabelExt;
+use crate::shape::handle_shape;
+use crate::text::handle_text;
+use crate::util::{convert_path, display_font, AbsExt, TransformExt};
+use crate::PdfOptions;
 use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, PdfVersion, ValidationError};
 use krilla::destination::{NamedDestination, XyzDestination};
@@ -18,16 +28,6 @@ use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
-
-use crate::image::handle_image;
-use crate::link::handle_link;
-use crate::metadata::build_metadata;
-use crate::outline::build_outline;
-use crate::page::PageLabelExt;
-use crate::shape::handle_shape;
-use crate::text::handle_text;
-use crate::util::{convert_path, display_font, AbsExt, TransformExt};
-use crate::PdfOptions;
 
 pub fn convert(
     typst_document: &PagedDocument,
@@ -53,6 +53,7 @@ pub fn convert(
     );
 
     convert_pages(&mut gc, &mut document)?;
+    embed_files(&typst_document, &mut document)?;
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
