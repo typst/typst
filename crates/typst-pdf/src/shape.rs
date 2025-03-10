@@ -1,11 +1,12 @@
-use crate::convert::{FrameContext, GlobalContext};
-use crate::paint;
-use crate::util::{convert_path, AbsExt, TransformExt};
 use krilla::geom::Rect;
 use krilla::path::{Path, PathBuilder};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::visualize::{Geometry, Shape};
+
+use crate::convert::{FrameContext, GlobalContext};
+use crate::paint;
+use crate::util::{convert_path, AbsExt, TransformExt};
 
 pub(crate) fn handle_shape(
     fc: &mut FrameContext,

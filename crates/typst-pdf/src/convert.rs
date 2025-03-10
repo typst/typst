@@ -1,23 +1,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::embed::embed_files;
-use crate::image::handle_image;
-use crate::link::handle_link;
-use crate::metadata::build_metadata;
-use crate::outline::build_outline;
-use crate::page::PageLabelExt;
-use crate::shape::handle_shape;
-use crate::text::handle_text;
-use crate::util::{convert_path, display_font, AbsExt, TransformExt};
-use crate::PdfOptions;
 use krilla::annotation::Annotation;
-use krilla::configure::{Configuration, PdfVersion, ValidationError};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
-use krilla::{Document, PageSettings, SerializeSettings};
+use krilla::{Configuration, Document, PageSettings, SerializeSettings, ValidationError};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
@@ -28,6 +17,17 @@ use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
+
+use crate::embed::embed_files;
+use crate::image::handle_image;
+use crate::link::handle_link;
+use crate::metadata::build_metadata;
+use crate::outline::build_outline;
+use crate::page::PageLabelExt;
+use crate::shape::handle_shape;
+use crate::text::handle_text;
+use crate::util::{convert_path, display_font, AbsExt, TransformExt};
+use crate::PdfOptions;
 
 pub fn convert(
     typst_document: &PagedDocument,
@@ -514,7 +514,9 @@ fn collect_named_destinations(
 
 fn get_configuration(options: &PdfOptions) -> SourceResult<Configuration> {
     let config = match (options.pdf_version, options.validator) {
-        (None, None) => Configuration::new_with_version(PdfVersion::Pdf17),
+        (None, None) => {
+            Configuration::new_with_version(krilla::configure::PdfVersion::Pdf17)
+        }
         (Some(pdf), None) => Configuration::new_with_version(pdf.into()),
         (None, Some(v)) => Configuration::new_with_validator(v.into()),
         (Some(pdf), Some(v)) => {
