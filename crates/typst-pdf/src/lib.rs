@@ -52,39 +52,40 @@ impl From<PdfVersion> for krilla::configure::PdfVersion {
 
 /// A validator for exporting PDF documents to a specific subset of PDF.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
 pub enum Validator {
     /// The validator for the PDF/A1-A standard.
     A1_A,
     /// The validator for the PDF/A1-B standard.
-    A1_B,
+    A_1b,
     /// The validator for the PDF/A2-B standard.
-    A2_B,
+    A_2b,
     /// The validator for the PDF/A2-U standard.
-    A2_U,
+    A_2u,
     /// The validator for the PDF/A3-B standard.
-    A3_B,
+    A_3b,
     /// The validator for the PDF/A3-U standard.
-    A3_U,
+    A_3u,
     /// The validator for the PDF/A4 standard.
-    A4,
+    A_4,
     /// The validator for the PDF/A4f standard.
-    A4F,
+    A_4f,
     /// The validator for the PDF/A4e standard.
-    A4E,
+    A_4e,
 }
 
 impl From<Validator> for krilla::configure::Validator {
     fn from(value: Validator) -> Self {
         match value {
             Validator::A1_A => krilla::configure::Validator::A1_A,
-            Validator::A1_B => krilla::configure::Validator::A1_B,
-            Validator::A2_B => krilla::configure::Validator::A2_B,
-            Validator::A2_U => krilla::configure::Validator::A2_U,
-            Validator::A3_B => krilla::configure::Validator::A3_B,
-            Validator::A3_U => krilla::configure::Validator::A3_U,
-            Validator::A4 => krilla::configure::Validator::A4,
-            Validator::A4F => krilla::configure::Validator::A4F,
-            Validator::A4E => krilla::configure::Validator::A4E,
+            Validator::A_1b => krilla::configure::Validator::A1_B,
+            Validator::A_2b => krilla::configure::Validator::A2_B,
+            Validator::A_2u => krilla::configure::Validator::A2_U,
+            Validator::A_3b => krilla::configure::Validator::A3_B,
+            Validator::A_3u => krilla::configure::Validator::A3_U,
+            Validator::A_4 => krilla::configure::Validator::A4,
+            Validator::A_4f => krilla::configure::Validator::A4F,
+            Validator::A_4e => krilla::configure::Validator::A4E,
         }
     }
 }
