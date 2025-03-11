@@ -78,7 +78,7 @@ and this is often surprisingly for newcomers, context-dependent
 property fields remain _constant_ throughout the context's scope. 
 This has two important consequences: First, direct property 
 assignments like `text.lang = "de"` are _not_ allowed &ndash; 
-always use `set` or `show` rules. Second, changes to a 
+use `set` or `show` rules for this purpose. Second, changes to a 
 property value within a context (e.g. by a `set` rule) are not 
 observable by field access within that same context:
 
@@ -94,19 +94,19 @@ observable by field access within that same context:
 
 Both reads have the same output `"en"`, because `text.lang` is assigned
 upon entry in the context and remains constant until the end of its scope 
-(the closing `]`). Thus, the `text.lang` field cannot "see" the effect 
-of `#set text(lang: "fr")`, although Read 2 occurs afterwards. Compare 
+(the closing `]`). Thus, the `text.lang` field is not affected by
+#set text(lang: "fr")`, although Read 2 occurs afterwards. Compare 
 this to the previous example: There we got two different results because 
 we created two different contexts.
 
 However, immutability only applies to the property fields themselves. 
 The appearance of content within a context _can_ be changed in the 
-usual manner. e.g. by set rules. Consider the same example with font size:
+usual manner, e.g. by set rules. Consider the same example with font size:
 
 ```example
 #set text(size: 40pt)
 #context [
-  Read 1: #text.size \
+  Read 1: #text.size
 
   #set text(size: 25pt)
   Read 2: #text.size
@@ -123,15 +123,15 @@ you can use _nested contexts_:
 ```example
 #set text(lang: "en")
 #context [
-  Read 1: #text.lang \
+  Read 1: #text.lang
 
   #set text(lang: "fr")
   Read 2: #context text.lang
 ]
 ```
 
-All of the above applies to `show` rules analogously. To demonstrate this, 
-we define a function `template` which is activated by an "everything" set 
+All of the above apply to `show` rules analogously. To demonstrate this, 
+we define a function `template` which is activated by an "everything" show 
 rule in a context:
 
 ```example
@@ -202,7 +202,7 @@ Doubled spacing:
 
 The advantage of this technique is that the user does not have to know the 
 original spacing in order to double it. To double the spacing of all 
-equations, you can put the same calculations in a `show` rule. Note that 
+equations, you can put the same calculations in a show rule. Note that 
 it is not necessary to add the `context` keyword on the right-hand side 
 of a `show` rule, because show rules establish a context automatically:
 
@@ -283,9 +283,9 @@ demonstrates this:
 
 The rule that context-dependent variables and functions remain constant 
 within a given `context` also applies to location context. The function
-`counter.display()` is an example for this behavior. Below, read A will 
+[`counter.display`] is an example for this behavior. Below, Read A will 
 access the counter's value upon _entry_ into the context, i.e. `1` - it 
-cannot see the effect of `{c.update(2)}`. In contrast, read B accesses 
+cannot see the effect of `{c.update(2)}`. In contrast, Read B accesses 
 the counter in a nested context and will thus see the updated value.
 
 ```example
