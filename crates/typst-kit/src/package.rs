@@ -236,9 +236,7 @@ impl PackageStorage {
         match fs::rename(&tempdir, &package_dir) {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
-            Err(err) => {
-                Err(error("failed to move the downloaded package directory", err))
-            }
+            Err(err) => Err(error("failed to move downloaded package directory", err)),
         }
     }
 }
