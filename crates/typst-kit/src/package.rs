@@ -265,7 +265,7 @@ impl Tempdir {
 
 impl Drop for Tempdir {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).ok();
+        _ = fs::remove_dir_all(&self.0);
     }
 }
 
