@@ -78,7 +78,8 @@ impl PackageStorage {
         self.package_path.as_deref()
     }
 
-    /// Make a package available in the on-disk.
+    /// Makes a package available on-disk and returns the path at which it is
+    /// located (will be either in the cache or package directory).
     pub fn prepare_package(
         &self,
         spec: &PackageSpec,
@@ -111,7 +112,7 @@ impl PackageStorage {
         Err(PackageError::NotFound(spec.clone()))
     }
 
-    /// Try to determine the latest version of a package.
+    /// Tries to determine the latest version of a package.
     pub fn determine_latest_version(
         &self,
         spec: &VersionlessPackageSpec,
@@ -144,7 +145,7 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&[serde_json::Value]> {
+    fn download_index(&self) -> StrResult<&[serde_json::Value]> {
         self.index
             .get_or_try_init(|| {
                 let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
@@ -165,7 +166,7 @@ impl PackageStorage {
     ///
     /// # Panics
     /// Panics if the package spec namespace isn't `DEFAULT_NAMESPACE`.
-    pub fn download_package(
+    fn download_package(
         &self,
         spec: &PackageSpec,
         cache_dir: &Path,
