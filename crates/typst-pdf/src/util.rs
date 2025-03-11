@@ -113,8 +113,7 @@ impl ColorExt for Color {
 /// Display the font family and variant of a font.
 pub(crate) fn display_font(font: &Font) -> String {
     let font_family = &font.info().family;
-    let font_variant = font.info().variant;
-    format!("{font_family} ({font_variant:?})")
+    format!("{font_family}")
 }
 
 /// Build a typst path using a path builder.

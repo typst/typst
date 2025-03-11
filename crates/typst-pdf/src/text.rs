@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use bytemuck::TransparentWrapper;
 use krilla::font::{GlyphId, GlyphUnits};
-use krilla::surface::Surface;
+use krilla::surface::{Location, Surface};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::layout::Size;
 use typst_library::text::{Font, Glyph, TextItem};
@@ -124,5 +124,9 @@ impl krilla::font::Glyph for PdfGlyph {
 
     fn y_advance(&self) -> f32 {
         0.0
+    }
+
+    fn location(&self) -> Option<Location> {
+        Some(self.0.span.0.into_raw().get())
     }
 }

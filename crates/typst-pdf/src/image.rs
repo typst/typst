@@ -25,6 +25,7 @@ pub(crate) fn handle_image(
     span: Span,
 ) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform().to_krilla());
+    surface.set_location(span.into_raw().get());
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
@@ -35,8 +36,9 @@ pub(crate) fn handle_image(
                 Some(i) => i,
             };
 
-            if gc.image_spans.contains_key(&image) {
-                gc.image_spans.insert(image.clone(), span);
+            if !gc.image_to_spans.contains_key(&image) {
+                gc.image_to_spans.insert(image.clone(), span);
+                gc.image_spans.insert(span);
             }
 
             surface.draw_image(image, size.to_krilla());
@@ -51,6 +53,7 @@ pub(crate) fn handle_image(
     }
 
     surface.pop();
+    surface.reset_location();
 
     Ok(())
 }

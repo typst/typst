@@ -1,19 +1,21 @@
+use crate::convert::{FrameContext, GlobalContext};
+use crate::paint;
+use crate::util::{convert_path, AbsExt, TransformExt};
 use krilla::geom::Rect;
 use krilla::path::{Path, PathBuilder};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::visualize::{Geometry, Shape};
-
-use crate::convert::{FrameContext, GlobalContext};
-use crate::paint;
-use crate::util::{convert_path, AbsExt, TransformExt};
+use typst_syntax::Span;
 
 pub(crate) fn handle_shape(
     fc: &mut FrameContext,
     shape: &Shape,
     surface: &mut Surface,
     gc: &mut GlobalContext,
+    span: Span,
 ) -> SourceResult<()> {
+    surface.set_location(span.into_raw().get());
     surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {
@@ -54,6 +56,7 @@ pub(crate) fn handle_shape(
     }
 
     surface.pop();
+    surface.reset_location();
 
     Ok(())
 }
