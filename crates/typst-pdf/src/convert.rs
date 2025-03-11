@@ -353,7 +353,7 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                         .unwrap_or(Span::detached())
                 };
 
-                let mut errors = ve.iter().map(|e| {
+                let errors = ve.iter().map(|e| {
                     match e {
                         ValidationError::TooLongString => {
                             error!(Span::detached(), "{prefix} a PDF string is longer \
@@ -473,12 +473,9 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                         }
                     }
                 })
-                    .collect::<Vec<_>>();
+                    .collect::<EcoVec<_>>();
 
-                // Deduplicate errors with unspanned tags.
-                errors.dedup();
-
-                Err(errors.into_iter().collect::<EcoVec<_>>())
+                Err(errors)
             }
             KrillaError::ImageError(i) => {
                 let span = gc.image_to_spans.get(&i).unwrap();
