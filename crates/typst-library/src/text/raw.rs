@@ -188,7 +188,7 @@ pub struct RawElem {
     /// - A path string to load a syntax file from the given path. For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which the syntax should be decoded.
-    /// - An array where each item is one the above.
+    /// - An array where each item is one of the above.
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
