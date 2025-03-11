@@ -531,10 +531,6 @@ impl Curve {
     }
 }
 
-fn point_to_kurbo(point: Point) -> kurbo::Point {
-    kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
-}
-
 impl Curve {
     fn to_kurbo(&self) -> kurbo::BezPath {
         use kurbo::{BezPath, PathEl};
@@ -556,4 +552,8 @@ impl Curve {
     pub fn contains(&self, needle: Point) -> bool {
         kurbo::Shape::contains(&self.to_kurbo(), point_to_kurbo(needle))
     }
+}
+
+fn point_to_kurbo(point: Point) -> kurbo::Point {
+    kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
 }

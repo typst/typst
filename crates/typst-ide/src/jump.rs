@@ -59,7 +59,13 @@ pub fn jump_from_click(
                         continue;
                     }
                 }
-                let pos = pos.transform_inf(group.transform.invert().unwrap());
+                // Realistic transforms should always be invertible.
+                // An example of one that isn't is a scale of 0, which would
+                // not be clickable anyway.
+                let Some(inv_transform) = group.transform.invert() else {
+                    continue;
+                };
+                let pos = pos.transform_inf(inv_transform);
                 if let Some(span) = jump_from_click(world, document, &group.frame, pos) {
                     return Some(span);
                 }
@@ -292,7 +298,8 @@ mod tests {
             cursor(45),
         );
         test_click(
-            "#box(width: 10pt, height: 10pt, clip: true, scale(x: 300%, y: 300%, origin: top + left, rect(width: 10pt, height: 10pt)))",
+            "#box(width: 10pt, height: 10pt, clip: true, scale(x: 300%, y: 300%, \
+             origin: top + left, rect(width: 10pt, height: 10pt)))",
             point(20.0, 20.0) + margin,
             None,
         );
@@ -305,6 +312,11 @@ mod tests {
             "#box(width: 10pt, height: 10pt, clip: true, rect(width: 30pt, height: 30pt))",
             point(20.0, 20.0) + margin,
             None,
+        );
+        test_click(
+            "#rotate(90deg, origin: bottom + left)[hello world]",
+            point(5.0, 15.0) + margin,
+            cursor(40),
         );
     }
 
