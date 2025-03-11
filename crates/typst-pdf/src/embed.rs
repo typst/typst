@@ -42,6 +42,7 @@ pub(crate) fn embed_files(
             association_kind,
             data: data.into(),
             compress: true,
+            location: Some(embed.span().into_raw().get()),
         };
 
         if document.embed_file(file).is_none() {

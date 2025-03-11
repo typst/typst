@@ -1,6 +1,7 @@
 use ecow::EcoVec;
 use krilla::annotation::Annotation;
 use krilla::destination::{NamedDestination, XyzDestination};
+use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
@@ -421,55 +422,77 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                         }
                         ValidationError::Transparency(loc) => {
                             error!(get_span(*loc), "{prefix} document contains transparency";
-                            hint: "remove any transparency from your \
-                            document (e.g. fills with opacity)";
-                            hint: "you might have to convert certain SVGs into a bitmap image if \
-                            they contain transparency";
-                            hint: "export using a different standard that supports transparency"
-                        )
+                                hint: "remove any transparency from your \
+                                document (e.g. fills with opacity)";
+                                hint: "you might have to convert certain SVGs into a bitmap image if \
+                                they contain transparency";
+                                hint: "export using a different standard that supports transparency"
+                            )
                         }
                         ValidationError::ImageInterpolation(loc) => {
                             error!(get_span(*loc), "{prefix} the image has smooth interpolation";
-                            hint: "such images are not supported in this export mode"
-                        )
+                                hint: "such images are not supported in this export mode"
+                            )
                         }
-                        ValidationError::EmbeddedFile(_) => {
-                            error!(Span::detached(), "{prefix} document contains an embedded file";
-                            hint: "embedded files are not supported in this export mode"
-                        )
+                        ValidationError::EmbeddedFile(e, s) => {
+                            let span = get_span(*s);
+                            match e {
+                                EmbedError::Existence => {
+                                    error!(span, "{prefix} document contains an embedded file";
+                                        hint: "embedded files are not supported in this export mode"
+                                    )
+                                }
+                                EmbedError::MissingDate => {
+                                    error!(span, "{prefix} document date is missing";
+                                        hint: "the document date needs to be set when embedding files"
+                                    )
+                                }
+                                EmbedError::MissingDescription => {
+                                    error!(span, "{prefix} file description is missing")
+                                }
+                                EmbedError::MissingMimeType => {
+                                    error!(span, "{prefix} file mime type is missing")
+                                }
+                            }
                         }
-
                         // The below errors cannot occur yet, only once Typst supports full PDF/A
                         // and PDF/UA.
                         // But let's still add a message just to be on the safe side.
                         ValidationError::MissingAnnotationAltText => {
                             error!(Span::detached(), "{prefix} missing annotation alt text";
-                            hint: "please report this as a bug")
+                                hint: "please report this as a bug"
+                            )
                         }
                         ValidationError::MissingAltText => {
                             error!(Span::detached(), "{prefix} missing alt text";
-                            hint: "make sure your images and formulas have alt text")
+                                hint: "make sure your images and formulas have alt text"
+                            )
                         }
                         ValidationError::NoDocumentLanguage => {
                             error!(Span::detached(), "{prefix} missing document language";
-                            hint: "set the language of the document")
+                                hint: "set the language of the document"
+                            )
                         }
                         // Needs to be set by typst-pdf.
                         ValidationError::MissingHeadingTitle => {
                             error!(Span::detached(), "{prefix} missing heading title";
-                            hint: "please report this as a bug")
+                                hint: "please report this as a bug"
+                            )
                         }
                         ValidationError::MissingDocumentOutline => {
                             error!(Span::detached(), "{prefix} missing document outline";
-                            hint: "please report this as a bug")
+                                hint: "please report this as a bug"
+                            )
                         }
                         ValidationError::MissingTagging => {
                             error!(Span::detached(), "{prefix} missing document tags";
-                            hint: "please report this as a bug")
+                                hint: "please report this as a bug"
+                            )
                         }
                         ValidationError::NoDocumentTitle => {
                             error!(Span::detached(), "{prefix} missing document title";
-                            hint: "set the title of the document")
+                                hint: "set the title of the document"
+                            )
                         }
                     }
                 })
