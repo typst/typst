@@ -278,7 +278,7 @@ impl AsRef<Path> for Tempdir {
 /// `PackageError::Other`.
 #[cold]
 fn error(message: &str, err: io::Error) -> PackageError {
-    PackageError::Other(Some(eco_format!("{message} ({err})")))
+    PackageError::Other(Some(eco_format!("{message}: {err}")))
 }
 
 #[cfg(test)]
