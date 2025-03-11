@@ -130,7 +130,7 @@ you can use _nested contexts_:
 ]
 ```
 
-All of the above apply to `show` rules analogously. To demonstrate this, 
+All of the above applies to `show` rules analogously. To demonstrate this, 
 we define a function `template` which is activated by an "everything" show 
 rule in a context:
 
