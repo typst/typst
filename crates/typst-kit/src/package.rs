@@ -102,8 +102,7 @@ impl PackageStorage {
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == DEFAULT_NAMESPACE {
-                let package_base_dir = cache_dir.join(&*spec.namespace);
-                self.download_package(&package_base_dir, spec, &dir, progress)?;
+                self.download_package(spec, cache_dir, progress)?;
                 if dir.exists() {
                     return Ok(dir);
                 }
@@ -169,9 +168,8 @@ impl PackageStorage {
     /// Panics if the package spec namespace isn't `DEFAULT_NAMESPACE`.
     pub fn download_package(
         &self,
-        package_base_dir: &Path,
         spec: &PackageSpec,
-        package_dir: &Path,
+        cache_dir: &Path,
         progress: &mut dyn Progress,
     ) -> PackageResult<()> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
@@ -198,21 +196,23 @@ impl PackageStorage {
         // Temporary place where the package will be extracted before being
         // moved to the target directory. To avoid name clashing we use a PRNG
         // to get a unique directory name.
-        let tempdir = Tempdir::create(
-            package_base_dir,
-            format_args!("{}-{}", spec.name, spec.version),
-        )
+        let tempdir = Tempdir::create(cache_dir.join(format!(
+            "{}/{}/.tmp-{}-{}",
+            spec.namespace,
+            spec.name,
+            spec.version,
+            fastrand::u32(..),
+        )))
         .map_err(|err| error("failed to create temporary package directory", err))?;
-
-        // Create the package directory into which we'll move the extracted
-        // package.
-        std::fs::create_dir_all(package_dir)
-            .map_err(|err| error("failed to create package directory", err))?;
 
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
         tar::Archive::new(decompressed)
             .unpack(&tempdir)
             .map_err(|err| PackageError::MalformedArchive(Some(eco_format!("{err}"))))?;
+
+        // The place into which we'll move the extracted package.
+        let package_dir =
+            cache_dir.join(format!("{}/{}/{}", spec.namespace, spec.name, spec.version));
 
         // As to not overcomplicate the code to combat an already rare case
         // where multiple instances try to download the same package version
@@ -239,7 +239,7 @@ impl PackageStorage {
         // (currently) justify the additional code complexity. If such situation
         // occur and it will be reported, then we probably would consider a
         // more comprehensive solution (i.e., file locking or checksums).
-        match fs::rename(&tempdir, package_dir) {
+        match fs::rename(&tempdir, &package_dir) {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
             Err(err) => {
@@ -261,10 +261,8 @@ struct MinimalPackageInfo {
 struct Tempdir(PathBuf);
 
 impl Tempdir {
-    /// Creates a temporary directory of the form
-    /// `.tmp-{inner}-{randomsuffix}` in `base`.
-    fn create(base: &Path, inner: impl std::fmt::Display) -> io::Result<Self> {
-        let path = base.join(format!(".tmp-{inner}-{}", fastrand::u32(..)));
+    /// Creates a directory at the path and auto-cleans it.
+    fn create(path: PathBuf) -> io::Result<Self> {
         std::fs::create_dir_all(&path)?;
         Ok(Self(path))
     }
