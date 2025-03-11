@@ -237,7 +237,7 @@ impl PackageStorage {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
             Err(err) => {
-                Err(error("failed to move the downloaded package directory)", err))
+                Err(error("failed to move the downloaded package directory", err))
             }
         }
     }
