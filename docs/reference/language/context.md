@@ -28,25 +28,25 @@ outline, for instance, also provide the proper context to resolve counters.
 ## Behavior of the context keyword
 Style properties frequently change within a document, for example by applying set 
 rules. To retrieve such poperties in a consistent way, one must first specify 
-the context where the query is to be executed. This is the purpose of the 
-`context` keyword. Once the context has been fixed, the property information 
-is available through a simple field access syntax. For example, `text.lang` 
-asks for the current language setting. In its simplest form, the `context` 
-keyword refers to "right here":
+the precise context where the property should be retrieved. This can be achieved 
+with the `context` keyword. Once the context has been fixed, the property 
+information is available through standard field access syntax. For example, 
+`text.lang` asks for the current language setting. In its simplest form, the 
+`context` keyword refers to "right here":
 
 ```example
 #set text(lang: "de")
-// query the language setting "here"
+// read the language setting "here"
 #context text.lang
 ```
 
-Note that calling `#text.lang` directly would be an error, because the request
-cannot be answered without knowledge of the context. The field names supported 
+Note that any attempt to access `#text.lang` directly, i.e. outside of a context,
+will cause the compiler to issue an error message. The field names supported 
 by a given element function always correspond to the named parameters documented 
 on each element's page.
 
 Moreover, some functions, such as [`to-absolute`]($length.to-absolute) 
-and [`counter.display`]($counter.display) are only applicable in a context, 
+and [`counter.display`]($counter.display), are only applicable in a context, 
 because their results depend on the current settings of style properties. 
 When another function `foo()` calls a context-dependent function, it becomes 
 itself context-dependent:
@@ -54,12 +54,14 @@ itself context-dependent:
 ```example
 #let foo() = 1em.to-absolute()
 #context {
-  // foo() cannot be called outside of a context
+  // foo() cannot be called
+  // outside of a context
   foo() == text.size
 }
 ```
 
-When a property is changed, the response to the query changes accordingly: 
+When a property is changed, the response to the property access 
+changes accordingly: 
 
 ```example
 #set text(lang: "en")
@@ -69,61 +71,68 @@ When a property is changed, the response to the query changes accordingly:
 #context text.lang
 ```
 
-The output of a `#context ...` call is static in the form of opaque 
-[`content`]. Write access to context output is prohibited, as it would 
-often result in invalid code: If the context changes between read and 
-write, overwriting a property would cause an inconsistent system state. 
-In fact, context-dependent property fields are immutable constants even 
-within the context itself:
+As you see, the result of a `#context ...` expression can 
+be inserted into the document as `content`. Context blocks can 
+contain arbitrary code beyond the field access. However,
+and this is often surprisingly for newcomers, context-dependent 
+property fields remain _constant_ throughout the context's scope. 
+This has two important consequences: First, direct property 
+assignments like `text.lang = "de"` are _not_ allowed &ndash; 
+always use `set` or `show` rules. Second, changes to a 
+property value within a context (e.g. by a `set` rule) are not 
+observable by field access within that same context:
 
 ```example
 #set text(lang: "en")
 #context [
-  call 1: #text.lang \
+  Read 1: #text.lang
 
   #set text(lang: "fr")
-  call 2: #text.lang
+  Read 2: #text.lang
 ]
 ```
 
-Both calls have the same output 'en', because `text.lang` is assigned
+Both reads have the same output `"en"`, because `text.lang` is assigned
 upon entry in the context and remains constant until the end of its scope 
-(the closing `]`). It does not "see" the `#set text(lang: "fr")` before 
-call 2. Compare this to the previous example: there we got two different 
-results because we created two different contexts.
+(the closing `]`). Thus, the `text.lang` field cannot "see" the effect 
+of `#set text(lang: "fr")`, although Read 2 occurs afterwards. Compare 
+this to the previous example: There we got two different results because 
+we created two different contexts.
 
 However, immutability only applies to the property fields themselves. 
-Content creation instructions within a context _do_ see the effect of 
-the set rule. Consider the same example with font size:
+The appearance of content within a context _can_ be changed in the 
+usual manner. e.g. by set rules. Consider the same example with font size:
 
 ```example
-#set text(size: 50pt)
+#set text(size: 40pt)
 #context [
-  call 1: #text.size \
+  Read 1: #text.size \
 
   #set text(size: 25pt)
-  call 2: #text.size
+  Read 2: #text.size
 ]
 ```
 
-Call 2 still outputs '50pt', because `text.size` is a constant.
-However, this output is printed in '25pt' font, as specified by the set
-rule before the call. This illustrates the importance of picking the 
+Read 2 still outputs `40pt`, because `text.size` is a constant.
+However, this output is printed in 25pt font, as specified by the set
+rule before the read. This illustrates the importance of picking the 
 right insertion point for a context to get access to precisely the right 
 styles. If you need access to updated property fields after a set rule, 
-you can use nested contexts:
+you can use _nested contexts_:
 
 ```example
 #set text(lang: "en")
 #context [
-  call 1: #text.lang \
+  Read 1: #text.lang \
 
   #set text(lang: "fr")
-  call 2: #context text.lang
+  Read 2: #context text.lang
 ]
 ```
 
-All of the above applies to `show` rules analogously, for example:
+All of the above applies to `show` rules analogously. To demonstrate this, 
+we define a function `template` which is activated by an "everything" set 
+rule in a context:
 
 ```example
 #let template(body) = {
@@ -131,73 +140,85 @@ All of the above applies to `show` rules analogously, for example:
   body
 }
 
-#set text(size: 50pt)
+#set text(size: 40pt)
 #context [
-  call 1: #text.size \
+  Read 1: #text.size
 
   #show: template
-  call 2: #text.size \
-  call 3: #context text.size
+  Read 2: #text.size \
+  Read 3: #context text.size
 ]
 ```
+Reads 1 and 2 print the original text size upon entry in the first 
+context (since `text.size` remains constant there), but Read 3 is 
+located in a nested context and reflects the new font size set by 
+the `show` rule via the `template` function.
 
-## Controlling content creation within a context
-
-The main purpose of retrieving the current values of properties is, 
-of course, to use them in the calculation of derived properties, 
-instead of setting those properties manually. For example, you can
-double the font size like this:
+## Using context-dependent property fields to control content appearance
+An important purpose of reading the current value of properties is, 
+of course, to use this information in the calculation of derived 
+properties, instead of setting those properties manually. For example, 
+you can double the font size like this:
 
 ```example
-#context {
+#context [
   // the context allows you to
   // retrieve the current text.size
-  set text(size: text.size * 200%)
-  [large text \ ] 
-}
-original size
+  #set text(size: text.size * 200%)
+  Large text \ 
+]
+Original size
 ```
 
 Since set rules are only active until the end of the enclosing scope, 
-'original size' is printed with the original font size.
+"Original size" is printed with the original font size.
 The above example is equivalent to 
 
 ```example
-#{
-  set text(size: 2em)
-  [large text \ ]
-}
-original size
+#[
+  #set text(size: 2em)
+  Large text \ 
+]
+Original size
 ```
 
-but convenient alternatives like this do not exist for most properties.
+but convenient alternatives like this are unavailable for most properties.
 This makes contexts a powerful and versatile concept. For example, 
-to double the spacing between the lines of an equation block, you can 
-use the same resizing technique in a show rule. In this case, explicitly
-adding the `context` keyword is not necessary, because a show rule
-establishes a context automatically:
+you can use a similar resizing technique to increase the spacing 
+between the lines of a specific equation block (or any other content):
 
 ```example
-#let spaced-eq(spacing: 100%, body) = {
-  show math.equation.where(block: true): it => {
-    // access current par.leading in the
-    // context of the show rule
-    set par(leading: par.leading * spacing)
-    it
-  }
+#let spaced(spacing: 100%, body) = context {
+  // access current par.leading in a context
+  set par(leading: par.leading * spacing)
   body
 }
 
-normal spacing:
-$
-x \
-x
-$
-doubled spacing:
-#spaced-eq(spacing: 200%)[$
-z \
-z
-$]
+Normal spacing:
+$ x \ x $
+Doubled spacing:
+#spaced(spacing: 200%)[$ z \ z $]
+```
+
+The advantage of this technique is that the user does not have to know the 
+original spacing in order to double it. To double the spacing of all 
+equations, you can put the same calculations in a `show` rule. Note that 
+it is not necessary to add the `context` keyword on the right-hand side 
+of a `show` rule, because show rules establish a context automatically:
+
+```example
+Normal spacing:
+$ x \ x $
+
+#show math.equation.where(block: true): it => {
+  // access current par.leading in a context,
+  // established automatically by the show rule
+  set par(leading: par.leading * 200%)
+  it
+}
+
+Doubled spacing:
+$ z \ z $
 ```
 
 ## Location context
@@ -262,9 +283,9 @@ demonstrates this:
 
 The rule that context-dependent variables and functions remain constant 
 within a given `context` also applies to location context. The function
-`counter.display()` is an example for this behavior. Below, call A will 
-access the counter's value upon _entry_ into the context, i.e. '1' - it 
-cannot see the effect of `{c.update(2)}`. In contrast, call B accesses 
+`counter.display()` is an example for this behavior. Below, read A will 
+access the counter's value upon _entry_ into the context, i.e. `1` - it 
+cannot see the effect of `{c.update(2)}`. In contrast, read B accesses 
 the counter in a nested context and will thus see the updated value.
 
 ```example
@@ -272,8 +293,8 @@ the counter in a nested context and will thus see the updated value.
 #c.update(1)
 #context [
   #c.update(2)
-  call A: #c.display() \
-  call B: #context c.display()
+  Read A: #c.display() \
+  Read B: #context c.display()
 ]
 ```
 
