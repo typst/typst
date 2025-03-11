@@ -201,7 +201,7 @@ impl PackageStorage {
             ".tmp-{}-{}-{}",
             spec.name,
             spec.version,
-            rand::random::<u32>()
+            fastrand::u32(..),
         ));
 
         let create_dir = |dir, dir_name| {
