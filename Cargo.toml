@@ -55,6 +55,7 @@ ctrlc = "3.4.1"
 dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
+fastrand = "2.3"
 flate2 = "1"
 fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
