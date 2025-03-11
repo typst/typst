@@ -21,7 +21,7 @@ use crate::foundations::{
 ///
 /// Type casting works as follows:
 /// - [`Reflect for T`](Reflect) describes the possible Typst values for `T`
-///    (for documentation and autocomplete).
+///   (for documentation and autocomplete).
 /// - [`IntoValue for T`](IntoValue) is for conversion from `T -> Value`
 ///   (infallible)
 /// - [`FromValue for T`](FromValue) is for conversion from `Value -> T`
