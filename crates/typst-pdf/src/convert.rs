@@ -1,3 +1,6 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::num::NonZeroU64;
+
 use ecow::EcoVec;
 use krilla::annotation::Annotation;
 use krilla::destination::{NamedDestination, XyzDestination};
@@ -7,8 +10,6 @@ use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::{Configuration, Document, PageSettings, SerializeSettings, ValidationError};
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::num::NonZeroU64;
 use typst_library::diag::{bail, error, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
