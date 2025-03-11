@@ -1,6 +1,8 @@
 //! Download and unpack packages and package indices.
 
 use std::fs;
+use std::io;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
@@ -196,42 +198,21 @@ impl PackageStorage {
         // Temporary place where the package will be extracted before being
         // moved to the target directory. To avoid name clashing we use a PRNG
         // to get a unique directory name.
-        let extracted_package_dir = package_base_dir.join(format!(
-            ".tmp-{}-{}-{}",
-            spec.name,
-            spec.version,
-            fastrand::u32(..),
-        ));
+        let tempdir = Tempdir::create(
+            package_base_dir,
+            format_args!("{}-{}", spec.name, spec.version),
+        )
+        .map_err(|err| error("failed to create temporary package directory", err))?;
 
-        let create_dir = |dir: &Path, dir_name| {
-            fs::create_dir_all(dir).map_err(|err| {
-                PackageError::Other(Some(eco_format!(
-                    "failed to create {dir_name} directory ({err})"
-                )))
-            })
-        };
-
-        create_dir(&extracted_package_dir, "temporary package")?;
-        create_dir(package_dir, "package")?;
-
-        let remove_download_dir = || {
-            fs::remove_dir_all(&extracted_package_dir).map_err(|err| {
-                PackageError::Other(Some(eco_format!(
-                    "failed to remove temporary package directory ({err})"
-                )))
-            })
-        };
+        // Create the package directory into which we'll move the extracted
+        // package.
+        std::fs::create_dir_all(package_dir)
+            .map_err(|err| error("failed to create package directory", err))?;
 
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
         tar::Archive::new(decompressed)
-            .unpack(&extracted_package_dir)
-            .map_err(|err| {
-                let message = match remove_download_dir() {
-                    Err(PackageError::Other(Some(str))) => eco_format!("{err}\n{str}"),
-                    _ => eco_format!("{err}"),
-                };
-                PackageError::MalformedArchive(Some(message))
-            })?;
+            .unpack(&tempdir)
+            .map_err(|err| PackageError::MalformedArchive(Some(eco_format!("{err}"))))?;
 
         // As to not overcomplicate the code to combat an already rare case
         // where multiple instances try to download the same package version
@@ -258,16 +239,11 @@ impl PackageStorage {
         // (currently) justify the additional code complexity. If such situation
         // occur and it will be reported, then we probably would consider a
         // more comprehensive solution (i.e., file locking or checksums).
-        match fs::rename(&extracted_package_dir, package_dir) {
+        match fs::rename(&tempdir, package_dir) {
             Ok(()) => Ok(()),
-            Err(err) if err.kind() == std::io::ErrorKind::DirectoryNotEmpty => {
-                remove_download_dir()
-            }
+            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
             Err(err) => {
-                remove_download_dir()?;
-                Err(PackageError::Other(Some(eco_format!(
-                    "failed to move the downloaded package directory ({err})"
-                ))))
+                Err(error("failed to move the downloaded package directory)", err))
             }
         }
     }
@@ -279,6 +255,46 @@ impl PackageStorage {
 struct MinimalPackageInfo {
     name: String,
     version: PackageVersion,
+}
+
+/// A temporary directory that is a automatically cleaned up.
+struct Tempdir(PathBuf);
+
+impl Tempdir {
+    /// Creates a temporary directory of the form
+    /// `.tmp-{inner}-{randomsuffix}` in `base`.
+    fn create(base: &Path, inner: impl std::fmt::Display) -> io::Result<Self> {
+        let path = base.join(format!(".tmp-{inner}-{}", fastrand::u32(..)));
+        std::fs::create_dir_all(&path)?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for Tempdir {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).ok();
+    }
+}
+
+impl AsRef<Path> for Tempdir {
+    fn as_ref(&self) -> &Path {
+        self
+    }
+}
+
+impl Deref for Tempdir {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Enriches an I/O error with a message and turns it into a
+/// `PackageError::Other`.
+#[cold]
+fn error(message: &str, err: io::Error) -> PackageError {
+    PackageError::Other(Some(eco_format!("{message} ({err})")))
 }
 
 #[cfg(test)]
