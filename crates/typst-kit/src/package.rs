@@ -2,7 +2,6 @@
 
 use std::fs;
 use std::io;
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
@@ -271,14 +270,6 @@ impl Drop for Tempdir {
 
 impl AsRef<Path> for Tempdir {
     fn as_ref(&self) -> &Path {
-        self
-    }
-}
-
-impl Deref for Tempdir {
-    type Target = Path;
-
-    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
