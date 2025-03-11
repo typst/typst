@@ -9,7 +9,7 @@ scripting concepts.
 
 ## Identifiers
 Typst uses largely the same rules to define variables, function names etc.
-as most other languages, with one important exception: dashes are permitted
+as most other languages, with one important exception: Dashes are permitted
 as part of an identifier, e.g. the [`to-absolute`]($length.to-absolute) 
 function for a length or the [`first-line-indent`]($par.first-line-indent) 
 parameter of a paragraph. In fact, this is the canonical convention &ndash;
