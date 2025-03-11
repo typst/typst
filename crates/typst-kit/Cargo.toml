@@ -24,7 +24,6 @@ fontdb = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
-rand = { workspace = true }
 serde_json = { workspace = true }
 tar = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
@@ -44,7 +43,7 @@ fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig"]
 downloads = ["dep:env_proxy", "dep:native-tls", "dep:ureq", "dep:openssl"]
 
 # Add package downloading utilities, implies `downloads`
-packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar"]
+packages = ["downloads", "dep:dirs", "dep:flate2", "dep:tar", "dep:rand"]
 
 # Embeds some fonts into the binary:
 # - For text: Libertinus Serif, New Computer Modern
