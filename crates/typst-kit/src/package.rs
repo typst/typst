@@ -194,9 +194,8 @@ impl PackageStorage {
         };
 
         // Temporary place where the package will be extracted before being
-        // moved to the target directory.
-        //
-        // To avoid name clashing we use PRNG to get unique directory name.
+        // moved to the target directory. To avoid name clashing we use a PRNG
+        // to get a unique directory name.
         let extracted_package_dir = package_base_dir.join(format!(
             ".tmp-{}-{}-{}",
             spec.name,
@@ -204,21 +203,21 @@ impl PackageStorage {
             fastrand::u32(..),
         ));
 
-        let create_dir = |dir, dir_name| {
+        let create_dir = |dir: &Path, dir_name| {
             fs::create_dir_all(dir).map_err(|err| {
                 PackageError::Other(Some(eco_format!(
-                    "failed to create a {dir_name} directory ({err})"
+                    "failed to create {dir_name} directory ({err})"
                 )))
             })
         };
 
-        create_dir(extracted_package_dir.as_path(), "temporary package")?;
+        create_dir(&extracted_package_dir, "temporary package")?;
         create_dir(package_dir, "package")?;
 
-        let removed_download_dir = || {
+        let remove_download_dir = || {
             fs::remove_dir_all(&extracted_package_dir).map_err(|err| {
                 PackageError::Other(Some(eco_format!(
-                    "failed to remove a temporary package directory: {err}"
+                    "failed to remove temporary package directory ({err})"
                 )))
             })
         };
@@ -227,17 +226,17 @@ impl PackageStorage {
         tar::Archive::new(decompressed)
             .unpack(&extracted_package_dir)
             .map_err(|err| {
-                let message = match removed_download_dir() {
+                let message = match remove_download_dir() {
                     Err(PackageError::Other(Some(str))) => eco_format!("{err}\n{str}"),
                     _ => eco_format!("{err}"),
                 };
                 PackageError::MalformedArchive(Some(message))
             })?;
 
-        // As to not overcomplicate the code base to combat an already rare case
+        // As to not overcomplicate the code to combat an already rare case
         // where multiple instances try to download the same package version
-        // concurrently, we are abusing the behavior of the `rename` FS operation
-        // without the help of file locking.
+        // concurrently, we are abusing the behavior of the `rename` FS
+        // operation without the help of file locking.
         //
         // From the function's documentation it is stated that:
         //
@@ -247,27 +246,27 @@ impl PackageStorage {
         // live we are (trying our best) making sure that `extracted_package_dir`
         // and `package_dir` are on the same mount point.
         //
-        // When trying to move (i.e., `rename`) directory from one place to
-        // another and the target/destination directory name is empty, then the
+        // When trying to move (i.e., `rename`) the directory from one place to
+        // another and the target/destination directory is empty, then the
         // operation will succeed (if it's atomic, or hardware doesn't fail, or
         // power doesn't go off, etc.). If however the target directory is not
-        // empty, i.e., other instance already successfully moved the package,
+        // empty, i.e., another instance already successfully moved the package,
         // then we can safely ignore the `DirectoryNotEmpty` error.
         //
         // This means that we do not check the integrity of the existing moved
         // package in a very rare case where it is broken, as it does not
         // (currently) justify the additional code complexity. If such situation
         // occur and it will be reported, then we probably would consider a
-        // better solution (i.e., file locking or checksums).
+        // more comprehensive solution (i.e., file locking or checksums).
         match fs::rename(&extracted_package_dir, package_dir) {
             Ok(()) => Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::DirectoryNotEmpty => {
-                removed_download_dir()
+                remove_download_dir()
             }
             Err(err) => {
-                removed_download_dir()?;
+                remove_download_dir()?;
                 Err(PackageError::Other(Some(eco_format!(
-                    "failed to move the downloaded package directory: {err}"
+                    "failed to move the downloaded package directory ({err})"
                 ))))
             }
         }
