@@ -112,7 +112,7 @@ use crate::foundations::{
 /// it into another file by writing `{import "foo.typ": alert}`.
 ///
 /// # Unnamed functions { #unnamed }
-/// You can also created an unnamed function without creating a binding by
+/// You can also create an unnamed function without creating a binding by
 /// specifying a parameter list followed by `=>` and the function body. If your
 /// function has just one parameter, the parentheses around the parameter list
 /// are optional. Unnamed functions are mainly useful for show rules, but also
