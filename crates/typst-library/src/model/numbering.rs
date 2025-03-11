@@ -394,7 +394,7 @@ impl NumberingKind {
                 const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;
-                std::iter::repeat(symbol).take(amount).collect()
+                std::iter::repeat_n(symbol, amount).collect()
             }
             Self::Hebrew => hebrew_numeral(n),
 

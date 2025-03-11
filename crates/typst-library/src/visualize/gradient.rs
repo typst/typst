@@ -574,8 +574,7 @@ impl Gradient {
         }
 
         let n = repetitions.v;
-        let mut stops = std::iter::repeat(self.stops_ref())
-            .take(n)
+        let mut stops = std::iter::repeat_n(self.stops_ref(), n)
             .enumerate()
             .flat_map(|(i, stops)| {
                 let mut stops = stops

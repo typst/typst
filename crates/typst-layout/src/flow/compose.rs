@@ -115,7 +115,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let column_height = regions.size.y;
         let backlog: Vec<_> = std::iter::once(&column_height)
             .chain(regions.backlog)
-            .flat_map(|&h| std::iter::repeat(h).take(self.config.columns.count))
+            .flat_map(|&h| std::iter::repeat_n(h, self.config.columns.count))
             .skip(1)
             .collect();
 

@@ -302,6 +302,6 @@ fn assemble(
 fn parts(assembly: GlyphAssembly, repeat: usize) -> impl Iterator<Item = GlyphPart> + '_ {
     assembly.parts.into_iter().flat_map(move |part| {
         let count = if part.part_flags.extender() { repeat } else { 1 };
-        std::iter::repeat(part).take(count)
+        std::iter::repeat_n(part, count)
     })
 }
