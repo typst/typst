@@ -8,14 +8,14 @@ create more sophisticated styles with code. Below is an overview over the
 scripting concepts.
 
 ## Identifiers
-
 Typst uses largely the same rules to define variables, function names etc.
 as most other languages, with one important exception: dashes are permitted
 as part of an identifier, e.g. the [`to-absolute`]($length.to-absolute) 
 function for a length or the [`first-line-indent`]($par.first-line-indent) 
-parameter of a paragraph. In fact, this convention is more common than 
-underscores or camel case. Since the dash is also the symbol for subtraction, 
-a minus must be disambiguated by surrounding white space in script mode.
+parameter of a paragraph. In fact, this is the canonical convention &ndash;
+underscores or camel case are not used in "official" typst. Since the dash 
+is also the symbol for subtraction, a minus must be disambiguated by 
+surrounding white space in script mode.
 
 ## Expressions
 In Typst, markup and code are fused into one. All but the most common elements
@@ -168,7 +168,7 @@ resulting from the else's body.
 ```
 
 Note that the opening brace or bracket of the body must be on the same
-line as the `#if` (unlike in many other languages).
+line as the `#if` and `else` (unlike in many other languages).
 Each branch can have a code or content block as its body.
 
 - `{if condition {..}}`
@@ -259,9 +259,9 @@ The value in question can be either:
   [element function]($function/#element-functions) that were given when the
   element was constructed.
 
-**Important:** Many fields of element functions are only accessible in a
-concrete context that disambiguates their meaning. Consult the chapter 
-on [Context]($context) for more information.
+**Important:** Many fields of element functions are only accessible in a 
+`context` where their concrete values are known unambiguously. Consult the 
+chapter on [Context]($context) for more information.
 
 ```example
 #let it = [= Heading]
