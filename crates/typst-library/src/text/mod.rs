@@ -173,7 +173,7 @@ pub struct TextElem {
     /// for the most similar one that has the necessary glyphs.
     ///
     /// _Note:_ Currently, there are no warnings when fallback is disabled and
-    /// no glyphs are found. Instead, your text may shows up in the form of
+    /// no glyphs are found. Instead, your text may show up in the form of
     /// "tofus" (small boxes that indicate the lack of an appropriate glyph), or
     /// even just not show anything. In the future, you will be able to instruct
     /// Typst to issue warnings so you know something is up.
