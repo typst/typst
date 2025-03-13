@@ -1101,6 +1101,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // a non-empty row.
         let mut first_available_row = 0;
 
+        // Indices of hlines at the top of the row group.
+        //
+        // These hlines were auto-positioned and appeared before any auto-pos
+        // cells, so they will appear at the first possible row (above the
+        // first row spanned by the row group).
+        let mut top_hlines_start = 0;
+        let mut top_hlines_end = None;
+
         let (header_footer_items, simple_item) = match child {
             ResolvableGridChild::Header { repeat, span, items, .. } => {
                 if header.is_some() {
@@ -1114,6 +1122,15 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 first_available_row =
                     find_next_empty_row(resolved_cells, local_auto_index, columns);
+
+                // No hlines yet, so 'end' starts as 'None'. However, its
+                // starting bound indicates where any potential top hlines
+                // would start (they would appear after the latest hline placed
+                // in previous iterations), so we only extend the end bound as
+                // necessary once more hlines are added, until we reach the
+                // first auto-positioned cell. Then, further auto-pos hlines
+                // will NOT be at the top.
+                top_hlines_start = pending_hlines.len();
 
                 // If any cell in the header is automatically positioned,
                 // have it skip to the next empty row. This is to avoid
@@ -1140,6 +1157,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 first_available_row =
                     find_next_empty_row(resolved_cells, local_auto_index, columns);
+
+                top_hlines_start = pending_hlines.len();
 
                 local_auto_index = first_available_row * columns;
 
@@ -1316,6 +1335,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     )
                     .at(cell_span)?,
                 );
+
+                if top_hlines_end.is_none()
+                    && local_auto_index > first_available_row * columns
+                {
+                    // Auto index was moved, so upcoming auto-pos hlines should
+                    // no longer appear at the top.
+                    top_hlines_end = Some(pending_hlines.len());
+                }
             }
 
             // Let's resolve the cell so it can determine its own fields
@@ -1427,6 +1454,19 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     group_start..group_end
                 }
             };
+
+            let top_hlines_end = top_hlines_end.unwrap_or(pending_hlines.len());
+            for (_, top_hline, has_auto_y) in pending_hlines
+                .get_mut(top_hlines_start..top_hlines_end)
+                .unwrap_or(&mut [])
+            {
+                if *has_auto_y {
+                    // Move this hline to the top of the child, as it was
+                    // placed before the first automatically positioned cell
+                    // and had an automatic index.
+                    top_hline.index = group_range.start;
+                }
+            }
 
             match row_group.kind {
                 RowGroupKind::Header => {
