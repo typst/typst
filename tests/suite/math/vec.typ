@@ -51,6 +51,6 @@ $ vec(1, 2) $
 #set math.vec(delim: (none, "%"))
 
 --- math-vec-linebreaks ---
-// Currently linebreaks are equivalent to commas, though this behaviour may
-// change in the future.
+// Warning: 20-29 linebreaks are ignored in cells
+// Hint: 20-29 use commas instead to separate each line
 $ vec(a, b, c) vec(a \ b \ c) $

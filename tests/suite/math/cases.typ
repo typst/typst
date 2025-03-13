@@ -17,6 +17,6 @@ $ x = cases(1, 2) $
 $ cases(a, b, c) $
 
 --- math-cases-linebreaks ---
-// Currently linebreaks are equivalent to commas, though this behaviour may
-// change in the future.
+// Warning: 40-49 linebreaks are ignored in cells
+// Hint: 40-49 use commas instead to separate each line
 $ cases(a, b, c) cases(reverse: #true, a \ b \ c) $
