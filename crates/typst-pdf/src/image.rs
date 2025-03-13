@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::surface::Surface;
-use krilla::SvgSettings;
+use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;

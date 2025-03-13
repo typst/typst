@@ -24,6 +24,7 @@ comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
 krilla = { workspace = true }
+krilla-svg = { workspace = true }
 
 [lints]
 workspace = true

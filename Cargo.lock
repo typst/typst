@@ -1345,14 +1345,11 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=5978f97#5978f97aaacc9233d564b76773400218a7cdc21d"
 dependencies = [
  "base64",
  "bumpalo",
  "comemo",
- "flate2",
  "float-cmp 0.10.0",
- "fontdb",
  "gif",
  "image-webp",
  "imagesize",
@@ -1360,17 +1357,27 @@ dependencies = [
  "once_cell",
  "pdf-writer",
  "rayon",
- "resvg",
  "rustybuzz",
  "siphasher",
  "skrifa",
  "subsetter",
- "tiny-skia",
  "tiny-skia-path",
- "usvg",
  "xmp-writer",
  "yoke 0.8.0",
  "zune-jpeg",
+ "zune-png",
+]
+
+[[package]]
+name = "krilla-svg"
+version = "0.3.0"
+dependencies = [
+ "flate2",
+ "fontdb",
+ "krilla",
+ "resvg",
+ "tiny-skia",
+ "usvg",
  "zune-png",
 ]
 
@@ -3084,6 +3091,7 @@ dependencies = [
  "ecow",
  "image",
  "krilla",
+ "krilla-svg",
  "typst-assets",
  "typst-library",
  "typst-macros",

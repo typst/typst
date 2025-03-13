@@ -190,9 +190,9 @@ fn convert_gradient(
                 cx: radial.center.x.get() as f32,
                 cy: radial.center.y.get() as f32,
                 cr: radial.radius.get() as f32,
-                transform: base_transform.to_krilla().pre_concat(
-                    krilla::geom::Transform::from_scale(size.x.to_f32(), size.y.to_f32()),
-                ),
+                transform: base_transform.pre_concat(
+                    Transform::scale(Ratio::new(size.x.to_f32() as f64), Ratio::new(size.y.to_f32() as f64)),
+                ).to_krilla(),
                 spread_method: SpreadMethod::Pad,
                 stops: stops.into(),
                 anti_alias: gradient.anti_alias(),
