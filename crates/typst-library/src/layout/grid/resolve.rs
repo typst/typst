@@ -671,14 +671,14 @@ impl<'a> CellGrid<'a> {
         let mut rows = vec![];
 
         // Number of content columns: Always at least one.
-        let columns = tracks.x.len().max(1);
+        let num_cols = tracks.x.len().max(1);
 
         // Number of content rows: At least as many as given, but also at least
         // as many as needed to place each item.
-        let r = {
+        let num_rows = {
             let len = entries.len();
             let given = tracks.y.len();
-            let needed = len / columns + (len % columns).clamp(0, 1);
+            let needed = len / num_cols + (len % num_cols).clamp(0, 1);
             given.max(needed)
         };
 
@@ -690,7 +690,7 @@ impl<'a> CellGrid<'a> {
         };
 
         // Collect content and gutter columns.
-        for x in 0..columns {
+        for x in 0..num_cols {
             cols.push(get_or(tracks.x, x, auto));
             if has_gutter {
                 cols.push(get_or(gutter.x, x, zero));
@@ -698,7 +698,7 @@ impl<'a> CellGrid<'a> {
         }
 
         // Collect content and gutter rows.
-        for y in 0..r {
+        for y in 0..num_rows {
             rows.push(get_or(tracks.y, y, auto));
             if has_gutter {
                 rows.push(get_or(gutter.y, y, zero));
