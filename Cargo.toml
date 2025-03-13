@@ -59,6 +59,7 @@ fastrand = "2.3"
 flate2 = "1"
 fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
+glidesort = "0.1.2"
 hayagriva = "0.8.1"
 heck = "0.5"
 hypher = "0.1.4"
