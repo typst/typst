@@ -6,6 +6,7 @@ mod document;
 mod emph;
 #[path = "enum.rs"]
 mod enum_;
+mod watermark;
 mod figure;
 mod footnote;
 mod heading;
@@ -26,6 +27,7 @@ pub use self::cite::*;
 pub use self::document::*;
 pub use self::emph::*;
 pub use self::enum_::*;
+pub use self::watermark::*;
 pub use self::figure::*;
 pub use self::footnote::*;
 pub use self::heading::*;
@@ -62,6 +64,7 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<TableElem>();
     global.define_elem::<TermsElem>();
     global.define_elem::<EmphElem>();
+    global.define_elem::<WatermarkElem>();
     global.define_elem::<StrongElem>();
     global.define_func::<numbering>();
     global.reset_category();
