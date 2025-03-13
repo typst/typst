@@ -134,6 +134,11 @@ a + 0.
 // Error: 22-28 invalid numbering pattern
 #set enum(numbering: "(())")
 
+--- enum-numbering-huge ---
+// Test values greater than 32-bits
+100000000001. A
++             B
+
 --- enum-number-align-unaffected ---
 // Alignment shouldn't affect number
 #set align(horizon)
