@@ -83,12 +83,55 @@
   grid.cell(y: 1)[c],
 )
 
---- grid-footer-expand ---
-// Ensure footer properly expands
+--- grid-footer-cell-with-x ---
+#grid(
+  columns: 2,
+  stroke: black,
+  inset: 5pt,
+  grid.cell(x: 1)[a],
+  // Error: 3-56 footer must end at the last row
+  grid.footer(grid.cell(x: 0)[b1], grid.cell(x: 0)[b2]),
+  // This should skip the footer
+  grid.cell(x: 1)[c]
+)
+
+--- grid-footer-no-expand-with-col-and-row-pos-cell ---
 #grid(
   columns: 2,
   [a], [],
   [b], [],
+  fill: (_, y) => if calc.odd(y) { blue } else { red },
+  inset: 5pt,
+  grid.cell(x: 1, y: 3, rowspan: 4)[b],
+  grid.cell(y: 2, rowspan: 2)[a],
+  grid.footer(),
+  // Error: 3-27 cell would conflict with footer spanning the same position
+  // Hint: 3-27 try reducing the cell's rowspan or moving the footer
+  grid.cell(x: 1, y: 7)[d],
+)
+
+--- grid-footer-no-expand-with-row-pos-cell ---
+#grid(
+  columns: 2,
+  [a], [],
+  [b], [],
+  fill: (_, y) => if calc.odd(y) { blue } else { red },
+  inset: 5pt,
+  grid.cell(x: 1, y: 3, rowspan: 4)[b],
+  grid.cell(y: 2, rowspan: 2)[a],
+  grid.footer(),
+  // Error: 3-33 cell would conflict with footer spanning the same position
+  // Hint: 3-33 try reducing the cell's rowspan or moving the footer
+  grid.cell(y: 6, rowspan: 2)[d],
+)
+
+--- grid-footer-moved-to-bottom-of-rowspans ---
+#grid(
+  columns: 2,
+  [a], [],
+  [b], [],
+  stroke: red,
+  inset: 5pt,
   grid.cell(x: 1, y: 3, rowspan: 4)[b],
   grid.cell(y: 2, rowspan: 2)[a],
   grid.footer(),
@@ -113,13 +156,13 @@
 )
 
 --- grid-footer-overlap ---
-// Error: 4:3-4:19 footer would conflict with a cell placed before it at column 1 row 0
-// Hint: 4:3-4:19 try reducing that cell's rowspan or moving the footer
 #grid(
   columns: 2,
   grid.header(),
-  grid.footer([a]),
-  grid.cell(x: 1, y: 0, rowspan: 2)[a],
+  grid.footer(grid.cell(y: 2)[a]),
+  // Error: 3-39 cell would conflict with footer spanning the same position
+  // Hint: 3-39 try reducing the cell's rowspan or moving the footer
+  grid.cell(x: 1, y: 1, rowspan: 2)[a],
 )
 
 --- grid-footer-multiple ---
@@ -374,8 +417,8 @@
     table.hline(stroke: red),
     table.vline(stroke: green),
     [b],
+    [c]
   ),
-  table.cell(x: 1, y: 3)[c]
 )
 
 --- grid-footer-hline-and-vline-2 ---
@@ -385,12 +428,44 @@
 #table(
   columns: 3,
   inset: 1.5pt,
-  table.cell(y: 0)[a],
   table.footer(
+    table.cell(y: 0)[a],
     table.hline(stroke: red),
     table.hline(y: 1, stroke: aqua),
     table.cell(y: 0)[b],
     [c]
+  )
+)
+
+--- grid-footer-top-hlines-with-only-row-pos-cell ---
+// Top hlines should attach to the top of the footer.
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 2.5pt,
+  table.footer(
+    table.hline(stroke: red),
+    table.vline(stroke: blue),
+    table.cell(x: 2, y: 2)[a],
+    table.hline(stroke: 3pt),
+    table.vline(stroke: 3pt),
+  )
+)
+
+--- grid-footer-top-hlines-with-row-and-auto-pos-cell ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 2.5pt,
+  table.footer(
+    table.hline(stroke: red),
+    table.vline(stroke: blue),
+    table.cell(x: 2, y: 2)[a],
+    [b],
+    table.hline(stroke: 3pt),
+    table.vline(stroke: 3pt),
   )
 )
 
@@ -403,4 +478,72 @@
   inset: 1.5pt,
   table.cell(rowspan: 2)[a], table.cell(rowspan: 2)[b],
   table.footer()
+)
+
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-before ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  table.cell(y: 0)[a],
+  table.footer(
+    table.hline(stroke: red),
+    table.hline(y: 1, stroke: aqua),
+    // Error: 5-24 cell would cause footer to expand to non-empty row 0
+    // Hint: 5-24 try moving its cells to available rows
+    table.cell(y: 0)[b],
+    [c]
+  )
+)
+
+--- grid-footer-auto-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 1)[a],
+  table.footer(
+    [b], [c],
+    // Error: 6-7 cell would cause footer to expand to non-empty row 1
+    // Hint: 6-7 try moving its cells to available rows
+    [d],
+  ),
+)
+
+--- grid-footer-row-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 2)[a],
+  table.footer(
+    [b], [c],
+    // Error: 5-24 cell would cause footer to expand to non-empty row 2
+    // Hint: 5-24 try moving its cells to available rows
+    table.cell(y: 3)[d],
+  ),
+)
+
+--- grid-footer-conflicts-with-empty-header ---
+#table(
+  columns: 2,
+  table.header(),
+  table.footer(
+    // Error: 5-24 cell would cause footer to expand to non-empty row 0
+    // Hint: 5-24 try moving its cells to available rows
+    table.cell(y: 0)[a]
+  ),
+)
+
+--- issue-5359-column-override-stays-inside-footer ---
+#table(
+  columns: 3,
+  [Outside],
+  table.footer(
+    [A], table.cell(x: 1)[B], [C],
+    table.cell(x: 1)[D],
+  ),
 )
