@@ -62,6 +62,34 @@ pub fn numbering(
     /// `①`, and `⓵`. They are replaced by the number in the sequence,
     /// preserving the original case.
     ///
+    /// The counting symbols can also be specified using braces, either with the symbol
+    /// itself or with a descriptive name. Here is the complete list of available formats:
+    ///
+    /// - Arabic numerals (1, 2, 3, etc.): `1` or `{1}` or `{arabic}`
+    /// - Lowercase Latin letters (a, b, c, etc.): `a` or `{a}` or `{latin}`
+    /// - Uppercase Latin letters (A, B, C, etc.): `A` or `{A}` or `{Latin}`
+    /// - Lowercase Roman numerals (i, ii, iii, etc.): `i` or `{i}` or `{roman}`
+    /// - Uppercase Roman numerals (I, II, III, etc.): `I` or `{I}` or `{Roman}`
+    /// - Lowercase Greek numerals (α, β, γ, etc.): `α` or `{α}` or `{greek}`
+    /// - Uppercase Greek numerals (Α, Β, Γ, etc.): `Α` or `{Α}` or `{Greek}`
+    /// - Symbols (*, †, ‡, §, ¶, ‖): `*` or `{*}` or `{symbols}`
+    /// - Hebrew numerals with Geresh/Gershayim: `א` or `{א}` or `{hebrew}`
+    /// - Simplified Chinese standard numerals: `一` or `{一}` or `{chinese}` or `{lowercase-chinese}`
+    /// - Simplified Chinese "banknote" numerals: `壹` or `{壹}` or `{Chinese}` or `{uppercase-chinese}`
+    /// - Hiragana in gojūon order: `あ` or `{あ}` or `{hiragana}` or `{hiragana-aiueo}`
+    /// - Hiragana in iroha order: `い` or `{い}` or `{hiragana-iroha}`
+    /// - Katakana in gojūon order: `ア` or `{ア}` or `{katakana}` or `{katakana-aiueo}`
+    /// - Katakana in iroha order: `イ` or `{イ}` or `{katakana-iroha}`
+    /// - Korean jamo (ㄱ, ㄴ, ㄷ, etc.): `ㄱ` or `{ㄱ}` or `{korean-jamo}`
+    /// - Korean syllables (가, 나, 다, etc.): `가` or `{가}` or `{korean}` or `{korean-syllable}`
+    /// - Eastern Arabic numerals: `١` or `{١}` or `{eastern-arabic}`
+    /// - Eastern Arabic numerals (Persian/Urdu): `۱` or `{۱}` or `{persian}` or `{eastern-arabic-persian}`
+    /// - Devanagari numerals: `१` or `{१}` or `{devanagari}`
+    /// - Bengali numerals: `১` or `{১}` or `{bengali}`
+    /// - Bengali letters (ক, খ, গ, etc.): `ক` or `{ক}` or `{bengali-letter}`
+    /// - Circled numbers (①, ②, ③, etc.): `①` or `{①}` or `{circled}`
+    /// - Double-circled numbers (⓵, ⓶, ⓷, etc.): `⓵` or `{⓵}` or `{double-circled}`
+    ///
     /// The `*` character means that symbols should be used to count, in the
     /// order of `*`, `†`, `‡`, `§`, `¶`, `‖`. If there are more than six
     /// items, the number is represented using repeated symbols.
@@ -155,6 +183,38 @@ pub struct NumberingPattern {
 }
 
 impl NumberingPattern {
+    /// Parse braced pattern. i.e "{1}" or "{arabic}" to NumberingKind::Arabic
+    fn from_braced_str(pattern: &str) -> Option<Self> {
+        let mut pieces = EcoVec::new();
+        let mut handled = 0;
+        let mut cursor = 0;
+
+        for (i, c) in pattern.char_indices() {
+            if i < cursor {
+                continue;
+            }
+
+            if let Some((kind, consumed)) =
+                NumberingKind::from_braced_numbering_pattern_str(&pattern[cursor..])
+            {
+                let prefix = pattern[handled..i].into();
+                pieces.push((prefix, kind));
+                cursor += consumed;
+                handled = cursor;
+                continue;
+            };
+
+            cursor += c.len_utf8();
+        }
+
+        let suffix = pattern[handled..].into();
+        if pieces.is_empty() {
+            return None;
+        }
+
+        Some(Self { pieces, suffix, trimmed: false })
+    }
+
     /// Apply the pattern to the given number.
     pub fn apply(&self, numbers: &[usize]) -> EcoString {
         let mut fmt = EcoString::new();
@@ -211,7 +271,16 @@ impl NumberingPattern {
 impl FromStr for NumberingPattern {
     type Err = &'static str;
 
+    /// Parse freehand one-character pattern. i.e "1" to NumberingKind::Arabic
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
+        // if pattern contains curly-braces, prioritize parsing braced numbering pattern such as "{arabic}" or "{1}",
+        // otherwise fallback to brace-less parsing .
+        if pattern.contains('{') {
+            if let Some(result) = Self::from_braced_str(pattern) {
+                return Ok(result);
+            }
+        }
+
         let mut pieces = EcoVec::new();
         let mut handled = 0;
 
@@ -376,6 +445,56 @@ impl NumberingKind {
             Self::CircledNumber => '①',
             Self::DoubleCircledNumber => '⓵',
         }
+    }
+
+    fn from_numbering_pattern_str(s: &str) -> Option<Self> {
+        if s.chars().count() == 1 {
+            return Self::from_char(s.chars().next().unwrap());
+        }
+
+        Some(match s {
+            "arabic" => Self::Arabic,
+            "latin" => Self::LowerLatin,
+            "Latin" => Self::UpperLatin,
+            "roman" => Self::LowerRoman,
+            "Roman" => Self::UpperRoman,
+            "greek" => Self::LowerGreek,
+            "Greek" => Self::UpperGreek,
+            "symbols" => Self::Symbol,
+            "hebrew" => Self::Hebrew,
+            "chinese" | "lowercase-chinese" => Self::LowerSimplifiedChinese,
+            "Chinese" | "uppercase-chinese" => Self::UpperSimplifiedChinese,
+            "hiragana" | "hiragana-aiueo" => Self::HiraganaAiueo,
+            "hiragana-iroha" => Self::HiraganaIroha,
+            "katakana" | "katakana-aiueo" => Self::KatakanaAiueo,
+            "katakana-iroha" => Self::KatakanaIroha,
+            "korean-jamo" => Self::KoreanJamo,
+            "korean" | "korean-syllable" => Self::KoreanSyllable,
+            "eastern-arabic" => Self::EasternArabic,
+            "persian" | "eastern-arabic-persian" => Self::EasternArabicPersian,
+            "devanagari" => Self::DevanagariNumber,
+            "bengali" => Self::BengaliNumber,
+            "bengali-letter" => Self::BengaliLetter,
+            "circled" => Self::CircledNumber,
+            "double-circled" => Self::DoubleCircledNumber,
+            _ => return None,
+        })
+    }
+
+    /// Parse a braced long-form numbering kind like "{arabic}" from a character slice.
+    /// Returns (kind, consumed_chars) if successful, None if not a valid braced string.
+    fn from_braced_numbering_pattern_str(s: &str) -> Option<(Self, usize)> {
+        // Need at least "{x}" (3 bytes minimum for UTF-8)
+        if s.len() < 3 || s.as_bytes()[0] != b'{' {
+            return None;
+        }
+
+        let end_byte_idx = s.find('}')?;
+        if end_byte_idx < 2 {
+            return None;
+        }
+
+        Some((Self::from_numbering_pattern_str(&s[1..end_byte_idx])?, end_byte_idx + 1))
     }
 
     /// Apply the numbering to the given number.
