@@ -104,34 +104,22 @@ Let's dissect what's going on:
 </details>
 
 ## Installation
+It is installation of my unofficial package.
+
 Typst's CLI is available from different sources:
 
 - You can get sources and pre-built binaries for the latest release of Typst
-  from the [releases page][releases]. Download the archive for your platform and
-  place it in a directory that is in your `PATH`. To stay up to date with future
-  releases, you can simply run `typst update`.
+  from the [releases](https://github.com/NoAIHelper/typst/releases). Download the archive for your platform and
+  place it in a directory that is in your `PATH`.
 
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
-  - Linux: 
-      - View [Typst on Repology][repology]
-      - View [Typst's Snap][snap]
-  - macOS: `brew install typst`
-  - Windows: `winget install --id Typst.Typst`
+  - Windows: download all files from [manifests folder](manifests/n/NoAIHelper/Typst/0.13.1) and install with command
+    `winget install -m path/to/manifests/folder/where/all/files`
 
 - If you have a [Rust][rust] toolchain installed, you can install
-  - the latest released Typst version with
-    `cargo install --locked typst-cli`
-  - a development version with
-    `cargo install --git https://github.com/typst/typst --locked typst-cli`
-
-- Nix users can
-  - use the `typst` package with `nix-shell -p typst`
-  - build and run a development version with
-    `nix run github:typst/typst -- --version`.
-
-- Docker users can run a prebuilt image with
-  `docker run ghcr.io/typst/typst:latest --help`.
+  - git clone or download zip and compile from source
+    `cargo build --release`
 
 ## Usage
 Once you have installed Typst, you can use it like this:

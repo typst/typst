@@ -1,0 +1,15 @@
+# Created using wingetcreate 1.9.4.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
+
+PackageIdentifier: NoAIHelper.Typst
+PackageVersion: 0.13.1
+PackageLocale: en-US
+Publisher: NoAIHelper
+PublisherUrl: https://github.com/NoAIHelper
+PackageName: Typst
+PackageUrl: https://github.com/NoAIHelper/typst
+License: Apache-2.0
+ShortDescription: A new markup-based typesetting system that is powerful and easy to learn.
+ReleaseNotesUrl: https://github.com/NoAIHelper/typst/releases/tag/v0.13.1
+ManifestType: defaultLocale
+ManifestVersion: 1.9.0
