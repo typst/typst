@@ -1,0 +1,24 @@
+# Created using wingetcreate 1.9.4.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+
+PackageIdentifier: NoAIHelper.Typst
+PackageVersion: 0.13.1
+InstallerType: zip
+NestedInstallerType: portable
+ArchiveBinariesDependOnPath: true
+Installers:
+- Architecture: x64
+  NestedInstallerFiles:
+  - RelativeFilePath: typst-x86_64-pc-windows-msvc\typst.exe
+    PortableCommandAlias: typst
+  InstallerUrl: https://github.com/NoAIHelper/typst/releases/download/v0.13.1/typst-x86_64-pc-windows-msvc.zip
+  InstallerSha256: E94B75BD3A07C50AC70327CA31B1922AC7CE3AECC84E800CC6E30F266C3BB890
+- Architecture: x86
+  NestedInstallerFiles:
+  - RelativeFilePath: typst-i686-pc-windows-msvc\typst.exe
+    PortableCommandAlias: typst
+  InstallerUrl: https://github.com/NoAIHelper/typst/releases/download/v0.13.1/typst-i686-pc-windows-msvc.zip
+  InstallerSha256: 3CEDE9260F1E51FDED020B0596CC39261F9F0AB4C68646A83749ABEFD37352F6
+ManifestType: installer
+ManifestVersion: 1.9.0
+ReleaseDate: 2025-03-15
