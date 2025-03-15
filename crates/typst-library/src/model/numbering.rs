@@ -257,6 +257,10 @@ pub enum NumberingKind {
     LowerLatin,
     /// Uppercase Latin letters (A, B, C, etc.). Items beyond Z use base-26.
     UpperLatin,
+    /// Lowercase Russian letters (а, б, в, etc.). Items beyond я use base-28. Excluding some letters (ё, й, ъ, ы, ь)
+    LowerRussian,
+    /// Uppercase Russian letters (А, Б, В, etc.). Items beyond Я use base-28. Excluding some letters (Ё, Й, Ъ, Ы, Ь)
+    UpperRussian,
     /// Lowercase Roman numerals (i, ii, iii, etc.).
     LowerRoman,
     /// Uppercase Roman numerals (I, II, III, etc.).
@@ -323,6 +327,8 @@ impl NumberingKind {
             '1' => NumberingKind::Arabic,
             'a' => NumberingKind::LowerLatin,
             'A' => NumberingKind::UpperLatin,
+            'а' => NumberingKind::LowerRussian,
+            'А' => NumberingKind::UpperRussian,
             'i' => NumberingKind::LowerRoman,
             'I' => NumberingKind::UpperRoman,
             'α' => NumberingKind::LowerGreek,
@@ -354,6 +360,8 @@ impl NumberingKind {
             Self::Arabic => '1',
             Self::LowerLatin => 'a',
             Self::UpperLatin => 'A',
+            Self::LowerRussian => 'а',
+            Self::UpperRussian => 'А',
             Self::LowerRoman => 'i',
             Self::UpperRoman => 'I',
             Self::LowerGreek => 'α',
@@ -409,6 +417,20 @@ impl NumberingKind {
                 [
                     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
                     'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                ],
+                n,
+            ),
+            Self::LowerRussian => zeroless(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'к', 'л', 'м', 'н', 'о',
+                    'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'э', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperRussian => zeroless(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И', 'К', 'Л', 'М', 'Н', 'О',
+                    'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Э', 'Ю', 'Я',
                 ],
                 n,
             ),
