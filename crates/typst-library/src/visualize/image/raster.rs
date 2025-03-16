@@ -88,7 +88,7 @@ impl RasterImage {
                 // Apply rotation from EXIF metadata.
                 if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
                     apply_rotation(&mut dynamic, rotation);
-                    is_rotated = true;
+                    is_rotated = rotation != 1;
                 }
 
                 // Extract pixel density.
