@@ -47,7 +47,7 @@ pub fn convert(
         cmyk_profile: None,
         configuration,
         enable_tagging: false,
-        render_svg_glyph_fn: render_svg_glyph
+        render_svg_glyph_fn: render_svg_glyph,
     };
 
     let mut document = Document::new_with(settings);
@@ -304,7 +304,6 @@ pub(crate) fn handle_group(
         .clip
         .as_ref()
         .and_then(|p| {
-            
             let mut builder = PathBuilder::new();
             convert_path(p, &mut builder);
             builder.finish()

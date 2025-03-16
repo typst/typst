@@ -31,7 +31,8 @@ pub(crate) fn handle_shape(
                 shape.geometry.bbox_size(),
             )?;
 
-            surface.fill_path(&path, fill);
+            surface.set_fill(fill);
+            surface.fill_path(&path);
         }
 
         let stroke = shape.stroke.as_ref().and_then(|stroke| {
@@ -52,7 +53,8 @@ pub(crate) fn handle_shape(
                 shape.geometry.bbox_size(),
             )?;
 
-            surface.stroke_path(&path, stroke);
+            surface.set_stroke(stroke);
+            surface.stroke_path(&path);
         }
     }
 

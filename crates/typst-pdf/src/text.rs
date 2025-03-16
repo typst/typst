@@ -2,10 +2,10 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use bytemuck::TransparentWrapper;
-use krilla::font::{GlyphId, GlyphUnits};
+use krilla::font::GlyphId;
 use krilla::surface::{Location, Surface};
 use typst_library::diag::{bail, SourceResult};
-use typst_library::layout::Size;
+use typst_library::layout::{Abs, Size};
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
@@ -37,14 +37,13 @@ pub(crate) fn handle_text(
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
     surface.push_transform(&fc.state().transform().to_krilla());
+    surface.set_fill(fill);
     surface.fill_glyphs(
         krilla::geom::Point::from_xy(0.0, 0.0),
-        fill,
         glyphs,
         font.clone(),
         text,
         size.to_f32(),
-        GlyphUnits::Normalized,
         false,
     );
 
@@ -55,14 +54,14 @@ pub(crate) fn handle_text(
     {
         let stroke = stroke?;
 
+        surface.set_stroke(stroke);
         surface.stroke_glyphs(
             krilla::geom::Point::from_xy(0.0, 0.0),
-            stroke,
             glyphs,
             font,
             text,
             size.to_f32(),
-            GlyphUnits::Normalized,
+            // TODO: What if only stroke?
             true,
         );
     }
@@ -110,19 +109,19 @@ impl krilla::font::Glyph for PdfGlyph {
         self.0.range.start as usize..self.0.range.end as usize
     }
 
-    fn x_advance(&self) -> f32 {
-        self.0.x_advance.get() as f32
+    fn x_advance(&self, size: f32) -> f32 {
+        self.0.x_advance.at(Abs::raw(size as f64)).to_raw() as f32
     }
 
-    fn x_offset(&self) -> f32 {
-        self.0.x_offset.get() as f32
+    fn x_offset(&self, size: f32) -> f32 {
+        self.0.x_offset.at(Abs::raw(size as f64)).to_raw() as f32
     }
 
-    fn y_offset(&self) -> f32 {
+    fn y_offset(&self, _: f32) -> f32 {
         0.0
     }
 
-    fn y_advance(&self) -> f32 {
+    fn y_advance(&self, _: f32) -> f32 {
         0.0
     }
 
