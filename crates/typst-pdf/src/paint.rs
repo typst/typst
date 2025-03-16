@@ -1,7 +1,8 @@
 //! Convert paint types from typst to krilla.
 
 use krilla::geom::NormalizedF32;
-use krilla::paint::SpreadMethod;
+use krilla::graphics::color::{cmyk, luma, rgb};
+use krilla::graphics::paint::{Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke, StrokeDash, SweepGradient};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
@@ -22,10 +23,10 @@ pub(crate) fn convert_fill(
     surface: &mut Surface,
     state: &State,
     size: Size,
-) -> SourceResult<krilla::path::Fill> {
+) -> SourceResult<Fill> {
     let (paint, opacity) = convert_paint(gc, paint_, on_text, surface, state, size)?;
 
-    Ok(krilla::path::Fill {
+    Ok(Fill {
         paint,
         rule: fill_rule_.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
@@ -39,11 +40,11 @@ pub(crate) fn convert_stroke(
     surface: &mut Surface,
     state: &State,
     size: Size,
-) -> SourceResult<krilla::path::Stroke> {
+) -> SourceResult<Stroke> {
     let (paint, opacity) =
         convert_paint(fc, &stroke.paint, on_text, surface, state, size)?;
 
-    Ok(krilla::path::Stroke {
+    Ok(Stroke {
         paint,
         width: stroke.thickness.to_f32(),
         miter_limit: stroke.miter_limit.get() as f32,
@@ -61,7 +62,7 @@ fn convert_paint(
     surface: &mut Surface,
     state: &State,
     mut size: Size,
-) -> SourceResult<(krilla::paint::Paint, u8)> {
+) -> SourceResult<(krilla::graphics::paint::Paint, u8)> {
     // Edge cases for strokes.
     if size.x.is_zero() {
         size.x = Abs::pt(1.0);
@@ -78,16 +79,16 @@ fn convert_paint(
     }
 }
 
-fn convert_solid(color: &Color) -> (krilla::paint::Paint, u8) {
+fn convert_solid(color: &Color) -> (krilla::graphics::paint::Paint, u8) {
     match color.space() {
         ColorSpace::D65Gray => {
             let components = color.to_vec4_u8();
-            (krilla::color::luma::Color::new(components[0]).into(), components[3])
+            (luma::Color::new(components[0]).into(), components[3])
         }
         ColorSpace::Cmyk => {
             let components = color.to_vec4_u8();
             (
-                krilla::color::cmyk::Color::new(
+                cmyk::Color::new(
                     components[0],
                     components[1],
                     components[2],
@@ -112,7 +113,7 @@ fn convert_pattern(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-) -> SourceResult<(krilla::paint::Paint, u8)> {
+) -> SourceResult<(krilla::graphics::paint::Paint, u8)> {
     let transform = correct_transform(state, pattern.unwrap_relative(on_text));
 
     let mut stream_builder = surface.stream_builder();
@@ -121,7 +122,7 @@ fn convert_pattern(
     handle_frame(&mut fc, pattern.frame(), None, &mut surface, gc)?;
     surface.finish();
     let stream = stream_builder.finish();
-    let pattern = krilla::paint::Pattern {
+    let pattern = Pattern {
         stream,
         transform: transform.to_krilla(),
         width: (pattern.size().x + pattern.spacing().x).to_pt() as _,
@@ -136,7 +137,7 @@ fn convert_gradient(
     on_text: bool,
     state: &State,
     size: Size,
-) -> (krilla::paint::Paint, u8) {
+) -> (krilla::graphics::paint::Paint, u8) {
     let size = match gradient.unwrap_relative(on_text) {
         RelativeTo::Self_ => size,
         RelativeTo::Parent => state.container_size(),
@@ -163,7 +164,7 @@ fn convert_gradient(
                 }
             };
 
-            let linear = krilla::paint::LinearGradient {
+            let linear = LinearGradient {
                 x1,
                 y1,
                 x2,
@@ -183,7 +184,7 @@ fn convert_gradient(
             (linear.into(), 255)
         }
         Gradient::Radial(radial) => {
-            let radial = krilla::paint::RadialGradient {
+            let radial = RadialGradient {
                 fx: radial.focal_center.x.get() as f32,
                 fy: radial.focal_center.y.get() as f32,
                 fr: radial.focal_radius.get() as f32,
@@ -223,7 +224,7 @@ fn convert_gradient(
                     Abs::pt(cy as f64),
                 ));
 
-            let sweep = krilla::paint::SweepGradient {
+            let sweep = SweepGradient {
                 cx,
                 cy,
                 start_angle: 0.0,
@@ -241,14 +242,14 @@ fn convert_gradient(
 
 fn convert_gradient_stops(
     gradient: &Gradient,
-) -> Vec<krilla::paint::Stop<krilla::color::rgb::Color>> {
-    let mut stops: Vec<krilla::paint::Stop<krilla::color::rgb::Color>> = vec![];
+) -> Vec<Stop<rgb::Color>> {
+    let mut stops: Vec<Stop<rgb::Color>> = vec![];
 
     let mut add_single = |color: &Color, offset: Ratio| {
         let (color, opacity) = color.to_krilla_rgb();
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
-        let stop = krilla::paint::Stop { offset, color, opacity };
+        let stop = Stop { offset, color, opacity };
         stops.push(stop);
     };
 
@@ -338,8 +339,8 @@ fn convert_gradient_stops(
     stops
 }
 
-fn convert_dash(dash: &DashPattern<Abs, Abs>) -> krilla::path::StrokeDash {
-    krilla::path::StrokeDash {
+fn convert_dash(dash: &DashPattern<Abs, Abs>) -> StrokeDash {
+    StrokeDash {
         array: dash.array.iter().map(|e| e.to_f32()).collect(),
         offset: dash.phase.to_f32(),
     }

@@ -2,7 +2,7 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use bytemuck::TransparentWrapper;
-use krilla::font::GlyphId;
+use krilla::text::GlyphId;
 use krilla::surface::{Location, Surface};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::layout::{Abs, Size};
@@ -74,14 +74,14 @@ pub(crate) fn handle_text(
 fn convert_font(
     gc: &mut GlobalContext,
     typst_font: Font,
-) -> SourceResult<krilla::font::Font> {
+) -> SourceResult<krilla::text::Font> {
     if let Some(font) = gc.fonts_forward.get(&typst_font) {
         Ok(font.clone())
     } else {
         let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
             Arc::new(typst_font.data().clone());
         let font =
-            match krilla::font::Font::new(font_data.into(), typst_font.index(), true) {
+            match krilla::text::Font::new(font_data.into(), typst_font.index(), true) {
                 None => {
                     let font_str = display_font(&typst_font);
                     bail!(Span::detached(), "failed to process font {font_str}");
@@ -100,7 +100,7 @@ fn convert_font(
 #[repr(transparent)]
 struct PdfGlyph(Glyph);
 
-impl krilla::font::Glyph for PdfGlyph {
+impl krilla::text::Glyph for PdfGlyph {
     fn glyph_id(&self) -> GlyphId {
         GlyphId::new(self.0.id as u32)
     }

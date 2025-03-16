@@ -1,8 +1,8 @@
 //! Basic utilities for converting typst types to krilla.
 
-use krilla::color::rgb as kr;
+use krilla::graphics::color::rgb as kr;
 use krilla::geom as kg;
-use krilla::path as kp;
+use krilla::graphics::paint as kp;
 use krilla::path::PathBuilder;
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;

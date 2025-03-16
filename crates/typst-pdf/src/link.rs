@@ -1,7 +1,7 @@
-use krilla::action::{Action, LinkAction};
-use krilla::annotation::{LinkAnnotation, Target};
-use krilla::destination::XyzDestination;
 use krilla::geom::Rect;
+use krilla::interactive::action::{Action, LinkAction};
+use krilla::interactive::annotation::{LinkAnnotation, Target};
+use krilla::interactive::destination::XyzDestination;
 use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 
@@ -65,7 +65,7 @@ pub(crate) fn handle_link(
                     LinkAnnotation::new(
                         rect,
                         None,
-                        Target::Destination(krilla::destination::Destination::Named(
+                        Target::Destination(krilla::interactive::destination::Destination::Named(
                             nd.clone(),
                         )),
                     )
@@ -84,7 +84,7 @@ pub(crate) fn handle_link(
             LinkAnnotation::new(
                 rect,
                 None,
-                Target::Destination(krilla::destination::Destination::Xyz(
+                Target::Destination(krilla::interactive::destination::Destination::Xyz(
                     XyzDestination::new(page_index, pos.point.to_krilla()),
                 )),
             )

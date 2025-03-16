@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
-use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
+use krilla::graphics::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::surface::Surface;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{bail, SourceResult};
@@ -164,23 +164,23 @@ impl CustomImage for PdfImage {
 fn convert_raster(
     raster: RasterImage,
     interpolate: bool,
-) -> Option<krilla::image::Image> {
+) -> Option<krilla::graphics::image::Image> {
     match raster.format() {
         RasterFormat::Exchange(e) => match e {
             ExchangeFormat::Jpg => {
                 if !raster.is_rotated() {
                     let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
                         Arc::new(raster.data().clone());
-                    krilla::image::Image::from_jpeg(image_data.into(), interpolate)
+                    krilla::graphics::image::Image::from_jpeg(image_data.into(), interpolate)
                 } else {
                     // Can't embed original JPEG data if it had to be rotated.
-                    krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
+                    krilla::graphics::image::Image::from_custom(PdfImage::new(raster), interpolate)
                 }
             }
-            _ => krilla::image::Image::from_custom(PdfImage::new(raster), interpolate),
+            _ => krilla::graphics::image::Image::from_custom(PdfImage::new(raster), interpolate),
         },
         RasterFormat::Pixel(_) => {
-            krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
+            krilla::graphics::image::Image::from_custom(PdfImage::new(raster), interpolate)
         }
     }
 }

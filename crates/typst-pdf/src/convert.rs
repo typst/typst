@@ -2,14 +2,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
 use ecow::EcoVec;
-use krilla::annotation::Annotation;
-use krilla::destination::{NamedDestination, XyzDestination};
-use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::{Configuration, Document, PageSettings, SerializeSettings, ValidationError};
+use krilla::interactive::annotation::Annotation;
+use krilla::interactive::destination::{NamedDestination, XyzDestination};
+use krilla::interchange::embed::EmbedError;
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceResult};
 use typst_library::foundations::NativeElement;
@@ -208,13 +208,13 @@ impl FrameContext {
 /// Globally needed context for converting a typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
-    pub(crate) fonts_forward: HashMap<Font, krilla::font::Font>,
-    pub(crate) fonts_backward: HashMap<krilla::font::Font, Font>,
+    pub(crate) fonts_forward: HashMap<Font, krilla::text::Font>,
+    pub(crate) fonts_backward: HashMap<krilla::text::Font, Font>,
     /// Mapping between images and their span.
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
-    pub(crate) image_to_spans: HashMap<krilla::image::Image, Span>,
+    pub(crate) image_to_spans: HashMap<krilla::graphics::image::Image, Span>,
     pub(crate) image_spans: HashSet<Span>,
     pub(crate) document: &'a PagedDocument,
     pub(crate) options: &'a PdfOptions<'a>,
@@ -311,7 +311,7 @@ pub(crate) fn handle_group(
         .and_then(|p| p.transform(fc.state().transform.to_krilla()));
 
     if let Some(clip_path) = &clip_path {
-        surface.push_clip_path(clip_path, &krilla::path::FillRule::NonZero);
+        surface.push_clip_path(clip_path, &krilla::graphics::paint::FillRule::NonZero);
     }
 
     handle_frame(fc, &group.frame, None, surface, context)?;
@@ -336,18 +336,14 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
-            KrillaError::FontError(f, s) => {
+            KrillaError::Font(f, s) => {
                 let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
                 bail!(Span::detached(), "failed to process font {font_str} ({s})";
                 hint: "make sure the font is valid";
                 hint: "this could also be a bug in the Typst compiler"
                 );
             }
-            KrillaError::UserError(u) => {
-                // This is an error which indicates misuse on the typst-pdf side.
-                bail!(Span::detached(), "internal error ({u})"; hint: "please report this as a bug")
-            }
-            KrillaError::ValidationError(ve) => {
+            KrillaError::Validation(ve) => {
                 // We can only produce 1 error, so just take the first one.
                 let prefix =
                     format!("validated export with {} failed:", validator.as_str());
@@ -503,7 +499,7 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
 
                 Err(errors)
             }
-            KrillaError::ImageError(i) => {
+            KrillaError::Image(i) => {
                 let span = gc.image_to_spans.get(&i).unwrap();
                 bail!(*span, "failed to process image");
             }
