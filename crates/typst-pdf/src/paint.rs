@@ -2,7 +2,10 @@
 
 use krilla::geom::NormalizedF32;
 use krilla::graphics::color::{cmyk, luma, rgb};
-use krilla::graphics::paint::{Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke, StrokeDash, SweepGradient};
+use krilla::graphics::paint::{
+    Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke,
+    StrokeDash, SweepGradient,
+};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::layout::{Abs, Angle, Quadrant, Ratio, Size, Transform};
@@ -240,9 +243,7 @@ fn convert_gradient(
     }
 }
 
-fn convert_gradient_stops(
-    gradient: &Gradient,
-) -> Vec<Stop<rgb::Color>> {
+fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop<rgb::Color>> {
     let mut stops: Vec<Stop<rgb::Color>> = vec![];
 
     let mut add_single = |color: &Color, offset: Ratio| {

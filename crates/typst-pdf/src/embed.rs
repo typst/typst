@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use krilla::Document;
 use krilla::interchange::embed::{AssociationKind, EmbeddedFile};
+use krilla::Document;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;

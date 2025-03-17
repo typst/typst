@@ -2,8 +2,8 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use bytemuck::TransparentWrapper;
-use krilla::text::GlyphId;
 use krilla::surface::{Location, Surface};
+use krilla::text::GlyphId;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::layout::{Abs, Size};
 use typst_library::text::{Font, Glyph, TextItem};

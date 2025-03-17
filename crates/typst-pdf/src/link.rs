@@ -65,9 +65,11 @@ pub(crate) fn handle_link(
                     LinkAnnotation::new(
                         rect,
                         None,
-                        Target::Destination(krilla::interactive::destination::Destination::Named(
-                            nd.clone(),
-                        )),
+                        Target::Destination(
+                            krilla::interactive::destination::Destination::Named(
+                                nd.clone(),
+                            ),
+                        ),
                     )
                     .into(),
                 );

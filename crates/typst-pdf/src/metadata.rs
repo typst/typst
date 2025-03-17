@@ -1,19 +1,15 @@
+use crate::convert::GlobalContext;
+use crate::Timezone;
 use ecow::EcoString;
 use krilla::interchange::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
 use typst_library::text::Lang;
-use crate::convert::GlobalContext;
-use crate::Timezone;
 
 pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
 
-    let lang = gc
-        .languages
-        .iter()
-        .max_by_key(|(_, &count)| count)
-        .map(|(&l, _)| l);
+    let lang = gc.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         TextDirection::RightToLeft
@@ -59,7 +55,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     if let Some(date) = date.and_then(|d| convert_date(d, tz)) {
         metadata = metadata.modification_date(date).creation_date(date);
     }
-    
+
     metadata = metadata.text_direction(dir);
 
     metadata

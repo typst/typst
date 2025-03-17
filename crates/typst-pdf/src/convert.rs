@@ -3,13 +3,13 @@ use std::num::NonZeroU64;
 
 use ecow::EcoVec;
 use krilla::error::KrillaError;
+use krilla::interactive::annotation::Annotation;
+use krilla::interactive::destination::{NamedDestination, XyzDestination};
+use krilla::interchange::embed::EmbedError;
 use krilla::page::PageLabel;
 use krilla::path::PathBuilder;
 use krilla::surface::Surface;
 use krilla::{Configuration, Document, PageSettings, SerializeSettings, ValidationError};
-use krilla::interactive::annotation::Annotation;
-use krilla::interactive::destination::{NamedDestination, XyzDestination};
-use krilla::interchange::embed::EmbedError;
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceResult};
 use typst_library::foundations::NativeElement;

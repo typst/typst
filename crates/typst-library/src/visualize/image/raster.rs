@@ -3,16 +3,16 @@ use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::Arc;
 
+use crate::diag::{bail, StrResult};
+use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
 use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
+use image::imageops::rotate180;
 use image::{
     guess_format, DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel,
 };
-
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
 
 /// A decoded raster image.
 #[derive(Clone, Hash)]
@@ -23,7 +23,7 @@ struct Repr {
     data: Bytes,
     format: RasterFormat,
     dynamic: Arc<DynamicImage>,
-    is_rotated: bool,
+    exif_rotation: Option<u32>,
     icc: Option<Bytes>,
     dpi: Option<f64>,
 }
@@ -51,7 +51,7 @@ impl RasterImage {
         format: RasterFormat,
         icc: Smart<Bytes>,
     ) -> StrResult<RasterImage> {
-        let mut is_rotated = false;
+        let mut exif_rot = None;
 
         let (dynamic, icc, dpi) = match format {
             RasterFormat::Exchange(format) => {
@@ -88,7 +88,7 @@ impl RasterImage {
                 // Apply rotation from EXIF metadata.
                 if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
                     apply_rotation(&mut dynamic, rotation);
-                    is_rotated = rotation != 1;
+                    exif_rot = Some(rotation);
                 }
 
                 // Extract pixel density.
@@ -143,7 +143,7 @@ impl RasterImage {
         Ok(Self(Arc::new(Repr {
             data,
             format,
-            is_rotated,
+            exif_rotation: exif_rot,
             dynamic: Arc::new(dynamic),
             icc,
             dpi,
@@ -170,9 +170,9 @@ impl RasterImage {
         self.dynamic().height()
     }
 
-    /// Whether the image has been rotated due to EXIF metadata.
-    pub fn is_rotated(&self) -> bool {
-        self.0.is_rotated
+    /// TODO.
+    pub fn exif_rotation(&self) -> Option<u32> {
+        self.0.exif_rotation
     }
 
     /// The image's pixel density in pixels per inch, if known.

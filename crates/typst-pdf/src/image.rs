@@ -7,7 +7,7 @@ use krilla::surface::Surface;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::Smart;
-use typst_library::layout::Size;
+use typst_library::layout::{Abs, Angle, Ratio, Size, Transform};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat, RasterImage,
 };
@@ -31,6 +31,8 @@ pub(crate) fn handle_image(
 
     match image.kind() {
         ImageKind::Raster(raster) => {
+            let (exif_transform, new_size) = exif_transform(raster, size);
+            surface.push_transform(&exif_transform.to_krilla());
             let image = match convert_raster(raster.clone(), interpolate) {
                 None => bail!(span, "failed to process image"),
                 Some(i) => i,
@@ -41,7 +43,8 @@ pub(crate) fn handle_image(
                 gc.image_spans.insert(span);
             }
 
-            surface.draw_image(image, size.to_krilla());
+            surface.draw_image(image, new_size.to_krilla());
+            surface.pop();
         }
         ImageKind::Svg(svg) => {
             surface.draw_svg(
@@ -168,19 +171,61 @@ fn convert_raster(
     match raster.format() {
         RasterFormat::Exchange(e) => match e {
             ExchangeFormat::Jpg => {
-                if !raster.is_rotated() {
-                    let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-                        Arc::new(raster.data().clone());
-                    krilla::graphics::image::Image::from_jpeg(image_data.into(), interpolate)
-                } else {
-                    // Can't embed original JPEG data if it had to be rotated.
-                    krilla::graphics::image::Image::from_custom(PdfImage::new(raster), interpolate)
-                }
+                let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                    Arc::new(raster.data().clone());
+                krilla::graphics::image::Image::from_jpeg(image_data.into(), interpolate)
             }
-            _ => krilla::graphics::image::Image::from_custom(PdfImage::new(raster), interpolate),
+            _ => krilla::graphics::image::Image::from_custom(
+                PdfImage::new(raster),
+                interpolate,
+            ),
         },
-        RasterFormat::Pixel(_) => {
-            krilla::graphics::image::Image::from_custom(PdfImage::new(raster), interpolate)
+        RasterFormat::Pixel(_) => krilla::graphics::image::Image::from_custom(
+            PdfImage::new(raster),
+            interpolate,
+        ),
+    }
+}
+
+fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
+    let base = |hp: bool, vp: bool, mut base_ts: Transform, size: Size| {
+        if hp {
+            // Flip horizontally in-place.
+            base_ts = base_ts.pre_concat(
+                Transform::scale(-Ratio::one(), Ratio::one())
+                    .pre_concat(Transform::translate(-size.x, Abs::zero())),
+            )
         }
+
+        if vp {
+            // Flip vertically in-place.
+            base_ts = base_ts.pre_concat(
+                Transform::scale(Ratio::one(), -Ratio::one())
+                    .pre_concat(Transform::translate(Abs::zero(), -size.y)),
+            )
+        }
+
+        base_ts
+    };
+
+    let no_flipping =
+        |hp: bool, vp: bool| (base(hp, vp, Transform::identity(), size), size);
+
+    let with_flipping = |hp: bool, vp: bool| {
+        let base_ts = Transform::rotate_at(Angle::deg(90.0), Abs::zero(), Abs::zero())
+            .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
+        let inv_size = Size::new(size.y, size.x);
+        (base(hp, vp, base_ts, inv_size), inv_size)
+    };
+
+    match image.exif_rotation() {
+        Some(2) => no_flipping(true, false),
+        Some(3) => no_flipping(true, true),
+        Some(4) => no_flipping(false, true),
+        Some(5) => with_flipping(false, false),
+        Some(6) => with_flipping(false, true),
+        Some(7) => with_flipping(true, true),
+        Some(8) => with_flipping(true, false),
+        _ => no_flipping(false, false),
     }
 }
