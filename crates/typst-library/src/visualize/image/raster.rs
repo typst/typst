@@ -9,7 +9,6 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
-use image::imageops::rotate180;
 use image::{
     guess_format, DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel,
 };
