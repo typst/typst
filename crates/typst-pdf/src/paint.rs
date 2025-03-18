@@ -186,7 +186,7 @@ fn convert_gradient(
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
-                stops: stops.into(),
+                stops,
                 anti_alias: gradient.anti_alias(),
             };
 
@@ -207,7 +207,7 @@ fn convert_gradient(
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
-                stops: stops.into(),
+                stops,
                 anti_alias: gradient.anti_alias(),
             };
 
@@ -240,7 +240,7 @@ fn convert_gradient(
                 end_angle: 360.0,
                 transform: actual_transform.to_krilla(),
                 spread_method: SpreadMethod::Pad,
-                stops: stops.into(),
+                stops,
                 anti_alias: gradient.anti_alias(),
             };
 

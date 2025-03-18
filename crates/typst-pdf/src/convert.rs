@@ -398,7 +398,7 @@ fn finish(
                         }
                         ValidationError::ContainsNotDefGlyph(f, loc, text) => {
                             let span = get_span(*loc);
-                            let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
+                            let font_str = display_font(gc.fonts_backward.get(f).unwrap());
 
                             error!(span, "{prefix} the text '{text}' cannot be displayed \
                             using {font_str}";
