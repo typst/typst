@@ -53,12 +53,13 @@ pub fn convert(
 
     let mut document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
-    let named_destinations = collect_named_destinations(typst_document, &page_index_converter);
+    let named_destinations =
+        collect_named_destinations(typst_document, &page_index_converter);
     let mut gc = GlobalContext::new(
         typst_document,
         options,
         named_destinations,
-        page_index_converter
+        page_index_converter,
     );
 
     convert_pages(&mut gc, &mut document)?;
@@ -93,7 +94,9 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                     // the real (not logical) page numbers. Here, the final PDF page number
                     // will differ, but we can at least use labels to indicate what was
                     // the corresponding real page number in the Typst document.
-                    gc.page_index_converter.has_skipped_pages().then(|| PageLabel::arabic(i + 1))
+                    gc.page_index_converter
+                        .has_skipped_pages()
+                        .then(|| PageLabel::arabic(i + 1))
                 })
             {
                 settings = settings.with_page_label(label);
@@ -222,7 +225,7 @@ pub(crate) struct GlobalContext<'a> {
     pub(crate) loc_to_names: HashMap<Location, NamedDestination>,
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
-    pub(crate) page_index_converter: PageIndexConverter
+    pub(crate) page_index_converter: PageIndexConverter,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -230,7 +233,7 @@ impl<'a> GlobalContext<'a> {
         document: &'a PagedDocument,
         options: &'a PdfOptions,
         loc_to_names: HashMap<Location, NamedDestination>,
-        page_index_converter: PageIndexConverter
+        page_index_converter: PageIndexConverter,
     ) -> GlobalContext<'a> {
         Self {
             fonts_forward: HashMap::new(),
@@ -241,7 +244,7 @@ impl<'a> GlobalContext<'a> {
             image_to_spans: HashMap::new(),
             image_spans: HashSet::new(),
             languages: BTreeMap::new(),
-            page_index_converter
+            page_index_converter,
         }
     }
 }
@@ -552,7 +555,7 @@ fn finish(
 
 fn collect_named_destinations(
     document: &PagedDocument,
-    pic: &PageIndexConverter
+    pic: &PageIndexConverter,
 ) -> HashMap<Location, NamedDestination> {
     let mut locs_to_names = HashMap::new();
 
