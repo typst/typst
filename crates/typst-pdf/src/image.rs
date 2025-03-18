@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
-use krilla::graphics::image::{BitsPerComponent, CustomImage, ImageColorspace};
+use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::surface::Surface;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{bail, SourceResult};
@@ -167,20 +167,20 @@ impl CustomImage for PdfImage {
 fn convert_raster(
     raster: RasterImage,
     interpolate: bool,
-) -> Option<krilla::graphics::image::Image> {
+) -> Option<krilla::image::Image> {
     match raster.format() {
         RasterFormat::Exchange(e) => match e {
             ExchangeFormat::Jpg => {
                 let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
                     Arc::new(raster.data().clone());
-                krilla::graphics::image::Image::from_jpeg(image_data.into(), interpolate)
+                krilla::image::Image::from_jpeg(image_data.into(), interpolate)
             }
-            _ => krilla::graphics::image::Image::from_custom(
+            _ => krilla::image::Image::from_custom(
                 PdfImage::new(raster),
                 interpolate,
             ),
         },
-        RasterFormat::Pixel(_) => krilla::graphics::image::Image::from_custom(
+        RasterFormat::Pixel(_) => krilla::image::Image::from_custom(
             PdfImage::new(raster),
             interpolate,
         ),

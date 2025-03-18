@@ -1,13 +1,12 @@
 //! Basic utilities for converting typst types to krilla.
 
 use krilla::geom as kg;
-use krilla::graphics::color::rgb as kr;
-use krilla::graphics::paint as kp;
-use krilla::path::PathBuilder;
+use krilla::geom::PathBuilder;
+use krilla::paint as kp;
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;
 use typst_library::visualize::{
-    Color, ColorSpace, Curve, CurveItem, FillRule, LineCap, LineJoin,
+    Curve, CurveItem, FillRule, LineCap, LineJoin,
 };
 
 pub(crate) trait SizeExt {

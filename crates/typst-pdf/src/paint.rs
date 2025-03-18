@@ -1,8 +1,8 @@
 //! Convert paint types from typst to krilla.
 
-use krilla::geom::NormalizedF32;
-use krilla::graphics::color::{self, cmyk, luma, rgb};
-use krilla::graphics::paint::{
+use krilla::num::NormalizedF32;
+use krilla::color::{self, cmyk, luma, rgb};
+use krilla::paint::{
     Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke,
     StrokeDash, SweepGradient,
 };
@@ -65,7 +65,7 @@ fn convert_paint(
     surface: &mut Surface,
     state: &State,
     mut size: Size,
-) -> SourceResult<(krilla::graphics::paint::Paint, u8)> {
+) -> SourceResult<(krilla::paint::Paint, u8)> {
     // Edge cases for strokes.
     if size.x.is_zero() {
         size.x = Abs::pt(1.0);
@@ -129,7 +129,7 @@ fn convert_pattern(
     on_text: bool,
     surface: &mut Surface,
     state: &State,
-) -> SourceResult<(krilla::graphics::paint::Paint, u8)> {
+) -> SourceResult<(krilla::paint::Paint, u8)> {
     let transform = correct_transform(state, pattern.unwrap_relative(on_text));
 
     let mut stream_builder = surface.stream_builder();
@@ -153,7 +153,7 @@ fn convert_gradient(
     on_text: bool,
     state: &State,
     size: Size,
-) -> (krilla::graphics::paint::Paint, u8) {
+) -> (krilla::paint::Paint, u8) {
     let size = match gradient.unwrap_relative(on_text) {
         RelativeTo::Self_ => size,
         RelativeTo::Parent => state.container_size(),

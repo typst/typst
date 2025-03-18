@@ -1,7 +1,7 @@
 use crate::convert::GlobalContext;
 use crate::Timezone;
 use ecow::EcoString;
-use krilla::interchange::metadata::{Metadata, TextDirection};
+use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
 use typst_library::text::Lang;
@@ -64,10 +64,10 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
 fn convert_date(
     datetime: Datetime,
     tz: Option<Timezone>,
-) -> Option<krilla::interchange::metadata::DateTime> {
+) -> Option<krilla::metadata::DateTime> {
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
-    let mut kd = krilla::interchange::metadata::DateTime::new(year);
+    let mut kd = krilla::metadata::DateTime::new(year);
 
     if let Some(month) = datetime.month() {
         kd = kd.month(month);

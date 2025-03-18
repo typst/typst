@@ -3,13 +3,14 @@ use std::num::NonZeroU64;
 
 use ecow::EcoVec;
 use krilla::error::KrillaError;
-use krilla::interactive::annotation::Annotation;
-use krilla::interactive::destination::{NamedDestination, XyzDestination};
-use krilla::interchange::embed::EmbedError;
-use krilla::page::PageLabel;
-use krilla::path::PathBuilder;
+use krilla::annotation::Annotation;
+use krilla::destination::{NamedDestination, XyzDestination};
+use krilla::embed::EmbedError;
+use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
-use krilla::{Configuration, Document, PageSettings, SerializeSettings, ValidationError};
+use krilla::{Document, SerializeSettings};
+use krilla::configure::{Configuration, ValidationError};
+use krilla::geom::PathBuilder;
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceResult};
 use typst_library::foundations::NativeElement;
@@ -214,7 +215,7 @@ pub(crate) struct GlobalContext<'a> {
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
-    pub(crate) image_to_spans: HashMap<krilla::graphics::image::Image, Span>,
+    pub(crate) image_to_spans: HashMap<krilla::image::Image, Span>,
     pub(crate) image_spans: HashSet<Span>,
     pub(crate) document: &'a PagedDocument,
     pub(crate) options: &'a PdfOptions<'a>,
@@ -311,7 +312,7 @@ pub(crate) fn handle_group(
         .and_then(|p| p.transform(fc.state().transform.to_krilla()));
 
     if let Some(clip_path) = &clip_path {
-        surface.push_clip_path(clip_path, &krilla::graphics::paint::FillRule::NonZero);
+        surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
     }
 
     handle_frame(fc, &group.frame, None, surface, context)?;

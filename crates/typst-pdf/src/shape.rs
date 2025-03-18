@@ -1,5 +1,4 @@
-use krilla::geom::Rect;
-use krilla::path::{Path, PathBuilder};
+use krilla::geom::{Path, PathBuilder, Rect};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::visualize::{Geometry, Shape};
