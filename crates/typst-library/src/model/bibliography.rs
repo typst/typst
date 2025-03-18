@@ -94,7 +94,7 @@ pub struct BibliographyElem {
     /// - A path string to load a bibliography file from the given path. For
     ///   more details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which the bibliography should be decoded.
-    /// - An array where each item is one the above.
+    /// - An array where each item is one of the above.
     #[required]
     #[parse(
         let sources = args.expect("sources")?;

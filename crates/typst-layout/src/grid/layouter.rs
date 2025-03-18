@@ -1469,7 +1469,7 @@ impl<'a> GridLayouter<'a> {
                 // last height is the one for the current region.
                 rowspan
                     .heights
-                    .extend(std::iter::repeat(Abs::zero()).take(amount_missing_heights));
+                    .extend(std::iter::repeat_n(Abs::zero(), amount_missing_heights));
 
                 // Ensure that, in this region, the rowspan will span at least
                 // this row.
