@@ -52,10 +52,13 @@ pub fn convert(
     };
 
     let mut document = Document::new_with(settings);
+    let page_index_converter = PageIndexConverter::new(&typst_document, &options);
+    let named_destinations = collect_named_destinations(&typst_document, &page_index_converter);
     let mut gc = GlobalContext::new(
         typst_document,
         options,
-        collect_named_destinations(typst_document, options),
+        named_destinations,
+        page_index_converter
     );
 
     convert_pages(&mut gc, &mut document)?;
@@ -68,12 +71,9 @@ pub fn convert(
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
-    let mut skipped_pages = 0;
-
     for (i, typst_page) in gc.document.pages.iter().enumerate() {
-        if gc.page_excluded(i) {
+        if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
-            skipped_pages += 1;
             continue;
         } else {
             let mut settings = PageSettings::new(
@@ -93,7 +93,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                     // the real (not logical) page numbers. Here, the final PDF page number
                     // will differ, but we can at least use labels to indicate what was
                     // the corresponding real page number in the Typst document.
-                    (skipped_pages > 0).then(|| PageLabel::arabic(i + 1))
+                    gc.page_index_converter.has_skipped_pages().then(|| PageLabel::arabic(i + 1))
                 })
             {
                 settings = settings.with_page_label(label);
@@ -219,34 +219,30 @@ pub(crate) struct GlobalContext<'a> {
     /// Options for PDF export.
     pub(crate) options: &'a PdfOptions<'a>,
     /// Mapping between locations in the document and named destinations.
-    pub(crate) loc_to_named: HashMap<Location, NamedDestination>,
+    pub(crate) loc_to_names: HashMap<Location, NamedDestination>,
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
+    pub(crate) page_index_converter: PageIndexConverter
 }
 
 impl<'a> GlobalContext<'a> {
     pub(crate) fn new(
         document: &'a PagedDocument,
         options: &'a PdfOptions,
-        loc_to_named: HashMap<Location, NamedDestination>,
+        loc_to_names: HashMap<Location, NamedDestination>,
+        page_index_converter: PageIndexConverter
     ) -> GlobalContext<'a> {
         Self {
             fonts_forward: HashMap::new(),
             fonts_backward: HashMap::new(),
             document,
             options,
-            loc_to_named,
+            loc_to_names,
             image_to_spans: HashMap::new(),
             image_spans: HashSet::new(),
             languages: BTreeMap::new(),
+            page_index_converter
         }
-    }
-
-    pub(crate) fn page_excluded(&self, page_index: usize) -> bool {
-        self.options
-            .page_ranges
-            .as_ref()
-            .is_some_and(|ranges| !ranges.includes_page_index(page_index))
     }
 }
 
@@ -556,7 +552,7 @@ fn finish(
 
 fn collect_named_destinations(
     document: &PagedDocument,
-    options: &PdfOptions,
+    pic: &PageIndexConverter
 ) -> HashMap<Location, NamedDestination> {
     let mut locs_to_names = HashMap::new();
 
@@ -582,11 +578,7 @@ fn collect_named_destinations(
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
 
         // Only add named destination if page belonging to the position is exported.
-        if options
-            .page_ranges
-            .as_ref()
-            .is_some_and(|ranges| !ranges.includes_page_index(index))
-        {
+        if let Some(index) = pic.pdf_page_index(index) {
             let named = NamedDestination::new(
                 label.resolve().to_string(),
                 XyzDestination::new(
@@ -630,4 +622,39 @@ fn get_configuration(options: &PdfOptions) -> SourceResult<Configuration> {
     };
 
     Ok(config)
+}
+
+pub(crate) struct PageIndexConverter {
+    page_indices: HashMap<usize, usize>,
+    skipped_pages: usize,
+}
+
+impl PageIndexConverter {
+    pub fn new(document: &PagedDocument, options: &PdfOptions) -> Self {
+        let mut page_indices = HashMap::new();
+        let mut skipped_pages = 0;
+
+        for i in 0..document.pages.len() {
+            if options
+                .page_ranges
+                .as_ref()
+                .is_some_and(|ranges| !ranges.includes_page_index(i))
+            {
+                skipped_pages += 1;
+            } else {
+                page_indices.insert(i, i - skipped_pages);
+            }
+        }
+
+        Self { page_indices, skipped_pages }
+    }
+
+    pub(crate) fn has_skipped_pages(&self) -> bool {
+        self.skipped_pages > 0
+    }
+
+    /// Get the PDF page index of a page index, if it's not excluded.
+    pub(crate) fn pdf_page_index(&self, page_index: usize) -> Option<usize> {
+        self.page_indices.get(&page_index).copied()
+    }
 }

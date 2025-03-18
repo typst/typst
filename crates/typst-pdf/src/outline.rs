@@ -127,10 +127,10 @@ impl<'a> HeadingNode<'a> {
         let pos = gc.document.introspector.position(loc);
         let page_index = pos.page.get() - 1;
 
-        if !gc.page_excluded(page_index) {
+        if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
             let dest = XyzDestination::new(
-                page_index,
+                index,
                 krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
             );
 

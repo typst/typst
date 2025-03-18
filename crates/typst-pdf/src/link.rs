@@ -58,7 +58,7 @@ pub(crate) fn handle_link(
         }
         Destination::Position(p) => *p,
         Destination::Location(loc) => {
-            if let Some(nd) = gc.loc_to_named.get(loc) {
+            if let Some(nd) = gc.loc_to_names.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
                 fc.push_annotation(
@@ -79,13 +79,13 @@ pub(crate) fn handle_link(
     };
 
     let page_index = pos.page.get() - 1;
-    if !gc.page_excluded(page_index) {
+    if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
         fc.push_annotation(
             LinkAnnotation::new(
                 rect,
                 None,
                 Target::Destination(krilla::destination::Destination::Xyz(
-                    XyzDestination::new(page_index, pos.point.to_krilla()),
+                    XyzDestination::new(index, pos.point.to_krilla()),
                 )),
             )
             .into(),
