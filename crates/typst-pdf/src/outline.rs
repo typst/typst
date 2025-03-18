@@ -24,7 +24,7 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
             if !page_ranges
                 .includes_page(gc.document.introspector.page(elem.location().unwrap()))
             {
-                // Don't bookmark headings in non-exported pages
+                // Don't bookmark headings in non-exported pages.
                 continue;
             }
         }

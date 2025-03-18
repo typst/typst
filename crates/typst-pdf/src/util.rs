@@ -5,9 +5,7 @@ use krilla::geom::PathBuilder;
 use krilla::paint as kp;
 use typst_library::layout::{Abs, Point, Size, Transform};
 use typst_library::text::Font;
-use typst_library::visualize::{
-    Curve, CurveItem, FillRule, LineCap, LineJoin,
-};
+use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
 pub(crate) trait SizeExt {
     fn to_krilla(&self) -> kg::Size;
@@ -97,13 +95,13 @@ impl AbsExt for Abs {
     }
 }
 
-/// Display the font family and variant of a font.
+/// Display the font family of a font.
 pub(crate) fn display_font(font: &Font) -> String {
     let font_family = &font.info().family;
     format!("{font_family}")
 }
 
-/// Build a typst path using a path builder.
+/// Convert a typst path to a krilla path.
 pub(crate) fn convert_path(path: &Curve, builder: &mut PathBuilder) {
     for item in &path.0 {
         match item {

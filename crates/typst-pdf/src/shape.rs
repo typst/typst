@@ -75,10 +75,8 @@ fn convert_geometry(geometry: &Geometry) -> Option<Path> {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
             let rect = if w < 0.0 || h < 0.0 {
-                // Skia doesn't normally allow for negative dimensions, but
-                // Typst supports them, so we apply a transform if needed
-                // Because this operation is expensive according to tiny-skia's
-                // docs, we prefer to not apply it if not needed
+                // krilla doesn't normally allow for negative dimensions, but
+                // Typst supports them, so we apply a transform if needed.
                 let transform =
                     krilla::geom::Transform::from_scale(w.signum(), h.signum());
                 Rect::from_xywh(0.0, 0.0, w.abs(), h.abs())

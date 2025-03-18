@@ -1,7 +1,7 @@
 //! Convert paint types from typst to krilla.
 
-use krilla::num::NormalizedF32;
 use krilla::color::{self, cmyk, luma, rgb};
+use krilla::num::NormalizedF32;
 use krilla::paint::{
     Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke,
     StrokeDash, SweepGradient,
@@ -79,7 +79,7 @@ fn convert_paint(
         Paint::Solid(c) => {
             let (c, a) = convert_solid(c);
             Ok((c.into(), a))
-        },
+        }
         Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size)),
         Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
     }
@@ -91,10 +91,8 @@ fn convert_solid(color: &Color) -> (color::Color, u8) {
             let (c, a) = convert_luma(color);
             (c.into(), a)
         }
-        ColorSpace::Cmyk => {
-            (convert_cmyk(color).into(), 255)
-        }
-        // Convert all other colors in different colors spaces into RGB
+        ColorSpace::Cmyk => (convert_cmyk(color).into(), 255),
+        // Convert all other colors in different colors spaces into RGB.
         _ => {
             let (c, a) = convert_rgb(color);
             (c.into(), a)
@@ -105,12 +103,7 @@ fn convert_solid(color: &Color) -> (color::Color, u8) {
 fn convert_cmyk(color: &Color) -> cmyk::Color {
     let components = color.to_space(ColorSpace::Cmyk).to_vec4_u8();
 
-    cmyk::Color::new(
-        components[0],
-        components[1],
-        components[2],
-        components[3],
-    )
+    cmyk::Color::new(components[0], components[1], components[2], components[3])
 }
 
 fn convert_rgb(color: &Color) -> (rgb::Color, u8) {
@@ -221,11 +214,11 @@ fn convert_gradient(
             (radial.into(), 255)
         }
         Gradient::Conic(conic) => {
-            // Correct the gradient's angle
+            // Correct the gradient's angle.
             let cx = size.x.to_f32() * conic.center.x.get() as f32;
             let cy = size.y.to_f32() * conic.center.y.get() as f32;
             let actual_transform = base_transform
-                // Adjust for the angle
+                // Adjust for the angle.
                 .pre_concat(Transform::rotate_at(
                     angle,
                     Abs::pt(cx as f64),
@@ -257,18 +250,18 @@ fn convert_gradient(
 }
 
 fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
-    let mut stops= vec![];
-    
+    let mut stops = vec![];
+
     let use_cmyk = gradient.stops().iter().all(|s| s.color.space() == ColorSpace::Cmyk);
 
     let mut add_single = |color: &Color, offset: Ratio| {
         let (color, opacity) = if use_cmyk {
             (convert_cmyk(color).into(), 255)
-        }   else {
+        } else {
             let (c, a) = convert_rgb(color);
             (c.into(), a)
         };
-        
+
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
         let stop = Stop { offset, color, opacity };
@@ -314,9 +307,9 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
                 let ((c0, t0), (c1, t1)) = (window[0], window[1]);
 
                 // Precision:
-                // - On an even color, insert a stop every 90deg
-                // - For a hue-based color space, insert 200 stops minimum
-                // - On any other, insert 20 stops minimum
+                // - On an even color, insert a stop every 90deg.
+                // - For a hue-based color space, insert 200 stops minimum.
+                // - On any other, insert 20 stops minimum.
                 let max_dt = if c0 == c1 {
                     0.25
                 } else if conic.space.hue_index().is_some() {

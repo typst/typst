@@ -2,15 +2,15 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
 use ecow::EcoVec;
-use krilla::error::KrillaError;
 use krilla::annotation::Annotation;
+use krilla::configure::{Configuration, ValidationError};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::embed::EmbedError;
+use krilla::error::KrillaError;
+use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
-use krilla::configure::{Configuration, ValidationError};
-use krilla::geom::PathBuilder;
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceResult};
 use typst_library::foundations::NativeElement;
@@ -64,19 +64,14 @@ pub fn convert(
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
 
-    finish(document, gc)
+    finish(document, gc, configuration)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
     let mut skipped_pages = 0;
 
     for (i, typst_page) in gc.document.pages.iter().enumerate() {
-        if gc
-            .options
-            .page_ranges
-            .as_ref()
-            .is_some_and(|ranges| !ranges.includes_page_index(i))
-        {
+        if gc.page_excluded(i) {
             // Don't export this page.
             skipped_pages += 1;
             continue;
@@ -216,8 +211,12 @@ pub(crate) struct GlobalContext<'a> {
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
     pub(crate) image_to_spans: HashMap<krilla::image::Image, Span>,
+    /// The spans of all images that appear in the document. We use this so
+    /// we can give more accurate error messages.
     pub(crate) image_spans: HashSet<Span>,
+    /// The document to convert.
     pub(crate) document: &'a PagedDocument,
+    /// Options for PDF export.
     pub(crate) options: &'a PdfOptions<'a>,
     /// Mapping between locations in the document and named destinations.
     pub(crate) loc_to_named: HashMap<Location, NamedDestination>,
@@ -327,27 +326,25 @@ pub(crate) fn handle_group(
 }
 
 /// Finish a krilla document and handle export errors.
-fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
-    let validator: krilla::configure::Validator = gc
-        .options
-        .validator
-        .map(|v| v.into())
-        .unwrap_or(krilla::configure::Validator::None);
+fn finish(
+    document: Document,
+    gc: GlobalContext,
+    configuration: Configuration,
+) -> SourceResult<Vec<u8>> {
+    let validator = configuration.validator();
 
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
             KrillaError::Font(f, s) => {
                 let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
-                bail!(Span::detached(), "failed to process font {font_str} ({s})";
-                hint: "make sure the font is valid";
-                hint: "this could also be a bug in the Typst compiler"
+                bail!(Span::detached(), "failed to process font {font_str}: {s}";
+                    hint: "make sure the font is valid";
+                    hint: "the used font might be unsupported by Typst"
                 );
             }
             KrillaError::Validation(ve) => {
-                // We can only produce 1 error, so just take the first one.
-                let prefix =
-                    format!("validated export with {} failed:", validator.as_str());
+                let prefix = format!("{} error:", validator.as_str());
 
                 let get_span = |loc: Option<krilla::surface::Location>| {
                     loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
@@ -357,27 +354,29 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 let errors = ve.iter().map(|e| {
                     match e {
                         ValidationError::TooLongString => {
-                            error!(Span::detached(), "{prefix} a PDF string is longer \
-                        than 32767 characters";
+                            error!(Span::detached(), "{prefix} a PDF string is longer than \
+                            32767 characters";
                             hint: "ensure title and author names are short enough")
                         }
-                        // Should in theory never occur, as krilla always trims font names
+                        // Should in theory never occur, as krilla always trims font names.
                         ValidationError::TooLongName => {
-                            error!(Span::detached(), "{prefix} a PDF name is longer than 127 characters";
+                            error!(Span::detached(), "{prefix} a PDF name is longer than \
+                            127 characters";
                             hint: "perhaps a font name is too long")
                         }
                         ValidationError::TooLongArray => {
-                            error!(Span::detached(), "{prefix} a PDF array is longer than 8191 elements";
+                            error!(Span::detached(), "{prefix} a PDF array is longer than \
+                            8191 elements";
                             hint: "this can happen if you have a very long text in a single line")
                         }
                         ValidationError::TooLongDictionary => {
-                            error!(Span::detached(), "{prefix} a PDF dictionary has \
-                        more than 4095 entries";
+                            error!(Span::detached(), "{prefix} a PDF dictionary has more than \
+                            4095 entries";
                             hint: "try reducing the complexity of your document")
                         }
                         ValidationError::TooLargeFloat => {
-                            error!(Span::detached(), "{prefix} a PDF float number is larger than \
-                        the allowed limit";
+                            error!(Span::detached(), "{prefix} a PDF floating point number is larger \
+                            than the allowed limit";
                             hint: "try exporting using a higher PDF version")
                         }
                         ValidationError::TooManyIndirectObjects => {
@@ -401,57 +400,104 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                             let span = get_span(*loc);
                             let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
 
-                            error!(span, "{prefix} the text '{text}' cannot be displayed using {font_str}";
+                            error!(span, "{prefix} the text '{text}' cannot be displayed \
+                            using {font_str}";
                                 hint: "try using a different font"
                             )
 
                         }
-                        ValidationError::InvalidCodepointMapping(_, _, _, loc) => {
-                            error!(get_span(*loc), "{prefix} the PDF contains \
-                        disallowed codepoints or is missing codepoint mappings";
-                            hint: "make sure to not use the unicode characters 0x0, \
-                            0xFEFF or 0xFFFE";
-                            hint: "for complex scripts like indic or arabic, it might \
-                            not be possible to produce a compliant document")
+                        ValidationError::InvalidCodepointMapping(_, _, cp, loc) => {
+                            let code_point = cp.map(|c| format!("{:#06x}", c as u32));
+                            if let Some(cp) = code_point {
+                                let msg = if loc.is_some() {
+                                    "the PDF contains text with" 
+                                } else {
+                                    "the text contains" 
+                                };
+                                error!(get_span(*loc), "{prefix} {msg} the disallowed \
+                                codepoint {cp}")
+                            }   else {
+                                // I think this code path is in theory unreachable, 
+                                // but just to be safe.
+                                let msg = if loc.is_some() { "the PDF contains text with missing codepoints" } else { "the text was not mapped to a code point" };
+                                error!(get_span(*loc), "{prefix} {msg}";
+                                hint: "for complex scripts like indic or arabic, it might \
+                                not be possible to produce a compliant document")
+                            }
                         }
-                        ValidationError::UnicodePrivateArea(_, _, _, loc) => {
-                            error!(get_span(*loc), "{prefix} the PDF contains characters from the \
-                        Unicode private area";
-                            hint: "remove the text containing codepoints \
-                            from the Unicode private area")
+                        ValidationError::UnicodePrivateArea(_, _, c, loc) => {
+                            let code_point = format!("{:#06x}", *c as u32);
+                            let msg = if loc.is_some() { "the PDF" } else { "the text" };
+
+                            error!(get_span(*loc), "{prefix} {msg} contains the codepoint \
+                                {code_point}";
+                                hint: "codepoints from the Unicode private area are \
+                                forbidden in this export mode")
                         }
                         ValidationError::Transparency(loc) => {
-                            error!(get_span(*loc), "{prefix} document contains transparency";
-                                hint: "remove any transparency from your \
-                                document (e.g. fills with opacity)";
-                                hint: "you might have to convert certain SVGs into a bitmap image if \
-                                they contain transparency";
-                                hint: "export using a different standard that supports transparency"
-                            )
+                            let span = get_span(*loc);
+                            let is_img = gc.image_spans.contains(&span);
+                            let hint1 = "export using a different standard \
+                            that supports transparency";
+
+                            if loc.is_some() {
+                                if is_img {
+                                    error!(get_span(*loc), "{prefix} the image contains transparency";
+                                        hint: "convert the image to a non-transparent one";
+                                        hint: "you might have to convert SVGs into a \
+                                        non-transparent bitmap image";
+                                        hint: "{hint1}"
+                                    )
+                                }   else {
+                                    error!(get_span(*loc), "{prefix} the used fill or stroke has \
+                                    transparency";
+                                        hint: "don't use colors with transparency in \
+                                        this export mode";
+                                        hint: "{hint1}"
+                                    )
+                                }
+                            }   else {
+                                error!(get_span(*loc), "{prefix} the PDF contains transparency";
+                                        hint: "convert any images with transparency into \
+                                        non-transparent ones";
+                                        hint: "don't use fills or strokes with transparent colors";
+                                        hint: "{hint1}"
+                                    )
+                            }
                         }
                         ValidationError::ImageInterpolation(loc) => {
-                            error!(get_span(*loc), "{prefix} the image has smooth interpolation";
-                                hint: "such images are not supported in this export mode"
-                            )
+                            let span = get_span(*loc);
+
+                            if loc.is_some() {
+                                error!(span, "{prefix} the image has smooth scaling";
+                                hint: "set the `scaling` attribute to `pixelated`")
+                            }   else {
+                                error!(span, "{prefix} an image in the PDF has smooth scaling";
+                                hint: "set the `scaling` attribute of all images \
+                                to `pixelated`")
+                            }
                         }
                         ValidationError::EmbeddedFile(e, s) => {
+                            // We always set the span for embedded files, so it cannot be detached.
                             let span = get_span(*s);
                             match e {
                                 EmbedError::Existence => {
                                     error!(span, "{prefix} document contains an embedded file";
-                                        hint: "embedded files are not supported in this export mode"
+                                        hint: "embedded files are not supported in this \
+                                        export mode"
                                     )
                                 }
                                 EmbedError::MissingDate => {
                                     error!(span, "{prefix} document date is missing";
-                                        hint: "the document date needs to be set when embedding files"
+                                        hint: "the document date needs to be set when \
+                                        embedding files"
                                     )
                                 }
                                 EmbedError::MissingDescription => {
-                                    error!(span, "{prefix} file description is missing")
+                                    error!(span, "{prefix} the file description is missing")
                                 }
                                 EmbedError::MissingMimeType => {
-                                    error!(span, "{prefix} file mime type is missing")
+                                    error!(span, "{prefix} the file mime type is missing")
                                 }
                             }
                         }
@@ -573,11 +619,11 @@ fn get_configuration(options: &PdfOptions) -> SourceResult<Configuration> {
                     let s_string = v.as_str();
 
                     let h_message = format!(
-                        "export using {} instead",
+                        "export using version {} instead",
                         v.recommended_version().as_str()
                     );
 
-                    bail!(Span::detached(), "{pdf_string} is not compatible with standard {s_string}"; hint: "{h_message}");
+                    bail!(Span::detached(), "{pdf_string} is not compatible with {s_string}"; hint: "{h_message}");
                 }
             }
         }

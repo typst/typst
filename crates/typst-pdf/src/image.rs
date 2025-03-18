@@ -33,6 +33,7 @@ pub(crate) fn handle_image(
         ImageKind::Raster(raster) => {
             let (exif_transform, new_size) = exif_transform(raster, size);
             surface.push_transform(&exif_transform.to_krilla());
+
             let image = match convert_raster(raster.clone(), interpolate) {
                 None => bail!(span, "failed to process image"),
                 Some(i) => i,
@@ -72,7 +73,7 @@ struct Repr {
     actual_dynamic: OnceLock<Arc<DynamicImage>>,
 }
 
-/// A wrapper around RasterImage so that we can implement `CustomImage`.
+/// A wrapper around `RasterImage` so that we can implement `CustomImage`.
 #[derive(Clone)]
 struct PdfImage(Arc<Repr>);
 
@@ -96,7 +97,8 @@ impl Hash for PdfImage {
 
 impl CustomImage for PdfImage {
     fn color_channel(&self) -> &[u8] {
-        self.0.actual_dynamic
+        self.0
+            .actual_dynamic
             .get_or_init(|| {
                 let dynamic = self.0.raster.dynamic();
                 let channel_count = dynamic.color().channel_count();
@@ -115,10 +117,12 @@ impl CustomImage for PdfImage {
     }
 
     fn alpha_channel(&self) -> Option<&[u8]> {
-        self.0.alpha_channel
+        self.0
+            .alpha_channel
             .get_or_init(|| {
                 self.0.raster.dynamic().color().has_alpha().then(|| {
-                    self.0.raster
+                    self.0
+                        .raster
                         .dynamic()
                         .pixels()
                         .map(|(_, _, Rgba([_, _, _, a]))| a)
@@ -168,22 +172,12 @@ fn convert_raster(
     raster: RasterImage,
     interpolate: bool,
 ) -> Option<krilla::image::Image> {
-    match raster.format() {
-        RasterFormat::Exchange(e) => match e {
-            ExchangeFormat::Jpg => {
-                let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-                    Arc::new(raster.data().clone());
-                krilla::image::Image::from_jpeg(image_data.into(), interpolate)
-            }
-            _ => krilla::image::Image::from_custom(
-                PdfImage::new(raster),
-                interpolate,
-            ),
-        },
-        RasterFormat::Pixel(_) => krilla::image::Image::from_custom(
-            PdfImage::new(raster),
-            interpolate,
-        ),
+    if let RasterFormat::Exchange(ExchangeFormat::Jpg) = raster.format() {
+        let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+            Arc::new(raster.data().clone());
+        krilla::image::Image::from_jpeg(image_data.into(), interpolate)
+    } else {
+        krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
     }
 }
 

@@ -61,7 +61,7 @@ pub(crate) fn handle_text(
             font,
             text,
             size.to_f32(),
-            // TODO: What if only stroke?
+            // To prevent text from being embedded twice, we outline it instead if a stroke exists.
             true,
         );
     }

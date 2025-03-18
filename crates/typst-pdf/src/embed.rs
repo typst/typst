@@ -6,7 +6,6 @@ use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;
 use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
-use typst_syntax::Span;
 
 pub(crate) fn embed_files(
     typst_doc: &PagedDocument,
@@ -16,6 +15,7 @@ pub(crate) fn embed_files(
 
     for elem in &elements {
         let embed = elem.to_packed::<EmbedElem>().unwrap();
+        let span = embed.span();
         let derived_path = &embed.path.derived;
         let path = derived_path.to_string();
         let mime_type =
@@ -42,11 +42,11 @@ pub(crate) fn embed_files(
             association_kind,
             data: data.into(),
             compress: true,
-            location: Some(embed.span().into_raw().get()),
+            location: Some(span.into_raw().get()),
         };
 
         if document.embed_file(file).is_none() {
-            bail!(Span::detached(), "attempted to embed file {derived_path} twice");
+            bail!(span, "attempted to embed file {derived_path} twice");
         }
     }
 
