@@ -1,7 +1,7 @@
 //! Convert paint types from typst to krilla.
 
 use krilla::geom::NormalizedF32;
-use krilla::graphics::color::{cmyk, luma, rgb};
+use krilla::graphics::color::{self, cmyk, luma, rgb};
 use krilla::graphics::paint::{
     Fill, LinearGradient, Pattern, RadialGradient, SpreadMethod, Stop, Stroke,
     StrokeDash, SweepGradient,
@@ -16,7 +16,7 @@ use typst_library::visualize::{
 use typst_utils::Numeric;
 
 use crate::convert::{handle_frame, FrameContext, GlobalContext, State};
-use crate::util::{AbsExt, ColorExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
+use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 
 pub(crate) fn convert_fill(
     gc: &mut GlobalContext,
@@ -76,38 +76,51 @@ fn convert_paint(
     }
 
     match paint {
-        Paint::Solid(c) => Ok(convert_solid(c)),
+        Paint::Solid(c) => {
+            let (c, a) = convert_solid(c);
+            Ok((c.into(), a))
+        },
         Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size)),
         Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
     }
 }
 
-fn convert_solid(color: &Color) -> (krilla::graphics::paint::Paint, u8) {
+fn convert_solid(color: &Color) -> (color::Color, u8) {
     match color.space() {
         ColorSpace::D65Gray => {
-            let components = color.to_vec4_u8();
-            (luma::Color::new(components[0]).into(), components[3])
+            let (c, a) = convert_luma(color);
+            (c.into(), a)
         }
         ColorSpace::Cmyk => {
-            let components = color.to_vec4_u8();
-            (
-                cmyk::Color::new(
-                    components[0],
-                    components[1],
-                    components[2],
-                    components[3],
-                )
-                .into(),
-                // Typst doesn't support alpha on CMYK colors.
-                255,
-            )
+            (convert_cmyk(color).into(), 255)
         }
         // Convert all other colors in different colors spaces into RGB
         _ => {
-            let (c, a) = color.to_krilla_rgb();
+            let (c, a) = convert_rgb(color);
             (c.into(), a)
         }
     }
+}
+
+fn convert_cmyk(color: &Color) -> cmyk::Color {
+    let components = color.to_space(ColorSpace::Cmyk).to_vec4_u8();
+
+    cmyk::Color::new(
+        components[0],
+        components[1],
+        components[2],
+        components[3],
+    )
+}
+
+fn convert_rgb(color: &Color) -> (rgb::Color, u8) {
+    let components = color.to_space(ColorSpace::Srgb).to_vec4_u8();
+    (rgb::Color::new(components[0], components[1], components[2]), components[3])
+}
+
+fn convert_luma(color: &Color) -> (luma::Color, u8) {
+    let components = color.to_space(ColorSpace::D65Gray).to_vec4_u8();
+    (luma::Color::new(components[0]), components[3])
 }
 
 fn convert_pattern(
@@ -243,11 +256,19 @@ fn convert_gradient(
     }
 }
 
-fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop<rgb::Color>> {
-    let mut stops: Vec<Stop<rgb::Color>> = vec![];
+fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
+    let mut stops= vec![];
+    
+    let use_cmyk = gradient.stops().iter().all(|s| s.color.space() == ColorSpace::Cmyk);
 
     let mut add_single = |color: &Color, offset: Ratio| {
-        let (color, opacity) = color.to_krilla_rgb();
+        let (color, opacity) = if use_cmyk {
+            (convert_cmyk(color).into(), 255)
+        }   else {
+            let (c, a) = convert_rgb(color);
+            (c.into(), a)
+        };
+        
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
         let stop = Stop { offset, color, opacity };

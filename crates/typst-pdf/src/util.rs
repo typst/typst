@@ -98,18 +98,6 @@ impl AbsExt for Abs {
     }
 }
 
-pub(crate) trait ColorExt {
-    fn to_krilla_rgb(&self) -> (kr::Color, u8);
-}
-
-impl ColorExt for Color {
-    /// Convert a color into a krilla RGB color and an alpha value.
-    fn to_krilla_rgb(&self) -> (kr::Color, u8) {
-        let components = self.to_space(ColorSpace::Srgb).to_vec4_u8();
-        (kr::Color::new(components[0], components[1], components[2]), components[3])
-    }
-}
-
 /// Display the font family and variant of a font.
 pub(crate) fn display_font(font: &Font) -> String {
     let font_family = &font.info().family;
