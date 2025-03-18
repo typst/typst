@@ -52,8 +52,8 @@ pub fn convert(
     };
 
     let mut document = Document::new_with(settings);
-    let page_index_converter = PageIndexConverter::new(&typst_document, &options);
-    let named_destinations = collect_named_destinations(&typst_document, &page_index_converter);
+    let page_index_converter = PageIndexConverter::new(typst_document, options);
+    let named_destinations = collect_named_destinations(typst_document, &page_index_converter);
     let mut gc = GlobalContext::new(
         typst_document,
         options,
