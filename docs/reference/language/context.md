@@ -172,7 +172,7 @@ Original size
 
 Since set rules are only active until the end of the enclosing scope, 
 "Original size" is printed with the original font size.
-The above example is equivalent to 
+For the specific case of accessing `text.size`, context is usually not necessary as the `1em` unit is always equal to the current font size, so the above example is equivalent to 
 
 ```example
 #[
