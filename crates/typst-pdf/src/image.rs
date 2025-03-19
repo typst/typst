@@ -29,6 +29,10 @@ pub(crate) fn handle_image(
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
+    if let Some(alt) = image.alt() {
+        surface.start_alt_text(alt);
+    }
+
     match image.kind() {
         ImageKind::Raster(raster) => {
             let (exif_transform, new_size) = exif_transform(raster, size);
@@ -54,6 +58,10 @@ pub(crate) fn handle_image(
                 SvgSettings { embed_text: true, ..Default::default() },
             );
         }
+    }
+
+    if image.alt().is_some() {
+        surface.end_alt_text();
     }
 
     surface.pop();

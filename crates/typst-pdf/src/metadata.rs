@@ -53,7 +53,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     };
 
     if let Some(date) = date.and_then(|d| convert_date(d, tz)) {
-        metadata = metadata.modification_date(date).creation_date(date);
+        metadata = metadata.creation_date(date);
     }
 
     metadata = metadata.text_direction(dir);

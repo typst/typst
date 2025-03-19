@@ -539,6 +539,11 @@ fn finish(
                                 hint: "set the title of the document"
                             )
                         }
+                        ValidationError::MissingDocumentDate => {
+                            error!(Span::detached(), "{prefix} missing document date";
+                                hint: "set the date of the document"
+                            )
+                        }
                     }
                 })
                     .collect::<EcoVec<_>>();
@@ -548,6 +553,11 @@ fn finish(
             KrillaError::Image(i) => {
                 let span = gc.image_to_spans.get(&i).unwrap();
                 bail!(*span, "failed to process image");
+            }
+            KrillaError::SixteenBitImage(image, _) => {
+                let span = gc.image_to_spans.get(&image).unwrap();
+                bail!(*span, "16 bit images are not supported in this export mode";
+                    hint: "convert the image to 8 bit instead")
             }
         },
     }
