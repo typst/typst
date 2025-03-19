@@ -27,7 +27,7 @@ outline, for instance, also provide the proper context to resolve counters.
 
 ## Behavior of the context keyword
 Style properties frequently change within a document, for example by applying set 
-rules. To retrieve such poperties in a consistent way, one must first specify 
+rules. To retrieve such properties in a consistent way, one must first specify 
 the precise context where the property should be retrieved. This can be achieved 
 with the `context` keyword. Once the context has been fixed, the property 
 information is available through standard field access syntax. For example, 
