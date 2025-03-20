@@ -13,7 +13,7 @@ as most other languages, with one important exception: Dashes are permitted
 as part of an identifier, e.g. the [`to-absolute`]($length.to-absolute) 
 function for a length or the [`first-line-indent`]($par.first-line-indent) 
 parameter of a paragraph. In fact, this is the canonical convention &ndash;
-underscores or camel case are not used in "official" typst. Since the dash 
+underscores or camel case are not used in "official" Typst. Since the dash 
 is also the symbol for subtraction, a minus must be disambiguated by 
 surrounding white space in script mode.
 
