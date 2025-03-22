@@ -75,9 +75,10 @@ pub struct PageElem {
     /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
-    /// by inserting a [page break]($pagebreak). Most examples throughout this
-    /// documentation use `{auto}` for the height of the page to dynamically
-    /// grow and shrink to fit their content.
+    /// by inserting a [page break]($pagebreak) or by adding another non-empty
+    /// page set rule. Most examples throughout this documentation use `{auto}`
+    /// for the height of the page to dynamically grow and shrink to fit their
+    /// content.
     #[resolve]
     #[parse(
         args.named("height")?
