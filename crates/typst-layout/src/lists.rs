@@ -96,9 +96,13 @@ pub fn layout_enum(
 
     let mut cells = vec![];
     let mut locator = locator.split();
-    let mut number =
-        elem.start(styles)
-            .unwrap_or_else(|| if reversed { elem.children.len() } else { 1 });
+    let mut number = elem.start(styles).unwrap_or_else(|| {
+        if reversed {
+            elem.children.len() as u64
+        } else {
+            1
+        }
+    });
     let mut parents = EnumElem::parents_in(styles);
 
     let full = elem.full(styles);

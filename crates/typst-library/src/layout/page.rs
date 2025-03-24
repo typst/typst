@@ -484,7 +484,7 @@ pub struct Page {
     pub supplement: Content,
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
-    pub number: usize,
+    pub number: u64,
 }
 
 impl Page {
