@@ -25,10 +25,10 @@ in some places that are also aware of their location in the document:
 [Show rules]($styling/#show-rules) provide context[^1] and numberings in the
 outline, for instance, also provide the proper context to resolve counters.
 
-## Behavior of the context keyword
-Style properties frequently change within a document, for example by applying set 
+## The context keyword
+Style properties frequently change within a document, for example through set 
 rules. To retrieve such properties in a consistent way, one must first specify 
-the precise context where the property should be retrieved. This can be achieved 
+the precise context where the property should be retrieved. This is achieved 
 with the `context` keyword. Once the context has been fixed, the property 
 information is available through standard field access syntax. For example, 
 `text.lang` asks for the current language setting. In its simplest form, the 
@@ -36,26 +36,27 @@ information is available through standard field access syntax. For example,
 
 ```example
 #set text(lang: "de")
-// read the language setting "here"
+// Read the language setting "here".
 #context text.lang
 ```
 
 Note that any attempt to access `#text.lang` directly, i.e. outside of a context,
-will cause the compiler to issue an error message. The field names supported 
+will cause the compiler to issue an error message, since it cannot determine the 
+precise location the query refers to. The field names supported 
 by a given element function always correspond to the named parameters documented 
 on each element's page.
 
 Moreover, some functions, such as [`to-absolute`]($length.to-absolute) 
 and [`counter.display`]($counter.display), are only applicable in a context, 
 because their results depend on the current settings of style properties. 
-When another function `foo()` calls a context-dependent function, it becomes 
+When another function `{foo()}` calls a context-dependent function, it becomes 
 itself context-dependent:
 
 ```example
 #let foo() = 1em.to-absolute()
 #context {
   // foo() cannot be called
-  // outside of a context
+  // outside of a context.
   foo() == text.size
 }
 ```
@@ -71,13 +72,13 @@ changes accordingly:
 #context text.lang
 ```
 
-As you see, the result of a `#context ...` expression can 
-be inserted into the document as `content`. Context blocks can 
+As you see, the result of a `[#context ..]` expression can 
+be inserted into the document as [content]. Context blocks can 
 contain arbitrary code beyond the field access. However,
-and this is often surprisingly for newcomers, context-dependent 
+and this is often surprising for newcomers, context-dependent 
 property fields remain _constant_ throughout the context's scope. 
 This has two important consequences: First, direct property 
-assignments like `text.lang = "de"` are _not_ allowed &ndash; 
+assignments like `{text.lang = "de"}` are _not_ allowed &ndash; 
 use `set` or `show` rules for this purpose. Second, changes to a 
 property value within a context (e.g. by a `set` rule) are not 
 observable by field access within that same context:
@@ -92,10 +93,10 @@ observable by field access within that same context:
 ]
 ```
 
-Both reads have the same output `"en"`, because `text.lang` is assigned
+Both reads have the same output `{"en"}`, because `text.lang` is fixed
 upon entry in the context and remains constant until the end of its scope 
 (the closing `]`). Thus, the `text.lang` field is not affected by
-#set text(lang: "fr")`, although Read 2 occurs afterwards. Compare 
+`[#set text(lang: "fr")]`, although Read 2 occurs after it. Compare 
 this to the previous example: There we got two different results because 
 we created two different contexts.
 
@@ -113,7 +114,7 @@ usual manner, e.g. by set rules. Consider the same example with font size:
 ]
 ```
 
-Read 2 still outputs `40pt`, because `text.size` is a constant.
+Read 2 still outputs `{40pt}`, because `text.size` is a constant.
 However, this output is printed in 25pt font, as specified by the set
 rule before the read. This illustrates the importance of picking the 
 right insertion point for a context to get access to precisely the right 
@@ -131,8 +132,8 @@ you can use _nested contexts_:
 ```
 
 All of the above applies to `show` rules analogously. To demonstrate this, 
-we define a function `template` which is activated by an "everything" show 
-rule in a context:
+we define a function `{template}` (emulating what a document template 
+might do) which is activated by an "everything" show rule in a context:
 
 ```example
 #let template(body) = {
@@ -154,16 +155,16 @@ context (since `text.size` remains constant there), but Read 3 is
 located in a nested context and reflects the new font size set by 
 the `show` rule via the `template` function.
 
-## Using context-dependent property fields to control content appearance
-An important purpose of reading the current value of properties is, 
-of course, to use this information in the calculation of derived 
-properties, instead of setting those properties manually. For example, 
+## Setting derived properties in a context
+An important purpose of reading the current value of properties is
+to use this information in the calculation of derived properties, 
+instead of setting those properties manually. For example, 
 you can double the font size like this:
 
 ```example
 #context [
-  // the context allows you to
-  // retrieve the current text.size
+  // The context allows you to
+  // retrieve the current `text.size`.
   #set text(size: text.size * 200%)
   Large text \ 
 ]
@@ -172,7 +173,9 @@ Original size
 
 Since set rules are only active until the end of the enclosing scope, 
 "Original size" is printed with the original font size.
-For the specific case of accessing `text.size`, context is usually not necessary as the `1em` unit is always equal to the current font size, so the above example is equivalent to 
+For the specific case of accessing `text.size`, context is usually 
+not necessary as the `{1em}` unit is always equal to the current font 
+size, so the above example is equivalent to 
 
 ```example
 #[
@@ -189,7 +192,7 @@ between the lines of a specific equation block (or any other content):
 
 ```example
 #let spaced(spacing: 100%, body) = context {
-  // access current par.leading in a context
+  // Access current par.leading in a context.
   set par(leading: par.leading * spacing)
   body
 }
@@ -211,8 +214,8 @@ Normal spacing:
 $ x \ x $
 
 #show math.equation.where(block: true): it => {
-  // access current par.leading in a context,
-  // established automatically by the show rule
+  // Access current par.leading in a context,
+  // established automatically by the show rule.
   set par(leading: par.leading * 200%)
   it
 }
