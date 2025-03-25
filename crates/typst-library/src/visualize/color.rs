@@ -148,11 +148,11 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
 /// | `magma`    | A black to purple to yellow color map.                      |
 /// | `plasma`   | A purple to pink to yellow color map.                       |
 /// | `rocket`   | A black to red to white color map.                          |
-/// | `mako`     | A black to teal to yellow color map.                        |
+/// | `mako`     | A black to teal to white color map.                         |
 /// | `vlag`     | A light blue to white to red color map.                     |
-/// | `icefire`  | A light teal to black to yellow color map.                  |
+/// | `icefire`  | A light teal to black to orange color map.                  |
 /// | `flare`    | A orange to purple color map that is perceptually uniform.  |
-/// | `crest`    | A blue to white to red color map.                           |
+/// | `crest`    | A light green to blue color map.                            |
 ///
 /// Some popular presets are not included because they are not available under a
 /// free licence. Others, like
