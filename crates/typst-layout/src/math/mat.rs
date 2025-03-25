@@ -95,11 +95,11 @@ pub fn layout_mat(
         for &offset in &aug.vline.0 {
             if offset == 0 || offset.unsigned_abs() >= ncols {
                 bail!(
-                        span,
-                        "cannot draw a vertical line after column {} of a matrix with {} columns",
-                        if offset < 0 { ncols as isize + offset } else { offset },
-                        ncols
-                    );
+                    span,
+                    "cannot draw a vertical line after column {} of a matrix with {} columns",
+                    if offset < 0 { ncols as isize + offset } else { offset },
+                    ncols
+                );
             }
         }
     }
