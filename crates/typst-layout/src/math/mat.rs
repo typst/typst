@@ -35,6 +35,7 @@ pub fn layout_vec(
         None,
         Axes::with_y(elem.gap(styles)),
         span,
+        "elements",
     )?;
 
     let delim = elem.delim(styles);
@@ -60,6 +61,7 @@ pub fn layout_cases(
         None,
         Axes::with_y(elem.gap(styles)),
         span,
+        "branches",
     )?;
 
     let delim = elem.delim(styles);
@@ -119,6 +121,7 @@ pub fn layout_mat(
         augment,
         Axes::new(elem.column_gap(styles), elem.row_gap(styles)),
         span,
+        "cells",
     )?;
 
     let delim = elem.delim(styles);
@@ -136,6 +139,7 @@ fn layout_body(
     augment: Option<Augment<Abs>>,
     gap: Axes<Rel<Abs>>,
     span: Span,
+    children: &str,
 ) -> SourceResult<Frame> {
     let nrows = columns.first().map_or(0, |col| col.len());
     let ncols = columns.len();
@@ -193,7 +197,7 @@ fn layout_body(
             if cell.is_multiline() {
                 ctx.engine.sink.warn(warning!(
                    cell_span,
-                   "linebreaks are ignored in cells";
+                   "linebreaks are ignored in {}", children;
                    hint: "use commas instead to separate each line"
                 ));
             }
