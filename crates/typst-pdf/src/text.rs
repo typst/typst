@@ -68,21 +68,26 @@ fn convert_font(
     if let Some(font) = gc.fonts_forward.get(&typst_font) {
         Ok(font.clone())
     } else {
-        let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-            Arc::new(typst_font.data().clone());
-        let font =
-            match krilla::text::Font::new(font_data.into(), typst_font.index(), true) {
-                None => {
-                    let font_str = display_font(&typst_font);
-                    bail!(Span::detached(), "failed to process font {font_str}");
-                }
-                Some(f) => f,
-            };
+        let font = build_font(typst_font.clone())?;
 
         gc.fonts_forward.insert(typst_font.clone(), font.clone());
         gc.fonts_backward.insert(font.clone(), typst_font.clone());
 
         Ok(font)
+    }
+}
+
+#[comemo::memoize]
+fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
+    let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+        Arc::new(typst_font.data().clone());
+    
+    match krilla::text::Font::new(font_data.into(), typst_font.index(), true) {
+        None => {
+            let font_str = display_font(&typst_font);
+            bail!(Span::detached(), "failed to process font {font_str}");
+        }
+        Some(f) => Ok(f),
     }
 }
 
