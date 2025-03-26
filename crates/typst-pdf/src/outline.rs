@@ -1,6 +1,7 @@
+use std::num::NonZeroUsize;
+
 use krilla::destination::XyzDestination;
 use krilla::outline::{Outline, OutlineNode};
-use std::num::NonZeroUsize;
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::layout::Abs;
 use typst_library::model::HeadingElem;

@@ -407,14 +407,14 @@ fn finish(
                             let code_point = cp.map(|c| format!("{:#06x}", c as u32));
                             if let Some(cp) = code_point {
                                 let msg = if loc.is_some() {
-                                    "the PDF contains text with" 
+                                    "the PDF contains text with"
                                 } else {
-                                    "the text contains" 
+                                    "the text contains"
                                 };
                                 error!(get_span(*loc), "{prefix} {msg} the disallowed \
                                 codepoint {cp}")
                             }   else {
-                                // I think this code path is in theory unreachable, 
+                                // I think this code path is in theory unreachable,
                                 // but just to be safe.
                                 let msg = if loc.is_some() { "the PDF contains text with missing codepoints" } else { "the text was not mapped to a code point" };
                                 error!(get_span(*loc), "{prefix} {msg}";

@@ -1,9 +1,10 @@
-use crate::convert::GlobalContext;
 use ecow::EcoString;
 use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
 use typst_library::text::Lang;
+
+use crate::convert::GlobalContext;
 
 pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
