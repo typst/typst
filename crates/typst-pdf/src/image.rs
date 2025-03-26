@@ -183,7 +183,12 @@ fn convert_raster(
     if let RasterFormat::Exchange(ExchangeFormat::Jpg) = raster.format() {
         let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
             Arc::new(raster.data().clone());
-        krilla::image::Image::from_jpeg(image_data.into(), interpolate)
+        let icc_profile = raster.icc().map(|i| {
+            let i: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(i.clone());
+            i
+        });
+        
+        krilla::image::Image::from_jpeg_with_icc(image_data.into(), icc_profile.map(|i| i.into()), interpolate)
     } else {
         krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
     }
