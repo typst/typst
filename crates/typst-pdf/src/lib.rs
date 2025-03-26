@@ -105,16 +105,20 @@ impl PdfStandards {
             }
         }
 
-        let version = version.unwrap_or(PdfVersion::Pdf17);
-        let validator = validator.unwrap_or_default();
-
-        let config = Configuration::new_with(validator, version).ok_or_else(|| {
-            eco_format!(
-                "{} is not compatible with {}",
-                version.as_str(),
-                validator.as_str()
-            )
-        })?;
+        let config = match (version, validator) {
+            (Some(version), Some(validator)) => {
+                Configuration::new_with(validator, version).ok_or_else(|| {
+                    eco_format!(
+                        "{} is not compatible with {}",
+                        version.as_str(),
+                        validator.as_str()
+                    )
+                })?
+            }
+            (Some(version), None) => Configuration::new_with_version(version),
+            (None, Some(validator)) => Configuration::new_with_validator(validator),
+            (None, None) => Configuration::new_with_version(PdfVersion::Pdf17),
+        };
 
         Ok(Self { config })
     }
