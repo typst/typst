@@ -241,10 +241,6 @@ pub struct CompileArgs {
     #[arg(long = "pages", value_delimiter = ',')]
     pub pages: Option<Vec<Pages>>,
 
-    /// The version of the produced PDF.
-    #[arg(long = "pdf-version")]
-    pub pdf_version: Option<PdfVersion>,
-
     /// One (or multiple comma-separated) PDF standards that Typst will enforce
     /// conformance with.
     #[arg(long = "pdf-standard", value_delimiter = ',')]
@@ -467,10 +463,10 @@ pub enum Feature {
 
 display_possible_values!(Feature);
 
-/// A PDF version.
+/// A PDF standard that Typst can enforce conformance with.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
-pub enum PdfVersion {
+pub enum PdfStandard {
     /// PDF 1.4.
     #[value(name = "1.4")]
     V_1_4,
@@ -486,14 +482,6 @@ pub enum PdfVersion {
     /// PDF 2.0.
     #[value(name = "2.0")]
     V_2_0,
-}
-
-display_possible_values!(PdfVersion);
-
-/// A PDF standard that Typst can enforce conformance with.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
-#[allow(non_camel_case_types)]
-pub enum PdfStandard {
     /// PDF/A-1b.
     #[value(name = "a-1b")]
     A_1b,
@@ -519,6 +507,8 @@ pub enum PdfStandard {
     #[value(name = "a-4e")]
     A_4e,
 }
+
+display_possible_values!(PdfStandard);
 
 // Output file format for query command
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]

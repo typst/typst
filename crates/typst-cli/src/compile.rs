@@ -18,11 +18,11 @@ use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Source, Span};
 use typst::WorldExt;
-use typst_pdf::{PdfOptions, Timestamp, Validator};
+use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
     CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
-    PdfStandard, PdfVersion, WatchCommand,
+    PdfStandard, WatchCommand,
 };
 #[cfg(feature = "http-server")]
 use crate::server::HtmlServer;
@@ -63,10 +63,8 @@ pub struct CompileConfig {
     /// Opens the output file with the default viewer or a specific program after
     /// compilation.
     pub open: Option<Option<String>>,
-    /// The version that should be used to export the PDF.
-    pub pdf_version: Option<PdfVersion>,
     /// A list of standards the PDF should conform to.
-    pub pdf_standard: Vec<PdfStandard>,
+    pub pdf_standards: PdfStandards,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
@@ -131,6 +129,10 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
+        let pdf_standards = PdfStandards::new(
+            &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
+        )?;
+
         #[cfg(feature = "http-server")]
         let server = match watch {
             Some(command)
@@ -147,8 +149,7 @@ impl CompileConfig {
             output,
             output_format,
             pages,
-            pdf_version: args.pdf_version,
-            pdf_standard: args.pdf_standard.clone(),
+            pdf_standards,
             creation_timestamp: args.world.creation_timestamp,
             make_deps: args.make_deps.clone(),
             ppi: args.ppi,
@@ -285,44 +286,11 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         }
     };
 
-    let validator = match config.pdf_standard.first() {
-        None => None,
-        Some(s) => {
-            let validator = if config.pdf_standard.len() > 1 {
-                bail!(Span::detached(), "cannot export using more than one PDF standard";
-                    hint: "typst currently only supports export using \
-                    one standard at the same time");
-            } else {
-                match s {
-                    PdfStandard::A_1b => Validator::A_1b,
-                    PdfStandard::A_2b => Validator::A_2b,
-                    PdfStandard::A_2u => Validator::A_2u,
-                    PdfStandard::A_3b => Validator::A_3b,
-                    PdfStandard::A_3u => Validator::A_3u,
-                    PdfStandard::A_4 => Validator::A_4,
-                    PdfStandard::A_4f => Validator::A_4f,
-                    PdfStandard::A_4e => Validator::A_4e,
-                }
-            };
-
-            Some(validator)
-        }
-    };
-
-    let pdf_version = config.pdf_version.map(|v| match v {
-        PdfVersion::V_1_4 => typst_pdf::PdfVersion::Pdf14,
-        PdfVersion::V_1_5 => typst_pdf::PdfVersion::Pdf15,
-        PdfVersion::V_1_6 => typst_pdf::PdfVersion::Pdf16,
-        PdfVersion::V_1_7 => typst_pdf::PdfVersion::Pdf17,
-        PdfVersion::V_2_0 => typst_pdf::PdfVersion::Pdf20,
-    });
-
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
         page_ranges: config.pages.clone(),
-        validator,
-        pdf_version,
+        standards: config.pdf_standards.clone(),
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config
@@ -786,5 +754,25 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
                 CodespanError::IndexTooLarge { given, max }
             }
         })
+    }
+}
+
+impl From<PdfStandard> for typst_pdf::PdfStandard {
+    fn from(standard: PdfStandard) -> Self {
+        match standard {
+            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
+            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
+            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
+            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
+            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
+            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
+            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
+            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
+            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
+            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
+            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+        }
     }
 }

@@ -38,15 +38,13 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
-    let configuration = get_configuration(options)?;
-
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
         ascii_compatible: false,
         xmp_metadata: true,
         cmyk_profile: None,
-        configuration,
+        configuration: options.standards.config,
         enable_tagging: false,
         render_svg_glyph_fn: render_svg_glyph,
     };
@@ -68,7 +66,7 @@ pub fn convert(
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
 
-    finish(document, gc, configuration)
+    finish(document, gc, options.standards.config)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
@@ -604,37 +602,6 @@ fn collect_named_destinations(
     }
 
     locs_to_names
-}
-
-fn get_configuration(options: &PdfOptions) -> SourceResult<Configuration> {
-    let config = match (options.pdf_version, options.validator) {
-        (None, None) => {
-            Configuration::new_with_version(krilla::configure::PdfVersion::Pdf17)
-        }
-        (Some(pdf), None) => Configuration::new_with_version(pdf.into()),
-        (None, Some(v)) => Configuration::new_with_validator(v.into()),
-        (Some(pdf), Some(v)) => {
-            let pdf = pdf.into();
-            let v = v.into();
-
-            match Configuration::new_with(v, pdf) {
-                Some(c) => c,
-                None => {
-                    let pdf_string = pdf.as_str();
-                    let s_string = v.as_str();
-
-                    let h_message = format!(
-                        "export using version {} instead",
-                        v.recommended_version().as_str()
-                    );
-
-                    bail!(Span::detached(), "{pdf_string} is not compatible with {s_string}"; hint: "{h_message}");
-                }
-            }
-        }
-    };
-
-    Ok(config)
 }
 
 pub(crate) struct PageIndexConverter {
