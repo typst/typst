@@ -112,6 +112,12 @@ impl SystemWorld {
                 .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
                 .collect();
 
+            let input_files: Dict = world_args
+                .input_files
+                .iter()
+                .map(|(k, v)| (k.as_str().into(), Bytes::new(v.to_owned()).into_value()))
+                .collect();
+
             let features = process_args
                 .features
                 .iter()
@@ -120,7 +126,11 @@ impl SystemWorld {
                 })
                 .collect();
 
-            Library::builder().with_inputs(inputs).with_features(features).build()
+            Library::builder()
+                .with_inputs(inputs)
+                .with_input_files(input_files)
+                .with_features(features)
+                .build()
         };
 
         let fonts = Fonts::searcher()

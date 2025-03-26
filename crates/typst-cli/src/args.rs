@@ -290,6 +290,15 @@ pub struct WorldArgs {
     )]
     pub inputs: Vec<(String, String)>,
 
+    /// Add a string key-path pairs where the content will visible through `sys.input-files`.
+    #[clap(
+        long = "input-file",
+        value_name = "key=value",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_sys_input_file_pair),
+    )]
+    pub input_files: Vec<(String, Vec<u8>)>,
+
     /// Common font arguments.
     #[clap(flatten)]
     pub font: FontArgs,
@@ -575,6 +584,18 @@ fn parse_sys_input_pair(raw: &str) -> Result<(String, String), String> {
     }
     let val = val.trim().to_owned();
     Ok((key, val))
+}
+
+/// Parses key/path pairs split by the first equal sign.
+///
+/// This functions works similar to `parse_sys_input_pair`, but the value is
+/// interpreted as a path and the content of the file is read.
+fn parse_sys_input_file_pair(raw: &str) -> Result<(String, Vec<u8>), String> {
+    let (key, value) = parse_sys_input_pair(raw)?;
+    match std::fs::read(&value) {
+        Ok(content) => Ok((key, content)),
+        Err(err) => Err(format!("could not read file `{value}`: {err}")),
+    }
 }
 
 /// Parses a UNIX timestamp according to <https://reproducible-builds.org/specs/source-date-epoch/>

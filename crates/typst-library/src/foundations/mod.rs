@@ -86,7 +86,12 @@ use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
-pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
+pub(super) fn define(
+    global: &mut Scope,
+    inputs: Dict,
+    input_files: Dict,
+    features: &Features,
+) {
     global.start_category(crate::Category::Foundations);
     global.define_type::<bool>();
     global.define_type::<i64>();
@@ -117,7 +122,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
         global.define_func::<target>();
     }
     global.define("calc", calc::module());
-    global.define("sys", sys::module(inputs));
+    global.define("sys", sys::module(inputs, input_files));
     global.reset_category();
 }
 

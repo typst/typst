@@ -174,6 +174,7 @@ impl Default for Library {
 #[derive(Debug, Clone, Default)]
 pub struct LibraryBuilder {
     inputs: Option<Dict>,
+    input_files: Option<Dict>,
     features: Features,
 }
 
@@ -181,6 +182,12 @@ impl LibraryBuilder {
     /// Configure the inputs visible through `sys.inputs`.
     pub fn with_inputs(mut self, inputs: Dict) -> Self {
         self.inputs = Some(inputs);
+        self
+    }
+
+    /// Configure the input files visible through `sys.input-files`.
+    pub fn with_input_files(mut self, input_files: Dict) -> Self {
+        self.input_files = Some(input_files);
         self
     }
 
@@ -196,7 +203,8 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs, &self.features);
+        let input_files = self.input_files.unwrap_or_default();
+        let global = global(math.clone(), inputs, input_files, &self.features);
         Library {
             global: global.clone(),
             math,
@@ -278,10 +286,10 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict, features: &Features) -> Module {
+fn global(math: Module, inputs: Dict, input_files: Dict, features: &Features) -> Module {
     let mut global = Scope::deduplicating();
 
-    self::foundations::define(&mut global, inputs, features);
+    self::foundations::define(&mut global, inputs, input_files, features);
     self::model::define(&mut global);
     self::text::define(&mut global);
     self::layout::define(&mut global);

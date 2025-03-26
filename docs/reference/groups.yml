@@ -151,6 +151,14 @@
       The value is always of type [string]($str). More complex data
       may be parsed manually using functions like [`json.decode`]($json.decode).
 
+    - The `sys.input-files` [dictionary], which makes external files
+      available to the project. An input specified in the command line as
+      `--input key=path` becomes available under `sys.input-files.key` as
+      the content of the specified file. To include spaces in the path, it may
+      be enclosed with single or double quotes.
+
+      The value is always of type [byte buffers]($bytes).
+
 - name: sym
   title: General
   category: symbols
