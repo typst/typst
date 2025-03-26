@@ -19,8 +19,8 @@ pub(crate) fn handle_shape(
     surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {
-        if let Some(paint) = &shape.fill {
-            let fill = paint::convert_fill(
+        let fill = if let Some(paint) = &shape.fill {
+            Some(paint::convert_fill(
                 gc,
                 paint,
                 shape.fill_rule,
@@ -28,11 +28,10 @@ pub(crate) fn handle_shape(
                 surface,
                 fc.state(),
                 shape.geometry.bbox_size(),
-            )?;
-
-            surface.set_fill(fill);
-            surface.fill_path(&path);
-        }
+            )?)
+        } else {
+            None
+        };
 
         let stroke = shape.stroke.as_ref().and_then(|stroke| {
             if stroke.thickness.to_f32() > 0.0 {
@@ -42,7 +41,7 @@ pub(crate) fn handle_shape(
             }
         });
 
-        if let Some(stroke) = &stroke {
+        let stroke = if let Some(stroke) = &stroke {
             let stroke = paint::convert_stroke(
                 gc,
                 stroke,
@@ -52,9 +51,14 @@ pub(crate) fn handle_shape(
                 shape.geometry.bbox_size(),
             )?;
 
-            surface.set_stroke(stroke);
-            surface.stroke_path(&path);
-        }
+            Some(stroke)
+        } else {
+            None
+        };
+
+        surface.set_fill(fill);
+        surface.set_stroke(stroke);
+        surface.draw_path(&path);
     }
 
     surface.pop();

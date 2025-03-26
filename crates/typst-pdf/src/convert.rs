@@ -330,6 +330,11 @@ fn finish(
 ) -> SourceResult<Vec<u8>> {
     let validator = configuration.validator();
 
+    let get_span = |loc: Option<krilla::surface::Location>| {
+        loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
+            .unwrap_or(Span::detached())
+    };
+
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -342,11 +347,6 @@ fn finish(
             }
             KrillaError::Validation(ve) => {
                 let prefix = format!("{} error:", validator.as_str());
-
-                let get_span = |loc: Option<krilla::surface::Location>| {
-                    loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
-                        .unwrap_or(Span::detached())
-                };
 
                 let errors = ve.iter().map(|e| {
                     match e {
@@ -548,9 +548,9 @@ fn finish(
 
                 Err(errors)
             }
-            KrillaError::Image(i) => {
-                let span = gc.image_to_spans.get(&i).unwrap();
-                bail!(*span, "failed to process image");
+            KrillaError::Image(_, loc) => {
+                let span = get_span(loc);
+                bail!(span, "failed to process image");
             }
             KrillaError::SixteenBitImage(image, _) => {
                 let span = gc.image_to_spans.get(&image).unwrap();

@@ -32,13 +32,22 @@ pub(crate) fn handle_text(
         fc.state(),
         Size::zero(),
     )?;
+    let stroke =
+        if let Some(stroke) = t.stroke.as_ref().map(|s| {
+            paint::convert_stroke(gc, s, true, surface, fc.state(), Size::zero())
+        }) {
+            Some(stroke?)
+        } else {
+            None
+        };
     let text = t.text.as_str();
     let size = t.size;
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
     surface.push_transform(&fc.state().transform().to_krilla());
-    surface.set_fill(fill);
-    surface.fill_glyphs(
+    surface.set_fill(Some(fill));
+    surface.set_stroke(stroke);
+    surface.draw_glyphs(
         krilla::geom::Point::from_xy(0.0, 0.0),
         glyphs,
         font.clone(),
@@ -46,25 +55,6 @@ pub(crate) fn handle_text(
         size.to_f32(),
         false,
     );
-
-    if let Some(stroke) = t
-        .stroke
-        .as_ref()
-        .map(|s| paint::convert_stroke(gc, s, true, surface, fc.state(), Size::zero()))
-    {
-        let stroke = stroke?;
-
-        surface.set_stroke(stroke);
-        surface.stroke_glyphs(
-            krilla::geom::Point::from_xy(0.0, 0.0),
-            glyphs,
-            font,
-            text,
-            size.to_f32(),
-            // To prevent text from being embedded twice, we outline it instead if a stroke exists.
-            true,
-        );
-    }
 
     surface.pop();
 
