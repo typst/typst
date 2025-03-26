@@ -6,15 +6,16 @@ use typst_library::model::Numbering;
 pub(crate) trait PageLabelExt {
     /// Create a new `PageLabel` from a `Numbering` applied to a page
     /// number.
-    fn generate(numbering: &Numbering, number: usize) -> Option<PageLabel>;
+    fn generate(numbering: &Numbering, number: u64) -> Option<PageLabel>;
+
     /// Creates an arabic page label with the specified page number.
     /// For example, this will display page label `11` when given the page
     /// number 11.
-    fn arabic(number: usize) -> PageLabel;
+    fn arabic(number: u64) -> PageLabel;
 }
 
 impl PageLabelExt for PageLabel {
-    fn generate(numbering: &Numbering, number: usize) -> Option<PageLabel> {
+    fn generate(numbering: &Numbering, number: u64) -> Option<PageLabel> {
         {
             let Numbering::Pattern(pat) = numbering else {
                 return None;
@@ -48,12 +49,16 @@ impl PageLabelExt for PageLabel {
                 (!prefix.is_empty()).then(|| prefix.clone())
             };
 
-            let offset = style.and(NonZeroUsize::new(number));
+            let offset = style.and(number.try_into().ok().and_then(NonZeroUsize::new));
             Some(PageLabel::new(style, prefix.map(|s| s.to_string()), offset))
         }
     }
 
-    fn arabic(number: usize) -> PageLabel {
-        PageLabel::new(Some(NumberingStyle::Arabic), None, NonZeroUsize::new(number))
+    fn arabic(number: u64) -> PageLabel {
+        PageLabel::new(
+            Some(NumberingStyle::Arabic),
+            None,
+            number.try_into().ok().and_then(NonZeroUsize::new),
+        )
     }
 }

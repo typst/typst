@@ -94,7 +94,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                     // the corresponding real page number in the Typst document.
                     gc.page_index_converter
                         .has_skipped_pages()
-                        .then(|| PageLabel::arabic(i + 1))
+                        .then(|| PageLabel::arabic((i + 1) as u64))
                 })
             {
                 settings = settings.with_page_label(label);

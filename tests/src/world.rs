@@ -244,7 +244,7 @@ fn lines(
     engine: &mut Engine,
     context: Tracked<Context>,
     span: Span,
-    count: usize,
+    count: u64,
     #[default(Numbering::Pattern(NumberingPattern::from_str("A").unwrap()))]
     numbering: Numbering,
 ) -> SourceResult<Value> {

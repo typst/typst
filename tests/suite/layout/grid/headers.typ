@@ -60,6 +60,16 @@
   grid.cell(y: 2)[c]
 )
 
+--- grid-header-cell-with-x ---
+#grid(
+  columns: 2,
+  stroke: black,
+  inset: 5pt,
+  grid.header(grid.cell(x: 0)[b1], grid.cell(x: 0)[b2]),
+  // This should skip the header
+  grid.cell(x: 1)[c]
+)
+
 --- grid-header-last-child ---
 // When the header is the last grid child, it shouldn't include the gutter row
 // after it, because there is none.
@@ -273,8 +283,7 @@
 )
 #context count.display()
 
---- grid-header-expand ---
-// Ensure header expands to fit cell placed in it after its declaration
+--- grid-header-no-expand-with-col-and-row-pos-cell ---
 #set page(height: 10em)
 #table(
   columns: 2,
@@ -282,7 +291,22 @@
     [a], [b],
     [c],
   ),
+  // Error: 3-48 cell would conflict with header spanning the same position
+  // Hint: 3-48 try moving the cell or the header
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
+)
+
+--- grid-header-no-expand-with-row-pos-cell ---
+#set page(height: 10em)
+#table(
+  columns: 2,
+  table.header(
+    [a], [b],
+    [c],
+  ),
+  // Error: 3-42 cell would conflict with header spanning the same position
+  // Hint: 3-42 try moving the cell or the header
+  table.cell(y: 1, rowspan: 2, lorem(80))
 )
 
 --- grid-nested-with-headers ---
@@ -367,4 +391,82 @@
     [a], full-block, table.cell(rowspan: 2, full-block),
     [b]
   )
+)
+
+--- grid-header-row-pos-cell-inside-conflicts-with-row-before ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  table.cell(y: 0)[a],
+  table.header(
+    table.hline(stroke: red),
+    table.hline(y: 1, stroke: aqua),
+    // Error: 5-24 cell would cause header to expand to non-empty row 0
+    // Hint: 5-24 try moving its cells to available rows
+    table.cell(y: 0)[b],
+    [c]
+  )
+)
+
+--- grid-header-row-pos-cell-inside-conflicts-with-row-before-after-first-empty-row ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 3,
+  inset: 1.5pt,
+  // Rows: Occupied, Empty, Occupied, Empty, Empty, ...
+  // Should not be able to expand header from the second Empty to the second Occupied.
+  table.cell(y: 0)[a],
+  table.cell(y: 2)[a],
+  table.header(
+    table.hline(stroke: red),
+    table.hline(y: 3, stroke: aqua),
+    // Error: 5-24 cell would cause header to expand to non-empty row 2
+    // Hint: 5-24 try moving its cells to available rows
+    table.cell(y: 2)[b],
+  )
+)
+
+--- grid-header-auto-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 1)[a],
+  table.header(
+    [b], [c],
+    // Error: 6-7 cell would cause header to expand to non-empty row 1
+    // Hint: 6-7 try moving its cells to available rows
+    [d],
+  ),
+)
+
+--- grid-header-row-pos-cell-inside-conflicts-with-row-after ---
+#set page(margin: 2pt)
+#set text(6pt)
+#table(
+  columns: 2,
+  inset: 1.5pt,
+  table.cell(y: 2)[a],
+  table.header(
+    [b], [c],
+    // Error: 5-24 cell would cause header to expand to non-empty row 2
+    // Hint: 5-24 try moving its cells to available rows
+    table.cell(y: 3)[d],
+  ),
+)
+
+--- issue-5359-column-override-stays-inside-header ---
+#table(
+  columns: 3,
+  [Outside],
+  // Error: 1:3-4:4 header must start at the first row
+  // Hint: 1:3-4:4 remove any rows before the header
+  table.header(
+    [A], table.cell(x: 1)[B], [C],
+    table.cell(x: 1)[D],
+  ),
 )
