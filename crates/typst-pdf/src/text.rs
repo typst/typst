@@ -81,7 +81,7 @@ fn convert_font(
 fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
     let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
         Arc::new(typst_font.data().clone());
-    
+
     match krilla::text::Font::new(font_data.into(), typst_font.index(), true) {
         None => {
             let font_str = display_font(&typst_font);

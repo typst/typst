@@ -187,8 +187,12 @@ fn convert_raster(
             let i: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(i.clone());
             i
         });
-        
-        krilla::image::Image::from_jpeg_with_icc(image_data.into(), icc_profile.map(|i| i.into()), interpolate)
+
+        krilla::image::Image::from_jpeg_with_icc(
+            image_data.into(),
+            icc_profile.map(|i| i.into()),
+            interpolate,
+        )
     } else {
         krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
     }
