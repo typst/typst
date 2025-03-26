@@ -297,5 +297,18 @@ pub fn eval(
     for (key, value) in dict {
         scope.bind(key.into(), Binding::new(value, span));
     }
-    (engine.routines.eval_string)(engine.routines, engine.world, &text, span, mode, scope)
+    let (result, sink) = (engine.routines.eval_string)(
+        engine.routines,
+        engine.world,
+        &text,
+        span,
+        mode,
+        scope,
+    )?;
+
+    for warning in sink.warnings() {
+        engine.sink.warn(warning);
+    }
+
+    Ok(result)
 }

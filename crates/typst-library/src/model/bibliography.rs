@@ -1004,7 +1004,8 @@ impl ElemRenderer<'_> {
             EvalMode::Math,
             Scope::new(),
         )
-        .map(Value::display)
+        // TODO: propagate warnings
+        .map(|(result, _sink)| Value::display(result))
         .unwrap_or_else(|_| TextElem::packed(math).spanned(self.span))
     }
 
