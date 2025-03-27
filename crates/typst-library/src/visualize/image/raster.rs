@@ -325,12 +325,12 @@ fn apply_rotation(image: &mut DynamicImage, rotation: u32) {
             ops::flip_horizontal_in_place(image);
             *image = image.rotate270();
         }
-        6 => *image = image.rotate90(),
+        6 => *image = image.rotate270(),
         7 => {
             ops::flip_horizontal_in_place(image);
             *image = image.rotate90();
         }
-        8 => *image = image.rotate270(),
+        8 => *image = image.rotate90(),
         _ => {}
     }
 }
