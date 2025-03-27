@@ -269,7 +269,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/images/relative.svg")
 
 --- image-exif-rotation ---
-#let data = read("/assets/images/f.jpg", encoding: none)
+#let data = read("/assets/images/f2t.jpg", encoding: none)
 
 #let rotations = range(1, 9)
 #let rotated(v) = image(data.slice(0, 49) + bytes((v,)) + data.slice(50), width: 10pt)
