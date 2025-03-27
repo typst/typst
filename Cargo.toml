@@ -33,7 +33,7 @@ typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "9879589" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
