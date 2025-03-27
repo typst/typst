@@ -414,7 +414,11 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
 
 /// Apply the current baseline shift to a frame.
 pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
-    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+    let mut baseline = TextElem::baseline_in(styles);
+    if let Some(scripts) = TextElem::subpercript_in(styles) {
+        baseline -= scripts.shift.resolve(styles)
+    }
+    frame.translate(Point::with_y(baseline));
 }
 
 /// Commit to a line and build its frame.

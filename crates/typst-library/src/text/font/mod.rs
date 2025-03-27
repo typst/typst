@@ -215,6 +215,10 @@ pub struct FontMetrics {
     pub underline: LineMetrics,
     /// Recommended metrics for an overline.
     pub overline: LineMetrics,
+    /// Metrics for subscripts.
+    pub subscript: ScriptMetrics,
+    /// Metrics for superscripts.
+    pub superscript: ScriptMetrics,
 }
 
 impl FontMetrics {
@@ -227,6 +231,7 @@ impl FontMetrics {
         let cap_height = ttf.capital_height().filter(|&h| h > 0).map_or(ascender, to_em);
         let x_height = ttf.x_height().filter(|&h| h > 0).map_or(ascender, to_em);
         let descender = to_em(ttf.typographic_descender().unwrap_or(ttf.descender()));
+
         let strikeout = ttf.strikeout_metrics();
         let underline = ttf.underline_metrics();
 
@@ -249,6 +254,26 @@ impl FontMetrics {
             thickness: underline.thickness,
         };
 
+        let subscript = match ttf.subscript_metrics() {
+            None => ScriptMetrics::default_subscript(),
+            Some(metrics) => ScriptMetrics {
+                width: to_em(metrics.x_size),
+                height: to_em(metrics.y_size),
+                horizontal_offset: to_em(metrics.x_offset),
+                vertical_offset: -to_em(metrics.y_offset),
+            },
+        };
+
+        let superscript = match ttf.superscript_metrics() {
+            None => ScriptMetrics::default_superscript(),
+            Some(metrics) => ScriptMetrics {
+                width: to_em(metrics.x_size),
+                height: to_em(metrics.y_size),
+                horizontal_offset: to_em(metrics.x_offset),
+                vertical_offset: to_em(metrics.y_offset),
+            },
+        };
+
         Self {
             units_per_em,
             ascender,
@@ -258,6 +283,8 @@ impl FontMetrics {
             strikethrough,
             underline,
             overline,
+            superscript,
+            subscript,
         }
     }
 
@@ -281,6 +308,34 @@ pub struct LineMetrics {
     pub position: Em,
     /// The thickness of the line.
     pub thickness: Em,
+}
+
+/// Metrics for subscripts or superscripts.
+#[derive(Debug, Copy, Clone)]
+pub struct ScriptMetrics {
+    pub width: Em,
+    pub height: Em,
+    pub horizontal_offset: Em,
+    pub vertical_offset: Em,
+}
+
+impl ScriptMetrics {
+    pub const fn default_with_vertical_offset(offset: Em) -> Self {
+        Self {
+            width: Em::new(0.6),
+            height: Em::new(0.6),
+            horizontal_offset: Em::zero(),
+            vertical_offset: offset,
+        }
+    }
+
+    pub const fn default_subscript() -> Self {
+        Self::default_with_vertical_offset(Em::new(-0.2))
+    }
+
+    pub const fn default_superscript() -> Self {
+        Self::default_with_vertical_offset(Em::new(0.5))
+    }
 }
 
 /// Identifies a vertical metric of a font.

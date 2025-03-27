@@ -12,7 +12,7 @@ use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
     families, features, is_default_ignorable, variant, Font, FontFamily, FontVariant,
-    Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
+    Glyph, Lang, Region, ScriptSettings, TextEdgeBounds, TextElem, TextItem,
 };
 use typst_library::World;
 use typst_utils::SliceExt;
@@ -64,6 +64,8 @@ pub struct ShapedGlyph {
     pub x_offset: Em,
     /// The vertical offset of the glyph.
     pub y_offset: Em,
+    /// How much to scale the glyph compared to its normal size.
+    pub scale: Em,
     /// The adjustability of the glyph.
     pub adjustability: Adjustability,
     /// The byte range of this glyph's cluster in the full inline layout. A
@@ -230,8 +232,10 @@ impl<'a> ShapedText<'a> {
         let stroke = TextElem::stroke_in(self.styles);
         let span_offset = TextElem::span_offset_in(self.styles);
 
-        for ((font, y_offset), group) in
-            self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
+        for ((font, y_offset, scale), group) in self
+            .glyphs
+            .as_ref()
+            .group_by_key(|g| (g.font.clone(), g.y_offset, g.scale))
         {
             let mut range = group[0].range.clone();
             for glyph in group {
@@ -304,7 +308,7 @@ impl<'a> ShapedText<'a> {
 
             let item = TextItem {
                 font,
-                size: self.size,
+                size: scale.at(self.size),
                 lang: self.lang,
                 region: self.region,
                 fill: fill.clone(),
@@ -420,7 +424,7 @@ impl<'a> ShapedText<'a> {
                 styles: self.styles,
                 size: self.size,
                 variant: self.variant,
-                width: glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size),
+                width: glyphs_width(glyphs).at(self.size),
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
@@ -491,6 +495,7 @@ impl<'a> ShapedText<'a> {
                 x_advance,
                 x_offset: Em::zero(),
                 y_offset: Em::zero(),
+                scale: Em::one(),
                 adjustability: Adjustability::default(),
                 range,
                 safe_to_break: true,
@@ -666,6 +671,7 @@ fn shape<'a>(
     region: Option<Region>,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
+    let script_settings = TextElem::subpercript_in(styles);
     let mut ctx = ShapingContext {
         engine,
         size,
@@ -679,7 +685,7 @@ fn shape<'a>(
     };
 
     if !text.is_empty() {
-        shape_segment(&mut ctx, base, text, families(styles));
+        shape_segment(&mut ctx, base, text, families(styles), script_settings.as_ref());
     }
 
     track_and_space(&mut ctx);
@@ -699,9 +705,15 @@ fn shape<'a>(
         styles,
         variant: ctx.variant,
         size,
-        width: ctx.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(size),
+        width: glyphs_width(&ctx.glyphs).at(size),
         glyphs: Cow::Owned(ctx.glyphs),
     }
+}
+
+/// Computes the width of a run of glyphs relative to the font size, accounting
+/// for their individual scaling factors and other font metrics.
+fn glyphs_width(glyphs: &[ShapedGlyph]) -> Em {
+    glyphs.iter().map(|g| g.x_advance * g.scale.get()).sum()
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
@@ -723,6 +735,7 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
+    script_settings: Option<&ScriptSettings>,
 ) {
     // Don't try shaping newlines, tabs, or default ignorables.
     if text
@@ -815,6 +828,16 @@ fn shape_segment<'a>(
         covers.is_none_or(|cov| cov.is_match(&text[offset..end]))
     };
 
+    let (script_shift, script_compensation, scale) = match script_settings {
+        None | Some(ScriptSettings { synthesized: false, .. }) => {
+            (Em::zero(), Em::zero(), Em::one())
+        }
+        Some(settings) => {
+            let script_metrics = settings.kind.read_metrics(font.metrics());
+            (settings.shift, script_metrics.horizontal_offset, settings.size)
+        }
+    };
+
     // Collect the shaped glyphs, doing fallback and shaping parts again with
     // the next font if necessary.
     let mut i = 0;
@@ -839,8 +862,9 @@ fn shape_segment<'a>(
                 glyph_id: info.glyph_id as u16,
                 // TODO: Don't ignore y_advance.
                 x_advance,
-                x_offset: font.to_em(pos[i].x_offset),
-                y_offset: font.to_em(pos[i].y_offset),
+                x_offset: font.to_em(pos[i].x_offset) + script_compensation,
+                y_offset: font.to_em(pos[i].y_offset) + script_shift,
+                scale,
                 adjustability: Adjustability::default(),
                 range: start..end,
                 safe_to_break: !info.unsafe_to_break(),
@@ -893,7 +917,13 @@ fn shape_segment<'a>(
             }
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(ctx, base + start, &text[start..end], families.clone());
+            shape_segment(
+                ctx,
+                base + start,
+                &text[start..end],
+                families.clone(),
+                script_settings,
+            );
         }
 
         i += 1;
@@ -933,6 +963,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
             x_advance,
             x_offset: Em::zero(),
             y_offset: Em::zero(),
+            scale: Em::one(),
             adjustability: Adjustability::default(),
             range: start..end,
             safe_to_break: true,
