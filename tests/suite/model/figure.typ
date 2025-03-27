@@ -30,6 +30,22 @@ We can clearly see that @fig-cylinder and
   caption: [Start-aligned]
 )
 
+--- figure-inset ---
+#rect(figure(
+  [15pt x 5pt],
+  inset: (x: 15pt, y:5pt)
+))
+#set figure(inset: 10pt)
+#rect(figure(
+  [10pt],
+  caption: [Inset]
+))
+#show figure: set block(stroke: 1pt)
+#figure(
+  [10pt floating],
+  placement: top,
+)
+
 --- figure-table ---
 // Testing figures with tables.
 #figure(

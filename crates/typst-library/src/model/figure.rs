@@ -17,7 +17,7 @@ use crate::introspection::{
 };
 use crate::layout::{
     AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
-    PlaceElem, PlacementScope, VAlignment, VElem,
+    PlaceElem, PlacementScope, Rel, Sides, VAlignment, VElem,
 };
 use crate::model::{
     Numbering, NumberingPattern, Outlinable, ParbreakElem, Refable, Supplement,
@@ -224,6 +224,22 @@ pub struct FigureElem {
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 
+    /// The padding around the figure.
+    /// See the [box's documentation]($box.inset) for more details.
+    ///
+    /// ```example
+    /// Text above the figure
+    /// #figure(
+    ///   rect(),
+    ///   inset: (top: 1em, bottom: 2em),
+    ///   caption: [A rectangle],
+    /// )
+    /// Text below the figure
+    /// ```
+    #[resolve]
+    #[fold]
+    pub inset: Sides<Option<Rel<Length>>>,
+
     /// Whether the figure should appear in an [`outline`] of figures.
     #[default(true)]
     pub outlined: bool,
@@ -363,6 +379,7 @@ impl Show for Packed<FigureElem> {
         // Wrap the contents in a block.
         realized = BlockElem::new()
             .with_body(Some(BlockBody::Content(realized)))
+            .with_inset(self.inset.unwrap_or_default())
             .pack()
             .spanned(span);
 
