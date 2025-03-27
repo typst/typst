@@ -275,7 +275,6 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #let rotated(v) = image(data.slice(0, 49) + bytes((v,)) + data.slice(50), width: 10pt)
 
 #set page(width: auto)
-// By default, f is flipped horizontally.
 #table(
   columns: rotations.len(),
   ..rotations.map(v => raw(str(v), lang: "typc")),
