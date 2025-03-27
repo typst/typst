@@ -96,9 +96,8 @@ impl AbsExt for Abs {
 }
 
 /// Display the font family of a font.
-pub(crate) fn display_font(font: &Font) -> String {
-    let font_family = &font.info().family;
-    font_family.to_string()
+pub(crate) fn display_font(font: &Font) -> &str {
+    &font.info().family
 }
 
 /// Convert a typst path to a krilla path.
