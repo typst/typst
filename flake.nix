@@ -29,7 +29,11 @@
         pname = "typst";
         version = cargoToml.workspace.package.version;
 
-        rust-toolchain = (fenix.packages.${system}.fromManifestFile rust-manifest).defaultToolchain;
+        rust-toolchain = fenix.packages.${system}.combine [
+            (fenix.packages.${system}.fromManifestFile
+              rust-manifest).defaultToolchain
+            (fenix.packages.${system}.fromManifestFile rust-manifest).rust-src
+        ];
 
         # Crane-based Nix flake configuration.
         # Based on https://github.com/ipetkov/crane/blob/master/examples/trunk-workspace/flake.nix
@@ -126,6 +130,12 @@
         devShells.default = craneLib.devShell {
           checks = self'.checks;
           inputsFrom = [ typst ];
+
+          # Set environment variables for rust-analyzer
+          shellHook = ''
+            export RUST_SRC_PATH="${rust-toolchain}/lib/rustlib/src/rust/library"
+            export RUST_BACKTRACE=1
+          '';
 
           packages = [
             # A script for quickly running tests.
