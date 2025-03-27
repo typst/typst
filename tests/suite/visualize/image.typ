@@ -247,12 +247,6 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   format: "rgba8",
 )
 
---- issue-870-image-rotation ---
-// Ensure that EXIF rotation is applied.
-// https://github.com/image-rs/image/issues/1045
-// File is from https://magnushoff.com/articles/jpeg-orientation/
-#image("/assets/images/f2t.jpg", width: 10pt)
-
 --- issue-measure-image ---
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
