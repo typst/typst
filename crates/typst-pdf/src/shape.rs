@@ -56,9 +56,12 @@ pub(crate) fn handle_shape(
             None
         };
 
-        surface.set_fill(fill);
-        surface.set_stroke(stroke);
-        surface.draw_path(&path);
+        // Otherwise, krilla will by default fill with a black paint.
+        if fill.is_some() || stroke.is_some() {
+            surface.set_fill(fill);
+            surface.set_stroke(stroke);
+            surface.draw_path(&path);
+        }
     }
 
     surface.pop();
