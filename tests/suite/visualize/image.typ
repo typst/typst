@@ -267,3 +267,17 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-3733-dpi-svg ---
 #set page(width: 200pt, height: 200pt, margin: 0pt)
 #image("/assets/images/relative.svg")
+
+--- image-exif-rotation ---
+#stack(
+    dir: ltr, 
+    image("/assets/images/exif_0.jpg", width: 10pt),
+    image("/assets/images/exif_1.jpg", width: 10pt),
+    image("/assets/images/exif_2.jpg", width: 10pt),
+    image("/assets/images/exif_3.jpg", width: 10pt),
+    image("/assets/images/exif_4.jpg", width: 10pt),
+    image("/assets/images/exif_5.jpg", width: 10pt),
+    image("/assets/images/exif_6.jpg", width: 10pt),
+    image("/assets/images/exif_7.jpg", width: 10pt),
+    image("/assets/images/exif_8.jpg", width: 10pt),
+)
