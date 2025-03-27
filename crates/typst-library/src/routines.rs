@@ -59,7 +59,7 @@ routines! {
         span: Span,
         mode: EvalMode,
         scope: Scope,
-    ) -> SourceResult<Value>
+    ) -> SourceResult<(Value, Sink)>
 
     /// Call the closure in the context with the arguments.
     fn eval_closure(

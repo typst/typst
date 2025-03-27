@@ -105,7 +105,7 @@ pub fn eval_string(
     span: Span,
     mode: EvalMode,
     scope: Scope,
-) -> SourceResult<Value> {
+) -> SourceResult<(Value, Sink)> {
     let mut root = match mode {
         EvalMode::Code => parse_code(string),
         EvalMode::Markup => parse(string),
@@ -158,7 +158,7 @@ pub fn eval_string(
         bail!(flow.forbidden());
     }
 
-    Ok(output)
+    Ok((output, sink))
 }
 
 /// Evaluate an expression.

@@ -63,6 +63,8 @@ fn retrieve(
         EvalMode::Code,
         Scope::default(),
     )
+    // TODO: propagate warnings
+    .map(|(result, _sink)| result)
     .map_err(|errors| {
         let mut message = EcoString::from("failed to evaluate selector");
         for (i, error) in errors.into_iter().enumerate() {
