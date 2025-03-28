@@ -71,13 +71,12 @@ if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.6"
-krilla = { git = "https://github.com/LaurenzV/krilla", rev = "16bbb2c", default-features = false, features = ["raster-images", "comemo", "rayon"] }
-krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "16bbb2c" }
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "7bcbda5", default-features = false, features = ["raster-images", "comemo", "rayon"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "7bcbda5" }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 memchr = "2"
-miniz_oxide = "0.8"
 native-tls = "0.2"
 notify = "8"
 once_cell = "1"

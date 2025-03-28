@@ -749,11 +749,12 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.35"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c936bfdafb507ebbf50b8074c54fa31c5be9a1e7e5f467dd659697041407d07c"
+checksum = "11faaf5a5236997af9848be0bef4db95824b1d534ebc64d0f0c6cf3e67bd38dc"
 dependencies = [
  "crc32fast",
+ "libz-rs-sys",
  "miniz_oxide",
 ]
 
@@ -1345,18 +1346,19 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=16bbb2c#16bbb2c9cb4f7dc7ddb9636f492da4aa47133ece"
+source = "git+https://github.com/LaurenzV/krilla?rev=7bcbda5#7bcbda5670fba9a35d9dc6124886dd5b2122ed77"
 dependencies = [
  "base64",
  "bumpalo",
  "comemo",
+ "flate2",
  "float-cmp 0.10.0",
  "gif",
  "image-webp",
  "imagesize",
- "miniz_oxide",
  "once_cell",
  "pdf-writer",
+ "png",
  "rayon",
  "rustybuzz",
  "siphasher",
@@ -1366,21 +1368,20 @@ dependencies = [
  "xmp-writer",
  "yoke 0.8.0",
  "zune-jpeg",
- "zune-png",
 ]
 
 [[package]]
 name = "krilla-svg"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=16bbb2c#16bbb2c9cb4f7dc7ddb9636f492da4aa47133ece"
+source = "git+https://github.com/LaurenzV/krilla?rev=7bcbda5#7bcbda5670fba9a35d9dc6124886dd5b2122ed77"
 dependencies = [
  "flate2",
  "fontdb",
  "krilla",
+ "png",
  "resvg",
  "tiny-skia",
  "usvg",
- "zune-png",
 ]
 
 [[package]]
@@ -1442,6 +1443,15 @@ dependencies = [
  "bitflags 2.8.0",
  "libc",
  "redox_syscall",
+]
+
+[[package]]
+name = "libz-rs-sys"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "902bc563b5d65ad9bba616b490842ef0651066a1a1dc3ce1087113ffcb873c8d"
+dependencies = [
+ "zlib-rs",
 ]
 
 [[package]]
@@ -1531,9 +1541,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.3"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8402cab7aefae129c6977bb0ff1b8fd9a04eb5b51efc50a70bea51cda0c7924"
+checksum = "8e3e04debbb59698c15bacbb6d93584a8c0ca9cc3213cb423d31f760d8843ce5"
 dependencies = [
  "adler2",
  "simd-adler32",
@@ -3897,6 +3907,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "zlib-rs"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b20717f0917c908dc63de2e44e97f1e6b126ca58d0e391cee86d504eb8fbd05"
+
+[[package]]
 name = "zopfli"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3917,29 +3933,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f423a2c17029964870cfaabb1f13dfab7d092a62a29a89264f4d36990ca414a"
 
 [[package]]
-name = "zune-inflate"
-version = "0.2.54"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73ab332fe2f6680068f3582b16a24f90ad7096d5d39b974d1c0aff0125116f02"
-dependencies = [
- "simd-adler32",
-]
-
-[[package]]
 name = "zune-jpeg"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99a5bab8d7dedf81405c4bb1f2b83ea057643d9cb28778cea9eecddeedd2e028"
 dependencies = [
  "zune-core",
-]
-
-[[package]]
-name = "zune-png"
-version = "0.4.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d29c085769c6f29effea890f093120ac019375fdc789d2a496ba8ba96c77509"
-dependencies = [
- "zune-core",
- "zune-inflate",
 ]
