@@ -298,7 +298,7 @@ impl Func {
     }
 
     /// Non-generic implementation of `call`.
-    #[typst_macros::time(name = "func call", span = self.span())]
+    #[typst_macros::time(name = "func call", span = self.span(), callsite = args.span)]
     fn call_impl(
         &self,
         engine: &mut Engine,
