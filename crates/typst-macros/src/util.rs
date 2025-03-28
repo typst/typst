@@ -254,6 +254,7 @@ impl Parse for BareType {
 pub mod kw {
     syn::custom_keyword!(name);
     syn::custom_keyword!(span);
+    syn::custom_keyword!(callsite);
     syn::custom_keyword!(title);
     syn::custom_keyword!(scope);
     syn::custom_keyword!(contextual);

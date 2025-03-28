@@ -107,6 +107,10 @@ pub fn export_json<W: Write>(
     struct Args {
         file: String,
         line: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        callsite_file: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        callsite_line: Option<u32>,
     }
 
     let lock = EVENTS.lock();
@@ -128,7 +132,15 @@ pub fn export_json<W: Write>(
             ts: event.timestamp.micros_since(events[0].timestamp),
             pid: 1,
             tid: event.thread_id,
-            args: event.span.map(&mut source).map(|(file, line)| Args { file, line }),
+            args: event.span.map(&mut source).map(|(file, line)| {
+                let (callsite_file, callsite_line) = match event.callsite.map(&mut source)
+                {
+                    Some((a, b)) => (Some(a), Some(b)),
+                    None => (None, None),
+                };
+
+                Args { file, line, callsite_file, callsite_line }
+            }),
         })
         .map_err(|e| format!("failed to serialize event: {e}"))?;
     }
@@ -142,6 +154,7 @@ pub fn export_json<W: Write>(
 pub struct TimingScope {
     name: &'static str,
     span: Option<NonZeroU64>,
+    callsite: Option<NonZeroU64>,
     thread_id: u64,
 }
 
@@ -159,14 +172,32 @@ impl TimingScope {
     /// `typst-timing`).
     #[inline]
     pub fn with_span(name: &'static str, span: Option<NonZeroU64>) -> Option<Self> {
+        Self::with_callsite(name, span, None)
+    }
+
+    /// Create a new scope with a span if timing is enabled.
+    ///
+    /// The span is a raw number because `typst-timing` can't depend on
+    /// `typst-syntax` (or else `typst-syntax` couldn't depend on
+    /// `typst-timing`).
+    #[inline]
+    pub fn with_callsite(
+        name: &'static str,
+        span: Option<NonZeroU64>,
+        callsite: Option<NonZeroU64>,
+    ) -> Option<Self> {
         if is_enabled() {
-            return Some(Self::new_impl(name, span));
+            return Some(Self::new_impl(name, span, callsite));
         }
         None
     }
 
     /// Create a new scope without checking if timing is enabled.
-    fn new_impl(name: &'static str, span: Option<NonZeroU64>) -> Self {
+    fn new_impl(
+        name: &'static str,
+        span: Option<NonZeroU64>,
+        callsite: Option<NonZeroU64>,
+    ) -> Self {
         let (thread_id, timestamp) =
             THREAD_DATA.with(|data| (data.id, Timestamp::now_with(data)));
         EVENTS.lock().push(Event {
@@ -174,9 +205,10 @@ impl TimingScope {
             timestamp,
             name,
             span,
+            callsite,
             thread_id,
         });
-        Self { name, span, thread_id }
+        Self { name, span, callsite: None, thread_id }
     }
 }
 
@@ -188,6 +220,7 @@ impl Drop for TimingScope {
             timestamp,
             name: self.name,
             span: self.span,
+            callsite: self.callsite,
             thread_id: self.thread_id,
         });
     }
@@ -203,6 +236,8 @@ struct Event {
     name: &'static str,
     /// The raw value of the span of code that this event was recorded in.
     span: Option<NonZeroU64>,
+    /// The raw value of the callsite span of the code that this event was recorded in.
+    callsite: Option<NonZeroU64>,
     /// The thread ID of this event.
     thread_id: u64,
 }
