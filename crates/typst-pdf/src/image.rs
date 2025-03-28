@@ -234,9 +234,9 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
         Some(3) => no_flipping(true, true),
         Some(4) => no_flipping(false, true),
         Some(5) => with_flipping(false, false),
-        Some(6) => with_flipping(false, true),
+        Some(6) => with_flipping(true, false),
         Some(7) => with_flipping(true, true),
-        Some(8) => with_flipping(true, false),
+        Some(8) => with_flipping(false, true),
         _ => no_flipping(false, false),
     }
 }
