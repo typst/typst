@@ -5,7 +5,7 @@ use bytemuck::TransparentWrapper;
 use krilla::surface::{Location, Surface};
 use krilla::text::GlyphId;
 use typst_library::diag::{bail, SourceResult};
-use typst_library::layout::{Abs, Size};
+use typst_library::layout::Size;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
@@ -14,6 +14,7 @@ use crate::convert::{FrameContext, GlobalContext};
 use crate::paint;
 use crate::util::{display_font, AbsExt, TransformExt};
 
+#[typst_macros::time(name = "handle text")]
 pub(crate) fn handle_text(
     fc: &mut FrameContext,
     t: &TextItem,
@@ -96,26 +97,34 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
 struct PdfGlyph(Glyph);
 
 impl krilla::text::Glyph for PdfGlyph {
+    #[inline(always)]
     fn glyph_id(&self) -> GlyphId {
         GlyphId::new(self.0.id as u32)
     }
 
+    #[inline(always)]
     fn text_range(&self) -> Range<usize> {
         self.0.range.start as usize..self.0.range.end as usize
     }
 
+    #[inline(always)]
     fn x_advance(&self, size: f32) -> f32 {
-        self.0.x_advance.at(Abs::raw(size as f64)).to_raw() as f32
+        // Don't use `Em::at`, because it contains an expensive check whether the result is finite.
+        self.0.x_advance.get() as f32 * size
     }
 
+    #[inline(always)]
     fn x_offset(&self, size: f32) -> f32 {
-        self.0.x_offset.at(Abs::raw(size as f64)).to_raw() as f32
+        // Don't use `Em::at`, because it contains an expensive check whether the result is finite.
+        self.0.x_offset.get() as f32 * size
     }
 
+    #[inline(always)]
     fn y_offset(&self, _: f32) -> f32 {
         0.0
     }
 
+    #[inline(always)]
     fn y_advance(&self, _: f32) -> f32 {
         0.0
     }

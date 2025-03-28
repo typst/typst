@@ -8,6 +8,7 @@ use crate::convert::{FrameContext, GlobalContext};
 use crate::paint;
 use crate::util::{convert_path, AbsExt, TransformExt};
 
+#[typst_macros::time(name = "handle shape")]
 pub(crate) fn handle_shape(
     fc: &mut FrameContext,
     shape: &Shape,
