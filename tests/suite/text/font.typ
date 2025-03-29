@@ -149,3 +149,7 @@ The number 123.
 #set text(-1pt)
 
 a
+
+--- empty-text-font-array ---
+// Error: 17-19 font fallback list should not be empty
+#set text(font: ())

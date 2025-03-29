@@ -42,7 +42,7 @@ use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult};
+use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
@@ -891,8 +891,20 @@ cast! {
 }
 
 /// Font family fallback list.
+///
+/// Must contain at least one font.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
+
+impl FontList {
+    pub fn new(fonts: Vec<FontFamily>) -> StrResult<Self> {
+        if fonts.is_empty() {
+            bail!("font fallback list should not be empty")
+        } else {
+            Ok(Self(fonts))
+        }
+    }
+}
 
 impl<'a> IntoIterator for &'a FontList {
     type IntoIter = std::slice::Iter<'a, FontFamily>;
@@ -911,7 +923,7 @@ cast! {
         self.0.into_value()
     },
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
+    values: Array => Self::new(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?)?,
 }
 
 /// Resolve a prioritized iterator over the font families.
