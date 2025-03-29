@@ -361,7 +361,7 @@ pub struct FontArgs {
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
-    #[arg(long)]
+    #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
     pub ignore_system_fonts: bool,
 }
 
