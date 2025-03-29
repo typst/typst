@@ -285,6 +285,19 @@ impl Eval for ast::CodeBlock<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.enter();
+        if let Some((span, kind)) =
+            self.body().exprs().next_back().and_then(|x| match x {
+                ast::Expr::ShowRule(_) => Some((x.span(), "show")),
+                ast::Expr::SetRule(_) => Some((x.span(), "set")),
+                _ => None,
+            })
+        {
+            vm.engine.sink.warn(typst_library::diag::warning!(
+                span,
+                "{kind} rule has no effect";
+                hint: "See https://typst.app/docs/tutorial/making-a-template/#set-and-show-rules"
+            ));
+        }
         let output = self.body().eval(vm)?;
         vm.scopes.exit();
         Ok(output)
