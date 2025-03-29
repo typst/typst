@@ -4,5 +4,5 @@ equation = Rovnice
 bibliography = Bibliografie
 heading = Kapitola
 outline = Obsah
-raw = Seznam
+raw = Výpis
 page = strana
