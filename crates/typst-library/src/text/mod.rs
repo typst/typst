@@ -752,6 +752,11 @@ pub struct TextElem {
     #[internal]
     #[ghost]
     pub smallcaps: Option<Smallcaps>,
+
+    /// Whether subscripts or superscripts are enabled.
+    #[internal]
+    #[ghost]
+    pub subpercript: Option<ScriptSettings>,
 }
 
 impl TextElem {
@@ -1224,6 +1229,12 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"smcp", 1);
         if sc == Smallcaps::All {
             feat(b"c2sc", 1);
+        }
+    }
+
+    if let Some(scripts) = TextElem::subpercript_in(styles) {
+        if !scripts.synthesized {
+            feat(scripts.kind.feature(), 1)
         }
     }
 
