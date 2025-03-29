@@ -34,6 +34,8 @@ pub(crate) fn handle_image(
         surface.start_alt_text(alt);
     }
 
+    gc.image_spans.insert(span);
+
     match image.kind() {
         ImageKind::Raster(raster) => {
             let (exif_transform, new_size) = exif_transform(raster, size);
@@ -46,7 +48,6 @@ pub(crate) fn handle_image(
 
             if !gc.image_to_spans.contains_key(&image) {
                 gc.image_to_spans.insert(image.clone(), span);
-                gc.image_spans.insert(span);
             }
 
             surface.draw_image(image, new_size.to_krilla());

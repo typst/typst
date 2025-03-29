@@ -863,6 +863,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "getopts"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1346,13 +1355,14 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=7bcbda5#7bcbda5670fba9a35d9dc6124886dd5b2122ed77"
+source = "git+https://github.com/LaurenzV/krilla?rev=a5346e3b#a5346e3b4009c10801098fbaebe431a0193e0309"
 dependencies = [
  "base64",
  "bumpalo",
  "comemo",
  "flate2",
  "float-cmp 0.10.0",
+ "fxhash",
  "gif",
  "image-webp",
  "imagesize",
@@ -1373,7 +1383,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=7bcbda5#7bcbda5670fba9a35d9dc6124886dd5b2122ed77"
+source = "git+https://github.com/LaurenzV/krilla?rev=a5346e3b#a5346e3b4009c10801098fbaebe431a0193e0309"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2507,7 +2517,10 @@ dependencies = [
 [[package]]
 name = "subsetter"
 version = "0.2.0"
-source = "git+https://github.com/typst/subsetter?rev=172416a#172416a806246e6e9010d400d5690ca7a026e53d"
+source = "git+https://github.com/typst/subsetter?rev=460fdb6#460fdb66d6e0138b721b1ca9882faf15ce003246"
+dependencies = [
+ "fxhash",
+]
 
 [[package]]
 name = "svgtypes"
