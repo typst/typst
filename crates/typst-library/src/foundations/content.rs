@@ -547,11 +547,10 @@ impl Content {
 
 #[scope]
 impl Content {
-    /// The content's element function. This function can be used to create the
-    /// element contained in this content. It can be used in set and show
-    /// rules for the element. Can be compared with global functions to
-    /// check whether you have a specific
-    /// kind of element.
+    /// The content's element function. This function can be used to create the element
+    /// contained in this content. It can be used in set and show rules for the
+    /// element. Can be compared with global functions to check whether you have
+    /// a specific kind of element.
     #[func]
     pub fn func(&self) -> Element {
         self.elem()
@@ -882,8 +881,8 @@ impl<T: NativeElement> Deref for Packed<T> {
 
     fn deref(&self) -> &Self::Target {
         // Safety:
-        // - Packed<T> guarantees that the content trait object wraps an element of type
-        //   `T`.
+        // - Packed<T> guarantees that the content trait object wraps
+        //   an element of type `T`.
         // - This downcast works the same way as dyn Any's does. We can't reuse that one
         //   because we don't want to pay the cost for every deref.
         let elem = &*self.0.inner.elem;
@@ -897,8 +896,8 @@ impl<T: NativeElement> DerefMut for Packed<T> {
         // - Packed<T> guarantees that the content trait object wraps an element of type
         //   `T`.
         // - We have guaranteed unique access thanks to `make_mut`.
-        // - This downcast works the same way as dyn Any's does. We can't reuse that one
-        //   because we don't want to pay the cost for every deref.
+        // - This downcast works the same way as dyn Any's does. We can't reuse
+        //   that one because we don't want to pay the cost for every deref.
         let elem = &mut *self.0.make_mut().elem;
         unsafe { &mut *(elem as *mut dyn Bounds as *mut T) }
     }
