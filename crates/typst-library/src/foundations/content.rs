@@ -883,8 +883,8 @@ impl<T: NativeElement> Deref for Packed<T> {
         // Safety:
         // - Packed<T> guarantees that the content trait object wraps
         //   an element of type `T`.
-        // - This downcast works the same way as dyn Any's does. We can't reuse that one
-        //   because we don't want to pay the cost for every deref.
+        // - This downcast works the same way as dyn Any's does. We can't reuse
+        //   that one because we don't want to pay the cost for every deref.
         let elem = &*self.0.inner.elem;
         unsafe { &*(elem as *const dyn Bounds as *const T) }
     }
@@ -893,8 +893,8 @@ impl<T: NativeElement> Deref for Packed<T> {
 impl<T: NativeElement> DerefMut for Packed<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // Safety:
-        // - Packed<T> guarantees that the content trait object wraps an element of type
-        //   `T`.
+        // - Packed<T> guarantees that the content trait object wraps
+        //   an element of type `T`.
         // - We have guaranteed unique access thanks to `make_mut`.
         // - This downcast works the same way as dyn Any's does. We can't reuse
         //   that one because we don't want to pay the cost for every deref.
