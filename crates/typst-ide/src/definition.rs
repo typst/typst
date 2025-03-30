@@ -75,7 +75,10 @@ pub fn definition(
             let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()));
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
-            return Some(Definition::Span(elem.span()));
+            let labelled_at = elem.labelled_at().or(elem.span());
+            if !labelled_at.is_detached() {
+                return Some(Definition::Span(labelled_at));
+            }
         }
 
         _ => {}
