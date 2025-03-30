@@ -184,13 +184,13 @@ mod tests {
 
     #[test]
     fn test_definition_ref() {
-        test("#figure[] <hi> See @hi", -2, Side::After).must_be_at("main.typ", 1..9);
+        test("#figure[] <hi> See @hi", -2, Side::After).must_be_at("main.typ", 10..14);
         let source =
             r#"#let test1(body) = figure(body); #test1([Test1]) <fig:test1> @fig:test1"#;
-        test(source, -2, Side::After).must_be_at("main.typ", 19..31);
+        test(source, -2, Side::After).must_be_at("main.typ", 49..60);
         let source = r#"#let test1(body) = figure(body); #test1([Test1]) <fig:test1> @fig:test1
 #let test2(body) = test1(body); #test2([Test2]) <fig:test2>; @fig:test2"#;
-        test(source, -2, Side::After).must_be_at("main.typ", 19..31);
+        test(source, -2, Side::After).must_be_at("main.typ", 120..131);
     }
 
     #[test]
