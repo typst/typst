@@ -143,7 +143,7 @@ impl Content {
         self.inner.labelled_at
     }
 
-    /// Set the label of the content.
+    /// Attach a label to the content.
     pub fn labelled(mut self, label: Label, labelled_at: Span) -> Self {
         let m = self.make_mut();
         m.label = Some(label);
@@ -547,10 +547,10 @@ impl Content {
 
 #[scope]
 impl Content {
-    /// The content's element function. This function can be used to create the element
-    /// contained in this content. It can be used in set and show rules for the
-    /// element. Can be compared with global functions to check whether you have
-    /// a specific
+    /// The content's element function. This function can be used to create the
+    /// element contained in this content. It can be used in set and show
+    /// rules for the element. Can be compared with global functions to
+    /// check whether you have a specific
     /// kind of element.
     #[func]
     pub fn func(&self) -> Element {
@@ -882,10 +882,10 @@ impl<T: NativeElement> Deref for Packed<T> {
 
     fn deref(&self) -> &Self::Target {
         // Safety:
-        // - Packed<T> guarantees that the content trait object wraps
-        //   an element of type `T`.
-        // - This downcast works the same way as dyn Any's does. We can't reuse
-        //   that one because we don't want to pay the cost for every deref.
+        // - Packed<T> guarantees that the content trait object wraps an element of type
+        //   `T`.
+        // - This downcast works the same way as dyn Any's does. We can't reuse that one
+        //   because we don't want to pay the cost for every deref.
         let elem = &*self.0.inner.elem;
         unsafe { &*(elem as *const dyn Bounds as *const T) }
     }
@@ -894,11 +894,11 @@ impl<T: NativeElement> Deref for Packed<T> {
 impl<T: NativeElement> DerefMut for Packed<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // Safety:
-        // - Packed<T> guarantees that the content trait object wraps
-        //   an element of type `T`.
+        // - Packed<T> guarantees that the content trait object wraps an element of type
+        //   `T`.
         // - We have guaranteed unique access thanks to `make_mut`.
-        // - This downcast works the same way as dyn Any's does. We can't reuse
-        //   that one because we don't want to pay the cost for every deref.
+        // - This downcast works the same way as dyn Any's does. We can't reuse that one
+        //   because we don't want to pay the cost for every deref.
         let elem = &mut *self.0.make_mut().elem;
         unsafe { &mut *(elem as *mut dyn Bounds as *mut T) }
     }
