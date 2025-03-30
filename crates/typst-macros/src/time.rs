@@ -16,6 +16,7 @@ pub struct Meta {
     pub span: Option<syn::Expr>,
     pub callsite: Option<syn::Expr>,
     pub name: Option<String>,
+    pub func: Option<syn::Expr>,
 }
 
 impl Parse for Meta {
@@ -24,15 +25,28 @@ impl Parse for Meta {
             name: parse_string::<kw::name>(input)?,
             span: parse_key_value::<kw::span, syn::Expr>(input)?,
             callsite: parse_key_value::<kw::callsite, syn::Expr>(input)?,
+            func: parse_key_value::<kw::func, syn::Expr>(input)?,
         })
     }
 }
 
 fn create(meta: Meta, mut item: syn::ItemFn) -> Result<TokenStream> {
     let name = meta.name.unwrap_or_else(|| item.sig.ident.to_string());
+
+    let func = match meta.func {
+        Some(func) => {
+            if meta.callsite.is_none() {
+                bail!(func, "the `func` argument can only be used with a callsite")
+            }
+
+            quote! { Some(#func.into()) }
+        }
+        None => quote! { None },
+    };
+
     let construct = match (meta.span.as_ref(), meta.callsite.as_ref()) {
         (Some(span), Some(callsite)) => quote! {
-            with_callsite(#name, Some(#span.into_raw()), Some(#callsite.into_raw()))
+            with_callsite(#name, Some(#span.into_raw()), Some(#callsite.into_raw()), #func)
         },
         (Some(span), None) => quote! {
             with_span(#name, Some(#span.into_raw()))
