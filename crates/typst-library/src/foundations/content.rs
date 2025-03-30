@@ -101,9 +101,9 @@ impl Content {
         Self {
             inner: Arc::new(Inner {
                 label: None,
+                labelled_at: Span::detached(),
                 location: None,
                 lifecycle: SmallBitSet::new(),
-                labelled_at: Span::detached(),
                 elem: elem.into(),
             }),
             span: Span::detached(),
