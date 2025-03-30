@@ -93,20 +93,22 @@ pub fn export_json<W: Write>(
     mut source: impl FnMut(NonZeroU64) -> (String, u32),
 ) -> Result<(), String> {
     #[derive(Serialize)]
-    struct Entry {
+    struct Entry<'a> {
         name: &'static str,
         cat: &'static str,
         ph: &'static str,
         ts: f64,
         pid: u64,
         tid: u64,
-        args: Option<Args>,
+        args: Option<Args<'a>>,
     }
 
     #[derive(Serialize)]
-    struct Args {
+    struct Args<'a> {
         file: String,
         line: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        function_name: Option<&'a str>,
         #[serde(skip_serializing_if = "Option::is_none")]
         callsite_file: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -139,7 +141,13 @@ pub fn export_json<W: Write>(
                     None => (None, None),
                 };
 
-                Args { file, line, callsite_file, callsite_line }
+                Args {
+                    file,
+                    line,
+                    callsite_file,
+                    callsite_line,
+                    function_name: event.func.as_deref(),
+                }
             }),
         })
         .map_err(|e| format!("failed to serialize event: {e}"))?;
@@ -155,6 +163,7 @@ pub struct TimingScope {
     name: &'static str,
     span: Option<NonZeroU64>,
     callsite: Option<NonZeroU64>,
+    func: Option<String>,
     thread_id: u64,
 }
 
@@ -172,7 +181,7 @@ impl TimingScope {
     /// `typst-timing`).
     #[inline]
     pub fn with_span(name: &'static str, span: Option<NonZeroU64>) -> Option<Self> {
-        Self::with_callsite(name, span, None)
+        Self::with_callsite(name, span, None, None)
     }
 
     /// Create a new scope with a span if timing is enabled.
@@ -185,9 +194,10 @@ impl TimingScope {
         name: &'static str,
         span: Option<NonZeroU64>,
         callsite: Option<NonZeroU64>,
+        func: Option<String>,
     ) -> Option<Self> {
         if is_enabled() {
-            return Some(Self::new_impl(name, span, callsite));
+            return Some(Self::new_impl(name, span, callsite, func));
         }
         None
     }
@@ -197,6 +207,7 @@ impl TimingScope {
         name: &'static str,
         span: Option<NonZeroU64>,
         callsite: Option<NonZeroU64>,
+        func: Option<String>,
     ) -> Self {
         let (thread_id, timestamp) =
             THREAD_DATA.with(|data| (data.id, Timestamp::now_with(data)));
@@ -206,9 +217,10 @@ impl TimingScope {
             name,
             span,
             callsite,
+            func: func.clone(),
             thread_id,
         });
-        Self { name, span, callsite: None, thread_id }
+        Self { name, span, callsite: None, thread_id, func }
     }
 }
 
@@ -222,6 +234,7 @@ impl Drop for TimingScope {
             span: self.span,
             callsite: self.callsite,
             thread_id: self.thread_id,
+            func: std::mem::take(&mut self.func),
         });
     }
 }
@@ -238,6 +251,8 @@ struct Event {
     span: Option<NonZeroU64>,
     /// The raw value of the callsite span of the code that this event was recorded in.
     callsite: Option<NonZeroU64>,
+    /// The function being called (if any).
+    func: Option<String>,
     /// The thread ID of this event.
     thread_id: u64,
 }
