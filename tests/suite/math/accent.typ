@@ -42,3 +42,11 @@ $tilde(U, size: #1.1em), x^tilde(U, size: #1.1em), sscript(tilde(U, size: #1.1em
   macron(bb(#c)), dot(cal(#c)), diaer(upright(#c)), breve(bold(#c)),
   circle(bold(upright(#c))), caron(upright(sans(#c))), arrow(bold(frak(#c)))$
 $test(i) \ test(j)$
+
+--- math-accent-dotless-disabled ---
+// Test disabling the dotless glyph variants.
+$hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #false)$
+
+--- math-accent-dotless-set-rule ---
+#set math.accent(dotless: false)
+$ hat(i) $
