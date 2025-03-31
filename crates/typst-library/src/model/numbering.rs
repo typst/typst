@@ -497,7 +497,6 @@ impl NumberingKind {
                 ],
                 n,
             ),
-            Self::Symbol => symbolic(['*', '†', '‡', '§', '¶', '‖'], n),
             Self::Hebrew => additive(
                 [
                     ("י׳", 10000),
@@ -655,6 +654,7 @@ impl NumberingKind {
             Self::BengaliNumber => {
                 numeric(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'], n)
             }
+            Self::Symbol => symbolic(['*', '†', '‡', '§', '¶', '‖'], n),
         }
     }
 }
