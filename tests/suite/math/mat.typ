@@ -256,9 +256,16 @@ $ mat(delim: #(none, "["), 1, 2; 3, 4) $
 $ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $
 
 --- math-mat-linebreaks ---
-// Unlike cases and vectors, linebreaks are discarded in matrices. This
-// behaviour may change in the future.
+// Warning: 20-29 linebreaks are ignored in cells
+// Hint: 20-29 use commas instead to separate each line
 $ mat(a; b; c) mat(a \ b \ c) $
+
+--- math-mat-vec-cases-unity ---
+// Test that matrices, vectors, and cases are all laid out the same.
+$ mat(z_(n_p); a^2)
+  vec(z_(n_p), a^2) 
+  cases(reverse: #true, delim: \(, z_(n_p), a^2)
+  cases(delim: \(, z_(n_p), a^2) $
 
 --- issue-1617-mat-align ---
 #set page(width: auto)
