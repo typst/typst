@@ -46,3 +46,7 @@ $test(i) \ test(j)$
 --- math-accent-dotless-disabled ---
 // Test disabling the dotless glyph variants.
 $hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #false)$
+
+--- math-accent-dotless-set-rule ---
+#set math.accent(dotless: false)
+$ hat(i) $
