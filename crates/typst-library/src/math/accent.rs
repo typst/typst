@@ -128,7 +128,7 @@ macro_rules! accents {
                     accent = accent.with_size(size);
                 }
                 if let Some(dotless) = dotless {
-                    accent = accent.with_dotless(dotless)
+                    accent = accent.with_dotless(dotless);
                 }
                 accent.pack()
             }
