@@ -829,7 +829,7 @@ impl Array {
         ///
         /// If this function does not order the elements properly (e.g., by
         /// returning `{false}` for both `{(x, y)}` and `{(y, x)}`), the
-        /// resulting array will be unspecified order.
+        /// resulting array will be in unspecified order.
         ///
         /// When used together with `key`, `by` will be passed the keys instead
         /// of the elements.
