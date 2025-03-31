@@ -680,6 +680,10 @@ pub struct CellGrid<'a> {
     pub headers: Vec<Repeatable<Header>>,
     /// The repeatable footers of this grid.
     pub footers: Vec<Repeatable<Footer>>,
+    /// Footers sorted by order of when they start repeating, or should
+    /// otherwise be laid out for the first time (even if only once, for
+    /// non-repeating footers).
+    pub sorted_footers: Vec<Repeatable<Footer>>,
     /// Whether this grid has gutters.
     pub has_gutter: bool,
 }
@@ -748,6 +752,9 @@ impl<'a> CellGrid<'a> {
             cols.pop();
             rows.pop();
         }
+
+        let footers: Vec<Repeatable<Footer>> = footer.into_iter().collect();
+        let sorted_footers = simulate_footer_repetition(&footers);
 
         Self {
             cols,
@@ -2393,4 +2400,51 @@ fn skip_auto_index_through_fully_merged_rows(
             *auto_index += columns;
         }
     }
+}
+
+/// Generates a vector where all footers are sorted ahead of time by the points
+/// at which they start repeating. When a new footer is about to be laid out,
+/// conflicting footers which come before it in this vector must stop
+/// repeating.
+fn simulate_footer_repetition(
+    footers: &[Repeatable<Footer>],
+) -> Vec<&Repeatable<Footer>> {
+    if footers.len() <= 1 {
+        return footers.iter().collect();
+    }
+
+    let mut ordered_footers = Vec::with_capacity(footers.len());
+    let mut repeating_footers: Vec<&Repeatable<Footer>> = vec![];
+
+    // Read footers in reverse, using the same algorithm as headers to
+    // determine when a footer starts and stops repeating, but going from grid
+    // end to start. When it stops repeating, that's when it will start
+    // repeating in proper layout (from start to end), whereas it starts
+    // repeating here when it should stop repeating in practice. So,
+    // effectively, repeated footer layout is the same as for headers, but
+    // reversed, which we take advantage of by doing it reversed and then
+    // reversing it all back later.
+    for footer in footers.iter().rev() {
+        // Keep only lower level footers. Assume sorted by increasing levels.
+        let stopped_repeating = repeating_footers
+            .drain(repeating_footers.partition_point(|f| f.level < footer.level)..);
+
+        // If they stopped repeating here, that's when they will start
+        // repeating. We save them in reverse of the reverse order so they stay
+        // sorted by increasing levels when we reverse `ordered_footers` later.
+        ordered_footers.extend(stopped_repeating.rev());
+
+        if footer.repeated {
+            // Start repeating now. Vector stays sorted by increasing levels,
+            // as any higher-level footers stopped repeating now.
+            repeating_footers.push(footer);
+        } else {
+            // Immediately finishes repeating.
+            ordered_footers.push(footer);
+        }
+    }
+
+    ordered_footers.reverse();
+
+    ordered_footers
 }
