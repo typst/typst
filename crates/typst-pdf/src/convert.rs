@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
-use ecow::EcoVec;
+use ecow::{eco_format, EcoVec};
 use krilla::annotation::Annotation;
-use krilla::configure::{Configuration, ValidationError};
+use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
@@ -12,7 +12,7 @@ use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
-use typst_library::diag::{bail, error, SourceResult};
+use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
 use typst_library::foundations::NativeElement;
 use typst_library::introspection::Location;
 use typst_library::layout::{
@@ -333,235 +333,255 @@ fn finish(
 ) -> SourceResult<Vec<u8>> {
     let validator = configuration.validator();
 
-    let get_span = |loc: Option<krilla::surface::Location>| {
-        loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
-            .unwrap_or(Span::detached())
-    };
-
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
             KrillaError::Font(f, s) => {
                 let font_str = display_font(gc.fonts_backward.get(&f).unwrap());
-                bail!(Span::detached(), "failed to process font {font_str}: {s}";
+                bail!(
+                    Span::detached(),
+                    "failed to process font {font_str}: {s}";
                     hint: "make sure the font is valid";
                     hint: "the used font might be unsupported by Typst"
                 );
             }
             KrillaError::Validation(ve) => {
-                let prefix = format!("{} error:", validator.as_str());
-
-                let errors = ve.iter().map(|e| {
-                    match e {
-                        ValidationError::TooLongString => {
-                            error!(Span::detached(), "{prefix} a PDF string is longer than \
-                            32767 characters";
-                            hint: "ensure title and author names are short enough")
-                        }
-                        // Should in theory never occur, as krilla always trims font names.
-                        ValidationError::TooLongName => {
-                            error!(Span::detached(), "{prefix} a PDF name is longer than \
-                            127 characters";
-                            hint: "perhaps a font name is too long")
-                        }
-                        ValidationError::TooLongArray => {
-                            error!(Span::detached(), "{prefix} a PDF array is longer than \
-                            8191 elements";
-                            hint: "this can happen if you have a very long text in a single line")
-                        }
-                        ValidationError::TooLongDictionary => {
-                            error!(Span::detached(), "{prefix} a PDF dictionary has more than \
-                            4095 entries";
-                            hint: "try reducing the complexity of your document")
-                        }
-                        ValidationError::TooLargeFloat => {
-                            error!(Span::detached(), "{prefix} a PDF floating point number is larger \
-                            than the allowed limit";
-                            hint: "try exporting using a higher PDF version")
-                        }
-                        ValidationError::TooManyIndirectObjects => {
-                            error!(Span::detached(), "{prefix} the PDF has too many indirect objects";
-                            hint: "reduce the size of your document")
-                        }
-                        // Can only occur if we have 27+ nested clip paths
-                        ValidationError::TooHighQNestingLevel => {
-                            error!(Span::detached(), "{prefix} the PDF has too high q nesting";
-                            hint: "reduce the number of nested containers")
-                        }
-                        ValidationError::ContainsPostScript(loc) => {
-                            error!(get_span(*loc), "{prefix} the PDF contains PostScript code";
-                            hint: "conic gradients are not supported in this PDF standard")
-                        }
-                        ValidationError::MissingCMYKProfile => {
-                            error!(Span::detached(), "{prefix} the PDF is missing a CMYK profile";
-                            hint: "CMYK colors are not yet supported in this export mode")
-                        }
-                        ValidationError::ContainsNotDefGlyph(f, loc, text) => {
-                            let span = get_span(*loc);
-                            let font_str = display_font(gc.fonts_backward.get(f).unwrap());
-
-                            error!(span, "{prefix} the text '{text}' cannot be displayed \
-                            using {font_str}";
-                                hint: "try using a different font"
-                            )
-
-                        }
-                        ValidationError::InvalidCodepointMapping(_, _, cp, loc) => {
-                            let code_point = cp.map(|c| format!("{:#06x}", c as u32));
-                            if let Some(cp) = code_point {
-                                let msg = if loc.is_some() {
-                                    "the PDF contains text with"
-                                } else {
-                                    "the text contains"
-                                };
-                                error!(get_span(*loc), "{prefix} {msg} the disallowed \
-                                codepoint {cp}")
-                            }   else {
-                                // I think this code path is in theory unreachable,
-                                // but just to be safe.
-                                let msg = if loc.is_some() { "the PDF contains text with missing codepoints" } else { "the text was not mapped to a code point" };
-                                error!(get_span(*loc), "{prefix} {msg}";
-                                hint: "for complex scripts like indic or arabic, it might \
-                                not be possible to produce a compliant document")
-                            }
-                        }
-                        ValidationError::UnicodePrivateArea(_, _, c, loc) => {
-                            let code_point = format!("{:#06x}", *c as u32);
-                            let msg = if loc.is_some() { "the PDF" } else { "the text" };
-
-                            error!(get_span(*loc), "{prefix} {msg} contains the codepoint \
-                                {code_point}";
-                                hint: "codepoints from the Unicode private area are \
-                                forbidden in this export mode")
-                        }
-                        ValidationError::Transparency(loc) => {
-                            let span = get_span(*loc);
-                            let is_img = gc.image_spans.contains(&span);
-                            let hint1 = "export using a different standard \
-                            that supports transparency";
-
-                            if loc.is_some() {
-                                if is_img {
-                                    error!(get_span(*loc), "{prefix} the image contains transparency";
-                                        hint: "convert the image to a non-transparent one";
-                                        hint: "you might have to convert SVGs into a \
-                                        non-transparent bitmap image";
-                                        hint: "{hint1}"
-                                    )
-                                }   else {
-                                    error!(get_span(*loc), "{prefix} the used fill or stroke has \
-                                    transparency";
-                                        hint: "don't use colors with transparency in \
-                                        this export mode";
-                                        hint: "{hint1}"
-                                    )
-                                }
-                            }   else {
-                                error!(get_span(*loc), "{prefix} the PDF contains transparency";
-                                        hint: "convert any images with transparency into \
-                                        non-transparent ones";
-                                        hint: "don't use fills or strokes with transparent colors";
-                                        hint: "{hint1}"
-                                    )
-                            }
-                        }
-                        ValidationError::ImageInterpolation(loc) => {
-                            let span = get_span(*loc);
-
-                            if loc.is_some() {
-                                error!(span, "{prefix} the image has smooth scaling";
-                                hint: "set the `scaling` attribute to `pixelated`")
-                            }   else {
-                                error!(span, "{prefix} an image in the PDF has smooth scaling";
-                                hint: "set the `scaling` attribute of all images \
-                                to `pixelated`")
-                            }
-                        }
-                        ValidationError::EmbeddedFile(e, s) => {
-                            // We always set the span for embedded files, so it cannot be detached.
-                            let span = get_span(*s);
-                            match e {
-                                EmbedError::Existence => {
-                                    error!(span, "{prefix} document contains an embedded file";
-                                        hint: "embedded files are not supported in this \
-                                        export mode"
-                                    )
-                                }
-                                EmbedError::MissingDate => {
-                                    error!(span, "{prefix} document date is missing";
-                                        hint: "the document date needs to be set when \
-                                        embedding files"
-                                    )
-                                }
-                                EmbedError::MissingDescription => {
-                                    error!(span, "{prefix} the file description is missing")
-                                }
-                                EmbedError::MissingMimeType => {
-                                    error!(span, "{prefix} the file mime type is missing")
-                                }
-                            }
-                        }
-                        // The below errors cannot occur yet, only once Typst supports full PDF/A
-                        // and PDF/UA.
-                        // But let's still add a message just to be on the safe side.
-                        ValidationError::MissingAnnotationAltText => {
-                            error!(Span::detached(), "{prefix} missing annotation alt text";
-                                hint: "please report this as a bug"
-                            )
-                        }
-                        ValidationError::MissingAltText => {
-                            error!(Span::detached(), "{prefix} missing alt text";
-                                hint: "make sure your images and formulas have alt text"
-                            )
-                        }
-                        ValidationError::NoDocumentLanguage => {
-                            error!(Span::detached(), "{prefix} missing document language";
-                                hint: "set the language of the document"
-                            )
-                        }
-                        // Needs to be set by typst-pdf.
-                        ValidationError::MissingHeadingTitle => {
-                            error!(Span::detached(), "{prefix} missing heading title";
-                                hint: "please report this as a bug"
-                            )
-                        }
-                        ValidationError::MissingDocumentOutline => {
-                            error!(Span::detached(), "{prefix} missing document outline";
-                                hint: "please report this as a bug"
-                            )
-                        }
-                        ValidationError::MissingTagging => {
-                            error!(Span::detached(), "{prefix} missing document tags";
-                                hint: "please report this as a bug"
-                            )
-                        }
-                        ValidationError::NoDocumentTitle => {
-                            error!(Span::detached(), "{prefix} missing document title";
-                                hint: "set the title of the document"
-                            )
-                        }
-                        ValidationError::MissingDocumentDate => {
-                            error!(Span::detached(), "{prefix} missing document date";
-                                hint: "set the date of the document"
-                            )
-                        }
-                    }
-                })
+                let errors = ve
+                    .iter()
+                    .map(|e| convert_error(&gc, validator, e))
                     .collect::<EcoVec<_>>();
-
                 Err(errors)
             }
             KrillaError::Image(_, loc) => {
-                let span = get_span(loc);
+                let span = to_span(loc);
                 bail!(span, "failed to process image");
             }
             KrillaError::SixteenBitImage(image, _) => {
                 let span = gc.image_to_spans.get(&image).unwrap();
-                bail!(*span, "16 bit images are not supported in this export mode";
-                    hint: "convert the image to 8 bit instead")
+                bail!(
+                    *span, "16 bit images are not supported in this export mode";
+                    hint: "convert the image to 8 bit instead"
+                )
             }
         },
     }
+}
+
+/// Converts a krilla error into a Typst error.
+fn convert_error(
+    gc: &GlobalContext,
+    validator: Validator,
+    error: &ValidationError,
+) -> SourceDiagnostic {
+    let prefix = eco_format!("{} error:", validator.as_str());
+    match error {
+        ValidationError::TooLongString => error!(
+            Span::detached(),
+            "{prefix} a PDF string is longer than 32767 characters";
+            hint: "ensure title and author names are short enough"
+        ),
+        // Should in theory never occur, as krilla always trims font names.
+        ValidationError::TooLongName => error!(
+            Span::detached(),
+            "{prefix} a PDF name is longer than 127 characters";
+            hint: "perhaps a font name is too long"
+        ),
+
+        ValidationError::TooLongArray => error!(
+            Span::detached(),
+            "{prefix} a PDF array is longer than 8191 elements";
+            hint: "this can happen if you have a very long text in a single line"
+        ),
+        ValidationError::TooLongDictionary => error!(
+            Span::detached(),
+            "{prefix} a PDF dictionary has more than 4095 entries";
+            hint: "try reducing the complexity of your document"
+        ),
+        ValidationError::TooLargeFloat => error!(
+            Span::detached(),
+            "{prefix} a PDF floating point number is larger than the allowed limit";
+            hint: "try exporting using a higher PDF version"
+        ),
+        ValidationError::TooManyIndirectObjects => error!(
+            Span::detached(),
+            "{prefix} the PDF has too many indirect objects";
+            hint: "reduce the size of your document"
+        ),
+        // Can only occur if we have 27+ nested clip paths
+        ValidationError::TooHighQNestingLevel => error!(
+            Span::detached(),
+            "{prefix} the PDF has too high q nesting";
+            hint: "reduce the number of nested containers"
+        ),
+        ValidationError::ContainsPostScript(loc) => error!(
+            to_span(*loc),
+            "{prefix} the PDF contains PostScript code";
+            hint: "conic gradients are not supported in this PDF standard"
+        ),
+        ValidationError::MissingCMYKProfile => error!(
+            Span::detached(),
+            "{prefix} the PDF is missing a CMYK profile";
+            hint: "CMYK colors are not yet supported in this export mode"
+        ),
+        ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
+            to_span(*loc),
+            "{prefix} the text '{text}' cannot be displayed using {}",
+            display_font(gc.fonts_backward.get(f).unwrap());
+            hint: "try using a different font"
+        ),
+        ValidationError::InvalidCodepointMapping(_, _, cp, loc) => {
+            if let Some(c) = cp.map(|c| eco_format!("{:#06x}", c as u32)) {
+                let msg = if loc.is_some() {
+                    "the PDF contains text with"
+                } else {
+                    "the text contains"
+                };
+                error!(to_span(*loc), "{prefix} {msg} the disallowed codepoint {c}")
+            } else {
+                // I think this code path is in theory unreachable,
+                // but just to be safe.
+                let msg = if loc.is_some() {
+                    "the PDF contains text with missing codepoints"
+                } else {
+                    "the text was not mapped to a code point"
+                };
+                error!(
+                    to_span(*loc),
+                    "{prefix} {msg}";
+                    hint: "for complex scripts like indic or arabic, it might \
+                           not be possible to produce a compliant document"
+                )
+            }
+        }
+        ValidationError::UnicodePrivateArea(_, _, c, loc) => {
+            let code_point = eco_format!("{:#06x}", *c as u32);
+            let msg = if loc.is_some() { "the PDF" } else { "the text" };
+            error!(
+                to_span(*loc),
+                "{prefix} {msg} contains the codepoint {code_point}";
+                hint: "codepoints from the Unicode private area are \
+                       forbidden in this export mode"
+            )
+        }
+        ValidationError::Transparency(loc) => {
+            let span = to_span(*loc);
+            let hint1 = "export using a different standard that supports transparency";
+            if loc.is_some() {
+                if gc.image_spans.contains(&span) {
+                    error!(
+                        span, "{prefix} the image contains transparency";
+                        hint: "convert the image to a non-transparent one";
+                        hint: "you might have to convert SVGs into a \
+                               non-transparent bitmap image";
+                        hint: "{hint1}"
+                    )
+                } else {
+                    error!(
+                        span, "{prefix} the used fill or stroke has transparency";
+                        hint: "don't use colors with transparency in \
+                               this export mode";
+                        hint: "{hint1}"
+                    )
+                }
+            } else {
+                error!(
+                    span, "{prefix} the PDF contains transparency";
+                    hint: "convert any images with transparency into \
+                           non-transparent ones";
+                    hint: "don't use fills or strokes with transparent colors";
+                    hint: "{hint1}"
+                )
+            }
+        }
+        ValidationError::ImageInterpolation(loc) => {
+            let span = to_span(*loc);
+            if loc.is_some() {
+                error!(
+                    span, "{prefix} the image has smooth scaling";
+                    hint: "set the `scaling` attribute to `pixelated`"
+                )
+            } else {
+                error!(
+                    span, "{prefix} an image in the PDF has smooth scaling";
+                    hint: "set the `scaling` attribute of all images to `pixelated`"
+                )
+            }
+        }
+        ValidationError::EmbeddedFile(e, s) => {
+            // We always set the span for embedded files, so it cannot be detached.
+            let span = to_span(*s);
+            match e {
+                EmbedError::Existence => {
+                    error!(
+                        span, "{prefix} document contains an embedded file";
+                        hint: "embedded files are not supported in this export mode"
+                    )
+                }
+                EmbedError::MissingDate => {
+                    error!(
+                        span, "{prefix} document date is missing";
+                        hint: "the document date needs to be set when \
+                               embedding files"
+                    )
+                }
+                EmbedError::MissingDescription => {
+                    error!(span, "{prefix} the file description is missing")
+                }
+                EmbedError::MissingMimeType => {
+                    error!(span, "{prefix} the file mime type is missing")
+                }
+            }
+        }
+        // The below errors cannot occur yet, only once Typst supports full PDF/A
+        // and PDF/UA. But let's still add a message just to be on the safe side.
+        ValidationError::MissingAnnotationAltText => error!(
+            Span::detached(),
+            "{prefix} missing annotation alt text";
+            hint: "please report this as a bug"
+        ),
+        ValidationError::MissingAltText => error!(
+            Span::detached(),
+            "{prefix} missing alt text";
+            hint: "make sure your images and formulas have alt text"
+        ),
+        ValidationError::NoDocumentLanguage => error!(
+            Span::detached(),
+            "{prefix} missing document language";
+            hint: "set the language of the document"
+        ),
+        // Needs to be set by typst-pdf.
+        ValidationError::MissingHeadingTitle => error!(
+            Span::detached(),
+            "{prefix} missing heading title";
+            hint: "please report this as a bug"
+        ),
+        ValidationError::MissingDocumentOutline => error!(
+            Span::detached(),
+            "{prefix} missing document outline";
+            hint: "please report this as a bug"
+        ),
+        ValidationError::MissingTagging => error!(
+            Span::detached(),
+            "{prefix} missing document tags";
+            hint: "please report this as a bug"
+        ),
+        ValidationError::NoDocumentTitle => error!(
+            Span::detached(),
+            "{prefix} missing document title";
+            hint: "set the title of the document"
+        ),
+        ValidationError::MissingDocumentDate => error!(
+            Span::detached(),
+            "{prefix} missing document date";
+            hint: "set the date of the document"
+        ),
+    }
+}
+
+/// Convert a krilla location to a span.
+fn to_span(loc: Option<krilla::surface::Location>) -> Span {
+    loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
+        .unwrap_or(Span::detached())
 }
 
 fn collect_named_destinations(
