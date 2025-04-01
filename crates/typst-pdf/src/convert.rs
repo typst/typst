@@ -400,7 +400,7 @@ fn convert_error(
         ValidationError::TooLargeFloat => error!(
             Span::detached(),
             "{prefix} a PDF floating point number is larger than the allowed limit";
-            hint: "try exporting using a higher PDF version"
+            hint: "try exporting with a higher PDF version"
         ),
         ValidationError::TooManyIndirectObjects => error!(
             Span::detached(),
@@ -448,8 +448,8 @@ fn convert_error(
                 error!(
                     to_span(*loc),
                     "{prefix} {msg}";
-                    hint: "for complex scripts like indic or arabic, it might \
-                           not be possible to produce a compliant document"
+                    hint: "for complex scripts like Arabic, it might not be \
+                           possible to produce a compliant document"
                 )
             }
         }
@@ -465,30 +465,28 @@ fn convert_error(
         }
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
-            let hint1 = "export using a different standard that supports transparency";
+            let hint1 = "try exporting with a different standard that \
+                         supports transparency";
             if loc.is_some() {
                 if gc.image_spans.contains(&span) {
                     error!(
                         span, "{prefix} the image contains transparency";
-                        hint: "convert the image to a non-transparent one";
-                        hint: "you might have to convert SVGs into a \
-                               non-transparent bitmap image";
-                        hint: "{hint1}"
+                        hint: "{hint1}";
+                        hint: "or convert the image to a non-transparent one";
+                        hint: "you might have to convert SVGs into \
+                               non-transparent bitmap images"
                     )
                 } else {
                     error!(
                         span, "{prefix} the used fill or stroke has transparency";
-                        hint: "don't use colors with transparency in \
-                               this export mode";
-                        hint: "{hint1}"
+                        hint: "{hint1}";
+                        hint: "or don't use colors with transparency in \
+                               this export mode"
                     )
                 }
             } else {
                 error!(
                     span, "{prefix} the PDF contains transparency";
-                    hint: "convert any images with transparency into \
-                           non-transparent ones";
-                    hint: "don't use fills or strokes with transparent colors";
                     hint: "{hint1}"
                 )
             }
@@ -520,8 +518,8 @@ fn convert_error(
                 EmbedError::MissingDate => {
                     error!(
                         span, "{prefix} document date is missing";
-                        hint: "the document date needs to be set when \
-                               embedding files"
+                        hint: "the document must have a date when embedding files";
+                        hint: "`set document(date: none)` must not be used in this case"
                     )
                 }
                 EmbedError::MissingDescription => {
@@ -542,7 +540,7 @@ fn convert_error(
         ValidationError::MissingAltText => error!(
             Span::detached(),
             "{prefix} missing alt text";
-            hint: "make sure your images and formulas have alt text"
+            hint: "make sure your images and equations have alt text"
         ),
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
