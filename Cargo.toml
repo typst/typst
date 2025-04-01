@@ -71,11 +71,12 @@ if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kamadak-exif = "0.6"
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "14756f7", default-features = false, features = ["raster-images", "comemo", "rayon"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "14756f7" }
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 memchr = "2"
-miniz_oxide = "0.8"
 native-tls = "0.2"
 notify = "8"
 once_cell = "1"
@@ -113,7 +114,6 @@ siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
 subsetter = "0.2"
-svg2pdf = "0.13"
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
@@ -140,7 +140,6 @@ wasmi = "0.40.0"
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
-xmp-writer = "0.3.1"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
 zip = { version = "2.5", default-features = false, features = ["deflate"] }
