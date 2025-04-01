@@ -37,7 +37,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     }
 
     if let Some(ident) = gc.options.ident.custom() {
-        metadata = metadata.subject(ident.to_string());
+        metadata = metadata.document_id(ident.to_string());
     }
 
     // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
