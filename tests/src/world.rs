@@ -67,7 +67,7 @@ impl World for TestWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(self.base.fonts[index].clone())
+        self.base.fonts.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {

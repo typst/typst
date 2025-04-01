@@ -210,7 +210,9 @@ impl World for SystemWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        self.fonts[index].get()
+        // comemo's validation may invoke this function with an invalid index. This is
+        // impossible in typst-cli but possible if a custom tool mutates the fonts.
+        self.fonts.get(index)?.get()
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
