@@ -151,5 +151,5 @@ The number 123.
 a
 
 --- empty-text-font-array ---
-// Error: 17-19 font fallback list should not be empty
+// Error: 17-19 font fallback list must not be empty
 #set text(font: ())

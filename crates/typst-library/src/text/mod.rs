@@ -899,7 +899,7 @@ pub struct FontList(pub Vec<FontFamily>);
 impl FontList {
     pub fn new(fonts: Vec<FontFamily>) -> StrResult<Self> {
         if fonts.is_empty() {
-            bail!("font fallback list should not be empty")
+            bail!("font fallback list must not be empty")
         } else {
             Ok(Self(fonts))
         }
