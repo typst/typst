@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::Tracked;
+use comemo::{Track, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -20,7 +20,7 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::engine::{Engine, Sink};
 use crate::foundations::{
     elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
     OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
@@ -1003,9 +1003,10 @@ impl ElemRenderer<'_> {
             self.span,
             EvalMode::Math,
             Scope::new(),
+            // TODO: propagate warnings
+            Sink::new().track_mut(),
         )
-        // TODO: propagate warnings
-        .map(|(result, _sink)| Value::display(result))
+        .map(Value::display)
         .unwrap_or_else(|_| TextElem::packed(math).spanned(self.span))
     }
 

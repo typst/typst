@@ -2,6 +2,7 @@ use comemo::Track;
 use ecow::{eco_format, EcoString};
 use serde::Serialize;
 use typst::diag::{bail, HintedStrResult, StrResult, Warned};
+use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::layout::PagedDocument;
 use typst::syntax::Span;
@@ -62,9 +63,9 @@ fn retrieve(
         Span::detached(),
         EvalMode::Code,
         Scope::default(),
+        // TODO: propagate warnings
+        Sink::new().track_mut(),
     )
-    // TODO: propagate warnings
-    .map(|(result, _sink)| result)
     .map_err(|errors| {
         let mut message = EcoString::from("failed to evaluate selector");
         for (i, error) in errors.into_iter().enumerate() {

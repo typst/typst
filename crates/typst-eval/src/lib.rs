@@ -105,7 +105,8 @@ pub fn eval_string(
     span: Span,
     mode: EvalMode,
     scope: Scope,
-) -> SourceResult<(Value, Sink)> {
+    sink: TrackedMut<Sink>,
+) -> SourceResult<Value> {
     let mut root = match mode {
         EvalMode::Code => parse_code(string),
         EvalMode::Markup => parse(string),
@@ -121,7 +122,6 @@ pub fn eval_string(
     }
 
     // Prepare the engine.
-    let mut sink = Sink::new();
     let introspector = Introspector::default();
     let traced = Traced::default();
     let engine = Engine {
@@ -129,7 +129,7 @@ pub fn eval_string(
         world,
         introspector: introspector.track(),
         traced: traced.track(),
-        sink: sink.track_mut(),
+        sink,
         route: Route::default(),
     };
 
@@ -158,7 +158,7 @@ pub fn eval_string(
         bail!(flow.forbidden());
     }
 
-    Ok((output, sink))
+    Ok(output)
 }
 
 /// Evaluate an expression.

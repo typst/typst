@@ -59,7 +59,8 @@ routines! {
         span: Span,
         mode: EvalMode,
         scope: Scope,
-    ) -> SourceResult<(Value, Sink)>
+        sink: TrackedMut<Sink>,
+    ) -> SourceResult<Value>
 
     /// Call the closure in the context with the arguments.
     fn eval_closure(
