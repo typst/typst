@@ -359,6 +359,12 @@
 #test((2, 1, 3, 10, 5, 8, 6, -7, 2).sorted(), (-7, 1, 2, 2, 3, 5, 6, 8, 10))
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x), (-10, -7, -5, 1, 2, 2, 3, 6, 8))
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x * x), (1, 2, 2, 3, -5, 6, -7, 8, -10))
+#test(("I", "the", "hi", "text").sorted(by: (x, y) => x.len() < y.len()), ("I", "hi", "the", "text"))
+#test(("I", "the", "hi", "text").sorted(key: x => x.len(), by: (x, y) => y < x), ("text", "the", "hi", "I"))
+
+--- array-sorted-invalid-by-function ---
+// Error: 2-39 expected boolean from `by` function, got string
+#(1, 2, 3).sorted(by: (_, _) => "hmm")
 
 --- array-sorted-key-function-positional-1 ---
 // Error: 12-18 unexpected argument
