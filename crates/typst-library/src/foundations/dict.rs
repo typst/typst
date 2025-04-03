@@ -272,7 +272,7 @@ impl Dict {
         self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        /// The function to apply to each key-value pair. 
+        /// The function to apply to each key-value pair.
         /// The function can either take a single parameter (receiving a pair as array of length 2),
         /// or two parameters (receiving key and value separately).
         mapper: Func,
@@ -287,14 +287,13 @@ impl Dict {
         for (key, value) in self {
             // choose how to pass parameters based on the function signature
             let mapped = if use_two_args {
-                mapper.call(engine, context, [
-                    Value::Str(key.clone()),
-                    value.clone(),
-                ])?
+                mapper.call(engine, context, [Value::Str(key.clone()), value.clone()])?
             } else {
-                mapper.call(engine, context, [
-                    Value::Array(array![Value::Str(key.clone()), value]),
-                ])?
+                mapper.call(
+                    engine,
+                    context,
+                    [Value::Array(array![Value::Str(key.clone()), value])],
+                )?
             };
 
             // check if the result is a dictionary key-value pair
@@ -308,7 +307,7 @@ impl Dict {
                     }
                 }
             }
-            
+
             // if the result is not a key-value pair, switch the result type to array
             if is_dict {
                 is_dict = false;
@@ -317,7 +316,7 @@ impl Dict {
                     array_result.push(Value::Array(array![Value::Str(k), v]));
                 }
             }
-            
+
             array_result.push(mapped);
         }
 
