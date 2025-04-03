@@ -436,7 +436,10 @@ impl Outlinable for Packed<FigureElem> {
                 || self.numbering().is_some())
     }
 
-    fn prefix(&self, numbers: Content) -> Content {
+    fn prefix(&self, numbers: Content, add_supplement: Smart<bool>) -> Content {
+        if add_supplement == Smart::Custom(false) {
+            return numbers;
+        }
         let supplement = self.supplement();
         if !supplement.is_empty() {
             supplement + TextElem::packed('\u{a0}') + numbers

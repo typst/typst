@@ -364,8 +364,17 @@ impl Outlinable for Packed<HeadingElem> {
         (**self).resolve_level(StyleChain::default())
     }
 
-    fn prefix(&self, numbers: Content) -> Content {
-        numbers
+    fn prefix(&self, numbers: Content, add_supplement: Smart<bool>) -> Content {
+        if add_supplement == Smart::Custom(true) {
+            let supplement = self.supplement();
+            if !supplement.is_empty() {
+                supplement + TextElem::packed('\u{a0}') + numbers
+            } else {
+                numbers
+            }
+        } else {
+            numbers
+        }
     }
 
     fn body(&self) -> Content {
