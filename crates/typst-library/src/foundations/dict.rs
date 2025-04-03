@@ -264,8 +264,8 @@ impl Dict {
     ///
     /// ```example
     /// #let prices = (apples: 2, oranges: 3, bananas: 1.5)
-    /// #prices.map(key => key.len()) \
-    /// #prices.map((key, price) => (key, price * 1.1))
+    /// #prices.map(pair => pair.at(0).len())
+    /// #prices.map((key, value) => (key, value * 1.1))
     /// ```
     #[func]
     pub fn map(
@@ -275,6 +275,7 @@ impl Dict {
         /// The function to apply to each key-value pair.
         /// The function can either take a single parameter (receiving a pair as array of length 2),
         /// or two parameters (receiving key and value separately).
+        /// Parameters exceeding two will be ignored.
         mapper: Func,
     ) -> SourceResult<Value> {
         let mut dict_result = IndexMap::new();
@@ -282,18 +283,42 @@ impl Dict {
         let mut is_dict = true;
 
         // try to check the number of parameters, if not, use array form
-        let use_two_args = mapper.params().is_some_and(|params| params.len() >= 2);
+        let mut first_pair = true;
+        let mut use_single_arg = false;
 
         for (key, value) in self {
-            // choose how to pass parameters based on the function signature
-            let mapped = if use_two_args {
-                mapper.call(engine, context, [Value::Str(key.clone()), value.clone()])?
-            } else {
+            let mapped = if first_pair {
+                // try two calling ways for the first pair
+                first_pair = false;
+
+                // try to call with two parameters
+                let result = mapper.call(
+                    engine,
+                    context,
+                    [Value::Str(key.clone()), value.clone()],
+                );
+
+                // if failed, try to call with one parameter
+                if result.is_err() {
+                    use_single_arg = true;
+                    mapper.call(
+                        engine,
+                        context,
+                        [Value::Array(array![Value::Str(key.clone()), value])],
+                    )?
+                } else {
+                    result?
+                }
+            } else if use_single_arg {
+                // try to call with one parameter
                 mapper.call(
                     engine,
                     context,
                     [Value::Array(array![Value::Str(key.clone()), value])],
                 )?
+            } else {
+                // try to call with two parameters
+                mapper.call(engine, context, [Value::Str(key.clone()), value.clone()])?
             };
 
             // check if the result is a dictionary key-value pair

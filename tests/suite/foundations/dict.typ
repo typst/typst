@@ -29,13 +29,13 @@
 
 // test map return new dict
 #test(
-  dict.map(((key, value)) => (key, value * 2)),
+  dict.map((key, value) => (key, value * 2)),
   (a: 2, b: 4, c: 6)
 )
 
 // test map empty dict
 #test(
-  (:).map(((key, value)) => (key, value * 2)),
+  (:).map((key, value) => (key, value * 2)),
   (:)
 )
 
@@ -47,7 +47,7 @@
 
 // test map return array(different return type)
 #test(
-  dict.map(((key, value)) => if value > 1 { (key, value * 2) } else { "key smaller than 1: " + key }),
+  dict.map((key, value) => if value > 1 { (key, value * 2) } else { "key smaller than 1: " + key }),
   ("key smaller than 1: a", ("b", 4), ("c", 6))
 )
 
