@@ -282,7 +282,7 @@ impl Dict {
         let mut is_dict = true;
 
         // try to check the number of parameters, if not, use array form
-        let use_two_args = mapper.params().map_or(false, |params| params.len() >= 2);
+        let use_two_args = mapper.params().is_some_and(|params| params.len() >= 2);
 
         for (key, value) in self {
             // choose how to pass parameters based on the function signature
