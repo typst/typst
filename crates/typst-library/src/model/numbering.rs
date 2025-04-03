@@ -380,7 +380,9 @@ impl NumberingKind {
     /// Apply the numbering to the given number.
     pub fn apply(self, n: u64) -> EcoString {
         match self {
-            Self::Arabic => eco_format!("{n}"),
+            Self::Arabic => {
+                numeric(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
+            }
             Self::LowerRoman => additive(
                 [
                     ("m̅", 1000000),
@@ -435,6 +437,15 @@ impl NumberingKind {
             ),
             Self::LowerGreek => additive(
                 [
+                    ("͵θ", 9000),
+                    ("͵η", 8000),
+                    ("͵ζ", 7000),
+                    ("͵ϛ", 6000),
+                    ("͵ε", 5000),
+                    ("͵δ", 4000),
+                    ("͵γ", 3000),
+                    ("͵β", 2000),
+                    ("͵α", 1000),
                     ("ϡ", 900),
                     ("ω", 800),
                     ("ψ", 700),
@@ -468,6 +479,15 @@ impl NumberingKind {
             ),
             Self::UpperGreek => additive(
                 [
+                    ("͵Θ", 9000),
+                    ("͵Η", 8000),
+                    ("͵Ζ", 7000),
+                    ("͵Ϛ", 6000),
+                    ("͵Ε", 5000),
+                    ("͵Δ", 4000),
+                    ("͵Γ", 3000),
+                    ("͵Β", 2000),
+                    ("͵Α", 1000),
                     ("Ϡ", 900),
                     ("Ω", 800),
                     ("Ψ", 700),
@@ -538,6 +558,7 @@ impl NumberingKind {
                     ("ג", 3),
                     ("ב", 2),
                     ("א", 1),
+                    ("-", 0),
                 ],
                 n,
             ),
@@ -661,6 +682,23 @@ impl NumberingKind {
     }
 }
 
+/// Stringify a number using symbols representing values. The decimal representation of the number
+/// is recovered by summing over the values of the symbols present.
+///
+/// Consider the situation where ['I': 1, 'IV': 4, 'V': 5],
+///
+/// ```text
+/// 1 => 'I'
+/// 2 => 'II'
+/// 3 => 'III'
+/// 4 => 'IV'
+/// 5 => 'V'
+/// 6 => 'VI'
+/// 7 => 'VII'
+/// 8 => 'VIII'
+/// ```
+///
+/// where this is the start of the familiar Roman numeral system.
 fn additive<const N_DIGITS: usize>(
     symbols: [(&str, u64); N_DIGITS],
     mut n: u64,
@@ -692,6 +730,23 @@ fn additive<const N_DIGITS: usize>(
     s
 }
 
+/// Stringify a number using a base-n (where n is the number of provided symbols) system without a
+/// zero symbol.
+///
+/// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
+///
+/// ```text
+/// 1 => 'A'
+/// 2 => 'B'
+/// 3 => 'C'
+/// 4 => 'AA
+/// 5 => 'AB'
+/// 6 => 'AC'
+/// 7 => 'BA'
+/// ...
+/// ```
+///
+/// This system is commonly used in spreadsheet software.
 fn alphabetic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> EcoString {
     let n_digits = N_DIGITS as u64;
     if n == 0 {
@@ -706,6 +761,19 @@ fn alphabetic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> E
     s.chars().rev().collect()
 }
 
+/// Stringify a number using the symbols provided, defaulting to the arabic representation when the
+/// number is greater than the number of symbols.
+///
+/// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
+///
+/// ```text
+/// 1 => 'A'
+/// 2 => 'B'
+/// 3 => 'C'
+/// 4 => '4'
+/// ...
+/// n => 'n'
+/// ```
 fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString {
     let n_digits = N_DIGITS as u64;
     if n - 1 < n_digits {
@@ -714,6 +782,22 @@ fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString 
     eco_format!("{n}")
 }
 
+/// Stringify a number using a base-n (where n is the number of provided symbols) system with a
+/// zero symbol.
+///
+/// Consider the situation where ['0', '1', '2'] are the provided symbols,
+///
+/// ```text
+/// 1 => '1'
+/// 2 => '2'
+/// 3 => '10'
+/// 4 => '11'
+/// 5 => '12'
+/// 6 => '20'
+/// ...
+/// ```
+///
+/// which is the familiar trinary counting system.
 fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> EcoString {
     let n_digits = N_DIGITS as u64;
     if n == 0 {
@@ -727,6 +811,20 @@ fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> EcoS
     s.chars().rev().collect()
 }
 
+/// Stringify a number using repeating symbols.
+///
+/// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
+///
+/// ```text
+/// 1 => 'A'
+/// 2 => 'B'
+/// 3 => 'C'
+/// 4 => 'AA'
+/// 5 => 'BB'
+/// 6 => 'CC'
+/// 7 => 'AAA'
+/// ...
+/// ```
 fn symbolic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString {
     let n_digits = N_DIGITS as u64;
     if n == 0 {
