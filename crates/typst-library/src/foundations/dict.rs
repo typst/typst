@@ -3,15 +3,17 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
 use typst_utils::ArcExt;
 
-use crate::diag::{Hint, HintedStrResult, StrResult};
+use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+    array, cast, func, repr, scope, ty, Array, Context, Func, Module, Repr, Str, Value,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -253,6 +255,77 @@ impl Dict {
             .iter()
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
+    }
+
+    /// Produces a new dictionary or array by transforming each key-value pair with the given function.
+    ///
+    /// If the mapper function returns a pair (array of length 2), the result will be a new dictionary.
+    /// Otherwise, the result will be an array containing all mapped values.
+    ///
+    /// ```example
+    /// #let prices = (apples: 2, oranges: 3, bananas: 1.5)
+    /// #prices.map(key => key.len()) \
+    /// #prices.map((key, price) => (key, price * 1.1))
+    /// ```
+    #[func]
+    pub fn map(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        /// The function to apply to each key-value pair. 
+        /// The function can either take a single parameter (receiving a pair as array of length 2),
+        /// or two parameters (receiving key and value separately).
+        mapper: Func,
+    ) -> SourceResult<Value> {
+        let mut dict_result = IndexMap::new();
+        let mut array_result = Vec::new();
+        let mut is_dict = true;
+
+        // try to check the number of parameters, if not, use array form
+        let use_two_args = mapper.params().map_or(false, |params| params.len() >= 2);
+
+        for (key, value) in self {
+            // choose how to pass parameters based on the function signature
+            let mapped = if use_two_args {
+                mapper.call(engine, context, [
+                    Value::Str(key.clone()),
+                    value.clone(),
+                ])?
+            } else {
+                mapper.call(engine, context, [
+                    Value::Array(array![Value::Str(key.clone()), value]),
+                ])?
+            };
+
+            // check if the result is a dictionary key-value pair
+            if let Value::Array(arr) = &mapped {
+                if arr.len() == 2 {
+                    if let Value::Str(k) = &arr.as_slice()[0] {
+                        if is_dict {
+                            dict_result.insert(k.clone(), arr.as_slice()[1].clone());
+                            continue;
+                        }
+                    }
+                }
+            }
+            
+            // if the result is not a key-value pair, switch the result type to array
+            if is_dict {
+                is_dict = false;
+                // convert the collected dictionary result to array items
+                for (k, v) in dict_result.drain(..) {
+                    array_result.push(Value::Array(array![Value::Str(k), v]));
+                }
+            }
+            
+            array_result.push(mapped);
+        }
+
+        if is_dict {
+            Ok(Value::Dict(Dict::from(dict_result)))
+        } else {
+            Ok(Value::Array(array_result.into_iter().collect()))
+        }
     }
 }
 
