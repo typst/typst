@@ -14,7 +14,7 @@ impl<'a> GridLayouter<'a> {
         first_header: &Repeatable<Header>,
         consecutive_header_count: usize,
         engine: &mut Engine,
-    ) {
+    ) -> SourceResult<()> {
         // Next row either isn't a header. or is in a
         // conflicting one, which is the sign that we need to go.
         let (consecutive_headers, new_upcoming_headers) =
@@ -39,11 +39,20 @@ impl<'a> GridLayouter<'a> {
 
         self.layout_new_pending_headers(non_conflicting_headers, engine);
 
-        self.layout_headers(non_conflicting_headers, engine, 0)?;
+        self.layout_headers(
+            non_conflicting_headers.into_iter().map(Repeatable::unwrap),
+            true,
+            engine,
+        )?;
         for conflicting_header in conflicting_headers {
-            self.simulate();
-            self.layout_headers(headers, engine, disambiguator)
+            self.layout_headers(
+                std::iter::once(conflicting_header.unwrap()),
+                true,
+                engine,
+            )?
         }
+
+        Ok(())
     }
 
     /// Queues new pending headers for layout. Headers remain pending until
@@ -169,39 +178,28 @@ impl<'a> GridLayouter<'a> {
         // re-calculated until the end.
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
-            && !self.regions.size.y.fits(header_height + self.footer_height)
+            && !self.regions.size.y.fits(header_height)
             && self.regions.may_progress()
         {
             // Advance regions without any output until we can place the
             // header and the footer.
             self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
-            skipped_region = true;
 
-            header_height = if include_repeating {
-                // Laying out pending headers, so we have to consider the
-                // combined height of already repeating headers as well.
-                self.simulate_header_height(
-                    self.repeating_headers.iter().map(|h| *h).chain(headers.clone()),
-                    &self.regions,
-                    engine,
-                    disambiguator,
-                )?
-            } else {
-                self.simulate_header_height(
-                    headers.clone(),
-                    &self.regions,
-                    engine,
-                    disambiguator,
-                )?
-            };
-
-            // Simulate the footer again; the region's 'full' might have
-            // changed.
-            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-                self.footer_height = self
-                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                    .height;
+            // TODO: re-calculate heights of headers and footers on each region
+            // if 'full'changes? (Assuming height doesn't change for now...)
+            if include_repeating && !skipped_region {
+                header_height =
+                    // Laying out pending headers, so we have to consider the
+                    // combined height of already repeating headers as well.
+                    self.simulate_header_height(
+                        self.repeating_headers.iter().map(|h| *h).chain(headers.clone()),
+                        &self.regions,
+                        engine,
+                        disambiguator,
+                    )?;
             }
+
+            skipped_region = true;
 
             // Ensure we also take the footer into account for remaining space.
             self.regions.size.y -= self.footer_height;
@@ -211,23 +209,43 @@ impl<'a> GridLayouter<'a> {
         // It will be re-calculated when laying out each header row.
         self.header_height = Abs::zero();
 
-        let trivial_vector = vec![];
-        let repeating_header_prefix =
-            if include_repeating { &self.repeating_headers } else { &trivial_vector };
+        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            if skipped_region {
+                // Simulate the footer again; the region's 'full' might have
+                // changed.
+                // TODO: maybe this should go in the loop, a bit hacky as is...
+                self.regions.size.y += self.footer_height;
+                self.footer_height = self
+                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
+                    .height;
+                self.regions.size.y -= self.footer_height;
+            }
+        }
 
         // Group of headers is unbreakable.
         // Thus, no risk of 'finish_region' being recursively called from
         // within 'layout_row'.
-        self.unbreakable_rows_left +=
-            total_header_row_count(repeating_header_prefix.iter().map(Deref::deref))
-                + total_header_row_count(headers.clone());
+        self.unbreakable_rows_left += total_header_row_count(headers.clone());
+
+        // Need to relayout ALL headers if we skip a region, not only the
+        // provided headers.
+        // TODO: maybe extract this into a function to share code with multiple
+        // footers.
+        if include_repeating && skipped_region {
+            self.unbreakable_rows_left +=
+                total_header_row_count(self.repeating_headers.iter().map(Deref::deref));
+        }
+
+        // Use indices to avoid double borrow. We don't mutate headers in
+        // 'layout_row' so this is fine.
         let mut i = 0;
-        while let Some(header) = repeating_header_prefix.get(i) {
+        while let Some(&header) = self.repeating_headers.get(i) {
             for y in header.range() {
                 self.layout_row(y, engine, disambiguator)?;
             }
             i += 1;
         }
+
         for header in headers {
             for y in header.range() {
                 self.layout_row(y, engine, disambiguator)?;

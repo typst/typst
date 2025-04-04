@@ -173,20 +173,12 @@ impl<'a> GridLayouter<'a> {
                             first_header,
                             consecutive_header_count,
                             engine,
-                        );
+                        )?;
                         consecutive_header_count = 0;
                     }
                     y = first_header.unwrap().end;
                     // Skip header rows during normal layout.
                     continue;
-
-                    self.bump_repeating_headers();
-                    if let Repeatable::Repeated(next_header) = first_header {
-                        if y == next_header.start {
-                            self.layout_headers(next_header, engine, 0)?;
-                            self.regions.size.y -= self.footer_height;
-                        }
-                    }
                 }
             }
 
