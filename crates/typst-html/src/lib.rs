@@ -6,11 +6,9 @@ pub use self::encode::html;
 
 use comemo::{Track, Tracked, TrackedMut};
 pub use ecow::EcoVec;
-use typst_library::diag::{bail, warning, At, SourceDiagnostic, SourceResult, StrResult};
+use typst_library::diag::{bail, warning, At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{
-    Content, Datetime, Smart, StyleChain, Target, TargetElem,
-};
+use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
 use typst_library::html::{
     attr, tag, FrameElem, HtmlDocument, HtmlElem, HtmlElement, HtmlNode,
 };
@@ -87,7 +85,7 @@ fn html_document_impl(
 
     let output = handle_list(&mut engine, &mut locator, children.iter().copied())?;
     let introspector = Introspector::html(&output);
-    let root = root_element(&mut engine, output, &info)?;
+    let root = root_element(output, &info)?;
 
     Ok(HtmlDocument { info, root, introspector })
 }
@@ -265,14 +263,8 @@ fn handle(
 
 /// Wrap the nodes in `<html>` and `<body>` if they are not yet rooted,
 /// supplying a suitable `<head>`.
-fn root_element(
-    engine: &mut Engine,
-    output: Vec<HtmlNode>,
-    info: &DocumentInfo,
-) -> SourceResult<HtmlElement> {
-    let head = head_element(engine, info).map_err(|err| {
-        EcoVec::from([SourceDiagnostic::warning(Span::detached(), err)])
-    })?;
+fn root_element(output: Vec<HtmlNode>, info: &DocumentInfo) -> SourceResult<HtmlElement> {
+    let head = head_element(info);
     let body = match classify_output(output)? {
         OutputKind::Html(element) => return Ok(element),
         OutputKind::Body(body) => body,
@@ -282,7 +274,7 @@ fn root_element(
 }
 
 /// Generate a `<head>` element.
-fn head_element(engine: &mut Engine, info: &DocumentInfo) -> StrResult<HtmlElement> {
+fn head_element(info: &DocumentInfo) -> HtmlElement {
     let mut children = vec![];
 
     children.push(HtmlElement::new(tag::meta).with_attr(attr::charset, "utf-8").into());
@@ -329,29 +321,7 @@ fn head_element(engine: &mut Engine, info: &DocumentInfo) -> StrResult<HtmlEleme
         )
     }
 
-    match info.date {
-        Smart::Auto => children.push(
-            HtmlElement::new(tag::meta)
-                .with_attr(attr::name, "date")
-                .with_attr(
-                    attr::content,
-                    Datetime::today(engine, Smart::Auto)?.display(Smart::Auto)?,
-                )
-                .into(),
-        ),
-        Smart::Custom(optional_date) => {
-            if let Some(date) = optional_date {
-                children.push(
-                    HtmlElement::new(tag::meta)
-                        .with_attr(attr::name, "date")
-                        .with_attr(attr::content, date.display(Smart::Auto).unwrap())
-                        .into(),
-                )
-            }
-        }
-    }
-
-    Ok(HtmlElement::new(tag::head).with_children(children))
+    HtmlElement::new(tag::head).with_children(children)
 }
 
 /// Determine which kind of output the user generated.
