@@ -1,4 +1,3 @@
-use std::ops::ControlFlow;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
@@ -9,20 +8,74 @@ use super::layouter::GridLayouter;
 use super::rowspans::UnbreakableRowGroup;
 
 impl<'a> GridLayouter<'a> {
-    #[inline]
-    fn pending_headers(&self) -> &'a [Repeatable<Header>] {
-        &self.upcoming_headers[..self.pending_header_end]
+    pub fn place_new_headers(
+        &mut self,
+        first_header: &Repeatable<Header>,
+        consecutive_header_count: usize,
+        engine: &mut Engine,
+    ) {
+        // Next row either isn't a header. or is in a
+        // conflicting one, which is the sign that we need to go.
+        let (consecutive_headers, new_upcoming_headers) =
+            self.upcoming_headers.split_at(consecutive_header_count);
+        self.upcoming_headers = new_upcoming_headers;
+
+        let (non_conflicting_headers, conflicting_headers) = match self
+            .upcoming_headers
+            .get(consecutive_header_count)
+            .map(Repeatable::unwrap)
+        {
+            Some(next_header) if next_header.level <= first_header.unwrap().level => {
+                // All immediately conflicting headers will
+                // be placed as normal rows.
+                consecutive_headers.split_at(
+                    consecutive_headers
+                        .partition_point(|h| next_header.level > h.unwrap().level),
+                )
+            }
+            _ => (consecutive_headers, Default::default()),
+        };
+
+        self.layout_new_pending_headers(non_conflicting_headers, engine);
+
+        self.layout_headers(non_conflicting_headers, engine, 0)?;
+        for conflicting_header in conflicting_headers {
+            self.simulate();
+            self.layout_headers(headers, engine, disambiguator)
+        }
     }
 
-    #[inline]
-    pub fn bump_pending_headers(&mut self) {
-        debug_assert!(!self.upcoming_headers.is_empty());
-        self.pending_header_end += 1;
-    }
+    /// Queues new pending headers for layout. Headers remain pending until
+    /// they are successfully laid out in some page once. Then, they will be
+    /// moved to `repeating_headers`, at which point it is safe to stop them
+    /// from repeating at any time.
+    fn layout_new_pending_headers(
+        &mut self,
+        headers: &'a [Repeatable<Header>],
+        engine: &mut Engine,
+    ) {
+        let [first_header, ..] = headers else {
+            return;
+        };
+        // Assuming non-conflicting headers sorted by increasing y, this must
+        // be the header with the lowest level (sorted by increasing levels).
+        let first_level = first_header.unwrap().level;
 
-    #[inline]
-    pub fn peek_upcoming_header(&self) -> Option<&'a Repeatable<Header>> {
-        self.upcoming_headers.get(self.pending_header_end)
+        // Stop repeating conflicting headers.
+        // If we go to a new region before the pending headers fit alongside
+        // their children, the old headers should not be displayed anymore.
+        self.repeating_headers
+            .truncate(self.repeating_headers.partition_point(|h| h.level < first_level));
+
+        // Let's try to place them at least once.
+        // This might be a waste as we could generate an orphan and thus have
+        // to try to place old and new headers all over again, but that happens
+        // for every new region anyway, so it's rather unavoidable.
+        self.layout_headers(headers.iter().map(Repeatable::unwrap), true, engine);
+
+        // After the first subsequent row is laid out, move to repeating, as
+        // it's then confirmed the headers won't be moved due to orphan
+        // prevention anymore.
     }
 
     pub fn flush_pending_headers(&mut self) {

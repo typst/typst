@@ -55,11 +55,9 @@ pub struct GridLayouter<'a> {
     /// Note that some levels may be absent, in particular level 0, which does
     /// not exist (so the first level is >= 1).
     pub(super) repeating_headers: Vec<&'a Header>,
-    /// End of sequence of consecutive compatible headers found so far.
-    /// This is one position after the last index in `upcoming_headers`, so `0`
-    /// indicates no pending headers.
+    /// Headers, repeating or not, awaiting their first successful layout.
     /// Sorted by increasing levels.
-    pub(super) pending_header_end: usize,
+    pub(super) pending_headers: &'a [Repeatable<Header>],
     pub(super) upcoming_headers: &'a [Repeatable<Header>],
     /// The simulated header height.
     /// This field is reset in `layout_header` and properly updated by
@@ -136,7 +134,7 @@ impl<'a> GridLayouter<'a> {
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
             repeating_headers: vec![],
             upcoming_headers: &grid.headers,
-            pending_header_end: 0,
+            pending_headers: Default::default(),
             header_height: Abs::zero(),
             footer_height: Abs::zero(),
             span,
@@ -151,31 +149,34 @@ impl<'a> GridLayouter<'a> {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
-            if !matches!(
-                self.grid.headers.first(),
-                Some(Repeatable::Repeated(Header { start: 0, .. }))
-            ) {
-                // No repeatable header at the very beginning, so we won't
-                // subtract it later.
-                self.regions.size.y -= self.footer_height;
-            }
+            self.regions.size.y -= self.footer_height;
         }
 
         let mut y = 0;
+        let mut consecutive_header_count = 0;
         while y < self.grid.rows.len() {
-            if let Some(first_header) = self.upcoming_headers.first() {
+            if let Some(first_header) =
+                self.upcoming_headers.get(consecutive_header_count)
+            {
                 if first_header.unwrap().range().contains(&y) {
-                    self.bump_pending_headers();
+                    consecutive_header_count += 1;
 
-                    if self.peek_upcoming_header().is_none_or(|h| {
-                        h.unwrap().start > y + 1
-                            || h.unwrap().level <= first_header.unwrap().level
-                    }) {
+                    if self.upcoming_headers.get(consecutive_header_count).is_none_or(
+                        |h| {
+                            h.unwrap().start > y + 1
+                                || h.unwrap().level <= first_header.unwrap().level
+                        },
+                    ) {
                         // Next row either isn't a header. or is in a
                         // conflicting one, which is the sign that we need to go.
-                        self.layout_headers(next_header, engine, 0)?;
+                        self.place_new_headers(
+                            first_header,
+                            consecutive_header_count,
+                            engine,
+                        );
+                        consecutive_header_count = 0;
                     }
-                    y = first_header.end;
+                    y = first_header.unwrap().end;
                     // Skip header rows during normal layout.
                     continue;
 
