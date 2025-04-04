@@ -1,3 +1,4 @@
+use std::ops::Deref;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
@@ -146,12 +147,26 @@ impl<'a> GridLayouter<'a> {
     /// footers.
     pub fn layout_headers(
         &mut self,
-        headers: &[&Header],
+        headers: impl Clone + IntoIterator<Item = &'a Header>,
+        include_repeating: bool,
         engine: &mut Engine,
-        disambiguator: usize,
     ) -> SourceResult<()> {
-        let header_height =
-            self.simulate_header_height(&self.regions, engine, disambiguator)?;
+        // Generate different locations for content in headers across its
+        // repetitions by assigning a unique number for each one.
+        let disambiguator = self.finished.len();
+        // At first, only consider the height of the given headers. However,
+        // for upcoming regions, we will have to consider repeating headers as
+        // well.
+        let mut header_height = self.simulate_header_height(
+            headers.clone(),
+            &self.regions,
+            engine,
+            disambiguator,
+        )?;
+
+        // We already take the footer into account below.
+        // While skipping regions, footer height won't be automatically
+        // re-calculated until the end.
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_height + self.footer_height)
@@ -161,26 +176,58 @@ impl<'a> GridLayouter<'a> {
             // header and the footer.
             self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
             skipped_region = true;
+
+            header_height = if include_repeating {
+                // Laying out pending headers, so we have to consider the
+                // combined height of already repeating headers as well.
+                self.simulate_header_height(
+                    self.repeating_headers.iter().map(|h| *h).chain(headers.clone()),
+                    &self.regions,
+                    engine,
+                    disambiguator,
+                )?
+            } else {
+                self.simulate_header_height(
+                    headers.clone(),
+                    &self.regions,
+                    engine,
+                    disambiguator,
+                )?
+            };
+
+            // Simulate the footer again; the region's 'full' might have
+            // changed.
+            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+                self.footer_height = self
+                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
+                    .height;
+            }
+
+            // Ensure we also take the footer into account for remaining space.
+            self.regions.size.y -= self.footer_height;
         }
 
         // Reset the header height for this region.
         // It will be re-calculated when laying out each header row.
         self.header_height = Abs::zero();
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            if skipped_region {
-                // Simulate the footer again; the region's 'full' might have
-                // changed.
-                self.footer_height = self
-                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                    .height;
-            }
-        }
+        let trivial_vector = vec![];
+        let repeating_header_prefix =
+            if include_repeating { &self.repeating_headers } else { &trivial_vector };
 
         // Group of headers is unbreakable.
         // Thus, no risk of 'finish_region' being recursively called from
         // within 'layout_row'.
-        self.unbreakable_rows_left += total_header_row_count(headers);
+        self.unbreakable_rows_left +=
+            total_header_row_count(repeating_header_prefix.iter().map(Deref::deref))
+                + total_header_row_count(headers.clone());
+        let mut i = 0;
+        while let Some(header) = repeating_header_prefix.get(i) {
+            for y in header.range() {
+                self.layout_row(y, engine, disambiguator)?;
+            }
+            i += 1;
+        }
         for header in headers {
             for y in header.range() {
                 self.layout_row(y, engine, disambiguator)?;
@@ -190,9 +237,9 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Calculates the total expected height of several headers.
-    pub fn simulate_header_height(
+    pub fn simulate_header_height<'h: 'a>(
         &self,
-        headers: &[&Header],
+        headers: impl IntoIterator<Item = &'h Header>,
         regions: &Regions<'_>,
         engine: &mut Engine,
         disambiguator: usize,
@@ -307,6 +354,8 @@ impl<'a> GridLayouter<'a> {
 
 /// The total amount of rows in the given list of headers.
 #[inline]
-pub fn total_header_row_count(headers: &[&Header]) -> usize {
-    headers.iter().map(|h| h.end - h.start).sum()
+pub fn total_header_row_count<'h>(
+    headers: impl IntoIterator<Item = &'h Header>,
+) -> usize {
+    headers.into_iter().map(|h| h.end - h.start).sum()
 }
