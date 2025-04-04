@@ -5,4 +5,4 @@ bibliography = Daftar Pustaka
 heading = Bagian
 outline = Daftar Isi
 raw = Kode
-page = hlm.
+page = halaman
