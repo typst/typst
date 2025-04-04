@@ -787,9 +787,9 @@ checksum = "a0d2fde1f7b3d48b8395d5f2de76c18a528bd6a9cdde438df747bfcba3e05d6f"
 
 [[package]]
 name = "font-types"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d868ec188a98bb014c606072edd47e52e7ab7297db943b0b28503121e1d037bd"
+checksum = "1fa6a5e5a77b5f3f7f9e32879f484aa5b3632ddfbe568a16266c904a6f32cdaf"
 dependencies = [
  "bytemuck",
 ]
@@ -1360,8 +1360,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=14756f7#14756f7067cb1a80b73b712cae9f98597153e623"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69ee6128ebf52d7ce684613b6431ead2959f2be9ff8cf776eeaaad0427c953e9"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1388,8 +1389,9 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.3.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=14756f7#14756f7067cb1a80b73b712cae9f98597153e623"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3462989578155cf620ef8035f8921533cc95c28e2a0c75de172f7219e6aba84e"
 dependencies = [
  "flate2",
  "fontdb",
@@ -1837,8 +1839,9 @@ checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pdf-writer"
-version = "0.12.1"
-source = "git+https://github.com/typst/pdf-writer?rev=0d513b9#0d513b9050d2f1a0507cabb4898aca971af6da98"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ea27c5015ab81753fc61e49f8cde74999346605ee148bb20008ef3d3150e0dc"
 dependencies = [
  "bitflags 2.8.0",
  "itoa",
@@ -2097,9 +2100,9 @@ dependencies = [
 
 [[package]]
 name = "read-fonts"
-version = "0.27.2"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f004ee5c610b8beb5f33273246893ac6258ec22185a6eb8ee132bccdb904cdaa"
+checksum = "600e807b48ac55bad68a8cb75cc3c7739f139b9248f7e003e01e080f589b5288"
 dependencies = [
  "bytemuck",
  "font-types",
@@ -2425,9 +2428,9 @@ checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "skrifa"
-version = "0.28.1"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16e7936ca3627fdb516e97aca3c8ab5103f94ae32fe5ce80a0a02edcbacb7b53"
+checksum = "6fa1e5622e4f7b98877e8a19890efddcac1230cec6198bd9de91ec0e00010dc8"
 dependencies = [
  "bytemuck",
  "read-fonts",
@@ -2522,8 +2525,9 @@ dependencies = [
 
 [[package]]
 name = "subsetter"
-version = "0.2.0"
-source = "git+https://github.com/typst/subsetter?rev=460fdb6#460fdb66d6e0138b721b1ca9882faf15ce003246"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35539e8de3dcce8dd0c01f3575f85db1e5ac1aea1b996d2d09d89f148bc91497"
 dependencies = [
  "fxhash",
 ]
@@ -3755,8 +3759,9 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xmp-writer"
-version = "0.3.1"
-source = "git+https://github.com/LaurenzV/xmp-writer?rev=a1cbb887#a1cbb887a84376fea4d7590d41c194a332840549"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce9e2f4a404d9ebffc0a9832cf4f50907220ba3d7fffa9099261a5cab52f2dd7"
 
 [[package]]
 name = "xz2"
