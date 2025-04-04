@@ -14,7 +14,7 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 38] = [
+const TRANSLATIONS: [(&str, &str); 39] = [
     translation!("ar"),
     translation!("bg"),
     translation!("ca"),
@@ -31,6 +31,7 @@ const TRANSLATIONS: [(&str, &str); 38] = [
     translation!("el"),
     translation!("he"),
     translation!("hu"),
+    translation!("id"),
     translation!("is"),
     translation!("it"),
     translation!("ja"),
@@ -82,6 +83,7 @@ impl Lang {
     pub const HEBREW: Self = Self(*b"he ", 2);
     pub const HUNGARIAN: Self = Self(*b"hu ", 2);
     pub const ICELANDIC: Self = Self(*b"is ", 2);
+    pub const INDONESIAN: Self = Self(*b"id ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const LATIN: Self = Self(*b"la ", 2);
