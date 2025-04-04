@@ -120,12 +120,12 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// #let spaces = (
 ///   ("Oklab", color.oklab),
 ///   ("Oklch", color.oklch),
-///   ("linear-RGB", color.linear-rgb),
 ///   ("sRGB", color.rgb),
+///   ("linear-RGB", color.linear-rgb),
 ///   ("CMYK", color.cmyk),
+///   ("Grayscale", color.luma),
 ///   ("HSL", color.hsl),
 ///   ("HSV", color.hsv),
-///   ("Grayscale", color.luma),
 /// )
 ///
 /// #for (name, space) in spaces {
