@@ -189,20 +189,16 @@ fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
     let bold = EquationElem::bold_in(styles);
     let default_style = EquationElem::default_style_in(styles);
     let default_italic = match c {
-        'a'..='z' | 'ħ' | 'ı' | 'ȷ' | 
-        'α'..='ω' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' => 
-            matches!(default_style, MathStyle::Iso | MathStyle::Tex | MathStyle::French),
-        'A'..='Z' => 
-            matches!(default_style, MathStyle::Iso | MathStyle::Tex),
-        'Α'..='Ω' => 
-            matches!(default_style, MathStyle::Iso),
-        '∂' => 
-            matches!(default_style, MathStyle::Tex | MathStyle::French),
+        'a'..='z' | 'ħ' | 'ı' | 'ȷ' | 'α'..='ω' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' => {
+            matches!(default_style, MathStyle::Iso | MathStyle::Tex | MathStyle::French)
+		}
+        'A'..='Z' => matches!(default_style, MathStyle::Iso | MathStyle::Tex),
+        'Α'..='Ω' => matches!(default_style, MathStyle::Iso),
+        '∂' => matches!(default_style, MathStyle::Tex | MathStyle::French),
         _ => false
     };
-    let italic = EquationElem::italic_in(styles).unwrap_or(
-        auto_italic && default_italic && matches!(variant, Sans | Serif),
-    );
+    let italic = EquationElem::italic_in(styles)
+		.unwrap_or(auto_italic && default_italic && matches!(variant, Sans | Serif));
 
     if let Some(c) = basic_exception(c) {
         return c;

@@ -253,7 +253,6 @@ pub enum MathVariant {
     Bb,
 }
 
-
 /// A rule describing which letters and symbols are italic by default.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast, Hash)]
 // #[derive(Serialize, Deserialize, Cast)]
@@ -266,5 +265,5 @@ pub enum MathStyle {
     // Lowercase letters and [partial] italic.
     French,
     // Everything upright.
-    Upright
+    Upright,
 }
