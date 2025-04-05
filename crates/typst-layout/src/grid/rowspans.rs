@@ -5,7 +5,7 @@ use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 use typst_utils::MaybeReverseIter;
 
-use super::layouter::{in_last_with_offset, points, Row, RowPiece};
+use super::layouter::{in_last_with_offset, points, Row};
 use super::{layout_cell, Cell, GridLayouter};
 
 /// All information needed to layout a single rowspan.
@@ -87,10 +87,10 @@ pub struct CellMeasurementData<'layouter> {
 
 impl GridLayouter<'_> {
     /// Layout a rowspan over the already finished regions, plus the current
-    /// region's frame and resolved rows, if it wasn't finished yet (because
-    /// we're being called from `finish_region`, but note that this function is
-    /// also called once after all regions are finished, in which case
-    /// `current_region_data` is `None`).
+    /// region's frame and height of resolved header rows, if it wasn't
+    /// finished yet (because we're being called from `finish_region`, but note
+    /// that this function is also called once after all regions are finished,
+    /// in which case `current_region_data` is `None`).
     ///
     /// We need to do this only once we already know the heights of all
     /// spanned rows, which is only possible after laying out the last row
@@ -98,7 +98,7 @@ impl GridLayouter<'_> {
     pub fn layout_rowspan(
         &mut self,
         rowspan_data: Rowspan,
-        current_region_data: Option<(&mut Frame, &[RowPiece])>,
+        current_region_data: Option<(&mut Frame, Abs)>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         let Rowspan {
@@ -142,11 +142,31 @@ impl GridLayouter<'_> {
 
         // Push the layouted frames directly into the finished frames.
         let fragment = layout_cell(cell, engine, disambiguator, self.styles, pod)?;
-        let (current_region, current_rrows) = current_region_data.unzip();
-        for ((i, finished), frame) in self
+        let (current_region, current_header_row_height) = current_region_data.unzip();
+
+        // Clever trick to process finished header rows:
+        // - If there are grid headers, the vector will be filled with one
+        // finished header row height per region, so, chaining with the height
+        // for the current one, we get the header row height for each region.
+        //
+        // - But if there are no grid headers, the vector will be empty, so in
+        // theory the regions and resolved header row heights wouldn't match.
+        // But that's fine - 'current_header_row_height' can only be either
+        // 'Some(zero)' or 'None' in such a case, and for all other rows we
+        // append infinite zeros. That is, in such a case, the resolved header
+        // row height is always zero, so that's our fallback.
+        let finished_header_rows = self
+            .finished_header_rows
+            .iter()
+            .copied()
+            .chain(current_header_row_height)
+            .chain(std::iter::repeat(Abs::zero()));
+
+        for ((i, (finished, header_dy)), frame) in self
             .finished
             .iter_mut()
             .chain(current_region.into_iter())
+            .zip(finished_header_rows)
             .skip(first_region)
             .enumerate()
             .zip(fragment)
@@ -158,25 +178,9 @@ impl GridLayouter<'_> {
             } else {
                 // The rowspan continuation starts after the header (thus,
                 // at a position after the sum of the laid out header
-                // rows).
-                if let Some(Repeatable::Repeated(header)) = &self.grid.header {
-                    // TODO: Need a way to distinguish header 'rrows' for each
-                    // region, as this calculation - i.e., header height at
-                    // each region - will change depending on'i'.
-                    let header_rows = self
-                        .rrows
-                        .get(i)
-                        .map(Vec::as_slice)
-                        .or(current_rrows)
-                        .unwrap_or(&[])
-                        .iter()
-                        .take_while(|row| row.y < header.end);
-
-                    header_rows.map(|row| row.height).sum()
-                } else {
-                    // Without a header, start at the very top of the region.
-                    Abs::zero()
-                }
+                // rows). Without a header, this is zero, so the rowspan can
+                // start at the very top of the region as usual.
+                header_dy
             };
 
             finished.push_frame(Point::new(dx, dy), frame);

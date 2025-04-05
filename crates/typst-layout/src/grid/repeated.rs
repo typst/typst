@@ -189,7 +189,11 @@ impl<'a> GridLayouter<'a> {
         {
             // Advance regions without any output until we can place the
             // header and the footer.
-            self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
+            self.finish_region_internal(
+                Frame::soft(Axes::splat(Abs::zero())),
+                vec![],
+                Abs::zero(),
+            );
 
             // TODO: re-calculate heights of headers and footers on each region
             // if 'full'changes? (Assuming height doesn't change for now...)
@@ -250,8 +254,17 @@ impl<'a> GridLayouter<'a> {
         // TODO: maybe extract this into a function to share code with multiple
         // footers.
         if matches!(headers, HeadersToLayout::RepeatingAndPending) || skipped_region {
-            self.unbreakable_rows_left +=
+            let repeating_header_rows =
                 total_header_row_count(self.repeating_headers.iter().map(Deref::deref));
+
+            let pending_header_rows = total_header_row_count(
+                self.pending_headers.into_iter().map(Repeatable::unwrap),
+            );
+
+            // Include both repeating and pending header rows as this number is
+            // used for orphan prevention.
+            self.current_header_rows = repeating_header_rows + pending_header_rows;
+            self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
 
             // Use indices to avoid double borrow. We don't mutate headers in
             // 'layout_row' so this is fine.
@@ -336,7 +349,11 @@ impl<'a> GridLayouter<'a> {
         {
             // Advance regions without any output until we can place the
             // footer.
-            self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
+            self.finish_region_internal(
+                Frame::soft(Axes::splat(Abs::zero())),
+                vec![],
+                Abs::zero(),
+            );
             skipped_region = true;
         }
 
