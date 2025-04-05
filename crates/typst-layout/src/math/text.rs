@@ -4,7 +4,7 @@ use ecow::EcoString;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Size};
-use typst_library::math::{EquationElem, MathSize, MathVariant};
+use typst_library::math::{EquationElem, MathSize, MathStyle, MathVariant};
 use typst_library::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric,
 };
@@ -187,14 +187,21 @@ fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
 
     let variant = EquationElem::variant_in(styles);
     let bold = EquationElem::bold_in(styles);
+    let default_style = EquationElem::default_style_in(styles);
+    let default_italic = match c {
+        'a'..='z' | 'ħ' | 'ı' | 'ȷ' | 
+        'α'..='ω' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ' => 
+            matches!(default_style, MathStyle::Iso | MathStyle::Tex | MathStyle::French),
+        'A'..='Z' => 
+            matches!(default_style, MathStyle::Iso | MathStyle::Tex),
+        'Α'..='Ω' => 
+            matches!(default_style, MathStyle::Iso),
+        '∂' => 
+            matches!(default_style, MathStyle::Tex | MathStyle::French),
+        _ => false
+    };
     let italic = EquationElem::italic_in(styles).unwrap_or(
-        auto_italic
-            && matches!(
-                c,
-                'a'..='z' | 'ħ' | 'ı' | 'ȷ' | 'A'..='Z' |
-                'α'..='ω' | '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
-            )
-            && matches!(variant, Sans | Serif),
+        auto_italic && default_italic && matches!(variant, Sans | Serif),
     );
 
     if let Some(c) = basic_exception(c) {

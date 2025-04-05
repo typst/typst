@@ -1,7 +1,16 @@
 // Test text styling in math.
 
 --- math-style-italic-default ---
-// Test italic defaults.
+// Test italic defaults for all `default-style`s.
+$a, A, delta, ϵ, partial, Delta, ϴ$
+
+#set math.equation(default-style: "iso")
+$a, A, delta, ϵ, partial, Delta, ϴ$
+
+#set math.equation(default-style: "french")
+$a, A, delta, ϵ, partial, Delta, ϴ$
+
+#set math.equation(default-style: "upright")
 $a, A, delta, ϵ, partial, Delta, ϴ$
 
 --- math-style ---

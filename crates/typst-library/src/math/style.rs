@@ -252,3 +252,19 @@ pub enum MathVariant {
     Mono,
     Bb,
 }
+
+
+/// A rule describing which letters and symbols are italic by default.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast, Hash)]
+// #[derive(Serialize, Deserialize, Cast)]
+// #[serde(rename_all = "kebab-case")]
+pub enum MathStyle {
+    // Every latin or greek letter italic, [partial] upright.
+    Iso,
+    // Everything but capital greek letters italic.
+    Tex,
+    // Lowercase letters and [partial] italic.
+    French,
+    // Everything upright.
+    Upright
+}

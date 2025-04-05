@@ -14,7 +14,7 @@ use crate::layout::{
     AlignElem, Alignment, BlockElem, InlineElem, OuterHAlignment, SpecificAlignment,
     VAlignment,
 };
-use crate::math::{MathSize, MathVariant};
+use crate::math::{MathSize, MathStyle, MathVariant};
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 
@@ -51,6 +51,10 @@ pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
+
+    /// The rule determining which letters and symbols are italic by default.
+    #[default(MathStyle::Tex)]
+    pub default_style: MathStyle,
 
     /// How to [number]($numbering) block-level equations.
     ///
