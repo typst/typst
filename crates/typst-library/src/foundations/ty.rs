@@ -44,6 +44,17 @@ use crate::foundations::{
 /// #type(int) \
 /// #type(type)
 /// ```
+///
+/// [none]($none) and [auto]($auto) do not have a name representing them like other types such as
+/// `int`. To test a value to see if it is either of these, compare your value to them directly,
+/// eg:
+/// ```example
+/// #let empty = none
+/// empty is none: #{ empty == none }
+/// ```
+///
+/// Note that `type` is used to test for a variables type. To programmatically determine which
+/// _element_ a variable is, see [func]($content.func)
 #[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
