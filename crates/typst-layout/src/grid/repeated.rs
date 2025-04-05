@@ -96,23 +96,16 @@ impl<'a> GridLayouter<'a> {
     }
 
     pub fn flush_pending_headers(&mut self) {
-        debug_assert!(!self.upcoming_headers.is_empty());
-        debug_assert!(self.pending_header_end > 0);
-        let headers = self.pending_headers();
-
-        let [first_header, ..] = headers else {
-            return;
-        };
-
-        self.repeating_headers.truncate(
-            self.repeating_headers
-                .partition_point(|h| h.level < first_header.unwrap().level),
-        );
-
-        for header in self.pending_headers() {
+        for header in self.pending_headers {
             if let Repeatable::Repeated(header) = header {
                 // Vector remains sorted by increasing levels:
-                // - It was sorted before, so the truncation above only keeps
+                // - 'pending_headers' themselves are sorted, since we only
+                // push non-mutually-conflicting headers at a time.
+                // - Before pushing new pending headers in
+                // 'layout_new_pending_headers', we truncate repeating headers
+                // to remove anything with the same or higher levels as the
+                // first pending header.
+                // - Assuming it was sorted before, that truncation only keeps
                 // elements with a lower level.
                 // - Therefore, by pushing this header to the end, it will have
                 // a level larger than all the previous headers, and is thus
@@ -121,12 +114,7 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        self.upcoming_headers = self
-            .upcoming_headers
-            .get(self.pending_header_end..)
-            .unwrap_or_default();
-
-        self.pending_header_end = 0;
+        self.pending_headers = Default::default();
     }
 
     pub fn bump_repeating_headers(&mut self) {

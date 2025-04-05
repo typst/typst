@@ -15,6 +15,7 @@ use typst_library::visualize::Geometry;
 use typst_syntax::Span;
 use typst_utils::{MaybeReverseIter, Numeric};
 
+use super::repeated::HeadersToLayout;
 use super::{
     generate_line_segments, hline_stroke_at_column, layout_cell, vline_stroke_at_row,
     LineSegment, Rowspan, UnbreakableRowGroup,
@@ -1388,30 +1389,19 @@ impl<'a> GridLayouter<'a> {
             self.lrows.pop().unwrap();
         }
 
-        // If no rows other than the footer have been laid out so far, and
-        // there are rows beside the footer, then don't lay it out at all.
-        // This check doesn't apply, and is thus overridden, when there is a
-        // header.
-        let mut footer_would_be_orphan = self.lrows.is_empty()
-            && !in_last_with_offset(
-                self.regions,
-                self.header_height + self.footer_height,
-            )
-            && self
-                .grid
-                .footer
-                .as_ref()
-                .and_then(Repeatable::as_repeated)
-                .is_some_and(|footer| footer.start != 0);
-
-        if let Some(last_header) = self.repeating_headers.last() {
+        let footer_would_be_widow = if let Some(last_header) = self
+            .pending_headers
+            .last()
+            .map(Repeatable::unwrap)
+            .or_else(|| self.repeating_headers.last().map(|h| *h))
+        {
             if self.grid.rows.len() > last_header.end
                 && self
                     .grid
                     .footer
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
-                    .is_none_or(|footer| footer.start != header.end)
+                    .is_none_or(|footer| footer.start != last_header.end)
                 && self.lrows.last().is_some_and(|row| row.index() < last_header.end)
                 && !in_last_with_offset(
                     self.regions,
@@ -1421,19 +1411,41 @@ impl<'a> GridLayouter<'a> {
                 // Header and footer would be alone in this region, but there are more
                 // rows beyond the header and the footer. Push an empty region.
                 self.lrows.clear();
-                footer_would_be_orphan = true;
+                true
+            } else {
+                false
             }
-        }
+        } else if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            // If no rows other than the footer have been laid out so far, and
+            // there are rows beside the footer, then don't lay it out at all.
+            // (Similar check from above, but for the case without headers.)
+            // TODO: widow prevention for non-repeated footers with a similar
+            // mechanism / when implementing multiple footers.
+            self.lrows.is_empty()
+                && !in_last_with_offset(
+                    self.regions,
+                    self.header_height + self.footer_height,
+                )
+                && footer.start != 0
+        } else {
+            false
+        };
 
         let mut laid_out_footer_start = None;
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            // Don't layout the footer if it would be alone with the header in
-            // the page, and don't layout it twice.
-            if !footer_would_be_orphan
-                && self.lrows.iter().all(|row| row.index() < footer.start)
-            {
-                laid_out_footer_start = Some(footer.start);
-                self.layout_footer(footer, engine, self.finished.len())?;
+        if !footer_would_be_widow {
+            // Did not trigger automatic header orphan / footer widow check.
+            // This means pending headers have successfully been placed once
+            // without hitting orphan prevention, so they may now be moved into
+            // repeating headers.
+            self.flush_pending_headers();
+
+            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+                // Don't layout the footer if it would be alone with the header in
+                // the page (hence the widow check), and don't layout it twice.
+                if self.lrows.iter().all(|row| row.index() < footer.start) {
+                    laid_out_footer_start = Some(footer.start);
+                    self.layout_footer(footer, engine, self.finished.len())?;
+                }
             }
         }
 
@@ -1569,13 +1581,16 @@ impl<'a> GridLayouter<'a> {
                 self.prepare_footer(footer, engine, disambiguator)?;
             }
 
-            if !self.repeating_headers.is_empty() {
-                // Add a header to the new region.
-                self.layout_headers(engine, disambiguator)?;
-            }
-
             // Ensure rows don't try to overrun the footer.
+            // Note that header layout will only subtract this again if it has
+            // to skip regions to fit headers, so there is no risk of
+            // subtracting this twice.
             self.regions.size.y -= self.footer_height;
+
+            if !self.repeating_headers.is_empty() || !self.pending_headers.is_empty() {
+                // Add headers to the new region.
+                self.layout_headers(HeadersToLayout::RepeatingAndPending, engine)?;
+            }
         }
 
         Ok(())
