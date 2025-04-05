@@ -59,6 +59,7 @@ routines! {
         span: Span,
         mode: EvalMode,
         scope: Scope,
+        sink: TrackedMut<Sink>,
     ) -> SourceResult<Value>
 
     /// Call the closure in the context with the arguments.
