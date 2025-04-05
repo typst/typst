@@ -45,21 +45,16 @@ use crate::foundations::{
 /// #type(type)
 /// ```
 ///
-/// [none]($none) and [auto]($auto) are more special. Because they are the only
-/// values of their type, their type isn't actually bound to any name.
-/// ```example
-/// type(none) == none: #{ type(none) == none } \
-/// type(auto) == auto: #{ type(auto) == auto }
-/// ```
-/// Instead, to test for these _values_, compare to them directly:
+/// [none]($none) and [auto]($auto) do not have a name representing them like other types such as
+/// `int`. To test a value to see if it is either of these, compare your value to them directly,
+/// eg:
 /// ```example
 /// #let empty = none
 /// empty is none: #{ empty == none }
 /// ```
 ///
-/// Note that `type` is used for "high level" comparisons, such as whether a variable is `content`
-/// vs `int`. See [func]($content.func) to programmatically determine which _element_ a variable
-/// is.
+/// Note that `type` is used to test for a variables type. To programmatically determine which
+/// _element_ a variable is, see [func]($content.func)
 #[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
