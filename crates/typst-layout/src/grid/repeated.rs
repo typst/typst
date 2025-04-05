@@ -224,6 +224,7 @@ impl<'a> GridLayouter<'a> {
         // Reset the header height for this region.
         // It will be re-calculated when laying out each header row.
         self.header_height = Abs::zero();
+        self.repeating_header_height = Abs::zero();
 
         if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
             if skipped_region {
@@ -276,9 +277,15 @@ impl<'a> GridLayouter<'a> {
                 i += 1;
             }
 
+            // All rows so far were repeating headers at the top of the region.
+            self.repeating_header_height = self.header_height;
             for header in self.pending_headers {
+                let header_height = self.header_height;
                 for y in header.unwrap().range() {
                     self.layout_row(y, engine, disambiguator)?;
+                }
+                if matches!(header, Repeatable::Repeated(_)) {
+                    self.repeating_header_height += self.header_height - header_height;
                 }
             }
         }

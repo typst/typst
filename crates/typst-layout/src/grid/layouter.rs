@@ -80,6 +80,14 @@ pub struct GridLayouter<'a> {
     /// header rows themselves are unbreakable, and unbreakable rows do not
     /// need to read this field at all.
     pub(super) header_height: Abs,
+    /// The height of effectively repeating headers, that is, ignoring
+    /// non-repeating pending headers.
+    ///
+    /// This is used by multi-page auto rows so they can inform cell layout on
+    /// how much space should be taken by headers if they break across regions.
+    /// In particular, non-repeating headers only occupy the initial region,
+    /// but disappear on new regions, so they can be ignored.
+    pub(super) repeating_header_height: Abs,
     /// The simulated footer height for this region.
     /// The simulation occurs before any rows are laid out for a region.
     pub(super) footer_height: Abs,
@@ -152,6 +160,7 @@ impl<'a> GridLayouter<'a> {
             upcoming_headers: &grid.headers,
             pending_headers: Default::default(),
             header_height: Abs::zero(),
+            repeating_header_height: Abs::zero(),
             footer_height: Abs::zero(),
             span,
         }
@@ -1587,6 +1596,9 @@ impl<'a> GridLayouter<'a> {
 
         if !last {
             self.current_header_rows = 0;
+            self.header_height = Abs::zero();
+            self.repeating_header_height = Abs::zero();
+
             let disambiguator = self.finished.len();
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
                 self.prepare_footer(footer, engine, disambiguator)?;
