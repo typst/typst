@@ -357,6 +357,10 @@ impl<'a> GridLayouter<'a> {
             skipped_region = true;
         }
 
+        // TODO: Consider resetting header height etc. if we skip region.
+        // That is unnecessary at the moment as 'prepare_footers' is only
+        // called at the start of the region, but what about when we can have
+        // footers in the middle of the region? Let's think about this then.
         self.footer_height = if skipped_region {
             // Simulate the footer again; the region's 'full' might have
             // changed.
