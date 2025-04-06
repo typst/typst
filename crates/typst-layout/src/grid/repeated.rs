@@ -152,9 +152,13 @@ impl<'a> GridLayouter<'a> {
         // space in future regions anymore.
         for removed_height in self.repeating_header_heights.drain(first_conflicting_pos..)
         {
-            self.header_height -= removed_height;
             self.repeating_header_height -= removed_height;
         }
+
+        // Non-repeating headers stop at the pending stage for orphan
+        // prevention only. Flushing pending headers, so those will no longer
+        // appear in a future region.
+        self.header_height = self.repeating_header_height;
 
         // Let's try to place them at least once.
         // This might be a waste as we could generate an orphan and thus have
@@ -308,10 +312,6 @@ impl<'a> GridLayouter<'a> {
                 self.pending_headers.into_iter().map(Repeatable::unwrap),
             );
 
-            // Include both repeating and pending header rows as this number is
-            // used for orphan prevention.
-            self.current_header_rows = repeating_header_rows + pending_header_rows;
-            self.current_repeating_header_rows = repeating_header_rows;
             self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
 
             self.current_last_repeated_header_end =
@@ -355,6 +355,8 @@ impl<'a> GridLayouter<'a> {
                 i += 1;
             }
 
+            self.current_repeating_header_rows = self.lrows.len();
+
             for header in self.pending_headers {
                 let header_height =
                     self.layout_header_rows(header.unwrap(), engine, disambiguator)?;
@@ -364,6 +366,10 @@ impl<'a> GridLayouter<'a> {
                     self.repeating_header_heights.push(header_height);
                 }
             }
+
+            // Include both repeating and pending header rows as this number is
+            // used for orphan prevention.
+            self.current_header_rows = self.lrows.len();
         }
 
         if let HeadersToLayout::NewHeaders { headers, short_lived } = headers {

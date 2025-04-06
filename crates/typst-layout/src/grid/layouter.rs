@@ -1460,6 +1460,9 @@ impl<'a> GridLayouter<'a> {
                 // Header and footer would be alone in this region, but there are more
                 // rows beyond the header and the footer. Push an empty region.
                 self.lrows.clear();
+                self.current_last_repeated_header_end = 0;
+                self.current_repeating_header_rows = 0;
+                self.current_header_rows = 0;
                 true
             } else {
                 false
