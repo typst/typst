@@ -1742,6 +1742,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // subtract 1 from the gutter case).
                 // Don't do this if there are no rows under the header.
                 if has_gutter {
+                    // Index of first y is doubled, as each row before it
+                    // receives a gutter row below.
+                    header.start *= 2;
+
                     // - 'header.end' is always 'last y + 1'. The header stops
                     // before that row.
                     // - Therefore, '2 * header.end' will be 2 * (last y + 1),
@@ -1791,6 +1795,18 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     if header_end != Some(footer.start) {
                         footer.start = footer.start.saturating_sub(1);
                     }
+
+                    // Adapt footer end but DO NOT include the gutter below it,
+                    // if it exists. Calculation:
+                    // - Starts as 'last y + 1'.
+                    // - The result will be
+                    // 2 * (last_y + 1) - 1 = 2 * last_y + 1,
+                    // which is the new index of the last footer row plus one,
+                    // meaning we do exclude any gutter below this way.
+                    //
+                    // It also keeps us within the total amount of rows, so we
+                    // don't need to '.min()' later.
+                    footer.end = (2 * footer.end).saturating_sub(1);
                 }
 
                 Ok(footer)
