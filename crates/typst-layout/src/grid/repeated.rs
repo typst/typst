@@ -253,7 +253,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region_internal(
                 Frame::soft(Axes::splat(Abs::zero())),
                 vec![],
-                Abs::zero(),
+                Default::default(),
             );
 
             // TODO: re-calculate heights of headers and footers on each region
@@ -321,7 +321,11 @@ impl<'a> GridLayouter<'a> {
             // Include both repeating and pending header rows as this number is
             // used for orphan prevention.
             self.current_header_rows = repeating_header_rows + pending_header_rows;
+            self.current_repeating_header_rows = repeating_header_rows;
             self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
+
+            self.current_last_repeated_header_end =
+                self.repeating_headers.last().map(|h| h.end).unwrap_or_default();
 
             // Reset the header height for this region.
             // It will be re-calculated when laying out each header row.
@@ -454,7 +458,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region_internal(
                 Frame::soft(Axes::splat(Abs::zero())),
                 vec![],
-                Abs::zero(),
+                Default::default(),
             );
             skipped_region = true;
         }

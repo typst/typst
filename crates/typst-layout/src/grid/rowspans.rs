@@ -158,7 +158,7 @@ impl GridLayouter<'_> {
         let finished_header_rows = self
             .finished_header_rows
             .iter()
-            .copied()
+            .map(|info| info.height)
             .chain(current_header_row_height)
             .chain(std::iter::repeat(Abs::zero()));
 
