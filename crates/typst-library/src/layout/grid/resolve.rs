@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -48,6 +48,7 @@ pub fn grid_to_cellgrid<'a>(
     let children = elem.children.iter().map(|child| match child {
         GridChild::Header(header) => ResolvableGridChild::Header {
             repeat: header.repeat(styles),
+            level: header.level(styles),
             span: header.span(),
             items: header.children.iter().map(resolve_item),
         },
@@ -101,6 +102,7 @@ pub fn table_to_cellgrid<'a>(
     let children = elem.children.iter().map(|child| match child {
         TableChild::Header(header) => ResolvableGridChild::Header {
             repeat: header.repeat(styles),
+            level: header.level(styles),
             span: header.span(),
             items: header.children.iter().map(resolve_item),
         },
@@ -647,7 +649,7 @@ impl<'a> Entry<'a> {
 
 /// Any grid child, which can be either a header or an item.
 pub enum ResolvableGridChild<T: ResolvableCell, I> {
-    Header { repeat: bool, span: Span, items: I },
+    Header { repeat: bool, level: NonZeroU32, span: Span, items: I },
     Footer { repeat: bool, span: Span, items: I },
     Item(ResolvableGridItem<T>),
 }
@@ -668,10 +670,10 @@ pub struct CellGrid<'a> {
     /// Gutter rows are not included.
     /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
     pub hlines: Vec<Vec<Line>>,
-    /// The repeatable footer of this grid.
-    pub footer: Option<Repeatable<Footer>>,
     /// The repeatable headers of this grid.
     pub headers: Vec<Repeatable<Header>>,
+    /// The repeatable footer of this grid.
+    pub footer: Option<Repeatable<Footer>>,
     /// Whether this grid has gutters.
     pub has_gutter: bool,
 }
@@ -684,7 +686,7 @@ impl<'a> CellGrid<'a> {
         cells: impl IntoIterator<Item = Cell<'a>>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
-        Self::new_internal(tracks, gutter, vec![], vec![], None, None, entries)
+        Self::new_internal(tracks, gutter, vec![], vec![], vec![], None, entries)
     }
 
     /// Generates the cell grid, given the tracks and resolved entries.
@@ -693,7 +695,7 @@ impl<'a> CellGrid<'a> {
         gutter: Axes<&[Sizing]>,
         vlines: Vec<Vec<Line>>,
         hlines: Vec<Vec<Line>>,
-        header: Option<Repeatable<Header>>,
+        headers: Vec<Repeatable<Header>>,
         footer: Option<Repeatable<Footer>>,
         entries: Vec<Entry<'a>>,
     ) -> Self {
@@ -747,8 +749,8 @@ impl<'a> CellGrid<'a> {
             entries,
             vlines,
             hlines,
+            headers,
             footer,
-            headers: header.into_iter().collect(),
             has_gutter,
         }
     }
@@ -972,6 +974,9 @@ struct RowGroupData {
     span: Span,
     kind: RowGroupKind,
 
+    /// Level of this header or footer.
+    repeatable_level: NonZeroU32,
+
     /// Start of the range of indices of hlines at the top of the row group.
     /// This is always the first index after the last hline before we started
     /// building the row group - any upcoming hlines would appear at least at
@@ -1019,7 +1024,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut pending_vlines: Vec<(Span, Line)> = vec![];
         let has_gutter = self.gutter.any(|tracks| !tracks.is_empty());
 
-        let mut header: Option<Header> = None;
+        let mut headers: Vec<Header> = vec![];
         let mut repeat_header = false;
 
         // Stores where the footer is supposed to end, its span, and the
@@ -1063,7 +1068,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 columns,
                 &mut pending_hlines,
                 &mut pending_vlines,
-                &mut header,
+                &mut headers,
                 &mut repeat_header,
                 &mut footer,
                 &mut repeat_footer,
@@ -1084,9 +1089,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             row_amount,
         )?;
 
-        let (header, footer) = self.finalize_headers_and_footers(
+        let (headers, footer) = self.finalize_headers_and_footers(
             has_gutter,
-            header,
+            headers,
             repeat_header,
             footer,
             repeat_footer,
@@ -1098,7 +1103,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             self.gutter,
             vlines,
             hlines,
-            header,
+            headers,
             footer,
             resolved_cells,
         ))
@@ -1118,7 +1123,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         columns: usize,
         pending_hlines: &mut Vec<(Span, Line, bool)>,
         pending_vlines: &mut Vec<(Span, Line)>,
-        header: &mut Option<Header>,
+        headers: &mut Vec<Header>,
         repeat_header: &mut bool,
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
@@ -1158,15 +1163,12 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut first_available_row = 0;
 
         let (header_footer_items, simple_item) = match child {
-            ResolvableGridChild::Header { repeat, span, items, .. } => {
-                if header.is_some() {
-                    bail!(span, "cannot have more than one header");
-                }
-
+            ResolvableGridChild::Header { repeat, level, span, items, .. } => {
                 row_group_data = Some(RowGroupData {
                     range: None,
                     span,
                     kind: RowGroupKind::Header,
+                    repeatable_level: level,
                     top_hlines_start: pending_hlines.len(),
                     top_hlines_end: None,
                 });
@@ -1198,6 +1200,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     range: None,
                     span,
                     kind: RowGroupKind::Footer,
+                    repeatable_level: NonZeroU32::ONE,
                     top_hlines_start: pending_hlines.len(),
                     top_hlines_end: None,
                 });
@@ -1330,7 +1333,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     cell_y,
                     colspan,
                     rowspan,
-                    header.as_ref(),
+                    headers,
                     footer.as_ref(),
                     resolved_cells,
                     &mut local_auto_index,
@@ -1518,15 +1521,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
             match row_group.kind {
                 RowGroupKind::Header => {
-                    if group_range.start != 0 {
-                        bail!(
-                            row_group.span,
-                            "header must start at the first row";
-                            hint: "remove any rows before the header"
-                        );
-                    }
-
-                    *header = Some(Header {
+                    headers.push(Header {
                         start: group_range.start,
 
                         // Later on, we have to correct this number in case there
@@ -1535,7 +1530,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // below.
                         end: group_range.end,
 
-                        level: 1,
+                        level: row_group.repeatable_level.get(),
                     });
                 }
 
@@ -1730,13 +1725,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
     fn finalize_headers_and_footers(
         &self,
         has_gutter: bool,
-        header: Option<Header>,
+        headers: Vec<Header>,
         repeat_header: bool,
         footer: Option<(usize, Span, Footer)>,
         repeat_footer: bool,
         row_amount: usize,
-    ) -> SourceResult<(Option<Repeatable<Header>>, Option<Repeatable<Footer>>)> {
-        let header = header
+    ) -> SourceResult<(Vec<Repeatable<Header>>, Option<Repeatable<Footer>>)> {
+        let headers: Vec<Repeatable<Header>> = headers
+            .into_iter()
             .map(|mut header| {
                 // Repeat the gutter below a header (hence why we don't
                 // subtract 1 from the gutter case).
@@ -1774,7 +1770,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 } else {
                     Repeatable::NotRepeated(header)
                 }
-            });
+            })
+            .collect();
 
         let footer = footer
             .map(|(footer_end, footer_span, mut footer)| {
@@ -1782,8 +1779,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     bail!(footer_span, "footer must end at the last row");
                 }
 
-                let header_end =
-                    header.as_ref().map(Repeatable::unwrap).map(|header| header.end);
+                // TODO: will need a global slice of headers and footers for
+                // when we have multiple footers
+                let last_header_end =
+                    headers.last().map(Repeatable::unwrap).map(|header| header.end);
 
                 if has_gutter {
                     // Convert the footer's start index to post-gutter coordinates.
@@ -1792,7 +1791,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // Include the gutter right before the footer, unless there is
                     // none, or the gutter is already included in the header (no
                     // rows between the header and the footer).
-                    if header_end != Some(footer.start) {
+                    if last_header_end != Some(footer.start) {
                         footer.start = footer.start.saturating_sub(1);
                     }
 
@@ -1820,7 +1819,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
             });
 
-        Ok((header, footer))
+        Ok((headers, footer))
     }
 
     /// Resolves the cell's fields based on grid-wide properties.
@@ -1991,23 +1990,25 @@ fn expand_row_group(
 
 /// Check if a cell's fixed row would conflict with a header or footer.
 fn check_for_conflicting_cell_row(
-    header: Option<&Header>,
+    headers: &[Header],
     footer: Option<&(usize, Span, Footer)>,
     cell_y: usize,
     rowspan: usize,
 ) -> HintedStrResult<()> {
-    if let Some(header) = header {
-        // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
-        // enters the header. For example, consider a rowspan of 1: if
-        // `y + 1 = header.start` holds, that means `y < header.start`, and it
-        // only occupies one row (`y`), so the cell is actually not in
-        // conflict.
-        if cell_y < header.end && cell_y + rowspan > header.start {
-            bail!(
-                "cell would conflict with header spanning the same position";
-                hint: "try moving the cell or the header"
-            );
-        }
+    // TODO: use upcoming headers slice to make this an O(1) check
+    // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
+    // enters the header. For example, consider a rowspan of 1: if
+    // `y + 1 = header.start` holds, that means `y < header.start`, and it
+    // only occupies one row (`y`), so the cell is actually not in
+    // conflict.
+    if headers
+        .iter()
+        .any(|header| cell_y < header.end && cell_y + rowspan > header.start)
+    {
+        bail!(
+            "cell would conflict with header spanning the same position";
+            hint: "try moving the cell or the header"
+        );
     }
 
     if let Some((_, _, footer)) = footer {
@@ -2037,7 +2038,7 @@ fn resolve_cell_position(
     cell_y: Smart<usize>,
     colspan: usize,
     rowspan: usize,
-    header: Option<&Header>,
+    headers: &[Header],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
@@ -2062,7 +2063,7 @@ fn resolve_cell_position(
             // but automatically-positioned cells will avoid conflicts by
             // simply skipping existing cells, headers and footers.
             let resolved_index = find_next_available_position::<false>(
-                header,
+                headers,
                 footer,
                 resolved_cells,
                 columns,
@@ -2102,7 +2103,7 @@ fn resolve_cell_position(
                 // footer (but only if it isn't already in one, otherwise there
                 // will already be a separate check).
                 if !in_row_group {
-                    check_for_conflicting_cell_row(header, footer, cell_y, rowspan)?;
+                    check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
                 }
 
                 cell_index(cell_x, cell_y)
@@ -2120,7 +2121,7 @@ fn resolve_cell_position(
                 // ('None'), in which case we'd create a new row to place this
                 // cell in.
                 find_next_available_position::<true>(
-                    header,
+                    headers,
                     footer,
                     resolved_cells,
                     columns,
@@ -2134,7 +2135,7 @@ fn resolve_cell_position(
             // footer (but only if it isn't already in one, otherwise there
             // will already be a separate check).
             if !in_row_group {
-                check_for_conflicting_cell_row(header, footer, cell_y, rowspan)?;
+                check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
             }
 
             // Let's find the first column which has that row available.
@@ -2168,7 +2169,7 @@ fn resolve_cell_position(
 /// have cells specified by the user) as well as any headers and footers.
 #[inline]
 fn find_next_available_position<const SKIP_ROWS: bool>(
-    header: Option<&Header>,
+    headers: &[Header],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
@@ -2195,9 +2196,9 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
                 // would become impractically large before this overflows.
                 resolved_index += 1;
             }
-        } else if let Some(header) =
-            header.filter(|header| resolved_index < header.end * columns)
-        {
+        } else if let Some(header) = headers.iter().find(|header| {
+            (header.start * columns..header.end * columns).contains(&resolved_index)
+        }) {
             // Skip header (can't place a cell inside it from outside it).
             resolved_index = header.end * columns;
 

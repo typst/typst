@@ -1,6 +1,6 @@
 pub mod resolve;
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use comemo::Track;
@@ -467,6 +467,14 @@ pub struct GridHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
     pub repeat: bool,
+
+    /// The level of the header. Must not be zero.
+    ///
+    /// This is used during repetition multiple headers at once. When a header
+    /// with a lower level starts repeating, all headers with a lower level stop
+    /// repeating.
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
 
     /// The cells and lines within the header.
     #[variadic]
