@@ -221,7 +221,7 @@ impl<'a> GridLayouter<'a> {
 
                     if self.upcoming_headers.get(consecutive_header_count).is_none_or(
                         |h| {
-                            h.unwrap().start > y + 1
+                            h.unwrap().start > first_header.unwrap().end
                                 || h.unwrap().level <= first_header.unwrap().level
                         },
                     ) {
