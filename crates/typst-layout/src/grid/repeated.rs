@@ -180,33 +180,6 @@ impl<'a> GridLayouter<'a> {
         self.pending_headers = Default::default();
     }
 
-    pub fn bump_repeating_headers(&mut self) {
-        debug_assert!(!self.upcoming_headers.is_empty());
-
-        let [next_header, ..] = self.upcoming_headers else {
-            return;
-        };
-
-        // Keep only lower level headers. Assume sorted by increasing levels.
-        self.repeating_headers.truncate(
-            self.repeating_headers
-                .partition_point(|h| h.level < next_header.unwrap().level),
-        );
-
-        if let Repeatable::Repeated(next_header) = next_header {
-            // Vector remains sorted by increasing levels:
-            // - It was sorted before, so the truncation above only keeps
-            // elements with a lower level.
-            // - Therefore, by pushing this header to the end, it will have
-            // a level larger than all the previous headers, and is thus
-            // in its 'correct' position.
-            self.repeating_headers.push(next_header);
-        }
-
-        // Laying out the next header now.
-        self.upcoming_headers = self.upcoming_headers.get(1..).unwrap_or_default();
-    }
-
     /// Layouts the headers' rows.
     ///
     /// Assumes the footer height for the current region has already been
