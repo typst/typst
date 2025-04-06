@@ -52,7 +52,7 @@ impl<'a> GridLayouter<'a> {
             _ => (consecutive_headers, Default::default()),
         };
 
-        self.layout_new_pending_headers(non_conflicting_headers, engine);
+        self.layout_new_pending_headers(non_conflicting_headers, engine)?;
 
         // Layout each conflicting header independently, without orphan
         // prevention (as they don't go into 'pending_headers').
@@ -118,9 +118,9 @@ impl<'a> GridLayouter<'a> {
         &mut self,
         headers: &'a [Repeatable<Header>],
         engine: &mut Engine,
-    ) {
+    ) -> SourceResult<()> {
         let [first_header, ..] = headers else {
-            return;
+            return Ok(());
         };
         // Assuming non-conflicting headers sorted by increasing y, this must
         // be the header with the lowest level (sorted by increasing levels).
@@ -148,12 +148,14 @@ impl<'a> GridLayouter<'a> {
         self.layout_headers(
             HeadersToLayout::NewHeaders { headers, short_lived: false },
             engine,
-        );
+        )?;
 
         // After the first subsequent row is laid out, move to repeating, as
         // it's then confirmed the headers won't be moved due to orphan
         // prevention anymore.
         self.pending_headers = headers;
+
+        Ok(())
     }
 
     pub fn flush_pending_headers(&mut self) {
