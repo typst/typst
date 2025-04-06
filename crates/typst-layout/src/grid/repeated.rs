@@ -73,6 +73,14 @@ impl<'a> GridLayouter<'a> {
             )?
         }
 
+        // No chance of orphans as we're immediately placing conflicting
+        // headers afterwards, which basically are not headers, for all intents
+        // and purposes. It is therefore guaranteed that all new headers have
+        // been placed at least once.
+        if !conflicting_headers.is_empty() {
+            self.flush_pending_headers();
+        }
+
         Ok(())
     }
 
@@ -122,6 +130,13 @@ impl<'a> GridLayouter<'a> {
         let [first_header, ..] = headers else {
             return Ok(());
         };
+
+        // Should be impossible to have two consecutive chunks of pending
+        // headers since they are always as long as possible, only being
+        // interrupted by direct conflict between consecutive headers, in which
+        // case we flush pending headers immediately.
+        assert!(self.pending_headers.is_empty());
+
         // Assuming non-conflicting headers sorted by increasing y, this must
         // be the header with the lowest level (sorted by increasing levels).
         let first_level = first_header.unwrap().level;

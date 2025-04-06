@@ -244,12 +244,18 @@ impl<'a> GridLayouter<'a> {
                 if y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
+                        self.flush_pending_headers();
                     }
                     continue;
                 }
             }
 
             self.layout_row(y, engine, 0)?;
+
+            // After the first non-header row is placed, pending headers are no
+            // longer orphans and can repeat, so we move them to repeating
+            // headers.
+            self.flush_pending_headers();
 
             y += 1;
         }
