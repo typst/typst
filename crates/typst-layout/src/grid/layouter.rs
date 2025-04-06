@@ -1034,11 +1034,12 @@ impl<'a> GridLayouter<'a> {
             .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
         {
             // Subtract header and footer heights from the region height when
-            // it's not the first.
+            // it's not the first. Ignore non-repeating headers as they only
+            // appear on the first region by definition.
             target.set_max(
                 region.y
                     - if i > 0 {
-                        self.header_height + self.footer_height
+                        self.repeating_header_height + self.footer_height
                     } else {
                         Abs::zero()
                     },
@@ -1258,6 +1259,10 @@ impl<'a> GridLayouter<'a> {
         // row group. We use 'in_last_with_offset' so our 'in_last' call
         // properly considers that a header and a footer would be added on each
         // region break.
+        //
+        // See 'check_for_unbreakable_rows' as for why we're using
+        // 'header_height' to predict header height and not
+        // 'repeating_header_height'.
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
@@ -1427,6 +1432,10 @@ impl<'a> GridLayouter<'a> {
                 && self.lrows.last().is_some_and(|row| row.index() < last_header_end)
                 && !in_last_with_offset(
                     self.regions,
+                    // Since we're trying to find a region where to place all
+                    // repeating + pending headers, it makes sense to use
+                    // 'header_height' and include even non-repeating pending
+                    // headers for this check.
                     self.header_height + self.footer_height,
                 )
             {
@@ -1446,6 +1455,9 @@ impl<'a> GridLayouter<'a> {
             self.lrows.is_empty()
                 && !in_last_with_offset(
                     self.regions,
+                    // This header height isn't doing much as we just confirmed
+                    // that there are no headers in this region, but let's keep
+                    // it here for correctness. It will add zero anyway.
                     self.header_height + self.footer_height,
                 )
                 && footer.start != 0
