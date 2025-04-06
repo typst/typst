@@ -391,6 +391,7 @@ pub fn vline_stroke_at_row(
 ///
 /// This function assumes columns are sorted by increasing `x`, and rows are
 /// sorted by increasing `y`.
+#[allow(clippy::too_many_arguments)]
 pub fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],

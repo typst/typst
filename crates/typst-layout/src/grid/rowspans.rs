@@ -1176,10 +1176,10 @@ impl<'a> RowspanSimulator<'a> {
         {
             // Only repeating headers have survived after the first region
             // break.
-            let repeating_headers = layouter.repeating_headers.iter().map(|h| *h).chain(
+            let repeating_headers = layouter.repeating_headers.iter().copied().chain(
                 layouter
                     .pending_headers
-                    .into_iter()
+                    .iter()
                     .filter_map(Repeatable::as_repeated),
             );
 

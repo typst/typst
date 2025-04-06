@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
@@ -220,14 +218,14 @@ impl<'a> GridLayouter<'a> {
             HeadersToLayout::RepeatingAndPending => self.simulate_header_height(
                 self.repeating_headers
                     .iter()
-                    .map(Deref::deref)
-                    .chain(self.pending_headers.into_iter().map(Repeatable::unwrap)),
+                    .copied()
+                    .chain(self.pending_headers.iter().map(Repeatable::unwrap)),
                 &self.regions,
                 engine,
                 disambiguator,
             )?,
             HeadersToLayout::NewHeaders { headers, .. } => self.simulate_header_height(
-                headers.into_iter().map(Repeatable::unwrap),
+                headers.iter().map(Repeatable::unwrap),
                 &self.regions,
                 engine,
                 disambiguator,
@@ -260,9 +258,8 @@ impl<'a> GridLayouter<'a> {
                     // when beginning a new region.
                     self.simulate_header_height(
                         self.repeating_headers
-                            .iter()
-                            .map(|h| *h)
-                            .chain(self.pending_headers.into_iter().chain(headers).map(Repeatable::unwrap)),
+                            .iter().copied()
+                            .chain(self.pending_headers.iter().chain(headers).map(Repeatable::unwrap)),
                         &self.regions,
                         engine,
                         disambiguator,
@@ -297,7 +294,7 @@ impl<'a> GridLayouter<'a> {
             // new region to make sure row code is aware that all of those
             // headers should stay together!
             self.unbreakable_rows_left +=
-                total_header_row_count(headers.into_iter().map(Repeatable::unwrap));
+                total_header_row_count(headers.iter().map(Repeatable::unwrap));
         }
 
         // Need to relayout ALL headers if we skip a region, not only the
@@ -306,10 +303,10 @@ impl<'a> GridLayouter<'a> {
         // footers.
         if matches!(headers, HeadersToLayout::RepeatingAndPending) || skipped_region {
             let repeating_header_rows =
-                total_header_row_count(self.repeating_headers.iter().map(Deref::deref));
+                total_header_row_count(self.repeating_headers.iter().copied());
 
             let pending_header_rows = total_header_row_count(
-                self.pending_headers.into_iter().map(Repeatable::unwrap),
+                self.pending_headers.iter().map(Repeatable::unwrap),
             );
 
             self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
