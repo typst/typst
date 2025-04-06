@@ -10,7 +10,17 @@ use super::rowspans::UnbreakableRowGroup;
 
 pub enum HeadersToLayout<'a> {
     RepeatingAndPending,
-    NewHeaders(&'a [Repeatable<Header>]),
+    NewHeaders {
+        headers: &'a [Repeatable<Header>],
+
+        /// Whether this new header will become a pending header. If false, we
+        /// assume it simply won't repeat and so its header height is ignored.
+        /// Later on, cells can assume that this header won't occupy any height
+        /// in a future region, and indeed, since it won't be pending, it won't
+        /// have orphan prevention, so it will be placed immediately and stay
+        /// where it is.
+        short_lived: bool,
+    },
 }
 
 impl<'a> GridLayouter<'a> {
@@ -53,12 +63,51 @@ impl<'a> GridLayouter<'a> {
             self.layout_headers(
                 // Using 'chunks_exact", we pass a slice of length one instead
                 // of a reference for type consistency.
-                HeadersToLayout::NewHeaders(conflicting_header),
+                // In addition, this is the only place where we layout
+                // short-lived headers.
+                HeadersToLayout::NewHeaders {
+                    headers: conflicting_header,
+                    short_lived: true,
+                },
                 engine,
             )?
         }
 
         Ok(())
+    }
+
+    /// Lays out a row while indicating that it should store its persistent
+    /// height as a header row, which will be its height if relative or auto,
+    /// or zero otherwise (fractional).
+    #[inline]
+    fn layout_header_row(
+        &mut self,
+        y: usize,
+        engine: &mut Engine,
+        disambiguator: usize,
+    ) -> SourceResult<Option<Abs>> {
+        let previous_row_height =
+            std::mem::replace(&mut self.current_row_height, Some(Abs::zero()));
+        self.layout_row(y, engine, disambiguator)?;
+
+        Ok(std::mem::replace(&mut self.current_row_height, previous_row_height))
+    }
+
+    /// Lays out rows belonging to a header, returning the calculated header
+    /// height only for that header.
+    #[inline]
+    fn layout_header_rows(
+        &mut self,
+        header: &Header,
+        engine: &mut Engine,
+        disambiguator: usize,
+    ) -> SourceResult<Abs> {
+        let mut header_height = Abs::zero();
+        for y in header.range() {
+            header_height +=
+                self.layout_header_row(y, engine, disambiguator)?.unwrap_or_default();
+        }
+        Ok(header_height)
     }
 
     /// Queues new pending headers for layout. Headers remain pending until
@@ -80,14 +129,26 @@ impl<'a> GridLayouter<'a> {
         // Stop repeating conflicting headers.
         // If we go to a new region before the pending headers fit alongside
         // their children, the old headers should not be displayed anymore.
-        self.repeating_headers
-            .truncate(self.repeating_headers.partition_point(|h| h.level < first_level));
+        let first_conflicting_pos =
+            self.repeating_headers.partition_point(|h| h.level < first_level);
+        self.repeating_headers.truncate(first_conflicting_pos);
+
+        // Ensure upcoming rows won't see that these headers will occupy any
+        // space in future regions anymore.
+        for removed_height in self.repeating_header_heights.drain(first_conflicting_pos..)
+        {
+            self.header_height -= removed_height;
+            self.repeating_header_height -= removed_height;
+        }
 
         // Let's try to place them at least once.
         // This might be a waste as we could generate an orphan and thus have
         // to try to place old and new headers all over again, but that happens
         // for every new region anyway, so it's rather unavoidable.
-        self.layout_headers(HeadersToLayout::NewHeaders(headers), engine);
+        self.layout_headers(
+            HeadersToLayout::NewHeaders { headers, short_lived: false },
+            engine,
+        );
 
         // After the first subsequent row is laid out, move to repeating, as
         // it's then confirmed the headers won't be moved due to orphan
@@ -171,7 +232,7 @@ impl<'a> GridLayouter<'a> {
                 engine,
                 disambiguator,
             )?,
-            HeadersToLayout::NewHeaders(headers) => self.simulate_header_height(
+            HeadersToLayout::NewHeaders { headers, .. } => self.simulate_header_height(
                 headers.into_iter().map(Repeatable::unwrap),
                 &self.regions,
                 engine,
@@ -198,7 +259,7 @@ impl<'a> GridLayouter<'a> {
             // TODO: re-calculate heights of headers and footers on each region
             // if 'full'changes? (Assuming height doesn't change for now...)
             if !skipped_region {
-                if let HeadersToLayout::NewHeaders(headers) = headers {
+                if let HeadersToLayout::NewHeaders { headers, .. } = headers {
                     header_height =
                     // Laying out new headers, so we have to consider the
                     // combined height of already repeating headers as well
@@ -221,11 +282,6 @@ impl<'a> GridLayouter<'a> {
             self.regions.size.y -= self.footer_height;
         }
 
-        // Reset the header height for this region.
-        // It will be re-calculated when laying out each header row.
-        self.header_height = Abs::zero();
-        self.repeating_header_height = Abs::zero();
-
         if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
             if skipped_region {
                 // Simulate the footer again; the region's 'full' might have
@@ -242,7 +298,7 @@ impl<'a> GridLayouter<'a> {
         // Group of headers is unbreakable.
         // Thus, no risk of 'finish_region' being recursively called from
         // within 'layout_row'.
-        if let HeadersToLayout::NewHeaders(headers) = headers {
+        if let HeadersToLayout::NewHeaders { headers, .. } = headers {
             // Do this before laying out repeating and pending headers from a
             // new region to make sure row code is aware that all of those
             // headers should stay together!
@@ -267,33 +323,72 @@ impl<'a> GridLayouter<'a> {
             self.current_header_rows = repeating_header_rows + pending_header_rows;
             self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
 
+            // Reset the header height for this region.
+            // It will be re-calculated when laying out each header row.
+            self.header_height = Abs::zero();
+            self.repeating_header_height = Abs::zero();
+            self.repeating_header_heights.clear();
+
             // Use indices to avoid double borrow. We don't mutate headers in
             // 'layout_row' so this is fine.
             let mut i = 0;
             while let Some(&header) = self.repeating_headers.get(i) {
-                for y in header.range() {
-                    self.layout_row(y, engine, disambiguator)?;
-                }
+                let header_height =
+                    self.layout_header_rows(header, engine, disambiguator)?;
+                self.header_height += header_height;
+                self.repeating_header_height += header_height;
+
+                // We assume that this vector will be sorted according
+                // to increasing levels like 'repeating_headers' and
+                // 'pending_headers' - and, in particular, their union, as this
+                // vector is pushed repeating heights from both.
+                //
+                // This is guaranteed by:
+                // 1. We always push pending headers after repeating headers,
+                // as we assume they don't conflict because we remove
+                // conflicting repeating headers when pushing a new pending
+                // header.
+                //
+                // 2. We push in the same order as each.
+                //
+                // 3. This vector is also modified when pushing a new pending
+                // header, where we remove heights for conflicting repeating
+                // headers which have now stopped repeating. They are always at
+                // the end and new pending headers respect the existing sort,
+                // so the vector will remain sorted.
+                self.repeating_header_heights.push(header_height);
+
                 i += 1;
             }
 
-            // All rows so far were repeating headers at the top of the region.
-            self.repeating_header_height = self.header_height;
             for header in self.pending_headers {
-                let header_height = self.header_height;
-                for y in header.unwrap().range() {
-                    self.layout_row(y, engine, disambiguator)?;
-                }
+                let header_height =
+                    self.layout_header_rows(header.unwrap(), engine, disambiguator)?;
+                self.header_height += header_height;
                 if matches!(header, Repeatable::Repeated(_)) {
-                    self.repeating_header_height += self.header_height - header_height;
+                    self.repeating_header_height += header_height;
+                    self.repeating_header_heights.push(header_height);
                 }
             }
         }
 
-        if let HeadersToLayout::NewHeaders(headers) = headers {
+        if let HeadersToLayout::NewHeaders { headers, short_lived } = headers {
             for header in headers {
-                for y in header.unwrap().range() {
-                    self.layout_row(y, engine, disambiguator)?;
+                let header_height =
+                    self.layout_header_rows(header.unwrap(), engine, disambiguator)?;
+
+                // Only store this header height if it is actually going to
+                // become a pending header. Otherwise, pretend it's not a
+                // header... This is fine for consumers of 'header_height' as
+                // it is guaranteed this header won't appear in a future
+                // region, so multi-page rows and cells can effectively ignore
+                // this header.
+                if !short_lived {
+                    self.header_height += header_height;
+                    if matches!(header, Repeatable::Repeated(_)) {
+                        self.repeating_header_height = header_height;
+                        self.repeating_header_heights.push(header_height);
+                    }
                 }
             }
         }

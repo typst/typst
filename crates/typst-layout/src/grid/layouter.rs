@@ -73,6 +73,16 @@ pub struct GridLayouter<'a> {
     /// Sorted by increasing levels.
     pub(super) pending_headers: &'a [Repeatable<Header>],
     pub(super) upcoming_headers: &'a [Repeatable<Header>],
+    /// The height for each repeating header that was placed in this region.
+    /// Note that this includes headers not at the top of the region (pending
+    /// headers), and excludes headers removed by virtue of a new, conflicting
+    /// header being found.
+    pub(super) repeating_header_heights: Vec<Abs>,
+    /// If this is `Some`, this will receive the currently laid out row's
+    /// height if it is auto or relative. This is used for header height
+    /// calculation.
+    /// TODO: consider refactoring this into something nicer.
+    pub(super) current_row_height: Option<Abs>,
     /// The simulated header height.
     /// This field is reset in `layout_header` and properly updated by
     /// `layout_auto_row` and `layout_relative_row`, and should not be read
@@ -158,7 +168,9 @@ impl<'a> GridLayouter<'a> {
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
             repeating_headers: vec![],
             upcoming_headers: &grid.headers,
+            repeating_header_heights: vec![],
             pending_headers: Default::default(),
+            current_row_height: None,
             header_height: Abs::zero(),
             repeating_header_height: Abs::zero(),
             footer_height: Abs::zero(),
@@ -1003,9 +1015,9 @@ impl<'a> GridLayouter<'a> {
             let frame = self.layout_single_row(engine, disambiguator, first, y)?;
             self.push_row(frame, y, true);
 
-            if self.lrows.len() < self.current_header_rows {
+            if let Some(row_height) = &mut self.current_row_height {
                 // Add to header height, as we are in a header row.
-                self.header_height += first;
+                *row_height += first;
             }
 
             return Ok(());
@@ -1237,10 +1249,9 @@ impl<'a> GridLayouter<'a> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
         let frame = self.layout_single_row(engine, disambiguator, resolved, y)?;
 
-        if self.lrows.len() < self.current_header_rows {
-            // Add to header height (not all headers were laid out yet, so this
-            // must be a repeated or pending header at the top of the region).
-            self.header_height += resolved;
+        if let Some(row_height) = &mut self.current_row_height {
+            // Add to header height, as we are in a header row.
+            *row_height += resolved;
         }
 
         // Skip to fitting region, but only if we aren't part of an unbreakable
@@ -1598,6 +1609,7 @@ impl<'a> GridLayouter<'a> {
             self.current_header_rows = 0;
             self.header_height = Abs::zero();
             self.repeating_header_height = Abs::zero();
+            self.repeating_header_heights.clear();
 
             let disambiguator = self.finished.len();
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
