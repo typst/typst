@@ -246,6 +246,7 @@ impl<'a> GridLayouter<'a> {
                         self.layout_footer(footer, engine, self.finished.len())?;
                         self.flush_pending_headers();
                     }
+                    y = footer.end;
                     continue;
                 }
             }
