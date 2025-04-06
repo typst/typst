@@ -1432,6 +1432,13 @@ impl<'a> GridLayouter<'a> {
         {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
+
+            if self.lrows.len() == self.current_header_rows {
+                if self.current_header_rows == self.current_repeating_header_rows {
+                    self.current_repeating_header_rows -= 1;
+                }
+                self.current_header_rows -= 1;
+            }
         }
 
         let footer_would_be_widow = if let Some(last_header_row) = self
