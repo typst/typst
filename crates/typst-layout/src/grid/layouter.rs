@@ -1447,7 +1447,7 @@ impl<'a> GridLayouter<'a> {
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
                     .is_none_or(|footer| footer.start != last_header_end)
-                && self.lrows.last().is_some_and(|row| row.index() < last_header_end)
+                && self.lrows.len() == self.current_header_rows
                 && !in_last_with_offset(
                     self.regions,
                     // Since we're trying to find a region where to place all

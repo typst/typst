@@ -373,6 +373,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         if let HeadersToLayout::NewHeaders { headers, short_lived } = headers {
+            let placing_at_the_start = skipped_region || self.lrows.is_empty();
             for header in headers {
                 let header_height =
                     self.layout_header_rows(header.unwrap(), engine, disambiguator)?;
@@ -390,6 +391,11 @@ impl<'a> GridLayouter<'a> {
                         self.repeating_header_heights.push(header_height);
                     }
                 }
+            }
+
+            if placing_at_the_start {
+                // Track header rows at the start of the region.
+                self.current_header_rows = self.lrows.len();
             }
         }
 
