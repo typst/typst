@@ -999,12 +999,12 @@ impl ElemRenderer<'_> {
         (self.routines.eval_string)(
             self.routines,
             self.world,
+            // TODO: propagate warnings
+            Sink::new().track_mut(),
             math,
             self.span,
             EvalMode::Math,
             Scope::new(),
-            // TODO: propagate warnings
-            Sink::new().track_mut(),
         )
         .map(Value::display)
         .unwrap_or_else(|_| TextElem::packed(math).spanned(self.span))

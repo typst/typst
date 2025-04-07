@@ -302,10 +302,10 @@ pub fn eval(
     (engine.routines.eval_string)(
         engine.routines,
         engine.world,
+        TrackedMut::reborrow_mut(&mut engine.sink),
         &text,
         span,
         mode,
         scope,
-        TrackedMut::reborrow_mut(&mut engine.sink),
     )
 }

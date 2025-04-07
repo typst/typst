@@ -59,12 +59,12 @@ fn retrieve(
     let selector = eval_string(
         &typst::ROUTINES,
         world.track(),
+        // TODO: propagate warnings
+        Sink::new().track_mut(),
         &command.selector,
         Span::detached(),
         EvalMode::Code,
         Scope::default(),
-        // TODO: propagate warnings
-        Sink::new().track_mut(),
     )
     .map_err(|errors| {
         let mut message = EcoString::from("failed to evaluate selector");
