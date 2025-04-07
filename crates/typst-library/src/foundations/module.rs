@@ -7,7 +7,7 @@ use typst_syntax::FileId;
 use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
-/// An module of definitions.
+/// A module of definitions.
 ///
 /// A module
 /// - be built-in
