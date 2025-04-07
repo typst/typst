@@ -263,13 +263,13 @@ fn handle(
 /// Wrap the nodes in `<html>` and `<body>` if they are not yet rooted,
 /// supplying a suitable `<head>`.
 fn root_element(output: Vec<HtmlNode>, info: &DocumentInfo) -> SourceResult<HtmlElement> {
+    let head = head_element(info);
     let body = match classify_output(output)? {
         OutputKind::Html(element) => return Ok(element),
         OutputKind::Body(body) => body,
         OutputKind::Leafs(leafs) => HtmlElement::new(tag::body).with_children(leafs),
     };
-    Ok(HtmlElement::new(tag::html)
-        .with_children(vec![head_element(info).into(), body.into()]))
+    Ok(HtmlElement::new(tag::html).with_children(vec![head.into(), body.into()]))
 }
 
 /// Generate a `<head>` element.
@@ -300,6 +300,24 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
                 .with_attr(attr::content, description.clone())
                 .into(),
         );
+    }
+
+    if !info.author.is_empty() {
+        children.push(
+            HtmlElement::new(tag::meta)
+                .with_attr(attr::name, "authors")
+                .with_attr(attr::content, info.author.join(", "))
+                .into(),
+        )
+    }
+
+    if !info.keywords.is_empty() {
+        children.push(
+            HtmlElement::new(tag::meta)
+                .with_attr(attr::name, "keywords")
+                .with_attr(attr::content, info.keywords.join(", "))
+                .into(),
+        )
     }
 
     HtmlElement::new(tag::head).with_children(children)
