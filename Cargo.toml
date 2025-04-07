@@ -82,7 +82,7 @@ native-tls = "0.2"
 notify = "8"
 once_cell = "1"
 open = "5.0.1"
-openssl = "0.10"
+openssl = "0.10.72"
 oxipng = { version = "9.0", default-features = false, features = ["filetime", "parallel", "zopfli"] }
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
