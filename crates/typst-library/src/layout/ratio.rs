@@ -8,49 +8,35 @@ use crate::foundations::{repr, ty, Repr};
 
 /// A ratio of a whole.
 ///
-/// Written as a number, followed by a percent sign.
-///
-/// A common use case is setting the width or height of a container (e.g.,
-/// [block], [rect], etc.), as it can be used as part of a [relative
-/// length]($relative) to represent a certain percentage of the size of the
-/// surrounding container or of the current page. For example:
+/// A ratio is written as a number, followed by a percent sign. Ratios most
+/// often appear as part of a [relative length]($relative), to specify the size
+/// of some layout element relative to the page or some container.
 ///
 /// ```example
-/// #block(width: 240pt, {
-///   rect(width: 25%, inset: 0pt, layout(size => size.width))
-/// })
+/// #rect(width: 25%)
 /// ```
 ///
-/// Here the block width is set to `{240pt}` (just to demonstrate the use of
-/// ratio with containers), and inside of it the rectangle width is set to
-/// `{25%}`, which means "get 25% of the width of the innermost container" (240
-/// ⋅ 0.25 = 60). Notice that the inset is equal to `{0pt}`, if it's not set
-/// then it will show `{50pt}` instead of `{60pt}`, which is also why the number
-/// looks cramped.
+/// However, they can also describe any other property that is relative to some
+/// base, e.g. an amount of [horizontal scaling]($scale.x) or the
+/// [height of parentheses]($math.lr.size) relative to the height of the content
+/// they enclose.
 ///
-/// See [relative length]($relative) for more details.
+/// # Scripting
+/// Within your own code, you can use ratios as you like. You can multiply them
+/// with various other types as shown below:
 ///
-/// However, within your own code, you can use ratios as you'd like. You can
-/// multiply ratio by ratio, [length], [relative length]($relative), [angle],
-/// [int], [float], and [fraction].
+/// |  Multiply by    |  Example                | Result          |
+/// |-----------------|-------------------------|-----------------|
+/// | [`ratio`]       | `{27% * 10%}`           | `{2.7%}`        |
+/// | [`length`]      | `{27% * 100pt}`         | `{27pt}`        |
+/// | [`relative`]    | `{27% * (10% + 100pt)}` | `{2.7% + 27pt}` |
+/// | [`angle`]       | `{27% * 100deg}`        | `{27deg}`       |
+/// | [`int`]         | `{27% * 2}`             | `{54%}`         |
+/// | [`float`]       | `{27% * 0.37037}`       | `{10%}`         |
+/// | [`fraction`]    | `{27% * 3fr}`           | `{0.81fr}`      |
 ///
-/// |  Multiply by    |                     Example                      |
-/// |-----------------|--------------------------------------------------|
-/// | `{ratio}`       | `{27% * 10%}`                                    |
-/// | `{length}`      | `{27% * 100pt}`                                  |
-/// | `{relative}`    | `{27% * (10% + 100pt)}`                          |
-/// | `{angle}`       | `{27% * 100deg}`                                 |
-/// | `{int}`         | `{27% * 2}`                                      |
-/// | `{float}`       | `{27% * 0.37037 // Some rounding is happening.}` |
-/// | `{fraction}`    | `{27% * 3fr}`                                    |
-///
-/// # Example
-/// ```example
-/// #set align(center)
-/// #scale(x: 150%)[
-///   Scaled apart.
-/// ]
-/// ```
+/// When ratios are displayed in the document, they are rounded to two
+/// significant digits for readability.
 #[ty(cast)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
