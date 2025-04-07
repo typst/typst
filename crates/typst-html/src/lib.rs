@@ -5,7 +5,6 @@ mod encode;
 pub use self::encode::html;
 
 use comemo::{Track, Tracked, TrackedMut};
-pub use ecow::EcoVec;
 use typst_library::diag::{bail, warning, At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
