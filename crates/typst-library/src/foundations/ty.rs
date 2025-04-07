@@ -39,22 +39,25 @@ use crate::foundations::{
 /// #type(image("glacier.jpg")).
 /// ```
 ///
-/// The type of `10` is `int`. Now, what is the type of `int` or even `type`?
+/// The type of `{10}` is `int`. Now, what is the type of `int` or even `type`?
 /// ```example
 /// #type(int) \
 /// #type(type)
 /// ```
 ///
-/// [none]($none) and [auto]($auto) do not have a name representing them like other types such as
-/// `int`. To test a value to see if it is either of these, compare your value to them directly,
-/// eg:
+/// Unlike other types like `int`, [none] and [auto] do not have a name
+/// representing them. To test if a value is one of these, compare your value to
+/// them directly, e.g:
 /// ```example
-/// #let empty = none
-/// empty is none: #{ empty == none }
+/// #let val = none
+/// #if val == none [
+///   Yep, it's none.
+/// ]
 /// ```
 ///
-/// Note that `type` is used to test for a variables type. To programmatically determine which
-/// _element_ a variable is, see [func]($content.func)
+/// Note that `type` will return [`content`] for all document elements. To
+/// programmatically determine which kind of content you are dealing with, see
+/// [`content.func`].
 #[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
