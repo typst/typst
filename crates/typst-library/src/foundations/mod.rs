@@ -68,7 +68,6 @@ pub use self::target_::*;
 pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
-use comemo::Track;
 pub use typst_macros::{scope, ty};
 
 #[rustfmt::skip]
@@ -78,12 +77,12 @@ pub use {
     indexmap::IndexMap,
 };
 
+use comemo::TrackedMut;
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::engine::Sink;
 use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
@@ -299,20 +298,14 @@ pub fn eval(
     for (key, value) in dict {
         scope.bind(key.into(), Binding::new(value, span));
     }
-    let mut sink = Sink::new();
-    let result = (engine.routines.eval_string)(
+
+    (engine.routines.eval_string)(
         engine.routines,
         engine.world,
         &text,
         span,
         mode,
         scope,
-        sink.track_mut(),
-    )?;
-
-    for warning in sink.warnings() {
-        engine.sink.warn(warning);
-    }
-
-    Ok(result)
+        TrackedMut::reborrow_mut(&mut engine.sink),
+    )
 }
