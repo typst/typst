@@ -465,7 +465,7 @@ impl<'a> ShapedText<'a> {
             None
         };
         let mut chain = families(self.styles)
-            .filter(|family| family.covers().map_or(true, |c| c.is_match("-")))
+            .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
             .map(|family| book.select(family.as_str(), self.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
@@ -570,7 +570,7 @@ impl<'a> ShapedText<'a> {
         // for the next line.
         let dec = if ltr { usize::checked_sub } else { usize::checked_add };
         while let Some(next) = dec(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.range.start != text_index) {
+            if self.glyphs.get(next).is_none_or(|g| g.range.start != text_index) {
                 break;
             }
             idx = next;
@@ -812,7 +812,7 @@ fn shape_segment<'a>(
             .nth(1)
             .map(|(i, _)| offset + i)
             .unwrap_or(text.len());
-        covers.map_or(true, |cov| cov.is_match(&text[offset..end]))
+        covers.is_none_or(|cov| cov.is_match(&text[offset..end]))
     };
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
@@ -824,12 +824,42 @@ fn shape_segment<'a>(
 
         // Add the glyph to the shaped output.
         if info.glyph_id != 0 && is_covered(cluster) {
-            // Determine the text range of the glyph.
+            // Assume we have the following sequence of (glyph_id, cluster):
+            // [(120, 0), (80, 0), (3, 3), (755, 4), (69, 4), (424, 13),
+            //  (63, 13), (193, 25), (80, 25), (3, 31)
+            //
+            // We then want the sequence of (glyph_id, text_range) to look as follows:
+            // [(120, 0..3), (80, 0..3), (3, 3..4), (755, 4..13), (69, 4..13),
+            //  (424, 13..25), (63, 13..25), (193, 25..31), (80, 25..31), (3, 31..x)]
+            //
+            // Each glyph in the same cluster should be assigned the full text
+            // range. This is necessary because only this way krilla can
+            // properly assign `ActualText` attributes in complex shaping
+            // scenarios.
+
+            // The start of the glyph's text range.
             let start = base + cluster;
-            let end = base
-                + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
-                    .and_then(|last| infos.get(last))
-                    .map_or(text.len(), |info| info.cluster as usize);
+
+            // Determine the end of the glyph's text range.
+            let mut k = i;
+            let step: isize = if ltr { 1 } else { -1 };
+            let end = loop {
+                // If we've reached the end of the glyphs, the `end` of the
+                // range should be the end of the full text.
+                let Some((next, next_info)) = k
+                    .checked_add_signed(step)
+                    .and_then(|n| infos.get(n).map(|info| (n, info)))
+                else {
+                    break base + text.len();
+                };
+
+                // If the cluster doesn't match anymore, we've reached the end.
+                if next_info.cluster != info.cluster {
+                    break base + next_info.cluster as usize;
+                }
+
+                k = next;
+            };
 
             let c = text[cluster..].chars().next().unwrap();
             let script = c.script();

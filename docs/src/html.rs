@@ -301,7 +301,10 @@ impl<'a> Handler<'a> {
             return;
         }
 
-        let default = self.peeked.as_ref().map(|text| text.to_kebab_case());
+        let body = self.peeked.as_ref();
+        let default = body.map(|text| text.to_kebab_case());
+        let has_id = id_slot.is_some();
+
         let id: &'a str = match (&id_slot, default) {
             (Some(id), default) => {
                 if Some(*id) == default.as_deref() {
@@ -316,10 +319,10 @@ impl<'a> Handler<'a> {
         *id_slot = (!id.is_empty()).then_some(id);
 
         // Special case for things like "v0.3.0".
-        let name = if id.starts_with('v') && id.contains('.') {
-            id.into()
-        } else {
-            id.to_title_case().into()
+        let name = match &body {
+            _ if id.starts_with('v') && id.contains('.') => id.into(),
+            Some(body) if !has_id => body.as_ref().into(),
+            _ => id.to_title_case().into(),
         };
 
         let mut children = &mut self.outline;
@@ -495,7 +498,7 @@ impl World for DocWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(FONTS.1[index].clone())
+        FONTS.1.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {

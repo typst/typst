@@ -26,9 +26,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "CSV")]
 pub fn csv(
     engine: &mut Engine,
-    /// Path to a CSV file or raw CSV bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a CSV file or raw CSV bytes.
     source: Spanned<DataSource>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.
@@ -96,10 +94,8 @@ pub fn csv(
 #[scope]
 impl csv {
     /// Reads structured data from a CSV string/bytes.
-    ///
-    /// This function is deprecated. The [`csv`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode CSV")]
+    #[deprecated = "`csv.decode` is deprecated, directly pass bytes to `csv` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// CSV data.

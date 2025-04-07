@@ -117,7 +117,6 @@ pub fn stack(
     gap: Abs,
     baseline: usize,
     alternator: LeftRightAlternator,
-    minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
@@ -125,13 +124,9 @@ pub fn stack(
         .map(|row| row.into_line_frame(&points, alternator))
         .collect();
 
-    let padded_height = |height: Abs| {
-        height.max(minimum_ascent_descent.map_or(Abs::zero(), |(a, d)| a + d))
-    };
-
     let mut frame = Frame::soft(Size::new(
         width,
-        rows.iter().map(|row| padded_height(row.height())).sum::<Abs>()
+        rows.iter().map(|row| row.height()).sum::<Abs>()
             + rows.len().saturating_sub(1) as f64 * gap,
     ));
 
@@ -142,14 +137,11 @@ pub fn stack(
         } else {
             Abs::zero()
         };
-        let ascent_padded_part = minimum_ascent_descent
-            .map_or(Abs::zero(), |(a, _)| (a - row.ascent()))
-            .max(Abs::zero());
-        let pos = Point::new(x, y + ascent_padded_part);
+        let pos = Point::new(x, y);
         if i == baseline {
-            frame.set_baseline(y + row.baseline() + ascent_padded_part);
+            frame.set_baseline(y + row.baseline());
         }
-        y += padded_height(row.height()) + gap;
+        y += row.height() + gap;
         frame.push_frame(pos, row);
     }
 

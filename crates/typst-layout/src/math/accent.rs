@@ -19,8 +19,10 @@ pub fn layout_accent(
     let mut base = ctx.layout_into_fragment(&elem.base, styles.chain(&cramped))?;
 
     // Try to replace a glyph with its dotless variant.
-    if let MathFragment::Glyph(glyph) = &mut base {
-        glyph.make_dotless_form(ctx);
+    if elem.dotless(styles) {
+        if let MathFragment::Glyph(glyph) = &mut base {
+            glyph.make_dotless_form(ctx);
+        }
     }
 
     // Preserve class to preserve automatic spacing.
@@ -34,7 +36,7 @@ pub fn layout_accent(
 
     // Try to replace accent glyph with flattened variant.
     let flattened_base_height = scaled!(ctx, styles, flattened_accent_base_height);
-    if base.height() > flattened_base_height {
+    if base.ascent() > flattened_base_height {
         glyph.make_flattened_accent_form(ctx);
     }
 
@@ -50,7 +52,7 @@ pub fn layout_accent(
     // minus the accent base height. Only if the base is very small, we need
     // a larger gap so that the accent doesn't move too low.
     let accent_base_height = scaled!(ctx, styles, accent_base_height);
-    let gap = -accent.descent() - base.height().min(accent_base_height);
+    let gap = -accent.descent() - base.ascent().min(accent_base_height);
     let size = Size::new(base.width(), accent.height() + gap + base.height());
     let accent_pos = Point::with_x(base_attach - accent_attach);
     let base_pos = Point::with_y(accent.height() + gap);

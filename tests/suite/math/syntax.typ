@@ -13,6 +13,11 @@ $ underline(f' : NN -> RR) \
     1 - 0 thick &...,
   ) $
 
+--- math-shorthands-noncontinuable ---
+// Test that shorthands are not continuable.
+$ x >=(y) / z \
+  x >= (y) / z $
+
 --- math-common-symbols ---
 // Test common symbols.
 $ dot \ dots \ ast \ tilde \ star $
@@ -22,6 +27,10 @@ $ dot \ dots \ ast \ tilde \ star $
 // parsed as an identifier instead of the closing right parenthesis.
 $floor(phi.alt.)$
 $floor(phi.alt. )$
+
+--- issue-4828-math-number-multi-char ---
+// Numbers should parse the same regardless of number of characters.
+$1/2(x)$ vs. $1/10(x)$
 
 --- math-unclosed ---
 // Error: 1-2 unclosed delimiter

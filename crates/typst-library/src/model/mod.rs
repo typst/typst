@@ -40,19 +40,11 @@ pub use self::strong::*;
 pub use self::table::*;
 pub use self::terms::*;
 
-use crate::foundations::{category, Category, Scope};
-
-/// Document structuring.
-///
-/// Here, you can find functions to structure your document and interact with
-/// that structure. This includes section headings, figures, bibliography
-/// management, cross-referencing and more.
-#[category]
-pub static MODEL: Category;
+use crate::foundations::Scope;
 
 /// Hook up all `model` definitions.
 pub fn define(global: &mut Scope) {
-    global.category(MODEL);
+    global.start_category(crate::Category::Model);
     global.define_elem::<DocumentElem>();
     global.define_elem::<RefElem>();
     global.define_elem::<LinkElem>();
@@ -72,4 +64,5 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<EmphElem>();
     global.define_elem::<StrongElem>();
     global.define_func::<numbering>();
+    global.reset_category();
 }

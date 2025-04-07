@@ -70,6 +70,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// Typst predefines color maps that you can use as stops. See the
+/// [`color`]($color/#predefined-color-maps) documentation for more details.
+///
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops depends on the dimensions
 /// of a container. This container can either be the shape that it is being
@@ -117,12 +120,12 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// #let spaces = (
 ///   ("Oklab", color.oklab),
 ///   ("Oklch", color.oklch),
-///   ("linear-RGB", color.linear-rgb),
 ///   ("sRGB", color.rgb),
+///   ("linear-RGB", color.linear-rgb),
 ///   ("CMYK", color.cmyk),
+///   ("Grayscale", color.luma),
 ///   ("HSL", color.hsl),
 ///   ("HSV", color.hsv),
-///   ("Grayscale", color.luma),
 /// )
 ///
 /// #for (name, space) in spaces {
@@ -156,10 +159,6 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///   square(fill: gradient.linear(red, blue, angle: 270deg)),
 /// )
 /// ```
-///
-/// # Presets
-/// Typst predefines color maps that you can use with your gradients. See the
-/// [`color`]($color/#predefined-color-maps) documentation for more details.
 ///
 /// # Note on file sizes
 ///
@@ -288,7 +287,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
         /// The color [stops](#stops) of the gradient.
@@ -402,7 +401,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func]
+    #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
         /// The color [stops](#stops) of the gradient.
@@ -575,19 +574,17 @@ impl Gradient {
         }
 
         let n = repetitions.v;
-        let mut stops = std::iter::repeat(self.stops_ref())
-            .take(n)
+        let mut stops = std::iter::repeat_n(self.stops_ref(), n)
             .enumerate()
             .flat_map(|(i, stops)| {
                 let mut stops = stops
                     .iter()
                     .map(move |&(color, offset)| {
-                        let t = i as f64 / n as f64;
                         let r = offset.get();
                         if i % 2 == 1 && mirror {
-                            (color, Ratio::new(t + (1.0 - r) / n as f64))
+                            (color, Ratio::new((i as f64 + 1.0 - r) / n as f64))
                         } else {
-                            (color, Ratio::new(t + r / n as f64))
+                            (color, Ratio::new((i as f64 + r) / n as f64))
                         }
                     })
                     .collect::<Vec<_>>();
@@ -1230,7 +1227,7 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             };
 
             if stop.get() < last_stop {
-                bail!(*span, "offsets must be in strictly monotonic order");
+                bail!(*span, "offsets must be in monotonic order");
             }
 
             last_stop = stop.get();

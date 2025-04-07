@@ -676,6 +676,17 @@ a b c --------------------
   `code`
   ```
 
+--- issue-5760-disable-cjk-latin-spacing-in-raw ---
+
+```typ
+#let hi = "你好world"
+```
+
+#show raw: set text(cjk-latin-spacing: auto)
+```typ
+#let hi = "你好world"
+```
+
 --- raw-theme-set-to-auto ---
 ```typ
 #let hi = "Hello World"

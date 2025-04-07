@@ -110,15 +110,7 @@ pub fn linebreak<'a>(
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
-    let linebreaks = p.linebreaks.unwrap_or_else(|| {
-        if p.justify {
-            Linebreaks::Optimized
-        } else {
-            Linebreaks::Simple
-        }
-    });
-
-    match linebreaks {
+    match p.config.linebreaks {
         Linebreaks::Simple => linebreak_simple(engine, p, width),
         Linebreaks::Optimized => linebreak_optimized(engine, p, width),
     }
@@ -298,7 +290,7 @@ fn linebreak_optimized_bounded<'a>(
             }
 
             // If this attempt is better than what we had before, take it!
-            if best.as_ref().map_or(true, |best| best.total >= total) {
+            if best.as_ref().is_none_or(|best| best.total >= total) {
                 best = Some(Entry { pred: pred_index, total, line: attempt, end });
             }
         }
@@ -384,7 +376,7 @@ fn linebreak_optimized_approximate(
 
             // Whether the line is justified. This is not 100% accurate w.r.t
             // to line()'s behaviour, but good enough.
-            let justify = p.justify && breakpoint != Breakpoint::Mandatory;
+            let justify = p.config.justify && breakpoint != Breakpoint::Mandatory;
 
             // We don't really know whether the line naturally ends with a dash
             // here, so we can miss that case, but it's ok, since all of this
@@ -431,7 +423,7 @@ fn linebreak_optimized_approximate(
             let total = pred.total + line_cost;
 
             // If this attempt is better than what we had before, take it!
-            if best.as_ref().map_or(true, |best| best.total >= total) {
+            if best.as_ref().is_none_or(|best| best.total >= total) {
                 best = Some(Entry {
                     pred: pred_index,
                     total,
@@ -573,7 +565,7 @@ fn raw_ratio(
         // calculate the extra amount. Also, don't divide by zero.
         let extra_stretch = (delta - adjustability) / justifiables.max(1) as f64;
         // Normalize the amount by half the em size.
-        ratio = 1.0 + extra_stretch / (p.size / 2.0);
+        ratio = 1.0 + extra_stretch / (p.config.font_size / 2.0);
     }
 
     // The min value must be < MIN_RATIO, but how much smaller doesn't matter
@@ -663,9 +655,9 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         return;
     }
 
-    let hyphenate = p.hyphenate != Some(false);
+    let hyphenate = p.config.hyphenate != Some(false);
     let lb = LINEBREAK_DATA.as_borrowed();
-    let segmenter = match p.lang {
+    let segmenter = match p.config.lang {
         Some(Lang::CHINESE | Lang::JAPANESE) => &CJ_SEGMENTER,
         _ => &SEGMENTER,
     };
@@ -830,18 +822,18 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
 
 /// Whether hyphenation is enabled at the given offset.
 fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
-    p.hyphenate
-        .or_else(|| {
-            let (_, item) = p.get(offset);
-            let styles = item.text()?.styles;
-            Some(TextElem::hyphenate_in(styles))
-        })
-        .unwrap_or(false)
+    p.config.hyphenate.unwrap_or_else(|| {
+        let (_, item) = p.get(offset);
+        match item.text() {
+            Some(text) => TextElem::hyphenate_in(text.styles).unwrap_or(p.config.justify),
+            None => false,
+        }
+    })
 }
 
 /// The text language at the given offset.
 fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
-    let lang = p.lang.or_else(|| {
+    let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);
         let styles = item.text()?.styles;
         Some(TextElem::lang_in(styles))
@@ -865,13 +857,13 @@ impl CostMetrics {
     fn compute(p: &Preparation) -> Self {
         Self {
             // When justifying, we may stretch spaces below their natural width.
-            min_ratio: if p.justify { MIN_RATIO } else { 0.0 },
-            min_approx_ratio: if p.justify { MIN_APPROX_RATIO } else { 0.0 },
+            min_ratio: if p.config.justify { MIN_RATIO } else { 0.0 },
+            min_approx_ratio: if p.config.justify { MIN_APPROX_RATIO } else { 0.0 },
             // Approximate hyphen width for estimates.
-            approx_hyphen_width: Em::new(0.33).at(p.size),
+            approx_hyphen_width: Em::new(0.33).at(p.config.font_size),
             // Costs.
-            hyph_cost: DEFAULT_HYPH_COST * p.costs.hyphenation().get(),
-            runt_cost: DEFAULT_RUNT_COST * p.costs.runt().get(),
+            hyph_cost: DEFAULT_HYPH_COST * p.config.costs.hyphenation().get(),
+            runt_cost: DEFAULT_RUNT_COST * p.config.costs.runt().get(),
         }
     }
 

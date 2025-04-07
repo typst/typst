@@ -6,6 +6,7 @@
   columns: (1fr, 1fr),
   rows: (1fr, 1fr, 1fr),
   align: center + horizon,
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     fill: red,
     closed: true,
@@ -14,6 +15,7 @@
     ((0%, 50%), (4%, 4%)),
     ((50%, 0%), (4%, 4%)),
   ),
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     fill: purple,
     stroke: 1pt,
@@ -22,6 +24,7 @@
     (0pt, 30pt),
     (30pt, 0pt),
   ),
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     fill: blue,
     stroke: 1pt,
@@ -30,6 +33,7 @@
     ((30%, 60%), (-20%, 0%), (0%, 0%)),
     ((50%, 30%), (60%, -30%), (60%, 0%)),
   ),
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     stroke: 5pt,
     closed: true,
@@ -37,6 +41,7 @@
     (30pt, 30pt),
     (15pt, 0pt),
   ),
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     fill: red,
     fill-rule: "non-zero",
@@ -47,6 +52,7 @@
     (0pt, 20pt),
     (40pt, 50pt),
   ),
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     fill: red,
     fill-rule: "even-odd",
@@ -61,18 +67,22 @@
 
 --- path-bad-vertex ---
 // Error: 7-9 path vertex must have 1, 2, or 3 points
+// Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path(())
 
 --- path-bad-point-count ---
 // Error: 7-47 path vertex must have 1, 2, or 3 points
+// Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path(((0%, 0%), (0%, 0%), (0%, 0%), (0%, 0%)))
 
 --- path-bad-point-array ---
 // Error: 7-31 point array must contain exactly two entries
+// Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path(((0%, 0%), (0%, 0%, 0%)))
 
 --- path-infinite-length ---
 // Error: 2-42 cannot create path with infinite length
+// Warning: 2-6 the `path` function is deprecated, use `curve` instead
 #path((0pt, 0pt), (float.inf * 1pt, 0pt))
 
 --- issue-path-in-sized-container ---
@@ -82,6 +92,7 @@
   fill: aqua,
   width: 20pt,
   height: 15pt,
+  // Warning: 3-7 the `path` function is deprecated, use `curve` instead
   path(
     (0pt, 0pt),
     (10pt, 10pt),

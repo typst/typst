@@ -33,7 +33,7 @@ fn eval_markup<'a>(
 
     while let Some(expr) = exprs.next() {
         match expr {
-            ast::Expr::Set(set) => {
+            ast::Expr::SetRule(set) => {
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -41,7 +41,7 @@ fn eval_markup<'a>(
 
                 seq.push(eval_markup(vm, exprs)?.styled_with_map(styles))
             }
-            ast::Expr::Show(show) => {
+            ast::Expr::ShowRule(show) => {
                 let recipe = show.eval(vm)?;
                 if vm.flow.is_some() {
                     break;

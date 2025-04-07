@@ -1,9 +1,4 @@
-use typst_library::foundations::{Resolve, Smart};
-use typst_library::layout::{Abs, AlignElem, Dir, Em, FixedAlignment};
-use typst_library::model::Linebreaks;
-use typst_library::routines::Pair;
-use typst_library::text::{Costs, Lang, TextElem};
-use typst_utils::SliceExt;
+use typst_library::layout::{Dir, Em};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
 use super::*;
@@ -17,6 +12,8 @@ use super::*;
 pub struct Preparation<'a> {
     /// The full text.
     pub text: &'a str,
+    /// Configuration for inline layout.
+    pub config: &'a Config,
     /// Bidirectional text embedding levels.
     ///
     /// This is `None` if all text directions are uniform (all the base
@@ -28,28 +25,6 @@ pub struct Preparation<'a> {
     pub indices: Vec<usize>,
     /// The span mapper.
     pub spans: SpanMapper,
-    /// Whether to hyphenate if it's the same for all children.
-    pub hyphenate: Option<bool>,
-    /// Costs for various layout decisions.
-    pub costs: Costs,
-    /// The dominant direction.
-    pub dir: Dir,
-    /// The text language if it's the same for all children.
-    pub lang: Option<Lang>,
-    /// The resolved horizontal alignment.
-    pub align: FixedAlignment,
-    /// Whether to justify text.
-    pub justify: bool,
-    /// Hanging indent to apply.
-    pub hang: Abs,
-    /// Whether to add spacing between CJK and Latin characters.
-    pub cjk_latin_spacing: bool,
-    /// Whether font fallback is enabled.
-    pub fallback: bool,
-    /// How to determine line breaks.
-    pub linebreaks: Smart<Linebreaks>,
-    /// The text size.
-    pub size: Abs,
 }
 
 impl<'a> Preparation<'a> {
@@ -80,15 +55,12 @@ impl<'a> Preparation<'a> {
 #[typst_macros::time]
 pub fn prepare<'a>(
     engine: &mut Engine,
-    children: &[Pair<'a>],
+    config: &'a Config,
     text: &'a str,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
-    styles: StyleChain<'a>,
-    paragraph: bool,
 ) -> SourceResult<Preparation<'a>> {
-    let dir = TextElem::dir_in(styles);
-    let default_level = match dir {
+    let default_level = match config.dir {
         Dir::RTL => BidiLevel::rtl(),
         _ => BidiLevel::ltr(),
     };
@@ -124,45 +96,18 @@ pub fn prepare<'a>(
         indices.extend(range.clone().map(|_| i));
     }
 
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(styles).is_auto();
-    if cjk_latin_spacing {
+    if config.cjk_latin_spacing {
         add_cjk_latin_spacing(&mut items);
     }
 
-    // Only apply hanging indent to real paragraphs.
-    let hang = if paragraph { ParElem::hanging_indent_in(styles) } else { Abs::zero() };
-
     Ok(Preparation {
+        config,
         text,
         bidi: is_bidi.then_some(bidi),
         items,
         indices,
         spans,
-        hyphenate: shared_get(children, styles, TextElem::hyphenate_in),
-        costs: TextElem::costs_in(styles),
-        dir,
-        lang: shared_get(children, styles, TextElem::lang_in),
-        align: AlignElem::alignment_in(styles).resolve(styles).x,
-        justify: ParElem::justify_in(styles),
-        hang,
-        cjk_latin_spacing,
-        fallback: TextElem::fallback_in(styles),
-        linebreaks: ParElem::linebreaks_in(styles),
-        size: TextElem::size_in(styles),
     })
-}
-
-/// Get a style property, but only if it is the same for all of the children.
-fn shared_get<T: PartialEq>(
-    children: &[Pair],
-    styles: StyleChain<'_>,
-    getter: fn(StyleChain) -> T,
-) -> Option<T> {
-    let value = getter(styles);
-    children
-        .group_by_key(|&(_, s)| s)
-        .all(|(s, _)| getter(s) == value)
-        .then_some(value)
 }
 
 /// Add some spacing between Han characters and western characters. See

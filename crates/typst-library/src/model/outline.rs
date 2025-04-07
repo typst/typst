@@ -388,7 +388,7 @@ pub struct OutlineEntry {
     /// space between the entry's body and the page number. When using show
     /// rules to override outline entries, it is thus recommended to wrap the
     /// fill in a [`box`] with fractional width, i.e.
-    /// `{box(width: 1fr, it.fill}`.
+    /// `{box(width: 1fr, it.fill)}`.
     ///
     /// When using [`repeat`], the [`gap`]($repeat.gap) property can be useful
     /// to tweak the visual weight of the fill.
@@ -445,9 +445,9 @@ impl OutlineEntry {
     ///
     /// If the parent outline's [`indent`]($outline.indent) is `{auto}`, the
     /// inner content of all entries at level `N` is aligned with the prefix of
-    /// all entries at with level `N + 1`, leaving at least `gap` space between
-    /// the prefix and inner parts. Furthermore, the `inner` contents of all
-    /// entries at the same level are aligned.
+    /// all entries at level `N + 1`, leaving at least `gap` space between the
+    /// prefix and inner parts. Furthermore, the `inner` contents of all entries
+    /// at the same level are aligned.
     ///
     /// If the outline's indent is a fixed value or a function, the prefixes are
     /// indented, but the inner contents are simply inset from the prefix by the
@@ -461,13 +461,13 @@ impl OutlineEntry {
         /// The `prefix` is aligned with the `inner` content of entries that
         /// have level one less.
         ///
-        /// In the default show rule, this is just to `it.prefix()`, but it can
-        /// be freely customized.
+        /// In the default show rule, this is just `it.prefix()`, but it can be
+        /// freely customized.
         prefix: Option<Content>,
         /// The formatted inner content of the entry.
         ///
-        /// In the default show rule, this is just to `it.inner()`, but it can
-        /// be freely customized.
+        /// In the default show rule, this is just `it.inner()`, but it can be
+        /// freely customized.
         inner: Content,
         /// The gap between the prefix and the inner content.
         #[named]
@@ -623,7 +623,7 @@ impl OutlineEntry {
 
     /// The content which is displayed in place of the referred element at its
     /// entry in the outline. For a heading, this is its
-    /// [`body`]($heading.body), for a figure a caption, and for equations it is
+    /// [`body`]($heading.body); for a figure a caption and for equations, it is
     /// empty.
     #[func]
     pub fn body(&self) -> StrResult<Content> {

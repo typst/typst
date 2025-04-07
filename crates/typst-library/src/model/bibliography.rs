@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::Tracked;
+use comemo::{Track, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -20,7 +20,7 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::engine::{Engine, Sink};
 use crate::foundations::{
     elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
     OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
@@ -94,7 +94,7 @@ pub struct BibliographyElem {
     /// - A path string to load a bibliography file from the given path. For
     ///   more details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which the bibliography should be decoded.
-    /// - An array where each item is one the above.
+    /// - An array where each item is one of the above.
     #[required]
     #[parse(
         let sources = args.expect("sources")?;
@@ -999,6 +999,8 @@ impl ElemRenderer<'_> {
         (self.routines.eval_string)(
             self.routines,
             self.world,
+            // TODO: propagate warnings
+            Sink::new().track_mut(),
             math,
             self.span,
             EvalMode::Math,

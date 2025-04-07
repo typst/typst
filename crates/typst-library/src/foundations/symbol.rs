@@ -21,6 +21,7 @@ use crate::foundations::{
 /// be accessed using [field access notation]($scripting/#fields):
 ///
 /// - General symbols are defined in the [`sym` module]($category/symbols/sym)
+///   and are accessible without the `sym.` prefix in math mode.
 /// - Emoji are defined in the [`emoji` module]($category/symbols/emoji)
 ///
 /// Moreover, you can define custom symbols with this type's constructor
@@ -410,7 +411,7 @@ fn find<'a>(
         }
 
         let score = (matching, Reverse(total));
-        if best_score.map_or(true, |b| score > b) {
+        if best_score.is_none_or(|b| score > b) {
             best = Some(candidate.1);
             best_score = Some(score);
         }

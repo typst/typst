@@ -6,8 +6,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Bytes, Capturer, Closure, Content, Context, Func, IntoValue,
-    NativeElement, Scope, Scopes, SymbolElem, Value,
+    Arg, Args, Binding, Capturer, Closure, Content, Context, Func, NativeElement, Scope,
+    Scopes, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -196,7 +196,7 @@ pub fn eval_closure(
 
     // Provide the closure itself for recursive calls.
     if let Some(name) = name {
-        vm.define(name, Value::Func(func.clone()));
+        vm.define(name, func.clone());
     }
 
     let num_pos_args = args.to_pos().len();
@@ -315,19 +315,15 @@ fn eval_field_call(
         (target, args)
     };
 
-    if let Value::Plugin(plugin) = &target {
-        // Call plugins by converting args to bytes.
-        let bytes = args.all::<Bytes>()?;
-        args.finish()?;
-        let value = plugin.call(&field, bytes).at(span)?.into_value();
-        Ok(FieldCall::Resolved(value))
-    } else if let Some(callee) = target.ty().scope().get(&field) {
+    let field_span = field.span();
+    let sink = (&mut vm.engine, field_span);
+    if let Some(callee) = target.ty().scope().get(&field) {
         args.insert(0, target_expr.span(), target);
-        Ok(FieldCall::Normal(callee.clone(), args))
+        Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
     } else if let Value::Content(content) = &target {
         if let Some(callee) = content.elem().scope().get(&field) {
             args.insert(0, target_expr.span(), target);
-            Ok(FieldCall::Normal(callee.clone(), args))
+            Ok(FieldCall::Normal(callee.read_checked(sink).clone(), args))
         } else {
             bail!(missing_field_call_error(target, field))
         }
@@ -337,7 +333,7 @@ fn eval_field_call(
     ) {
         // Certain value types may have their own ways to access method fields.
         // e.g. `$arrow.r(v)$`, `table.cell[..]`
-        let value = target.field(&field).at(field.span())?;
+        let value = target.field(&field, sink).at(field_span)?;
         Ok(FieldCall::Normal(value, args))
     } else {
         // Otherwise we cannot call this field.
@@ -370,7 +366,7 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
                 field.as_str(),
             ));
         }
-        _ if target.field(&field).is_ok() => {
+        _ if target.field(&field, ()).is_ok() => {
             error.hint(eco_format!(
                 "did you mean to access the field `{}`?",
                 field.as_str(),
@@ -464,15 +460,13 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => {
-                self.capture(ident.get(), ident.span(), Scopes::get)
-            }
+            Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), ident.span(), Scopes::get_in_math)
+                self.capture(ident.get(), Scopes::get_in_math)
             }
 
             // Code and content blocks create a scope.
-            Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
+            Some(ast::Expr::CodeBlock(_) | ast::Expr::ContentBlock(_)) => {
                 self.internal.enter();
                 for child in node.children() {
                     self.visit(child);
@@ -522,7 +516,7 @@ impl<'a> CapturesVisitor<'a> {
 
             // A let expression contains a binding, but that binding is only
             // active after the body is evaluated.
-            Some(ast::Expr::Let(expr)) => {
+            Some(ast::Expr::LetBinding(expr)) => {
                 if let Some(init) = expr.init() {
                     self.visit(init.to_untyped());
                 }
@@ -535,7 +529,7 @@ impl<'a> CapturesVisitor<'a> {
             // A for loop contains one or two bindings in its pattern. These are
             // active after the iterable is evaluated but before the body is
             // evaluated.
-            Some(ast::Expr::For(expr)) => {
+            Some(ast::Expr::ForLoop(expr)) => {
                 self.visit(expr.iterable().to_untyped());
                 self.internal.enter();
 
@@ -550,7 +544,7 @@ impl<'a> CapturesVisitor<'a> {
 
             // An import contains items, but these are active only after the
             // path is evaluated.
-            Some(ast::Expr::Import(expr)) => {
+            Some(ast::Expr::ModuleImport(expr)) => {
                 self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
                     for item in items.iter() {
@@ -576,32 +570,34 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     fn bind(&mut self, ident: ast::Ident) {
-        self.internal.top.define_ident(ident, Value::None);
+        // The concrete value does not matter as we only use the scoping
+        // mechanism of `Scopes`, not the values themselves.
+        self.internal
+            .top
+            .bind(ident.get().clone(), Binding::detached(Value::None));
     }
 
     /// Capture a variable if it isn't internal.
     fn capture(
         &mut self,
         ident: &EcoString,
-        span: Span,
-        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Binding>,
     ) {
-        if self.internal.get(ident).is_err() {
-            let Some(value) = self
-                .external
-                .map(|external| getter(external, ident).ok())
-                .unwrap_or(Some(&Value::None))
-            else {
-                return;
-            };
-
-            self.captures.define_captured(
-                ident.clone(),
-                value.clone(),
-                self.capturer,
-                span,
-            );
+        if self.internal.get(ident).is_ok() {
+            return;
         }
+
+        let binding = match self.external {
+            Some(external) => match getter(external, ident) {
+                Ok(binding) => binding.capture(self.capturer),
+                Err(_) => return,
+            },
+            // The external scopes are only `None` when we are doing IDE capture
+            // analysis, in which case the concrete value doesn't matter.
+            None => Binding::detached(Value::None),
+        };
+
+        self.captures.bind(ident.clone(), binding);
     }
 }
 

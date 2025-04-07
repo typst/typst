@@ -284,6 +284,7 @@ impl<'a> CurveBuilder<'a> {
         self.last_point = point;
         self.last_control_from = point;
         self.is_started = true;
+        self.is_empty = true;
     }
 
     /// Add a line segment.
@@ -1281,7 +1282,7 @@ impl ControlPoints {
     }
 }
 
-/// Helper to draw arcs with bezier curves.
+/// Helper to draw arcs with Bézier curves.
 trait CurveExt {
     fn arc(&mut self, start: Point, center: Point, end: Point);
     fn arc_move(&mut self, start: Point, center: Point, end: Point);
@@ -1305,7 +1306,7 @@ impl CurveExt for Curve {
     }
 }
 
-/// Get the control points for a bezier curve that approximates a circular arc for
+/// Get the control points for a Bézier curve that approximates a circular arc for
 /// a start point, an end point and a center of the circle whose arc connects
 /// the two.
 fn bezier_arc_control(start: Point, center: Point, end: Point) -> [Point; 2] {

@@ -238,7 +238,7 @@ impl<'s> SmartQuotes<'s> {
             "cs" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
             "da" => ("‘", "’", "“", "”"),
             "fr" | "ru" if alternative => default,
-            "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
+            "fr" => ("“", "”", "«\u{202F}", "\u{202F}»"),
             "fi" | "sv" if alternative => ("’", "’", "»", "»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
             "it" if alternative => default,
@@ -251,6 +251,7 @@ impl<'s> SmartQuotes<'s> {
             "el" => ("‘", "’", "«", "»"),
             "he" => ("’", "’", "”", "”"),
             "hr" => ("‘", "’", "„", "”"),
+            "bg" => ("’", "’", "„", "“"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };

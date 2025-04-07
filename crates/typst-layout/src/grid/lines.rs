@@ -463,7 +463,7 @@ pub fn hline_stroke_at_column(
     // region, we have the last index, and (as a failsafe) we don't have the
     // last row of cells above us.
     let use_bottom_border_stroke = !in_last_region
-        && local_top_y.map_or(true, |top_y| top_y + 1 != grid.rows.len())
+        && local_top_y.is_none_or(|top_y| top_y + 1 != grid.rows.len())
         && y == grid.rows.len();
     let bottom_y =
         if use_bottom_border_stroke { grid.rows.len().saturating_sub(1) } else { y };

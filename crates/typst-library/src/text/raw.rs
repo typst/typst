@@ -21,9 +21,7 @@ use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
-use crate::text::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, TextElem, TextSize,
-};
+use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
 use crate::World;
 
@@ -190,7 +188,7 @@ pub struct RawElem {
     /// - A path string to load a syntax file from the given path. For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which the syntax should be decoded.
-    /// - An array where each item is one the above.
+    /// - An array where each item is one of the above.
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
@@ -448,10 +446,14 @@ impl Show for Packed<RawElem> {
         let mut realized = Content::sequence(seq);
 
         if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(tag::pre)
-                .with_body(Some(realized))
-                .pack()
-                .spanned(self.span()));
+            return Ok(HtmlElem::new(if self.block(styles) {
+                tag::pre
+            } else {
+                tag::code
+            })
+            .with_body(Some(realized))
+            .pack()
+            .spanned(self.span()));
         }
 
         if self.block(styles) {
@@ -472,9 +474,10 @@ impl ShowSet for Packed<RawElem> {
         let mut out = Styles::new();
         out.set(TextElem::set_overhang(false));
         out.set(TextElem::set_lang(Lang::ENGLISH));
-        out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
+        out.set(TextElem::set_hyphenate(Smart::Custom(false)));
         out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
+        out.set(TextElem::set_cjk_latin_spacing(Smart::Custom(None)));
         if self.block(styles) {
             out.set(ParElem::set_justify(false));
         }

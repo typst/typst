@@ -246,6 +246,16 @@ Look, ma, no page numbers!
 #set page(header: auto, footer: auto)
 Default page numbers now.
 
+--- page-numbering-huge ---
+#set page(margin: (bottom: 20pt, rest: 0pt))
+#let filler = lines(1)
+
+// Test values greater than 32-bits
+#set page(numbering: "1/1")
+#counter(page).update(100000000001)
+#pagebreak()
+#pagebreak()
+
 --- page-marginal-style-text-set ---
 #set page(numbering: "1", margin: (bottom: 20pt))
 #set text(red)

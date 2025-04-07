@@ -7,12 +7,13 @@ use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use typst_syntax::{Span, Spanned};
+use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Decimal, Dict, Func,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Cast, Context, Decimal, Dict, Func,
     IntoValue, Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
@@ -284,6 +285,30 @@ impl Str {
             .try_into()
             .map_err(|_| eco_format!("{value:#x} is not a valid codepoint"))?;
         Ok(c.into())
+    }
+
+    /// Normalizes the string to the given Unicode normal form.
+    ///
+    /// This is useful when manipulating strings containing Unicode combining
+    /// characters.
+    ///
+    /// ```typ
+    /// #assert.eq("é".normalize(form: "nfd"), "e\u{0301}")
+    /// #assert.eq("ſ́".normalize(form: "nfkc"), "ś")
+    /// ```
+    #[func]
+    pub fn normalize(
+        &self,
+        #[named]
+        #[default(UnicodeNormalForm::Nfc)]
+        form: UnicodeNormalForm,
+    ) -> Str {
+        match form {
+            UnicodeNormalForm::Nfc => self.nfc().collect(),
+            UnicodeNormalForm::Nfd => self.nfd().collect(),
+            UnicodeNormalForm::Nfkc => self.nfkc().collect(),
+            UnicodeNormalForm::Nfkd => self.nfkd().collect(),
+        }
     }
 
     /// Whether the string contains the specified pattern.
@@ -786,6 +811,25 @@ cast! {
     v: Label => Self::Str(v.resolve().as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
+}
+
+/// A Unicode normalization form.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum UnicodeNormalForm {
+    /// Canonical composition where e.g. accented letters are turned into a
+    /// single Unicode codepoint.
+    #[string("nfc")]
+    Nfc,
+    /// Canonical decomposition where e.g. accented letters are split into a
+    /// separate base and diacritic.
+    #[string("nfd")]
+    Nfd,
+    /// Like NFC, but using the Unicode compatibility decompositions.
+    #[string("nfkc")]
+    Nfkc,
+    /// Like NFD, but using the Unicode compatibility decompositions.
+    #[string("nfkd")]
+    Nfkd,
 }
 
 /// Convert an item of std's `match_indices` to a dictionary.

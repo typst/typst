@@ -67,7 +67,7 @@ impl World for TestWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(self.base.fonts[index].clone())
+        self.base.fonts.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
@@ -244,7 +244,7 @@ fn lines(
     engine: &mut Engine,
     context: Tracked<Context>,
     span: Span,
-    count: usize,
+    count: u64,
     #[default(Numbering::Pattern(NumberingPattern::from_str("A").unwrap()))]
     numbering: Numbering,
 ) -> SourceResult<Value> {

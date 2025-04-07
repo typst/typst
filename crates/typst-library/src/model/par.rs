@@ -3,8 +3,8 @@ use typst_utils::singleton;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, scope, Args, Cast, Construct, Content, NativeElement, Packed, Smart,
-    Unlabellable,
+    cast, dict, elem, scope, Args, Cast, Construct, Content, Dict, NativeElement, Packed,
+    Smart, Unlabellable, Value,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
@@ -163,16 +163,56 @@ pub struct ParElem {
 
     /// The indent the first line of a paragraph should have.
     ///
-    /// Only the first line of a consecutive paragraph will be indented (not
-    /// the first one in a block or on the page).
+    /// By default, only the first line of a consecutive paragraph will be
+    /// indented (not the first one in the document or container, and not
+    /// paragraphs immediately following other block-level elements).
+    ///
+    /// If you want to indent all paragraphs instead, you can pass a dictionary
+    /// containing the `amount` of indent as a length and the pair
+    /// `{all: true}`. When `all` is omitted from the dictionary, it defaults to
+    /// `{false}`.
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
-    /// space between paragraphs or by indented first lines. Consider reducing
-    /// the [paragraph spacing]($block.spacing) to the [`leading`]($par.leading)
-    /// when using this property (e.g. using `[#set par(spacing: 0.65em)]`).
-    pub first_line_indent: Length,
+    /// space between paragraphs or by indented first lines. Consider
+    /// - reducing the [paragraph `spacing`]($par.spacing) to the
+    ///   [`leading`]($par.leading) using `{set par(spacing: 0.65em)}`
+    /// - increasing the [block `spacing`]($block.spacing) (which inherits the
+    ///   paragraph spacing by default) to the original paragraph spacing using
+    ///   `{set block(spacing: 1.2em)}`
+    ///
+    /// ```example
+    /// #set block(spacing: 1.2em)
+    /// #set par(
+    ///   first-line-indent: 1.5em,
+    ///   spacing: 0.65em,
+    /// )
+    ///
+    /// The first paragraph is not affected
+    /// by the indent.
+    ///
+    /// But the second paragraph is.
+    ///
+    /// #line(length: 100%)
+    ///
+    /// #set par(first-line-indent: (
+    ///   amount: 1.5em,
+    ///   all: true,
+    /// ))
+    ///
+    /// Now all paragraphs are affected
+    /// by the first line indent.
+    ///
+    /// Even the first one.
+    /// ```
+    pub first_line_indent: FirstLineIndent,
 
     /// The indent that all but the first line of a paragraph should have.
+    ///
+    /// ```example
+    /// #set par(hanging-indent: 1em)
+    ///
+    /// #lorem(15)
+    /// ```
     #[resolve]
     pub hanging_indent: Length,
 
@@ -197,6 +237,36 @@ pub enum Linebreaks {
     /// Typst will try to produce more evenly filled lines of text by
     /// considering the whole paragraph when calculating line breaks.
     Optimized,
+}
+
+/// Configuration for first line indent.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+pub struct FirstLineIndent {
+    /// The amount of indent.
+    pub amount: Length,
+    /// Whether to indent all paragraphs, not just consecutive ones.
+    pub all: bool,
+}
+
+cast! {
+    FirstLineIndent,
+    self => Value::Dict(self.into()),
+    amount: Length => Self { amount, all: false },
+    mut dict: Dict => {
+        let amount = dict.take("amount")?.cast()?;
+        let all = dict.take("all").ok().map(|v| v.cast()).transpose()?.unwrap_or(false);
+        dict.finish(&["amount", "all"])?;
+        Self { amount, all }
+    },
+}
+
+impl From<FirstLineIndent> for Dict {
+    fn from(indent: FirstLineIndent) -> Self {
+        dict! {
+            "amount" => indent.amount,
+            "all" => indent.all,
+        }
+    }
 }
 
 /// A paragraph break.

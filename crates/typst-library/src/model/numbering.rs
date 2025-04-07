@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use chinese_number::{
-    from_usize_to_chinese_ten_thousand as usize_to_chinese, ChineseCase, ChineseVariant,
+    from_u64_to_chinese_ten_thousand as u64_to_chinese, ChineseCase, ChineseVariant,
 };
 use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
@@ -85,7 +85,7 @@ pub fn numbering(
     /// If `numbering` is a pattern and more numbers than counting symbols are
     /// given, the last counting symbol with its prefix is repeated.
     #[variadic]
-    numbers: Vec<usize>,
+    numbers: Vec<u64>,
 ) -> SourceResult<Value> {
     numbering.apply(engine, context, &numbers)
 }
@@ -105,7 +105,7 @@ impl Numbering {
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        numbers: &[usize],
+        numbers: &[u64],
     ) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
@@ -156,7 +156,7 @@ pub struct NumberingPattern {
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, numbers: &[usize]) -> EcoString {
+    pub fn apply(&self, numbers: &[u64]) -> EcoString {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.iter();
 
@@ -185,7 +185,7 @@ impl NumberingPattern {
     }
 
     /// Apply only the k-th segment of the pattern to a number.
-    pub fn apply_kth(&self, k: usize, number: usize) -> EcoString {
+    pub fn apply_kth(&self, k: usize, number: u64) -> EcoString {
         let mut fmt = EcoString::new();
         if let Some((prefix, _)) = self.pieces.first() {
             fmt.push_str(prefix);
@@ -379,7 +379,7 @@ impl NumberingKind {
     }
 
     /// Apply the numbering to the given number.
-    pub fn apply(self, n: usize) -> EcoString {
+    pub fn apply(self, n: u64) -> EcoString {
         match self {
             Self::Arabic => eco_format!("{n}"),
             Self::LowerRoman => roman_numeral(n, Case::Lower),
@@ -392,9 +392,10 @@ impl NumberingKind {
                 }
 
                 const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
-                let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
-                let amount = ((n - 1) / SYMBOLS.len()) + 1;
-                std::iter::repeat(symbol).take(amount).collect()
+                let n_symbols = SYMBOLS.len() as u64;
+                let symbol = SYMBOLS[((n - 1) % n_symbols) as usize];
+                let amount = ((n - 1) / n_symbols) + 1;
+                std::iter::repeat_n(symbol, amount.try_into().unwrap()).collect()
             }
             Self::Hebrew => hebrew_numeral(n),
 
@@ -489,18 +490,16 @@ impl NumberingKind {
             }
 
             Self::LowerSimplifiedChinese => {
-                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Lower, n).into()
+                u64_to_chinese(ChineseVariant::Simple, ChineseCase::Lower, n).into()
             }
             Self::UpperSimplifiedChinese => {
-                usize_to_chinese(ChineseVariant::Simple, ChineseCase::Upper, n).into()
+                u64_to_chinese(ChineseVariant::Simple, ChineseCase::Upper, n).into()
             }
             Self::LowerTraditionalChinese => {
-                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Lower, n)
-                    .into()
+                u64_to_chinese(ChineseVariant::Traditional, ChineseCase::Lower, n).into()
             }
             Self::UpperTraditionalChinese => {
-                usize_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n)
-                    .into()
+                u64_to_chinese(ChineseVariant::Traditional, ChineseCase::Upper, n).into()
             }
 
             Self::EasternArabic => decimal('\u{0660}', n),
@@ -512,7 +511,7 @@ impl NumberingKind {
 }
 
 /// Stringify an integer to a Hebrew number.
-fn hebrew_numeral(mut n: usize) -> EcoString {
+fn hebrew_numeral(mut n: u64) -> EcoString {
     if n == 0 {
         return '-'.into();
     }
@@ -566,7 +565,7 @@ fn hebrew_numeral(mut n: usize) -> EcoString {
 }
 
 /// Stringify an integer to a Roman numeral.
-fn roman_numeral(mut n: usize, case: Case) -> EcoString {
+fn roman_numeral(mut n: u64, case: Case) -> EcoString {
     if n == 0 {
         return match case {
             Case::Lower => 'n'.into(),
@@ -622,7 +621,7 @@ fn roman_numeral(mut n: usize, case: Case) -> EcoString {
 ///
 /// [converter]: https://www.russellcottrell.com/greek/utilities/GreekNumberConverter.htm
 /// [numbers]: https://mathshistory.st-andrews.ac.uk/HistTopics/Greek_numbers/
-fn greek_numeral(n: usize, case: Case) -> EcoString {
+fn greek_numeral(n: u64, case: Case) -> EcoString {
     let thousands = [
         ["͵α", "͵Α"],
         ["͵β", "͵Β"],
@@ -683,7 +682,7 @@ fn greek_numeral(n: usize, case: Case) -> EcoString {
     let mut decimal_digits: Vec<usize> = Vec::new();
     let mut n = n;
     while n > 0 {
-        decimal_digits.push(n % 10);
+        decimal_digits.push((n % 10) as usize);
         n /= 10;
     }
 
@@ -778,18 +777,16 @@ fn greek_numeral(n: usize, case: Case) -> EcoString {
 ///
 /// You might be familiar with this scheme from the way spreadsheet software
 /// tends to label its columns.
-fn zeroless<const N_DIGITS: usize>(
-    alphabet: [char; N_DIGITS],
-    mut n: usize,
-) -> EcoString {
+fn zeroless<const N_DIGITS: usize>(alphabet: [char; N_DIGITS], mut n: u64) -> EcoString {
     if n == 0 {
         return '-'.into();
     }
+    let n_digits = N_DIGITS as u64;
     let mut cs = EcoString::new();
     while n > 0 {
         n -= 1;
-        cs.push(alphabet[n % N_DIGITS]);
-        n /= N_DIGITS;
+        cs.push(alphabet[(n % n_digits) as usize]);
+        n /= n_digits;
     }
     cs.chars().rev().collect()
 }
@@ -797,7 +794,7 @@ fn zeroless<const N_DIGITS: usize>(
 /// Stringify a number using a base-10 counting system with a zero digit.
 ///
 /// This function assumes that the digits occupy contiguous codepoints.
-fn decimal(start: char, mut n: usize) -> EcoString {
+fn decimal(start: char, mut n: u64) -> EcoString {
     if n == 0 {
         return start.into();
     }

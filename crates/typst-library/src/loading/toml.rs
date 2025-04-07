@@ -29,9 +29,7 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "TOML")]
 pub fn toml(
     engine: &mut Engine,
-    /// A path to a TOML file or raw TOML bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a TOML file or raw TOML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
@@ -44,10 +42,8 @@ pub fn toml(
 #[scope]
 impl toml {
     /// Reads structured data from a TOML string/bytes.
-    ///
-    /// This function is deprecated. The [`toml`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode TOML")]
+    #[deprecated = "`toml.decode` is deprecated, directly pass bytes to `toml` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// TOML data.
