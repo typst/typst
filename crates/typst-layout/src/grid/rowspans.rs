@@ -5,7 +5,7 @@ use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 use typst_utils::MaybeReverseIter;
 
-use super::layouter::{in_last_with_offset, points, Row};
+use super::layouter::{may_progress_with_offset, points, Row};
 use super::{layout_cell, Cell, GridLayouter};
 
 /// All information needed to layout a single rowspan.
@@ -256,7 +256,7 @@ impl GridLayouter<'_> {
 
             // Skip to fitting region.
             while !self.regions.size.y.fits(row_group.height)
-                && !in_last_with_offset(
+                && may_progress_with_offset(
                     self.regions,
                     // Note that we consider that the exact same headers and footers will be
                     // added if we skip like this (blocking other rows from being laid out)
@@ -1096,7 +1096,7 @@ impl<'a> RowspanSimulator<'a> {
                     0,
                 )?;
                 while !self.regions.size.y.fits(row_group.height)
-                    && !in_last_with_offset(
+                    && may_progress_with_offset(
                         self.regions,
                         self.header_height + self.footer_height,
                     )
@@ -1121,7 +1121,7 @@ impl<'a> RowspanSimulator<'a> {
                     let mut skipped_region = false;
                     while unbreakable_rows_left == 0
                         && !self.regions.size.y.fits(height)
-                        && !in_last_with_offset(
+                        && may_progress_with_offset(
                             self.regions,
                             self.header_height + self.footer_height,
                         )

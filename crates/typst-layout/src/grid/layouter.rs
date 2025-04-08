@@ -1300,9 +1300,11 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Skip to fitting region, but only if we aren't part of an unbreakable
-        // row group. We use 'in_last_with_offset' so our 'in_last' call
-        // properly considers that a header and a footer would be added on each
-        // region break.
+        // row group. We use 'may_progress_with_offset' so our 'may_progress'
+        // call properly considers that a header and a footer would be added
+        // on each region break, so we only keep skipping regions until we
+        // reach one with the same height of the 'last' region (which can be
+        // endlessly repeated) when subtracting header and footer height.
         //
         // See 'check_for_unbreakable_rows' as for why we're using
         // 'header_height' to predict header height and not
@@ -1310,7 +1312,10 @@ impl<'a> GridLayouter<'a> {
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
-            && !in_last_with_offset(self.regions, self.header_height + self.footer_height)
+            && may_progress_with_offset(
+                self.regions,
+                self.header_height + self.footer_height,
+            )
         {
             self.finish_region(engine, false)?;
 
@@ -1481,7 +1486,7 @@ impl<'a> GridLayouter<'a> {
                     .and_then(Repeatable::as_repeated)
                     .is_none_or(|footer| footer.start != last_header_end)
                 && self.lrows.len() == self.current_header_rows
-                && !in_last_with_offset(
+                && may_progress_with_offset(
                     self.regions,
                     // Since we're trying to find a region where to place all
                     // repeating + pending headers, it makes sense to use
@@ -1507,7 +1512,7 @@ impl<'a> GridLayouter<'a> {
             // TODO: widow prevention for non-repeated footers with a similar
             // mechanism / when implementing multiple footers.
             self.lrows.is_empty()
-                && !in_last_with_offset(
+                && may_progress_with_offset(
                     self.regions,
                     // This header height isn't doing much as we just confirmed
                     // that there are no headers in this region, but let's keep
@@ -1738,12 +1743,12 @@ pub(super) fn points(
     })
 }
 
-/// Checks if the first region of a sequence of regions is the last usable
+/// Checks if the first region of a sequence of regions is not the last usable
 /// region, assuming that the last region will always be occupied by some
 /// specific offset height, even after calling `.next()`, due to some
 /// additional logic which adds content automatically on each region turn (in
 /// our case, headers).
-pub(super) fn in_last_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
-    regions.backlog.is_empty()
-        && regions.last.is_none_or(|height| regions.size.y + offset == height)
+pub(super) fn may_progress_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
+    !regions.backlog.is_empty()
+        || regions.last.is_some_and(|height| regions.size.y + offset != height)
 }
