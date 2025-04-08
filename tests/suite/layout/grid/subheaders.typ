@@ -87,6 +87,29 @@
   ..([z],) * 10,
 )
 
+--- grid-subheaders-repeat-replace-multiple-levels ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  ..([y],) * 10,
+  grid.header(
+    level: 2,
+    [d]
+  ),
+  ..([z],) * 6,
+)
+
 --- grid-subheaders ---
 #set page(width: auto, height: 12em)
 #let rows(n) = {
