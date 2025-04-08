@@ -3,7 +3,7 @@ use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::GridLayouter;
+use super::layouter::{may_progress_with_offset, GridLayouter};
 use super::rowspans::UnbreakableRowGroup;
 
 pub enum HeadersToLayout<'a> {
@@ -231,7 +231,16 @@ impl<'a> GridLayouter<'a> {
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_height)
-            && self.regions.may_progress()
+            && may_progress_with_offset(
+                self.regions,
+                // - Assume footer height already starts subtracted from the
+                // first region's size;
+                // - On each iteration, we subtract footer height from the
+                // available size for consistency with the first region, so we
+                // need to consider the footer when evaluating if skipping yet
+                // another region would make a difference.
+                self.footer_height,
+            )
         {
             // Advance regions without any output until we can place the
             // header and the footer.
@@ -262,7 +271,6 @@ impl<'a> GridLayouter<'a> {
 
             skipped_region = true;
 
-            // Ensure we also take the footer into account for remaining space.
             self.regions.size.y -= self.footer_height;
         }
 
