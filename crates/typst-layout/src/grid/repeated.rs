@@ -434,7 +434,7 @@ impl<'a> GridLayouter<'a> {
         // in the header will be precisely the rows in the header.
         self.simulate_unbreakable_row_group(
             header.start,
-            Some(header.end),
+            Some(header.end - header.start),
             regions,
             engine,
             disambiguator,
@@ -519,7 +519,7 @@ impl<'a> GridLayouter<'a> {
         // in the footer will be precisely the rows in the footer.
         self.simulate_unbreakable_row_group(
             footer.start,
-            Some(self.grid.rows.len() - footer.start),
+            Some(footer.end - footer.start),
             regions,
             engine,
             disambiguator,
