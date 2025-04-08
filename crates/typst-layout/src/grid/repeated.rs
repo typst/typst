@@ -388,7 +388,7 @@ impl<'a> GridLayouter<'a> {
                 if !short_lived {
                     self.header_height += header_height;
                     if matches!(header, Repeatable::Repeated(_)) {
-                        self.repeating_header_height = header_height;
+                        self.repeating_header_height += header_height;
                         self.repeating_header_heights.push(header_height);
                     }
                 }
