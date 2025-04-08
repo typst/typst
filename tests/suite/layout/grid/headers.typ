@@ -130,8 +130,7 @@
   grid.header([b])
 )
 
---- grow-header-multiple ---
-// Error: 3:3-3:19 cannot have more than one header
+--- grid-header-multiple ---
 #grid(
   grid.header([a]),
   grid.header([b]),
