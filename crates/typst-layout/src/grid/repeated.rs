@@ -24,28 +24,21 @@ pub enum HeadersToLayout<'a> {
 impl<'a> GridLayouter<'a> {
     pub fn place_new_headers(
         &mut self,
-        first_header: &Repeatable<Header>,
         consecutive_header_count: usize,
+        conflicting_header: Option<&Repeatable<Header>>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
-        // Next row either isn't a header. or is in a
-        // conflicting one, which is the sign that we need to go.
         let (consecutive_headers, new_upcoming_headers) =
             self.upcoming_headers.split_at(consecutive_header_count);
         self.upcoming_headers = new_upcoming_headers;
 
-        let (non_conflicting_headers, conflicting_headers) = match self
-            .upcoming_headers
-            .get(consecutive_header_count)
-            .map(Repeatable::unwrap)
-        {
-            Some(next_header) if next_header.level <= first_header.unwrap().level => {
+        let (non_conflicting_headers, conflicting_headers) = match conflicting_header {
+            Some(conflicting_header) => {
                 // All immediately conflicting headers will
                 // be placed as normal rows.
-                consecutive_headers.split_at(
-                    consecutive_headers
-                        .partition_point(|h| next_header.level > h.unwrap().level),
-                )
+                consecutive_headers.split_at(consecutive_headers.partition_point(|h| {
+                    conflicting_header.unwrap().level > h.unwrap().level
+                }))
             }
             _ => (consecutive_headers, Default::default()),
         };
