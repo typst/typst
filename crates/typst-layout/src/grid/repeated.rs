@@ -202,7 +202,7 @@ impl<'a> GridLayouter<'a> {
     ) -> SourceResult<()> {
         // Generate different locations for content in headers across its
         // repetitions by assigning a unique number for each one.
-        let disambiguator = self.finished.len();
+        let mut disambiguator = self.finished.len();
 
         // At first, only consider the height of the given headers. However,
         // for upcoming regions, we will have to consider repeating headers as
@@ -254,18 +254,21 @@ impl<'a> GridLayouter<'a> {
             // if 'full'changes? (Assuming height doesn't change for now...)
             if !skipped_region {
                 if let HeadersToLayout::NewHeaders { headers, .. } = headers {
+                    // Update disambiguator as we are re-measuring headers
+                    // which were already laid out.
+                    disambiguator = self.finished.len();
                     header_height =
-                    // Laying out new headers, so we have to consider the
-                    // combined height of already repeating headers as well
-                    // when beginning a new region.
-                    self.simulate_header_height(
-                        self.repeating_headers
-                            .iter().copied()
-                            .chain(self.pending_headers.iter().chain(headers).map(Repeatable::unwrap)),
-                        &self.regions,
-                        engine,
-                        disambiguator,
-                    )?;
+                        // Laying out new headers, so we have to consider the
+                        // combined height of already repeating headers as well
+                        // when beginning a new region.
+                        self.simulate_header_height(
+                            self.repeating_headers
+                                .iter().copied()
+                                .chain(self.pending_headers.iter().chain(headers).map(Repeatable::unwrap)),
+                            &self.regions,
+                            engine,
+                            disambiguator,
+                        )?;
                 }
             }
 
