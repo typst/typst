@@ -110,6 +110,167 @@
   ..([z],) * 6,
 )
 
+--- grid-subheaders-repeat-replace-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 12,
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  ..([z],) * 10,
+)
+
+--- grid-subheaders-repeat-replace-double-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 11,
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  grid.header(
+    level: 3,
+    [d]
+  ),
+  ..([z],) * 10,
+)
+
+--- grid-subheaders-repeat-replace-didnt-fit-once ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 10,
+  grid.header(
+    level: 2,
+    [c\ c\ c]
+  ),
+  ..([z],) * 4,
+)
+
+--- grid-subheaders-multi-page-row ---
+#set page(height: 8em)
+#grid(
+  columns: 2,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [y],
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  [a], [b],
+  grid.cell(
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [y],
+  ..([z],) * 10,
+)
+
+--- grid-subheaders-multi-page-rowspan ---
+#set page(height: 8em)
+#grid(
+  columns: 2,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [y],
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  [z], [z],
+  grid.cell(
+    rowspan: 5,
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [cell],
+  [cell]
+)
+
+--- grid-subheaders-multi-page-row-right-after ---
+#set page(height: 8em)
+#grid(
+  columns: 1,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  grid.cell(
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [done.],
+  [done.]
+)
+
+--- grid-subheaders-multi-page-rowspan-right-after ---
+#set page(height: 8em)
+#grid(
+  columns: 2,
+  grid.header(
+    [a]
+  ),
+  [x], [y],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  grid.cell(
+    rowspan: 5,
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [cell],
+  [cell],
+  grid.cell(x: 0)[done.],
+  grid.cell(x: 0)[done.]
+)
+
 --- grid-subheaders ---
 #set page(width: auto, height: 12em)
 #let rows(n) = {
