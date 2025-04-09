@@ -413,7 +413,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.0"
-source = "git+https://github.com/typst/codex?rev=b99817a19c6249607a27010dfc86c8a90d43d494#b99817a19c6249607a27010dfc86c8a90d43d494"
+source = "git+https://github.com/typst/codex?rev=17d2dff8d13ae526c6429810d602f466a2bb4424#17d2dff8d13ae526c6429810d602f466a2bb4424"
 
 [[package]]
 name = "color-print"
@@ -2913,6 +2913,7 @@ name = "typst-docs"
 version = "0.13.1"
 dependencies = [
  "clap",
+ "codex",
  "ecow",
  "heck",
  "pulldown-cmark",
