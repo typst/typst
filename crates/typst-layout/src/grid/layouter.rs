@@ -15,7 +15,6 @@ use typst_library::visualize::Geometry;
 use typst_syntax::Span;
 use typst_utils::{MaybeReverseIter, Numeric};
 
-use super::repeated::HeadersToLayout;
 use super::{
     generate_line_segments, hline_stroke_at_column, layout_cell, vline_stroke_at_row,
     LineSegment, Rowspan, UnbreakableRowGroup,
@@ -1705,7 +1704,7 @@ impl<'a> GridLayouter<'a> {
 
             if !self.repeating_headers.is_empty() || !self.pending_headers.is_empty() {
                 // Add headers to the new region.
-                self.layout_headers(HeadersToLayout::RepeatingAndPending, engine)?;
+                self.layout_active_headers(engine)?;
             }
         }
 
