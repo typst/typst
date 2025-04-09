@@ -49,7 +49,7 @@ clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
 # TODO: change this when codex#46 gets merged and codex gets released with that
 # codex = "0.1.1"
-codex = { git = "https://github.com/typst/codex", rev = "17d2dff8d13ae526c6429810d602f466a2bb4424" }
+codex = { git = "https://github.com/typst/codex", rev = "7157b82d817b362c7d71b223681deef61f294f1d" }
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
