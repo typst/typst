@@ -92,6 +92,13 @@ pub struct GridLayouter<'a> {
     /// calculation.
     /// TODO: consider refactoring this into something nicer.
     pub(super) current_row_height: Option<Abs>,
+    /// Stores the length of `lrows` before a sequence of trailing rows
+    /// equipped with orphan prevention were laid out. In this case, if no more
+    /// rows are laid out after those rows before the region ends, the rows
+    /// will be removed. For new headers in particular, which use this, those
+    /// headers will have been moved to the `pending_headers` vector and so
+    /// will automatically be placed again until they fit.
+    pub(super) lrows_orphan_snapshot: Option<usize>,
     /// The simulated header height.
     /// This field is reset in `layout_header` and properly updated by
     /// `layout_auto_row` and `layout_relative_row`, and should not be read
@@ -190,6 +197,7 @@ impl<'a> GridLayouter<'a> {
             upcoming_headers: &grid.headers,
             repeating_header_heights: vec![],
             pending_headers: Default::default(),
+            lrows_orphan_snapshot: None,
             current_row_height: None,
             header_height: Abs::zero(),
             repeating_header_height: Abs::zero(),
@@ -334,7 +342,10 @@ impl<'a> GridLayouter<'a> {
                 Sizing::Rel(v) => {
                     self.layout_relative_row(engine, disambiguator, v, y)?
                 }
-                Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y, disambiguator)),
+                Sizing::Fr(v) => {
+                    self.lrows_orphan_snapshot = None;
+                    self.lrows.push(Row::Fr(v, y, disambiguator))
+                }
             }
         }
 
@@ -1445,6 +1456,9 @@ impl<'a> GridLayouter<'a> {
     /// will be pushed for this particular row. It can be `false` for rows
     /// spanning multiple regions.
     fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
+        // There is now a row after the rows equipped with orphan prevention,
+        // so no need to remove them anymore.
+        self.lrows_orphan_snapshot = None;
         self.regions.size.y -= frame.height();
         self.lrows.push(Row::Frame(frame, y, is_last));
     }
@@ -1455,6 +1469,15 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         last: bool,
     ) -> SourceResult<()> {
+        if let Some(orphan_snapshot) = self.lrows_orphan_snapshot.take() {
+            if !last {
+                self.lrows.truncate(orphan_snapshot);
+                self.current_header_rows = self.current_header_rows.min(orphan_snapshot);
+                self.current_repeating_header_rows =
+                    self.current_repeating_header_rows.min(orphan_snapshot);
+            }
+        }
+
         if self
             .lrows
             .last()
@@ -1462,13 +1485,9 @@ impl<'a> GridLayouter<'a> {
         {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
-
-            if self.lrows.len() == self.current_header_rows {
-                if self.current_header_rows == self.current_repeating_header_rows {
-                    self.current_repeating_header_rows -= 1;
-                }
-                self.current_header_rows -= 1;
-            }
+            self.current_header_rows = self.current_header_rows.min(self.lrows.len());
+            self.current_repeating_header_rows =
+                self.current_repeating_header_rows.min(self.lrows.len());
         }
 
         let footer_would_be_widow = if let Some(last_header_row) = self
@@ -1727,6 +1746,9 @@ impl<'a> GridLayouter<'a> {
         if !self.grid.headers.is_empty() {
             self.finished_header_rows.push(header_row_info);
         }
+
+        // Ensure orphan prevention is handled before resolving rows.
+        debug_assert!(self.lrows_orphan_snapshot.is_none());
     }
 }
 
