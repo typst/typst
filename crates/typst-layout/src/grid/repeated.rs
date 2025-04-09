@@ -357,8 +357,9 @@ impl<'a> GridLayouter<'a> {
         self.unbreakable_rows_left +=
             total_header_row_count(headers.iter().map(Repeatable::unwrap));
 
+        let initial_row_count = self.lrows.len();
         let placing_at_the_start =
-            skipped_region || self.lrows.len() == self.current_header_rows;
+            skipped_region || initial_row_count == self.current_header_rows;
         for header in headers {
             let header_height = self.layout_header_rows(header.unwrap(), engine, 0)?;
 
@@ -380,6 +381,12 @@ impl<'a> GridLayouter<'a> {
         if placing_at_the_start {
             // Track header rows at the start of the region.
             self.current_header_rows = self.lrows.len();
+        }
+
+        // Remove new headers at the end of the region if upcoming child doesn't fit.
+        // TODO: Short lived if footer comes afterwards
+        if !short_lived {
+            self.lrows_orphan_snapshot = Some(initial_row_count);
         }
 
         Ok(())
