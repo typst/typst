@@ -47,7 +47,9 @@ clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = "0.1.1"
+# TODO: change this when codex#46 gets merged and codex gets released with that
+# codex = "0.1.1"
+codex = { git = "https://github.com/typst/codex", rev = "b99817a19c6249607a27010dfc86c8a90d43d494" }
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
