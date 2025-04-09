@@ -350,7 +350,7 @@ impl<'a> GridLayouter<'a> {
             // Note that, after the first region skip, the new headers will go
             // at the top of the region, but after the repeating headers that
             // remained (which will be automatically placed in 'finish_region').
-            self.finish_region(engine, true)?;
+            self.finish_region(engine, false)?;
             skipped_region = true;
         }
 
