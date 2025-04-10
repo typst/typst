@@ -502,9 +502,13 @@ pub fn commit(
 
         if justifiables > 0 && remaining > Abs::zero() {
             // Underfull line, distribute the extra space.
-            extra_microjustification = (remaining / microjustifiables as f64).min(p.config.microjustification);
+            extra_microjustification =
+                (remaining / microjustifiables as f64).min(p.config.microjustification);
 
-            extra_justification = (remaining - extra_microjustification * microjustifiables as f64) / justifiables as f64;
+            extra_justification = (remaining
+                - extra_microjustification * microjustifiables as f64)
+                / justifiables as f64;
+
             remaining = Abs::zero();
         }
     }
