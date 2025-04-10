@@ -138,6 +138,17 @@ pub struct ParElem {
     #[default(false)]
     pub justify: bool,
 
+    /// The maximum amount of kerning that is allowed to be used to further
+    /// justify an existing line. When this value is nonzero, additional
+    /// justification will be applied to individual glyphs.
+    ///
+    /// Note that microjustifications are applied only after a line of text has
+    /// been constructed. This means that the layout will *not* be affected by
+    /// microjustifications, but the internal kerning of a line will be.
+    #[resolve]
+    #[default(Em::new(0.0).into())]
+    pub microjustification: Length,
+
     /// How to determine line breaks.
     ///
     /// When this property is set to `{auto}`, its default value, optimized line

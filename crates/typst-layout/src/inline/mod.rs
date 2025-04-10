@@ -183,11 +183,13 @@ fn configuration(
     situation: Option<ParSituation>,
 ) -> Config {
     let justify = base.justify;
+    let microjustification = ParElem::microjustification_in(shared);
     let font_size = TextElem::size_in(shared);
     let dir = TextElem::dir_in(shared);
 
     Config {
         justify,
+        microjustification,
         linebreaks: base.linebreaks.unwrap_or_else(|| {
             if justify {
                 Linebreaks::Optimized
@@ -267,6 +269,10 @@ struct ConfigBase {
 struct Config {
     /// Whether to justify text.
     justify: bool,
+
+    /// The maximum allowed kerning adjustment for microjustification.
+    microjustification: Abs,
+
     /// How to determine line breaks.
     linebreaks: Linebreaks,
     /// The indent the first line of a paragraph should have.

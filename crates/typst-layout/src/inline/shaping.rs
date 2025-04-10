@@ -83,6 +83,8 @@ pub struct ShapedGlyph {
     pub c: char,
     /// Whether this glyph is justifiable for CJK scripts.
     pub is_justifiable: bool,
+    /// Whether this glyph is allowed additional kerning for microjustification.
+    pub is_microjustifiable: bool,
     /// The script of the glyph.
     pub script: Script,
 }
@@ -105,6 +107,11 @@ impl ShapedGlyph {
     pub fn is_justifiable(&self) -> bool {
         // GB style is not relevant here.
         self.is_justifiable
+    }
+
+    /// Whether the glyph is microjustifiable.
+    pub fn is_microjustifiable(&self) -> bool {
+        self.is_microjustifiable
     }
 
     /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
@@ -216,6 +223,7 @@ impl<'a> ShapedText<'a> {
         spans: &SpanMapper,
         justification_ratio: f64,
         extra_justification: Abs,
+        extra_microjustification: Abs,
     ) -> Frame {
         let (top, bottom) = self.measure(engine);
         let size = Size::new(self.width, top + bottom);
@@ -260,6 +268,10 @@ impl<'a> ShapedText<'a> {
                     if shaped.is_justifiable() {
                         justification_right +=
                             Em::from_length(extra_justification, self.size)
+                    }
+                    if shaped.is_microjustifiable() {
+                        justification_right +=
+                            Em::from_length(extra_microjustification, self.size)
                     }
 
                     frame.size_mut().x += justification_left.at(self.size)
@@ -373,6 +385,12 @@ impl<'a> ShapedText<'a> {
     /// space when encountering underfull lines.
     pub fn justifiables(&self) -> usize {
         self.glyphs.iter().filter(|g| g.is_justifiable()).count()
+    }
+
+    /// How many glyphs are in the text that are allowed extra kerning for the
+    /// use of justification when encountering underfull lines.
+    pub fn microjustifiables(&self) -> usize {
+        self.glyphs.iter().filter(|g| g.is_microjustifiable()).count()
     }
 
     /// Whether the last glyph is a CJK character which should not be justified
@@ -496,6 +514,7 @@ impl<'a> ShapedText<'a> {
                 safe_to_break: true,
                 c: '-',
                 is_justifiable: false,
+                is_microjustifiable: false,
                 script: Script::Common,
             };
             match side {
@@ -881,6 +900,7 @@ fn shape_segment<'a>(
                     x_advance,
                     Adjustability::default().stretchability,
                 ),
+                is_microjustifiable: true,
                 script,
             });
         } else {
@@ -973,6 +993,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
                 x_advance,
                 Adjustability::default().stretchability,
             ),
+            is_microjustifiable: false,
             script,
         });
     };
