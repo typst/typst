@@ -17,7 +17,7 @@ use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, Linebreaks, ListElem, Microtype, ParElem, ParLine,
+    EnumElem, FirstLineIndent, Linebreaks, ListElem, ParElem, ParLine,
     ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
@@ -183,13 +183,11 @@ fn configuration(
     situation: Option<ParSituation>,
 ) -> Config {
     let justify = base.justify;
-    let microtype = ParElem::microtype_in(shared);
     let font_size = TextElem::size_in(shared);
     let dir = TextElem::dir_in(shared);
 
     Config {
         justify,
-        microtype,
         linebreaks: base.linebreaks.unwrap_or_else(|| {
             if justify {
                 Linebreaks::Optimized
@@ -269,8 +267,6 @@ struct ConfigBase {
 struct Config {
     /// Whether to justify text.
     justify: bool,
-    /// The maximum allowed kerning adjustment for microjustification.
-    microtype: Microtype,
     /// How to determine line breaks.
     linebreaks: Linebreaks,
     /// The indent the first line of a paragraph should have.
