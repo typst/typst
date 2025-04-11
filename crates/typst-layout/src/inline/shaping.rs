@@ -10,6 +10,7 @@ use ttf_parser::Tag;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
+use typst_library::model::{Microtype, ParElem};
 use typst_library::text::{
     families, features, is_default_ignorable, variant, Font, FontFamily, FontVariant,
     Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
@@ -152,7 +153,7 @@ impl ShapedGlyph {
             || self.c.is_ascii_digit()
     }
 
-    pub fn base_adjustability(&self, style: CjkPunctStyle) -> Adjustability {
+    pub fn base_adjustability(&self, style: CjkPunctStyle, microtype: Microtype) -> Adjustability {
         let width = self.x_advance;
         if self.is_space() {
             Adjustability {
@@ -176,7 +177,10 @@ impl ShapedGlyph {
                 shrinkability: (width / 4.0, width / 4.0),
             }
         } else {
-            Adjustability::default()
+            Adjustability {
+                stretchability: (Em::zero(), microtype.max_expand.em),
+                shrinkability: (Em::zero(), microtype.max_retract.em),
+            }
         }
     }
 
@@ -900,7 +904,7 @@ fn shape_segment<'a>(
                     x_advance,
                     Adjustability::default().stretchability,
                 ),
-                is_microjustifiable: true,
+                is_microjustifiable: false,
                 script,
             });
         } else {
@@ -1034,9 +1038,10 @@ fn track_and_space(ctx: &mut ShapingContext) {
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
+    let microtype = ParElem::microtype_in(ctx.styles);
 
     for glyph in &mut ctx.glyphs {
-        glyph.adjustability = glyph.base_adjustability(style);
+        glyph.adjustability = glyph.base_adjustability(style, microtype);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();

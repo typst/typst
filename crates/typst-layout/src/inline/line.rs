@@ -488,7 +488,16 @@ pub fn commit(
     let stretchability = line.stretchability();
     if remaining < Abs::zero() && shrinkability > Abs::zero() {
         // Attempt to reduce the length of the line, using shrinkability.
-        justification_ratio = (remaining / shrinkability).max(-1.0);
+        let microjustifiables = line.microjustifiables();
+
+        extra_microjustification = (remaining / microjustifiables as f64)
+            .max(p.config.microtype.max_retract.abs);
+
+        justification_ratio = ((remaining
+            - extra_microjustification * microjustifiables as f64)
+            / shrinkability)
+            .max(-1.0);
+
         remaining = (remaining + shrinkability).min(Abs::zero());
     } else if line.justify && fr.is_zero() {
         // Attempt to increase the length of the line, using stretchability.
@@ -502,8 +511,8 @@ pub fn commit(
 
         if justifiables > 0 && remaining > Abs::zero() {
             // Underfull line, distribute the extra space.
-            extra_microjustification =
-                (remaining / microjustifiables as f64).min(p.config.microjustification);
+            extra_microjustification = (remaining / microjustifiables as f64)
+                .min(p.config.microtype.max_expand.abs);
 
             extra_justification = (remaining
                 - extra_microjustification * microjustifiables as f64)

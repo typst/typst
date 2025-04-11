@@ -138,16 +138,8 @@ pub struct ParElem {
     #[default(false)]
     pub justify: bool,
 
-    /// The maximum amount of kerning that is allowed to be used to further
-    /// justify an existing line. When this value is nonzero, additional
-    /// justification will be applied to individual glyphs.
-    ///
-    /// Note that microjustifications are applied only after a line of text has
-    /// been constructed. This means that the layout will *not* be affected by
-    /// microjustifications, but the internal kerning of a line will be.
-    #[resolve]
-    #[default(Em::new(0.0).into())]
-    pub microjustification: Length,
+    /// Microtypographical settings that are used during justification.
+    pub microtype: Microtype,
 
     /// How to determine line breaks.
     ///
@@ -236,6 +228,36 @@ pub struct ParElem {
 impl ParElem {
     #[elem]
     type ParLine;
+}
+
+/// Configuration for microtypographical settings to be used during
+/// justification.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+pub struct Microtype {
+    /// How much a glyph is allowed to translate into its neighbor.
+    pub max_retract: Length,
+    /// How much a glyph is allowed to translate away from its neighbor.
+    pub max_expand: Length,
+}
+
+cast! {
+    Microtype,
+    self => Value::Dict(self.into()),
+    mut dict: Dict => {
+        let max_retract = dict.take("max_retract")?.cast()?;
+        let max_expand = dict.take("max_expand")?.cast()?;
+        dict.finish(&["max_retract", "max_expand"])?;
+        Self { max_retract, max_expand }
+    },
+}
+
+impl From<Microtype> for Dict {
+    fn from(microtype: Microtype) -> Self {
+        dict! {
+            "max_retract" => microtype.max_retract,
+            "max_expand" => microtype.max_expand,
+        }
+    }
 }
 
 /// How to determine line breaks in a paragraph.
