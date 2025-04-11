@@ -197,6 +197,8 @@
 )
 
 --- grid-subheaders-repeat-replace-short-lived ---
+// No orphan prevention for short-lived headers
+// (followed by replacing headers).
 #set page(height: 8em)
 #grid(
   grid.header(
@@ -343,6 +345,56 @@
   [cell],
   grid.cell(x: 0)[done.],
   grid.cell(x: 0)[done.]
+)
+
+--- grid-subheaders-short-lived-no-orphan-prevention ---
+// No orphan prevention for short-lived headers.
+#set page(height: 8em)
+#v(5em)
+#grid(
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  [d]
+)
+
+--- grid-subheaders-repeating-orphan-prevention ---
+#set page(height: 8em)
+#v(4.5em)
+#grid(
+  grid.header(
+    repeat: true,
+    level: 2,
+    [L2]
+  ),
+  grid.header(
+    repeat: true,
+    level: 4,
+    [L4]
+  ),
+  [a]
+)
+
+--- grid-subheaders-non-repeating-orphan-prevention ---
+#set page(height: 8em)
+#v(4.5em)
+#grid(
+  grid.header(
+    repeat: false,
+    level: 2,
+    [L2]
+  ),
+  grid.header(
+    repeat: false,
+    level: 4,
+    [L4]
+  ),
+  [a]
 )
 
 --- grid-subheaders-alone ---

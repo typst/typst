@@ -250,6 +250,17 @@
   ..([Test], [Test], [Test]) * 20
 )
 
+--- grid-header-non-repeating-orphan-prevention ---
+#set page(height: 5em)
+#v(2em)
+#grid(
+  grid.header(repeat: false)[*Abc*],
+  [a],
+  [b],
+  [c],
+  [d]
+)
+
 --- grid-header-empty ---
 // Empty header should just be a repeated blank row
 #set page(height: 12em)
