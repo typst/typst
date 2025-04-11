@@ -345,6 +345,56 @@
   [a\ b]
 )
 
+--- grid-header-not-at-the-top ---
+#set page(height: 5em)
+#v(2em)
+#grid(
+  [a],
+  [b],
+  grid.header[*Abc*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace ---
+#set page(height: 5em)
+#v(1.5em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace-orphan ---
+#set page(height: 5em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace-doesnt-fit ---
+#set page(height: 5em)
+#v(0.8em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
 --- grid-header-stroke-edge-cases ---
 // Test header stroke priority edge case (last header row removed)
 #set page(height: 8em)
