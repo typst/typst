@@ -45,19 +45,21 @@ pub struct GridLayouter<'a> {
     pub(super) rowspans: Vec<Rowspan>,
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
-    /// The amount of header rows at the start of the current region. Note that
-    /// `repeating_headers` and `pending_headers` can change if we find a new
-    /// header inside the region, so this has to be stored separately for each
-    /// new region - we can't just reuse those.
+    /// The amount of repeated header rows at the start of the current region.
+    /// Note that `repeating_headers` and `pending_headers` can change if we
+    /// find a new header inside the region (not at the top), so this field
+    /// is required to access information from the top of the region.
     ///
     /// This is used for orphan prevention checks (if there are no rows other
-    /// than header rows upon finishing a region, we'd have an orphan). In
-    /// addition, this information is stored for each finished region so
-    /// rowspans placed later can know which rows to skip at the top of the
-    /// region when spanning more than one page.
-    pub(super) current_header_rows: usize,
-    /// Similar to the above, but stopping after the last repeated row at the
-    /// top.
+    /// than repeated header rows upon finishing a region, we'd have an orphan).
+    /// Note that non-repeated and pending repeated header rows are not included
+    /// in this number and thus use a separate mechanism for orphan prevention
+    /// (`lrows_orphan_shapshot` field).
+    ///
+    /// In addition, this information is used on finish region to calculate the
+    /// total height of resolved header rows at the top of the region, which is
+    /// used by multi-page rowspans so they can properly skip the header rows
+    /// at the top of the region during layout.
     pub(super) current_repeating_header_rows: usize,
     /// The end bound of the last repeating header at the start of the region.
     /// The last row might have disappeared due to being empty, so this is how
@@ -187,7 +189,6 @@ impl<'a> GridLayouter<'a> {
             unbreakable_rows_left: 0,
             rowspans: vec![],
             initial: regions.size,
-            current_header_rows: 0,
             current_repeating_header_rows: 0,
             current_last_repeated_header_end: 0,
             finished: vec![],
@@ -1472,7 +1473,6 @@ impl<'a> GridLayouter<'a> {
         if let Some(orphan_snapshot) = self.lrows_orphan_snapshot.take() {
             if !last {
                 self.lrows.truncate(orphan_snapshot);
-                self.current_header_rows = self.current_header_rows.min(orphan_snapshot);
                 self.current_repeating_header_rows =
                     self.current_repeating_header_rows.min(orphan_snapshot);
             }
@@ -1485,13 +1485,12 @@ impl<'a> GridLayouter<'a> {
         {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
-            self.current_header_rows = self.current_header_rows.min(self.lrows.len());
             self.current_repeating_header_rows =
                 self.current_repeating_header_rows.min(self.lrows.len());
         }
 
         let footer_would_be_widow = if let Some(last_header_row) = self
-            .current_header_rows
+            .current_repeating_header_rows
             .checked_sub(1)
             .and_then(|last_header_index| self.lrows.get(last_header_index))
         {
@@ -1503,7 +1502,7 @@ impl<'a> GridLayouter<'a> {
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
                     .is_none_or(|footer| footer.start != last_header_end)
-                && self.lrows.len() == self.current_header_rows
+                && self.lrows.len() == self.current_repeating_header_rows
                 && may_progress_with_offset(
                     self.regions,
                     // Since we're trying to find a region where to place all
@@ -1518,7 +1517,6 @@ impl<'a> GridLayouter<'a> {
                 self.lrows.clear();
                 self.current_last_repeated_header_end = 0;
                 self.current_repeating_header_rows = 0;
-                self.current_header_rows = 0;
                 true
             } else {
                 false
@@ -1596,7 +1594,7 @@ impl<'a> GridLayouter<'a> {
             };
 
             let height = frame.height();
-            if i < self.current_header_rows {
+            if i < self.current_repeating_header_rows {
                 header_row_height += height;
             }
 
@@ -1703,7 +1701,6 @@ impl<'a> GridLayouter<'a> {
         );
 
         if !last {
-            self.current_header_rows = 0;
             self.current_repeating_header_rows = 0;
             self.current_last_repeated_header_end = 0;
             self.header_height = Abs::zero();

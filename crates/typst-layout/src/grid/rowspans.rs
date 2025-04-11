@@ -535,7 +535,7 @@ impl GridLayouter<'_> {
                         // and unbreakable rows in general, so there is no risk
                         // of accessing an incomplete list of rows.
                         let initial_header_height = self.lrows
-                            [..self.current_header_rows]
+                            [..self.current_repeating_header_rows]
                             .iter()
                             .map(|row| match row {
                                 Row::Frame(frame, _, _) => frame.height(),

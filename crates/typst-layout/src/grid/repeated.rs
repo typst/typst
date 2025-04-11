@@ -299,10 +299,6 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        // Include both repeating and pending header rows as this number is
-        // used for orphan prevention.
-        self.current_header_rows = self.lrows.len();
-
         Ok(())
     }
 
@@ -327,11 +323,6 @@ impl<'a> GridLayouter<'a> {
             0,
         )?;
 
-        // We already take the footer into account below.
-        // While skipping regions, footer height won't be automatically
-        // re-calculated until the end.
-        let mut skipped_region = false;
-
         // TODO: remove this 'unbreakable rows left check',
         // consider if we can already be in an unbreakable row group?
         while self.unbreakable_rows_left == 0
@@ -351,15 +342,12 @@ impl<'a> GridLayouter<'a> {
             // at the top of the region, but after the repeating headers that
             // remained (which will be automatically placed in 'finish_region').
             self.finish_region(engine, false)?;
-            skipped_region = true;
         }
 
         self.unbreakable_rows_left +=
             total_header_row_count(headers.iter().map(Repeatable::unwrap));
 
         let initial_row_count = self.lrows.len();
-        let placing_at_the_start =
-            skipped_region || initial_row_count == self.current_header_rows;
         for header in headers {
             let header_height = self.layout_header_rows(header.unwrap(), engine, 0)?;
 
@@ -376,11 +364,6 @@ impl<'a> GridLayouter<'a> {
                     self.repeating_header_heights.push(header_height);
                 }
             }
-        }
-
-        if placing_at_the_start {
-            // Track header rows at the start of the region.
-            self.current_header_rows = self.lrows.len();
         }
 
         // Remove new headers at the end of the region if upcoming child doesn't fit.
