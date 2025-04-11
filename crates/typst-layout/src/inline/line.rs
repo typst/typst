@@ -71,16 +71,6 @@ impl Line<'_> {
         count
     }
 
-    /// How many glyphs are in the text where we can insert micro-amounts
-    /// of additional space when encountering underfull lines.
-    fn microjustifiables(&self) -> usize {
-        let mut count = 0;
-        for shaped in self.items.iter().filter_map(Item::text) {
-            count += shaped.microjustifiables();
-        }
-        count
-    }
-
     /// How much the line can stretch.
     pub fn stretchability(&self) -> Abs {
         self.items
@@ -482,21 +472,12 @@ pub fn commit(
     let fr = line.fr();
     let mut justification_ratio = 0.0;
     let mut extra_justification = Abs::zero();
-    let mut extra_microjustification = Abs::zero();
 
     let shrinkability = line.shrinkability();
     let stretchability = line.stretchability();
     if remaining < Abs::zero() && shrinkability > Abs::zero() {
         // Attempt to reduce the length of the line, using shrinkability.
-        let microjustifiables = line.microjustifiables();
-
-        extra_microjustification = (remaining / microjustifiables as f64)
-            .max(p.config.microtype.max_retract.abs);
-
-        justification_ratio = ((remaining
-            - extra_microjustification * microjustifiables as f64)
-            / shrinkability)
-            .max(-1.0);
+        justification_ratio = (remaining / shrinkability).max(-1.0);
 
         remaining = (remaining + shrinkability).min(Abs::zero());
     } else if line.justify && fr.is_zero() {
@@ -507,17 +488,10 @@ pub fn commit(
         }
 
         let justifiables = line.justifiables();
-        let microjustifiables = line.microjustifiables();
 
         if justifiables > 0 && remaining > Abs::zero() {
             // Underfull line, distribute the extra space.
-            extra_microjustification = (remaining / microjustifiables as f64)
-                .min(p.config.microtype.max_expand.abs);
-
-            extra_justification = (remaining
-                - extra_microjustification * microjustifiables as f64)
-                / justifiables as f64;
-
+            extra_justification = remaining / justifiables as f64;
             remaining = Abs::zero();
         }
     }
@@ -559,7 +533,6 @@ pub fn commit(
                     &p.spans,
                     justification_ratio,
                     extra_justification,
-                    extra_microjustification,
                 );
                 push(&mut offset, frame);
             }
