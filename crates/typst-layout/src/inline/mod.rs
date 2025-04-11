@@ -17,8 +17,8 @@ use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, Linebreaks, ListElem, ParElem, ParLine,
-    ParLineMarker, TermsElem,
+    EnumElem, FirstLineIndent, Linebreaks, ListElem, ParElem, ParLine, ParLineMarker,
+    TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::text::{Costs, Lang, TextElem};
