@@ -289,6 +289,12 @@ impl<'a> GridLayouter<'a> {
 
         self.current_repeating_header_rows = self.lrows.len();
 
+        if !self.pending_headers.is_empty() {
+            // Restore snapshot: if pending headers placed again turn out to be
+            // orphans, remove their rows again.
+            self.lrows_orphan_snapshot = Some(self.lrows.len());
+        }
+
         for header in self.pending_headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator)?;

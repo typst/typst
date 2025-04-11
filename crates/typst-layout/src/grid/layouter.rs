@@ -1542,12 +1542,6 @@ impl<'a> GridLayouter<'a> {
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
-            // Did not trigger automatic header orphan / footer widow check.
-            // This means pending headers have successfully been placed once
-            // without hitting orphan prevention, so they may now be moved into
-            // repeating headers.
-            self.flush_pending_headers();
-
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
                 // Don't layout the footer if it would be alone with the header in
                 // the page (hence the widow check), and don't layout it twice.
