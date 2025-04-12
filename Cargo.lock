@@ -947,8 +947,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "954907554bb7fcba29a4f917c2d43e289ec21b69d872ccf97db160eca6caeed8"
+source = "git+https://github.com/wkordalski/hayagriva.git?branch=transparent-locator-payload-with-discrimination-ids#3014bc205549e66c0fec2b74612c07c5b67a6f49"
 dependencies = [
  "biblatex",
  "ciborium",
