@@ -414,7 +414,7 @@ impl Content {
     /// Elements produced in `show` rules will not be included in the results.
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         let mut results = Vec::new();
-        self.traverse(&mut |element| -> ControlFlow<()> {
+        let _ = self.traverse(&mut |element| -> ControlFlow<()> {
             if selector.matches(&element, None) {
                 results.push(element);
             }
@@ -441,7 +441,7 @@ impl Content {
     /// Extracts the plain text of this content.
     pub fn plain_text(&self) -> EcoString {
         let mut text = EcoString::new();
-        self.traverse(&mut |element| -> ControlFlow<()> {
+        let _ = self.traverse(&mut |element| -> ControlFlow<()> {
             if let Some(textable) = element.with::<dyn PlainText>() {
                 textable.plain_text(&mut text);
             }
