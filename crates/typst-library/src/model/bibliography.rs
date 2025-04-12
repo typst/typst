@@ -669,7 +669,7 @@ impl<'a> Generator<'a> {
                         next_supplement_id += 1;
                         id
                     });
-                    
+
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
                         hayagriva::LocatorPayload::Transparent(id),
