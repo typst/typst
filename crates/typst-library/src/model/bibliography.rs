@@ -625,6 +625,9 @@ impl<'a> Generator<'a> {
         let bibliography_style =
             &self.bibliography.style.get_ref(StyleChain::default()).derived;
 
+        let mut supplement_ids = HashMap::new();
+        let mut next_supplement_id: u64 = 0;
+
         // Process all citation groups.
         let mut driver = BibliographyDriver::new();
         for elem in &self.groups {
@@ -652,10 +655,24 @@ impl<'a> Generator<'a> {
                 };
 
                 let supplement = child.supplement.get_cloned(StyleChain::default());
-                let locator = supplement.as_ref().map(|_| {
+                let locator = supplement.as_ref().map(|c| {
+                    // let mut hasher = DefaultHasher::new();
+                    // c.hash(&mut hasher);
+                    // let content_hash = hasher.finish();
+
+                    let plain_text = c.plain_text();
+                    // println!("plain_text: {}", plain_text);
+                    // println!("{c:?}");
+
+                    let id = *supplement_ids.entry(plain_text).or_insert_with(|| {
+                        let id = next_supplement_id;
+                        next_supplement_id += 1;
+                        id
+                    });
+                    
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent,
+                        hayagriva::LocatorPayload::Transparent(id),
                     )
                 });
 
