@@ -93,6 +93,8 @@ pub enum Selector {
     Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
     /// Matches all matches of `selector` after `start`.
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
+    /// Matches all children of `ancestor` matching `selector`
+    Within { selector: Arc<Self>, ancestor: Arc<Self> },
 }
 
 impl Selector {
@@ -139,7 +141,10 @@ impl Selector {
             }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
-            Self::Regex(_) | Self::Before { .. } | Self::After { .. } => false,
+            Self::Regex(_)
+            | Self::Before { .. }
+            | Self::After { .. }
+            | Self::Within { .. } => false,
         }
     }
 }
@@ -221,6 +226,15 @@ impl Selector {
             inclusive,
         }
     }
+
+    /// Returns a modified selector that only matches `self` if it is contained in an `ancestor`.
+    #[func]
+    pub fn within(self, ancestor: LocatableSelector) -> Selector {
+        Self::Within {
+            selector: Arc::new(self),
+            ancestor: Arc::new(ancestor.0),
+        }
+    }
 }
 
 impl From<Location> for Selector {
@@ -265,6 +279,9 @@ impl Repr for Selector {
                     split.repr(),
                     inclusive_arg
                 )
+            }
+            Self::Within { selector, ancestor } => {
+                eco_format!("{}.within({})", selector.repr(), ancestor.repr())
             }
         }
     }
@@ -352,7 +369,8 @@ impl FromValue for LocatableSelector {
                     }
                 }
                 Selector::Before { selector, end: split, .. }
-                | Selector::After { selector, start: split, .. } => {
+                | Selector::After { selector, start: split, .. }
+                | Selector::Within { selector, ancestor: split } => {
                     for selector in [selector, split] {
                         validate(selector)?;
                     }
@@ -431,7 +449,8 @@ impl FromValue for ShowableSelector {
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
-                | Selector::After { .. } => {
+                | Selector::After { .. }
+                | Selector::Within { .. } => {
                     bail!("this selector cannot be used with show")
                 }
             }
