@@ -170,6 +170,23 @@
   )
 )
 
+--- grid-subheaders-repeat-gutter ---
+// Gutter below the header is also repeated
+#set page(height: 8em)
+#grid(
+  inset: (bottom: 0.5pt),
+  stroke: (bottom: 1pt),
+  gutter: (1pt, 6pt, 1pt),
+  grid.header(
+    [a]
+  ),
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([c],) * 10,
+)
+
 --- grid-subheaders-repeat-replace ---
 #set page(height: 8em)
 #grid(
@@ -553,6 +570,38 @@
   grid.footer(
     [f]
   )
+)
+
+--- grid-subheaders-multi-page-rowspan-gutter ---
+#set page(height: 9em)
+#grid(
+  columns: 2,
+  column-gutter: 4pt,
+  row-gutter: (0pt, 4pt, 8pt, 4pt),
+  inset: (bottom: 0.5pt),
+  stroke: (bottom: 1pt),
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [y],
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  [z], [z],
+  grid.cell(
+    rowspan: 5,
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [cell],
+  [cell],
+  [a\ b],
+  grid.cell(x: 0)[end],
 )
 
 --- grid-subheaders-short-lived-no-orphan-prevention ---
