@@ -50,3 +50,11 @@ $hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #f
 --- math-accent-dotless-set-rule ---
 #set math.accent(dotless: false)
 $ hat(i) $
+
+--- math-accent-flattened ---
+// Test flattened accent glyph variants.
+#show math.equation: set text(font: "STIX Two Math")
+$hat(a) hat(A)$
+$tilde(w) tilde(W)$
+$grave(i) grave(j)$
+$grave(I) grave(J)$
