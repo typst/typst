@@ -18,9 +18,27 @@ impl<'a> GridLayouter<'a> {
         self.upcoming_headers = new_upcoming_headers;
 
         let (non_conflicting_headers, conflicting_headers) = match conflicting_header {
+            // Headers succeeded by end of grid or footer are short lived and
+            // can be placed in separate regions (no orphan prevention).
+            // TODO: do this during grid resolving?
+            // might be needed for multiple footers. Or maybe not if we check
+            // "upcoming_footers" (O(1) here), however that looks like.
+            _ if consecutive_headers
+                .last()
+                .is_some_and(|x| x.unwrap().end == self.grid.rows.len())
+                || self
+                    .grid
+                    .footer
+                    .as_ref()
+                    .zip(consecutive_headers.last())
+                    .is_some_and(|(f, h)| f.unwrap().start == h.unwrap().end) =>
+            {
+                (Default::default(), consecutive_headers)
+            }
+
             Some(conflicting_header) => {
                 // All immediately conflicting headers will
-                // be placed as normal rows.
+                // be laid out without orphan prevention.
                 consecutive_headers.split_at(consecutive_headers.partition_point(|h| {
                     conflicting_header.unwrap().level > h.unwrap().level
                 }))
