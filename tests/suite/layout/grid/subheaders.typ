@@ -95,6 +95,37 @@
   [z],
 )
 
+--- grid-subheaders-basic-with-footer ---
+#grid(
+  grid.header(
+    [a]
+  ),
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [c],
+  grid.footer(
+    [d]
+  )
+)
+
+--- grid-subheaders-basic-non-consecutive-with-footer ---
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [y],
+  grid.footer(
+    [f]
+  )
+)
+
 --- grid-subheaders-repeat ---
 #set page(height: 8em)
 #grid(
@@ -120,6 +151,23 @@
     [b]
   ),
   ..([y],) * 10,
+)
+
+--- grid-subheaders-repeat-with-footer ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [m],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([c],) * 10,
+  grid.footer(
+    [f]
+  )
 )
 
 --- grid-subheaders-repeat-replace ---
@@ -223,6 +271,54 @@
     [c\ c\ c]
   ),
   ..([z],) * 4,
+)
+
+--- grid-subheaders-repeat-replace-with-footer ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  ..([y],) * 10,
+  grid.header(
+    level: 2,
+    [d]
+  ),
+  ..([z],) * 6,
+  grid.footer(
+    [f]
+  )
+)
+
+--- grid-subheaders-repeat-replace-with-footer-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 10,
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  ..([z],) * 10,
+  grid.footer(
+    [f]
+  )
 )
 
 --- grid-subheaders-repeat-replace-short-lived ---
@@ -376,6 +472,89 @@
   grid.cell(x: 0)[done.]
 )
 
+--- grid-subheaders-multi-page-row-with-footer ---
+#set page(height: 8em)
+#grid(
+  columns: 2,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [y],
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  [a], [b],
+  grid.cell(
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [y],
+  ..([z],) * 10,
+  grid.footer(
+    [f]
+  )
+)
+
+--- grid-subheaders-multi-page-rowspan-with-footer ---
+#set page(height: 8em)
+#grid(
+  columns: 2,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  [y],
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  [z], [z],
+  grid.cell(
+    rowspan: 5,
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [cell],
+  [cell],
+  grid.footer(
+    [f]
+  )
+)
+
+--- grid-subheaders-multi-page-row-right-after-with-footer ---
+#set page(height: 8em)
+#grid(
+  columns: 1,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  grid.cell(
+    block(fill: red, width: 1.5em, height: 6.4em)
+  ),
+  [done.],
+  [done.],
+  grid.footer(
+    [f]
+  )
+)
+
 --- grid-subheaders-short-lived-no-orphan-prevention ---
 // No orphan prevention for short-lived headers.
 #set page(height: 8em)
@@ -450,4 +629,33 @@
     level: 2,
     [L2]
   ),
+)
+
+--- grid-subheaders-alone-with-footer ---
+#table(
+  table.header(
+    [a]
+  ),
+  table.header(
+    level: 2,
+    [b]
+  ),
+  table.footer(
+    [c],
+  )
+)
+
+--- grid-subheaders-alone-with-footer-no-orphan-prevention ---
+#set page(height: 5.3em)
+#table(
+  table.header(
+    [L1]
+  ),
+  table.header(
+    level: 2,
+    [L2]
+  ),
+  table.footer(
+    [a],
+  )
 )
