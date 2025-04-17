@@ -89,3 +89,10 @@ World! 🌍
   // Error: 3-40 stack spacing is infinite
   stack(spacing: infinite-length)[A][B]
 })
+
+--- stack-align ---
+#set align(center)
+#set stack(align: end)
+#stack[I][am][aligned][to][the][right!]
+#stack(align: auto)[I][am][aligned][to][the][center!]
+#stack(dir: rtl, align: horizon)[Aligned \ at][horizon.]
