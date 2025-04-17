@@ -436,3 +436,18 @@
     [b]
   ),
 )
+
+--- grid-subheaders-alone-no-orphan-prevention ---
+#set page(height: 5.3em)
+#v(2em)
+#grid(
+  grid.header(
+  // (
+    [L1]
+  ),
+  grid.header(
+  // (
+    level: 2,
+    [L2]
+  ),
+)
