@@ -84,7 +84,7 @@ pub fn layout_mat(
     let augment = elem.augment(styles);
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
-            if offset == 0 || offset.unsigned_abs() >= rows.len() {
+            if offset > rows.len() as isize || offset.unsigned_abs() > rows.len() + 1 {
                 bail!(
                     span,
                     "cannot draw a horizontal line after row {} of a matrix with {} rows",
@@ -95,7 +95,7 @@ pub fn layout_mat(
         }
 
         for &offset in &aug.vline.0 {
-            if offset == 0 || offset.unsigned_abs() >= ncols {
+            if offset > ncols as isize || offset.unsigned_abs() > ncols + 1 {
                 bail!(
                     span,
                     "cannot draw a vertical line after column {} of a matrix with {} columns",
@@ -211,18 +211,39 @@ fn layout_body(
 
     // For each row, combine maximum ascent and descent into a row height.
     // Sum the row heights, then add the total height of the gaps between rows.
-    let total_height =
+    let mut total_height =
         heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + gap.y * (nrows - 1) as f64;
+
+    if hline.0.contains(&0_isize) || hline.0.contains(&-(nrows as isize + 1)) {
+        total_height += gap.y;
+    }
+
+    if hline.0.contains(&(nrows as isize)) || hline.0.contains(&-1) {
+        total_height += gap.y;
+    }
 
     // Width starts at zero because it can't be calculated until later
     let mut frame = Frame::soft(Size::new(Abs::zero(), total_height));
 
     let mut x = Abs::zero();
 
+    if vline.0.contains(&(0_isize)) || vline.0.contains(&-(ncols as isize + 1)) {
+        frame.push(
+            Point::with_x(x + half_gap.x),
+            line_item(total_height, true, stroke.clone(), span),
+        );
+        x += gap.x;
+    }
+
     for (index, col) in cols.into_iter().enumerate() {
         let AlignmentResult { points, width: rcol } = alignments(&col);
 
-        let mut y = Abs::zero();
+        let mut y =
+            if hline.0.contains(&0_isize) || hline.0.contains(&-(nrows as isize + 1)) {
+                gap.y
+            } else {
+                Abs::zero()
+            };
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_line_frame(&points, alternator);
@@ -245,7 +266,7 @@ fn layout_body(
 
         // If a vertical line should be inserted after this column
         if vline.0.contains(&(index as isize + 1))
-            || vline.0.contains(&(1 - ((ncols - index) as isize)))
+            || (vline.0.contains(&(index as isize - ncols as isize)))
         {
             frame.push(
                 Point::with_x(x + half_gap.x),
@@ -257,16 +278,24 @@ fn layout_body(
         x += gap.x;
     }
 
-    // Once all the columns are laid out, the total width can be calculated
-    let total_width = x - gap.x;
+    let total_width =
+        if !(vline.0.contains(&(ncols as isize)) || vline.0.contains(&-1_isize)) {
+            x - gap.x
+        } else {
+            x
+        };
 
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
         let real_line =
-            if line < 0 { nrows - line.unsigned_abs() } else { line as usize };
-        let offset = (heights[0..real_line].iter().map(|&(a, b)| a + b).sum::<Abs>()
-            + gap.y * (real_line - 1) as f64)
-            + half_gap.y;
+            if line < 0 { nrows + 1 - line.unsigned_abs() } else { line as usize };
+        let offset = if line == 0 || real_line == 0 {
+            gap.y
+        } else {
+            (heights[0..real_line].iter().map(|&(a, b)| a + b).sum::<Abs>()
+                + gap.y * (real_line - 1) as f64)
+                + half_gap.y
+        };
 
         frame.push(
             Point::with_y(offset),
