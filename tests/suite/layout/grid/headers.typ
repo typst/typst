@@ -118,24 +118,19 @@
 )
 
 --- grid-header-not-at-first-row ---
-// Error: 3:3-3:19 header must start at the first row
-// Hint: 3:3-3:19 remove any rows before the header
 #grid(
   [a],
   grid.header([b])
 )
 
 --- grid-header-not-at-first-row-two-columns ---
-// Error: 4:3-4:19 header must start at the first row
-// Hint: 4:3-4:19 remove any rows before the header
 #grid(
   columns: 2,
   [a],
   grid.header([b])
 )
 
---- grow-header-multiple ---
-// Error: 3:3-3:19 cannot have more than one header
+--- grid-header-multiple ---
 #grid(
   grid.header([a]),
   grid.header([b]),
@@ -255,6 +250,17 @@
   ..([Test], [Test], [Test]) * 20
 )
 
+--- grid-header-non-repeating-orphan-prevention ---
+#set page(height: 5em)
+#v(2em)
+#grid(
+  grid.header(repeat: false)[*Abc*],
+  [a],
+  [b],
+  [c],
+  [d]
+)
+
 --- grid-header-empty ---
 // Empty header should just be a repeated blank row
 #set page(height: 12em)
@@ -337,6 +343,56 @@
     )
   ),
   [a\ b]
+)
+
+--- grid-header-not-at-the-top ---
+#set page(height: 5em)
+#v(2em)
+#grid(
+  [a],
+  [b],
+  grid.header[*Abc*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace ---
+#set page(height: 5em)
+#v(1.5em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace-orphan ---
+#set page(height: 5em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace-doesnt-fit ---
+#set page(height: 5em)
+#v(0.8em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
 )
 
 --- grid-header-stroke-edge-cases ---
@@ -463,8 +519,6 @@
 #table(
   columns: 3,
   [Outside],
-  // Error: 1:3-4:4 header must start at the first row
-  // Hint: 1:3-4:4 remove any rows before the header
   table.header(
     [A], table.cell(x: 1)[B], [C],
     table.cell(x: 1)[D],

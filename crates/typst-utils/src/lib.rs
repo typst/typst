@@ -26,7 +26,7 @@ pub use once_cell;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
@@ -66,6 +66,13 @@ pub trait NonZeroExt {
 }
 
 impl NonZeroExt for NonZeroUsize {
+    const ONE: Self = match Self::new(1) {
+        Some(v) => v,
+        None => unreachable!(),
+    };
+}
+
+impl NonZeroExt for NonZeroU32 {
     const ONE: Self = match Self::new(1) {
         Some(v) => v,
         None => unreachable!(),

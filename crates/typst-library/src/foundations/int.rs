@@ -1,4 +1,6 @@
-use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
+use std::num::{
+    NonZeroI64, NonZeroIsize, NonZeroU32, NonZeroU64, NonZeroUsize, ParseIntError,
+};
 
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
@@ -476,6 +478,19 @@ cast! {
     v: i64 => v
         .try_into()
         .and_then(|v: usize| v.try_into())
+        .map_err(|_| if v <= 0 {
+            "number must be positive"
+        } else {
+            "number too large"
+        })?,
+}
+
+cast! {
+    NonZeroU32,
+    self => Value::Int(self.get() as _),
+    v: i64 => v
+        .try_into()
+        .and_then(|v: u32| v.try_into())
         .map_err(|_| if v <= 0 {
             "number must be positive"
         } else {

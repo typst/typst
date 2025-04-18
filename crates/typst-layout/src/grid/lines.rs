@@ -391,10 +391,12 @@ pub fn vline_stroke_at_row(
 ///
 /// This function assumes columns are sorted by increasing `x`, and rows are
 /// sorted by increasing `y`.
+#[allow(clippy::too_many_arguments)]
 pub fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
+    end_under_repeated_header: Option<usize>,
     in_last_region: bool,
     y: usize,
     x: usize,
@@ -499,16 +501,11 @@ pub fn hline_stroke_at_column(
     // Top border stroke and header stroke are generally prioritized, unless
     // they don't have explicit hline overrides and one or more user-provided
     // hlines would appear at the same position, which then are prioritized.
-    let top_stroke_comes_from_header = grid
-        .header
-        .as_ref()
-        .and_then(Repeatable::as_repeated)
+    let top_stroke_comes_from_header = end_under_repeated_header
         .zip(local_top_y)
-        .is_some_and(|(header, local_top_y)| {
+        .is_some_and(|(last_repeated_header_end, local_top_y)| {
             // Ensure the row above us is a repeated header.
-            // FIXME: Make this check more robust when headers at arbitrary
-            // positions are added.
-            local_top_y < header.end && y > header.end
+            local_top_y < last_repeated_header_end && y > last_repeated_header_end
         });
 
     // Prioritize the footer's top stroke as well where applicable.
@@ -637,7 +634,7 @@ mod test {
             },
             vec![],
             vec![],
-            None,
+            vec![],
             None,
             entries,
         )
@@ -1175,7 +1172,7 @@ mod test {
             },
             vec![],
             vec![],
-            None,
+            vec![],
             None,
             entries,
         )
@@ -1268,6 +1265,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        None,
                         true,
                         y,
                         x,
@@ -1461,6 +1459,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        None,
                         true,
                         y,
                         x,
@@ -1506,6 +1505,7 @@ mod test {
                     grid,
                     &rows,
                     if y == 4 { Some(2) } else { y.checked_sub(1) },
+                    None,
                     true,
                     y,
                     x,

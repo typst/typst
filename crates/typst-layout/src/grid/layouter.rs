@@ -3,7 +3,9 @@ use std::fmt::Debug;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
-use typst_library::layout::grid::resolve::{Cell, CellGrid, LinePosition, Repeatable};
+use typst_library::layout::grid::resolve::{
+    Cell, CellGrid, Header, LinePosition, Repeatable,
+};
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,
@@ -43,10 +45,62 @@ pub struct GridLayouter<'a> {
     pub(super) rowspans: Vec<Rowspan>,
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
+    /// The amount of repeated header rows at the start of the current region.
+    /// Note that `repeating_headers` and `pending_headers` can change if we
+    /// find a new header inside the region (not at the top), so this field
+    /// is required to access information from the top of the region.
+    ///
+    /// This is used for orphan prevention checks (if there are no rows other
+    /// than repeated header rows upon finishing a region, we'd have an orphan).
+    /// Note that non-repeated and pending repeated header rows are not included
+    /// in this number and thus use a separate mechanism for orphan prevention
+    /// (`lrows_orphan_shapshot` field).
+    ///
+    /// In addition, this information is used on finish region to calculate the
+    /// total height of resolved header rows at the top of the region, which is
+    /// used by multi-page rowspans so they can properly skip the header rows
+    /// at the top of the region during layout.
+    pub(super) current_repeating_header_rows: usize,
+    /// The end bound of the last repeating header at the start of the region.
+    /// The last row might have disappeared due to being empty, so this is how
+    /// we can become aware of that. Line layout uses this to determine when to
+    /// prioritize the last lines under a header.
+    ///
+    /// A value of zero indicates no headers were placed.
+    pub(super) current_last_repeated_header_end: usize,
     /// Frames for finished regions.
     pub(super) finished: Vec<Frame>,
+    /// The amount and height of header rows on each finished region.
+    pub(super) finished_header_rows: Vec<FinishedHeaderRowInfo>,
     /// Whether this is an RTL grid.
     pub(super) is_rtl: bool,
+    /// Currently repeating headers, one per level.
+    /// Sorted by increasing levels.
+    ///
+    /// Note that some levels may be absent, in particular level 0, which does
+    /// not exist (so the first level is >= 1).
+    pub(super) repeating_headers: Vec<&'a Header>,
+    /// Headers, repeating or not, awaiting their first successful layout.
+    /// Sorted by increasing levels.
+    pub(super) pending_headers: &'a [Repeatable<Header>],
+    pub(super) upcoming_headers: &'a [Repeatable<Header>],
+    /// The height for each repeating header that was placed in this region.
+    /// Note that this includes headers not at the top of the region (pending
+    /// headers), and excludes headers removed by virtue of a new, conflicting
+    /// header being found.
+    pub(super) repeating_header_heights: Vec<Abs>,
+    /// If this is `Some`, this will receive the currently laid out row's
+    /// height if it is auto or relative. This is used for header height
+    /// calculation.
+    /// TODO: consider refactoring this into something nicer.
+    pub(super) current_row_height: Option<Abs>,
+    /// Stores the length of `lrows` before a sequence of trailing rows
+    /// equipped with orphan prevention were laid out. In this case, if no more
+    /// rows are laid out after those rows before the region ends, the rows
+    /// will be removed. For new headers in particular, which use this, those
+    /// headers will have been moved to the `pending_headers` vector and so
+    /// will automatically be placed again until they fit.
+    pub(super) lrows_orphan_snapshot: Option<usize>,
     /// The simulated header height.
     /// This field is reset in `layout_header` and properly updated by
     /// `layout_auto_row` and `layout_relative_row`, and should not be read
@@ -54,11 +108,28 @@ pub struct GridLayouter<'a> {
     /// header rows themselves are unbreakable, and unbreakable rows do not
     /// need to read this field at all.
     pub(super) header_height: Abs,
+    /// The height of effectively repeating headers, that is, ignoring
+    /// non-repeating pending headers.
+    ///
+    /// This is used by multi-page auto rows so they can inform cell layout on
+    /// how much space should be taken by headers if they break across regions.
+    /// In particular, non-repeating headers only occupy the initial region,
+    /// but disappear on new regions, so they can be ignored.
+    pub(super) repeating_header_height: Abs,
     /// The simulated footer height for this region.
     /// The simulation occurs before any rows are laid out for a region.
     pub(super) footer_height: Abs,
     /// The span of the grid element.
     pub(super) span: Span,
+}
+
+#[derive(Debug, Default)]
+pub(super) struct FinishedHeaderRowInfo {
+    /// The amount of repeated headers at the top of the region.
+    pub(super) repeated: usize,
+    /// The end bound of the last repeated header at the top of the region.
+    pub(super) last_repeated_header_end: usize,
+    pub(super) height: Abs,
 }
 
 /// Details about a resulting row piece.
@@ -118,9 +189,19 @@ impl<'a> GridLayouter<'a> {
             unbreakable_rows_left: 0,
             rowspans: vec![],
             initial: regions.size,
+            current_repeating_header_rows: 0,
+            current_last_repeated_header_end: 0,
             finished: vec![],
+            finished_header_rows: vec![],
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
+            repeating_headers: vec![],
+            upcoming_headers: &grid.headers,
+            repeating_header_heights: vec![],
+            pending_headers: Default::default(),
+            lrows_orphan_snapshot: None,
+            current_row_height: None,
             header_height: Abs::zero(),
+            repeating_header_height: Abs::zero(),
             footer_height: Abs::zero(),
             span,
         }
@@ -134,19 +215,60 @@ impl<'a> GridLayouter<'a> {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
-            if matches!(self.grid.header, None | Some(Repeatable::NotRepeated(_))) {
-                // No repeatable header, so we won't subtract it later.
-                self.regions.size.y -= self.footer_height;
-            }
+            self.regions.size.y -= self.footer_height;
         }
 
-        for y in 0..self.grid.rows.len() {
-            if let Some(Repeatable::Repeated(header)) = &self.grid.header {
-                if y < header.end {
-                    if y == 0 {
-                        self.layout_header(header, engine, 0)?;
-                        self.regions.size.y -= self.footer_height;
+        let mut y = 0;
+        let mut consecutive_header_count = 0;
+        while y < self.grid.rows.len() {
+            if let Some(first_header) =
+                self.upcoming_headers.get(consecutive_header_count)
+            {
+                if first_header.unwrap().range().contains(&y) {
+                    consecutive_header_count += 1;
+
+                    // TODO: surely there is a better way to do this
+                    match self.upcoming_headers.get(consecutive_header_count) {
+                        // No more headers, so place the latest headers.
+                        None => {
+                            self.place_new_headers(
+                                consecutive_header_count,
+                                None,
+                                engine,
+                            )?;
+                            consecutive_header_count = 0;
+                        }
+                        // Next header is not consecutive, so place the latest headers.
+                        Some(next_header)
+                            if next_header.unwrap().start > first_header.unwrap().end =>
+                        {
+                            self.place_new_headers(
+                                consecutive_header_count,
+                                None,
+                                engine,
+                            )?;
+                            consecutive_header_count = 0;
+                        }
+                        // Next header is consecutive and conflicts with one or
+                        // more of the latest consecutive headers, so we must
+                        // place them before proceeding.
+                        Some(next_header)
+                            if next_header.unwrap().level
+                                <= first_header.unwrap().level =>
+                        {
+                            self.place_new_headers(
+                                consecutive_header_count,
+                                Some(next_header),
+                                engine,
+                            )?;
+                            consecutive_header_count = 0;
+                        }
+                        // Next header is a non-conflicting consecutive header.
+                        // Keep collecting more headers.
+                        _ => {}
                     }
+
+                    y = first_header.unwrap().end;
                     // Skip header rows during normal layout.
                     continue;
                 }
@@ -156,12 +278,21 @@ impl<'a> GridLayouter<'a> {
                 if y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
+                        self.flush_pending_headers();
                     }
+                    y = footer.end;
                     continue;
                 }
             }
 
             self.layout_row(y, engine, 0)?;
+
+            // After the first non-header row is placed, pending headers are no
+            // longer orphans and can repeat, so we move them to repeating
+            // headers.
+            self.flush_pending_headers();
+
+            y += 1;
         }
 
         self.finish_region(engine, true)?;
@@ -212,7 +343,10 @@ impl<'a> GridLayouter<'a> {
                 Sizing::Rel(v) => {
                     self.layout_relative_row(engine, disambiguator, v, y)?
                 }
-                Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y, disambiguator)),
+                Sizing::Fr(v) => {
+                    self.lrows_orphan_snapshot = None;
+                    self.lrows.push(Row::Fr(v, y, disambiguator))
+                }
             }
         }
 
@@ -225,8 +359,13 @@ impl<'a> GridLayouter<'a> {
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
         let frame_amount = finished.len();
-        for ((frame_index, frame), rows) in
-            finished.iter_mut().enumerate().zip(&self.rrows)
+        for (((frame_index, frame), rows), finished_header_rows) in
+            finished.iter_mut().enumerate().zip(&self.rrows).zip(
+                self.finished_header_rows
+                    .iter()
+                    .map(Some)
+                    .chain(std::iter::repeat(None)),
+            )
         {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
@@ -347,7 +486,8 @@ impl<'a> GridLayouter<'a> {
             let hline_indices = rows
                 .iter()
                 .map(|piece| piece.y)
-                .chain(std::iter::once(self.grid.rows.len()));
+                .chain(std::iter::once(self.grid.rows.len()))
+                .enumerate();
 
             // Converts a row to the corresponding index in the vector of
             // hlines.
@@ -372,7 +512,7 @@ impl<'a> GridLayouter<'a> {
             };
 
             let mut prev_y = None;
-            for (y, dy) in hline_indices.zip(hline_offsets) {
+            for ((i, y), dy) in hline_indices.zip(hline_offsets) {
                 // Position of lines below the row index in the previous iteration.
                 let expected_prev_line_position = prev_y
                     .map(|prev_y| {
@@ -383,24 +523,10 @@ impl<'a> GridLayouter<'a> {
                     })
                     .unwrap_or(LinePosition::Before);
 
-                // FIXME: In the future, directly specify in 'self.rrows' when
-                // we place a repeated header rather than its original rows.
-                // That would let us remove most of those verbose checks, both
-                // in 'lines.rs' and here. Those checks also aren't fully
-                // accurate either, since they will also trigger when some rows
-                // have been removed between the header and what's below it.
-                let is_under_repeated_header = self
-                    .grid
-                    .header
-                    .as_ref()
-                    .and_then(Repeatable::as_repeated)
-                    .zip(prev_y)
-                    .is_some_and(|(header, prev_y)| {
-                        // Note: 'y == header.end' would mean we're right below
-                        // the NON-REPEATED header, so that case should return
-                        // false.
-                        prev_y < header.end && y > header.end
-                    });
+                // Header's lines have priority when repeated.
+                let end_under_repeated_header = finished_header_rows
+                    .filter(|info| prev_y.is_some() && i == info.repeated)
+                    .map(|info| info.last_repeated_header_end);
 
                 // If some grid rows were omitted between the previous resolved
                 // row and the current one, we ensure lines below the previous
@@ -414,13 +540,11 @@ impl<'a> GridLayouter<'a> {
                 let prev_lines = prev_y
                     .filter(|prev_y| {
                         prev_y + 1 != y
-                            && (!is_under_repeated_header
-                                || self
-                                    .grid
-                                    .header
-                                    .as_ref()
-                                    .and_then(Repeatable::as_repeated)
-                                    .is_some_and(|header| prev_y + 1 != header.end))
+                            && end_under_repeated_header.is_none_or(
+                                |last_repeated_header_end| {
+                                    prev_y + 1 != last_repeated_header_end
+                                },
+                            )
                     })
                     .map(|prev_y| get_hlines_at(prev_y + 1))
                     .unwrap_or(&[]);
@@ -441,15 +565,14 @@ impl<'a> GridLayouter<'a> {
                 };
 
                 let mut expected_header_line_position = LinePosition::Before;
-                let header_hlines = if let Some((Repeatable::Repeated(header), prev_y)) =
-                    self.grid.header.as_ref().zip(prev_y)
+                let header_hlines = if let Some((under_header_end, prev_y)) =
+                    end_under_repeated_header.zip(prev_y)
                 {
-                    if is_under_repeated_header
-                        && (!self.grid.has_gutter
-                            || matches!(
-                                self.grid.rows[prev_y],
-                                Sizing::Rel(length) if length.is_zero()
-                            ))
+                    if !self.grid.has_gutter
+                        || matches!(
+                            self.grid.rows[prev_y],
+                            Sizing::Rel(length) if length.is_zero()
+                        )
                     {
                         // For lines below a header, give priority to the
                         // lines originally below the header rather than
@@ -468,10 +591,10 @@ impl<'a> GridLayouter<'a> {
                         // column-gutter is specified, for example. In that
                         // case, we still repeat the line under the gutter.
                         expected_header_line_position = expected_line_position(
-                            header.end,
-                            header.end == self.grid.rows.len(),
+                            under_header_end,
+                            under_header_end == self.grid.rows.len(),
                         );
-                        get_hlines_at(header.end)
+                        get_hlines_at(under_header_end)
                     } else {
                         &[]
                     }
@@ -529,6 +652,7 @@ impl<'a> GridLayouter<'a> {
                             grid,
                             rows,
                             local_top_y,
+                            end_under_repeated_header,
                             in_last_region,
                             y,
                             x,
@@ -946,15 +1070,9 @@ impl<'a> GridLayouter<'a> {
             let frame = self.layout_single_row(engine, disambiguator, first, y)?;
             self.push_row(frame, y, true);
 
-            if self
-                .grid
-                .header
-                .as_ref()
-                .and_then(Repeatable::as_repeated)
-                .is_some_and(|header| y < header.end)
-            {
-                // Add to header height.
-                self.header_height += first;
+            if let Some(row_height) = &mut self.current_row_height {
+                // Add to header height, as we are in a header row.
+                *row_height += first;
             }
 
             return Ok(());
@@ -971,11 +1089,12 @@ impl<'a> GridLayouter<'a> {
             .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
         {
             // Subtract header and footer heights from the region height when
-            // it's not the first.
+            // it's not the first. Ignore non-repeating headers as they only
+            // appear on the first region by definition.
             target.set_max(
                 region.y
                     - if i > 0 {
-                        self.header_height + self.footer_height
+                        self.repeating_header_height + self.footer_height
                     } else {
                         Abs::zero()
                     },
@@ -1186,25 +1305,28 @@ impl<'a> GridLayouter<'a> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
         let frame = self.layout_single_row(engine, disambiguator, resolved, y)?;
 
-        if self
-            .grid
-            .header
-            .as_ref()
-            .and_then(Repeatable::as_repeated)
-            .is_some_and(|header| y < header.end)
-        {
-            // Add to header height.
-            self.header_height += resolved;
+        if let Some(row_height) = &mut self.current_row_height {
+            // Add to header height, as we are in a header row.
+            *row_height += resolved;
         }
 
         // Skip to fitting region, but only if we aren't part of an unbreakable
-        // row group. We use 'in_last_with_offset' so our 'in_last' call
-        // properly considers that a header and a footer would be added on each
-        // region break.
+        // row group. We use 'may_progress_with_offset' so our 'may_progress'
+        // call properly considers that a header and a footer would be added
+        // on each region break, so we only keep skipping regions until we
+        // reach one with the same height of the 'last' region (which can be
+        // endlessly repeated) when subtracting header and footer height.
+        //
+        // See 'check_for_unbreakable_rows' as for why we're using
+        // 'header_height' to predict header height and not
+        // 'repeating_header_height'.
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
-            && !in_last_with_offset(self.regions, self.header_height + self.footer_height)
+            && may_progress_with_offset(
+                self.regions,
+                self.header_height + self.footer_height,
+            )
         {
             self.finish_region(engine, false)?;
 
@@ -1335,6 +1457,9 @@ impl<'a> GridLayouter<'a> {
     /// will be pushed for this particular row. It can be `false` for rows
     /// spanning multiple regions.
     fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
+        // There is now a row after the rows equipped with orphan prevention,
+        // so no need to remove them anymore.
+        self.lrows_orphan_snapshot = None;
         self.regions.size.y -= frame.height();
         self.lrows.push(Row::Frame(frame, y, is_last));
     }
@@ -1345,6 +1470,14 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         last: bool,
     ) -> SourceResult<()> {
+        if let Some(orphan_snapshot) = self.lrows_orphan_snapshot.take() {
+            if !last {
+                self.lrows.truncate(orphan_snapshot);
+                self.current_repeating_header_rows =
+                    self.current_repeating_header_rows.min(orphan_snapshot);
+            }
+        }
+
         if self
             .lrows
             .last()
@@ -1352,54 +1485,70 @@ impl<'a> GridLayouter<'a> {
         {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
+            self.current_repeating_header_rows =
+                self.current_repeating_header_rows.min(self.lrows.len());
         }
 
-        // If no rows other than the footer have been laid out so far, and
-        // there are rows beside the footer, then don't lay it out at all.
-        // This check doesn't apply, and is thus overridden, when there is a
-        // header.
-        let mut footer_would_be_orphan = self.lrows.is_empty()
-            && !in_last_with_offset(
-                self.regions,
-                self.header_height + self.footer_height,
-            )
-            && self
-                .grid
-                .footer
-                .as_ref()
-                .and_then(Repeatable::as_repeated)
-                .is_some_and(|footer| footer.start != 0);
-
-        if let Some(Repeatable::Repeated(header)) = &self.grid.header {
-            if self.grid.rows.len() > header.end
+        let footer_would_be_widow = if let Some(last_header_row) = self
+            .current_repeating_header_rows
+            .checked_sub(1)
+            .and_then(|last_header_index| self.lrows.get(last_header_index))
+        {
+            let last_header_end = last_header_row.index();
+            if self.grid.rows.len() > last_header_end
                 && self
                     .grid
                     .footer
                     .as_ref()
                     .and_then(Repeatable::as_repeated)
-                    .is_none_or(|footer| footer.start != header.end)
-                && self.lrows.last().is_some_and(|row| row.index() < header.end)
-                && !in_last_with_offset(
+                    .is_none_or(|footer| footer.start != last_header_end)
+                && self.lrows.len() == self.current_repeating_header_rows
+                && may_progress_with_offset(
                     self.regions,
+                    // Since we're trying to find a region where to place all
+                    // repeating + pending headers, it makes sense to use
+                    // 'header_height' and include even non-repeating pending
+                    // headers for this check.
                     self.header_height + self.footer_height,
                 )
             {
                 // Header and footer would be alone in this region, but there are more
                 // rows beyond the header and the footer. Push an empty region.
                 self.lrows.clear();
-                footer_would_be_orphan = true;
+                self.current_last_repeated_header_end = 0;
+                self.current_repeating_header_rows = 0;
+                true
+            } else {
+                false
             }
-        }
+        } else if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            // If no rows other than the footer have been laid out so far, and
+            // there are rows beside the footer, then don't lay it out at all.
+            // (Similar check from above, but for the case without headers.)
+            // TODO: widow prevention for non-repeated footers with a similar
+            // mechanism / when implementing multiple footers.
+            self.lrows.is_empty()
+                && may_progress_with_offset(
+                    self.regions,
+                    // This header height isn't doing much as we just confirmed
+                    // that there are no headers in this region, but let's keep
+                    // it here for correctness. It will add zero anyway.
+                    self.header_height + self.footer_height,
+                )
+                && footer.start != 0
+        } else {
+            false
+        };
 
         let mut laid_out_footer_start = None;
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            // Don't layout the footer if it would be alone with the header in
-            // the page, and don't layout it twice.
-            if !footer_would_be_orphan
-                && self.lrows.iter().all(|row| row.index() < footer.start)
-            {
-                laid_out_footer_start = Some(footer.start);
-                self.layout_footer(footer, engine, self.finished.len())?;
+        if !footer_would_be_widow {
+            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+                // Don't layout the footer if it would be alone with the header in
+                // the page (hence the widow check), and don't layout it twice.
+                if self.lrows.iter().all(|row| row.index() < footer.start) {
+                    laid_out_footer_start = Some(footer.start);
+                    self.layout_footer(footer, engine, self.finished.len())?;
+                }
             }
         }
 
@@ -1425,9 +1574,10 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
         let mut rrows = vec![];
         let current_region = self.finished.len();
+        let mut header_row_height = Abs::zero();
 
         // Place finished rows and layout fractional rows.
-        for row in std::mem::take(&mut self.lrows) {
+        for (i, row) in std::mem::take(&mut self.lrows).into_iter().enumerate() {
             let (frame, y, is_last) = match row {
                 Row::Frame(frame, y, is_last) => (frame, y, is_last),
                 Row::Fr(v, y, disambiguator) => {
@@ -1438,6 +1588,9 @@ impl<'a> GridLayouter<'a> {
             };
 
             let height = frame.height();
+            if i < self.current_repeating_header_rows {
+                header_row_height += height;
+            }
 
             // Ensure rowspans which span this row will have enough space to
             // be laid out over it later.
@@ -1516,7 +1669,11 @@ impl<'a> GridLayouter<'a> {
                     // we have to check the same index again in the next
                     // iteration.
                     let rowspan = self.rowspans.remove(i);
-                    self.layout_rowspan(rowspan, Some((&mut output, &rrows)), engine)?;
+                    self.layout_rowspan(
+                        rowspan,
+                        Some((&mut output, header_row_height)),
+                        engine,
+                    )?;
                 } else {
                     i += 1;
                 }
@@ -1527,21 +1684,38 @@ impl<'a> GridLayouter<'a> {
             pos.y += height;
         }
 
-        self.finish_region_internal(output, rrows);
+        self.finish_region_internal(
+            output,
+            rrows,
+            FinishedHeaderRowInfo {
+                repeated: self.current_repeating_header_rows,
+                last_repeated_header_end: self.current_last_repeated_header_end,
+                height: header_row_height,
+            },
+        );
 
         if !last {
+            self.current_repeating_header_rows = 0;
+            self.current_last_repeated_header_end = 0;
+            self.header_height = Abs::zero();
+            self.repeating_header_height = Abs::zero();
+            self.repeating_header_heights.clear();
+
             let disambiguator = self.finished.len();
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
                 self.prepare_footer(footer, engine, disambiguator)?;
             }
 
-            if let Some(Repeatable::Repeated(header)) = &self.grid.header {
-                // Add a header to the new region.
-                self.layout_header(header, engine, disambiguator)?;
-            }
-
             // Ensure rows don't try to overrun the footer.
+            // Note that header layout will only subtract this again if it has
+            // to skip regions to fit headers, so there is no risk of
+            // subtracting this twice.
             self.regions.size.y -= self.footer_height;
+
+            if !self.repeating_headers.is_empty() || !self.pending_headers.is_empty() {
+                // Add headers to the new region.
+                self.layout_active_headers(engine)?;
+            }
         }
 
         Ok(())
@@ -1553,11 +1727,19 @@ impl<'a> GridLayouter<'a> {
         &mut self,
         output: Frame,
         resolved_rows: Vec<RowPiece>,
+        header_row_info: FinishedHeaderRowInfo,
     ) {
         self.finished.push(output);
         self.rrows.push(resolved_rows);
         self.regions.next();
         self.initial = self.regions.size;
+
+        if !self.grid.headers.is_empty() {
+            self.finished_header_rows.push(header_row_info);
+        }
+
+        // Ensure orphan prevention is handled before resolving rows.
+        debug_assert!(self.lrows_orphan_snapshot.is_none());
     }
 }
 
@@ -1573,12 +1755,12 @@ pub(super) fn points(
     })
 }
 
-/// Checks if the first region of a sequence of regions is the last usable
+/// Checks if the first region of a sequence of regions is not the last usable
 /// region, assuming that the last region will always be occupied by some
 /// specific offset height, even after calling `.next()`, due to some
 /// additional logic which adds content automatically on each region turn (in
 /// our case, headers).
-pub(super) fn in_last_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
-    regions.backlog.is_empty()
-        && regions.last.is_none_or(|height| regions.size.y + offset == height)
+pub(super) fn may_progress_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
+    !regions.backlog.is_empty()
+        || regions.last.is_some_and(|height| regions.size.y + offset != height)
 }

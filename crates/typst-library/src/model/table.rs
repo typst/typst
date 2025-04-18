@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use typst_utils::NonZeroExt;
@@ -296,7 +296,9 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         let rows = rows.drain(ft.unwrap().start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
-    let header = grid.header.map(|hd| {
+    // TODO: Headers and footers in arbitrary positions
+    // Right now, only those at either end are accepted
+    let header = grid.headers.first().filter(|h| h.unwrap().start == 0).map(|hd| {
         let rows = rows.drain(..hd.unwrap().end);
         elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))
     });
@@ -491,6 +493,14 @@ pub struct TableHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
     pub repeat: bool,
+
+    /// The level of the header. Must not be zero.
+    ///
+    /// This is used during repetition multiple headers at once. When a header
+    /// with a lower level starts repeating, all headers with a lower level stop
+    /// repeating.
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
 
     /// The cells and lines within the header.
     #[variadic]
