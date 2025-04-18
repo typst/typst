@@ -414,6 +414,86 @@
   ..([z],) * 10,
 )
 
+--- grid-subheaders-non-repeat ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a],
+    repeat: false,
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    repeat: false,
+    [b]
+  ),
+  ..([y],) * 10,
+)
+
+--- grid-subheaders-non-repeat-replace ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  grid.header(
+    level: 3,
+    [c]
+  ),
+  ..([y],) * 9,
+  grid.header(
+    level: 2,
+    [d],
+    repeat: false,
+  ),
+  ..([z],) * 6,
+)
+
+--- grid-subheaders-non-repeating-replace-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 12,
+  grid.header(
+    level: 2,
+    repeat: false,
+    [c]
+  ),
+  ..([z],) * 10,
+)
+
+--- grid-subheaders-non-repeating-replace-didnt-fit-once ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 10,
+  grid.header(
+    level: 2,
+    repeat: false,
+    [c\ c\ c]
+  ),
+  ..([z],) * 4,
+)
+
 --- grid-subheaders-multi-page-rowspan ---
 #set page(height: 8em)
 #grid(
