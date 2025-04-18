@@ -478,6 +478,7 @@ pub fn commit(
     if remaining < Abs::zero() && shrinkability > Abs::zero() {
         // Attempt to reduce the length of the line, using shrinkability.
         justification_ratio = (remaining / shrinkability).max(-1.0);
+
         remaining = (remaining + shrinkability).min(Abs::zero());
     } else if line.justify && fr.is_zero() {
         // Attempt to increase the length of the line, using stretchability.
@@ -487,6 +488,7 @@ pub fn commit(
         }
 
         let justifiables = line.justifiables();
+
         if justifiables > 0 && remaining > Abs::zero() {
             // Underfull line, distribute the extra space.
             extra_justification = remaining / justifiables as f64;
