@@ -28,7 +28,7 @@ use typst_utils::{Numeric, SliceExt};
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{apply_baseline_shift, commit, line, Line};
+use self::line::{apply_shift, commit, line, Line};
 use self::linebreak::{linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{
