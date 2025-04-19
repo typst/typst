@@ -91,6 +91,10 @@ impl Length {
             hint: "or use `length.abs.{unit}()` instead to ignore its em component"
         )
     }
+
+    pub fn to_em(&self, text_size: Abs) -> Em {
+        self.em + Em::new(self.abs / text_size)
+    }
 }
 
 #[scope]
