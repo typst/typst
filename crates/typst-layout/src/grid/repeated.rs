@@ -142,15 +142,16 @@ impl<'a> GridLayouter<'a> {
 
         // Ensure upcoming rows won't see that these headers will occupy any
         // space in future regions anymore.
-        for removed_height in self.repeating_header_heights.drain(first_conflicting_pos..)
+        for removed_height in
+            self.current.repeating_header_heights.drain(first_conflicting_pos..)
         {
-            self.repeating_header_height -= removed_height;
+            self.current.repeating_header_height -= removed_height;
         }
 
         // Non-repeating headers stop at the pending stage for orphan
         // prevention only. Flushing pending headers, so those will no longer
         // appear in a future region.
-        self.header_height = self.repeating_header_height;
+        self.current.header_height = self.current.repeating_header_height;
 
         // Let's try to place them at least once.
         // This might be a waste as we could generate an orphan and thus have
@@ -223,7 +224,7 @@ impl<'a> GridLayouter<'a> {
                 // available size for consistency with the first region, so we
                 // need to consider the footer when evaluating if skipping yet
                 // another region would make a difference.
-                self.footer_height,
+                self.current.footer_height,
             )
         {
             // Advance regions without any output until we can place the
@@ -238,7 +239,7 @@ impl<'a> GridLayouter<'a> {
             // if 'full' changes? (Assuming height doesn't change for now...)
             skipped_region = true;
 
-            self.regions.size.y -= self.footer_height;
+            self.regions.size.y -= self.current.footer_height;
         }
 
         if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
@@ -246,11 +247,11 @@ impl<'a> GridLayouter<'a> {
                 // Simulate the footer again; the region's 'full' might have
                 // changed.
                 // TODO: maybe this should go in the loop, a bit hacky as is...
-                self.regions.size.y += self.footer_height;
-                self.footer_height = self
+                self.regions.size.y += self.current.footer_height;
+                self.current.footer_height = self
                     .simulate_footer(footer, &self.regions, engine, disambiguator)?
                     .height;
-                self.regions.size.y -= self.footer_height;
+                self.regions.size.y -= self.current.footer_height;
             }
         }
 
@@ -265,22 +266,22 @@ impl<'a> GridLayouter<'a> {
         // within 'layout_row'.
         self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
 
-        self.current_last_repeated_header_end =
+        self.current.current_last_repeated_header_end =
             self.repeating_headers.last().map(|h| h.end).unwrap_or_default();
 
         // Reset the header height for this region.
         // It will be re-calculated when laying out each header row.
-        self.header_height = Abs::zero();
-        self.repeating_header_height = Abs::zero();
-        self.repeating_header_heights.clear();
+        self.current.header_height = Abs::zero();
+        self.current.repeating_header_height = Abs::zero();
+        self.current.repeating_header_heights.clear();
 
         // Use indices to avoid double borrow. We don't mutate headers in
         // 'layout_row' so this is fine.
         let mut i = 0;
         while let Some(&header) = self.repeating_headers.get(i) {
             let header_height = self.layout_header_rows(header, engine, disambiguator)?;
-            self.header_height += header_height;
-            self.repeating_header_height += header_height;
+            self.current.header_height += header_height;
+            self.current.repeating_header_height += header_height;
 
             // We assume that this vector will be sorted according
             // to increasing levels like 'repeating_headers' and
@@ -300,26 +301,26 @@ impl<'a> GridLayouter<'a> {
             // headers which have now stopped repeating. They are always at
             // the end and new pending headers respect the existing sort,
             // so the vector will remain sorted.
-            self.repeating_header_heights.push(header_height);
+            self.current.repeating_header_heights.push(header_height);
 
             i += 1;
         }
 
-        self.current_repeating_header_rows = self.lrows.len();
+        self.current.current_repeating_header_rows = self.lrows.len();
 
         if !self.pending_headers.is_empty() {
             // Restore snapshot: if pending headers placed again turn out to be
             // orphans, remove their rows again.
-            self.lrows_orphan_snapshot = Some(self.lrows.len());
+            self.current.lrows_orphan_snapshot = Some(self.lrows.len());
         }
 
         for header in self.pending_headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator)?;
-            self.header_height += header_height;
+            self.current.header_height += header_height;
             if matches!(header, Repeatable::Repeated(_)) {
-                self.repeating_header_height += header_height;
-                self.repeating_header_heights.push(header_height);
+                self.current.repeating_header_height += header_height;
+                self.current.repeating_header_heights.push(header_height);
             }
         }
 
@@ -359,7 +360,7 @@ impl<'a> GridLayouter<'a> {
                 // 'header_height == repeating_header_height' here
                 // (there won't be any pending headers at this point, other
                 // than the ones we are about to place).
-                self.header_height + self.footer_height,
+                self.current.header_height + self.current.footer_height,
             )
         {
             // Note that, after the first region skip, the new headers will go
@@ -382,10 +383,10 @@ impl<'a> GridLayouter<'a> {
             // region, so multi-page rows and cells can effectively ignore
             // this header.
             if !short_lived {
-                self.header_height += header_height;
+                self.current.header_height += header_height;
                 if matches!(header, Repeatable::Repeated(_)) {
-                    self.repeating_header_height += header_height;
-                    self.repeating_header_heights.push(header_height);
+                    self.current.repeating_header_height += header_height;
+                    self.current.repeating_header_heights.push(header_height);
                 }
             }
         }
@@ -393,7 +394,7 @@ impl<'a> GridLayouter<'a> {
         // Remove new headers at the end of the region if upcoming child doesn't fit.
         // TODO: Short lived if footer comes afterwards
         if !short_lived {
-            self.lrows_orphan_snapshot = Some(initial_row_count);
+            self.current.lrows_orphan_snapshot = Some(initial_row_count);
         }
 
         Ok(())
@@ -466,7 +467,7 @@ impl<'a> GridLayouter<'a> {
         // That is unnecessary at the moment as 'prepare_footers' is only
         // called at the start of the region, but what about when we can have
         // footers in the middle of the region? Let's think about this then.
-        self.footer_height = if skipped_region {
+        self.current.footer_height = if skipped_region {
             // Simulate the footer again; the region's 'full' might have
             // changed.
             self.simulate_footer(footer, &self.regions, engine, disambiguator)?
@@ -489,7 +490,7 @@ impl<'a> GridLayouter<'a> {
         // Ensure footer rows have their own height available.
         // Won't change much as we're creating an unbreakable row group
         // anyway, so this is mostly for correctness.
-        self.regions.size.y += self.footer_height;
+        self.regions.size.y += self.current.footer_height;
 
         let footer_len = self.grid.rows.len() - footer.start;
         self.unbreakable_rows_left += footer_len;

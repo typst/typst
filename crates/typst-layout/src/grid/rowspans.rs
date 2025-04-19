@@ -263,7 +263,7 @@ impl GridLayouter<'_> {
                     // due to orphan/widow prevention, which explains the usage of
                     // 'header_height' (include non-repeating but pending headers) rather
                     // than 'repeating_header_height'.
-                    self.header_height + self.footer_height,
+                    self.current.header_height + self.current.footer_height,
                 )
             {
                 self.finish_region(engine, false)?;
@@ -422,7 +422,9 @@ impl GridLayouter<'_> {
                 let mapped_regions = self.regions.map(&mut custom_backlog, |size| {
                     Size::new(
                         size.x,
-                        size.y - self.repeating_header_height - self.footer_height,
+                        size.y
+                            - self.current.repeating_header_height
+                            - self.current.footer_height,
                     )
                 });
 
@@ -535,7 +537,7 @@ impl GridLayouter<'_> {
                         // and unbreakable rows in general, so there is no risk
                         // of accessing an incomplete list of rows.
                         let initial_header_height = self.lrows
-                            [..self.current_repeating_header_rows]
+                            [..self.current.current_repeating_header_rows]
                             .iter()
                             .map(|row| match row {
                                 Row::Frame(frame, _, _) => frame.height(),
@@ -543,7 +545,9 @@ impl GridLayouter<'_> {
                             })
                             .sum();
 
-                        self.initial.y - initial_header_height - self.footer_height
+                        self.current.initial.y
+                            - initial_header_height
+                            - self.current.footer_height
                     } else {
                         // When measuring unbreakable auto rows, infinite
                         // height is available for content to expand.
@@ -559,7 +563,8 @@ impl GridLayouter<'_> {
                     // Assume only repeating headers will survive starting at
                     // the next region.
                     let backlog = self.regions.backlog.iter().map(|&size| {
-                        size - self.repeating_header_height - self.footer_height
+                        size - self.current.repeating_header_height
+                            - self.current.footer_height
                     });
 
                     heights_up_to_current_region.chain(backlog).collect::<Vec<_>>()
@@ -574,10 +579,10 @@ impl GridLayouter<'_> {
                 height = *rowspan_height;
                 backlog = None;
                 full = rowspan_full;
-                last = self
-                    .regions
-                    .last
-                    .map(|size| size - self.repeating_header_height - self.footer_height);
+                last = self.regions.last.map(|size| {
+                    size - self.current.repeating_header_height
+                        - self.current.footer_height
+                });
             } else {
                 // The rowspan started in the current region, as its vector
                 // of heights in regions is currently empty.
@@ -782,7 +787,8 @@ impl GridLayouter<'_> {
             // Subtract the repeating header and footer height, since that's
             // the height we used when subtracting from the region backlog's
             // heights while measuring cells.
-            simulated_regions.size.y -= self.repeating_header_height + self.footer_height;
+            simulated_regions.size.y -=
+                self.current.repeating_header_height + self.current.footer_height;
         }
 
         if let Some(original_last_resolved_size) = last_resolved_size {
@@ -921,8 +927,8 @@ impl GridLayouter<'_> {
                 // rowspan, since headers and footers are unbreakable, so
                 // assuming the repeating header height and footer height
                 // won't change is safe.
-                self.repeating_header_height,
-                self.footer_height,
+                self.current.repeating_header_height,
+                self.current.footer_height,
             );
 
             let total_spanned_height = rowspan_simulator.simulate_rowspan_layout(
@@ -1006,7 +1012,7 @@ impl GridLayouter<'_> {
                 extra_amount_to_grow -= simulated_regions.size.y.max(Abs::zero());
                 simulated_regions.next();
                 simulated_regions.size.y -=
-                    self.repeating_header_height + self.footer_height;
+                    self.current.repeating_header_height + self.current.footer_height;
                 disambiguator += 1;
             }
             simulated_regions.size.y -= extra_amount_to_grow;
