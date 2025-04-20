@@ -236,54 +236,12 @@ impl<'a> GridLayouter<'a> {
         let mut y = 0;
         let mut consecutive_header_count = 0;
         while y < self.grid.rows.len() {
-            if let Some(first_header) =
-                self.upcoming_headers.get(consecutive_header_count)
+            if let Some(next_header) = self.upcoming_headers.get(consecutive_header_count)
             {
-                if first_header.unwrap().range().contains(&y) {
-                    consecutive_header_count += 1;
+                if next_header.unwrap().range().contains(&y) {
+                    self.place_new_headers(&mut consecutive_header_count, engine)?;
+                    y = next_header.unwrap().end;
 
-                    // TODO: surely there is a better way to do this
-                    match self.upcoming_headers.get(consecutive_header_count) {
-                        // No more headers, so place the latest headers.
-                        None => {
-                            self.place_new_headers(
-                                consecutive_header_count,
-                                None,
-                                engine,
-                            )?;
-                            consecutive_header_count = 0;
-                        }
-                        // Next header is not consecutive, so place the latest headers.
-                        Some(next_header)
-                            if next_header.unwrap().start > first_header.unwrap().end =>
-                        {
-                            self.place_new_headers(
-                                consecutive_header_count,
-                                None,
-                                engine,
-                            )?;
-                            consecutive_header_count = 0;
-                        }
-                        // Next header is consecutive and conflicts with one or
-                        // more of the latest consecutive headers, so we must
-                        // place them before proceeding.
-                        Some(next_header)
-                            if next_header.unwrap().level
-                                <= first_header.unwrap().level =>
-                        {
-                            self.place_new_headers(
-                                consecutive_header_count,
-                                Some(next_header),
-                                engine,
-                            )?;
-                            consecutive_header_count = 0;
-                        }
-                        // Next header is a non-conflicting consecutive header.
-                        // Keep collecting more headers.
-                        _ => {}
-                    }
-
-                    y = first_header.unwrap().end;
                     // Skip header rows during normal layout.
                     continue;
                 }

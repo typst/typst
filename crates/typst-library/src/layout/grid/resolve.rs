@@ -438,6 +438,12 @@ pub struct Header {
     /// lower level header stops repeating, all higher level headers do as
     /// well.
     pub level: u32,
+    /// Whether this header cannot be repeated nor should have orphan
+    /// prevention because it would be about to cease repetition, either
+    /// because it is followed by headers of conflicting levels, or because
+    /// it is at the end of the table (possibly followed by some footers at the
+    /// end).
+    pub short_lived: bool,
 }
 
 impl Header {
@@ -469,12 +475,15 @@ impl Footer {
     }
 }
 
-/// A possibly repeatable grid object.
+/// A possibly repeatable grid child.
+///
 /// It still exists even when not repeatable, but must not have additional
 /// considerations by grid layout, other than for consistency (such as making
 /// a certain group of rows unbreakable).
 pub enum Repeatable<T> {
+    /// The user asked this grid child to repeat.
     Repeated(T),
+    /// The user asked this grid child to not repeat.
     NotRepeated(T),
 }
 
@@ -490,7 +499,7 @@ impl<T> Repeatable<T> {
     }
 
     /// Gets the value inside this repeatable, regardless of whether
-    /// it repeats.
+    /// it repeats (mutably).
     #[inline]
     pub fn unwrap_mut(&mut self) -> &mut T {
         match self {
@@ -1540,7 +1549,28 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         end: group_range.end,
 
                         level: row_group.repeatable_level.get(),
+
+                        // This can only change at a later iteration, if we
+                        // find a conflicting header or footer right away.
+                        short_lived: false,
                     };
+
+                    // Mark consecutive headers right before this one as short
+                    // lived if they would have a higher or equal level, as
+                    // then they would immediately stop repeating during
+                    // layout.
+                    let mut consecutive_header_start = data.start;
+                    for conflicting_header in
+                        headers.iter_mut().rev().take_while(move |h| {
+                            let conflicts = h.unwrap().end == consecutive_header_start
+                                && h.unwrap().level >= data.level;
+
+                            consecutive_header_start = h.unwrap().start;
+                            conflicts
+                        })
+                    {
+                        conflicting_header.unwrap_mut().short_lived = true;
+                    }
 
                     headers.push(if row_group.repeat {
                         Repeatable::Repeated(data)
@@ -1825,6 +1855,20 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     Repeatable::NotRepeated(footer)
                 }
             });
+
+        // Mark consecutive headers right before the end of the table, or the
+        // final footer, as short lived, given that there are no normal rows
+        // after them, so repeating them is pointless.
+        let mut consecutive_header_start =
+            footer.as_ref().map(|f| f.unwrap().start).unwrap_or(row_amount);
+        for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
+            let at_the_end = h.unwrap().end == consecutive_header_start;
+
+            consecutive_header_start = h.unwrap().start;
+            at_the_end
+        }) {
+            header_at_the_end.unwrap_mut().short_lived = true;
+        }
 
         Ok(footer)
     }

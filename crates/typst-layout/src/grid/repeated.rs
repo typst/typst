@@ -9,71 +9,44 @@ use super::rowspans::UnbreakableRowGroup;
 impl<'a> GridLayouter<'a> {
     pub fn place_new_headers(
         &mut self,
-        consecutive_header_count: usize,
-        conflicting_header: Option<&Repeatable<Header>>,
+        consecutive_header_count: &mut usize,
         engine: &mut Engine,
     ) -> SourceResult<()> {
+        *consecutive_header_count += 1;
         let (consecutive_headers, new_upcoming_headers) =
-            self.upcoming_headers.split_at(consecutive_header_count);
+            self.upcoming_headers.split_at(*consecutive_header_count);
+
+        if new_upcoming_headers.first().is_some_and(|next_header| {
+            consecutive_headers.last().is_none_or(|latest_header| {
+                !latest_header.unwrap().short_lived
+                    && next_header.unwrap().start == latest_header.unwrap().end
+            }) && !next_header.unwrap().short_lived
+        }) {
+            // More headers coming, so wait until we reach them.
+            // TODO: refactor
+            return Ok(());
+        }
+
         self.upcoming_headers = new_upcoming_headers;
+        *consecutive_header_count = 0;
 
-        let (non_conflicting_headers, conflicting_headers) = match conflicting_header {
-            // Headers succeeded by end of grid or footer are short lived and
-            // can be placed in separate regions (no orphan prevention).
-            // TODO: do this during grid resolving?
-            // might be needed for multiple footers. Or maybe not if we check
-            // "upcoming_footers" (O(1) here), however that looks like.
-            _ if consecutive_headers
-                .last()
-                .is_some_and(|x| x.unwrap().end == self.grid.rows.len())
-                || self
-                    .grid
-                    .footer
-                    .as_ref()
-                    .zip(consecutive_headers.last())
-                    .is_some_and(|(f, h)| f.unwrap().start == h.unwrap().end) =>
-            {
-                (Default::default(), consecutive_headers)
-            }
-
-            Some(conflicting_header) => {
-                // All immediately conflicting headers will
-                // be laid out without orphan prevention.
-                consecutive_headers.split_at(consecutive_headers.partition_point(|h| {
-                    conflicting_header.unwrap().level > h.unwrap().level
-                }))
-            }
-            _ => (consecutive_headers, Default::default()),
-        };
-
-        self.layout_new_pending_headers(non_conflicting_headers, engine)?;
-
-        // Layout each conflicting header independently, without orphan
-        // prevention (as they don't go into 'pending_headers').
-        // These headers are short-lived as they are immediately followed by a
-        // header of the same or lower level, such that they never actually get
-        // to repeat.
-        for conflicting_header in conflicting_headers.chunks_exact(1) {
-            self.layout_new_headers(
-                // Using 'chunks_exact", we pass a slice of length one instead
-                // of a reference for type consistency.
-                // In addition, this is the only place where we layout
-                // short-lived headers.
-                conflicting_header,
-                true,
-                engine,
-            )?
-        }
-
-        // No chance of orphans as we're immediately placing conflicting
-        // headers afterwards, which basically are not headers, for all intents
-        // and purposes. It is therefore guaranteed that all new headers have
-        // been placed at least once.
-        if !conflicting_headers.is_empty() {
+        // Layout short-lived headers immediately.
+        if consecutive_headers.last().is_some_and(|h| h.unwrap().short_lived) {
+            // No chance of orphans as we're immediately placing conflicting
+            // headers afterwards, which basically are not headers, for all intents
+            // and purposes. It is therefore guaranteed that all new headers have
+            // been placed at least once.
             self.flush_pending_headers();
-        }
 
-        Ok(())
+            // Layout each conflicting header independently, without orphan
+            // prevention (as they don't go into 'pending_headers').
+            // These headers are short-lived as they are immediately followed by a
+            // header of the same or lower level, such that they never actually get
+            // to repeat.
+            self.layout_new_headers(consecutive_headers, true, engine)
+        } else {
+            self.layout_new_pending_headers(consecutive_headers, engine)
+        }
     }
 
     /// Lays out a row while indicating that it should store its persistent
