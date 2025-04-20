@@ -1486,12 +1486,18 @@ impl<'a> GridLayouter<'a> {
                 } else {
                     false
                 }
-            } else if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            } else if let Some(Repeatable::Repeated(_)) = &self.grid.footer {
                 // If no rows other than the footer have been laid out so far,
                 // and there are rows beside the footer, then don't lay it out
                 // at all. (Similar check from above, but for the case without
                 // headers.)
-                // TODO: widow prevention for non-repeated footers with a
+                //
+                // It is worth noting that the footer is made non-repeatable at
+                // the grid resolving stage if it is short-lived, that is, if
+                // it is at the start of the table (or right after headers at
+                // the start of the table).
+                // TODO(subfooters): explicitly check for short-lived footers.
+                // TODO(subfooters): widow prevention for non-repeated footers with a
                 // similar mechanism / when implementing multiple footers.
                 self.lrows.is_empty()
                     && may_progress_with_offset(
@@ -1502,7 +1508,6 @@ impl<'a> GridLayouter<'a> {
                         // zero anyway.
                         self.current.header_height + self.current.footer_height,
                     )
-                    && footer.start != 0
             } else {
                 false
             };
