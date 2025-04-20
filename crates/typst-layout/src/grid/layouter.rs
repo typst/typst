@@ -1462,63 +1462,59 @@ impl<'a> GridLayouter<'a> {
                 self.current.repeated_header_rows.min(self.lrows.len());
         }
 
-        let footer_would_be_widow = if let Some(last_header_row) = self
-            .current
-            .repeated_header_rows
-            .checked_sub(1)
-            .and_then(|last_header_index| self.lrows.get(last_header_index))
-        {
-            let last_header_end = last_header_row.index();
-            if self.grid.rows.len() > last_header_end
-                && self
-                    .grid
-                    .footer
-                    .as_ref()
-                    .and_then(Repeatable::as_repeated)
-                    .is_none_or(|footer| footer.start != last_header_end)
-                && self.lrows.len() == self.current.repeated_header_rows
-                && may_progress_with_offset(
-                    self.regions,
-                    // Since we're trying to find a region where to place all
-                    // repeating + pending headers, it makes sense to use
-                    // 'header_height' and include even non-repeating pending
-                    // headers for this check.
-                    self.current.header_height + self.current.footer_height,
-                )
-            {
-                // Header and footer would be alone in this region, but there are more
-                // rows beyond the header and the footer. Push an empty region.
-                self.lrows.clear();
-                self.current.last_repeated_header_end = 0;
-                self.current.repeated_header_rows = 0;
-                true
+        let footer_would_be_widow =
+            if !self.lrows.is_empty() && self.current.repeated_header_rows > 0 {
+                // If headers are repeating, then we already know they are not
+                // short-lived as that is checked, so they have orphan prevention.
+                if self.lrows.len() == self.current.repeated_header_rows
+                    && may_progress_with_offset(
+                        self.regions,
+                        // Since we're trying to find a region where to place all
+                        // repeating + pending headers, it makes sense to use
+                        // 'header_height' and include even non-repeating pending
+                        // headers for this check.
+                        self.current.header_height + self.current.footer_height,
+                    )
+                {
+                    // Header and footer would be alone in this region, but
+                    // there are more rows beyond the headers and the footer.
+                    // Push an empty region.
+                    self.lrows.clear();
+                    self.current.last_repeated_header_end = 0;
+                    self.current.repeated_header_rows = 0;
+                    true
+                } else {
+                    false
+                }
+            } else if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+                // If no rows other than the footer have been laid out so far,
+                // and there are rows beside the footer, then don't lay it out
+                // at all. (Similar check from above, but for the case without
+                // headers.)
+                // TODO: widow prevention for non-repeated footers with a
+                // similar mechanism / when implementing multiple footers.
+                self.lrows.is_empty()
+                    && may_progress_with_offset(
+                        self.regions,
+                        // This header height isn't doing much as we just
+                        // confirmed that there are no headers in this region,
+                        // but let's keep it here for correctness. It will add
+                        // zero anyway.
+                        self.current.header_height + self.current.footer_height,
+                    )
+                    && footer.start != 0
             } else {
                 false
-            }
-        } else if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            // If no rows other than the footer have been laid out so far, and
-            // there are rows beside the footer, then don't lay it out at all.
-            // (Similar check from above, but for the case without headers.)
-            // TODO: widow prevention for non-repeated footers with a similar
-            // mechanism / when implementing multiple footers.
-            self.lrows.is_empty()
-                && may_progress_with_offset(
-                    self.regions,
-                    // This header height isn't doing much as we just confirmed
-                    // that there are no headers in this region, but let's keep
-                    // it here for correctness. It will add zero anyway.
-                    self.current.header_height + self.current.footer_height,
-                )
-                && footer.start != 0
-        } else {
-            false
-        };
+            };
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-                // Don't layout the footer if it would be alone with the header in
-                // the page (hence the widow check), and don't layout it twice.
+                // Don't layout the footer if it would be alone with the header
+                // in the page (hence the widow check), and don't layout it
+                // twice.
+                // TODO: this check can be replaced by a vector of repeating
+                // footers in the future.
                 if self.lrows.iter().all(|row| row.index() < footer.start) {
                     laid_out_footer_start = Some(footer.start);
                     self.layout_footer(footer, engine, self.finished.len())?;
