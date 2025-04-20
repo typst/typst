@@ -1063,6 +1063,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut footer: Option<(usize, Span, Footer)> = None;
         let mut repeat_footer = false;
 
+        // If true, there has been at least one cell besides headers and
+        // footers. When false, footers at the end are forced to not repeat.
+        let mut at_least_one_cell = false;
+
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
         // positions, so the position of a cell in 'cells' can differ from its
@@ -1104,6 +1108,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 &mut repeat_footer,
                 &mut auto_index,
                 &mut resolved_cells,
+                &mut at_least_one_cell,
                 child,
             )?;
         }
@@ -1125,6 +1130,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             footer,
             repeat_footer,
             row_amount,
+            at_least_one_cell,
         )?;
 
         Ok(CellGrid::new_internal(
@@ -1157,6 +1163,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         repeat_footer: &mut bool,
         auto_index: &mut usize,
         resolved_cells: &mut Vec<Option<Entry<'x>>>,
+        at_least_one_cell: &mut bool,
         child: ResolvableGridChild<T, I>,
     ) -> SourceResult<()>
     where
@@ -1240,7 +1247,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 (Some(items), None)
             }
-            ResolvableGridChild::Item(item) => (None, Some(item)),
+            ResolvableGridChild::Item(item) => {
+                if matches!(item, ResolvableGridItem::Cell(_)) {
+                    *at_least_one_cell = true;
+                }
+
+                (None, Some(item))
+            }
         };
 
         let items = header_footer_items.into_iter().flatten().chain(simple_item);
@@ -1784,6 +1797,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         footer: Option<(usize, Span, Footer)>,
         repeat_footer: bool,
         row_amount: usize,
+        at_least_one_cell: bool,
     ) -> SourceResult<Option<Repeatable<Footer>>> {
         // Repeat the gutter below a header (hence why we don't
         // subtract 1 from the gutter case).
@@ -1856,7 +1870,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             })
             .transpose()?
             .map(|footer| {
-                if repeat_footer {
+                // Don't repeat footers when the table only has headers and
+                // footers.
+                // TODO(subfooters): Switch this to marking the last N
+                // consecutive footers as short lived.
+                if repeat_footer && at_least_one_cell {
                     Repeatable::Repeated(footer)
                 } else {
                     Repeatable::NotRepeated(footer)
