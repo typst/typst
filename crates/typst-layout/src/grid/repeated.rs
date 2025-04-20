@@ -266,7 +266,7 @@ impl<'a> GridLayouter<'a> {
         // within 'layout_row'.
         self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
 
-        self.current.current_last_repeated_header_end =
+        self.current.last_repeated_header_end =
             self.repeating_headers.last().map(|h| h.end).unwrap_or_default();
 
         // Reset the header height for this region.
@@ -306,7 +306,7 @@ impl<'a> GridLayouter<'a> {
             i += 1;
         }
 
-        self.current.current_repeating_header_rows = self.lrows.len();
+        self.current.repeated_header_rows = self.lrows.len();
 
         if !self.pending_headers.is_empty() {
             // Restore snapshot: if pending headers placed again turn out to be
