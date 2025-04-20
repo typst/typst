@@ -1,5 +1,5 @@
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use std::sync::Arc;
 
 use ecow::eco_format;
@@ -485,6 +485,14 @@ pub enum Repeatable<T> {
     Repeated(T),
     /// The user asked this grid child to not repeat.
     NotRepeated(T),
+}
+
+impl<T> Deref for Repeatable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.unwrap()
+    }
 }
 
 impl<T> Repeatable<T> {
@@ -1562,10 +1570,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     let mut consecutive_header_start = data.start;
                     for conflicting_header in
                         headers.iter_mut().rev().take_while(move |h| {
-                            let conflicts = h.unwrap().end == consecutive_header_start
-                                && h.unwrap().level >= data.level;
+                            let conflicts = h.end == consecutive_header_start
+                                && h.level >= data.level;
 
-                            consecutive_header_start = h.unwrap().start;
+                            consecutive_header_start = h.start;
                             conflicts
                         })
                     {
@@ -1818,8 +1826,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 // TODO: will need a global slice of headers and footers for
                 // when we have multiple footers
-                let last_header_end =
-                    headers.last().map(Repeatable::unwrap).map(|header| header.end);
+                let last_header_end = headers.last().map(|header| header.end);
 
                 if has_gutter {
                     // Convert the footer's start index to post-gutter coordinates.
@@ -1860,11 +1867,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // final footer, as short lived, given that there are no normal rows
         // after them, so repeating them is pointless.
         let mut consecutive_header_start =
-            footer.as_ref().map(|f| f.unwrap().start).unwrap_or(row_amount);
+            footer.as_ref().map(|f| f.start).unwrap_or(row_amount);
         for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
-            let at_the_end = h.unwrap().end == consecutive_header_start;
+            let at_the_end = h.end == consecutive_header_start;
 
-            consecutive_header_start = h.unwrap().start;
+            consecutive_header_start = h.start;
             at_the_end
         }) {
             header_at_the_end.unwrap_mut().short_lived = true;
@@ -2052,9 +2059,10 @@ fn check_for_conflicting_cell_row(
     // `y + 1 = header.start` holds, that means `y < header.start`, and it
     // only occupies one row (`y`), so the cell is actually not in
     // conflict.
-    if headers.iter().any(|header| {
-        cell_y < header.unwrap().end && cell_y + rowspan > header.unwrap().start
-    }) {
+    if headers
+        .iter()
+        .any(|header| cell_y < header.end && cell_y + rowspan > header.start)
+    {
         bail!(
             "cell would conflict with header spanning the same position";
             hint: "try moving the cell or the header"
@@ -2248,11 +2256,9 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
             }
         // TODO: consider keeping vector of upcoming headers to make this check
         // non-quadratic (O(cells) instead of O(headers * cells)).
-        } else if let Some(header) =
-            headers.iter().map(Repeatable::unwrap).find(|header| {
-                (header.start * columns..header.end * columns).contains(&resolved_index)
-            })
-        {
+        } else if let Some(header) = headers.iter().find(|header| {
+            (header.start * columns..header.end * columns).contains(&resolved_index)
+        }) {
             // Skip header (can't place a cell inside it from outside it).
             resolved_index = header.end * columns;
 

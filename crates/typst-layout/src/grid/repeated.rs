@@ -18,9 +18,8 @@ impl<'a> GridLayouter<'a> {
 
         if new_upcoming_headers.first().is_some_and(|next_header| {
             consecutive_headers.last().is_none_or(|latest_header| {
-                !latest_header.unwrap().short_lived
-                    && next_header.unwrap().start == latest_header.unwrap().end
-            }) && !next_header.unwrap().short_lived
+                !latest_header.short_lived && next_header.start == latest_header.end
+            }) && !next_header.short_lived
         }) {
             // More headers coming, so wait until we reach them.
             // TODO: refactor
@@ -31,7 +30,7 @@ impl<'a> GridLayouter<'a> {
         *consecutive_header_count = 0;
 
         // Layout short-lived headers immediately.
-        if consecutive_headers.last().is_some_and(|h| h.unwrap().short_lived) {
+        if consecutive_headers.last().is_some_and(|h| h.short_lived) {
             // No chance of orphans as we're immediately placing conflicting
             // headers afterwards, which basically are not headers, for all intents
             // and purposes. It is therefore guaranteed that all new headers have
@@ -104,7 +103,7 @@ impl<'a> GridLayouter<'a> {
 
         // Assuming non-conflicting headers sorted by increasing y, this must
         // be the header with the lowest level (sorted by increasing levels).
-        let first_level = first_header.unwrap().level;
+        let first_level = first_header.level;
 
         // Stop repeating conflicting headers.
         // If we go to a new region before the pending headers fit alongside
