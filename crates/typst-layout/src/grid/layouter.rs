@@ -72,7 +72,7 @@ pub struct GridLayouter<'a> {
 
 /// Grid layout state for the current region. This should be reset or updated
 /// on each region break.
-pub struct Current {
+pub(super) struct Current {
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
     /// The amount of repeated header rows at the start of the current region.
