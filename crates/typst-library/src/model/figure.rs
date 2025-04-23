@@ -132,6 +132,9 @@ pub struct FigureElem {
     ///   caption: [A glacier],
     ///   image("glacier.jpg", width: 60%),
     /// )
+    /// #show figure: set place(
+    ///   clearance: 1em,
+    /// )
     /// #lorem(60)
     /// ```
     pub placement: Option<Smart<VAlignment>>,
