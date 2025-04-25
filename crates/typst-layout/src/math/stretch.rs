@@ -2,7 +2,7 @@ use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::LazyArray16;
 use typst_library::diag::{warning, SourceResult};
 use typst_library::foundations::{Packed, StyleChain};
-use typst_library::layout::{Abs, Axis, Frame, Point, Rel, Size};
+use typst_library::layout::{Abs, Axis, Frame, Point, Size};
 use typst_library::math::StretchElem;
 use typst_utils::Get;
 
@@ -23,15 +23,13 @@ pub fn layout_stretch(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
-    stretch_fragment(
-        ctx,
-        styles,
-        &mut fragment,
-        None,
-        None,
-        elem.size(styles),
-        Abs::zero(),
-    );
+
+    if let Some(axis) = stretch_axis(ctx, &fragment) {
+        let relative_to = fragment.size().get(axis);
+        let target = elem.size(styles).resolve(ctx.engine, styles, relative_to)?;
+        stretch_fragment(ctx, styles, &mut fragment, axis, target);
+    }
+
     ctx.push(fragment);
     Ok(())
 }
@@ -41,10 +39,8 @@ pub fn stretch_fragment(
     ctx: &mut MathContext,
     styles: StyleChain,
     fragment: &mut MathFragment,
-    axis: Option<Axis>,
-    relative_to: Option<Abs>,
-    stretch: Rel<Abs>,
-    short_fall: Abs,
+    axis: Axis,
+    target: Abs,
 ) {
     let glyph = match fragment {
         MathFragment::Glyph(glyph) => glyph.clone(),
@@ -56,21 +52,12 @@ pub fn stretch_fragment(
 
     // Return if we attempt to stretch along an axis which isn't stretchable,
     // so that the original fragment isn't modified.
-    let Some(stretch_axis) = stretch_axis(ctx, &glyph) else { return };
-    let axis = axis.unwrap_or(stretch_axis);
+    let Some(stretch_axis) = stretch_axis(ctx, fragment) else { return };
     if axis != stretch_axis {
         return;
     }
 
-    let relative_to_size = relative_to.unwrap_or_else(|| fragment.size().get(axis));
-
-    let mut variant = stretch_glyph(
-        ctx,
-        glyph,
-        stretch.relative_to(relative_to_size),
-        short_fall,
-        axis,
-    );
+    let mut variant = stretch_glyph(ctx, glyph, target, Abs::zero(), axis);
 
     if axis == Axis::Y {
         variant.align_on_axis(ctx, delimiter_alignment(variant.c));
@@ -81,17 +68,26 @@ pub fn stretch_fragment(
 
 /// Return whether the glyph is stretchable and if it is, along which axis it
 /// can be stretched.
-fn stretch_axis(ctx: &mut MathContext, base: &GlyphFragment) -> Option<Axis> {
-    let base_id = base.id;
+fn stretch_axis(ctx: &mut MathContext, fragment: &MathFragment) -> Option<Axis> {
+    let (id, span) = match fragment {
+        MathFragment::Glyph(glyph) => (glyph.id, glyph.span),
+        MathFragment::Variant(variant) => {
+            let id = ctx.ttf.glyph_index(variant.c).unwrap_or_default();
+            let id = GlyphFragment::adjust_glyph_index(ctx, id);
+            (id, variant.span)
+        }
+        _ => return None,
+    };
+
     let vertical = ctx
         .table
         .variants
-        .and_then(|variants| variants.vertical_constructions.get(base_id))
+        .and_then(|variants| variants.vertical_constructions.get(id))
         .map(|_| Axis::Y);
     let horizontal = ctx
         .table
         .variants
-        .and_then(|variants| variants.horizontal_constructions.get(base_id))
+        .and_then(|variants| variants.horizontal_constructions.get(id))
         .map(|_| Axis::X);
 
     match (vertical, horizontal) {
@@ -102,7 +98,7 @@ fn stretch_axis(ctx: &mut MathContext, base: &GlyphFragment) -> Option<Axis> {
             // vertical and horizontal constructions. So for the time being, we
             // will assume that a glyph cannot have both.
             ctx.engine.sink.warn(warning!(
-               base.span,
+               span,
                "glyph has both vertical and horizontal constructions";
                hint: "this is probably a font bug";
                hint: "please file an issue at https://github.com/typst/typst/issues"
