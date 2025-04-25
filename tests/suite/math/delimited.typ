@@ -31,8 +31,13 @@ $ lr(a/b\]) = a = lr(\{a/b) $
 
 --- math-lr-size ---
 // Test manual scaling.
-$ lr(]sum_(x=1)^n x], size: #70%)
+$ lr(]sum_(x=1)^n x], size: #60%)
   < lr((1, 2), size: #200%) $
+
+--- math-lr-size-function ---
+// Test using a function as an argument to size.
+#set math.lr(size: x => if x > 10pt { 1em } else { 4 * x })
+$ (a) (1/2) $
 
 --- math-lr-shorthands ---
 // Test predefined delimiter pairings.
@@ -57,16 +62,16 @@ $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } \
 #set page(width: auto)
 
 $ lr({ A mid(|) integral }) quad
-  lr(size: #1em, { A mid(|) integral }) quad
-  lr(size: #(1em+20%), { A mid(|) integral }) \
+  lr(size: #0%, { A mid(|) integral }) quad
+  lr(size: #(1em+10%), { A mid(|) integral }) \
 
   lr(] A mid(|) integral ]) quad
-  lr(size: #1em, ] A mid(|) integral ]) quad
-  lr(size: #(1em+20%), ] A mid(|) integral ]) \
+  lr(size: #0%, ] A mid(|) integral ]) quad
+  lr(size: #(1em+10%), ] A mid(|) integral ]) \
 
   lr(( A mid(|) integral ]) quad
-  lr(size: #1em, ( A mid(|) integral ]) quad
-  lr(size: #(1em+20%), ( A mid(|) integral ]) $
+  lr(size: #0%, ( A mid(|) integral ]) quad
+  lr(size: #(1em+10%), ( A mid(|) integral ]) $
 
 --- math-lr-mid-size-nested-equation ---
 // Test mid size when lr size is set, when nested in an equation.
@@ -74,8 +79,8 @@ $ lr({ A mid(|) integral }) quad
 
 #let body = ${ A mid(|) integral }$
 $ lr(body) quad
-  lr(size: #1em, body) quad
-  lr(size: #(1em+20%), body) $
+  lr(size: #0%, body) quad
+  lr(size: #(1em+10%), body) $
 
 --- math-lr-mid-class ---
 // Test that `mid` creates a Relation, but that can be overridden.

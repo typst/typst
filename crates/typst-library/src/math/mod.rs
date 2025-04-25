@@ -9,6 +9,7 @@ mod lr;
 mod matrix;
 mod op;
 mod root;
+mod stretch;
 mod style;
 mod underover;
 
@@ -21,6 +22,7 @@ pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
+pub use self::stretch::*;
 pub use self::style::*;
 pub use self::underover::*;
 

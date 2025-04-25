@@ -1,6 +1,16 @@
-use crate::foundations::{Content, NativeElement, SymbolElem, elem, func};
-use crate::layout::{Length, Rel};
-use crate::math::Mathy;
+use crate::foundations::{Content, NativeElement, NativeFunc, SymbolElem, elem, func};
+use crate::layout::{Em, Length, Ratio, Rel};
+use crate::math::{Mathy, StretchSize};
+
+const DELIM_SHORT_FALL: Em = Em::new(-0.1);
+
+#[func(name = "x => x - 0.1em")]
+pub const fn default_lr_size(base: Length) -> Rel {
+    Rel {
+        rel: Ratio::zero(),
+        abs: Length { abs: base.abs, em: DELIM_SHORT_FALL },
+    }
+}
 
 /// Scales delimiters.
 ///
@@ -8,9 +18,13 @@ use crate::math::Mathy;
 /// unmatched delimiters and to control the delimiter scaling more precisely.
 #[elem(title = "Left/Right", Mathy)]
 pub struct LrElem {
-    /// The size of the brackets, relative to the height of the wrapped content.
-    #[default(Rel::one())]
-    pub size: Rel<Length>,
+    /// The size of the delimiters, relative to the height of the wrapped
+    /// content.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
+    #[default(<default_lr_size>::data().into())]
+    pub size: StretchSize,
 
     /// The delimited content, including the delimiters.
     #[required]
@@ -42,9 +56,13 @@ pub struct MidElem {
 /// ```
 #[func]
 pub fn floor(
-    /// The size of the brackets, relative to the height of the wrapped content.
+    /// The size of the delimiters, relative to the height of the wrapped
+    /// content.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
     #[named]
-    size: Option<Rel<Length>>,
+    size: Option<StretchSize>,
     /// The expression to floor.
     body: Content,
 ) -> Content {
@@ -58,9 +76,13 @@ pub fn floor(
 /// ```
 #[func]
 pub fn ceil(
-    /// The size of the brackets, relative to the height of the wrapped content.
+    /// The size of the delimiters, relative to the height of the wrapped
+    /// content.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
     #[named]
-    size: Option<Rel<Length>>,
+    size: Option<StretchSize>,
     /// The expression to ceil.
     body: Content,
 ) -> Content {
@@ -74,9 +96,13 @@ pub fn ceil(
 /// ```
 #[func]
 pub fn round(
-    /// The size of the brackets, relative to the height of the wrapped content.
+    /// The size of the delimiters, relative to the height of the wrapped
+    /// content.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
     #[named]
-    size: Option<Rel<Length>>,
+    size: Option<StretchSize>,
     /// The expression to round.
     body: Content,
 ) -> Content {
@@ -90,9 +116,13 @@ pub fn round(
 /// ```
 #[func]
 pub fn abs(
-    /// The size of the brackets, relative to the height of the wrapped content.
+    /// The size of the delimiters, relative to the height of the wrapped
+    /// content.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
     #[named]
-    size: Option<Rel<Length>>,
+    size: Option<StretchSize>,
     /// The expression to take the absolute value of.
     body: Content,
 ) -> Content {
@@ -106,9 +136,13 @@ pub fn abs(
 /// ```
 #[func]
 pub fn norm(
-    /// The size of the brackets, relative to the height of the wrapped content.
+    /// The size of the delimiters, relative to the height of the wrapped
+    /// content.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
     #[named]
-    size: Option<Rel<Length>>,
+    size: Option<StretchSize>,
     /// The expression to take the norm of.
     body: Content,
 ) -> Content {
@@ -119,7 +153,7 @@ fn delimited(
     body: Content,
     left: char,
     right: char,
-    size: Option<Rel<Length>>,
+    size: Option<StretchSize>,
 ) -> Content {
     let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
