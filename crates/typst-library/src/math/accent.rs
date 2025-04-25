@@ -1,7 +1,19 @@
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
-use crate::layout::{Length, Rel};
-use crate::math::Mathy;
+use crate::foundations::{
+    cast, elem, func, Content, NativeElement, NativeFunc, SymbolElem,
+};
+use crate::layout::{Em, Length, Ratio, Rel};
+use crate::math::{Mathy, StretchSize};
+
+const ACCENT_SHORT_FALL: Em = Em::new(-0.5);
+
+#[func(name = "x => x - 0.5em")]
+const fn default_accent_size(base: Length) -> Rel {
+    Rel {
+        rel: Ratio::zero(),
+        abs: Length { abs: base.abs, em: ACCENT_SHORT_FALL },
+    }
+}
 
 /// Attaches an accent to a base.
 ///
@@ -52,12 +64,14 @@ pub struct AccentElem {
 
     /// The size of the accent, relative to the width of the base.
     ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
+    ///
     /// ```example
     /// $dash(A, size: #150%)$
     /// ```
-    #[resolve]
-    #[default(Rel::one())]
-    pub size: Rel<Length>,
+    #[default(<default_accent_size>::data().into())]
+    pub size: StretchSize,
 
     /// Whether to remove the dot on top of lowercase i and j when adding a top
     /// accent.
@@ -129,8 +143,11 @@ macro_rules! accents {
                 /// The base to which the accent is applied.
                 base: Content,
                 /// The size of the accent, relative to the width of the base.
+                ///
+                /// See the [stretch documentation]($math.stretch.size) for
+                /// more information on sizes.
                 #[named]
-                size: Option<Rel<Length>>,
+                size: Option<StretchSize>,
                 /// Whether to remove the dot on top of lowercase i and j when
                 /// adding a top accent.
                 #[named]
