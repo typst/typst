@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
-use typst_library::layout::{Abs, Frame, Point, Size};
+use typst_library::layout::{Frame, Point, Size};
 use typst_library::math::{Accent, AccentElem};
 
 use super::{style_cramped, FrameFragment, GlyphFragment, MathContext, MathFragment};
@@ -39,7 +39,7 @@ pub fn layout_accent(
 
     // Forcing the accent to be at least as large as the base makes it too
     // wide in many case.
-    let variant = glyph.stretch_horizontal(ctx, width, Abs::zero());
+    let variant = glyph.stretch_horizontal(ctx, width);
     let accent = variant.frame;
     let accent_attach = variant.accent_attach;
 

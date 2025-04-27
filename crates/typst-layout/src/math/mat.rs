@@ -331,11 +331,8 @@ fn layout_delimiters(
     let target = size.resolve(ctx.engine, styles, height)?;
 
     if let Some(left) = left {
-        let mut left = GlyphFragment::new(ctx, styles, left, span).stretch_vertical(
-            ctx,
-            target,
-            Abs::zero(),
-        );
+        let mut left =
+            GlyphFragment::new(ctx, styles, left, span).stretch_vertical(ctx, target);
         left.align_on_axis(ctx, delimiter_alignment(left.c));
         ctx.push(left);
     }
@@ -343,11 +340,8 @@ fn layout_delimiters(
     ctx.push(FrameFragment::new(styles, frame));
 
     if let Some(right) = right {
-        let mut right = GlyphFragment::new(ctx, styles, right, span).stretch_vertical(
-            ctx,
-            target,
-            Abs::zero(),
-        );
+        let mut right =
+            GlyphFragment::new(ctx, styles, right, span).stretch_vertical(ctx, target);
         right.align_on_axis(ctx, delimiter_alignment(right.c));
         ctx.push(right);
     }
