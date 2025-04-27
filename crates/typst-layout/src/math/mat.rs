@@ -1,19 +1,20 @@
 use typst_library::diag::{bail, warning, SourceResult};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{
-    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Point, Ratio, Rel, Size,
+    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Point, Rel, Size,
 };
-use typst_library::math::{Augment, AugmentOffsets, CasesElem, MatElem, VecElem};
+use typst_library::math::{
+    Augment, AugmentOffsets, CasesElem, MatElem, StretchSize, VecElem,
+};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
     alignments, delimiter_alignment, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
+    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext,
 };
 
-const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
 /// Lays out a [`VecElem`].
@@ -39,7 +40,15 @@ pub fn layout_vec(
     )?;
 
     let delim = elem.delim(styles);
-    layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
+    layout_delimiters(
+        ctx,
+        styles,
+        frame,
+        elem.delim_size(styles),
+        delim.open(),
+        delim.close(),
+        span,
+    )
 }
 
 /// Lays out a [`CasesElem`].
@@ -67,7 +76,7 @@ pub fn layout_cases(
     let delim = elem.delim(styles);
     let (open, close) =
         if elem.reverse(styles) { (None, delim.close()) } else { (delim.open(), None) };
-    layout_delimiters(ctx, styles, frame, open, close, span)
+    layout_delimiters(ctx, styles, frame, elem.delim_size(styles), open, close, span)
 }
 
 /// Lays out a [`MatElem`].
@@ -125,7 +134,15 @@ pub fn layout_mat(
     )?;
 
     let delim = elem.delim(styles);
-    layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
+    layout_delimiters(
+        ctx,
+        styles,
+        frame,
+        elem.delim_size(styles),
+        delim.open(),
+        delim.close(),
+        span,
+    )
 }
 
 /// Layout the inner contents of a matrix, vector, or cases.
@@ -302,19 +319,20 @@ fn layout_delimiters(
     ctx: &mut MathContext,
     styles: StyleChain,
     mut frame: Frame,
+    size: StretchSize,
     left: Option<char>,
     right: Option<char>,
     span: Span,
 ) -> SourceResult<()> {
-    let short_fall = DELIM_SHORT_FALL.resolve(styles);
     let axis = scaled!(ctx, styles, axis_height);
     let height = frame.height();
-    let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
 
+    let target = size.resolve(ctx.engine, styles, height)?;
+
     if let Some(left) = left {
-        let mut left = GlyphFragment::new(ctx, styles, left, span)
-            .stretch_vertical(ctx, target - short_fall);
+        let mut left =
+            GlyphFragment::new(ctx, styles, left, span).stretch_vertical(ctx, target);
         left.align_on_axis(ctx, delimiter_alignment(left.c));
         ctx.push(left);
     }
@@ -322,8 +340,8 @@ fn layout_delimiters(
     ctx.push(FrameFragment::new(styles, frame));
 
     if let Some(right) = right {
-        let mut right = GlyphFragment::new(ctx, styles, right, span)
-            .stretch_vertical(ctx, target - short_fall);
+        let mut right =
+            GlyphFragment::new(ctx, styles, right, span).stretch_vertical(ctx, target);
         right.align_on_axis(ctx, delimiter_alignment(right.c));
         ctx.push(right);
     }

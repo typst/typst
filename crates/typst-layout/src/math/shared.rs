@@ -1,6 +1,6 @@
 use ttf_parser::math::MathValue;
 use typst_library::foundations::{Style, StyleChain};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size, VAlignment};
+use typst_library::layout::{Abs, FixedAlignment, Frame, Point, Size, VAlignment};
 use typst_library::math::{EquationElem, MathSize};
 use typst_utils::LazyHash;
 
@@ -27,9 +27,6 @@ macro_rules! percent {
         $ctx.constants.$name() as f64 / 100.0
     };
 }
-
-/// How much less high scaled delimiters can be than what they wrap.
-pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
 /// Converts some unit to an absolute length with the current font & font size.
 pub trait Scaled {
