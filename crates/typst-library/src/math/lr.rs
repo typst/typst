@@ -2,7 +2,7 @@ use crate::foundations::{Content, NativeElement, NativeFunc, SymbolElem, elem, f
 use crate::layout::{Em, Length, Ratio, Rel};
 use crate::math::{Mathy, StretchSize};
 
-const DELIM_SHORT_FALL: Em = Em::new(-0.1);
+pub const DELIM_SHORT_FALL: Em = Em::new(-0.1);
 
 #[func(name = "x => x - 0.1em")]
 pub const fn default_lr_size(base: Length) -> Rel {

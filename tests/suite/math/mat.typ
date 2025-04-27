@@ -54,6 +54,12 @@ $ a + mat(delim: #none, 1, 2; 3, 4) + b $
   $ mat(1, 2; 3, 4; delim: "[") $,
 )
 
+--- math-mat-delim-size ---
+// Test setting delimiter size.
+$ mat(c; c; c) mat(delim-size: #100%, c; c; c) $
+#set math.mat(delim-size: x => calc.max(x - 5pt, x * 0.901))
+$ mat(delim: "[", f; f; f; f) mat(delim: ||, x; x; x; x) $
+
 --- math-mat-spread ---
 // Test argument spreading in matrix.
 $ mat(..#range(1, 5).chunks(2))
@@ -263,7 +269,7 @@ $ mat(a; b; c) mat(a \ b \ c) $
 --- math-mat-vec-cases-unity ---
 // Test that matrices, vectors, and cases are all laid out the same.
 $ mat(z_(n_p); a^2)
-  vec(z_(n_p), a^2) 
+  vec(z_(n_p), a^2)
   cases(reverse: #true, delim: \(, z_(n_p), a^2)
   cases(delim: \(, z_(n_p), a^2) $
 

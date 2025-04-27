@@ -5,15 +5,27 @@ use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Array, Content, Dict, Fold, NoneValue, Resolve, Smart, StyleChain, Symbol, Value,
-    array, cast, dict, elem,
+    Array, Content, Dict, Fold, NativeFunc, NoneValue, Resolve, Smart, StyleChain,
+    Symbol, Value, array, cast, dict, elem, func,
 };
-use crate::layout::{Abs, Em, HAlignment, Length, Rel};
-use crate::math::Mathy;
+use crate::layout::{Abs, Em, HAlignment, Length, Ratio, Rel};
+use crate::math::{DELIM_SHORT_FALL, Mathy, StretchSize};
 use crate::visualize::Stroke;
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.2);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
+const VERTICAL_PADDING: Ratio = Ratio::new(1.1);
+
+#[func(name = "x => x * 1.1 - 0.1em")]
+const fn default_mat_size(base: Length) -> Rel {
+    Rel {
+        rel: Ratio::zero(),
+        abs: Length {
+            abs: Abs::raw(base.abs.to_raw() * VERTICAL_PADDING.get()),
+            em: DELIM_SHORT_FALL,
+        },
+    }
+}
 
 /// A column vector.
 ///
@@ -39,6 +51,13 @@ pub struct VecElem {
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
+
+    /// The size of the delimiters, relative to the elements' total height.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
+    #[default(<default_mat_size>::data().into())]
+    pub delim_size: StretchSize,
 
     /// The horizontal alignment that each element should have.
     ///
@@ -98,6 +117,13 @@ pub struct MatElem {
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
+
+    /// The size of the delimiters, relative to the cells' total height.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
+    #[default(<default_mat_size>::data().into())]
+    pub delim_size: StretchSize,
 
     /// The horizontal alignment that each cell should have.
     ///
@@ -237,6 +263,13 @@ pub struct CasesElem {
     /// ```
     #[default(DelimiterPair::BRACE)]
     pub delim: DelimiterPair,
+
+    /// The size of the delimiters, relative to the branches' total height.
+    ///
+    /// See the [stretch documentation]($math.stretch.size) for more
+    /// information on sizes.
+    #[default(<default_mat_size>::data().into())]
+    pub delim_size: StretchSize,
 
     /// Whether the direction of cases should be reversed.
     ///
