@@ -116,6 +116,9 @@ pub(super) struct Current {
     /// before all header rows are fully laid out. It is usually fine because
     /// header rows themselves are unbreakable, and unbreakable rows do not
     /// need to read this field at all.
+    ///
+    /// This height is not only computed at the beginning of the region. It is
+    /// updated whenever a new header is found.
     pub(super) header_height: Abs,
     /// The height of effectively repeating headers, that is, ignoring
     /// non-repeating pending headers.
@@ -264,6 +267,14 @@ impl<'a> GridLayouter<'a> {
             // longer orphans and can repeat, so we move them to repeating
             // headers.
             self.flush_pending_headers();
+            //
+            // Note that this is usually done in `push_row`, since the call to
+            // `layout_row` above might trigger region breaks (for multi-page
+            // auto rows), whereas this needs to be called as soon as any part
+            // of a row is laid out. However, it's possible a row has no
+            // visible output and thus does not push any rows even though it
+            // was successfully laid out, in which case we additionally flush
+            // here just in case.
 
             y += 1;
         }

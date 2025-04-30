@@ -139,6 +139,9 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
+    /// Indicates all currently pending headers have been successfully placed
+    /// once, since another row has been placed after them, so they are
+    /// certainly not orphans.
     pub fn flush_pending_headers(&mut self) {
         for header in self.pending_headers {
             if let Repeatable::Repeated(header) = header {
