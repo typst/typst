@@ -262,6 +262,18 @@ impl<'a> GridLayouter<'a> {
         self.current.repeating_header_height = Abs::zero();
         self.current.repeating_header_heights.clear();
 
+        debug_assert!(self.lrows.is_empty());
+        debug_assert!(self.current.lrows_orphan_snapshot.is_none());
+        if may_progress_with_offset(self.regions, self.current.footer_height) {
+            // Enable orphan prevention for headers at the top of the region.
+            //
+            // It is very rare for this to make a difference as we're usually
+            // at the 'last' region after the first skip, at which the snapshot
+            // is handled by 'layout_new_headers'. Either way, we keep this
+            // here for correctness.
+            self.current.lrows_orphan_snapshot = Some(self.lrows.len());
+        }
+
         // Use indices to avoid double borrow. We don't mutate headers in
         // 'layout_row' so this is fine.
         let mut i = 0;
@@ -295,13 +307,6 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.current.repeated_header_rows = self.lrows.len();
-
-        if !self.pending_headers.is_empty() {
-            // Restore snapshot: if pending headers placed again turn out to be
-            // orphans, remove their rows again.
-            self.current.lrows_orphan_snapshot = Some(self.lrows.len());
-        }
-
         for header in self.pending_headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
@@ -357,10 +362,22 @@ impl<'a> GridLayouter<'a> {
             self.finish_region(engine, false)?;
         }
 
+        // Remove new headers at the end of the region if the upcoming row
+        // doesn't fit.
+        // TODO(subfooters): what if there is a footer right after it?
+        if !short_lived
+            && self.current.lrows_orphan_snapshot.is_none()
+            && may_progress_with_offset(
+                self.regions,
+                self.current.header_height + self.current.footer_height,
+            )
+        {
+            self.current.lrows_orphan_snapshot = Some(self.lrows.len());
+        }
+
         self.unbreakable_rows_left +=
             total_header_row_count(headers.iter().map(Repeatable::unwrap));
 
-        let initial_row_count = self.lrows.len();
         for header in headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, 0, false)?;
@@ -378,12 +395,6 @@ impl<'a> GridLayouter<'a> {
                     self.current.repeating_header_heights.push(header_height);
                 }
             }
-        }
-
-        // Remove new headers at the end of the region if upcoming child doesn't fit.
-        // TODO: Short lived if footer comes afterwards
-        if !short_lived {
-            self.current.lrows_orphan_snapshot = Some(initial_row_count);
         }
 
         Ok(())

@@ -104,10 +104,14 @@ pub(super) struct Current {
     pub(super) last_repeated_header_end: usize,
     /// Stores the length of `lrows` before a sequence of trailing rows
     /// equipped with orphan prevention were laid out. In this case, if no more
-    /// rows are laid out after those rows before the region ends, the rows
-    /// will be removed. For new headers in particular, which use this, those
-    /// headers will have been moved to the `pending_headers` vector and so
-    /// will automatically be placed again until they fit.
+    /// rows without orphan prevention are laid out after those rows before the
+    /// region ends, the rows will be removed.
+    ///
+    /// At the moment, this is only used by repeated headers (they aren't laid
+    /// out if alone in the region) and by new headers, which are moved to the
+    /// `pending_headers` vector and so will automatically be placed again
+    /// until they fit and are not orphans in at least one region (or exactly
+    /// one, for non-repeated headers).
     pub(super) lrows_orphan_snapshot: Option<usize>,
     /// The total simulated height for all headers currently in
     /// `repeating_headers` and `pending_headers`.
@@ -1517,6 +1521,11 @@ impl<'a> GridLayouter<'a> {
                 self.lrows.truncate(orphan_snapshot);
                 self.current.repeated_header_rows =
                     self.current.repeated_header_rows.min(orphan_snapshot);
+
+                if orphan_snapshot == 0 {
+                    // Removed all repeated headers.
+                    self.current.last_repeated_header_end = 0;
+                }
             }
         }
 
@@ -1531,55 +1540,28 @@ impl<'a> GridLayouter<'a> {
                 self.current.repeated_header_rows.min(self.lrows.len());
         }
 
+        // If no rows other than the footer have been laid out so far
+        // (e.g. due to header orphan prevention), and there are rows
+        // beside the footer, then don't lay it out at all.
+        //
+        // It is worth noting that the footer is made non-repeatable at
+        // the grid resolving stage if it is short-lived, that is, if
+        // it is at the start of the table (or right after headers at
+        // the start of the table).
+        // TODO(subfooters): explicitly check for short-lived footers.
+        // TODO(subfooters): widow prevention for non-repeated footers with a
+        // similar mechanism / when implementing multiple footers.
         let footer_would_be_widow =
-            if !self.lrows.is_empty() && self.current.repeated_header_rows > 0 {
-                // If headers are repeating, then we already know they are not
-                // short-lived as that is checked, so they have orphan prevention.
-                if self.lrows.len() == self.current.repeated_header_rows
-                    && may_progress_with_offset(
-                        self.regions,
-                        // Since we're trying to find a region where to place all
-                        // repeating + pending headers, it makes sense to use
-                        // 'header_height' and include even non-repeating pending
-                        // headers for this check.
-                        self.current.header_height + self.current.footer_height,
-                    )
-                {
-                    // Header and footer would be alone in this region, but
-                    // there are more rows beyond the headers and the footer.
-                    // Push an empty region.
-                    self.lrows.clear();
-                    self.current.last_repeated_header_end = 0;
-                    self.current.repeated_header_rows = 0;
-                    true
-                } else {
-                    false
-                }
-            } else if let Some(Repeatable::Repeated(_)) = &self.grid.footer {
-                // If no rows other than the footer have been laid out so far,
-                // and there are rows beside the footer, then don't lay it out
-                // at all. (Similar check from above, but for the case without
-                // headers.)
-                //
-                // It is worth noting that the footer is made non-repeatable at
-                // the grid resolving stage if it is short-lived, that is, if
-                // it is at the start of the table (or right after headers at
-                // the start of the table).
-                // TODO(subfooters): explicitly check for short-lived footers.
-                // TODO(subfooters): widow prevention for non-repeated footers with a
-                // similar mechanism / when implementing multiple footers.
-                self.lrows.is_empty()
-                    && may_progress_with_offset(
-                        self.regions,
-                        // This header height isn't doing much as we just
-                        // confirmed that there are no headers in this region,
-                        // but let's keep it here for correctness. It will add
-                        // zero anyway.
-                        self.current.header_height + self.current.footer_height,
-                    )
-            } else {
-                false
-            };
+            matches!(self.grid.footer, Some(Repeatable::Repeated(_)))
+                && self.lrows.is_empty()
+                && may_progress_with_offset(
+                    self.regions,
+                    // This header height isn't doing much as we just
+                    // confirmed that there are no headers in this region,
+                    // but let's keep it here for correctness. It will add
+                    // zero anyway.
+                    self.current.header_height + self.current.footer_height,
+                );
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
