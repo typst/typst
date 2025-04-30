@@ -61,21 +61,12 @@ pub struct GridLayouter<'a> {
     /// Sorted by increasing levels.
     pub(super) pending_headers: &'a [Repeatable<Header>],
     pub(super) upcoming_headers: &'a [Repeatable<Header>],
-    /// If this is `Some`, this will receive the currently laid out row's
-    /// height if it is auto or relative. This is used for header height
-    /// calculation.
-    /// TODO: consider refactoring this into something nicer.
-    pub(super) current_row_height: Option<Abs>,
-    /// This is `true` when laying out non-short lived headers and footers.
-    /// That is, headers and footers which are not immediately followed or
-    /// preceded (respectively) by conflicting headers and footers of same or
-    /// lower level, or the end or start of the table (respectively), which
-    /// would cause them to stop repeating.
+    /// State of the row being currently laid out.
     ///
-    /// If this is `false`, the next row to be laid out will remove an active
-    /// orphan snapshot and will flush pending headers, as there is no risk
-    /// that they will be orphans anymore.
-    pub(super) in_active_repeatable: bool,
+    /// This is kept as a field to avoid passing down too many parameters from
+    /// `layout_row` into called functions, which would then have to pass them
+    /// down to `push_row`, which reads these values.
+    pub(super) row_state: RowState,
     /// The span of the grid element.
     pub(super) span: Span,
 }
@@ -149,6 +140,25 @@ pub(super) struct Current {
     pub(super) footer_height: Abs,
 }
 
+/// Data about the row being laid out right now.
+#[derive(Debug, Default)]
+pub(super) struct RowState {
+    /// If this is `Some`, this will receive the currently laid out row's
+    /// height if it is auto or relative. This is used for header height
+    /// calculation.
+    pub(super) current_row_height: Option<Abs>,
+    /// This is `true` when laying out non-short lived headers and footers.
+    /// That is, headers and footers which are not immediately followed or
+    /// preceded (respectively) by conflicting headers and footers of same or
+    /// lower level, or the end or start of the table (respectively), which
+    /// would cause them to stop repeating.
+    ///
+    /// If this is `false`, the next row to be laid out will remove an active
+    /// orphan snapshot and will flush pending headers, as there is no risk
+    /// that they will be orphans anymore.
+    pub(super) in_active_repeatable: bool,
+}
+
 #[derive(Debug, Default)]
 pub(super) struct FinishedHeaderRowInfo {
     /// The amount of repeated headers at the top of the region.
@@ -220,8 +230,7 @@ impl<'a> GridLayouter<'a> {
             repeating_headers: vec![],
             upcoming_headers: &grid.headers,
             pending_headers: Default::default(),
-            current_row_height: None,
-            in_active_repeatable: false,
+            row_state: RowState::default(),
             current: Current {
                 initial: regions.size,
                 repeated_header_rows: 0,
@@ -310,8 +319,42 @@ impl<'a> GridLayouter<'a> {
         self.render_fills_strokes()
     }
 
-    /// Layout the given row.
+    /// Layout a row with a certain initial state, returning the final state.
+    #[inline]
+    pub(super) fn layout_row_with_state(
+        &mut self,
+        y: usize,
+        engine: &mut Engine,
+        disambiguator: usize,
+        initial_state: RowState,
+    ) -> SourceResult<RowState> {
+        // Keep a copy of the previous value in the stack, as this function can
+        // call itself recursively (e.g. if a region break is triggered and a
+        // header is placed), so we shouldn't outright overwrite it, but rather
+        // save and later restore the state when back to this call.
+        let previous = std::mem::replace(&mut self.row_state, initial_state);
+
+        // Keep it as a separate function to allow inlining the return below,
+        // as it's usually not needed.
+        self.layout_row_internal(y, engine, disambiguator)?;
+
+        Ok(std::mem::replace(&mut self.row_state, previous))
+    }
+
+    /// Layout the given row with the default row state.
+    #[inline]
     pub(super) fn layout_row(
+        &mut self,
+        y: usize,
+        engine: &mut Engine,
+        disambiguator: usize,
+    ) -> SourceResult<()> {
+        self.layout_row_with_state(y, engine, disambiguator, RowState::default())?;
+        Ok(())
+    }
+
+    /// Layout the given row using the current state.
+    pub(super) fn layout_row_internal(
         &mut self,
         y: usize,
         engine: &mut Engine,
@@ -339,7 +382,7 @@ impl<'a> GridLayouter<'a> {
                     self.layout_relative_row(engine, disambiguator, v, y)?
                 }
                 Sizing::Fr(v) => {
-                    if !self.in_active_repeatable {
+                    if !self.row_state.in_active_repeatable {
                         self.flush_orphans();
                     }
                     self.lrows.push(Row::Fr(v, y, disambiguator))
@@ -1067,7 +1110,7 @@ impl<'a> GridLayouter<'a> {
             let frame = self.layout_single_row(engine, disambiguator, first, y)?;
             self.push_row(frame, y, true);
 
-            if let Some(row_height) = &mut self.current_row_height {
+            if let Some(row_height) = &mut self.row_state.current_row_height {
                 // Add to header height, as we are in a header row.
                 *row_height += first;
             }
@@ -1302,7 +1345,7 @@ impl<'a> GridLayouter<'a> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
         let frame = self.layout_single_row(engine, disambiguator, resolved, y)?;
 
-        if let Some(row_height) = &mut self.current_row_height {
+        if let Some(row_height) = &mut self.row_state.current_row_height {
             // Add to header height, as we are in a header row.
             *row_height += resolved;
         }
@@ -1454,7 +1497,7 @@ impl<'a> GridLayouter<'a> {
     /// will be pushed for this particular row. It can be `false` for rows
     /// spanning multiple regions.
     fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
-        if !self.in_active_repeatable {
+        if !self.row_state.in_active_repeatable {
             // There is now a row after the rows equipped with orphan
             // prevention, so no need to keep moving them anymore.
             self.flush_orphans();

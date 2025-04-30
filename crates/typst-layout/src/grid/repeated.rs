@@ -3,7 +3,7 @@ use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::{may_progress_with_offset, GridLayouter};
+use super::layouter::{may_progress_with_offset, GridLayouter, RowState};
 use super::rowspans::UnbreakableRowGroup;
 
 impl<'a> GridLayouter<'a> {
@@ -48,34 +48,10 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
-    /// Lays out a row while indicating that it should store its persistent
-    /// height as a header row, which will be its height if relative or auto,
-    /// or zero otherwise (fractional).
-    #[inline]
-    fn layout_header_row(
-        &mut self,
-        y: usize,
-        engine: &mut Engine,
-        disambiguator: usize,
-        as_short_lived: bool,
-    ) -> SourceResult<Option<Abs>> {
-        let previous_row_height =
-            std::mem::replace(&mut self.current_row_height, Some(Abs::zero()));
-        let previous_in_active_repeatable =
-            std::mem::replace(&mut self.in_active_repeatable, !as_short_lived);
-
-        self.layout_row(y, engine, disambiguator)?;
-
-        _ = std::mem::replace(
-            &mut self.in_active_repeatable,
-            previous_in_active_repeatable,
-        );
-
-        Ok(std::mem::replace(&mut self.current_row_height, previous_row_height))
-    }
-
     /// Lays out rows belonging to a header, returning the calculated header
-    /// height only for that header.
+    /// height only for that header. Indicates to the laid out rows that they
+    /// should inform their laid out heights if appropriate (auto or fixed
+    /// size rows only).
     #[inline]
     fn layout_header_rows(
         &mut self,
@@ -87,7 +63,16 @@ impl<'a> GridLayouter<'a> {
         let mut header_height = Abs::zero();
         for y in header.range() {
             header_height += self
-                .layout_header_row(y, engine, disambiguator, as_short_lived)?
+                .layout_row_with_state(
+                    y,
+                    engine,
+                    disambiguator,
+                    RowState {
+                        current_row_height: Some(Abs::zero()),
+                        in_active_repeatable: !as_short_lived,
+                    },
+                )?
+                .current_row_height
                 .unwrap_or_default();
         }
         Ok(header_height)
@@ -505,15 +490,15 @@ impl<'a> GridLayouter<'a> {
         self.unbreakable_rows_left += footer_len;
 
         for y in footer.start..self.grid.rows.len() {
-            let previous_in_active_repeatable =
-                std::mem::replace(&mut self.in_active_repeatable, repeats);
-
-            self.layout_row(y, engine, disambiguator)?;
-
-            _ = std::mem::replace(
-                &mut self.in_active_repeatable,
-                previous_in_active_repeatable,
-            );
+            self.layout_row_with_state(
+                y,
+                engine,
+                disambiguator,
+                RowState {
+                    in_active_repeatable: repeats,
+                    ..Default::default()
+                },
+            )?;
         }
 
         Ok(())
