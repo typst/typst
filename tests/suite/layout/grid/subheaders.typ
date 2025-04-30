@@ -684,6 +684,17 @@
   grid.cell(x: 0)[end],
 )
 
+--- grid-subheaders-non-repeating-header-before-multi-page-row ---
+#set page(height: 6em)
+#grid(
+  grid.header(
+    repeat: false,
+    [h]
+  ),
+  [row #colbreak() row]
+)
+
+
 --- grid-subheaders-short-lived-no-orphan-prevention ---
 // No orphan prevention for short-lived headers.
 #set page(height: 8em)

@@ -66,6 +66,16 @@ pub struct GridLayouter<'a> {
     /// calculation.
     /// TODO: consider refactoring this into something nicer.
     pub(super) current_row_height: Option<Abs>,
+    /// This is `true` when laying out non-short lived headers and footers.
+    /// That is, headers and footers which are not immediately followed or
+    /// preceded (respectively) by conflicting headers and footers of same or
+    /// lower level, or the end or start of the table (respectively), which
+    /// would cause them to stop repeating.
+    ///
+    /// If this is `false`, the next row to be laid out will remove an active
+    /// orphan snapshot and will flush pending headers, as there is no risk
+    /// that they will be orphans anymore.
+    pub(super) in_active_repeatable: bool,
     /// The span of the grid element.
     pub(super) span: Span,
 }
@@ -211,6 +221,7 @@ impl<'a> GridLayouter<'a> {
             upcoming_headers: &grid.headers,
             pending_headers: Default::default(),
             current_row_height: None,
+            in_active_repeatable: false,
             current: Current {
                 initial: regions.size,
                 repeated_header_rows: 0,
@@ -328,7 +339,9 @@ impl<'a> GridLayouter<'a> {
                     self.layout_relative_row(engine, disambiguator, v, y)?
                 }
                 Sizing::Fr(v) => {
-                    self.flush_orphans();
+                    if !self.in_active_repeatable {
+                        self.flush_orphans();
+                    }
                     self.lrows.push(Row::Fr(v, y, disambiguator))
                 }
             }
@@ -1441,9 +1454,11 @@ impl<'a> GridLayouter<'a> {
     /// will be pushed for this particular row. It can be `false` for rows
     /// spanning multiple regions.
     fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
-        // There is now a row after the rows equipped with orphan prevention,
-        // so no need to remove them anymore.
-        self.flush_orphans();
+        if !self.in_active_repeatable {
+            // There is now a row after the rows equipped with orphan
+            // prevention, so no need to keep moving them anymore.
+            self.flush_orphans();
+        }
         self.regions.size.y -= frame.height();
         self.lrows.push(Row::Frame(frame, y, is_last));
     }

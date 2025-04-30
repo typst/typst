@@ -57,10 +57,19 @@ impl<'a> GridLayouter<'a> {
         y: usize,
         engine: &mut Engine,
         disambiguator: usize,
+        as_short_lived: bool,
     ) -> SourceResult<Option<Abs>> {
         let previous_row_height =
             std::mem::replace(&mut self.current_row_height, Some(Abs::zero()));
+        let previous_in_active_repeatable =
+            std::mem::replace(&mut self.in_active_repeatable, !as_short_lived);
+
         self.layout_row(y, engine, disambiguator)?;
+
+        _ = std::mem::replace(
+            &mut self.in_active_repeatable,
+            previous_in_active_repeatable,
+        );
 
         Ok(std::mem::replace(&mut self.current_row_height, previous_row_height))
     }
@@ -73,11 +82,13 @@ impl<'a> GridLayouter<'a> {
         header: &Header,
         engine: &mut Engine,
         disambiguator: usize,
+        as_short_lived: bool,
     ) -> SourceResult<Abs> {
         let mut header_height = Abs::zero();
         for y in header.range() {
-            header_height +=
-                self.layout_header_row(y, engine, disambiguator)?.unwrap_or_default();
+            header_height += self
+                .layout_header_row(y, engine, disambiguator, as_short_lived)?
+                .unwrap_or_default();
         }
         Ok(header_height)
     }
@@ -270,7 +281,8 @@ impl<'a> GridLayouter<'a> {
         // 'layout_row' so this is fine.
         let mut i = 0;
         while let Some(&header) = self.repeating_headers.get(i) {
-            let header_height = self.layout_header_rows(header, engine, disambiguator)?;
+            let header_height =
+                self.layout_header_rows(header, engine, disambiguator, false)?;
             self.current.header_height += header_height;
             self.current.repeating_header_height += header_height;
 
@@ -307,7 +319,7 @@ impl<'a> GridLayouter<'a> {
 
         for header in self.pending_headers {
             let header_height =
-                self.layout_header_rows(header.unwrap(), engine, disambiguator)?;
+                self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
             self.current.header_height += header_height;
             if matches!(header, Repeatable::Repeated(_)) {
                 self.current.repeating_header_height += header_height;
@@ -365,7 +377,8 @@ impl<'a> GridLayouter<'a> {
 
         let initial_row_count = self.lrows.len();
         for header in headers {
-            let header_height = self.layout_header_rows(header.unwrap(), engine, 0)?;
+            let header_height =
+                self.layout_header_rows(header.unwrap(), engine, 0, false)?;
 
             // Only store this header height if it is actually going to
             // become a pending header. Otherwise, pretend it's not a
@@ -483,10 +496,24 @@ impl<'a> GridLayouter<'a> {
         // anyway, so this is mostly for correctness.
         self.regions.size.y += self.current.footer_height;
 
+        let repeats = self
+            .grid
+            .footer
+            .as_ref()
+            .is_some_and(|f| matches!(f, Repeatable::Repeated(_)));
         let footer_len = self.grid.rows.len() - footer.start;
         self.unbreakable_rows_left += footer_len;
+
         for y in footer.start..self.grid.rows.len() {
+            let previous_in_active_repeatable =
+                std::mem::replace(&mut self.in_active_repeatable, repeats);
+
             self.layout_row(y, engine, disambiguator)?;
+
+            _ = std::mem::replace(
+                &mut self.in_active_repeatable,
+                previous_in_active_repeatable,
+            );
         }
 
         Ok(())
