@@ -35,7 +35,7 @@ impl<'a> GridLayouter<'a> {
             // headers afterwards, which basically are not headers, for all intents
             // and purposes. It is therefore guaranteed that all new headers have
             // been placed at least once.
-            self.flush_pending_headers();
+            self.flush_orphans();
 
             // Layout each conflicting header independently, without orphan
             // prevention (as they don't go into 'pending_headers').
@@ -139,10 +139,26 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
+    /// This function should be called each time an additional row has been
+    /// laid out in a region to indicate that orphan prevention has succeeded.
+    ///
+    /// It removes the current orphan snapshot and flushes pending headers,
+    /// such that a non-repeating header won't try to be laid out again
+    /// anymore, and a repeating header will begin to be part of
+    /// `repeating_headers`.
+    pub fn flush_orphans(&mut self) {
+        self.current.lrows_orphan_snapshot = None;
+        self.flush_pending_headers();
+    }
+
     /// Indicates all currently pending headers have been successfully placed
     /// once, since another row has been placed after them, so they are
     /// certainly not orphans.
     pub fn flush_pending_headers(&mut self) {
+        if self.pending_headers.is_empty() {
+            return;
+        }
+
         for header in self.pending_headers {
             if let Repeatable::Repeated(header) = header {
                 // Vector remains sorted by increasing levels:

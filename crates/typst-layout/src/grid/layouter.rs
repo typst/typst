@@ -254,7 +254,7 @@ impl<'a> GridLayouter<'a> {
                 if y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
-                        self.flush_pending_headers();
+                        self.flush_orphans();
                     }
                     y = footer.end;
                     continue;
@@ -266,7 +266,6 @@ impl<'a> GridLayouter<'a> {
             // After the first non-header row is placed, pending headers are no
             // longer orphans and can repeat, so we move them to repeating
             // headers.
-            self.flush_pending_headers();
             //
             // Note that this is usually done in `push_row`, since the call to
             // `layout_row` above might trigger region breaks (for multi-page
@@ -275,6 +274,7 @@ impl<'a> GridLayouter<'a> {
             // visible output and thus does not push any rows even though it
             // was successfully laid out, in which case we additionally flush
             // here just in case.
+            self.flush_orphans();
 
             y += 1;
         }
@@ -328,7 +328,7 @@ impl<'a> GridLayouter<'a> {
                     self.layout_relative_row(engine, disambiguator, v, y)?
                 }
                 Sizing::Fr(v) => {
-                    self.current.lrows_orphan_snapshot = None;
+                    self.flush_orphans();
                     self.lrows.push(Row::Fr(v, y, disambiguator))
                 }
             }
@@ -1443,7 +1443,7 @@ impl<'a> GridLayouter<'a> {
     fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
         // There is now a row after the rows equipped with orphan prevention,
         // so no need to remove them anymore.
-        self.current.lrows_orphan_snapshot = None;
+        self.flush_orphans();
         self.regions.size.y -= frame.height();
         self.lrows.push(Row::Frame(frame, y, is_last));
     }
