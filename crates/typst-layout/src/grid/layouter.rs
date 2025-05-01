@@ -32,7 +32,7 @@ pub struct GridLayouter<'a> {
     pub(super) rcols: Vec<Abs>,
     /// The sum of `rcols`.
     pub(super) width: Abs,
-    /// Resolve row sizes, by region.
+    /// Resolved row sizes, by region.
     pub(super) rrows: Vec<Vec<RowPiece>>,
     /// Rows in the current region.
     pub(super) lrows: Vec<Row>,
@@ -51,15 +51,16 @@ pub struct GridLayouter<'a> {
     pub(super) finished_header_rows: Vec<FinishedHeaderRowInfo>,
     /// Whether this is an RTL grid.
     pub(super) is_rtl: bool,
-    /// Currently repeating headers, one per level.
-    /// Sorted by increasing levels.
+    /// Currently repeating headers, one per level. Sorted by increasing
+    /// levels.
     ///
     /// Note that some levels may be absent, in particular level 0, which does
-    /// not exist (so the first level is >= 1).
+    /// not exist (so all levels are >= 1).
     pub(super) repeating_headers: Vec<&'a Header>,
     /// Headers, repeating or not, awaiting their first successful layout.
     /// Sorted by increasing levels.
     pub(super) pending_headers: &'a [Repeatable<Header>],
+    /// Next headers to be processed.
     pub(super) upcoming_headers: &'a [Repeatable<Header>],
     /// State of the row being currently laid out.
     ///
@@ -84,28 +85,27 @@ pub(super) struct Current {
     /// find a new header inside the region (not at the top), so this field
     /// is required to access information from the top of the region.
     ///
-    /// This is used for orphan prevention checks (if there are no rows other
-    /// than repeated header rows upon finishing a region, we'd have orphans).
-    /// Note that non-repeated and pending repeated header rows are not included
-    /// in this number as they use a separate mechanism for orphan prevention
-    /// (`lrows_orphan_shapshot` field).
-    ///
-    /// In addition, this information is used on finish region to calculate the
-    /// total height of resolved header rows at the top of the region, which is
-    /// used by multi-page rowspans so they can properly skip the header rows
-    /// at the top of the region during layout.
+    /// This information is used on finish region to calculate the total height
+    /// of resolved header rows at the top of the region, which is used by
+    /// multi-page rowspans so they can properly skip the header rows at the
+    /// top of each region during layout.
     pub(super) repeated_header_rows: usize,
-    /// The end bound of the last repeating header at the start of the region.
-    /// The last row might have disappeared due to being empty, so this is how
-    /// we can become aware of that. Line layout uses this to determine when to
-    /// prioritize the last lines under a header.
+    /// The end bound of the row range of the last repeating header at the
+    /// start of the region.
     ///
-    /// A value of zero indicates no headers were placed.
+    /// The last row might have disappeared from layout due to being empty, so
+    /// this is how we can become aware of where the last header ends without
+    /// having to check the vector of rows. Line layout uses this to determine
+    /// when to prioritize the last lines under a header.
+    ///
+    /// A value of zero indicates no repeated headers were placed.
     pub(super) last_repeated_header_end: usize,
-    /// Stores the length of `lrows` before a sequence of trailing rows
-    /// equipped with orphan prevention were laid out. In this case, if no more
-    /// rows without orphan prevention are laid out after those rows before the
-    /// region ends, the rows will be removed.
+    /// Stores the length of `lrows` before a sequence of rows equipped with
+    /// orphan prevention was laid out. In this case, if no more rows without
+    /// orphan prevention are laid out after those rows before the region ends,
+    /// the rows will be removed, and there may be an attempt to place them
+    /// again in the new region. Effectively, this is the mechanism used for
+    /// orphan prevention of rows.
     ///
     /// At the moment, this is only used by repeated headers (they aren't laid
     /// out if alone in the region) and by new headers, which are moved to the
@@ -116,14 +116,16 @@ pub(super) struct Current {
     /// The total simulated height for all headers currently in
     /// `repeating_headers` and `pending_headers`.
     ///
-    /// This field is reset in `layout_header` and properly updated by
+    /// This field is reset on each new region and properly updated by
     /// `layout_auto_row` and `layout_relative_row`, and should not be read
     /// before all header rows are fully laid out. It is usually fine because
     /// header rows themselves are unbreakable, and unbreakable rows do not
     /// need to read this field at all.
     ///
     /// This height is not only computed at the beginning of the region. It is
-    /// updated whenever a new header is found.
+    /// updated whenever a new header is found, subtracting the height of
+    /// headers which stopped repeating and adding the height of all new
+    /// headers.
     pub(super) header_height: Abs,
     /// The height of effectively repeating headers, that is, ignoring
     /// non-repeating pending headers.
@@ -134,9 +136,14 @@ pub(super) struct Current {
     /// but disappear on new regions, so they can be ignored.
     pub(super) repeating_header_height: Abs,
     /// The height for each repeating header that was placed in this region.
-    /// Note that this includes headers not at the top of the region (pending
-    /// headers), and excludes headers removed by virtue of a new, conflicting
-    /// header being found.
+    /// Note that this includes headers not at the top of the region, before
+    /// their first repetition (pending headers), and excludes headers removed
+    /// by virtue of a new, conflicting header being found (short-lived
+    /// headers).
+    ///
+    /// This is used to know how much to update `repeating_header_height` by
+    /// when finding a new header and causing existing repeating headers to
+    /// stop.
     pub(super) repeating_header_heights: Vec<Abs>,
     /// The simulated footer height for this region.
     ///
@@ -147,7 +154,7 @@ pub(super) struct Current {
 /// Data about the row being laid out right now.
 #[derive(Debug, Default)]
 pub(super) struct RowState {
-    /// If this is `Some`, this will receive the currently laid out row's
+    /// If this is `Some`, this will be updated by the currently laid out row's
     /// height if it is auto or relative. This is used for header height
     /// calculation.
     pub(super) current_row_height: Option<Abs>,
@@ -155,7 +162,7 @@ pub(super) struct RowState {
     /// That is, headers and footers which are not immediately followed or
     /// preceded (respectively) by conflicting headers and footers of same or
     /// lower level, or the end or start of the table (respectively), which
-    /// would cause them to stop repeating.
+    /// would cause them to never repeat, even once.
     ///
     /// If this is `false`, the next row to be laid out will remove an active
     /// orphan snapshot and will flush pending headers, as there is no risk
@@ -163,12 +170,15 @@ pub(super) struct RowState {
     pub(super) in_active_repeatable: bool,
 }
 
+/// Data about laid out repeated header rows for a specific finished region.
 #[derive(Debug, Default)]
 pub(super) struct FinishedHeaderRowInfo {
     /// The amount of repeated headers at the top of the region.
     pub(super) repeated: usize,
-    /// The end bound of the last repeated header at the top of the region.
+    /// The end bound of the row range of the last repeated header at the top
+    /// of the region.
     pub(super) last_repeated_header_end: usize,
+    /// The total height of repeated headers at the top of the region.
     pub(super) height: Abs,
 }
 
