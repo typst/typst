@@ -174,12 +174,12 @@ pub(super) struct RowState {
 #[derive(Debug, Default)]
 pub(super) struct FinishedHeaderRowInfo {
     /// The amount of repeated headers at the top of the region.
-    pub(super) repeated: usize,
+    pub(super) repeated_amount: usize,
     /// The end bound of the row range of the last repeated header at the top
     /// of the region.
     pub(super) last_repeated_header_end: usize,
     /// The total height of repeated headers at the top of the region.
-    pub(super) height: Abs,
+    pub(super) repeated_height: Abs,
 }
 
 /// Details about a resulting row piece.
@@ -577,9 +577,11 @@ impl<'a> GridLayouter<'a> {
                     })
                     .unwrap_or(LinePosition::Before);
 
-                // Header's lines have priority when repeated.
-                let end_under_repeated_header = finished_header_rows
-                    .filter(|info| prev_y.is_some() && i == info.repeated)
+                // Header's lines at the bottom have priority when repeated.
+                // This will store the end bound of the last header if the
+                // current iteration is calculating lines under it.
+                let last_repeated_header_end_above = finished_header_rows
+                    .filter(|info| prev_y.is_some() && i == info.repeated_amount)
                     .map(|info| info.last_repeated_header_end);
 
                 // If some grid rows were omitted between the previous resolved
@@ -587,14 +589,15 @@ impl<'a> GridLayouter<'a> {
                 // row don't "disappear" and are considered, albeit with less
                 // priority. However, don't do this when we're below a header,
                 // as it must have more priority instead of less, so it is
-                // chained later instead of before. The exception is when the
+                // chained later instead of before (stored in the
+                // 'header_hlines' variable below). The exception is when the
                 // last row in the header is removed, in which case we append
                 // both the lines under the row above us and also (later) the
                 // lines under the header's (removed) last row.
                 let prev_lines = prev_y
                     .filter(|prev_y| {
                         prev_y + 1 != y
-                            && end_under_repeated_header.is_none_or(
+                            && last_repeated_header_end_above.is_none_or(
                                 |last_repeated_header_end| {
                                     prev_y + 1 != last_repeated_header_end
                                 },
@@ -619,8 +622,8 @@ impl<'a> GridLayouter<'a> {
                 };
 
                 let mut expected_header_line_position = LinePosition::Before;
-                let header_hlines = if let Some((under_header_end, prev_y)) =
-                    end_under_repeated_header.zip(prev_y)
+                let header_hlines = if let Some((header_end_above, prev_y)) =
+                    last_repeated_header_end_above.zip(prev_y)
                 {
                     if !self.grid.has_gutter
                         || matches!(
@@ -645,10 +648,10 @@ impl<'a> GridLayouter<'a> {
                         // column-gutter is specified, for example. In that
                         // case, we still repeat the line under the gutter.
                         expected_header_line_position = expected_line_position(
-                            under_header_end,
-                            under_header_end == self.grid.rows.len(),
+                            header_end_above,
+                            header_end_above == self.grid.rows.len(),
                         );
-                        get_hlines_at(under_header_end)
+                        get_hlines_at(header_end_above)
                     } else {
                         &[]
                     }
@@ -706,7 +709,7 @@ impl<'a> GridLayouter<'a> {
                             grid,
                             rows,
                             local_top_y,
-                            end_under_repeated_header,
+                            last_repeated_header_end_above,
                             in_last_region,
                             y,
                             x,
@@ -1610,7 +1613,7 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
         let mut rrows = vec![];
         let current_region = self.finished.len();
-        let mut header_row_height = Abs::zero();
+        let mut repeated_header_row_height = Abs::zero();
 
         // Place finished rows and layout fractional rows.
         for (i, row) in std::mem::take(&mut self.lrows).into_iter().enumerate() {
@@ -1625,7 +1628,7 @@ impl<'a> GridLayouter<'a> {
 
             let height = frame.height();
             if i < self.current.repeated_header_rows {
-                header_row_height += height;
+                repeated_header_row_height += height;
             }
 
             // Ensure rowspans which span this row will have enough space to
@@ -1707,7 +1710,7 @@ impl<'a> GridLayouter<'a> {
                     let rowspan = self.rowspans.remove(i);
                     self.layout_rowspan(
                         rowspan,
-                        Some((&mut output, header_row_height)),
+                        Some((&mut output, repeated_header_row_height)),
                         engine,
                     )?;
                 } else {
@@ -1724,9 +1727,9 @@ impl<'a> GridLayouter<'a> {
             output,
             rrows,
             FinishedHeaderRowInfo {
-                repeated: self.current.repeated_header_rows,
+                repeated_amount: self.current.repeated_header_rows,
                 last_repeated_header_end: self.current.last_repeated_header_end,
-                height: header_row_height,
+                repeated_height: repeated_header_row_height,
             },
         );
 

@@ -396,7 +396,7 @@ pub fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
-    end_under_repeated_header: Option<usize>,
+    header_end_above: Option<usize>,
     in_last_region: bool,
     y: usize,
     x: usize,
@@ -501,12 +501,11 @@ pub fn hline_stroke_at_column(
     // Top border stroke and header stroke are generally prioritized, unless
     // they don't have explicit hline overrides and one or more user-provided
     // hlines would appear at the same position, which then are prioritized.
-    let top_stroke_comes_from_header = end_under_repeated_header
-        .zip(local_top_y)
-        .is_some_and(|(last_repeated_header_end, local_top_y)| {
-            // Ensure the row above us is a repeated header.
+    let top_stroke_comes_from_header = header_end_above.zip(local_top_y).is_some_and(
+        |(last_repeated_header_end, local_top_y)| {
             local_top_y < last_repeated_header_end && y > last_repeated_header_end
-        });
+        },
+    );
 
     // Prioritize the footer's top stroke as well where applicable.
     let bottom_stroke_comes_from_footer = grid
