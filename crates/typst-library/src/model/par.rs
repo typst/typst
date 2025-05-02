@@ -244,9 +244,9 @@ cast! {
     Microtype,
     self => Value::Dict(self.into()),
     mut dict: Dict => {
-        let max_retract = dict.take("max_retract")?.cast()?;
-        let max_expand = dict.take("max_expand")?.cast()?;
-        dict.finish(&["max_retract", "max_expand"])?;
+        let max_retract = dict.take("max-retract")?.cast()?;
+        let max_expand = dict.take("max-expand")?.cast()?;
+        dict.finish(&["max-retract", "max-expand"])?;
         Self { max_retract, max_expand }
     },
 }
@@ -254,8 +254,8 @@ cast! {
 impl From<Microtype> for Dict {
     fn from(microtype: Microtype) -> Self {
         dict! {
-            "max_retract" => microtype.max_retract,
-            "max_expand" => microtype.max_expand,
+            "max-retract" => microtype.max_retract,
+            "max-expand" => microtype.max_expand,
         }
     }
 }

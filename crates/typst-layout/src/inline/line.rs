@@ -478,7 +478,6 @@ pub fn commit(
     if remaining < Abs::zero() && shrinkability > Abs::zero() {
         // Attempt to reduce the length of the line, using shrinkability.
         justification_ratio = (remaining / shrinkability).max(-1.0);
-
         remaining = (remaining + shrinkability).min(Abs::zero());
     } else if line.justify && fr.is_zero() {
         // Attempt to increase the length of the line, using stretchability.
