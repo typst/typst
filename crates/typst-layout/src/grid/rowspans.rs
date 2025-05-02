@@ -3,7 +3,6 @@ use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
-use typst_utils::MaybeReverseIter;
 
 use super::layouter::{in_last_with_offset, points, Row, RowPiece};
 use super::{layout_cell, Cell, GridLayouter};
@@ -118,10 +117,9 @@ impl GridLayouter<'_> {
             // Nothing to layout.
             return Ok(());
         };
-        let first_column = self.rcols[x];
         let cell = self.grid.cell(x, y).unwrap();
         let width = self.cell_spanned_width(cell, x);
-        let dx = if self.is_rtl { dx - width + first_column } else { dx };
+        let dx = if self.is_rtl { self.width - (dx + width) } else { dx };
 
         // Prepare regions.
         let size = Size::new(width, *first_height);
@@ -185,10 +183,8 @@ impl GridLayouter<'_> {
     /// Checks if a row contains the beginning of one or more rowspan cells.
     /// If so, adds them to the rowspans vector.
     pub fn check_for_rowspans(&mut self, disambiguator: usize, y: usize) {
-        // We will compute the horizontal offset of each rowspan in advance.
-        // For that reason, we must reverse the column order when using RTL.
-        let offsets = points(self.rcols.iter().copied().rev_if(self.is_rtl));
-        for (x, dx) in (0..self.rcols.len()).rev_if(self.is_rtl).zip(offsets) {
+        let offsets = points(self.rcols.iter().copied());
+        for (x, dx) in (0..self.rcols.len()).zip(offsets) {
             let Some(cell) = self.grid.cell(x, y) else {
                 continue;
             };
