@@ -11,7 +11,7 @@ use typst_library::layout::{
 use typst_library::text::TextElem;
 use typst_library::visualize::Geometry;
 use typst_syntax::Span;
-use typst_utils::{MaybeReverseIter, Numeric};
+use typst_utils::Numeric;
 
 use super::{
     generate_line_segments, hline_stroke_at_column, layout_cell, vline_stroke_at_row,
@@ -574,7 +574,7 @@ impl<'a> GridLayouter<'a> {
 
             // Reverse with RTL so that later columns start first.
             let mut dx = Abs::zero();
-            for (x, &col) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
+            for (x, &col) in self.rcols.iter().enumerate() {
                 let mut dy = Abs::zero();
                 for row in rows {
                     // We want to only draw the fill starting at the parent
@@ -643,18 +643,12 @@ impl<'a> GridLayouter<'a> {
                                     .sum()
                             };
                             let width = self.cell_spanned_width(cell, x);
-                            // In the grid, cell colspans expand to the right,
-                            // so we're at the leftmost (lowest 'x') column
-                            // spanned by the cell. However, in RTL, cells
-                            // expand to the left. Therefore, without the
-                            // offset below, cell fills would start at the
-                            // rightmost visual position of a cell and extend
-                            // over to unrelated columns to the right in RTL.
-                            // We avoid this by ensuring the fill starts at the
-                            // very left of the cell, even with colspan > 1.
-                            let offset =
-                                if self.is_rtl { -width + col } else { Abs::zero() };
-                            let pos = Point::new(dx + offset, dy);
+                            let mut pos = Point::new(dx, dy);
+                            if self.is_rtl {
+                                // In RTL cells expand to the left, thus the position
+                                // must additionally be offset by the width of the column.
+                                pos.x = self.width - (dx + width);
+                            }
                             let size = Size::new(width, height);
                             let rect = Geometry::Rect(size).filled(fill);
                             fills.push((pos, FrameItem::Shape(rect, self.span)));
