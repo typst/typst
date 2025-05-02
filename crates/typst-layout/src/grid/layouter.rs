@@ -646,7 +646,7 @@ impl<'a> GridLayouter<'a> {
                             let mut pos = Point::new(dx, dy);
                             if self.is_rtl {
                                 // In RTL cells expand to the left, thus the position
-                                // must additionally be offset by the width of the column.
+                                // must additionally be offset by the width of the cell.
                                 pos.x = self.width - (dx + width);
                             }
                             let size = Size::new(width, height);
@@ -1253,7 +1253,7 @@ impl<'a> GridLayouter<'a> {
                     let mut pos = offset;
                     if self.is_rtl {
                         // In RTL cells expand to the left, thus the position
-                        // must additionally be offset by the width of the column.
+                        // must additionally be offset by the width of the cell.
                         pos.x = self.width - (pos.x + width);
                     }
                     output.push_frame(pos, frame);
@@ -1301,6 +1301,8 @@ impl<'a> GridLayouter<'a> {
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = offset;
                         if self.is_rtl {
+                            // In RTL cells expand to the left, thus the position
+                            // must additionally be offset by the width of the cell.
                             pos.x = self.width - (offset.x + width);
                         }
                         output.push_frame(pos, frame);
