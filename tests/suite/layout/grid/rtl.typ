@@ -193,3 +193,23 @@
   ),
   ..range(0, 10).map(i => ([\##i], table.cell(stroke: green)[123], table.cell(stroke: blue)[456], [789], [?], table.hline(start: 4, end: 5, stroke: red))).flatten()
 )
+
+--- grid-rtl-counter ---
+// Test interaction between RTL and counters
+#set text(dir: rtl)
+#let test = counter("test")
+#grid(
+  columns: (1fr, 1fr),
+  inset: 5pt,
+  align: center,
+  [
+    a: // should produce 1
+    #test.step()
+    #context test.get().first()
+  ],
+  [
+    b: // should produce 2
+    #test.step()
+    #context test.get().first()
+  ],
+)
