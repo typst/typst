@@ -166,7 +166,9 @@ impl Show for Packed<ListElem> {
                 .spanned(self.span());
 
         if tight {
-            let leading = ParElem::leading_in(styles);
+            let leading = self
+                .spacing(styles)
+                .unwrap_or_else(|| ParElem::leading_in(styles).into());
             let spacing =
                 VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
             realized = spacing + realized;
