@@ -1236,10 +1236,9 @@ impl<'a> GridLayouter<'a> {
         }
 
         let mut output = Frame::soft(Size::new(self.width, height));
-        let mut pos = Point::zero();
+        let mut offset = Point::zero();
 
-        // Reverse the column order when using RTL.
-        for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
+        for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.grid.cell(x, y) {
                 // Rowspans have a separate layout step
                 if cell.rowspan.get() == 1 {
@@ -1257,25 +1256,17 @@ impl<'a> GridLayouter<'a> {
                     let frame =
                         layout_cell(cell, engine, disambiguator, self.styles, pod)?
                             .into_frame();
-                    let mut pos = pos;
+                    let mut pos = offset;
                     if self.is_rtl {
-                        // In the grid, cell colspans expand to the right,
-                        // so we're at the leftmost (lowest 'x') column
-                        // spanned by the cell. However, in RTL, cells
-                        // expand to the left. Therefore, without the
-                        // offset below, the cell's contents would be laid out
-                        // starting at its rightmost visual position and extend
-                        // over to unrelated cells to its right in RTL.
-                        // We avoid this by ensuring the rendered cell starts at
-                        // the very left of the cell, even with colspan > 1.
-                        let offset = -width + rcol;
-                        pos.x += offset;
+                        // In RTL cells expand to the left, thus the position
+                        // must additionally be offset by the width of the column.
+                        pos.x = self.width - (pos.x + width);
                     }
                     output.push_frame(pos, frame);
                 }
             }
 
-            pos.x += rcol;
+            offset.x += rcol;
         }
 
         Ok(output)
@@ -1302,8 +1293,8 @@ impl<'a> GridLayouter<'a> {
         pod.backlog = &heights[1..];
 
         // Layout the row.
-        let mut pos = Point::zero();
-        for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
+        let mut offset = Point::zero();
+        for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.grid.cell(x, y) {
                 // Rowspans have a separate layout step
                 if cell.rowspan.get() == 1 {
@@ -1314,17 +1305,16 @@ impl<'a> GridLayouter<'a> {
                     let fragment =
                         layout_cell(cell, engine, disambiguator, self.styles, pod)?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
-                        let mut pos = pos;
+                        let mut pos = offset;
                         if self.is_rtl {
-                            let offset = -width + rcol;
-                            pos.x += offset;
+                            pos.x = self.width - (offset.x + width);
                         }
                         output.push_frame(pos, frame);
                     }
                 }
             }
 
-            pos.x += rcol;
+            offset.x += rcol;
         }
 
         Ok(Fragment::frames(outputs))
