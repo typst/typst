@@ -213,3 +213,73 @@
     #context test.get().first()
   ],
 )
+
+--- grid-rtl-rowspan-counter-equal ---
+// Test interaction between RTL and counters
+#set text(dir: rtl)
+#let test = counter("test")
+#grid(
+  columns: (1fr, 1fr),
+  inset: 5pt,
+  align: center,
+  grid.cell(rowspan: 2, [
+    a: // should produce 1
+    #test.step()
+    #context test.get().first()
+  ]),
+  grid.cell(rowspan: 2, [
+    b: // should produce 2
+    #test.step()
+    #context test.get().first()
+  ]),
+)
+
+--- grid-rtl-rowspan-counter-unequal-1 ---
+// Test interaction between RTL and counters
+#set text(dir: rtl)
+#let test = counter("test")
+#grid(
+  columns: (1fr, 1fr),
+  inset: 5pt,
+  align: center,
+  grid.cell(rowspan: 1, [
+    a: // should produce 1
+    #test.step()
+    #context test.get().first()
+  ]),
+  grid.cell(rowspan: 2, [
+    b: // should produce 2
+    #test.step()
+    #context test.get().first()
+  ]),
+  grid.cell(rowspan: 1, [
+    c: // should produce 3
+    #test.step()
+    #context test.get().first()
+  ]),
+)
+
+--- grid-rtl-rowspan-counter-unequal-2 ---
+// Test interaction between RTL and counters
+#set text(dir: rtl)
+#let test = counter("test")
+#grid(
+  columns: (1fr, 1fr),
+  inset: 5pt,
+  align: center,
+  grid.cell(rowspan: 2, [
+    a: // should produce 1
+    #test.step()
+    #context test.get().first()
+  ]),
+  grid.cell(rowspan: 1, [
+    b: // should produce 2
+    #test.step()
+    #context test.get().first()
+  ]),
+  grid.cell(rowspan: 1, [
+    d: // should produce 3
+    #test.step()
+    #context test.get().first()
+  ]),
+)
