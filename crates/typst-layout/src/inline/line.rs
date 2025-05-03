@@ -487,7 +487,6 @@ pub fn commit(
         }
 
         let justifiables = line.justifiables();
-
         if justifiables > 0 && remaining > Abs::zero() {
             // Underfull line, distribute the extra space.
             extra_justification = remaining / justifiables as f64;
