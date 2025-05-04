@@ -34,8 +34,6 @@ pub struct GridLayouter<'a> {
     pub(super) width: Abs,
     /// Resolved row sizes, by region.
     pub(super) rrows: Vec<Vec<RowPiece>>,
-    /// Rows in the current region.
-    pub(super) lrows: Vec<Row>,
     /// The amount of unbreakable rows remaining to be laid out in the
     /// current unbreakable row group. While this is positive, no region breaks
     /// should occur.
@@ -77,6 +75,8 @@ pub struct GridLayouter<'a> {
 pub(super) struct Current {
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
+    /// Rows in the current region.
+    pub(super) lrows: Vec<Row>,
     /// The amount of repeated header rows at the start of the current region.
     /// Thus, excludes rows from pending headers (which were placed for the
     /// first time).
@@ -235,7 +235,6 @@ impl<'a> GridLayouter<'a> {
             rcols: vec![Abs::zero(); grid.cols.len()],
             width: Abs::zero(),
             rrows: vec![],
-            lrows: vec![],
             unbreakable_rows_left: 0,
             rowspans: vec![],
             finished: vec![],
@@ -247,6 +246,7 @@ impl<'a> GridLayouter<'a> {
             row_state: RowState::default(),
             current: Current {
                 initial: regions.size,
+                lrows: vec![],
                 repeated_header_rows: 0,
                 last_repeated_header_end: 0,
                 lrows_orphan_snapshot: None,
@@ -389,7 +389,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Don't layout gutter rows at the top of a region.
-        if is_content_row || !self.lrows.is_empty() {
+        if is_content_row || !self.current.lrows.is_empty() {
             match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, disambiguator, y)?,
                 Sizing::Rel(v) => {
@@ -399,7 +399,7 @@ impl<'a> GridLayouter<'a> {
                     if !self.row_state.in_active_repeatable {
                         self.flush_orphans();
                     }
-                    self.lrows.push(Row::Fr(v, y, disambiguator))
+                    self.current.lrows.push(Row::Fr(v, y, disambiguator))
                 }
             }
         }
@@ -1138,12 +1138,13 @@ impl<'a> GridLayouter<'a> {
         // Expand all but the last region.
         // Skip the first region if the space is eaten up by an fr row.
         let len = resolved.len();
-        for ((i, region), target) in self
-            .regions
-            .iter()
-            .enumerate()
-            .zip(&mut resolved[..len - 1])
-            .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
+        for ((i, region), target) in
+            self.regions
+                .iter()
+                .enumerate()
+                .zip(&mut resolved[..len - 1])
+                .skip(self.current.lrows.iter().any(|row| matches!(row, Row::Fr(..)))
+                    as usize)
         {
             // Subtract header and footer heights from the region height when
             // it's not the first. Ignore non-repeating headers as they only
@@ -1520,7 +1521,7 @@ impl<'a> GridLayouter<'a> {
             self.flush_orphans();
         }
         self.regions.size.y -= frame.height();
-        self.lrows.push(Row::Frame(frame, y, is_last));
+        self.current.lrows.push(Row::Frame(frame, y, is_last));
     }
 
     /// Finish rows for one region.
@@ -1531,7 +1532,7 @@ impl<'a> GridLayouter<'a> {
     ) -> SourceResult<()> {
         if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take() {
             if !last {
-                self.lrows.truncate(orphan_snapshot);
+                self.current.lrows.truncate(orphan_snapshot);
                 self.current.repeated_header_rows =
                     self.current.repeated_header_rows.min(orphan_snapshot);
 
@@ -1543,14 +1544,15 @@ impl<'a> GridLayouter<'a> {
         }
 
         if self
+            .current
             .lrows
             .last()
             .is_some_and(|row| self.grid.is_gutter_track(row.index()))
         {
             // Remove the last row in the region if it is a gutter row.
-            self.lrows.pop().unwrap();
+            self.current.lrows.pop().unwrap();
             self.current.repeated_header_rows =
-                self.current.repeated_header_rows.min(self.lrows.len());
+                self.current.repeated_header_rows.min(self.current.lrows.len());
         }
 
         // If no rows other than the footer have been laid out so far
@@ -1566,7 +1568,7 @@ impl<'a> GridLayouter<'a> {
         // similar mechanism / when implementing multiple footers.
         let footer_would_be_widow =
             matches!(self.grid.footer, Some(Repeatable::Repeated(_)))
-                && self.lrows.is_empty()
+                && self.current.lrows.is_empty()
                 && may_progress_with_offset(
                     self.regions,
                     // This header height isn't doing much as we just
@@ -1584,7 +1586,7 @@ impl<'a> GridLayouter<'a> {
                 // twice.
                 // TODO: this check can be replaced by a vector of repeating
                 // footers in the future.
-                if self.lrows.iter().all(|row| row.index() < footer.start) {
+                if self.current.lrows.iter().all(|row| row.index() < footer.start) {
                     laid_out_footer_start = Some(footer.start);
                     self.layout_footer(footer, engine, self.finished.len())?;
                 }
@@ -1594,7 +1596,7 @@ impl<'a> GridLayouter<'a> {
         // Determine the height of existing rows in the region.
         let mut used = Abs::zero();
         let mut fr = Fr::zero();
-        for row in &self.lrows {
+        for row in &self.current.lrows {
             match row {
                 Row::Frame(frame, _, _) => used += frame.height(),
                 Row::Fr(v, _, _) => fr += *v,
@@ -1616,7 +1618,7 @@ impl<'a> GridLayouter<'a> {
         let mut repeated_header_row_height = Abs::zero();
 
         // Place finished rows and layout fractional rows.
-        for (i, row) in std::mem::take(&mut self.lrows).into_iter().enumerate() {
+        for (i, row) in std::mem::take(&mut self.current.lrows).into_iter().enumerate() {
             let (frame, y, is_last) = match row {
                 Row::Frame(frame, y, is_last) => (frame, y, is_last),
                 Row::Fr(v, y, disambiguator) => {

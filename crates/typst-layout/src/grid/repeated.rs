@@ -262,7 +262,7 @@ impl<'a> GridLayouter<'a> {
         self.current.repeating_header_height = Abs::zero();
         self.current.repeating_header_heights.clear();
 
-        debug_assert!(self.lrows.is_empty());
+        debug_assert!(self.current.lrows.is_empty());
         debug_assert!(self.current.lrows_orphan_snapshot.is_none());
         if may_progress_with_offset(self.regions, self.current.footer_height) {
             // Enable orphan prevention for headers at the top of the region.
@@ -271,7 +271,7 @@ impl<'a> GridLayouter<'a> {
             // at the 'last' region after the first skip, at which the snapshot
             // is handled by 'layout_new_headers'. Either way, we keep this
             // here for correctness.
-            self.current.lrows_orphan_snapshot = Some(self.lrows.len());
+            self.current.lrows_orphan_snapshot = Some(self.current.lrows.len());
         }
 
         // Use indices to avoid double borrow. We don't mutate headers in
@@ -306,7 +306,7 @@ impl<'a> GridLayouter<'a> {
             i += 1;
         }
 
-        self.current.repeated_header_rows = self.lrows.len();
+        self.current.repeated_header_rows = self.current.lrows.len();
         for header in self.pending_headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
@@ -372,7 +372,7 @@ impl<'a> GridLayouter<'a> {
                 self.current.header_height + self.current.footer_height,
             )
         {
-            self.current.lrows_orphan_snapshot = Some(self.lrows.len());
+            self.current.lrows_orphan_snapshot = Some(self.current.lrows.len());
         }
 
         self.unbreakable_rows_left +=

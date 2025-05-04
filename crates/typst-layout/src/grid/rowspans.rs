@@ -479,6 +479,7 @@ impl GridLayouter<'_> {
             // Height of the rowspan covered by spanned rows in the current
             // region.
             let laid_out_height: Abs = self
+                .current
                 .lrows
                 .iter()
                 .filter_map(|row| match row {
@@ -536,7 +537,7 @@ impl GridLayouter<'_> {
                         // 'breakable' can only be true outside of headers
                         // and unbreakable rows in general, so there is no risk
                         // of accessing an incomplete list of rows.
-                        let initial_header_height = self.lrows
+                        let initial_header_height = self.current.lrows
                             [..self.current.repeated_header_rows]
                             .iter()
                             .map(|row| match row {
