@@ -23,7 +23,17 @@ impl SVGRenderer<'_> {
 
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
-        self.xml.write_attribute("transform", "scale(1, -1)");
+        self.xml.write_attribute(
+            "transform",
+            &format!(
+                "{}",
+                &SvgMatrix(
+                    state
+                        .transform
+                        .pre_concat(Transform::scale(Ratio::new(1.0), Ratio::new(-1.0)))
+                )
+            ),
+        );
 
         let mut x: f64 = 0.0;
         let mut y: f64 = 0.0;
@@ -287,7 +297,7 @@ fn convert_outline_glyph_to_path(
 ) -> Option<EcoString> {
     let mut builder = SvgPathBuilder::with_scale(scale);
     font.ttf().outline_glyph(id, &mut builder)?;
-    Some(builder.0)
+    Some(builder.path)
 }
 
 /// Convert a bitmap glyph to an encoded image URL.

@@ -1,12 +1,11 @@
 use ecow::EcoString;
-use ttf_parser::OutlineBuilder;
-use typst_library::layout::{Abs, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
 
 use crate::paint::ColorEncode;
-use crate::{SVGRenderer, State, SvgPathBuilder};
+use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
@@ -31,6 +30,10 @@ impl SVGRenderer<'_> {
                 self.shape_fill_size(state, &stroke.paint, shape),
                 self.shape_paint_transform(state, &stroke.paint, shape),
             );
+        }
+
+        if !state.transform.is_identity() {
+            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
         }
 
         let path = convert_geometry_to_path(&shape.geometry);
@@ -155,7 +158,9 @@ impl SVGRenderer<'_> {
 /// Convert a geometry to an SVG path.
 #[comemo::memoize]
 fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
-    let mut builder = SvgPathBuilder::default();
+    let mut builder =
+        SvgPathBuilder::with_translate(Point::new(Abs::zero(), Abs::zero()));
+
     match geometry {
         Geometry::Line(t) => {
             builder.move_to(0.0, 0.0);
@@ -166,13 +171,15 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
             let y = rect.y.to_pt() as f32;
             builder.rect(x, y);
         }
-        Geometry::Curve(p) => return convert_curve(p),
+        Geometry::Curve(p) => {
+            return convert_curve(Point::new(Abs::zero(), Abs::zero()), p);
+        }
     };
-    builder.0
+    builder.path
 }
 
-pub fn convert_curve(curve: &Curve) -> EcoString {
-    let mut builder = SvgPathBuilder::default();
+pub fn convert_curve(initial_point: Point, curve: &Curve) -> EcoString {
+    let mut builder = SvgPathBuilder::with_translate(initial_point);
     for item in &curve.0 {
         match item {
             CurveItem::Move(m) => builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32),
@@ -188,5 +195,5 @@ pub fn convert_curve(curve: &Curve) -> EcoString {
             CurveItem::Close => builder.close(),
         }
     }
-    builder.0
+    builder.path
 }
