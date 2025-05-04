@@ -148,6 +148,16 @@
   [f], grid.cell(x: 1)[g]
 )
 
+--- grid-header-too-large-non-repeating-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a\ ] * 5,
+    repeat: false,
+  ),
+  [b]
+)
+
 --- table-header-in-grid ---
 // Error: 2:3-2:20 cannot use `table.header` as a grid header
 // Hint: 2:3-2:20 use `grid.header` instead

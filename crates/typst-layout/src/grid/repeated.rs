@@ -42,7 +42,9 @@ impl<'a> GridLayouter<'a> {
             // These headers are short-lived as they are immediately followed by a
             // header of the same or lower level, such that they never actually get
             // to repeat.
-            self.layout_new_headers(consecutive_headers, true, engine)
+            self.layout_new_headers(consecutive_headers, true, engine)?;
+
+            Ok(())
         } else {
             self.layout_new_pending_headers(consecutive_headers, engine)
         }
@@ -125,12 +127,20 @@ impl<'a> GridLayouter<'a> {
         // This might be a waste as we could generate an orphan and thus have
         // to try to place old and new headers all over again, but that happens
         // for every new region anyway, so it's rather unavoidable.
-        self.layout_new_headers(headers, false, engine)?;
+        let snapshot_created = self.layout_new_headers(headers, false, engine)?;
 
         // After the first subsequent row is laid out, move to repeating, as
         // it's then confirmed the headers won't be moved due to orphan
         // prevention anymore.
         self.pending_headers = headers;
+
+        if !snapshot_created {
+            // Region probably couldn't progress.
+            //
+            // Mark new pending headers as final and ensure there isn't a
+            // snapshot.
+            self.flush_orphans();
+        }
 
         Ok(())
     }
@@ -264,8 +274,13 @@ impl<'a> GridLayouter<'a> {
 
         debug_assert!(self.current.lrows.is_empty());
         debug_assert!(self.current.lrows_orphan_snapshot.is_none());
-        if may_progress_with_offset(self.regions, self.current.footer_height) {
+        let may_progress =
+            may_progress_with_offset(self.regions, self.current.footer_height);
+
+        if may_progress {
             // Enable orphan prevention for headers at the top of the region.
+            // Otherwise, we will flush pending headers below, after laying
+            // them out.
             //
             // It is very rare for this to make a difference as we're usually
             // at the 'last' region after the first skip, at which the snapshot
@@ -317,6 +332,12 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
+        if !may_progress {
+            // Flush pending headers immediately, as placing them again later
+            // won't help.
+            self.flush_orphans();
+        }
+
         Ok(())
     }
 
@@ -325,12 +346,15 @@ impl<'a> GridLayouter<'a> {
     /// If 'short_lived' is true, these headers are immediately followed by
     /// a conflicting header, so it is assumed they will not be pushed to
     /// pending headers.
+    ///
+    /// Returns whether orphan prevention was successfully setup, or couldn't
+    /// due to short-lived headers or the region couldn't progress.
     pub fn layout_new_headers(
         &mut self,
         headers: &'a [Repeatable<Header>],
         short_lived: bool,
         engine: &mut Engine,
-    ) -> SourceResult<()> {
+    ) -> SourceResult<bool> {
         // At first, only consider the height of the given headers. However,
         // for upcoming regions, we will have to consider repeating headers as
         // well.
@@ -365,13 +389,18 @@ impl<'a> GridLayouter<'a> {
         // Remove new headers at the end of the region if the upcoming row
         // doesn't fit.
         // TODO(subfooters): what if there is a footer right after it?
-        if !short_lived
+        let should_snapshot = !short_lived
             && self.current.lrows_orphan_snapshot.is_none()
             && may_progress_with_offset(
                 self.regions,
                 self.current.header_height + self.current.footer_height,
-            )
-        {
+            );
+
+        if should_snapshot {
+            // If we don't enter this branch while laying out non-short lived
+            // headers, that means we will have to immediately flush pending
+            // headers and mark them as final, since trying to place them in
+            // the next page won't help get more space.
             self.current.lrows_orphan_snapshot = Some(self.current.lrows.len());
         }
 
@@ -397,7 +426,7 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        Ok(())
+        Ok(should_snapshot)
     }
 
     /// Calculates the total expected height of several headers.
