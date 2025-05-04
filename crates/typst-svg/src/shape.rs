@@ -1,16 +1,15 @@
 use ecow::EcoString;
-use ttf_parser::OutlineBuilder;
-use typst_library::layout::{Abs, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
 
 use crate::paint::ColorEncode;
-use crate::{SVGRenderer, State, SvgPathBuilder};
+use crate::{SVGRenderer, State, SvgMatrix, SvgRelativePathBuilder};
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
-    pub(super) fn render_shape(&mut self, state: State, shape: &Shape) {
+    pub(super) fn render_shape(&mut self, mut state: State, shape: &Shape) {
         self.xml.start_element("path");
         self.xml.write_attribute("class", "typst-shape");
 
@@ -33,7 +32,12 @@ impl SVGRenderer<'_> {
             );
         }
 
-        let path = convert_geometry_to_path(&shape.geometry);
+        // reset transform because we applied it as element's transform attribute
+        // we kept it before for shape paint transform
+        self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+        state = state.with_transform(Transform::identity());
+
+        let path = convert_geometry_to_path(&state.transform, &shape.geometry);
         self.xml.write_attribute("d", &path);
         self.xml.end_element();
     }
@@ -154,8 +158,10 @@ impl SVGRenderer<'_> {
 
 /// Convert a geometry to an SVG path.
 #[comemo::memoize]
-fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
-    let mut builder = SvgPathBuilder::default();
+fn convert_geometry_to_path(transform: &Transform, geometry: &Geometry) -> EcoString {
+    let mut builder =
+        SvgRelativePathBuilder::with_translate(Point::new(transform.tx, transform.ty));
+
     match geometry {
         Geometry::Line(t) => {
             builder.move_to(0.0, 0.0);
@@ -166,13 +172,14 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
             let y = rect.y.to_pt() as f32;
             builder.rect(x, y);
         }
-        Geometry::Curve(p) => return convert_curve(p),
+        Geometry::Curve(p) => return convert_curve(transform, p),
     };
-    builder.0
+    builder.path
 }
 
-pub fn convert_curve(curve: &Curve) -> EcoString {
-    let mut builder = SvgPathBuilder::default();
+pub fn convert_curve(transform: &Transform, curve: &Curve) -> EcoString {
+    let mut builder =
+        SvgRelativePathBuilder::with_translate(Point::new(transform.tx, transform.ty));
     for item in &curve.0 {
         match item {
             CurveItem::Move(m) => builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32),
@@ -188,5 +195,5 @@ pub fn convert_curve(curve: &Curve) -> EcoString {
             CurveItem::Close => builder.close(),
         }
     }
-    builder.0
+    builder.path
 }
