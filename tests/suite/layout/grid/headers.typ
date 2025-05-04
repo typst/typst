@@ -137,6 +137,17 @@
   [a],
 )
 
+--- grid-header-skip ---
+#grid(
+  columns: 2,
+  [x], [y],
+  grid.header([a]),
+  grid.header([b]),
+  grid.cell(x: 1)[c], [d],
+  grid.header([e]),
+  [f], grid.cell(x: 1)[g]
+)
+
 --- table-header-in-grid ---
 // Error: 2:3-2:20 cannot use `table.header` as a grid header
 // Hint: 2:3-2:20 use `grid.header` instead

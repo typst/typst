@@ -1083,6 +1083,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // automatically-positioned cell.
         let mut auto_index: usize = 0;
 
+        // The next header after the latest auto-positioned cell. This is used
+        // to avoid checking for collision with headers that were already
+        // skipped.
+        let mut next_header = 0;
+
         // We have to rebuild the grid to account for fixed cell positions.
         //
         // Create at least 'children.len()' positions, since there could be at
@@ -1107,6 +1112,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 &mut footer,
                 &mut repeat_footer,
                 &mut auto_index,
+                &mut next_header,
                 &mut resolved_cells,
                 &mut at_least_one_cell,
                 child,
@@ -1162,6 +1168,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
         auto_index: &mut usize,
+        next_header: &mut usize,
         resolved_cells: &mut Vec<Option<Entry<'x>>>,
         at_least_one_cell: &mut bool,
         child: ResolvableGridChild<T, I>,
@@ -1187,7 +1194,32 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // position than it would usually be if it would be in a non-empty
         // row, so we must step a local index inside headers and footers
         // instead, and use a separate counter outside them.
-        let mut local_auto_index = *auto_index;
+        let local_auto_index = if matches!(child, ResolvableGridChild::Item(_)) {
+            auto_index
+        } else {
+            // Although 'usize' is Copy, we need to be explicit here that we
+            // aren't reborrowing the original auto index but rather making a
+            // mutable copy of it using 'clone'.
+            &mut (*auto_index).clone()
+        };
+
+        // NOTE: usually, if 'next_header' were to be updated inside a row
+        // group (indicating a header was skipped by a cell), that would
+        // indicate a collision between the row group and that header, which
+        // is an error. However, the exception is for the first auto cell of
+        // the row group, which may skip headers while searching for a position
+        // where to begin the row group in the first place.
+        //
+        // Therefore, we cannot safely share the counter in the row group with
+        // the counter used by auto cells outside, as it might update it in a
+        // valid situation, whereas it must not, since its auto cells use a
+        // different auto index counter and will have seen different headers,
+        // so we copy the next header counter while inside a row group.
+        let local_next_header = if matches!(child, ResolvableGridChild::Item(_)) {
+            next_header
+        } else {
+            &mut (*next_header).clone()
+        };
 
         // The first row in which this table group can fit.
         //
@@ -1210,7 +1242,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 });
 
                 first_available_row =
-                    find_next_empty_row(resolved_cells, local_auto_index, columns);
+                    find_next_empty_row(resolved_cells, *local_auto_index, columns);
 
                 // If any cell in the header is automatically positioned,
                 // have it skip to the next empty row. This is to avoid
@@ -1221,7 +1253,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // latest auto-position cell, since each auto-position cell
                 // always occupies the first available position after the
                 // previous one. Therefore, this will be >= auto_index.
-                local_auto_index = first_available_row * columns;
+                *local_auto_index = first_available_row * columns;
 
                 (Some(items), None)
             }
@@ -1241,9 +1273,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 });
 
                 first_available_row =
-                    find_next_empty_row(resolved_cells, local_auto_index, columns);
+                    find_next_empty_row(resolved_cells, *local_auto_index, columns);
 
-                local_auto_index = first_available_row * columns;
+                *local_auto_index = first_available_row * columns;
 
                 (Some(items), None)
             }
@@ -1268,7 +1300,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // gutter.
                         skip_auto_index_through_fully_merged_rows(
                             resolved_cells,
-                            &mut local_auto_index,
+                            local_auto_index,
                             columns,
                         );
 
@@ -1343,7 +1375,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // automatically positioned cell. Same for footers.
                         local_auto_index
                             .checked_sub(1)
-                            .filter(|_| local_auto_index > first_available_row * columns)
+                            .filter(|_| *local_auto_index > first_available_row * columns)
                             .map_or(0, |last_auto_index| last_auto_index % columns + 1)
                     });
                     if end.is_some_and(|end| end.get() < start) {
@@ -1375,7 +1407,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     headers,
                     footer.as_ref(),
                     resolved_cells,
-                    &mut local_auto_index,
+                    local_auto_index,
+                    local_next_header,
                     first_available_row,
                     columns,
                     row_group_data.is_some(),
@@ -1427,7 +1460,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 );
 
                 if top_hlines_end.is_none()
-                    && local_auto_index > first_available_row * columns
+                    && *local_auto_index > first_available_row * columns
                 {
                     // Auto index was moved, so upcoming auto-pos hlines should
                     // no longer appear at the top.
@@ -1514,7 +1547,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 None => {
                     // Empty header/footer: consider the header/footer to be
                     // at the next empty row after the latest auto index.
-                    local_auto_index = first_available_row * columns;
+                    *local_auto_index = first_available_row * columns;
                     let group_start = first_available_row;
                     let group_end = group_start + 1;
 
@@ -1531,8 +1564,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // 'find_next_empty_row' will skip through any existing headers
                     // and footers without having to loop through them each time.
                     // Cells themselves, unfortunately, still have to.
-                    assert!(resolved_cells[local_auto_index].is_none());
-                    resolved_cells[local_auto_index] =
+                    assert!(resolved_cells[*local_auto_index].is_none());
+                    resolved_cells[*local_auto_index] =
                         Some(Entry::Cell(self.resolve_cell(
                             T::default(),
                             0,
@@ -1622,11 +1655,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     *repeat_footer = row_group.repeat;
                 }
             }
-        } else {
-            // The child was a single cell outside headers or footers.
-            // Therefore, 'local_auto_index' for this table child was
-            // simply an alias for 'auto_index', so we update it as needed.
-            *auto_index = local_auto_index;
         }
 
         Ok(())
@@ -2071,7 +2099,6 @@ fn check_for_conflicting_cell_row(
     cell_y: usize,
     rowspan: usize,
 ) -> HintedStrResult<()> {
-    // TODO: use upcoming headers slice to make this an O(1) check
     // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
     // enters the header. For example, consider a rowspan of 1: if
     // `y + 1 = header.start` holds, that means `y < header.start`, and it
@@ -2118,6 +2145,7 @@ fn resolve_cell_position(
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
+    next_header: &mut usize,
     first_available_row: usize,
     columns: usize,
     in_row_group: bool,
@@ -2144,6 +2172,7 @@ fn resolve_cell_position(
                 resolved_cells,
                 columns,
                 *auto_index,
+                next_header,
             )?;
 
             // Ensure the next cell with automatic position will be
@@ -2202,6 +2231,21 @@ fn resolve_cell_position(
                     resolved_cells,
                     columns,
                     initial_index,
+                    // Make our own copy of the 'next_header' counter, since it
+                    // should only be updated by auto cells. However, we cannot
+                    // start with the same value as we are searching from the
+                    // start, and not from 'auto_index', so auto cells might
+                    // have skipped some headers already which this cell will
+                    // also need to skip.
+                    //
+                    // We could, in theory, keep a separate 'next_header'
+                    // counter for cells with fixed columns. But then we would
+                    // need one for every column, and much like how we don't
+                    // an index counter for each column either, the potential
+                    // speed gain seems reduced for such a rarely-used feature.
+                    // Still, it is something to consider for the future if
+                    // this turns out to be a bottleneck in some cases.
+                    &mut 0,
                 )
             }
         }
@@ -2250,6 +2294,7 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
     initial_index: usize,
+    next_header: &mut usize,
 ) -> HintedStrResult<usize> {
     let mut resolved_index = initial_index;
 
@@ -2272,19 +2317,26 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
                 // would become impractically large before this overflows.
                 resolved_index += 1;
             }
-        // TODO: consider keeping vector of upcoming headers to make this check
-        // non-quadratic (O(cells) instead of O(headers * cells)).
-        } else if let Some(header) = headers.iter().find(|header| {
-            (header.start * columns..header.end * columns).contains(&resolved_index)
-        }) {
+        } else if let Some(header) = headers
+            .get(*next_header)
+            .filter(|header| resolved_index >= header.start * columns)
+        {
             // Skip header (can't place a cell inside it from outside it).
-            resolved_index = header.end * columns;
+            // No changes needed if we already passed this header (which
+            // also triggers this branch) - in that case, we only update the
+            // counter.
+            if resolved_index < header.end * columns {
+                resolved_index = header.end * columns;
 
-            if SKIP_ROWS {
-                // Ensure the cell's chosen column is kept after the
-                // header.
-                resolved_index += initial_index % columns;
+                if SKIP_ROWS {
+                    // Ensure the cell's chosen column is kept after the
+                    // header.
+                    resolved_index += initial_index % columns;
+                }
             }
+
+            // From now on, only check the headers afterwards.
+            *next_header += 1;
         } else if let Some((footer_end, _, _)) = footer.filter(|(end, _, footer)| {
             resolved_index >= footer.start * columns && resolved_index < *end * columns
         }) {
