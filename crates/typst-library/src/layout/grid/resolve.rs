@@ -1866,8 +1866,16 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     bail!(footer_span, "footer must end at the last row");
                 }
 
-                // TODO: will need a global slice of headers and footers for
-                // when we have multiple footers
+                // TODO(subfooters): will need a global slice of headers and
+                // footers for when we have multiple footers
+                // Alternatively, never include the gutter in the footer's
+                // range and manually add it later on layout. This would allow
+                // laying out the gutter as part of both the header and footer,
+                // and, if the page only has headers, the gutter row below the
+                // header is automatically removed (as it becomes the last), so
+                // only the gutter above the footer is kept, ensuring the same
+                // gutter row isn't laid out two times in a row. When laying
+                // out the footer for real, the mechanism can be disabled.
                 let last_header_end = headers.last().map(|header| header.end);
 
                 if has_gutter {
@@ -1912,6 +1920,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // Mark consecutive headers right before the end of the table, or the
         // final footer, as short lived, given that there are no normal rows
         // after them, so repeating them is pointless.
+        //
+        // TODO(subfooters): take the last footer if it is at the end and
+        // backtrack through consecutive footers until the first one in the
+        // sequence is found. If there is no footer at the end, there are no
+        // haeders to turn short-lived.
         let mut consecutive_header_start =
             footer.as_ref().map(|f| f.start).unwrap_or(row_amount);
         for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
@@ -2240,11 +2253,11 @@ fn resolve_cell_position(
                     //
                     // We could, in theory, keep a separate 'next_header'
                     // counter for cells with fixed columns. But then we would
-                    // need one for every column, and much like how we don't
+                    // need one for every column, and much like how there isn't
                     // an index counter for each column either, the potential
-                    // speed gain seems reduced for such a rarely-used feature.
+                    // speed gain seems less relevant for a less used feature.
                     // Still, it is something to consider for the future if
-                    // this turns out to be a bottleneck in some cases.
+                    // this turns out to be a bottleneck in important cases.
                     &mut 0,
                 )
             }
