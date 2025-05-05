@@ -292,18 +292,61 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         elem(tag::tr, Content::sequence(row))
     };
 
+    // TODO(subfooters): similarly to headers, take consecutive footers from
+    // the end for 'tfoot'.
     let footer = grid.footer.map(|ft| {
         let rows = rows.drain(ft.start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
-    // TODO: Headers and footers in arbitrary positions
-    // Right now, only those at either end are accepted
-    let header = grid.headers.first().filter(|h| h.start == 0).map(|hd| {
-        let rows = rows.drain(..hd.end);
-        elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))
-    });
 
-    let mut body = Content::sequence(rows.into_iter().map(|row| tr(tag::td, row)));
+    // Store all consecutive headers at the start in 'thead'. All remaining
+    // headers are just 'th' rows across the table body.
+    let mut consecutive_header_end = 0;
+    let first_mid_table_header = grid
+        .headers
+        .iter()
+        .take_while(|hd| {
+            let is_consecutive = hd.start == consecutive_header_end;
+            consecutive_header_end = hd.end;
+
+            is_consecutive
+        })
+        .count();
+
+    let (y_offset, header) = if first_mid_table_header > 0 {
+        let removed_header_rows =
+            grid.headers.get(first_mid_table_header - 1).unwrap().end;
+        let rows = rows.drain(..removed_header_rows);
+
+        (
+            removed_header_rows,
+            Some(elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))),
+        )
+    } else {
+        (0, None)
+    };
+
+    // TODO: Consider improving accessibility properties of multi-level headers
+    // inside tables in the future, e.g. indicating which columns they are
+    // relative to and so on. See also:
+    // https://www.w3.org/WAI/tutorials/tables/multi-level/
+    let mut next_header = first_mid_table_header;
+    let mut body =
+        Content::sequence(rows.into_iter().enumerate().map(|(relative_y, row)| {
+            let y = relative_y + y_offset;
+            if let Some(current_header) =
+                grid.headers.get(next_header).filter(|h| h.range().contains(&y))
+            {
+                if y + 1 == current_header.end {
+                    next_header += 1;
+                }
+
+                tr(tag::th, row)
+            } else {
+                tr(tag::td, row)
+            }
+        }));
+
     if header.is_some() || footer.is_some() {
         body = elem(tag::tbody, body);
     }
