@@ -690,13 +690,35 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         let breakpoint = if point == text.len() {
             Breakpoint::Mandatory
         } else {
+            const LTR_ISOLATE: char = '\u{2066}';
+            const OBJ_REPLACE: char = '\u{FFFC}';
             match lb.get(c) {
-                // Fix for: https://github.com/unicode-org/icu4x/issues/4146
-                LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
                 | LineBreak::LineFeed
                 | LineBreak::NextLine => Breakpoint::Mandatory,
+
+                // https://github.com/typst/typst/issues/5489
+                //
+                // OBJECT-REPLACEMENT-CHARACTERs provide Contingent Break
+                // opportunities before and after by default. This behaviour
+                // is however tailorable, see:
+                // https://www.unicode.org/reports/tr14/#CB
+                // https://www.unicode.org/reports/tr14/#TailorableBreakingRules
+                // https://www.unicode.org/reports/tr14/#LB20
+                //
+                // Don't provide a line breaking opportunity between a LTR-
+                // ISOLATE and an OBJECT-REPLACEMENT-CHARACTER representing
+                // and inline item, if the LTR-ISOLATE could end up as the
+                // only character on the previous line.
+                LineBreak::CombiningMark
+                    if c == LTR_ISOLATE
+                        && text[point..].starts_with(OBJ_REPLACE)
+                        && last == (point - LTR_ISOLATE.len_utf8()) =>
+                {
+                    continue;
+                }
+
                 _ => Breakpoint::Normal,
             }
         };
