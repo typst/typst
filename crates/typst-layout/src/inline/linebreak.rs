@@ -693,6 +693,9 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             match lb.get(c) {
                 // Fix for: https://github.com/unicode-org/icu4x/issues/4146
                 LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
+                // From: https://www.unicode.org/reports/tr14/
+                // > Prohibit a line break between the character and the preceding character
+                LineBreak::CombiningMark => continue,
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
                 | LineBreak::LineFeed
