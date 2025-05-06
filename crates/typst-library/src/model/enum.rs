@@ -259,12 +259,11 @@ impl Show for Packed<EnumElem> {
                 .spanned(self.span());
 
         if tight {
-            let leading = self
+            let spacing = self
                 .spacing(styles)
                 .unwrap_or_else(|| ParElem::leading_in(styles).into());
-            let spacing =
-                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
-            realized = spacing + realized;
+            let v = VElem::new(spacing.into()).with_weak(true).with_attach(true).pack();
+            realized = v + realized;
         }
 
         Ok(realized)
