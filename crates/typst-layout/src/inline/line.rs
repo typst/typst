@@ -26,6 +26,7 @@ const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified b
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
 /// the break index is safe-to-break per rustybuzz.
+#[derive(Debug)]
 pub struct Line<'a> {
     /// The items the line is made of.
     pub items: Items<'a>,
@@ -219,7 +220,7 @@ fn collect_items<'a>(
     // Add fallback text to expand the line height, if necessary.
     if !items.iter().any(|item| matches!(item, Item::Text(_))) {
         if let Some(fallback) = fallback {
-            items.push(fallback);
+            items.push(fallback, usize::MAX);
         }
     }
 
@@ -270,12 +271,13 @@ fn collect_range<'a>(
     items: &mut Items<'a>,
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
-    for (subrange, item) in p.slice(range.clone()) {
+    for (idx, run) in p.slice(range.clone()).enumerate() {
         // All non-text items are just kept, they can't be split.
-        let Item::Text(shaped) = item else {
-            items.push(item);
+        let Item::Text(shaped) = &run.item else {
+            items.push(&run.item, idx);
             continue;
         };
+        let subrange = &run.range;
 
         // The intersection range of the item, the subrange, and the line's
         // trimming.
@@ -293,10 +295,10 @@ fn collect_range<'a>(
         } else if split {
             // When the item is split in half, reshape it.
             let reshaped = shaped.reshape(engine, sliced);
-            items.push(Item::Text(reshaped));
+            items.push(Item::Text(reshaped), idx);
         } else {
             // When the item is fully contained, just keep it.
-            items.push(item);
+            items.push(&run.item, idx);
         }
     }
 }
@@ -499,16 +501,16 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for item in line.items.iter() {
-        let mut push = |offset: &mut Abs, frame: Frame| {
+    for item in line.items.indexed_iter() {
+        let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
-            frames.push((*offset, frame));
+            frames.push((*offset, frame, idx));
             *offset += width;
         };
 
-        match item {
+        match &*item.item {
             Item::Absolute(v, _) => {
                 offset += *v;
             }
@@ -520,7 +522,7 @@ pub fn commit(
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
                     apply_baseline_shift(&mut frame, *styles);
-                    push(&mut offset, frame);
+                    push(&mut offset, frame, item.idx);
                 } else {
                     offset += amount;
                 }
@@ -532,15 +534,15 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame);
+                push(&mut offset, frame, item.idx);
             }
             Item::Frame(frame) => {
-                push(&mut offset, frame.clone());
+                push(&mut offset, frame.clone(), item.idx);
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame));
+                frames.push((offset, frame, item.idx));
             }
             Item::Skip(_) => {}
         }
@@ -559,8 +561,9 @@ pub fn commit(
         add_par_line_marker(&mut output, marker, engine, locator, top);
     }
 
+    frames.sort_by_key(|(_, _, idx)| *idx);
     // Construct the line's frame.
-    for (offset, frame) in frames {
+    for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
         let y = top - frame.baseline();
         output.push_frame(Point::new(x, y), frame);
@@ -627,7 +630,7 @@ fn overhang(c: char) -> f64 {
 }
 
 /// A collection of owned or borrowed inline items.
-pub struct Items<'a>(Vec<ItemEntry<'a>>);
+pub struct Items<'a>(Vec<IndexedItemEntry<'a>>);
 
 impl<'a> Items<'a> {
     /// Create empty items.
@@ -636,33 +639,38 @@ impl<'a> Items<'a> {
     }
 
     /// Push a new item.
-    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>) {
-        self.0.push(entry.into());
+    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: usize) {
+        self.0.push(IndexedItemEntry { item: entry.into(), idx });
     }
 
     /// Iterate over the items
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
-        self.0.iter().map(|item| &**item)
+        self.0.iter().map(|item| &*item.item)
+    }
+
+    /// Iterate over the items with indices
+    pub fn indexed_iter(&self) -> impl Iterator<Item = &IndexedItemEntry<'a>> {
+        self.0.iter()
     }
 
     /// Access the first item.
     pub fn first(&self) -> Option<&Item<'a>> {
-        self.0.first().map(|item| &**item)
+        self.0.first().map(|item| &*item.item)
     }
 
     /// Access the last item.
     pub fn last(&self) -> Option<&Item<'a>> {
-        self.0.last().map(|item| &**item)
+        self.0.last().map(|item| &*item.item)
     }
 
     /// Access the first item mutably, if it is text.
     pub fn first_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.first_mut()?.text_mut()
+        self.0.first_mut()?.item.text_mut()
     }
 
     /// Access the last item mutably, if it is text.
     pub fn last_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.last_mut()?.text_mut()
+        self.0.last_mut()?.item.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -673,12 +681,17 @@ impl<'a> Items<'a> {
 
 impl<'a> FromIterator<ItemEntry<'a>> for Items<'a> {
     fn from_iter<I: IntoIterator<Item = ItemEntry<'a>>>(iter: I) -> Self {
-        Self(iter.into_iter().collect())
+        Self(
+            iter.into_iter()
+                .enumerate()
+                .map(|(idx, item)| IndexedItemEntry { item, idx })
+                .collect(),
+        )
     }
 }
 
 impl<'a> Deref for Items<'a> {
-    type Target = Vec<ItemEntry<'a>>;
+    type Target = Vec<IndexedItemEntry<'a>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -697,7 +710,18 @@ impl Debug for Items<'_> {
     }
 }
 
+/// An item accompanied by its position within a line.
+#[derive(Debug)]
+pub struct IndexedItemEntry<'a> {
+    pub item: ItemEntry<'a>,
+    pub idx: usize,
+}
+
 /// A reference to or a boxed item.
+///
+/// This is conceptually similar to a [`Cow<'a, Item<'a>>`][std::borrow::Cow],
+/// but we box owned items since an [`Item`] is much bigger than
+/// a box.
 pub enum ItemEntry<'a> {
     Ref(&'a Item<'a>),
     Box(Box<Item<'a>>),
