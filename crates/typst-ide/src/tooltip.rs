@@ -371,4 +371,11 @@ mod tests {
         test(&world, -2, Side::Before).must_be_none();
         test(&world, -2, Side::After).must_be_text("This star imports `a`, `b`, and `c`");
     }
+
+    #[test]
+    fn test_tooltip_field_call() {
+        let world = TestWorld::new("#import \"other.typ\"\n#other.f()")
+            .with_source("other.typ", "#let f = (x) => 1");
+        test(&world, -4, Side::After).must_be_code("(..) => ..");
+    }
 }
