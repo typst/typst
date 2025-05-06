@@ -206,7 +206,7 @@ pub fn collect<'a>(
                     }
                     InlineItem::Frame(mut frame) => {
                         frame.modify(&FrameModifiers::get_in(styles));
-                        apply_baseline_shift(&mut frame, styles);
+                        apply_shift(&engine.world, &mut frame, styles);
                         collector.push_item(Item::Frame(frame));
                     }
                 }
@@ -221,7 +221,7 @@ pub fn collect<'a>(
                 let mut frame = layout_and_modify(styles, |styles| {
                     layout_box(elem, engine, loc, styles, region)
                 })?;
-                apply_baseline_shift(&mut frame, styles);
+                apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
