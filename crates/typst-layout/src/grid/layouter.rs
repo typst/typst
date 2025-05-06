@@ -1802,6 +1802,9 @@ pub(super) fn points(
 /// additional logic which adds content automatically on each region turn (in
 /// our case, headers).
 pub(super) fn may_progress_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
+    // Use 'approx_eq' as float addition and subtraction are not associative.
     !regions.backlog.is_empty()
-        || regions.last.is_some_and(|height| regions.size.y + offset != height)
+        || regions
+            .last
+            .is_some_and(|height| !(regions.size.y + offset).approx_eq(height))
 }
