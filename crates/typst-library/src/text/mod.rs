@@ -348,15 +348,17 @@ pub struct TextElem {
     /// This can make justification visually more pleasing.
     ///
     /// ```example
+    /// #set page(width: 220pt)
+    ///
     /// #set par(justify: true)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     ///
     /// #set text(overhang: false)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
