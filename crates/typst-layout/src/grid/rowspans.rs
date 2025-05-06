@@ -22,6 +22,10 @@ pub struct Rowspan {
     /// specified for the parent cell's `breakable` field.
     pub is_effectively_unbreakable: bool,
     /// The horizontal offset of this rowspan in all regions.
+    ///
+    /// This is the offset from the text direction start, meaning that, on RTL
+    /// grids, this is the offset from the right of the grid, whereas, on LTR
+    /// grids, it is the offset from the left.
     pub dx: Abs,
     /// The vertical offset of this rowspan in the first region.
     pub dy: Abs,
