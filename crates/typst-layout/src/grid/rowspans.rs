@@ -123,6 +123,8 @@ impl GridLayouter<'_> {
         };
         let cell = self.grid.cell(x, y).unwrap();
         let width = self.cell_spanned_width(cell, x);
+        // In RTL cells expand to the left, thus the position
+        // must additionally be offset by the cell's width.
         let dx = if self.is_rtl { self.width - (dx + width) } else { dx };
 
         // Prepare regions.
