@@ -377,7 +377,7 @@ impl<'a> GridLayouter<'a> {
                 // 'header_height == repeating_header_height' here
                 // (there won't be any pending headers at this point, other
                 // than the ones we are about to place).
-                self.current.header_height + self.current.footer_height,
+                self.current.repeating_header_height + self.current.footer_height,
             )
         {
             // Note that, after the first region skip, the new headers will go
@@ -393,7 +393,7 @@ impl<'a> GridLayouter<'a> {
             && self.current.lrows_orphan_snapshot.is_none()
             && may_progress_with_offset(
                 self.regions,
-                self.current.header_height + self.current.footer_height,
+                self.current.repeating_header_height + self.current.footer_height,
             );
 
         if should_snapshot {

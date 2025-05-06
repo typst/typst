@@ -258,12 +258,11 @@ impl GridLayouter<'_> {
             while !self.regions.size.y.fits(row_group.height)
                 && may_progress_with_offset(
                     self.regions,
-                    // Note that we consider that the exact same headers and footers will be
-                    // added if we skip like this (blocking other rows from being laid out)
-                    // due to orphan/widow prevention, which explains the usage of
-                    // 'header_height' (include non-repeating but pending headers) rather
-                    // than 'repeating_header_height'.
-                    self.current.header_height + self.current.footer_height,
+                    // Use 'repeating_header_height' (ignoring the height of
+                    // non-repeated headers) to allow skipping if the
+                    // non-repeated header is too large. It will become an
+                    // orphan, but when there is no space left, anything goes.
+                    self.current.repeating_header_height + self.current.footer_height,
                 )
             {
                 self.finish_region(engine, false)?;

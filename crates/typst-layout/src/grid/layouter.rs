@@ -1376,14 +1376,13 @@ impl<'a> GridLayouter<'a> {
         // endlessly repeated) when subtracting header and footer height.
         //
         // See 'check_for_unbreakable_rows' as for why we're using
-        // 'header_height' to predict header height and not
-        // 'repeating_header_height'.
+        // 'repeating_header_height' to predict header height.
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
             && may_progress_with_offset(
                 self.regions,
-                self.current.header_height + self.current.footer_height,
+                self.current.repeating_header_height + self.current.footer_height,
             )
         {
             self.finish_region(engine, false)?;
@@ -1571,11 +1570,9 @@ impl<'a> GridLayouter<'a> {
                 && self.current.lrows.is_empty()
                 && may_progress_with_offset(
                     self.regions,
-                    // This header height isn't doing much as we just
-                    // confirmed that there are no headers in this region,
-                    // but let's keep it here for correctness. It will add
-                    // zero anyway.
-                    self.current.header_height + self.current.footer_height,
+                    // Don't sum header height as we just confirmed that there
+                    // are no headers in this region.
+                    self.current.footer_height,
                 );
 
         let mut laid_out_footer_start = None;
