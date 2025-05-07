@@ -10,7 +10,7 @@ use crate::foundations::{
 };
 use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::Location;
-use crate::layout::{Em, Length, Position, Rel, Sides};
+use crate::layout::Position;
 use crate::text::TextElem;
 
 /// Links to a URL or a location in the document.
@@ -93,13 +93,6 @@ pub struct LinkElem {
     #[internal]
     #[ghost]
     pub current: Option<Destination>,
-
-    /// How much to expand the link box size without affecting the layout. See
-    /// the [box's documentation]($box.outset) for more details.
-    #[resolve]
-    #[fold]
-    #[default(Sides::splat(Some(Em::new(0.25).into())))]
-    pub box_outset: Sides<Option<Rel<Length>>>,
 }
 
 impl LinkElem {

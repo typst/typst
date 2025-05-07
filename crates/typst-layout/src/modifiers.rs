@@ -1,7 +1,5 @@
-use typst_library::foundations::StyleChain;
-use typst_library::layout::{
-    Abs, Fragment, Frame, FrameItem, HideElem, Point, Rel, Sides,
-};
+use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::layout::{Abs, Em, Fragment, Frame, FrameItem, HideElem, Point};
 use typst_library::model::{Destination, LinkElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
@@ -23,8 +21,7 @@ use typst_library::model::{Destination, LinkElem};
 pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
-    /// Outset of the link box to [`Self::dest`].
-    link_box_outset: Sides<Option<Rel<Abs>>>,
+    expand_text_height: Option<Abs>,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
 }
@@ -34,9 +31,17 @@ impl FrameModifiers {
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
             dest: LinkElem::current_in(styles),
-            link_box_outset: LinkElem::box_outset_in(styles),
+            expand_text_height: None,
             hidden: HideElem::hidden_in(styles),
         }
+    }
+
+    pub fn set_text(mut self, styles: StyleChain) -> Self {
+        if self.dest.is_some() {
+            let height = Em::one().resolve(styles);
+            self.expand_text_height = Some(height);
+        }
+        self
     }
 }
 
@@ -58,10 +63,14 @@ pub trait FrameModify {
 impl FrameModify for Frame {
     fn modify(&mut self, modifiers: &FrameModifiers) {
         if let Some(dest) = &modifiers.dest {
+            let mut pos = Point::zero();
             let mut size = self.size();
-            let outset = modifiers.link_box_outset.unwrap_or_default().relative_to(size);
-            size += outset.sum_by_axis();
-            let pos = Point::new(-outset.left, -outset.top);
+            if let Some(height) = modifiers.expand_text_height {
+                let expand_top = 0.25 * height;
+                let expand_bottom = 0.25 * height;
+                pos.y -= expand_top;
+                size.y += expand_top + expand_bottom;
+            }
             self.push(pos, FrameItem::Link(dest.clone(), size));
         }
 

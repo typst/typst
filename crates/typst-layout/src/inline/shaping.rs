@@ -327,7 +327,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        frame.modify(&FrameModifiers::get_in(self.styles));
+        frame.modify(&FrameModifiers::get_in(self.styles).set_text(self.styles));
         frame
     }
 
