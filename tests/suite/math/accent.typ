@@ -30,11 +30,17 @@ $ tilde(integral), tilde(integral)_a^b, tilde(integral_a^b) $
 
 --- math-accent-sized ---
 // Test accent size.
-$tilde(sum), tilde(sum, size: #50%), accent(H, hat, size: #200%)$
+$tilde(sum), tilde(sum, size: #25%), accent(H, hat, size: #125%)$
 
 --- math-accent-sized-script ---
 // Test accent size in script size.
 $tilde(U, size: #1.1em), x^tilde(U, size: #1.1em), sscript(tilde(U, size: #1.1em))$
+
+--- math-accent-sized-function ---
+// Test accent size with a function.
+$dash(A) arrow(I) hat(L)$ \
+#set math.accent(size: x => x - 0.1em)
+$dash(A) arrow(I) hat(L)$
 
 --- math-accent-dotless ---
 // Test dotless glyph variants.

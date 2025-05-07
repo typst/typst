@@ -1,12 +1,9 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
-use typst_library::layout::{Em, Frame, Point, Size};
+use typst_library::layout::{Frame, Point, Size};
 use typst_library::math::{Accent, AccentElem};
 
 use super::{style_cramped, FrameFragment, GlyphFragment, MathContext, MathFragment};
-
-/// How much the accent can be shorter than the base.
-const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Lays out an [`AccentElem`].
 #[typst_macros::time(name = "math.accent", span = elem.span())]
@@ -29,7 +26,7 @@ pub fn layout_accent(
     let base_class = base.class();
     let base_attach = base.accent_attach();
 
-    let width = elem.size(styles).relative_to(base.width());
+    let width = elem.size(styles).resolve(ctx.engine, styles, base.width())?;
 
     let Accent(c) = elem.accent;
     let mut glyph = GlyphFragment::new(ctx, styles, c, elem.span());
@@ -42,8 +39,7 @@ pub fn layout_accent(
 
     // Forcing the accent to be at least as large as the base makes it too
     // wide in many case.
-    let short_fall = ACCENT_SHORT_FALL.at(glyph.font_size);
-    let variant = glyph.stretch_horizontal(ctx, width, short_fall);
+    let variant = glyph.stretch_horizontal(ctx, width);
     let accent = variant.frame;
     let accent_attach = variant.accent_attach;
 
