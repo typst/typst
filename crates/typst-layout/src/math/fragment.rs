@@ -164,12 +164,12 @@ impl MathFragment {
         }
     }
 
-    pub fn accent_attach(&self) -> Abs {
+    pub fn accent_attach(&self) -> (Abs, Abs) {
         match self {
             Self::Glyph(glyph) => glyph.accent_attach,
             Self::Variant(variant) => variant.accent_attach,
             Self::Frame(fragment) => fragment.accent_attach,
-            _ => self.width() / 2.0,
+            _ => (self.width() / 2.0, self.width() / 2.0),
         }
     }
 
@@ -240,7 +240,7 @@ pub struct GlyphFragment {
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
-    pub accent_attach: Abs,
+    pub accent_attach: (Abs, Abs),
     pub font_size: Abs,
     pub class: MathClass,
     pub math_size: MathSize,
@@ -294,7 +294,7 @@ impl GlyphFragment {
             descent: Abs::zero(),
             limits: Limits::for_char(c),
             italics_correction: Abs::zero(),
-            accent_attach: Abs::zero(),
+            accent_attach: (Abs::zero(), Abs::zero()),
             class,
             span,
             modifiers: FrameModifiers::get_in(styles),
@@ -326,8 +326,14 @@ impl GlyphFragment {
         });
 
         let mut width = advance.scaled(ctx, self.font_size);
-        let accent_attach =
+
+        // The fallback for accents is half the width plus or minus the italics
+        // correction. This is similar to how top and bottom attachments are
+        // shifted. For bottom accents we do not use the accent attach of the
+        // base as it is meant for top acccents.
+        let top_accent_attach =
             accent_attach(ctx, id, self.font_size).unwrap_or((width + italics) / 2.0);
+        let bottom_accent_attach = (width - italics) / 2.0;
 
         let extended_shape = is_extended_shape(ctx, id);
         if !extended_shape {
@@ -339,7 +345,7 @@ impl GlyphFragment {
         self.ascent = bbox.y_max.scaled(ctx, self.font_size);
         self.descent = -bbox.y_min.scaled(ctx, self.font_size);
         self.italics_correction = italics;
-        self.accent_attach = accent_attach;
+        self.accent_attach = (top_accent_attach, bottom_accent_attach);
         self.extended_shape = extended_shape;
     }
 
@@ -457,7 +463,7 @@ impl Debug for GlyphFragment {
 pub struct VariantFragment {
     pub c: char,
     pub italics_correction: Abs,
-    pub accent_attach: Abs,
+    pub accent_attach: (Abs, Abs),
     pub frame: Frame,
     pub font_size: Abs,
     pub class: MathClass,
@@ -499,8 +505,9 @@ pub struct FrameFragment {
     pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
+    pub base_descent: Abs,
     pub italics_correction: Abs,
-    pub accent_attach: Abs,
+    pub accent_attach: (Abs, Abs),
     pub text_like: bool,
     pub ignorant: bool,
 }
@@ -508,6 +515,7 @@ pub struct FrameFragment {
 impl FrameFragment {
     pub fn new(styles: StyleChain, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
+        let base_descent = frame.descent();
         let accent_attach = frame.width() / 2.0;
         Self {
             frame: frame.modified(&FrameModifiers::get_in(styles)),
@@ -517,8 +525,9 @@ impl FrameFragment {
             limits: Limits::Never,
             spaced: false,
             base_ascent,
+            base_descent,
             italics_correction: Abs::zero(),
-            accent_attach,
+            accent_attach: (accent_attach, accent_attach),
             text_like: false,
             ignorant: false,
         }
@@ -540,11 +549,15 @@ impl FrameFragment {
         Self { base_ascent, ..self }
     }
 
+    pub fn with_base_descent(self, base_descent: Abs) -> Self {
+        Self { base_descent, ..self }
+    }
+
     pub fn with_italics_correction(self, italics_correction: Abs) -> Self {
         Self { italics_correction, ..self }
     }
 
-    pub fn with_accent_attach(self, accent_attach: Abs) -> Self {
+    pub fn with_accent_attach(self, accent_attach: (Abs, Abs)) -> Self {
         Self { accent_attach, ..self }
     }
 
