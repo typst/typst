@@ -21,7 +21,8 @@ use typst_library::model::{Destination, LinkElem};
 pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
-    expand_text_height: Option<Abs>,
+    /// Used to determine if the link box should be expanded.
+    link_kind: LinkKind,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
 }
@@ -31,18 +32,27 @@ impl FrameModifiers {
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
             dest: LinkElem::current_in(styles),
-            expand_text_height: None,
+            link_kind: LinkKind::default(),
             hidden: HideElem::hidden_in(styles),
         }
     }
 
-    pub fn set_text(mut self, styles: StyleChain) -> Self {
-        if self.dest.is_some() {
-            let height = Em::one().resolve(styles);
-            self.expand_text_height = Some(height);
+    pub fn for_text_in(styles: StyleChain) -> Self {
+        let mut modifiers = Self::get_in(styles);
+        if modifiers.dest.is_some() {
+            let em = Em::one().resolve(styles);
+            modifiers.link_kind = LinkKind::Text(em);
         }
-        self
+        modifiers
     }
+}
+
+#[derive(Clone, Debug, Default)]
+enum LinkKind {
+    /// Contains the font size.
+    Text(Abs),
+    #[default]
+    Other,
 }
 
 /// Applies [`FrameModifiers`].
@@ -65,9 +75,9 @@ impl FrameModify for Frame {
         if let Some(dest) = &modifiers.dest {
             let mut pos = Point::zero();
             let mut size = self.size();
-            if let Some(height) = modifiers.expand_text_height {
-                let expand_top = 0.25 * height;
-                let expand_bottom = 0.25 * height;
+            if let LinkKind::Text(em) = modifiers.link_kind {
+                let expand_top = 0.25 * em;
+                let expand_bottom = 0.25 * em;
                 pos.y -= expand_top;
                 size.y += expand_top + expand_bottom;
             }
