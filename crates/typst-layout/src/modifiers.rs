@@ -1,5 +1,7 @@
 use typst_library::foundations::StyleChain;
-use typst_library::layout::{Fragment, Frame, FrameItem, HideElem, Point};
+use typst_library::layout::{
+    Abs, Fragment, Frame, FrameItem, HideElem, Point, Rel, Sides,
+};
 use typst_library::model::{Destination, LinkElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
@@ -21,6 +23,8 @@ use typst_library::model::{Destination, LinkElem};
 pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
+    /// Outset of the link box to [`Self::dest`].
+    link_box_outset: Sides<Option<Rel<Abs>>>,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
 }
@@ -30,6 +34,7 @@ impl FrameModifiers {
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
             dest: LinkElem::current_in(styles),
+            link_box_outset: LinkElem::box_outset_in(styles),
             hidden: HideElem::hidden_in(styles),
         }
     }
@@ -53,8 +58,11 @@ pub trait FrameModify {
 impl FrameModify for Frame {
     fn modify(&mut self, modifiers: &FrameModifiers) {
         if let Some(dest) = &modifiers.dest {
-            let size = self.size();
-            self.push(Point::zero(), FrameItem::Link(dest.clone(), size));
+            let mut size = self.size();
+            let outset = modifiers.link_box_outset.unwrap_or_default().relative_to(size);
+            size += outset.sum_by_axis();
+            let pos = Point::new(-outset.left, -outset.top);
+            self.push(pos, FrameItem::Link(dest.clone(), size));
         }
 
         if modifiers.hidden {
