@@ -56,7 +56,7 @@ pub(crate) fn embed_files(
 
 fn should_compress(data: &[u8]) -> bool {
     let Some(ty) = infer::get(data) else {
-        return false;
+        return true;
     };
     match ty.matcher_type() {
         infer::MatcherType::App => true,
