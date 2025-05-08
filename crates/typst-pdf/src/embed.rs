@@ -60,14 +60,64 @@ fn should_compress(data: &[u8]) -> bool {
     };
     match ty.matcher_type() {
         infer::MatcherType::App => true,
-        infer::MatcherType::Archive => false,
-        infer::MatcherType::Audio => false,
+        infer::MatcherType::Archive => match ty.mime_type() {
+            #[rustfmt::skip]
+            "application/zip"
+            | "application/vnd.rar"
+            | "application/gzip"
+            | "application/x-bzip2"
+            | "application/vnd.bzip3"
+            | "application/x-7z-compressed"
+            | "application/x-xz"
+            | "application/vnd.ms-cab-compressed"
+            | "application/vnd.debian.binary-package"
+            | "application/x-compress"
+            | "application/x-lzip"
+            | "application/x-rpm"
+            | "application/zstd"
+            | "application/x-lz4"
+            | "application/x-ole-storage" => false,
+            _ => true,
+        },
+        infer::MatcherType::Audio => match ty.mime_type() {
+            #[rustfmt::skip]
+            "audio/mpeg"
+            | "audio/m4a"
+            | "audio/opus"
+            | "audio/ogg"
+            | "audio/x-flac"
+            | "audio/amr"
+            | "audio/aac"
+            | "audio/x-ape" => false,
+            _ => true,
+        },
         infer::MatcherType::Book => true,
         infer::MatcherType::Doc => true,
         infer::MatcherType::Font => true,
-        infer::MatcherType::Image => false,
+        infer::MatcherType::Image => match ty.mime_type() {
+            #[rustfmt::skip]
+            "image/jpeg"
+            | "image/jp2"
+            | "image/png"
+            | "image/webp"
+            | "image/vnd.ms-photo"
+            | "image/heif"
+            | "image/avif"
+            | "image/jxl"
+            | "image/vnd.djvu" => false,
+            _ => true,
+        },
         infer::MatcherType::Text => true,
-        infer::MatcherType::Video => false,
+        infer::MatcherType::Video => match ty.mime_type() {
+            #[rustfmt::skip]
+            "video/mp4"
+            | "video/x-m4v"
+            | "video/x-matroska"
+            | "video/webm"
+            | "video/quicktime"
+            | "video/x-flv" => false,
+            _ => true,
+        },
         infer::MatcherType::Custom => true,
     }
 }
