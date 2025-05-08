@@ -34,6 +34,7 @@ pub(crate) fn embed_files(
             },
         };
         let data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(embed.data.clone());
+        let compress = should_compress(&embed.data);
 
         let file = EmbeddedFile {
             path,
@@ -41,7 +42,7 @@ pub(crate) fn embed_files(
             description,
             association_kind,
             data: data.into(),
-            compress: true,
+            compress,
             location: Some(span.into_raw().get()),
         };
 
@@ -51,4 +52,22 @@ pub(crate) fn embed_files(
     }
 
     Ok(())
+}
+
+fn should_compress(data: &[u8]) -> bool {
+    let Some(ty) = infer::get(data) else {
+        return false;
+    };
+    match ty.matcher_type() {
+        infer::MatcherType::App => true,
+        infer::MatcherType::Archive => false,
+        infer::MatcherType::Audio => false,
+        infer::MatcherType::Book => true,
+        infer::MatcherType::Doc => true,
+        infer::MatcherType::Font => true,
+        infer::MatcherType::Image => false,
+        infer::MatcherType::Text => true,
+        infer::MatcherType::Video => false,
+        infer::MatcherType::Custom => true,
+    }
 }
