@@ -712,9 +712,8 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                 // and inline item, if the LTR-ISOLATE could end up as the
                 // only character on the previous line.
                 LineBreak::CombiningMark
-                    if c == LTR_ISOLATE
-                        && text[point..].starts_with(OBJ_REPLACE)
-                        && last == (point - LTR_ISOLATE.len_utf8()) =>
+                    if text[point..].starts_with(OBJ_REPLACE)
+                        && last == (point - c.len_utf8()) =>
                 {
                     continue;
                 }
