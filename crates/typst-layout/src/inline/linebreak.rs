@@ -690,7 +690,6 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         let breakpoint = if point == text.len() {
             Breakpoint::Mandatory
         } else {
-            const LTR_ISOLATE: char = '\u{2066}';
             const OBJ_REPLACE: char = '\u{FFFC}';
             match lb.get(c) {
                 LineBreak::MandatoryBreak
@@ -708,9 +707,10 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                 // https://www.unicode.org/reports/tr14/#LB20
                 //
                 // Don't provide a line breaking opportunity between a LTR-
-                // ISOLATE and an OBJECT-REPLACEMENT-CHARACTER representing
-                // and inline item, if the LTR-ISOLATE could end up as the
-                // only character on the previous line.
+                // ISOLATE (or any other Combining Mark) and an OBJECT-
+                // REPLACEMENT-CHARACTER representing and inline item, if the
+                // LTR-ISOLATE could end up as the only character on the
+                // previous line.
                 LineBreak::CombiningMark
                     if text[point..].starts_with(OBJ_REPLACE)
                         && last == (point - c.len_utf8()) =>
