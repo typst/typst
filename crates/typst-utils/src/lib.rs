@@ -66,17 +66,11 @@ pub trait NonZeroExt {
 }
 
 impl NonZeroExt for NonZeroUsize {
-    const ONE: Self = match Self::new(1) {
-        Some(v) => v,
-        None => unreachable!(),
-    };
+    const ONE: Self = Self::new(1).unwrap();
 }
 
 impl NonZeroExt for NonZeroU32 {
-    const ONE: Self = match Self::new(1) {
-        Some(v) => v,
-        None => unreachable!(),
-    };
+    const ONE: Self = Self::new(1).unwrap();
 }
 
 /// Extra methods for [`Arc`].
