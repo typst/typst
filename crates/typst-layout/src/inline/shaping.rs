@@ -20,7 +20,7 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
 use super::{decorate, Item, Range, SpanMapper};
-use crate::modifiers::{FrameModifiers, FrameModify};
+use crate::modifiers::FrameModifyText;
 
 /// The result of shaping text.
 ///
@@ -327,7 +327,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        frame.modify(&FrameModifiers::for_text_in(self.styles));
+        frame.modify_text(self.styles);
         frame
     }
 

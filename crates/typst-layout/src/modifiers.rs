@@ -1,5 +1,7 @@
 use typst_library::foundations::{Resolve, StyleChain};
-use typst_library::layout::{Abs, Em, Fragment, Frame, FrameItem, HideElem, Point};
+use typst_library::layout::{
+    Abs, Em, Fragment, Frame, FrameItem, HideElem, Point, Sides,
+};
 use typst_library::model::{Destination, LinkElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
@@ -21,8 +23,6 @@ use typst_library::model::{Destination, LinkElem};
 pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
-    /// Used to determine if the link box should be expanded.
-    link_kind: LinkKind,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
 }
@@ -32,27 +32,44 @@ impl FrameModifiers {
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
             dest: LinkElem::current_in(styles),
-            link_kind: LinkKind::default(),
             hidden: HideElem::hidden_in(styles),
         }
     }
+}
 
-    pub fn for_text_in(styles: StyleChain) -> Self {
-        let mut modifiers = Self::get_in(styles);
-        if modifiers.dest.is_some() {
-            let em = Em::one().resolve(styles);
-            modifiers.link_kind = LinkKind::Text(em);
+fn modify_frame(
+    frame: &mut Frame,
+    modifiers: &FrameModifiers,
+    link_box_outset: Option<Sides<Abs>>,
+) {
+    if let Some(dest) = &modifiers.dest {
+        let mut pos = Point::zero();
+        let mut size = frame.size();
+        if let Some(outset) = link_box_outset {
+            pos.y -= outset.top;
+            pos.x -= outset.left;
+            size += outset.sum_by_axis();
         }
-        modifiers
+        frame.push(pos, FrameItem::Link(dest.clone(), size));
+    }
+
+    if modifiers.hidden {
+        frame.hide();
     }
 }
 
-#[derive(Clone, Debug, Default)]
-enum LinkKind {
-    /// Contains the font size.
-    Text(Abs),
-    #[default]
-    Other,
+pub trait FrameModifyText {
+    /// Resolve and apply [`FrameModifiers`] for this text frame.
+    fn modify_text(&mut self, styles: StyleChain);
+}
+
+impl FrameModifyText for Frame {
+    fn modify_text(&mut self, styles: StyleChain) {
+        let modifiers = FrameModifiers::get_in(styles);
+        let expand_y = Em::new(0.25).resolve(styles);
+        let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
+        modify_frame(self, &modifiers, Some(outset));
+    }
 }
 
 /// Applies [`FrameModifiers`].
@@ -72,21 +89,7 @@ pub trait FrameModify {
 
 impl FrameModify for Frame {
     fn modify(&mut self, modifiers: &FrameModifiers) {
-        if let Some(dest) = &modifiers.dest {
-            let mut pos = Point::zero();
-            let mut size = self.size();
-            if let LinkKind::Text(em) = modifiers.link_kind {
-                let expand_top = 0.25 * em;
-                let expand_bottom = 0.25 * em;
-                pos.y -= expand_top;
-                size.y += expand_top + expand_bottom;
-            }
-            self.push(pos, FrameItem::Link(dest.clone(), size));
-        }
-
-        if modifiers.hidden {
-            self.hide();
-        }
+        modify_frame(self, modifiers, None);
     }
 }
 
