@@ -55,6 +55,7 @@ routines! {
     fn eval_string(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
+        sink: TrackedMut<Sink>,
         string: &str,
         span: Span,
         mode: EvalMode,

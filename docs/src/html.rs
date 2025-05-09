@@ -498,7 +498,7 @@ impl World for DocWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(FONTS.1[index].clone())
+        FONTS.1.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {

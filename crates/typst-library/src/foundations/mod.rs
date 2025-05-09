@@ -77,6 +77,7 @@ pub use {
     indexmap::IndexMap,
 };
 
+use comemo::TrackedMut;
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
@@ -297,5 +298,14 @@ pub fn eval(
     for (key, value) in dict {
         scope.bind(key.into(), Binding::new(value, span));
     }
-    (engine.routines.eval_string)(engine.routines, engine.world, &text, span, mode, scope)
+
+    (engine.routines.eval_string)(
+        engine.routines,
+        engine.world,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        &text,
+        span,
+        mode,
+        scope,
+    )
 }

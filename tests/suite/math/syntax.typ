@@ -28,6 +28,10 @@ $ dot \ dots \ ast \ tilde \ star $
 $floor(phi.alt.)$
 $floor(phi.alt. )$
 
+--- issue-4828-math-number-multi-char ---
+// Numbers should parse the same regardless of number of characters.
+$1/2(x)$ vs. $1/10(x)$
+
 --- math-unclosed ---
 // Error: 1-2 unclosed delimiter
 $a

@@ -824,12 +824,42 @@ fn shape_segment<'a>(
 
         // Add the glyph to the shaped output.
         if info.glyph_id != 0 && is_covered(cluster) {
-            // Determine the text range of the glyph.
+            // Assume we have the following sequence of (glyph_id, cluster):
+            // [(120, 0), (80, 0), (3, 3), (755, 4), (69, 4), (424, 13),
+            //  (63, 13), (193, 25), (80, 25), (3, 31)
+            //
+            // We then want the sequence of (glyph_id, text_range) to look as follows:
+            // [(120, 0..3), (80, 0..3), (3, 3..4), (755, 4..13), (69, 4..13),
+            //  (424, 13..25), (63, 13..25), (193, 25..31), (80, 25..31), (3, 31..x)]
+            //
+            // Each glyph in the same cluster should be assigned the full text
+            // range. This is necessary because only this way krilla can
+            // properly assign `ActualText` attributes in complex shaping
+            // scenarios.
+
+            // The start of the glyph's text range.
             let start = base + cluster;
-            let end = base
-                + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
-                    .and_then(|last| infos.get(last))
-                    .map_or(text.len(), |info| info.cluster as usize);
+
+            // Determine the end of the glyph's text range.
+            let mut k = i;
+            let step: isize = if ltr { 1 } else { -1 };
+            let end = loop {
+                // If we've reached the end of the glyphs, the `end` of the
+                // range should be the end of the full text.
+                let Some((next, next_info)) = k
+                    .checked_add_signed(step)
+                    .and_then(|n| infos.get(n).map(|info| (n, info)))
+                else {
+                    break base + text.len();
+                };
+
+                // If the cluster doesn't match anymore, we've reached the end.
+                if next_info.cluster != info.cluster {
+                    break base + next_info.cluster as usize;
+                }
+
+                k = next;
+            };
 
             let c = text[cluster..].chars().next().unwrap();
             let script = c.script();

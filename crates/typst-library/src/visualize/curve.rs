@@ -10,6 +10,8 @@ use crate::foundations::{
 use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
 
+use super::FixedStroke;
+
 /// A curve consisting of movements, lines, and Bézier segments.
 ///
 /// At any point in time, there is a conceptual pen or cursor.
@@ -529,4 +531,66 @@ impl Curve {
 
         Size::new(max_x - min_x, max_y - min_y)
     }
+}
+
+impl Curve {
+    fn to_kurbo(&self) -> impl Iterator<Item = kurbo::PathEl> + '_ {
+        use kurbo::PathEl;
+
+        self.0.iter().map(|item| match *item {
+            CurveItem::Move(point) => PathEl::MoveTo(point_to_kurbo(point)),
+            CurveItem::Line(point) => PathEl::LineTo(point_to_kurbo(point)),
+            CurveItem::Cubic(point, point1, point2) => PathEl::CurveTo(
+                point_to_kurbo(point),
+                point_to_kurbo(point1),
+                point_to_kurbo(point2),
+            ),
+            CurveItem::Close => PathEl::ClosePath,
+        })
+    }
+
+    /// When this curve is interpreted as a clip mask, would it contain `point`?
+    pub fn contains(&self, fill_rule: FillRule, needle: Point) -> bool {
+        let kurbo = kurbo::BezPath::from_vec(self.to_kurbo().collect());
+        let windings = kurbo::Shape::winding(&kurbo, point_to_kurbo(needle));
+        match fill_rule {
+            FillRule::NonZero => windings != 0,
+            FillRule::EvenOdd => windings % 2 != 0,
+        }
+    }
+
+    /// When this curve is stroked with `stroke`, would the stroke contain
+    /// `point`?
+    pub fn stroke_contains(&self, stroke: &FixedStroke, needle: Point) -> bool {
+        let width = stroke.thickness.to_raw();
+        let cap = match stroke.cap {
+            super::LineCap::Butt => kurbo::Cap::Butt,
+            super::LineCap::Round => kurbo::Cap::Round,
+            super::LineCap::Square => kurbo::Cap::Square,
+        };
+        let join = match stroke.join {
+            super::LineJoin::Miter => kurbo::Join::Miter,
+            super::LineJoin::Round => kurbo::Join::Round,
+            super::LineJoin::Bevel => kurbo::Join::Bevel,
+        };
+        let miter_limit = stroke.miter_limit.get();
+        let mut style = kurbo::Stroke::new(width)
+            .with_caps(cap)
+            .with_join(join)
+            .with_miter_limit(miter_limit);
+        if let Some(dash) = &stroke.dash {
+            style = style.with_dashes(
+                dash.phase.to_raw(),
+                dash.array.iter().copied().map(Abs::to_raw),
+            );
+        }
+        let opts = kurbo::StrokeOpts::default();
+        let tolerance = 0.01;
+        let expanded = kurbo::stroke(self.to_kurbo(), &style, &opts, tolerance);
+        kurbo::Shape::contains(&expanded, point_to_kurbo(needle))
+    }
+}
+
+fn point_to_kurbo(point: Point) -> kurbo::Point {
+    kurbo::Point::new(point.x.to_raw(), point.y.to_raw())
 }

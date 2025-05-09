@@ -22,7 +22,8 @@ use crate::layout::{BlockElem, Size};
 /// #let text = lorem(30)
 /// #layout(size => [
 ///   #let (height,) = measure(
-///     block(width: size.width, text),
+///     width: size.width,
+///     text,
 ///   )
 ///   This text is #height high with
 ///   the current page width: \

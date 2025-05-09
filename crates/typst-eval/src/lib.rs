@@ -101,6 +101,7 @@ pub fn eval(
 pub fn eval_string(
     routines: &Routines,
     world: Tracked<dyn World + '_>,
+    sink: TrackedMut<Sink>,
     string: &str,
     span: Span,
     mode: EvalMode,
@@ -121,7 +122,6 @@ pub fn eval_string(
     }
 
     // Prepare the engine.
-    let mut sink = Sink::new();
     let introspector = Introspector::default();
     let traced = Traced::default();
     let engine = Engine {
@@ -129,7 +129,7 @@ pub fn eval_string(
         world,
         introspector: introspector.track(),
         traced: traced.track(),
-        sink: sink.track_mut(),
+        sink,
         route: Route::default(),
     };
 

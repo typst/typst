@@ -247,12 +247,6 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   format: "rgba8",
 )
 
---- issue-870-image-rotation ---
-// Ensure that EXIF rotation is applied.
-// https://github.com/image-rs/image/issues/1045
-// File is from https://magnushoff.com/articles/jpeg-orientation/
-#image("/assets/images/f2t.jpg", width: 10pt)
-
 --- issue-measure-image ---
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
@@ -267,3 +261,16 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- issue-3733-dpi-svg ---
 #set page(width: 200pt, height: 200pt, margin: 0pt)
 #image("/assets/images/relative.svg")
+
+--- image-exif-rotation ---
+#let data = read("/assets/images/f2t.jpg", encoding: none)
+
+#let rotations = range(1, 9)
+#let rotated(v) = image(data.slice(0, 49) + bytes((v,)) + data.slice(50), width: 10pt)
+
+#set page(width: auto)
+#table(
+  columns: rotations.len(),
+  ..rotations.map(v => raw(str(v), lang: "typc")),
+  ..rotations.map(rotated)
+)

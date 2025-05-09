@@ -63,8 +63,7 @@ pub struct CompileConfig {
     /// Opens the output file with the default viewer or a specific program after
     /// compilation.
     pub open: Option<Option<String>>,
-    /// One (or multiple comma-separated) PDF standards that Typst will enforce
-    /// conformance with.
+    /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
@@ -130,18 +129,9 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let pdf_standards = {
-            let list = args
-                .pdf_standard
-                .iter()
-                .map(|standard| match standard {
-                    PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-                    PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-                    PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
-                })
-                .collect::<Vec<_>>();
-            PdfStandards::new(&list)?
-        };
+        let pdf_standards = PdfStandards::new(
+            &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
+        )?;
 
         #[cfg(feature = "http-server")]
         let server = match watch {
@@ -295,6 +285,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
             })
         }
     };
+
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
@@ -763,5 +754,25 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
                 CodespanError::IndexTooLarge { given, max }
             }
         })
+    }
+}
+
+impl From<PdfStandard> for typst_pdf::PdfStandard {
+    fn from(standard: PdfStandard) -> Self {
+        match standard {
+            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
+            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
+            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
+            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
+            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
+            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
+            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
+            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
+            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
+            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
+            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+        }
     }
 }

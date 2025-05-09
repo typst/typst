@@ -113,7 +113,7 @@ Typst's CLI is available from different sources:
 
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
-  - Linux: 
+  - Linux:
       - View [Typst on Repology][repology]
       - View [Typst's Snap][snap]
   - macOS: `brew install typst`
@@ -177,22 +177,22 @@ If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out [Typst's free web app][app].
 
 ## Community
-The main place where the community gathers is our [Discord server][discord].
-Feel free to join there to ask questions, help out others, share cool things
-you created with Typst, or just to chat.
+The main places where the community gathers are our [Forum][forum] and our
+[Discord server][discord]. The Forum is a great place to ask questions, help
+others, and share cool things you created with Typst. The Discord server is more
+suitable for quicker questions, discussions about contributing, or just to chat.
+We'd be happy to see you there!
 
-Aside from that there are a few places where you can find things built by
-the community:
-
-- The official [package list](https://typst.app/docs/packages)
-- The [Awesome Typst](https://github.com/qjcg/awesome-typst) repository
+[Typst Universe][universe] is where the community shares templates and packages.
+If you want to share your own creations, you can submit them to our
+[package repository][packages].
 
 If you had a bad experience in our community, please [reach out to us][contact].
 
 ## Contributing
-We would love to see contributions from the community. If you experience bugs,
-feel free to open an issue. If you would like to implement a new feature or bug
-fix, please follow the steps outlined in the [contribution guide][contributing].
+We love to see contributions from the community. If you experience bugs, feel
+free to open an issue. If you would like to implement a new feature or bug fix,
+please follow the steps outlined in the [contribution guide][contributing].
 
 To build Typst yourself, first ensure that you have the
 [latest stable Rust][rust] installed. Then, clone this repository and build the
@@ -243,6 +243,8 @@ instant preview. To achieve these goals, we follow three core design principles:
 [docs]: https://typst.app/docs/
 [app]: https://typst.app/
 [discord]: https://discord.gg/2uDybryKPe
+[forum]: https://forum.typst.app/
+[universe]: https://typst.app/universe/
 [tutorial]: https://typst.app/docs/tutorial/
 [show]: https://typst.app/docs/reference/styling/#show-rules
 [math]: https://typst.app/docs/reference/math/
