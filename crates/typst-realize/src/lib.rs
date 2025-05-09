@@ -655,6 +655,7 @@ fn visit_grouping_rules<'a>(
     let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, &s.kind));
 
     // Try to continue or finish an existing grouping.
+    let mut i = 0;
     while let Some(active) = s.groupings.last() {
         // Start a nested group if a rule with higher priority matches.
         if matching.is_some_and(|rule| rule.priority > active.rule.priority) {
@@ -670,6 +671,21 @@ fn visit_grouping_rules<'a>(
         }
 
         finish_innermost_grouping(s)?;
+        i += 1;
+        if i > 4096 {
+            // It seems like this case is only hit when there is a cycle between
+            // a show rule and a grouping rule. The show rule produces content
+            // that is matched by a grouping rule, which is then again processed
+            // by the show rule, and so on. The two must be at an equilibrium,
+            // otherwise either the "maximum show rule depth" or "maximum
+            // grouping depth" errors are triggered.
+            bail!(
+                content.span(),
+                "maximum realization iterations exceeded";
+                hint: "maybe there is a cycle between a show rule that produces content,\
+                       which is matched by a grouping rule that triggers the show rule",
+            );
+        }
     }
 
     // Start a new grouping.
