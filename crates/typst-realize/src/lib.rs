@@ -679,12 +679,7 @@ fn visit_grouping_rules<'a>(
             // by the show rule, and so on. The two must be at an equilibrium,
             // otherwise either the "maximum show rule depth" or "maximum
             // grouping depth" errors are triggered.
-            bail!(
-                content.span(),
-                "maximum realization iterations exceeded";
-                hint: "maybe there is a cycle between a show rule that produces content, \
-                       which is matched by a grouping rule that triggers the show rule",
-            );
+            bail!(content.span(), "maximum grouping depth exceeded");
         }
     }
 
