@@ -682,7 +682,7 @@ fn visit_grouping_rules<'a>(
             bail!(
                 content.span(),
                 "maximum realization iterations exceeded";
-                hint: "maybe there is a cycle between a show rule that produces content,\
+                hint: "maybe there is a cycle between a show rule that produces content, \
                        which is matched by a grouping rule that triggers the show rule",
             );
         }
