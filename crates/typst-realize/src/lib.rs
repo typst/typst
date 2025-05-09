@@ -672,7 +672,7 @@ fn visit_grouping_rules<'a>(
 
         finish_innermost_grouping(s)?;
         i += 1;
-        if i > 4096 {
+        if i > 512 {
             // It seems like this case is only hit when there is a cycle between
             // a show rule and a grouping rule. The show rule produces content
             // that is matched by a grouping rule, which is then again processed
