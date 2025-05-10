@@ -23,6 +23,7 @@ bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
+infer = { workspace = true }
 krilla = { workspace = true }
 krilla-svg = { workspace = true }
 serde = { workspace = true }
