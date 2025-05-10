@@ -258,3 +258,11 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 
 = Hello
 *strong*
+
+--- issue-5690-oom-par-box ---
+// Error: 3:6-5:1 maximum grouping depth exceeded
+#show par: box
+
+Hello
+
+World
