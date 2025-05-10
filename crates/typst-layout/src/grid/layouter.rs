@@ -1793,16 +1793,3 @@ pub(super) fn points(
         offset
     })
 }
-
-/// Checks if the first region of a sequence of regions is not the last usable
-/// region, assuming that the last region will always be occupied by some
-/// specific offset height, even after calling `.next()`, due to some
-/// additional logic which adds content automatically on each region turn (in
-/// our case, headers).
-pub(super) fn may_progress_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
-    // Use 'approx_eq' as float addition and subtraction are not associative.
-    !regions.backlog.is_empty()
-        || regions
-            .last
-            .is_some_and(|height| !(regions.size.y + offset).approx_eq(height))
-}

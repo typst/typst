@@ -4,7 +4,7 @@ use typst_library::foundations::Resolve;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 
-use super::layouter::{may_progress_with_offset, points, Row};
+use super::layouter::{points, Row};
 use super::{layout_cell, Cell, GridLayouter};
 
 /// All information needed to layout a single rowspan.
@@ -258,14 +258,7 @@ impl GridLayouter<'_> {
 
             // Skip to fitting region.
             while !self.regions.size.y.fits(row_group.height)
-                && may_progress_with_offset(
-                    self.regions,
-                    // Use 'repeating_header_height' (ignoring the height of
-                    // non-repeated headers) to allow skipping if the
-                    // non-repeated header is too large. It will become an
-                    // orphan, but when there is no space left, anything goes.
-                    self.current.repeating_header_height + self.current.footer_height,
-                )
+                && self.may_progress_with_repeats()
             {
                 self.finish_region(engine, false)?;
             }
@@ -931,6 +924,8 @@ impl GridLayouter<'_> {
                 // won't change is safe.
                 self.current.repeating_header_height,
                 self.current.footer_height,
+                self.current.could_progress_at_top,
+                self.current.initial_after_repeats,
             );
 
             let total_spanned_height = rowspan_simulator.simulate_rowspan_layout(
@@ -1031,10 +1026,17 @@ struct RowspanSimulator<'a> {
     finished: usize,
     /// The state of regions during the simulation.
     regions: Regions<'a>,
-    /// The height of the header in the currently simulated region.
+    /// The total height of headers in the currently simulated region.
     header_height: Abs,
-    /// The height of the footer in the currently simulated region.
+    /// The total height of footers in the currently simulated region.
     footer_height: Abs,
+    /// Whether `self.regions.may_progress()` was `true` at the top of the
+    /// region, indicating we can progress anywhere in the current region,
+    /// even right after a repeated header.
+    could_progress_at_top: bool,
+    /// Available height after laying out repeated headers at the top of the
+    /// currently simulated region.
+    initial_after_repeats: Abs,
     /// The total spanned height so far in the simulation.
     total_spanned_height: Abs,
     /// Height of the latest spanned gutter row in the simulation.
@@ -1050,12 +1052,16 @@ impl<'a> RowspanSimulator<'a> {
         regions: Regions<'a>,
         header_height: Abs,
         footer_height: Abs,
+        could_progress_at_top: bool,
+        initial_after_repeats: Abs,
     ) -> Self {
         Self {
             finished,
             regions,
             header_height,
             footer_height,
+            could_progress_at_top,
+            initial_after_repeats,
             total_spanned_height: Abs::zero(),
             latest_spanned_gutter_height: Abs::zero(),
         }
@@ -1104,10 +1110,7 @@ impl<'a> RowspanSimulator<'a> {
                     0,
                 )?;
                 while !self.regions.size.y.fits(row_group.height)
-                    && may_progress_with_offset(
-                        self.regions,
-                        self.header_height + self.footer_height,
-                    )
+                    && self.may_progress_with_repeats()
                 {
                     self.finish_region(layouter, engine)?;
                 }
@@ -1129,10 +1132,7 @@ impl<'a> RowspanSimulator<'a> {
                     let mut skipped_region = false;
                     while unbreakable_rows_left == 0
                         && !self.regions.size.y.fits(height)
-                        && may_progress_with_offset(
-                            self.regions,
-                            self.header_height + self.footer_height,
-                        )
+                        && self.may_progress_with_repeats()
                     {
                         self.finish_region(layouter, engine)?;
 
@@ -1252,6 +1252,7 @@ impl<'a> RowspanSimulator<'a> {
         // header or footer (as an invariant, any rowspans spanning any header
         // or footer rows are fully contained within that header's or footer's rows).
         self.regions.size.y -= self.header_height + self.footer_height;
+        self.initial_after_repeats = self.regions.size.y;
 
         Ok(())
     }
@@ -1268,7 +1269,16 @@ impl<'a> RowspanSimulator<'a> {
         self.regions.next();
         self.finished += 1;
 
+        self.could_progress_at_top = self.regions.may_progress();
         self.simulate_header_footer_layout(layouter, engine)
+    }
+
+    /// Similar to [`GridLayouter::may_progress_with_repeats`] but for rowspan
+    /// simulation.
+    fn may_progress_with_repeats(&self) -> bool {
+        self.could_progress_at_top
+            || self.regions.last.is_some()
+                && self.regions.size.y != self.initial_after_repeats
     }
 }
 
