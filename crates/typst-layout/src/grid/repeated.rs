@@ -237,6 +237,7 @@ impl<'a> GridLayouter<'a> {
             skipped_region = true;
 
             self.regions.size.y -= self.current.footer_height;
+            self.current.initial_after_repeats = self.regions.size.y;
         }
 
         if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
@@ -322,6 +323,8 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.current.repeated_header_rows = self.current.lrows.len();
+        self.current.initial_after_repeats = self.regions.size.y;
+
         for header in self.pending_headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;

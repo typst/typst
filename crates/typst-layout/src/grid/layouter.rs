@@ -75,6 +75,12 @@ pub struct GridLayouter<'a> {
 pub(super) struct Current {
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
+    /// The height of the region after repeated headers were placed and footers
+    /// prepared.
+    ///
+    /// This is used to quickly tell if any additional space in the region has
+    /// been occupied since then.
+    pub(super) initial_after_repeats: Abs,
     /// Rows in the current region.
     pub(super) lrows: Vec<Row>,
     /// The amount of repeated header rows at the start of the current region.
@@ -246,6 +252,7 @@ impl<'a> GridLayouter<'a> {
             row_state: RowState::default(),
             current: Current {
                 initial: regions.size,
+                initial_after_repeats: regions.size.y,
                 lrows: vec![],
                 repeated_header_rows: 0,
                 last_repeated_header_end: 0,
@@ -268,6 +275,7 @@ impl<'a> GridLayouter<'a> {
             // presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
             self.regions.size.y -= self.current.footer_height;
+            self.current.initial_after_repeats = self.regions.size.y;
         }
 
         let mut y = 0;
@@ -1526,6 +1534,11 @@ impl<'a> GridLayouter<'a> {
                 if orphan_snapshot == 0 {
                     // Removed all repeated headers.
                     self.current.last_repeated_header_end = 0;
+
+                    // Although the footer is still subtracted, it should also
+                    // be removed by widow prevention, so we'll get ahead of
+                    // ourselves here.
+                    self.current.initial_after_repeats = self.current.initial.y;
                 }
             }
         }
@@ -1737,6 +1750,7 @@ impl<'a> GridLayouter<'a> {
             // to skip regions to fit headers, so there is no risk of
             // subtracting this twice.
             self.regions.size.y -= self.current.footer_height;
+            self.current.initial_after_repeats = self.regions.size.y;
 
             if !self.repeating_headers.is_empty() || !self.pending_headers.is_empty() {
                 // Add headers to the new region.
@@ -1759,6 +1773,7 @@ impl<'a> GridLayouter<'a> {
         self.rrows.push(resolved_rows);
         self.regions.next();
         self.current.initial = self.regions.size;
+        self.current.initial_after_repeats = self.current.initial.y;
 
         if !self.grid.headers.is_empty() {
             self.finished_header_rows.push(header_row_info);
