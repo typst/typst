@@ -34,7 +34,8 @@ pub(crate) fn embed_files(
             },
         };
         let data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(embed.data.clone());
-        let compress = should_compress(&embed.data);
+        // TODO: update when new krilla version lands (https://github.com/LaurenzV/krilla/pull/203)
+        let compress = should_compress(&embed.data).unwrap_or(true);
 
         let file = EmbeddedFile {
             path,
@@ -54,12 +55,10 @@ pub(crate) fn embed_files(
     Ok(())
 }
 
-fn should_compress(data: &[u8]) -> bool {
-    let Some(ty) = infer::get(data) else {
-        return true;
-    };
+fn should_compress(data: &[u8]) -> Option<bool> {
+    let ty = infer::get(data)?;
     match ty.matcher_type() {
-        infer::MatcherType::App => true,
+        infer::MatcherType::App => None,
         infer::MatcherType::Archive => match ty.mime_type() {
             #[rustfmt::skip]
             "application/zip"
@@ -76,8 +75,8 @@ fn should_compress(data: &[u8]) -> bool {
             | "application/x-rpm"
             | "application/zstd"
             | "application/x-lz4"
-            | "application/x-ole-storage" => false,
-            _ => true,
+            | "application/x-ole-storage" => Some(false),
+            _ => None,
         },
         infer::MatcherType::Audio => match ty.mime_type() {
             #[rustfmt::skip]
@@ -88,12 +87,12 @@ fn should_compress(data: &[u8]) -> bool {
             | "audio/x-flac"
             | "audio/amr"
             | "audio/aac"
-            | "audio/x-ape" => false,
-            _ => true,
+            | "audio/x-ape" => Some(false),
+            _ => None,
         },
-        infer::MatcherType::Book => true,
-        infer::MatcherType::Doc => true,
-        infer::MatcherType::Font => true,
+        infer::MatcherType::Book => None,
+        infer::MatcherType::Doc => None,
+        infer::MatcherType::Font => None,
         infer::MatcherType::Image => match ty.mime_type() {
             #[rustfmt::skip]
             "image/jpeg"
@@ -104,10 +103,10 @@ fn should_compress(data: &[u8]) -> bool {
             | "image/heif"
             | "image/avif"
             | "image/jxl"
-            | "image/vnd.djvu" => false,
-            _ => true,
+            | "image/vnd.djvu" => None,
+            _ => None,
         },
-        infer::MatcherType::Text => true,
+        infer::MatcherType::Text => None,
         infer::MatcherType::Video => match ty.mime_type() {
             #[rustfmt::skip]
             "video/mp4"
@@ -115,9 +114,9 @@ fn should_compress(data: &[u8]) -> bool {
             | "video/x-matroska"
             | "video/webm"
             | "video/quicktime"
-            | "video/x-flv" => false,
-            _ => true,
+            | "video/x-flv" => Some(false),
+            _ => None,
         },
-        infer::MatcherType::Custom => true,
+        infer::MatcherType::Custom => None,
     }
 }
