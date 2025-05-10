@@ -260,8 +260,7 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 *strong*
 
 --- issue-5690-oom-par-box ---
-// Error: 3:6-5:1 maximum realization iterations exceeded
-// Hint: 3:6-5:1 maybe there is a cycle between a show rule that produces content, which is matched by a grouping rule that triggers the show rule
+// Error: 3:6-5:1 maximum grouping depth exceeded
 #show par: box
 
 Hello
