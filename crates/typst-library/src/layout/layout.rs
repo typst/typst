@@ -41,6 +41,23 @@ use crate::layout::{BlockElem, Size};
 /// receives the page's dimensions minus its margins. This is mostly useful in
 /// combination with [measurement]($measure).
 ///
+/// If you want to, for example, get the remaining of the page height after some
+/// content was already added to the page, wrap the `layout` call in
+/// `block(height: 1fr)`. But note that adding multiple blocks with height of
+/// `1fr` together will put them all on the same page, which can be fixed with
+/// [`pagebreak`].
+///
+/// ```example
+/// #lorem(10)
+/// #block(height: 1fr, layout(size => {
+///   block(..size, stroke: 1pt)[
+///     #align(center + horizon)[
+///       Remaining height: #size.height
+///     ]
+///   ]
+/// }))
+/// ```
+///
 /// You can also use this function to resolve [`ratio`] to fixed lengths. This
 /// might come in handy if you're building your own layout abstractions.
 ///
