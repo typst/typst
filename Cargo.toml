@@ -71,7 +71,7 @@ icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
 image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
-infer = "0.19.0"
+infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
 krilla = { version = "0.4.0", default-features = false, features = ["raster-images", "comemo", "rayon"] }
 krilla-svg = "0.1.0"
