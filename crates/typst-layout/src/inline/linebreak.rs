@@ -708,7 +708,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                 //
                 // Don't provide a line breaking opportunity between a LTR-
                 // ISOLATE (or any other Combining Mark) and an OBJECT-
-                // REPLACEMENT-CHARACTER representing and inline item, if the
+                // REPLACEMENT-CHARACTER representing an inline item, if the
                 // LTR-ISOLATE could end up as the only character on the
                 // previous line.
                 LineBreak::CombiningMark
