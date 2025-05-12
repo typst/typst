@@ -1,8 +1,6 @@
-use typst_library::foundations::{Resolve, StyleChain};
-use typst_library::layout::{
-    Abs, Em, Fragment, Frame, FrameItem, HideElem, Point, Sides,
-};
-use typst_library::model::{Destination, LinkElem};
+use typst_library::foundations::StyleChain;
+use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
+use typst_library::model::{Destination, LinkElem, ParElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -85,7 +83,7 @@ pub trait FrameModifyText {
 impl FrameModifyText for Frame {
     fn modify_text(&mut self, styles: StyleChain) {
         let modifiers = FrameModifiers::get_in(styles);
-        let expand_y = Em::new(0.25).resolve(styles);
+        let expand_y = 0.5 * ParElem::leading_in(styles);
         let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
         modify_frame(self, &modifiers, Some(outset));
     }
