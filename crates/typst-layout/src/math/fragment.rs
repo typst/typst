@@ -11,7 +11,7 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
-use typst_library::visualize::Paint;
+use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
@@ -227,14 +227,51 @@ impl From<FrameFragment> for MathFragment {
     }
 }
 
+/// A single glyph in math.
 #[derive(Clone)]
 pub struct GlyphFragment {
+    /// The id of the glyph in the font.
     pub id: GlyphId,
+
+    /// The base character.
     pub c: char,
+
+    /// A single OpenType font for this glyph.
+    ///
+    /// A show rule must be used to affect this.
+    ///
+    /// ```example
+    /// #show math.equation: set text(font: "Fira Math")
+    /// $ f i r a m a t h $
+    /// ```
     pub font: Font,
+
+    /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
+    ///
+    /// See [TextElem]
     pub lang: Lang,
+
+    /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
+    ///
+    /// See [TextElem]
     pub region: Option<Region>,
+
+    /// The glyph fill paint.
+    ///
+    /// ```example
+    /// #show math.equation: set text(fill: red)
+    /// $ r e d $
+    /// ```
     pub fill: Paint,
+
+    /// How to stroke the text.
+    ///
+    /// ```example
+    /// #show math.equation: set text(stroke: red + 0.5pt)
+    /// $ r e d a g a i n $
+    /// ```
+    pub stroke: Option<FixedStroke>,
+
     pub shift: Abs,
     pub width: Abs,
     pub ascent: Abs,
@@ -286,6 +323,7 @@ impl GlyphFragment {
             lang: TextElem::lang_in(styles),
             region: TextElem::region_in(styles),
             fill: TextElem::fill_in(styles).as_decoration(),
+            stroke: TextElem::stroke_in(styles).map(|s| s.unwrap_or_default()),
             shift: TextElem::baseline_in(styles),
             font_size: TextElem::size_in(styles),
             math_size: EquationElem::size_in(styles),
@@ -368,10 +406,10 @@ impl GlyphFragment {
             font: self.font.clone(),
             size: self.font_size,
             fill: self.fill,
+            stroke: self.stroke,
             lang: self.lang,
             region: self.region,
             text: self.c.into(),
-            stroke: None,
             glyphs: vec![Glyph {
                 id: self.id.0,
                 x_advance: Em::from_length(self.width, self.font_size),
