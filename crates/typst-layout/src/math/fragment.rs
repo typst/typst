@@ -227,15 +227,51 @@ impl From<FrameFragment> for MathFragment {
     }
 }
 
+/// A single glyph in math.
 #[derive(Clone)]
 pub struct GlyphFragment {
+    /// The id of the glyph in the font.
     pub id: GlyphId,
+
+    /// The base character.
     pub c: char,
+
+    /// A single OpenType font for this glyph.
+    ///
+    /// A show rule must be used to affect this.
+    ///
+    /// ```example
+    /// #show math.equation: set text(font: "Fira Math")
+    /// $ f i r a m a t h $
+    /// ```
     pub font: Font,
+
+    /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
+    ///
+    /// See [TextElem]
     pub lang: Lang,
+
+    /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
+    ///
+    /// See [TextElem]
     pub region: Option<Region>,
+
+    /// The glyph fill paint.
+    ///
+    /// ```example
+    /// #show math.equation: set text(fill: red)
+    /// $ r e d $
+    /// ```
     pub fill: Paint,
+
+    /// How to stroke the text.
+    ///
+    /// ```example
+    /// #show math.equation: set text(stroke: red + 0.5pt)
+    /// $ r e d a g a i n $
+    /// ```
     pub stroke: Option<FixedStroke>,
+
     pub shift: Abs,
     pub width: Abs,
     pub ascent: Abs,
