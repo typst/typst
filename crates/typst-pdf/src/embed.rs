@@ -34,6 +34,8 @@ pub(crate) fn embed_files(
             },
         };
         let data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(embed.data.clone());
+        // TODO: update when new krilla version lands (https://github.com/LaurenzV/krilla/pull/203)
+        let compress = should_compress(&embed.data).unwrap_or(true);
 
         let file = EmbeddedFile {
             path,
@@ -41,7 +43,7 @@ pub(crate) fn embed_files(
             description,
             association_kind,
             data: data.into(),
-            compress: true,
+            compress,
             location: Some(span.into_raw().get()),
         };
 
@@ -51,4 +53,70 @@ pub(crate) fn embed_files(
     }
 
     Ok(())
+}
+
+fn should_compress(data: &[u8]) -> Option<bool> {
+    let ty = infer::get(data)?;
+    match ty.matcher_type() {
+        infer::MatcherType::App => None,
+        infer::MatcherType::Archive => match ty.mime_type() {
+            #[rustfmt::skip]
+            "application/zip"
+            | "application/vnd.rar"
+            | "application/gzip"
+            | "application/x-bzip2"
+            | "application/vnd.bzip3"
+            | "application/x-7z-compressed"
+            | "application/x-xz"
+            | "application/vnd.ms-cab-compressed"
+            | "application/vnd.debian.binary-package"
+            | "application/x-compress"
+            | "application/x-lzip"
+            | "application/x-rpm"
+            | "application/zstd"
+            | "application/x-lz4"
+            | "application/x-ole-storage" => Some(false),
+            _ => None,
+        },
+        infer::MatcherType::Audio => match ty.mime_type() {
+            #[rustfmt::skip]
+            "audio/mpeg"
+            | "audio/m4a"
+            | "audio/opus"
+            | "audio/ogg"
+            | "audio/x-flac"
+            | "audio/amr"
+            | "audio/aac"
+            | "audio/x-ape" => Some(false),
+            _ => None,
+        },
+        infer::MatcherType::Book => None,
+        infer::MatcherType::Doc => None,
+        infer::MatcherType::Font => None,
+        infer::MatcherType::Image => match ty.mime_type() {
+            #[rustfmt::skip]
+            "image/jpeg"
+            | "image/jp2"
+            | "image/png"
+            | "image/webp"
+            | "image/vnd.ms-photo"
+            | "image/heif"
+            | "image/avif"
+            | "image/jxl"
+            | "image/vnd.djvu" => None,
+            _ => None,
+        },
+        infer::MatcherType::Text => None,
+        infer::MatcherType::Video => match ty.mime_type() {
+            #[rustfmt::skip]
+            "video/mp4"
+            | "video/x-m4v"
+            | "video/x-matroska"
+            | "video/webm"
+            | "video/quicktime"
+            | "video/x-flv" => Some(false),
+            _ => None,
+        },
+        infer::MatcherType::Custom => None,
+    }
 }
