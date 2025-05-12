@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Track, Tracked};
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
@@ -16,10 +16,13 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{FileId, Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
-use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{
+    bail, error, At, FileError, HintedStrResult, SourceDiagnostic, SourceResult,
+    StrResult,
+};
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
     elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
@@ -288,14 +291,29 @@ impl LocalName for Packed<BibliographyElem> {
 #[derive(Clone, PartialEq, Hash)]
 pub struct Bibliography(Arc<ManuallyHash<IndexMap<Label, hayagriva::Entry>>>);
 
+#[derive(Clone, Copy, Hash)]
+enum LibSource {
+    Path(FileId),
+    Bytes,
+}
+
 impl Bibliography {
     /// Load a bibliography from data sources.
     fn load(
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Self>> {
-        let data = sources.load(world)?;
-        let bibliography = Self::decode(&sources.v, &data).at(sources.span)?;
+        let data = (sources.v.0.iter())
+            .map(|source| match source {
+                DataSource::Path(path) => {
+                    let file_id = sources.span.resolve_path(path).at(sources.span)?;
+                    let bytes = world.file(file_id).at(sources.span)?;
+                    Ok((LibSource::Path(file_id), bytes))
+                }
+                DataSource::Bytes(bytes) => Ok((LibSource::Bytes, bytes.clone())),
+            })
+            .collect::<SourceResult<Vec<_>>>()?;
+        let bibliography = Self::decode(sources.span, &data)?;
         Ok(Derived::new(sources.v, bibliography))
     }
 
@@ -303,15 +321,16 @@ impl Bibliography {
     #[comemo::memoize]
     #[typst_macros::time(name = "load bibliography")]
     fn decode(
-        sources: &OneOrMultiple<DataSource>,
-        data: &[Bytes],
-    ) -> StrResult<Bibliography> {
+        source_span: Span,
+        data: &[(LibSource, Bytes)],
+    ) -> SourceResult<Bibliography> {
         let mut map = IndexMap::new();
+        // TODO: store spans of entries for duplicate key error messages
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for (source, data) in sources.0.iter().zip(data) {
-            let library = decode_library(source, data)?;
+        for (source, bytes) in data.iter() {
+            let library = decode_library(source_span, *source, bytes)?;
             for entry in library {
                 match map.entry(Label::new(PicoStr::intern(entry.key()))) {
                     indexmap::map::Entry::Vacant(vacant) => {
@@ -325,7 +344,8 @@ impl Bibliography {
         }
 
         if !duplicates.is_empty() {
-            bail!("duplicate bibliography keys: {}", duplicates.join(", "));
+            // TODO: errors with spans of source files
+            bail!(source_span, "duplicate bibliography keys: {}", duplicates.join(", "));
         }
 
         Ok(Bibliography(Arc::new(ManuallyHash::new(map, typst_utils::hash128(data)))))
@@ -351,34 +371,47 @@ impl Debug for Bibliography {
 }
 
 /// Decode on library from one data source.
-fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
-    let src = data.as_str().map_err(FileError::from)?;
+fn decode_library(
+    source_span: Span,
+    source: LibSource,
+    data: &Bytes,
+) -> SourceResult<Library> {
+    let data = data.as_str().map_err(FileError::from).at(source_span)?;
 
-    if let DataSource::Path(path) = source {
+    if let LibSource::Path(file_id) = source {
         // If we got a path, use the extension to determine whether it is
         // YAML or BibLaTeX.
-        let ext = Path::new(path.as_str())
+        let ext = file_id
+            .vpath()
+            .as_rooted_path()
             .extension()
             .and_then(OsStr::to_str)
             .unwrap_or_default();
 
         match ext.to_lowercase().as_str() {
-            "yml" | "yaml" => hayagriva::io::from_yaml_str(src)
-                .map_err(|err| eco_format!("failed to parse YAML ({err})")),
-            "bib" => hayagriva::io::from_biblatex_str(src)
-                .map_err(|errors| format_biblatex_error(src, Some(path), errors)),
-            _ => bail!("unknown bibliography format (must be .yml/.yaml or .bib)"),
+            "yml" | "yaml" => hayagriva::io::from_yaml_str(data).map_err(|err| {
+                let start = err.location().map(|loc| loc.index()).unwrap_or(0);
+                let span = Span::from_range(file_id, start..start);
+                eco_vec![error!(span, "failed to parse YAML {err}")]
+            }),
+            "bib" => hayagriva::io::from_biblatex_str(data).map_err(|errors| {
+                eco_vec![format_biblatex_error(source_span, source, data, errors)]
+            }),
+            _ => bail!(
+                source_span,
+                "unknown bibliography format (must be .yml/.yaml or .bib)"
+            ),
         }
     } else {
         // If we just got bytes, we need to guess. If it can be decoded as
         // hayagriva YAML, we'll use that.
-        let haya_err = match hayagriva::io::from_yaml_str(src) {
+        let haya_err = match hayagriva::io::from_yaml_str(data) {
             Ok(library) => return Ok(library),
             Err(err) => err,
         };
 
         // If it can be decoded as BibLaTeX, we use that isntead.
-        let bib_errs = match hayagriva::io::from_biblatex_str(src) {
+        let bib_errs = match hayagriva::io::from_biblatex_str(data) {
             Ok(library) => return Ok(library),
             Err(err) => err,
         };
@@ -388,7 +421,7 @@ fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
         // and emit the more appropriate error.
         let mut yaml = 0;
         let mut biblatex = 0;
-        for c in src.chars() {
+        for c in data.chars() {
             match c {
                 ':' => yaml += 1,
                 '{' => biblatex += 1,
@@ -397,35 +430,50 @@ fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
         }
 
         if yaml > biblatex {
-            bail!("failed to parse YAML ({haya_err})")
+            if let Some(loc) = haya_err.location() {
+                let line = loc.line();
+                bail!(source_span, "failed to parse YAML ({line}: {haya_err})")
+            } else {
+                bail!(source_span, "failed to parse YAML ({haya_err})")
+            }
         } else {
-            Err(format_biblatex_error(src, None, bib_errs))
+            bail!(format_biblatex_error(source_span, source, data, bib_errs))
         }
     }
 }
 
 /// Format a BibLaTeX loading error.
 fn format_biblatex_error(
-    src: &str,
-    path: Option<&str>,
+    source_span: Span,
+    source: LibSource,
+    data: &str,
     errors: Vec<BibLaTeXError>,
-) -> EcoString {
+) -> SourceDiagnostic {
+    // TODO: return multiple errors?
     let Some(error) = errors.first() else {
-        return match path {
-            Some(path) => eco_format!("failed to parse BibLaTeX file ({path})"),
-            None => eco_format!("failed to parse BibLaTeX"),
+        return match source {
+            LibSource::Path(file_id) => {
+                let span = Span::from_range(file_id, 0..0);
+                error!(span, "failed to parse BibLaTeX file")
+            }
+            LibSource::Bytes => error!(source_span, "failed to parse BibLaTeX"),
         };
     };
 
-    let (span, msg) = match error {
+    let (range, msg) = match error {
         BibLaTeXError::Parse(error) => (&error.span, error.kind.to_string()),
         BibLaTeXError::Type(error) => (&error.span, error.kind.to_string()),
     };
 
-    let line = src.get(..span.start).unwrap_or_default().lines().count();
-    match path {
-        Some(path) => eco_format!("failed to parse BibLaTeX file ({path}:{line}: {msg})"),
-        None => eco_format!("failed to parse BibLaTeX ({line}: {msg})"),
+    match source {
+        LibSource::Path(file_id) => {
+            let span = Span::from_range(file_id, range.clone());
+            error!(span, "failed to parse BibLaTeX file ({msg})")
+        }
+        LibSource::Bytes => {
+            let line = data.get(..range.start).unwrap_or_default().lines().count();
+            error!(source_span, "failed to parse BibLaTeX ({line}: {msg})")
+        }
     }
 }
 
