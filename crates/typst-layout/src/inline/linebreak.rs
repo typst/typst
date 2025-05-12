@@ -713,7 +713,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                 // previous line.
                 LineBreak::CombiningMark
                     if text[point..].starts_with(OBJ_REPLACE)
-                        && last == (point - c.len_utf8()) =>
+                        && last + c.len_utf8() == point =>
                 {
                     continue;
                 }
