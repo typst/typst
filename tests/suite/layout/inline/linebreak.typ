@@ -139,3 +139,11 @@ Some texts feature many longer
 words. Those are often exceedingly
 challenging to break in a visually
 pleasing way.
+
+--- issue-5489-matrix-stray-linebreak ---
+#table(
+  columns: (70pt,) * 1,
+  align: horizon + center,
+  stroke: 0.6pt,
+  [$mat(2241/2210,-71/1105;-71/1105,147/1105)$],
+)
