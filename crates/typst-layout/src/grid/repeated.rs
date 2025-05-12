@@ -3,10 +3,30 @@ use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::{may_progress_with_offset, GridLayouter, RowState};
+use super::layouter::{GridLayouter, RowState};
 use super::rowspans::UnbreakableRowGroup;
 
 impl<'a> GridLayouter<'a> {
+    /// Checks whether a region break could help a situation where we're out of
+    /// space for the next row. The criteria are:
+    ///
+    /// 1. If we could progress at the top of the region, that indicates the
+    /// region has a backlog, or (if we're at the first region) a region break
+    /// is at all possible (`regions.last` is `Some()`), so that's sufficient.
+    ///
+    /// 2. Otherwise, we may progress if another region break is possible
+    /// (`regions.last` is still `Some()`) and non-repeating rows have been
+    /// placed, since that means the space they occupy will be available in the
+    /// next region.
+    pub fn may_progress_with_repeats(&self) -> bool {
+        // TODO(subfooters): check below isn't enough to detect non-repeating
+        // footers... we can also change 'initial_after_repeats' to stop being
+        // calculated if there were any non-repeating footers.
+        self.current.could_progress_at_top
+            || self.regions.last.is_some()
+                && self.regions.size.y != self.current.initial_after_repeats
+    }
+
     pub fn place_new_headers(
         &mut self,
         consecutive_header_count: &mut usize,
@@ -213,16 +233,7 @@ impl<'a> GridLayouter<'a> {
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_height)
-            && may_progress_with_offset(
-                self.regions,
-                // - Assume footer height already starts subtracted from the
-                // first region's size;
-                // - On each iteration, we subtract footer height from the
-                // available size for consistency with the first region, so we
-                // need to consider the footer when evaluating if skipping yet
-                // another region would make a difference.
-                self.current.footer_height,
-            )
+            && self.may_progress_with_repeats()
         {
             // Advance regions without any output until we can place the
             // header and the footer.
@@ -275,8 +286,7 @@ impl<'a> GridLayouter<'a> {
 
         debug_assert!(self.current.lrows.is_empty());
         debug_assert!(self.current.lrows_orphan_snapshot.is_none());
-        let may_progress =
-            may_progress_with_offset(self.regions, self.current.footer_height);
+        let may_progress = self.may_progress_with_repeats();
 
         if may_progress {
             // Enable orphan prevention for headers at the top of the region.
@@ -372,16 +382,7 @@ impl<'a> GridLayouter<'a> {
         // consider if we can already be in an unbreakable row group?
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_height)
-            && may_progress_with_offset(
-                self.regions,
-                // 'finish_region' will place currently active headers and
-                // footers again. We assume previous pending headers have
-                // already been flushed, so in principle
-                // 'header_height == repeating_header_height' here
-                // (there won't be any pending headers at this point, other
-                // than the ones we are about to place).
-                self.current.repeating_header_height + self.current.footer_height,
-            )
+            && self.may_progress_with_repeats()
         {
             // Note that, after the first region skip, the new headers will go
             // at the top of the region, but after the repeating headers that
@@ -394,10 +395,7 @@ impl<'a> GridLayouter<'a> {
         // TODO(subfooters): what if there is a footer right after it?
         let should_snapshot = !short_lived
             && self.current.lrows_orphan_snapshot.is_none()
-            && may_progress_with_offset(
-                self.regions,
-                self.current.repeating_header_height + self.current.footer_height,
-            );
+            && self.may_progress_with_repeats();
 
         if should_snapshot {
             // If we don't enter this branch while laying out non-short lived

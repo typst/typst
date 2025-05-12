@@ -81,6 +81,9 @@ pub(super) struct Current {
     /// This is used to quickly tell if any additional space in the region has
     /// been occupied since then.
     pub(super) initial_after_repeats: Abs,
+    /// Whether `layouter.regions.may_progress()` was `true` at the top of the
+    /// region.
+    pub(super) could_progress_at_top: bool,
     /// Rows in the current region.
     pub(super) lrows: Vec<Row>,
     /// The amount of repeated header rows at the start of the current region.
@@ -253,6 +256,7 @@ impl<'a> GridLayouter<'a> {
             current: Current {
                 initial: regions.size,
                 initial_after_repeats: regions.size.y,
+                could_progress_at_top: regions.may_progress(),
                 lrows: vec![],
                 repeated_header_rows: 0,
                 last_repeated_header_end: 0,
@@ -1383,10 +1387,7 @@ impl<'a> GridLayouter<'a> {
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
-            && may_progress_with_offset(
-                self.regions,
-                self.current.repeating_header_height + self.current.footer_height,
-            )
+            && self.may_progress_with_repeats()
         {
             self.finish_region(engine, false)?;
 
@@ -1569,12 +1570,7 @@ impl<'a> GridLayouter<'a> {
         let footer_would_be_widow =
             matches!(self.grid.footer, Some(Repeatable::Repeated(_)))
                 && self.current.lrows.is_empty()
-                && may_progress_with_offset(
-                    self.regions,
-                    // Don't sum header height as we just confirmed that there
-                    // are no headers in this region.
-                    self.current.footer_height,
-                );
+                && self.may_progress_with_repeats();
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
@@ -1773,6 +1769,10 @@ impl<'a> GridLayouter<'a> {
         self.rrows.push(resolved_rows);
         self.regions.next();
         self.current.initial = self.regions.size;
+
+        // Repeats haven't been laid out yet, so in the meantime, this will
+        // represent the initial height after repeats laid out so far, and will
+        // be gradually updated when preparing footers and repeating headers.
         self.current.initial_after_repeats = self.current.initial.y;
 
         if !self.grid.headers.is_empty() {
