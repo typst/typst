@@ -10,11 +10,12 @@ use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
+use krilla::tagging::{Node, SpanTag, Tag, TagGroup, TagTree};
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
-use typst_library::foundations::NativeElement;
-use typst_library::introspection::Location;
+use typst_library::foundations::{NativeElement, StyleChain};
+use typst_library::introspection::{self, Location};
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
@@ -39,14 +40,16 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
+    // HACK
+    let config = Configuration::new_with_validator(Validator::UA1);
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
         ascii_compatible: false,
         xmp_metadata: true,
         cmyk_profile: None,
-        configuration: options.standards.config,
-        enable_tagging: false,
+        configuration: config,
+        enable_tagging: true,
         render_svg_glyph_fn: render_svg_glyph,
     };
 
@@ -54,6 +57,7 @@ pub fn convert(
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
+
     let mut gc = GlobalContext::new(
         typst_document,
         options,
@@ -66,6 +70,12 @@ pub fn convert(
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
+
+    let mut tag_tree = TagTree::new();
+    for tag in gc.tags.drain(..) {
+        tag_tree.push(tag);
+    }
+    document.set_tag_tree(tag_tree);
 
     finish(document, gc, options.standards.config)
 }
@@ -225,6 +235,8 @@ pub(crate) struct GlobalContext<'a> {
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
     pub(crate) page_index_converter: PageIndexConverter,
+    pub(crate) tag_stack: Vec<Location>,
+    pub(crate) tags: Vec<Node>,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -244,6 +256,8 @@ impl<'a> GlobalContext<'a> {
             image_spans: HashSet::new(),
             languages: BTreeMap::new(),
             page_index_converter,
+            tag_stack: Vec::new(),
+            tags: Vec::new(),
         }
     }
 }
@@ -279,7 +293,35 @@ pub(crate) fn handle_frame(
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
             FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
-            FrameItem::Tag(_) => {}
+            FrameItem::Tag(introspection::Tag::Start(elem)) => {
+                let Some(heading) = elem.to_packed::<HeadingElem>() else { continue };
+                let Some(loc) = heading.location() else { continue };
+
+                let level = heading.resolve_level(StyleChain::default());
+                let name = heading.body.plain_text().to_string();
+                let heading_id = surface
+                    .start_tagged(krilla::tagging::ContentTag::Span(SpanTag::empty()));
+                let tag = match level.get() {
+                    1 => Tag::H1(Some(name)),
+                    2 => Tag::H2(Some(name)),
+                    3 => Tag::H3(Some(name)),
+                    4 => Tag::H4(Some(name)),
+                    5 => Tag::H5(Some(name)),
+                    _ => Tag::H6(Some(name)),
+                };
+                let mut tag_group = TagGroup::new(tag);
+                tag_group.push(Node::Leaf(heading_id));
+                gc.tags.push(Node::Group(tag_group));
+
+                gc.tag_stack.push(loc);
+            }
+            FrameItem::Tag(introspection::Tag::End(loc, _)) => {
+                // FIXME: support or split up content tags that span multiple pages
+                if gc.tag_stack.last() == Some(loc) {
+                    surface.end_tagged();
+                    gc.tag_stack.pop();
+                }
+            }
         }
 
         fc.pop();
