@@ -5,6 +5,7 @@ use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::pdf::PdfDocument;
 use krilla::surface::Surface;
+use krilla::tagging::SpanTag;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::Smart;
@@ -15,6 +16,7 @@ use typst_library::visualize::{
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
+use crate::tags;
 use crate::util::{SizeExt, TransformExt};
 
 #[typst_macros::time(name = "handle image")]
@@ -31,12 +33,11 @@ pub(crate) fn handle_image(
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
-    if let Some(alt) = image.alt() {
-        surface.start_alt_text(alt);
-    }
-
     gc.image_spans.insert(span);
 
+    let mut handle =
+        tags::start_span(gc, surface, SpanTag::empty().with_alt_text(image.alt()));
+    let surface = handle.surface();
     match image.kind() {
         ImageKind::Raster(raster) => {
             let (exif_transform, new_size) = exif_transform(raster, size);
@@ -64,10 +65,6 @@ pub(crate) fn handle_image(
         ImageKind::Pdf(pdf) => {
             surface.draw_pdf_page(&convert_pdf(pdf), size.to_krilla(), pdf.page_index())
         }
-    }
-
-    if image.alt().is_some() {
-        surface.end_alt_text();
     }
 
     surface.pop();

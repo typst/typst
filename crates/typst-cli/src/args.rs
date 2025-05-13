@@ -262,6 +262,13 @@ pub struct CompileArgs {
     #[arg(long = "pdf-standard", value_delimiter = ',')]
     pub pdf_standard: Vec<PdfStandard>,
 
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances (for example when trying to reduce the size of a document)
+    /// it can be desirable to disable tagged PDF.
+    #[arg(long = "no-pdf-tags")]
+    pub no_pdf_tags: bool,
+
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
@@ -534,6 +541,9 @@ pub enum PdfStandard {
     /// PDF/A-4e.
     #[value(name = "a-4e")]
     A_4e,
+    /// PDF/UA-1.
+    #[value(name = "ua-1")]
+    UA_1,
 }
 
 display_possible_values!(PdfStandard);

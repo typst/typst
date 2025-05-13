@@ -3,8 +3,8 @@ use ecow::EcoVec;
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Target, dict,
+    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn,
+    Smart, StyleChain, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -22,7 +22,7 @@ use typst_library::model::{
     OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell,
     TableElem, TermsElem, TitleElem, Works,
 };
-use typst_library::pdf::AttachElem;
+use typst_library::pdf::{ArtifactElem, AttachElem};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, OverlineElem,
     RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem, SpaceElem,
@@ -105,6 +105,7 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // PDF.
     rules.register(Paged, ATTACH_RULE);
+    rules.register(Paged, ARTIFACT_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -788,3 +789,5 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
 };
 
 const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());
+
+const ARTIFACT_RULE: ShowFn<ArtifactElem> = |elem, _, _| Ok(elem.body.clone());

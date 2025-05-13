@@ -107,6 +107,9 @@ pub struct FigureElem {
     #[required]
     pub body: Content,
 
+    /// An alternative description of the figure.
+    pub alt: Option<EcoString>,
+
     /// The figure's placement on the page.
     ///
     /// - `{none}`: The figure stays in-flow exactly where it was specified

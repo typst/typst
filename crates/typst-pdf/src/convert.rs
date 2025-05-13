@@ -15,7 +15,7 @@ use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
-use typst_library::introspection::Location;
+use typst_library::introspection::{Location, Tag};
 use typst_library::layout::{
     Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
@@ -32,6 +32,7 @@ use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
+use crate::tags::{self, Tags};
 use crate::text::handle_text;
 use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
@@ -47,7 +48,7 @@ pub fn convert(
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
-        enable_tagging: false,
+        enable_tagging: !options.disable_tags,
         render_svg_glyph_fn: render_svg_glyph,
     };
 
@@ -55,6 +56,7 @@ pub fn convert(
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
+
     let mut gc = GlobalContext::new(
         typst_document,
         options,
@@ -67,6 +69,7 @@ pub fn convert(
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
+    document.set_tag_tree(gc.tags.build_tree());
 
     finish(document, gc, options.standards.config)
 }
@@ -226,6 +229,8 @@ pub(crate) struct GlobalContext<'a> {
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
     pub(crate) page_index_converter: PageIndexConverter,
+    /// Tagged PDF context.
+    pub(crate) tags: Tags,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -245,6 +250,8 @@ impl<'a> GlobalContext<'a> {
             image_spans: FxHashSet::default(),
             languages: BTreeMap::new(),
             page_index_converter,
+
+            tags: Tags::new(),
         }
     }
 }
@@ -279,8 +286,9 @@ pub(crate) fn handle_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
-            FrameItem::Tag(_) => {}
+            FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size),
+            FrameItem::Tag(Tag::Start(elem)) => tags::handle_start(gc, elem),
+            FrameItem::Tag(Tag::End(loc, _)) => tags::handle_end(gc, *loc),
         }
 
         fc.pop();
@@ -295,7 +303,7 @@ pub(crate) fn handle_group(
     fc: &mut FrameContext,
     group: &GroupItem,
     surface: &mut Surface,
-    context: &mut GlobalContext,
+    gc: &mut GlobalContext,
 ) -> SourceResult<()> {
     fc.push();
     fc.state_mut().pre_concat(group.transform);
@@ -314,7 +322,7 @@ pub(crate) fn handle_group(
         surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
     }
 
-    handle_frame(fc, &group.frame, None, surface, context)?;
+    handle_frame(fc, &group.frame, None, surface, gc)?;
 
     if clip_path.is_some() {
         surface.pop();

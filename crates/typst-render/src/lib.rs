@@ -164,7 +164,7 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             FrameItem::Image(image, size, _) => {
                 image::render_image(canvas, state.pre_translate(*pos), image, *size);
             }
-            FrameItem::Link(_, _) => {}
+            FrameItem::Link(..) => {}
             FrameItem::Tag(_) => {}
         }
     }

@@ -9,6 +9,7 @@ mod outline;
 mod page;
 mod paint;
 mod shape;
+mod tags;
 mod text;
 mod util;
 
@@ -53,6 +54,11 @@ pub struct PdfOptions<'a> {
     pub page_ranges: Option<PageRanges>,
     /// A list of PDF standards that Typst will enforce conformance with.
     pub standards: PdfStandards,
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances, for example when trying to reduce the size of a document,
+    /// it can be desirable to disable tagged PDF.
+    pub disable_tags: bool,
 }
 
 /// Encapsulates a list of compatible PDF standards.
@@ -104,6 +110,7 @@ impl PdfStandards {
                 PdfStandard::A_4 => set_validator(Validator::A4)?,
                 PdfStandard::A_4f => set_validator(Validator::A4F)?,
                 PdfStandard::A_4e => set_validator(Validator::A4E)?,
+                PdfStandard::Ua_1 => set_validator(Validator::UA1)?,
             }
         }
 
@@ -187,4 +194,7 @@ pub enum PdfStandard {
     /// PDF/A-4e.
     #[serde(rename = "a-4e")]
     A_4e,
+    /// PDF/UA-1.
+    #[serde(rename = "ua-1")]
+    Ua_1,
 }
