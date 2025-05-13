@@ -1,6 +1,8 @@
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain, StyledElem};
+use typst_library::foundations::{
+    Content, Packed, Resolve, Smart, StyleChain, StyledElem,
+};
 use typst_library::introspection::{Locator, SplitLocator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, HElem, Point,
@@ -27,6 +29,8 @@ pub fn layout_stack(
     let spacing = elem.spacing(styles);
     let mut deferred = None;
 
+    let align = elem.align(styles);
+
     for child in &elem.children {
         match child {
             StackChild::Spacing(kind) => {
@@ -52,7 +56,15 @@ pub fn layout_stack(
                     layouter.layout_spacing(kind);
                 }
 
-                layouter.layout_block(engine, block, styles)?;
+                if let Smart::Custom(alignment) = align {
+                    layouter.layout_block(
+                        engine,
+                        &block.clone().aligned(alignment),
+                        styles,
+                    )?;
+                } else {
+                    layouter.layout_block(engine, block, styles)?;
+                }
                 deferred = spacing;
             }
         }
