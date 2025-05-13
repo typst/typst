@@ -1,10 +1,12 @@
 use ttf_parser::math::MathValue;
 use typst_library::foundations::{Style, StyleChain};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size, VAlignment};
-use typst_library::math::{EquationElem, MathSize};
+use typst_library::layout::{
+    Abs, Em, FixedAlignment, Fr, Frame, Point, Size, VAlignment,
+};
+use typst_library::math::{EquationElem, GapSizing, MathSize};
 use typst_utils::LazyHash;
 
-use super::{LeftRightAlternator, MathContext, MathFragment, MathRun};
+use super::{EquationSizings, LeftRightAlternator, MathContext, MathFragment, MathRun};
 
 macro_rules! scaled {
     ($ctx:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -118,7 +120,7 @@ pub fn stack(
     baseline: usize,
     alternator: LeftRightAlternator,
 ) -> Frame {
-    let AlignmentResult { points, width } = alignments(&rows);
+    let AlignmentResult { points, width, .. } = alignments(&rows, None);
     let rows: Vec<_> = rows
         .into_iter()
         .map(|row| row.into_line_frame(&points, alternator))
@@ -148,8 +150,15 @@ pub fn stack(
     frame
 }
 
-/// Determine the positions of the alignment points, according to the input rows combined.
-pub fn alignments(rows: &[MathRun]) -> AlignmentResult {
+pub struct AlignmentResult {
+    pub points: Vec<Abs>,
+    pub width: Abs,
+    pub padding: (Abs, Abs),
+}
+
+/// Determine the positions of the alignment points, according to the input
+/// rows combined.
+pub fn alignments(rows: &[MathRun], sizings: Option<EquationSizings>) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 
     let mut pending_width = Abs::zero();
@@ -179,18 +188,80 @@ pub fn alignments(rows: &[MathRun]) -> AlignmentResult {
         }
     }
 
+    if widths.is_empty() {
+        widths.push(pending_width);
+        let padding = add_gaps(&mut widths, sizings);
+        return AlignmentResult { width: pending_width, points: vec![], padding };
+    }
+
+    let padding = add_gaps(&mut widths, sizings);
     let mut points = widths;
     for i in 1..points.len() {
         let prev = points[i - 1];
         points[i] += prev;
     }
     AlignmentResult {
-        width: points.last().copied().unwrap_or(pending_width),
+        width: points.last().copied().unwrap(),
         points,
+        padding,
     }
 }
 
-pub struct AlignmentResult {
-    pub points: Vec<Abs>,
-    pub width: Abs,
+/// Inserts gaps between columns given by the alignments.
+fn add_gaps(widths: &mut [Abs], sizings: Option<EquationSizings>) -> (Abs, Abs) {
+    let Some(sizings) = sizings else {
+        return (Abs::zero(), Abs::zero());
+    };
+
+    // Padding to be returned.
+    let mut padding = [Abs::zero(), Abs::zero()];
+
+    // Number of gaps between columns.
+    let len = widths.len();
+    let ngaps = len.div_ceil(2).saturating_sub(1);
+
+    // Discard excess gaps or repeat the last gap to match the number of gaps.
+    let mut gaps = sizings.gaps.to_vec();
+    gaps.truncate(ngaps);
+    if let Some(last_gap) = gaps.last().copied() {
+        gaps.extend(std::iter::repeat_n(last_gap, ngaps.saturating_sub(gaps.len())));
+    }
+
+    // Sum of fractions of all fractional gaps.
+    let mut fr = Fr::zero();
+
+    // Resolve the size of all relative gaps and compute the sum of all
+    // fractional gaps.
+    let region_width = sizings.region_size_x;
+    for (i, gap) in gaps.iter().enumerate() {
+        match gap {
+            GapSizing::Rel(v) => widths[1 + i * 2] += v.relative_to(region_width),
+            GapSizing::Fr(v) => fr += *v,
+        }
+    }
+    for (i, gap) in sizings.padding.iter().enumerate() {
+        match gap {
+            GapSizing::Rel(v) => padding[i] = v.relative_to(region_width),
+            GapSizing::Fr(v) => fr += *v,
+        }
+    }
+
+    // Size that is not used by fixed-size gaps.
+    let remaining = region_width - (widths.iter().sum::<Abs>() + padding.iter().sum());
+
+    // Distribute remaining space to fractional gaps.
+    if !remaining.approx_empty() {
+        for (i, gap) in gaps.iter().enumerate() {
+            if let GapSizing::Fr(v) = gap {
+                widths[1 + i * 2] += v.share(fr, remaining);
+            }
+        }
+        for (i, gap) in sizings.padding.iter().enumerate() {
+            if let GapSizing::Fr(v) = gap {
+                padding[i] = v.share(fr, remaining);
+            }
+        }
+    }
+
+    (padding[0], padding[1])
 }
