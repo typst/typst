@@ -86,7 +86,7 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
                 *count += 1;
                 continue;
             } else if *count > 1 {
-                write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
+                write!(pieces.last_mut().unwrap(), " (×{count})").unwrap();
             }
         }
         pieces.push(value.repr());
@@ -95,7 +95,7 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 
     if let Some((_, count)) = last {
         if count > 1 {
-            write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
+            write!(pieces.last_mut().unwrap(), " (×{count})").unwrap();
         }
     }
 
