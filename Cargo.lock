@@ -412,9 +412,8 @@ dependencies = [
 
 [[package]]
 name = "codex"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "724d27a0ee38b700e5e164350e79aba601a0db673ac47fce1cb74c3e38864036"
+version = "0.1.0"
+source = "git+https://github.com/typst/codex?rev=7157b82d817b362c7d71b223681deef61f294f1d#7157b82d817b362c7d71b223681deef61f294f1d"
 
 [[package]]
 name = "color-print"
@@ -2920,6 +2919,7 @@ name = "typst-docs"
 version = "0.13.1"
 dependencies = [
  "clap",
+ "codex",
  "ecow",
  "heck",
  "pulldown-cmark",
