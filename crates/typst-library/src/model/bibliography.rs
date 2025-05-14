@@ -412,8 +412,12 @@ fn decode_library(
 
         // If it can be decoded as BibLaTeX, we use that isntead.
         let bib_errs = match hayagriva::io::from_biblatex_str(data) {
-            Ok(library) => return Ok(library),
-            Err(err) => err,
+            // If the file is almost valid yaml, but contains no `@` character
+            // it will be successfully parsed as an empty BibLaTeX library,
+            // since BibLaTeX does support arbitrary text outside of entries.
+            Ok(library) if !library.is_empty() => return Ok(library),
+            Ok(_) => None,
+            Err(err) => Some(err),
         };
 
         // If neither decoded correctly, check whether `:` or `{` appears
@@ -429,15 +433,18 @@ fn decode_library(
             }
         }
 
-        if yaml > biblatex {
-            if let Some(loc) = haya_err.location() {
-                let line = loc.line();
-                bail!(source_span, "failed to parse YAML ({line}: {haya_err})")
-            } else {
-                bail!(source_span, "failed to parse YAML ({haya_err})")
+        match bib_errs {
+            Some(bib_errs) if biblatex >= yaml => {
+                bail!(format_biblatex_error(source_span, source, data, bib_errs))
             }
-        } else {
-            bail!(format_biblatex_error(source_span, source, data, bib_errs))
+            _ => {
+                if let Some(loc) = haya_err.location() {
+                    let line = loc.line();
+                    bail!(source_span, "failed to parse YAML ({line}: {haya_err})")
+                } else {
+                    bail!(source_span, "failed to parse YAML ({haya_err})")
+                }
+            }
         }
     }
 }
