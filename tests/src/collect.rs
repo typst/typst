@@ -30,7 +30,8 @@ pub struct Test {
 
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} ({})", self.name, self.pos)
+        // underline path
+        write!(f, "{} (\x1B[4m{}\x1B[0m)", self.name, self.pos)
     }
 }
 
