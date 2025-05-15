@@ -76,10 +76,14 @@ pub(super) struct Current {
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
     /// The height of the region after repeated headers were placed and footers
-    /// prepared.
+    /// prepared. This also includes pending repeating headers from the start,
+    /// even if they were not repeated yet, since they will be repeated in the
+    /// next region anyway (bar orphan prevention).
     ///
     /// This is used to quickly tell if any additional space in the region has
-    /// been occupied since then.
+    /// been occupied since then, meaning that additional space will become
+    /// available after a region break (see
+    /// [`GridLayouter::may_progress_with_repeats`]).
     pub(super) initial_after_repeats: Abs,
     /// Whether `layouter.regions.may_progress()` was `true` at the top of the
     /// region.

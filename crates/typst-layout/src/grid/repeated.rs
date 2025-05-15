@@ -329,13 +329,22 @@ impl<'a> GridLayouter<'a> {
         self.current.repeated_header_rows = self.current.lrows.len();
         self.current.initial_after_repeats = self.regions.size.y;
 
+        let mut has_non_repeated_pending_header = false;
         for header in self.pending_headers {
+            if matches!(header, Repeatable::NotRepeated(_)) {
+                self.current.initial_after_repeats = self.regions.size.y;
+                has_non_repeated_pending_header = true;
+            }
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
             if matches!(header, Repeatable::Repeated(_)) {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
             }
+        }
+
+        if !has_non_repeated_pending_header {
+            self.current.initial_after_repeats = self.regions.size.y;
         }
 
         if !may_progress {
@@ -396,6 +405,8 @@ impl<'a> GridLayouter<'a> {
             self.current.lrows_orphan_snapshot = Some(self.current.lrows.len());
         }
 
+        let mut at_top = self.regions.size.y == self.current.initial_after_repeats;
+
         self.unbreakable_rows_left +=
             total_header_row_count(headers.iter().map(Repeatable::unwrap));
 
@@ -412,6 +423,11 @@ impl<'a> GridLayouter<'a> {
             if !short_lived && matches!(header, Repeatable::Repeated(_)) {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
+                if at_top {
+                    self.current.initial_after_repeats = self.regions.size.y;
+                }
+            } else {
+                at_top = false;
             }
         }
 
