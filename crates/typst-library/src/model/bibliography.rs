@@ -656,15 +656,7 @@ impl<'a> Generator<'a> {
 
                 let supplement = child.supplement.get_cloned(StyleChain::default());
                 let locator = supplement.as_ref().map(|c| {
-                    // let mut hasher = DefaultHasher::new();
-                    // c.hash(&mut hasher);
-                    // let content_hash = hasher.finish();
-
-                    let plain_text = c.plain_text();
-                    // println!("plain_text: {}", plain_text);
-                    // println!("{c:?}");
-
-                    let id = *supplement_ids.entry(plain_text).or_insert_with(|| {
+                    let id = *supplement_ids.entry(c.plain_text()).or_insert_with(|| {
                         let id = next_supplement_id;
                         next_supplement_id += 1;
                         id
