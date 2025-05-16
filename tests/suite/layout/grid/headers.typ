@@ -279,6 +279,51 @@
   table.cell(rowspan: 3, lines(15))
 )
 
+--- grid-header-and-rowspan-contiguous-1 ---
+// Block should occupy all space
+#set page(height: 15em)
+
+#table(
+  rows: (auto, 2.5em, 2em, auto),
+  gutter: 3pt,
+  inset: 0pt,
+  table.header(
+    [*H*],
+    [*W*]
+  ),
+  table.cell(rowspan: 3, block(height: 2.5em + 2em + 20em, width: 100%, fill: red))
+)
+
+--- grid-header-and-rowspan-contiguous-2 ---
+// Block should occupy all space
+#set page(height: 15em)
+
+#table(
+  rows: (auto, 2.5em, 10em, 5em, auto),
+  gutter: 3pt,
+  inset: 0pt,
+  table.header(
+    [*H*],
+    [*W*]
+  ),
+  table.cell(rowspan: 3, block(height: 2.5em + 2em + 20em, width: 100%, fill: red))
+)
+
+--- grid-header-and-large-auto-contiguous ---
+// Block should occupy all space
+#set page(height: 15em)
+
+#table(
+  rows: (auto, 4.5em, auto),
+  gutter: 3pt,
+  inset: 0pt,
+  table.header(
+    [*H*],
+    [*W*]
+  ),
+  block(height: 2.5em + 2em + 20em, width: 100%, fill: red)
+)
+
 --- grid-header-lack-of-space ---
 // Test lack of space for header + text.
 #set page(height: 8em)
