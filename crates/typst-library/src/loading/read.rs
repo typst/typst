@@ -1,11 +1,10 @@
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, FileError, SourceResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{func, Cast};
-use crate::loading::Readable;
-use crate::World;
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads plain text or data from a file.
 ///
@@ -36,14 +35,10 @@ pub fn read(
     #[default(Some(Encoding::Utf8))]
     encoding: Option<Encoding>,
 ) -> SourceResult<Readable> {
-    let Spanned { v: path, span } = path;
-    let id = span.resolve_path(&path).at(span)?;
-    let data = engine.world.file(id).at(span)?;
+    let data = path.map(DataSource::Path).load(engine.world)?;
     Ok(match encoding {
-        None => Readable::Bytes(data),
-        Some(Encoding::Utf8) => {
-            Readable::Str(data.to_str().map_err(FileError::from).at(span)?)
-        }
+        None => Readable::Bytes(data.bytes),
+        Some(Encoding::Utf8) => Readable::Str(data.as_str()?.into()),
     })
 }
 

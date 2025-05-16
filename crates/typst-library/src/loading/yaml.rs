@@ -1,10 +1,10 @@
-use ecow::eco_format;
+use ecow::{eco_format, EcoVec};
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{Data, DataSource, LineCol, Load, Readable, ReportPos};
 
 /// Reads structured data from a YAML file.
 ///
@@ -45,9 +45,8 @@ pub fn yaml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    serde_yaml::from_slice(data.as_slice())
-        .map_err(|err| eco_format!("failed to parse YAML ({err})"))
-        .at(source.span)
+    serde_yaml::from_slice(data.bytes.as_slice())
+        .map_err(|err| format_yaml_error(&data, err))
 }
 
 #[scope]
@@ -75,4 +74,19 @@ impl yaml {
             .map_err(|err| eco_format!("failed to encode value as YAML ({err})"))
             .at(span)
     }
+}
+
+pub fn format_yaml_error(
+    data: &Data,
+    error: serde_yaml::Error,
+) -> EcoVec<SourceDiagnostic> {
+    let pos = error
+        .location()
+        .map(|loc| {
+            let line_col = LineCol::one_based(loc.line(), loc.column());
+            let range = loc.index()..loc.index();
+            ReportPos::Full(range, line_col)
+        })
+        .unwrap_or_default();
+    data.err_at(pos, "failed to parse YAML", error)
 }

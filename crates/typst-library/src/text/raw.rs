@@ -3,23 +3,23 @@ use std::ops::Range;
 use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
-use syntect::highlighting as synt;
-use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use ecow::{EcoString, EcoVec};
+use syntect::highlighting::{self as synt};
+use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{At, FileError, SourceResult, StrResult};
+use crate::diag::{SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
-    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    cast, elem, scope, Content, Derived, NativeElement, OneOrMultiple, Packed, PlainText,
+    Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
-use crate::loading::{DataSource, Load};
+use crate::loading::{Data, DataSource, LineCol, Load, ReportPos};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
@@ -540,32 +540,18 @@ impl RawSyntax {
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Vec<RawSyntax>>> {
         let data = sources.load(world)?;
-        let list = sources
-            .v
-            .0
-            .iter()
-            .zip(&data)
-            .map(|(source, data)| Self::decode(source, data))
-            .collect::<StrResult<_>>()
-            .at(sources.span)?;
+        let list = data.iter().map(Self::decode).collect::<SourceResult<_>>()?;
         Ok(Derived::new(sources.v, list))
     }
 
     /// Decode a syntax from a loaded source.
     #[comemo::memoize]
     #[typst_macros::time(name = "load syntaxes")]
-    fn decode(source: &DataSource, data: &Bytes) -> StrResult<RawSyntax> {
-        let src = data.as_str().map_err(FileError::from)?;
-        let syntax = SyntaxDefinition::load_from_str(src, false, None).map_err(
-            |err| match source {
-                DataSource::Path(path) => {
-                    eco_format!("failed to parse syntax file `{path}` ({err})")
-                }
-                DataSource::Bytes(_) => {
-                    eco_format!("failed to parse syntax ({err})")
-                }
-            },
-        )?;
+    fn decode(data: &Data) -> SourceResult<RawSyntax> {
+        let str = data.as_str()?;
+
+        let syntax = SyntaxDefinition::load_from_str(str, false, None)
+            .map_err(|err| format_syntax_error(data, err))?;
 
         let mut builder = SyntaxSetBuilder::new();
         builder.add(syntax);
@@ -582,6 +568,24 @@ impl RawSyntax {
     }
 }
 
+fn format_syntax_error(data: &Data, error: ParseSyntaxError) -> EcoVec<SourceDiagnostic> {
+    let pos = syntax_error_pos(&error);
+    data.err_at(pos, "failed to parse syntax", error)
+}
+
+fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
+    match error {
+        ParseSyntaxError::InvalidYaml(scan_error) => {
+            let m = scan_error.marker();
+            ReportPos::Full(
+                m.index()..m.index(),
+                LineCol::one_based(m.line(), m.col() + 1),
+            )
+        }
+        _ => ReportPos::None,
+    }
+}
+
 /// A loaded syntect theme.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct RawTheme(Arc<ManuallyHash<synt::Theme>>);
@@ -593,16 +597,16 @@ impl RawTheme {
         source: Spanned<DataSource>,
     ) -> SourceResult<Derived<DataSource, Self>> {
         let data = source.load(world)?;
-        let theme = Self::decode(&data).at(source.span)?;
+        let theme = Self::decode(&data)?;
         Ok(Derived::new(source.v, theme))
     }
 
     /// Decode a theme from bytes.
     #[comemo::memoize]
-    fn decode(data: &Bytes) -> StrResult<RawTheme> {
-        let mut cursor = std::io::Cursor::new(data.as_slice());
+    fn decode(data: &Data) -> SourceResult<RawTheme> {
+        let mut cursor = std::io::Cursor::new(data.bytes.as_slice());
         let theme = synt::ThemeSet::load_from_reader(&mut cursor)
-            .map_err(|err| eco_format!("failed to parse theme ({err})"))?;
+            .map_err(|err| format_theme_error(data, err))?;
         Ok(RawTheme(Arc::new(ManuallyHash::new(theme, typst_utils::hash128(data)))))
     }
 
@@ -610,6 +614,17 @@ impl RawTheme {
     pub fn get(&self) -> &synt::Theme {
         self.0.as_ref()
     }
+}
+
+fn format_theme_error(
+    data: &Data,
+    error: syntect::LoadingError,
+) -> EcoVec<SourceDiagnostic> {
+    let pos = match &error {
+        syntect::LoadingError::ParseSyntax(err, _) => syntax_error_pos(err),
+        _ => ReportPos::None,
+    };
+    data.err_at(pos, "failed to parse theme", error)
 }
 
 /// A highlighted line of raw text.

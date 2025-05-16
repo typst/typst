@@ -24,7 +24,7 @@ pub fn cbor(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    ciborium::from_reader(data.as_slice())
+    ciborium::from_reader(data.bytes.as_slice())
         .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
         .at(source.span)
 }

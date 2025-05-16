@@ -1,10 +1,10 @@
-use ecow::{eco_format, EcoString};
-use typst_syntax::{is_newline, Spanned};
+use ecow::{eco_format, EcoVec};
+use typst_syntax::Spanned;
 
-use crate::diag::{At, FileError, SourceResult};
+use crate::diag::{At, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{Data, DataSource, Load, Readable, ReportPos};
 
 /// Reads structured data from a TOML file.
 ///
@@ -33,10 +33,8 @@ pub fn toml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    let raw = data.as_str().map_err(FileError::from).at(source.span)?;
-    ::toml::from_str(raw)
-        .map_err(|err| format_toml_error(err, raw))
-        .at(source.span)
+    let raw = data.as_str()?;
+    ::toml::from_str(raw).map_err(|err| format_toml_error(&data, err))
 }
 
 #[scope]
@@ -71,15 +69,7 @@ impl toml {
 }
 
 /// Format the user-facing TOML error message.
-fn format_toml_error(error: ::toml::de::Error, raw: &str) -> EcoString {
-    if let Some(head) = error.span().and_then(|range| raw.get(..range.start)) {
-        let line = head.lines().count();
-        let column = 1 + head.chars().rev().take_while(|&c| !is_newline(c)).count();
-        eco_format!(
-            "failed to parse TOML ({} at line {line} column {column})",
-            error.message(),
-        )
-    } else {
-        eco_format!("failed to parse TOML ({})", error.message())
-    }
+fn format_toml_error(data: &Data, error: ::toml::de::Error) -> EcoVec<SourceDiagnostic> {
+    let pos = error.span().map(ReportPos::Range).unwrap_or_default();
+    data.err_at(pos, "failed to parse TOML", error.message())
 }
