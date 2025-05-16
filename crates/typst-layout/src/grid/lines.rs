@@ -503,6 +503,10 @@ pub fn hline_stroke_at_column(
     // hlines would appear at the same position, which then are prioritized.
     let top_stroke_comes_from_header = header_end_above.zip(local_top_y).is_some_and(
         |(last_repeated_header_end, local_top_y)| {
+            // Check if the last repeated header row is above this line.
+            //
+            // Note that `y == last_repeated_header_end` is impossible for a
+            // strictly repeated header (not in its original position).
             local_top_y < last_repeated_header_end && y > last_repeated_header_end
         },
     );

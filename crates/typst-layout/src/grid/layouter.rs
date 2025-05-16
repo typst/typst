@@ -1375,14 +1375,9 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Skip to fitting region, but only if we aren't part of an unbreakable
-        // row group. We use 'may_progress_with_offset' so our 'may_progress'
-        // call properly considers that a header and a footer would be added
-        // on each region break, so we only keep skipping regions until we
-        // reach one with the same height of the 'last' region (which can be
-        // endlessly repeated) when subtracting header and footer height.
-        //
-        // See 'check_for_unbreakable_rows' as for why we're using
-        // 'repeating_header_height' to predict header height.
+        // row group. We use 'may_progress_with_repeats' to stop trying if we
+        // would skip to a region with the same height and where the same
+        // headers would be repeated.
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
@@ -1525,6 +1520,9 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         last: bool,
     ) -> SourceResult<()> {
+        // The latest rows have orphan prevention (headers) and no other rows
+        // were placed, so remove those rows and try again in a new region,
+        // unless this is the last region.
         if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take() {
             if !last {
                 self.current.lrows.truncate(orphan_snapshot);
@@ -1572,9 +1570,11 @@ impl<'a> GridLayouter<'a> {
             if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
                 // Don't layout the footer if it would be alone with the header
                 // in the page (hence the widow check), and don't layout it
-                // twice.
-                // TODO: this check can be replaced by a vector of repeating
-                // footers in the future.
+                // twice (check below).
+                //
+                // TODO(subfooters): this check can be replaced by a vector of
+                // repeating footers in the future, and/or some "pending
+                // footers" vector for footers we're about to place.
                 if self.current.lrows.iter().all(|row| row.index() < footer.start) {
                     laid_out_footer_start = Some(footer.start);
                     self.layout_footer(footer, engine, self.finished.len())?;

@@ -42,7 +42,6 @@ impl<'a> GridLayouter<'a> {
             }) && !next_header.short_lived
         }) {
             // More headers coming, so wait until we reach them.
-            // TODO: refactor
             return Ok(());
         }
 
@@ -238,8 +237,9 @@ impl<'a> GridLayouter<'a> {
                 Default::default(),
             );
 
-            // TODO: re-calculate heights of headers and footers on each region
-            // if 'full' changes? (Assuming height doesn't change for now...)
+            // TODO(layout model): re-calculate heights of headers and footers
+            // on each region if 'full' changes? (Assuming height doesn't
+            // change for now...)
             skipped_region = true;
 
             self.regions.size.y -= self.current.footer_height;
@@ -370,8 +370,6 @@ impl<'a> GridLayouter<'a> {
             0,
         )?;
 
-        // TODO: remove this 'unbreakable rows left check',
-        // consider if we can already be in an unbreakable row group?
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_height)
             && self.may_progress_with_repeats()
@@ -482,9 +480,12 @@ impl<'a> GridLayouter<'a> {
             skipped_region = true;
         }
 
-        // TODO: Consider resetting header height etc. if we skip region.
+        // TODO(subfooters): Consider resetting header height etc. if we skip
+        // region. (Maybe move that step to `finish_region_internal`.)
+        //
         // That is unnecessary at the moment as 'prepare_footers' is only
-        // called at the start of the region, but what about when we can have
+        // called at the start of the region, so header height is always zero
+        // and no headers were placed so far, but what about when we can have
         // footers in the middle of the region? Let's think about this then.
         self.current.footer_height = if skipped_region {
             // Simulate the footer again; the region's 'full' might have

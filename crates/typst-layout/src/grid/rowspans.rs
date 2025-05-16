@@ -241,9 +241,10 @@ impl GridLayouter<'_> {
             if let Some(Repeatable::NotRepeated(footer)) = &self.grid.footer {
                 if current_row >= footer.start {
                     // Non-repeated footer, so keep it unbreakable.
-                    // TODO: This will become unnecessary once non-repeated
-                    // footers are treated differently and have widow
-                    // prevention.
+                    //
+                    // TODO(subfooters): This will become unnecessary
+                    // once non-repeated footers are treated differently and
+                    // have widow prevention.
                     amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
                 }
             }
