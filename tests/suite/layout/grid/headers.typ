@@ -158,6 +158,41 @@
   [b]
 )
 
+--- grid-header-too-large-repeating-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a\ ] * 5,
+    repeat: true,
+  ),
+  [b]
+)
+
+--- grid-header-too-large-repeating-orphan-with-footer ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a\ ] * 5,
+    repeat: true,
+  ),
+  [b],
+  grid.footer(
+    [c],
+    repeat: true,
+  )
+)
+
+--- grid-header-too-large-repeating-orphan-not-at-first-row ---
+#set page(height: 8em)
+#grid(
+  [b],
+  grid.header(
+    [a\ ] * 5,
+    repeat: true,
+  ),
+  [c],
+)
+
 --- table-header-in-grid ---
 // Error: 2:3-2:20 cannot use `table.header` as a grid header
 // Hint: 2:3-2:20 use `grid.header` instead
