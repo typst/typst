@@ -65,6 +65,8 @@
 #test(datetime.today().display(), "1970-01-01")
 #test(datetime.today(offset: auto).display(), "1970-01-01")
 #test(datetime.today(offset: 2).display(), "1970-01-01")
+#test(datetime.today(offset: 24).display(), "1970-01-02")
+#test(datetime.today(offset: -24).display(), "1969-12-31")
 
 --- datetime-ordinal paged ---
 // Test date methods.
