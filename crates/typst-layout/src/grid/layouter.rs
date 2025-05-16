@@ -122,8 +122,13 @@ pub(super) struct Current {
     /// until they fit and are not orphans in at least one region (or exactly
     /// one, for non-repeated headers).
     pub(super) lrows_orphan_snapshot: Option<usize>,
-    /// The total simulated height for all headers currently in
-    /// `repeating_headers` and `pending_headers`.
+    /// The height of effectively repeating headers, that is, ignoring
+    /// non-repeating pending headers, in the current region.
+    ///
+    /// This is used by multi-page auto rows so they can inform cell layout on
+    /// how much space should be taken by headers if they break across regions.
+    /// In particular, non-repeating headers only occupy the initial region,
+    /// but disappear on new regions, so they can be ignored.
     ///
     /// This field is reset on each new region and properly updated by
     /// `layout_auto_row` and `layout_relative_row`, and should not be read
@@ -135,14 +140,6 @@ pub(super) struct Current {
     /// updated whenever a new header is found, subtracting the height of
     /// headers which stopped repeating and adding the height of all new
     /// headers.
-    pub(super) header_height: Abs,
-    /// The height of effectively repeating headers, that is, ignoring
-    /// non-repeating pending headers.
-    ///
-    /// This is used by multi-page auto rows so they can inform cell layout on
-    /// how much space should be taken by headers if they break across regions.
-    /// In particular, non-repeating headers only occupy the initial region,
-    /// but disappear on new regions, so they can be ignored.
     pub(super) repeating_header_height: Abs,
     /// The height for each repeating header that was placed in this region.
     /// Note that this includes headers not at the top of the region, before
@@ -261,7 +258,6 @@ impl<'a> GridLayouter<'a> {
                 repeated_header_rows: 0,
                 last_repeated_header_end: 0,
                 lrows_orphan_snapshot: None,
-                header_height: Abs::zero(),
                 repeating_header_height: Abs::zero(),
                 repeating_header_heights: vec![],
                 footer_height: Abs::zero(),
@@ -1731,7 +1727,6 @@ impl<'a> GridLayouter<'a> {
         if !last {
             self.current.repeated_header_rows = 0;
             self.current.last_repeated_header_end = 0;
-            self.current.header_height = Abs::zero();
             self.current.repeating_header_height = Abs::zero();
             self.current.repeating_header_heights.clear();
 

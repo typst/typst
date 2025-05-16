@@ -138,11 +138,6 @@ impl<'a> GridLayouter<'a> {
             self.current.repeating_header_height -= removed_height;
         }
 
-        // Non-repeating headers stop at the pending stage for orphan
-        // prevention only. Flushing pending headers, so those will no longer
-        // appear in a future region.
-        self.current.header_height = self.current.repeating_header_height;
-
         // Let's try to place them at least once.
         // This might be a waste as we could generate an orphan and thus have
         // to try to place old and new headers all over again, but that happens
@@ -280,7 +275,6 @@ impl<'a> GridLayouter<'a> {
 
         // Reset the header height for this region.
         // It will be re-calculated when laying out each header row.
-        self.current.header_height = Abs::zero();
         self.current.repeating_header_height = Abs::zero();
         self.current.repeating_header_heights.clear();
 
@@ -306,7 +300,6 @@ impl<'a> GridLayouter<'a> {
         while let Some(&header) = self.repeating_headers.get(i) {
             let header_height =
                 self.layout_header_rows(header, engine, disambiguator, false)?;
-            self.current.header_height += header_height;
             self.current.repeating_header_height += header_height;
 
             // We assume that this vector will be sorted according
@@ -338,7 +331,6 @@ impl<'a> GridLayouter<'a> {
         for header in self.pending_headers {
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
-            self.current.header_height += header_height;
             if matches!(header, Repeatable::Repeated(_)) {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
@@ -418,12 +410,9 @@ impl<'a> GridLayouter<'a> {
             // it is guaranteed this header won't appear in a future
             // region, so multi-page rows and cells can effectively ignore
             // this header.
-            if !short_lived {
-                self.current.header_height += header_height;
-                if matches!(header, Repeatable::Repeated(_)) {
-                    self.current.repeating_header_height += header_height;
-                    self.current.repeating_header_heights.push(header_height);
-                }
+            if !short_lived && matches!(header, Repeatable::Repeated(_)) {
+                self.current.repeating_header_height += header_height;
+                self.current.repeating_header_heights.push(header_height);
             }
         }
 
