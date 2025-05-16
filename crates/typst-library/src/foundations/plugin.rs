@@ -152,7 +152,7 @@ pub fn plugin(
     source: Spanned<DataSource>,
 ) -> SourceResult<Module> {
     let data = source.load(engine.world)?;
-    Plugin::module(data).at(source.span)
+    Plugin::module(data.bytes).at(source.span)
 }
 
 #[scope]
