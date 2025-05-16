@@ -1251,6 +1251,7 @@ impl<'a> RowspanSimulator<'a> {
 
     /// Similar to [`GridLayouter::may_progress_with_repeats`] but for rowspan
     /// simulation.
+    #[inline]
     fn may_progress_with_repeats(&self) -> bool {
         self.could_progress_at_top
             || self.regions.last.is_some()

@@ -18,6 +18,7 @@ impl<'a> GridLayouter<'a> {
     ///    (`regions.last` is still `Some()`) and non-repeating rows have been
     ///    placed, since that means the space they occupy will be available in the
     ///    next region.
+    #[inline]
     pub fn may_progress_with_repeats(&self) -> bool {
         // TODO(subfooters): check below isn't enough to detect non-repeating
         // footers... we can also change 'initial_after_repeats' to stop being
