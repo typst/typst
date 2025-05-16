@@ -592,9 +592,12 @@ impl<'a> GridLayouter<'a> {
                 // Header's lines at the bottom have priority when repeated.
                 // This will store the end bound of the last header if the
                 // current iteration is calculating lines under it.
-                let last_repeated_header_end_above = finished_header_rows
-                    .filter(|info| prev_y.is_some() && i == info.repeated_amount)
-                    .map(|info| info.last_repeated_header_end);
+                let last_repeated_header_end_above = match finished_header_rows {
+                    Some(info) if prev_y.is_some() && i == info.repeated_amount => {
+                        Some(info.last_repeated_header_end)
+                    }
+                    _ => None,
+                };
 
                 // If some grid rows were omitted between the previous resolved
                 // row and the current one, we ensure lines below the previous
@@ -606,17 +609,20 @@ impl<'a> GridLayouter<'a> {
                 // last row in the header is removed, in which case we append
                 // both the lines under the row above us and also (later) the
                 // lines under the header's (removed) last row.
-                let prev_lines = prev_y
-                    .filter(|prev_y| {
-                        prev_y + 1 != y
+                let prev_lines = match prev_y {
+                    Some(prev_y)
+                        if prev_y + 1 != y
                             && last_repeated_header_end_above.is_none_or(
                                 |last_repeated_header_end| {
                                     prev_y + 1 != last_repeated_header_end
                                 },
-                            )
-                    })
-                    .map(|prev_y| get_hlines_at(prev_y + 1))
-                    .unwrap_or(&[]);
+                            ) =>
+                    {
+                        get_hlines_at(prev_y + 1)
+                    }
+
+                    _ => &[],
+                };
 
                 let expected_hline_position =
                     expected_line_position(y, y == self.grid.rows.len());
@@ -634,14 +640,13 @@ impl<'a> GridLayouter<'a> {
                 };
 
                 let mut expected_header_line_position = LinePosition::Before;
-                let header_hlines = if let Some((header_end_above, prev_y)) =
-                    last_repeated_header_end_above.zip(prev_y)
-                {
-                    if !self.grid.has_gutter
-                        || matches!(
-                            self.grid.rows[prev_y],
-                            Sizing::Rel(length) if length.is_zero()
-                        )
+                let header_hlines = match (last_repeated_header_end_above, prev_y) {
+                    (Some(header_end_above), Some(prev_y))
+                        if !self.grid.has_gutter
+                            || matches!(
+                                self.grid.rows[prev_y],
+                                Sizing::Rel(length) if length.is_zero()
+                            ) =>
                     {
                         // For lines below a header, give priority to the
                         // lines originally below the header rather than
@@ -664,11 +669,9 @@ impl<'a> GridLayouter<'a> {
                             header_end_above == self.grid.rows.len(),
                         );
                         get_hlines_at(header_end_above)
-                    } else {
-                        &[]
                     }
-                } else {
-                    &[]
+
+                    _ => &[],
                 };
 
                 // The effective hlines to be considered at this row index are
