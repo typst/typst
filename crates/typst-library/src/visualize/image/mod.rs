@@ -66,7 +66,7 @@ pub struct ImageElem {
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
         let data = source.load(engine.world)?;
-        Derived::new(source.v, data)
+        Derived::new(source.v, data.bytes)
     )]
     pub source: Derived<DataSource, Bytes>,
 
@@ -155,7 +155,7 @@ pub struct ImageElem {
     #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
             let data = Spanned::new(&source, span).load(engine.world)?;
-            Derived::new(source, data)
+            Derived::new(source, data.bytes)
         })),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,

@@ -1,10 +1,10 @@
-use ecow::{eco_format, EcoString};
+use ecow::EcoVec;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{Data, DataSource, LineCol, Load, Readable, ReportPos};
 
 /// Reads structured data from a CSV file.
 ///
@@ -53,7 +53,7 @@ pub fn csv(
 
     // Counting lines from 1 by default.
     let mut line_offset: usize = 1;
-    let mut reader = builder.from_reader(data.as_slice());
+    let mut reader = builder.from_reader(data.bytes.as_slice());
     let mut headers: Option<::csv::StringRecord> = None;
 
     if has_headers {
@@ -62,9 +62,8 @@ pub fn csv(
         headers = Some(
             reader
                 .headers()
-                .map_err(|err| format_csv_error(err, 1))
-                .at(source.span)?
-                .clone(),
+                .cloned()
+                .map_err(|err| format_csv_error(&data, err, 1))?,
         );
     }
 
@@ -74,7 +73,7 @@ pub fn csv(
         // incorrect with `has_headers` set to `false`. See issue:
         // https://github.com/BurntSushi/rust-csv/issues/184
         let line = line + line_offset;
-        let row = result.map_err(|err| format_csv_error(err, line)).at(source.span)?;
+        let row = result.map_err(|err| format_csv_error(&data, err, line))?;
         let item = if let Some(headers) = &headers {
             let mut dict = Dict::new();
             for (field, value) in headers.iter().zip(&row) {
@@ -164,15 +163,25 @@ cast! {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(err: ::csv::Error, line: usize) -> EcoString {
+fn format_csv_error(
+    data: &Data,
+    err: ::csv::Error,
+    line: usize,
+) -> EcoVec<SourceDiagnostic> {
+    let msg = "failed to parse CSV";
+    let pos = (err.kind().position())
+        .map(|pos| {
+            let start = pos.byte() as usize;
+            ReportPos::Range(start..start)
+        })
+        .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
-        ::csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
+        ::csv::ErrorKind::Utf8 { .. } => data.err_at(pos, msg, "file is not valid utf-8"),
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-            eco_format!(
-                "failed to parse CSV (found {len} instead of \
-                 {expected_len} fields in line {line})"
-            )
+            let err =
+                format!("found {len} instead of {expected_len} fields in line {line}");
+            data.err_at(pos, msg, err)
         }
-        _ => eco_format!("failed to parse CSV ({err})"),
+        _ => data.err_at(pos, "failed to parse CSV", err),
     }
 }

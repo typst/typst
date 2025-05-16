@@ -4,7 +4,7 @@ use typst_syntax::Spanned;
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, LineCol, Load, Readable};
 
 /// Reads structured data from a JSON file.
 ///
@@ -55,9 +55,10 @@ pub fn json(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    serde_json::from_slice(data.as_slice())
-        .map_err(|err| eco_format!("failed to parse JSON ({err})"))
-        .at(source.span)
+    serde_json::from_slice(data.bytes.as_slice()).map_err(|err| {
+        let pos = LineCol::one_based(err.line(), err.column());
+        data.err_at(pos, "failed to parse JSON", err)
+    })
 }
 
 #[scope]
