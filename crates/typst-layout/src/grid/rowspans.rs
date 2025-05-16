@@ -900,18 +900,8 @@ impl GridLayouter<'_> {
         // which, when used and combined with upcoming spanned rows, covers all
         // of the requested rowspan height, we give up.
         for _attempt in 0..5 {
-            let rowspan_simulator = RowspanSimulator::new(
-                disambiguator,
-                simulated_regions,
-                // There can be no new headers or footers within a multi-page
-                // rowspan, since headers and footers are unbreakable, so
-                // assuming the repeating header height and footer height
-                // won't change is safe.
-                self.current.repeating_header_height,
-                self.current.footer_height,
-                self.current.could_progress_at_top,
-                self.current.initial_after_repeats,
-            );
+            let rowspan_simulator =
+                RowspanSimulator::new(disambiguator, simulated_regions, &self.current);
 
             let total_spanned_height = rowspan_simulator.simulate_rowspan_layout(
                 y,
@@ -1035,18 +1025,19 @@ impl<'a> RowspanSimulator<'a> {
     fn new(
         finished: usize,
         regions: Regions<'a>,
-        header_height: Abs,
-        footer_height: Abs,
-        could_progress_at_top: bool,
-        initial_after_repeats: Abs,
+        current: &super::layouter::Current,
     ) -> Self {
         Self {
             finished,
             regions,
-            header_height,
-            footer_height,
-            could_progress_at_top,
-            initial_after_repeats,
+            // There can be no new headers or footers within a multi-page
+            // rowspan, since headers and footers are unbreakable, so
+            // assuming the repeating header height and footer height
+            // won't change is safe.
+            header_height: current.repeating_header_height,
+            footer_height: current.footer_height,
+            could_progress_at_top: current.could_progress_at_top,
+            initial_after_repeats: current.initial_after_repeats,
             total_spanned_height: Abs::zero(),
             latest_spanned_gutter_height: Abs::zero(),
         }
