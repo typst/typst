@@ -1535,11 +1535,6 @@ impl<'a> GridLayouter<'a> {
                 if orphan_snapshot == 0 {
                     // Removed all repeated headers.
                     self.current.last_repeated_header_end = 0;
-
-                    // Although the footer is still subtracted, it should also
-                    // be removed by widow prevention, so we'll get ahead of
-                    // ourselves here.
-                    self.current.initial_after_repeats = self.current.initial.y;
                 }
             }
         }
@@ -1564,13 +1559,14 @@ impl<'a> GridLayouter<'a> {
         // the grid resolving stage if it is short-lived, that is, if
         // it is at the start of the table (or right after headers at
         // the start of the table).
+        //
         // TODO(subfooters): explicitly check for short-lived footers.
         // TODO(subfooters): widow prevention for non-repeated footers with a
         // similar mechanism / when implementing multiple footers.
         let footer_would_be_widow =
             matches!(self.grid.footer, Some(Repeatable::Repeated(_)))
                 && self.current.lrows.is_empty()
-                && self.may_progress_with_repeats();
+                && self.current.could_progress_at_top;
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
@@ -1774,6 +1770,8 @@ impl<'a> GridLayouter<'a> {
         // represent the initial height after repeats laid out so far, and will
         // be gradually updated when preparing footers and repeating headers.
         self.current.initial_after_repeats = self.current.initial.y;
+
+        self.current.could_progress_at_top = self.regions.may_progress();
 
         if !self.grid.headers.is_empty() {
             self.finished_header_rows.push(header_row_info);
