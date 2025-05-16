@@ -11,13 +11,13 @@ impl<'a> GridLayouter<'a> {
     /// space for the next row. The criteria are:
     ///
     /// 1. If we could progress at the top of the region, that indicates the
-    /// region has a backlog, or (if we're at the first region) a region break
-    /// is at all possible (`regions.last` is `Some()`), so that's sufficient.
+    ///    region has a backlog, or (if we're at the first region) a region break
+    ///    is at all possible (`regions.last` is `Some()`), so that's sufficient.
     ///
     /// 2. Otherwise, we may progress if another region break is possible
-    /// (`regions.last` is still `Some()`) and non-repeating rows have been
-    /// placed, since that means the space they occupy will be available in the
-    /// next region.
+    ///    (`regions.last` is still `Some()`) and non-repeating rows have been
+    ///    placed, since that means the space they occupy will be available in the
+    ///    next region.
     pub fn may_progress_with_repeats(&self) -> bool {
         // TODO(subfooters): check below isn't enough to detect non-repeating
         // footers... we can also change 'initial_after_repeats' to stop being
