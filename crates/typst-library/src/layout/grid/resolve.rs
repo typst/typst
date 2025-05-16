@@ -445,7 +445,7 @@ pub struct Header {
 }
 
 /// A repeatable grid footer. Stops at the last row.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Footer {
     /// The first row included in this footer.
     pub start: usize,
@@ -470,6 +470,7 @@ impl Footer {
 /// It still exists even when not repeatable, but must not have additional
 /// considerations by grid layout, other than for consistency (such as making
 /// a certain group of rows unbreakable).
+#[derive(Debug, Clone)]
 pub struct Repeatable<T> {
     inner: T,
 
@@ -763,7 +764,8 @@ impl<'a> CellGrid<'a> {
             vlines,
             hlines,
             headers,
-            footers: footer.into_iter().collect(),
+            footers,
+            sorted_footers,
             has_gutter,
         }
     }
@@ -2406,11 +2408,9 @@ fn skip_auto_index_through_fully_merged_rows(
 /// at which they start repeating. When a new footer is about to be laid out,
 /// conflicting footers which come before it in this vector must stop
 /// repeating.
-fn simulate_footer_repetition(
-    footers: &[Repeatable<Footer>],
-) -> Vec<&Repeatable<Footer>> {
+fn simulate_footer_repetition(footers: &[Repeatable<Footer>]) -> Vec<Repeatable<Footer>> {
     if footers.len() <= 1 {
-        return footers.iter().collect();
+        return footers.iter().cloned().collect();
     }
 
     let mut ordered_footers = Vec::with_capacity(footers.len());
@@ -2432,7 +2432,7 @@ fn simulate_footer_repetition(
         // If they stopped repeating here, that's when they will start
         // repeating. We save them in reverse of the reverse order so they stay
         // sorted by increasing levels when we reverse `ordered_footers` later.
-        ordered_footers.extend(stopped_repeating.rev());
+        ordered_footers.extend(stopped_repeating.rev().cloned());
 
         if footer.repeated {
             // Start repeating now. Vector stays sorted by increasing levels,
@@ -2440,7 +2440,7 @@ fn simulate_footer_repetition(
             repeating_footers.push(footer);
         } else {
             // Immediately finishes repeating.
-            ordered_footers.push(footer);
+            ordered_footers.push(footer.clone());
         }
     }
 
