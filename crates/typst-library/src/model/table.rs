@@ -292,12 +292,33 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         elem(tag::tr, Content::sequence(row))
     };
 
-    // TODO(subfooters): similarly to headers, take consecutive footers from
-    // the end for 'tfoot'.
-    let footer = grid.footer.map(|ft| {
-        let rows = rows.drain(ft.start..);
-        elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
-    });
+    // Store all consecutive headers at the start in 'tfoot'. All remaining
+    // headers are just normal rows across the table body. (There doesn't
+    // appear to be an equivalent of 'th' for footers in HTML.)
+    // TODO: test
+    let footer = {
+        let mut consecutive_footer_start = grid.footers.len();
+        let footers_at_end = grid
+            .footers
+            .iter()
+            .rev()
+            .take_while(|ft| {
+                let is_consecutive = ft.end == consecutive_footer_start;
+                consecutive_footer_start = ft.start;
+
+                is_consecutive
+            })
+            .count();
+
+        if footers_at_end > 0 {
+            let last_mid_table_footer = grid.footers.len() - footers_at_end;
+            let rows = rows.drain(last_mid_table_footer..);
+
+            Some(elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row)))))
+        } else {
+            None
+        }
+    };
 
     // Store all consecutive headers at the start in 'thead'. All remaining
     // headers are just 'th' rows across the table body.
