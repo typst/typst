@@ -240,6 +240,8 @@ impl<'a> GridLayouter<'a> {
             // TODO(layout model): re-calculate heights of headers and footers
             // on each region if 'full' changes? (Assuming height doesn't
             // change for now...)
+            //
+            // Would remove the footer height update below (move it here).
             skipped_region = true;
 
             self.regions.size.y -= self.current.footer_height;
@@ -250,7 +252,6 @@ impl<'a> GridLayouter<'a> {
             if skipped_region {
                 // Simulate the footer again; the region's 'full' might have
                 // changed.
-                // TODO: maybe this should go in the loop, a bit hacky as is...
                 self.regions.size.y += self.current.footer_height;
                 self.current.footer_height = self
                     .simulate_footer(footer, &self.regions, engine, disambiguator)?

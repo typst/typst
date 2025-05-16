@@ -527,23 +527,7 @@ impl GridLayouter<'_> {
                         // we have to use initial header heights (note that
                         // header height can change in the middle of the
                         // region).
-                        // TODO: maybe cache this
-                        // NOTE: it is safe to access 'lrows' here since
-                        // 'breakable' can only be true outside of headers
-                        // and unbreakable rows in general, so there is no risk
-                        // of accessing an incomplete list of rows.
-                        let initial_header_height = self.current.lrows
-                            [..self.current.repeated_header_rows]
-                            .iter()
-                            .map(|row| match row {
-                                Row::Frame(frame, _, _) => frame.height(),
-                                Row::Fr(_, _, _) => Abs::zero(),
-                            })
-                            .sum();
-
-                        self.current.initial.y
-                            - initial_header_height
-                            - self.current.footer_height
+                        self.current.initial_after_repeats
                     } else {
                         // When measuring unbreakable auto rows, infinite
                         // height is available for content to expand.
