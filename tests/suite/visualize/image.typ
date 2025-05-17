@@ -167,7 +167,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/plugins/hello.wasm")
 
 --- image-bad-svg ---
-// Error: 2-33 failed to parse SVG (found closing tag 'g' instead of 'style' in line 4)
+// Error: "/assets/images/bad.svg" 4:0 failed to parse SVG (found closing tag 'g' instead of 'style' at 4:3)
 #image("/assets/images/bad.svg")
 
 --- image-decode-svg ---

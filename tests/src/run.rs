@@ -7,13 +7,15 @@ use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, Warned};
 use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
+use typst::loading::LineCol;
 use typst::visualize::Color;
-use typst::{Document, WorldExt};
+use typst::{Document, World, WorldExt};
 use typst_pdf::PdfOptions;
+use typst_syntax::FileId;
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
-use crate::world::TestWorld;
+use crate::world::{system_path, TestWorld};
 
 /// Runs a single test.
 ///
@@ -117,7 +119,7 @@ impl<'a> Runner<'a> {
             if seen {
                 continue;
             }
-            let note_range = self.format_range(&note.range);
+            let note_range = self.format_range(note.file, &note.range);
             if first {
                 log!(self, "not emitted");
                 first = false;
@@ -208,10 +210,6 @@ impl<'a> Runner<'a> {
     /// Compare a subset of notes with a given kind against diagnostics of
     /// that same kind.
     fn check_diagnostic(&mut self, kind: NoteKind, diag: &SourceDiagnostic) {
-        // Ignore diagnostics from other sources than the test file itself.
-        if diag.span.id().is_some_and(|id| id != self.test.source.id()) {
-            return;
-        }
         // TODO: remove this once HTML export is stable
         if diag.message == "html export is under active development and incomplete" {
             return;
@@ -219,11 +217,11 @@ impl<'a> Runner<'a> {
 
         let message = diag.message.replace("\\", "/");
         let range = self.world.range(diag.span);
-        self.validate_note(kind, range.clone(), &message);
+        self.validate_note(kind, diag.span.id(), range.clone(), &message);
 
         // Check hints.
         for hint in &diag.hints {
-            self.validate_note(NoteKind::Hint, range.clone(), hint);
+            self.validate_note(NoteKind::Hint, diag.span.id(), range.clone(), hint);
         }
     }
 
@@ -235,15 +233,18 @@ impl<'a> Runner<'a> {
     fn validate_note(
         &mut self,
         kind: NoteKind,
+        file: Option<FileId>,
         range: Option<Range<usize>>,
         message: &str,
     ) {
         // Try to find perfect match.
+        let file = file.unwrap_or(self.test.source.id());
         if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
             !self.seen[i]
                 && note.kind == kind
                 && note.range == range
                 && note.message == message
+                && note.file == file
         }) {
             self.seen[i] = true;
             return;
@@ -257,7 +258,7 @@ impl<'a> Runner<'a> {
                 && (note.range == range || note.message == message)
         }) else {
             // Not even a close match, diagnostic is not annotated.
-            let diag_range = self.format_range(&range);
+            let diag_range = self.format_range(file, &range);
             log!(into: self.not_annotated, "  {kind}: {diag_range} {}", message);
             return;
         };
@@ -267,10 +268,10 @@ impl<'a> Runner<'a> {
 
         // Range is wrong.
         if range != note.range {
-            let note_range = self.format_range(&note.range);
-            let note_text = self.text_for_range(&note.range);
-            let diag_range = self.format_range(&range);
-            let diag_text = self.text_for_range(&range);
+            let note_range = self.format_range(note.file, &note.range);
+            let note_text = self.text_for_range(note.file, &note.range);
+            let diag_range = self.format_range(note.file, &range);
+            let diag_text = self.text_for_range(note.file, &range);
             log!(self, "mismatched range ({}):", note.pos);
             log!(self, "  message   | {}", note.message);
             log!(self, "  annotated | {note_range:<9} | {note_text}");
@@ -286,39 +287,63 @@ impl<'a> Runner<'a> {
     }
 
     /// Display the text for a range.
-    fn text_for_range(&self, range: &Option<Range<usize>>) -> String {
+    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No text".into() };
         if range.is_empty() {
             "(empty)".into()
+        } else if file == self.test.source.id() {
+            format!(
+                "`{}`",
+                self.test.source.text()[range.clone()]
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+            )
         } else {
-            format!("`{}`", self.test.source.text()[range.clone()].replace('\n', "\\n"))
+            let bytes = self.world.file(file).unwrap();
+            let text = String::from_utf8_lossy(&bytes);
+            format!("`{}`", text[range.clone()].replace('\n', "\\n").replace('\r', "\\r"))
         }
     }
 
     /// Display a byte range as a line:column range.
-    fn format_range(&self, range: &Option<Range<usize>>) -> String {
+    fn format_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No range".into() };
+
+        let mut preamble = String::new();
+        if file != self.test.source.id() {
+            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
+        }
+
         if range.start == range.end {
-            self.format_pos(range.start)
+            format!("{preamble}{}", self.format_pos(file, range.start))
         } else {
-            format!("{}-{}", self.format_pos(range.start,), self.format_pos(range.end,))
+            format!(
+                "{preamble}{}-{}",
+                self.format_pos(file, range.start),
+                self.format_pos(file, range.end)
+            )
         }
     }
 
     /// Display a position as a line:column pair.
-    fn format_pos(&self, pos: usize) -> String {
-        if let (Some(line_idx), Some(column_idx)) =
-            (self.test.source.byte_to_line(pos), self.test.source.byte_to_column(pos))
-        {
-            let line = self.test.pos.line + line_idx;
-            let column = column_idx + 1;
-            if line == 1 {
-                format!("{column}")
-            } else {
-                format!("{line}:{column}")
-            }
+    fn format_pos(&self, file: FileId, pos: usize) -> String {
+        let res = if file != self.test.source.id() {
+            let bytes = self.world.file(file).unwrap();
+            LineCol::from_byte_pos(pos, &bytes).map(|l| l.numbers())
         } else {
-            "oob".into()
+            let line = self.test.source.byte_to_line(pos).map(|l| l + 1);
+            let col = (self.test.source.byte_to_column(pos))
+                .map(|c| self.test.pos.line + c + 1);
+            Option::zip(line, col)
+        };
+        let Some((line, col)) = res else {
+            return "oob".into();
+        };
+
+        if line == 1 {
+            format!("{col}")
+        } else {
+            format!("{line}:{col}")
         }
     }
 }

@@ -6,7 +6,7 @@
 #test(data.at(2).weight, 150)
 
 --- json-invalid ---
-// Error: 7-30 failed to parse JSON (expected value at line 3 column 14)
+// Error: "/assets/data/bad.json" 3:14 failed to parse JSON (expected value at line 3 column 14)
 #json("/assets/data/bad.json")
 
 --- json-decode-deprecated ---
