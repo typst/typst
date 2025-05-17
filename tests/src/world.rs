@@ -149,7 +149,7 @@ impl FileSlot {
 }
 
 /// The file system path for a file ID.
-fn system_path(id: FileId) -> FileResult<PathBuf> {
+pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
     let root: PathBuf = match id.package() {
         Some(spec) => format!("tests/packages/{}-{}", spec.name, spec.version).into(),
         None => PathBuf::new(),
@@ -159,7 +159,7 @@ fn system_path(id: FileId) -> FileResult<PathBuf> {
 }
 
 /// Read a file.
-fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
+pub(crate) fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
     // Resolve asset.
     if let Ok(suffix) = path.strip_prefix("assets/") {
         return typst_dev_assets::get(&suffix.to_string_lossy())

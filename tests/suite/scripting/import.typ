@@ -334,6 +334,7 @@
 
 --- import-cyclic-in-other-file ---
 // Cyclic import in other file.
+// error: "./modules/cycle1.typ" 2:29-2:51 file is not valid utf-8
 #import "./modules/cycle1.typ": *
 
 This is never reached.
