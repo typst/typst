@@ -9,10 +9,10 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Span, Spanned, SyntaxError};
+use typst_syntax::{Lines, Span, Spanned, SyntaxError};
 
 use crate::engine::Engine;
-use crate::loading::{Loaded, LineCol};
+use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -566,6 +566,144 @@ impl Display for PackageError {
 impl From<PackageError> for EcoString {
     fn from(err: PackageError) -> Self {
         eco_format!("{err}")
+    }
+}
+
+impl Loaded {
+    /// Report an error, possibly in an external file.
+    pub fn err_in_text(
+        &self,
+        pos: impl Into<ReportPos>,
+        msg: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> EcoVec<SourceDiagnostic> {
+        let lines = Lines::from_bytes(&self.bytes);
+        match (self.source.v, lines) {
+            // Only report an error in an external file,
+            // if it is human readable (valid utf-8).
+            (LoadSource::Path(file_id), Ok(lines)) => {
+                let pos = pos.into();
+                if let Some(range) = pos.range(&lines) {
+                    let span = Span::from_range(file_id, range);
+                    return eco_vec!(error!(span, "{msg} ({error})"));
+                }
+
+                // Either `ReportPos::None` was provided, or resolving the range
+                // from the line/column failed. If present report the possibly
+                // wrong line/column in the error message anyway.
+                let span = Span::from_range(file_id, 0..self.bytes.len());
+                let error = if let Some(pair) = pos.line_col(&lines) {
+                    let (line, col) = pair.numbers();
+                    error!(span, "{msg} ({error} at {line}:{col})")
+                } else {
+                    error!(span, "{msg} ({error})")
+                };
+                eco_vec![error]
+            }
+            _ => self.err_in_bytes(pos, msg, error),
+        }
+    }
+
+    /// Report an error, possibly in an external file.
+    pub fn err_in_bytes(
+        &self,
+        pos: impl Into<ReportPos>,
+        msg: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> EcoVec<SourceDiagnostic> {
+        let pos = pos.into();
+        let result = Lines::from_bytes(&self.bytes).ok().and_then(|l| pos.line_col(&l));
+        let error = if let Some(pair) = result {
+            let (line, col) = pair.numbers();
+            error!(self.source.span, "{msg} ({error} at {line}:{col})")
+        } else {
+            error!(self.source.span, "{msg} ({error})")
+        };
+        eco_vec![error]
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ReportPos {
+    /// Contains the range, and the 0-based line/column.
+    Full(std::ops::Range<usize>, LineCol),
+    /// Contains the range.
+    Range(std::ops::Range<usize>),
+    /// Contains the 0-based line/column.
+    LineCol(LineCol),
+    #[default]
+    None,
+}
+
+impl From<std::ops::Range<usize>> for ReportPos {
+    fn from(value: std::ops::Range<usize>) -> Self {
+        Self::Range(value)
+    }
+}
+
+impl From<LineCol> for ReportPos {
+    fn from(value: LineCol) -> Self {
+        Self::LineCol(value)
+    }
+}
+
+impl ReportPos {
+    fn range(&self, lines: &Lines<String>) -> Option<std::ops::Range<usize>> {
+        match self {
+            ReportPos::Full(range, _) => Some(range.clone()),
+            ReportPos::Range(range) => Some(range.clone()),
+            &ReportPos::LineCol(pair) => {
+                let i = lines.line_column_to_byte(pair.line, pair.col)?;
+                Some(i..i)
+            }
+            ReportPos::None => None,
+        }
+    }
+
+    fn line_col(&self, lines: &Lines<String>) -> Option<LineCol> {
+        match self {
+            &ReportPos::Full(_, pair) => Some(pair),
+            ReportPos::Range(range) => {
+                let (line, col) = lines.byte_to_line_column(range.start)?;
+                Some(LineCol::zero_based(line, col))
+            }
+            &ReportPos::LineCol(pair) => Some(pair),
+            ReportPos::None => None,
+        }
+    }
+}
+
+/// A line/column pair.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LineCol {
+    /// The 0-based line.
+    line: usize,
+    /// The 0-based column.
+    col: usize,
+}
+
+impl LineCol {
+    /// Constructs the line/column pair from 0-based indices.
+    pub fn zero_based(line: usize, col: usize) -> Self {
+        Self { line, col }
+    }
+
+    /// Constructs the line/column pair from 1-based numbers.
+    pub fn one_based(line: usize, col: usize) -> Self {
+        Self {
+            line: line.saturating_sub(1),
+            col: col.saturating_sub(1),
+        }
+    }
+
+    /// Returns the 0-based line/column indices.
+    pub fn indices(&self) -> (usize, usize) {
+        (self.line, self.col)
+    }
+
+    /// Returns the 1-based line/column numbers.
+    pub fn numbers(&self) -> (usize, usize) {
+        (self.line + 1, self.col + 1)
     }
 }
 

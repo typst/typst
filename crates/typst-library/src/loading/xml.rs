@@ -5,7 +5,7 @@ use typst_syntax::Spanned;
 use crate::diag::{format_xml_like_error, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
-use crate::loading::{Loaded, DataSource, Load, Readable};
+use crate::loading::{DataSource, Load, Loaded, Readable};
 
 /// Reads structured data from an XML file.
 ///
