@@ -20,7 +20,8 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{
-    bail, error, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult,
+    bail, error, At, HintedStrResult, ReportPos, SourceDiagnostic, SourceResult,
+    StrResult,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
@@ -33,7 +34,7 @@ use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sides, Sizing, TrackSizings,
 };
-use crate::loading::{format_yaml_error, Loaded, DataSource, Load, LoadSource, ReportPos};
+use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, Loaded};
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
@@ -480,7 +481,9 @@ impl CslStyle {
                     typst_utils::hash128(&(TypeId::of::<Bytes>(), data)),
                 )))
             })
-            .map_err(|err| data.err_in_text(ReportPos::None, "failed to load CSL style", err))
+            .map_err(|err| {
+                data.err_in_text(ReportPos::None, "failed to load CSL style", err)
+            })
     }
 
     /// Get the underlying independent style.

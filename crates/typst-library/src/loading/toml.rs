@@ -1,10 +1,10 @@
 use ecow::{eco_format, EcoVec};
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceDiagnostic, SourceResult};
+use crate::diag::{At, ReportPos, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{Loaded, DataSource, Load, Readable, ReportPos};
+use crate::loading::{DataSource, Load, Loaded, Readable};
 
 /// Reads structured data from a TOML file.
 ///
@@ -69,7 +69,10 @@ impl toml {
 }
 
 /// Format the user-facing TOML error message.
-fn format_toml_error(data: &Loaded, error: ::toml::de::Error) -> EcoVec<SourceDiagnostic> {
+fn format_toml_error(
+    data: &Loaded,
+    error: ::toml::de::Error,
+) -> EcoVec<SourceDiagnostic> {
     let pos = error.span().map(ReportPos::Range).unwrap_or_default();
     data.err_in_text(pos, "failed to parse TOML", error.message())
 }

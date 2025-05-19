@@ -7,11 +7,10 @@ use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, Warned};
 use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
-use typst::loading::LineCol;
 use typst::visualize::Color;
 use typst::{Document, World, WorldExt};
 use typst_pdf::PdfOptions;
-use typst_syntax::FileId;
+use typst_syntax::{FileId, Lines};
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
@@ -329,12 +328,12 @@ impl<'a> Runner<'a> {
     fn format_pos(&self, file: FileId, pos: usize) -> String {
         let res = if file != self.test.source.id() {
             let bytes = self.world.file(file).unwrap();
-            LineCol::from_byte_pos(pos, &bytes).map(|l| l.numbers())
+            let lines = Lines::from_bytes(&bytes).unwrap();
+            lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1))
         } else {
-            let line = self.test.source.byte_to_line(pos).map(|l| l + 1);
-            let col = (self.test.source.byte_to_column(pos))
-                .map(|c| self.test.pos.line + c + 1);
-            Option::zip(line, col)
+            (self.test.source.lines())
+                .byte_to_line_column(pos)
+                .map(|(line, col)| (line + 1, col + 1))
         };
         let Some((line, col)) = res else {
             return "oob".into();

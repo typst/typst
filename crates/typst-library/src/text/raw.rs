@@ -11,7 +11,7 @@ use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{LineCol, ReportPos, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Derived, NativeElement, OneOrMultiple, Packed, PlainText,
@@ -19,7 +19,7 @@ use crate::foundations::{
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
-use crate::loading::{DataSource, LineCol, Load, Loaded, ReportPos};
+use crate::loading::{DataSource, Load, Loaded};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;

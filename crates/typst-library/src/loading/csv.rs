@@ -1,10 +1,10 @@
 use ecow::EcoVec;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, LineCol, ReportPos, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
-use crate::loading::{Loaded, DataSource, LineCol, Load, Readable, ReportPos};
+use crate::loading::{DataSource, Load, Loaded, Readable};
 
 /// Reads structured data from a CSV file.
 ///
@@ -176,7 +176,9 @@ fn format_csv_error(
         })
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
-        ::csv::ErrorKind::Utf8 { .. } => data.err_in_text(pos, msg, "file is not valid utf-8"),
+        ::csv::ErrorKind::Utf8 { .. } => {
+            data.err_in_text(pos, msg, "file is not valid utf-8")
+        }
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =
                 format!("found {len} instead of {expected_len} fields in line {line}");
