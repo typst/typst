@@ -4,7 +4,7 @@ use typst_syntax::Spanned;
 use crate::diag::{At, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{Data, DataSource, LineCol, Load, Readable, ReportPos};
+use crate::loading::{Loaded, DataSource, LineCol, Load, Readable, ReportPos};
 
 /// Reads structured data from a YAML file.
 ///
@@ -77,7 +77,7 @@ impl yaml {
 }
 
 pub fn format_yaml_error(
-    data: &Data,
+    data: &Loaded,
     error: serde_yaml::Error,
 ) -> EcoVec<SourceDiagnostic> {
     let pos = error
