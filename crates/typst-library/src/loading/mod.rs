@@ -145,7 +145,7 @@ impl Loaded {
             let start = err.valid_up_to();
             let end = start + err.error_len().unwrap_or(0);
             // always report this error in the source file.
-            self.err_in_bytes(
+            self.err_in_invalid_text(
                 start..end,
                 "failed to convert to string",
                 FileError::from(err),
