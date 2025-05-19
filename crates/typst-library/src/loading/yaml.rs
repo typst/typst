@@ -88,5 +88,5 @@ pub fn format_yaml_error(
             ReportPos::Full(range, line_col)
         })
         .unwrap_or_default();
-    data.err_at(pos, "failed to parse YAML", error)
+    data.err_in_text(pos, "failed to parse YAML", error)
 }

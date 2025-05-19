@@ -19,7 +19,7 @@ use crate::foundations::{
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
-use crate::loading::{Loaded, DataSource, LineCol, Load, ReportPos};
+use crate::loading::{DataSource, LineCol, Load, Loaded, ReportPos};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
@@ -568,9 +568,12 @@ impl RawSyntax {
     }
 }
 
-fn format_syntax_error(data: &Loaded, error: ParseSyntaxError) -> EcoVec<SourceDiagnostic> {
+fn format_syntax_error(
+    data: &Loaded,
+    error: ParseSyntaxError,
+) -> EcoVec<SourceDiagnostic> {
     let pos = syntax_error_pos(&error);
-    data.err_at(pos, "failed to parse syntax", error)
+    data.err_in_text(pos, "failed to parse syntax", error)
 }
 
 fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
@@ -624,7 +627,7 @@ fn format_theme_error(
         syntect::LoadingError::ParseSyntax(err, _) => syntax_error_pos(err),
         _ => ReportPos::None,
     };
-    data.err_at(pos, "failed to parse theme", error)
+    data.err_in_text(pos, "failed to parse theme", error)
 }
 
 /// A highlighted line of raw text.

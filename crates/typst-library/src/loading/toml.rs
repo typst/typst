@@ -71,5 +71,5 @@ impl toml {
 /// Format the user-facing TOML error message.
 fn format_toml_error(data: &Loaded, error: ::toml::de::Error) -> EcoVec<SourceDiagnostic> {
     let pos = error.span().map(ReportPos::Range).unwrap_or_default();
-    data.err_at(pos, "failed to parse TOML", error.message())
+    data.err_in_text(pos, "failed to parse TOML", error.message())
 }
