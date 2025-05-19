@@ -425,7 +425,7 @@ fn format_biblatex_error(
     // TODO: return multiple errors?
     let Some(error) = errors.into_iter().next() else {
         // TODO: can this even happen, should we just unwrap?
-        return data.err_at(ReportPos::None, "failed to parse BibLaTeX", "???");
+        return data.err_in_text(ReportPos::None, "failed to parse BibLaTeX", "???");
     };
 
     let (range, msg) = match error {
@@ -433,7 +433,7 @@ fn format_biblatex_error(
         BibLaTeXError::Type(error) => (error.span, error.kind.to_string()),
     };
 
-    data.err_at(range, "failed to parse BibLaTeX", msg)
+    data.err_in_text(range, "failed to parse BibLaTeX", msg)
 }
 
 /// A loaded CSL style.
@@ -480,7 +480,7 @@ impl CslStyle {
                     typst_utils::hash128(&(TypeId::of::<Bytes>(), data)),
                 )))
             })
-            .map_err(|err| data.err_at(ReportPos::None, "failed to load CSL style", err))
+            .map_err(|err| data.err_in_text(ReportPos::None, "failed to load CSL style", err))
     }
 
     /// Get the underlying independent style.

@@ -145,12 +145,12 @@ impl Loaded {
             // TODO: should the error even be reported in the file if it's possibly binary?
             let start = err.valid_up_to();
             let end = start + err.error_len().unwrap_or(0);
-            self.err_at(start..end, "failed to convert to string", FileError::from(err))
+            self.err_in_text(start..end, "failed to convert to string", FileError::from(err))
         })
     }
 
     /// Report an error, possibly in an external file.
-    pub fn err_at(
+    pub fn err_in_text(
         &self,
         pos: impl Into<ReportPos>,
         msg: impl std::fmt::Display,

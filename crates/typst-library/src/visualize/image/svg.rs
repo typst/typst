@@ -137,7 +137,7 @@ fn format_usvg_error(error: usvg::Error) -> EcoString {
         usvg::Error::ParsingFailed(error) => {
             format_xml_like_error("SVG", &Loaded::dummy(), error)
                 .pop()
-                .unwrap()
+                .expect("at least one error")
                 .message
         }
     }
