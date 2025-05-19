@@ -9,7 +9,7 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
-use crate::loading::Data;
+use crate::loading::Loaded;
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
@@ -135,7 +135,7 @@ fn format_usvg_error(error: usvg::Error) -> EcoString {
             "failed to parse SVG (width, height, or viewbox is invalid)".into()
         }
         usvg::Error::ParsingFailed(error) => {
-            format_xml_like_error("SVG", &Data::dummy(), error)
+            format_xml_like_error("SVG", &Loaded::dummy(), error)
                 .pop()
                 .unwrap()
                 .message
