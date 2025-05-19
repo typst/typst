@@ -269,8 +269,8 @@ impl<'a> Runner<'a> {
         if range != note.range {
             let note_range = self.format_range(note.file, &note.range);
             let note_text = self.text_for_range(note.file, &note.range);
-            let diag_range = self.format_range(note.file, &range);
-            let diag_text = self.text_for_range(note.file, &range);
+            let diag_range = self.format_range(file, &range);
+            let diag_text = self.text_for_range(file, &range);
             log!(self, "mismatched range ({}):", note.pos);
             log!(self, "  message   | {}", note.message);
             log!(self, "  annotated | {note_range:<9} | {note_text}");
@@ -299,7 +299,7 @@ impl<'a> Runner<'a> {
             )
         } else {
             let bytes = self.world.file(file).unwrap();
-            let text = String::from_utf8_lossy(&bytes);
+            let text = std::str::from_utf8(&bytes).unwrap();
             format!("`{}`", text[range.clone()].replace('\n', "\\n").replace('\r', "\\r"))
         }
     }
