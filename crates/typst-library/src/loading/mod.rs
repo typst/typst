@@ -18,6 +18,7 @@ mod yaml_;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst_syntax::{FileId, Span, Spanned};
+use utf8_iter::ErrorReportingUtf8Chars;
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
@@ -260,8 +261,6 @@ impl LineCol {
         }
     }
 
-    // TODO: this function should only return None if the position is out of
-    // bounds not if there is invalid utf-8
     pub fn from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
@@ -270,10 +269,9 @@ impl LineCol {
             .last()
             .map(|i| i + 1)
             .unwrap_or(bytes.len());
-        // TODO: streaming-utf8 decoding ignore invalid characters
-        // might neeed to update error reporting too (use utf8_iter)
-        let str = std::str::from_utf8(&bytes[line_start..]).ok()?;
-        let col = str.chars().count();
+
+        // Try to compute a column even if the string isn't valid utf-8.
+        let col = ErrorReportingUtf8Chars::new(&bytes[line_start..]).count();
         Some(LineCol::zero_based(line, col))
     }
 
@@ -319,18 +317,15 @@ impl LineCol {
     }
 }
 
-// TODO: this function should only return None if the position is out of
-// bounds not if there is invalid utf-8
 fn col_offset(line_offset: usize, col: usize, bytes: &[u8]) -> Option<usize> {
     let line = &bytes[line_offset..];
     // TODO: streaming-utf8 decoding ignore invalid characters
     // might neeed to update error reporting too (use utf8_iter)
-
-    // validate the whole line, so it can be displayed
-    let len = memchr::memchr(b'\n', line).unwrap_or(line.len());
-    let str = std::str::from_utf8(&line[..len]).ok()?;
     if let Some(idx) = col.checked_sub(1) {
-        str.char_indices().nth(idx).map(|(i, c)| i + c.len_utf8())
+        // Try to compute position even if the string isn't valid utf-8.
+        let mut iter = ErrorReportingUtf8Chars::new(line);
+        _ = iter.nth(idx)?;
+        Some(line.len() - iter.as_slice().len())
     } else {
         Some(0)
     }
