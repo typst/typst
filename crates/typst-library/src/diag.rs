@@ -10,6 +10,7 @@ use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Lines, Span, Spanned, SyntaxError};
+use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
 use crate::loading::{LoadSource, Loaded};
@@ -577,12 +578,12 @@ impl Loaded {
         msg: impl std::fmt::Display,
         error: impl std::fmt::Display,
     ) -> EcoVec<SourceDiagnostic> {
+        let pos = pos.into();
         let lines = Lines::from_bytes(&self.bytes);
         match (self.source.v, lines) {
             // Only report an error in an external file,
             // if it is human readable (valid utf-8).
             (LoadSource::Path(file_id), Ok(lines)) => {
-                let pos = pos.into();
                 if let Some(range) = pos.range(&lines) {
                     let span = Span::from_range(file_id, range);
                     return eco_vec!(error!(span, "{msg} ({error})"));
@@ -600,20 +601,28 @@ impl Loaded {
                 };
                 eco_vec![error]
             }
-            _ => self.err_in_bytes(pos, msg, error),
+            (_, Ok(lines)) => {
+                let error = if let Some(pair) = pos.line_col(&lines) {
+                    let (line, col) = pair.numbers();
+                    error!(self.source.span, "{msg} ({error} at {line}:{col})")
+                } else {
+                    error!(self.source.span, "{msg} ({error})")
+                };
+                eco_vec![error]
+            }
+            _ => self.err_in_invalid_text(pos, msg, error),
         }
     }
 
     /// Report an error, possibly in an external file.
-    pub fn err_in_bytes(
+    pub fn err_in_invalid_text(
         &self,
         pos: impl Into<ReportPos>,
         msg: impl std::fmt::Display,
         error: impl std::fmt::Display,
     ) -> EcoVec<SourceDiagnostic> {
         let pos = pos.into();
-        let result = Lines::from_bytes(&self.bytes).ok().and_then(|l| pos.line_col(&l));
-        let error = if let Some(pair) = result {
+        let error = if let Some(pair) = pos.try_line_col(&self.bytes) {
             let (line, col) = pair.numbers();
             error!(self.source.span, "{msg} ({error} at {line}:{col})")
         } else {
@@ -671,6 +680,17 @@ impl ReportPos {
             ReportPos::None => None,
         }
     }
+
+    /// Either get the the line/column pair, or try to compute it from possibly
+    /// invalid utf-8 data.
+    fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
+        match self {
+            &ReportPos::Full(_, pair) => Some(pair),
+            ReportPos::Range(range) => LineCol::try_from_byte_pos(range.start, bytes),
+            &ReportPos::LineCol(pair) => Some(pair),
+            ReportPos::None => None,
+        }
+    }
 }
 
 /// A line/column pair.
@@ -694,6 +714,20 @@ impl LineCol {
             line: line.saturating_sub(1),
             col: col.saturating_sub(1),
         }
+    }
+
+    /// Try to compute a line/column pair from possibly invalid utf-8 data.
+    pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
+        let bytes = &bytes[..pos];
+        let mut line = 0;
+        let line_start = memchr::memchr_iter(b'\n', bytes)
+            .inspect(|_| line += 1)
+            .last()
+            .map(|i| i + 1)
+            .unwrap_or(bytes.len());
+
+        let col = ErrorReportingUtf8Chars::new(&bytes[line_start..]).count();
+        Some(LineCol::zero_based(line, col))
     }
 
     /// Returns the 0-based line/column indices.
