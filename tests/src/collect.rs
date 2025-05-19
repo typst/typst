@@ -6,9 +6,11 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
-use typst::loading::LineCol;
+use typst::diag::LineCol;
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
+use typst_syntax::{
+    is_id_continue, is_ident, is_newline, FileId, Lines, Source, VirtualPath,
+};
 use unscanny::Scanner;
 
 use crate::world::{read, system_path};
@@ -426,11 +428,17 @@ impl<'a> Parser<'a> {
         }
 
         let start = self.parse_line_col()?;
+        let lines = Lines::from_bytes(text.as_ref()).expect("Errors shouldn't be annotated for files that aren't human readable (not valid utf-8)");
         let range = if self.s.eat_if('-') {
             let end = self.parse_line_col()?;
-            LineCol::byte_range(start..end, &text)
+            let (line, col) = start.indices();
+            let start = lines.line_column_to_byte(line, col);
+            let (line, col) = end.indices();
+            let end = lines.line_column_to_byte(line, col);
+            Option::zip(start, end).map(|(a, b)| a..b)
         } else {
-            start.byte_pos(&text).map(|i| i..i)
+            let (line, col) = start.indices();
+            lines.line_column_to_byte(line, col).map(|i| i..i)
         };
         if range.is_none() {
             self.error("range is out of bounds");
@@ -484,13 +492,13 @@ impl<'a> Parser<'a> {
         let line_idx = (line_idx_in_test + comments).checked_add_signed(line_delta)?;
         let column_idx = if column < 0 {
             // Negative column index is from the back.
-            let range = source.line_to_range(line_idx)?;
+            let range = source.lines().line_to_range(line_idx)?;
             text[range].chars().count().saturating_add_signed(column)
         } else {
             usize::try_from(column).ok()?.checked_sub(1)?
         };
 
-        source.line_column_to_byte(line_idx, column_idx)
+        source.lines().line_column_to_byte(line_idx, column_idx)
     }
 
     /// Parse a number.

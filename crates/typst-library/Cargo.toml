@@ -66,7 +66,6 @@ unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }
-utf8_iter = { workspace = true }
 wasmi = { workspace = true }
 xmlwriter = { workspace = true }
 

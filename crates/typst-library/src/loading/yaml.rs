@@ -1,10 +1,10 @@
 use ecow::{eco_format, EcoVec};
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceDiagnostic, SourceResult};
+use crate::diag::{At, LineCol, ReportPos, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{Loaded, DataSource, LineCol, Load, Readable, ReportPos};
+use crate::loading::{DataSource, Load, Loaded, Readable};
 
 /// Reads structured data from a YAML file.
 ///
