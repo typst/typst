@@ -19,7 +19,7 @@ use crate::foundations::{
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
-use crate::loading::{Data, DataSource, LineCol, Load, ReportPos};
+use crate::loading::{Loaded, DataSource, LineCol, Load, ReportPos};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
@@ -547,7 +547,7 @@ impl RawSyntax {
     /// Decode a syntax from a loaded source.
     #[comemo::memoize]
     #[typst_macros::time(name = "load syntaxes")]
-    fn decode(data: &Data) -> SourceResult<RawSyntax> {
+    fn decode(data: &Loaded) -> SourceResult<RawSyntax> {
         let str = data.as_str()?;
 
         let syntax = SyntaxDefinition::load_from_str(str, false, None)
@@ -568,7 +568,7 @@ impl RawSyntax {
     }
 }
 
-fn format_syntax_error(data: &Data, error: ParseSyntaxError) -> EcoVec<SourceDiagnostic> {
+fn format_syntax_error(data: &Loaded, error: ParseSyntaxError) -> EcoVec<SourceDiagnostic> {
     let pos = syntax_error_pos(&error);
     data.err_at(pos, "failed to parse syntax", error)
 }
@@ -603,7 +603,7 @@ impl RawTheme {
 
     /// Decode a theme from bytes.
     #[comemo::memoize]
-    fn decode(data: &Data) -> SourceResult<RawTheme> {
+    fn decode(data: &Loaded) -> SourceResult<RawTheme> {
         let mut cursor = std::io::Cursor::new(data.bytes.as_slice());
         let theme = synt::ThemeSet::load_from_reader(&mut cursor)
             .map_err(|err| format_theme_error(data, err))?;
@@ -617,7 +617,7 @@ impl RawTheme {
 }
 
 fn format_theme_error(
-    data: &Data,
+    data: &Loaded,
     error: syntect::LoadingError,
 ) -> EcoVec<SourceDiagnostic> {
     let pos = match &error {

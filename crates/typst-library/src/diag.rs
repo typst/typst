@@ -12,7 +12,7 @@ use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Span, Spanned, SyntaxError};
 
 use crate::engine::Engine;
-use crate::loading::{Data, LineCol};
+use crate::loading::{Loaded, LineCol};
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -572,7 +572,7 @@ impl From<PackageError> for EcoString {
 /// Format a user-facing error message for an XML-like file format.
 pub fn format_xml_like_error(
     format: &str,
-    data: &Data,
+    data: &Loaded,
     error: roxmltree::Error,
 ) -> EcoVec<SourceDiagnostic> {
     let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);

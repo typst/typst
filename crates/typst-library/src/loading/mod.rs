@@ -74,7 +74,7 @@ pub trait Load {
 }
 
 impl Load for Spanned<DataSource> {
-    type Output = Data;
+    type Output = Loaded;
 
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.as_ref().load(world)
@@ -82,7 +82,7 @@ impl Load for Spanned<DataSource> {
 }
 
 impl Load for Spanned<&DataSource> {
-    type Output = Data;
+    type Output = Loaded;
 
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         match &self.v {
@@ -90,18 +90,18 @@ impl Load for Spanned<&DataSource> {
                 let file_id = self.span.resolve_path(path).at(self.span)?;
                 let bytes = world.file(file_id).at(self.span)?;
                 let source = Spanned::new(LoadSource::Path(file_id), self.span);
-                Ok(Data::new(source, bytes))
+                Ok(Loaded::new(source, bytes))
             }
             DataSource::Bytes(bytes) => {
                 let source = Spanned::new(LoadSource::Bytes, self.span);
-                Ok(Data::new(source, bytes.clone()))
+                Ok(Loaded::new(source, bytes.clone()))
             }
         }
     }
 }
 
 impl Load for Spanned<OneOrMultiple<DataSource>> {
-    type Output = Vec<Data>;
+    type Output = Vec<Loaded>;
 
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.as_ref().load(world)
@@ -109,7 +109,7 @@ impl Load for Spanned<OneOrMultiple<DataSource>> {
 }
 
 impl Load for Spanned<&OneOrMultiple<DataSource>> {
-    type Output = Vec<Data>;
+    type Output = Vec<Loaded>;
 
     fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.v
@@ -122,14 +122,14 @@ impl Load for Spanned<&OneOrMultiple<DataSource>> {
 
 /// Data loaded from a [`DataSource`].
 #[derive(Clone, Hash)]
-pub struct Data {
+pub struct Loaded {
     pub source: Spanned<LoadSource>,
     pub bytes: Bytes,
 }
 
-impl Data {
+impl Loaded {
     pub fn dummy() -> Self {
-        Data::new(
+        Loaded::new(
             typst_syntax::Spanned::new(LoadSource::Bytes, Span::detached()),
             Bytes::new([]),
         )
@@ -185,6 +185,13 @@ impl Data {
         };
         eco_vec![error]
     }
+}
+
+/// A loaded [`DataSource`].
+#[derive(Clone, Copy, Hash)]
+pub enum LoadSource {
+    Path(FileId),
+    Bytes,
 }
 
 #[derive(Debug, Default)]
@@ -327,13 +334,6 @@ fn col_offset(line_offset: usize, col: usize, bytes: &[u8]) -> Option<usize> {
     } else {
         Some(0)
     }
-}
-
-/// A loaded [`DataSource`].
-#[derive(Clone, Copy, Hash)]
-pub enum LoadSource {
-    Path(FileId),
-    Bytes,
 }
 
 /// A value that can be read from a file.

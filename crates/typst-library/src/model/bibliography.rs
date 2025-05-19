@@ -33,7 +33,7 @@ use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sides, Sizing, TrackSizings,
 };
-use crate::loading::{format_yaml_error, Data, DataSource, Load, LoadSource, ReportPos};
+use crate::loading::{format_yaml_error, Loaded, DataSource, Load, LoadSource, ReportPos};
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
@@ -304,7 +304,7 @@ impl Bibliography {
     /// Decode a bibliography from loaded data sources.
     #[comemo::memoize]
     #[typst_macros::time(name = "load bibliography")]
-    fn decode(data: &[Data]) -> SourceResult<Bibliography> {
+    fn decode(data: &[Loaded]) -> SourceResult<Bibliography> {
         let mut map = IndexMap::new();
         // TODO: store spans of entries for duplicate key error messages
         let mut duplicates = Vec::<EcoString>::new();
@@ -354,7 +354,7 @@ impl Debug for Bibliography {
 }
 
 /// Decode on library from one data source.
-fn decode_library(data: &Data) -> SourceResult<Library> {
+fn decode_library(data: &Loaded) -> SourceResult<Library> {
     let str = data.as_str()?;
 
     if let LoadSource::Path(file_id) = data.source.v {
@@ -419,7 +419,7 @@ fn decode_library(data: &Data) -> SourceResult<Library> {
 
 /// Format a BibLaTeX loading error.
 fn format_biblatex_error(
-    data: &Data,
+    data: &Loaded,
     errors: Vec<BibLaTeXError>,
 ) -> EcoVec<SourceDiagnostic> {
     // TODO: return multiple errors?
@@ -471,7 +471,7 @@ impl CslStyle {
 
     /// Load a CSL style from file contents.
     #[comemo::memoize]
-    pub fn from_data(data: &Data) -> SourceResult<CslStyle> {
+    pub fn from_data(data: &Loaded) -> SourceResult<CslStyle> {
         let text = data.as_str()?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| {

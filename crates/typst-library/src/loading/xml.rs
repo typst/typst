@@ -5,7 +5,7 @@ use typst_syntax::Spanned;
 use crate::diag::{format_xml_like_error, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
-use crate::loading::{Data, DataSource, Load, Readable};
+use crate::loading::{Loaded, DataSource, Load, Readable};
 
 /// Reads structured data from an XML file.
 ///
@@ -110,6 +110,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(data: &Data, error: roxmltree::Error) -> EcoVec<SourceDiagnostic> {
+fn format_xml_error(data: &Loaded, error: roxmltree::Error) -> EcoVec<SourceDiagnostic> {
     format_xml_like_error("XML", data, error)
 }

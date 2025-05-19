@@ -4,7 +4,7 @@ use typst_syntax::Spanned;
 use crate::diag::{bail, SourceDiagnostic, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
-use crate::loading::{Data, DataSource, LineCol, Load, Readable, ReportPos};
+use crate::loading::{Loaded, DataSource, LineCol, Load, Readable, ReportPos};
 
 /// Reads structured data from a CSV file.
 ///
@@ -164,7 +164,7 @@ cast! {
 
 /// Format the user-facing CSV error message.
 fn format_csv_error(
-    data: &Data,
+    data: &Loaded,
     err: ::csv::Error,
     line: usize,
 ) -> EcoVec<SourceDiagnostic> {
