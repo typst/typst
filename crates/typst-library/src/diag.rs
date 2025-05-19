@@ -593,5 +593,5 @@ pub fn format_xml_like_error(
         err => err.to_string(),
     };
 
-    data.err_at(pos, msg, err)
+    data.err_in_text(pos, msg, err)
 }

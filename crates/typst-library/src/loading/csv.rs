@@ -176,12 +176,12 @@ fn format_csv_error(
         })
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
-        ::csv::ErrorKind::Utf8 { .. } => data.err_at(pos, msg, "file is not valid utf-8"),
+        ::csv::ErrorKind::Utf8 { .. } => data.err_in_text(pos, msg, "file is not valid utf-8"),
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =
                 format!("found {len} instead of {expected_len} fields in line {line}");
-            data.err_at(pos, msg, err)
+            data.err_in_text(pos, msg, err)
         }
-        _ => data.err_at(pos, "failed to parse CSV", err),
+        _ => data.err_in_text(pos, "failed to parse CSV", err),
     }
 }

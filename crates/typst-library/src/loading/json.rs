@@ -57,7 +57,7 @@ pub fn json(
     let data = source.load(engine.world)?;
     serde_json::from_slice(data.bytes.as_slice()).map_err(|err| {
         let pos = LineCol::one_based(err.line(), err.column());
-        data.err_at(pos, "failed to parse JSON", err)
+        data.err_in_text(pos, "failed to parse JSON", err)
     })
 }
 
