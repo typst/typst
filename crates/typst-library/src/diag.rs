@@ -653,7 +653,7 @@ impl Loaded {
                 };
                 eco_vec![error]
             }
-            (_, Ok(lines)) => {
+            (LoadSource::Bytes, Ok(lines)) => {
                 let error = if let Some(pair) = pos.line_col(&lines) {
                     let (line, col) = pair.numbers();
                     error!(self.source.span, "{msg} ({error} at {line}:{col})")
@@ -673,12 +673,27 @@ impl Loaded {
         msg: impl std::fmt::Display,
         error: impl std::fmt::Display,
     ) -> EcoVec<SourceDiagnostic> {
-        let pos = pos.into();
-        let error = if let Some(pair) = pos.try_line_col(&self.bytes) {
-            let (line, col) = pair.numbers();
-            error!(self.source.span, "{msg} ({error} at {line}:{col})")
-        } else {
-            error!(self.source.span, "{msg} ({error})")
+        let line_col = pos.into().try_line_col(&self.bytes).map(|p| p.numbers());
+        let error = match (self.source.v, line_col) {
+            (LoadSource::Path(file), _) => {
+                let path = if let Some(package) = file.package() {
+                    format!("{package}{}", file.vpath().as_rooted_path().display())
+                } else {
+                    format!("{}", file.vpath().as_rootless_path().display())
+                };
+
+                if let Some((line, col)) = line_col {
+                    error!(self.source.span, "{msg} ({error} in {path}:{line}:{col})")
+                } else {
+                    error!(self.source.span, "{msg} ({error} in {path})")
+                }
+            }
+            (LoadSource::Bytes, Some((line, col))) => {
+                error!(self.source.span, "{msg} ({error} at {line}:{col})")
+            }
+            (LoadSource::Bytes, None) => {
+                error!(self.source.span, "{msg} ({error})")
+            }
         };
         eco_vec![error]
     }
@@ -804,8 +819,8 @@ impl LineCol {
 /// Format a user-facing error message for an XML-like file format.
 pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError {
     let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);
-    let msg = eco_format!("failed to parse {format}");
-    let err = match error {
+    let message = eco_format!("failed to parse {format}");
+    let error = match error {
         roxmltree::Error::UnexpectedCloseTag(expected, actual, _) => {
             eco_format!("found closing tag '{actual}' instead of '{expected}'")
         }
@@ -821,5 +836,5 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
         err => eco_format!("{err}"),
     };
 
-    LoadError::new(pos, msg, err)
+    LoadError { pos: pos.into(), message, error }
 }
