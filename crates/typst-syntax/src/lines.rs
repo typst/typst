@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::is_newline;
 
-/// Metadata about lines.
+/// A text buffer and metadata about lines.
 #[derive(Clone)]
 pub struct Lines<S>(Arc<Repr<S>>);
 
