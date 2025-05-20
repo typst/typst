@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
+use az::SaturatingAs;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
@@ -680,11 +681,11 @@ impl Loaded {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ReportPos {
-    /// Contains the range, and the 0-based line/column.
-    Full(std::ops::Range<usize>, LineCol),
-    /// Contains the range.
-    Range(std::ops::Range<usize>),
-    /// Contains the 0-based line/column.
+    /// Contains a range, and a line/column pair.
+    Full(std::ops::Range<u32>, LineCol),
+    /// Contains a range.
+    Range(std::ops::Range<u32>),
+    /// Contains a line/column pair.
     LineCol(LineCol),
     #[default]
     None,
@@ -692,7 +693,7 @@ pub enum ReportPos {
 
 impl From<std::ops::Range<usize>> for ReportPos {
     fn from(value: std::ops::Range<usize>) -> Self {
-        Self::Range(value)
+        Self::Range(value.start.saturating_as()..value.end.saturating_as())
     }
 }
 
@@ -703,12 +704,18 @@ impl From<LineCol> for ReportPos {
 }
 
 impl ReportPos {
+    pub fn full(range: std::ops::Range<usize>, pair: LineCol) -> Self {
+        let range = range.start.saturating_as()..range.end.saturating_as();
+        Self::Full(range, pair)
+    }
+
     fn range(&self, lines: &Lines<String>) -> Option<std::ops::Range<usize>> {
         match self {
-            ReportPos::Full(range, _) => Some(range.clone()),
-            ReportPos::Range(range) => Some(range.clone()),
+            ReportPos::Full(range, _) => Some(range.start as usize..range.end as usize),
+            ReportPos::Range(range) => Some(range.start as usize..range.end as usize),
             &ReportPos::LineCol(pair) => {
-                let i = lines.line_column_to_byte(pair.line, pair.col)?;
+                let i =
+                    lines.line_column_to_byte(pair.line as usize, pair.col as usize)?;
                 Some(i..i)
             }
             ReportPos::None => None,
@@ -719,7 +726,7 @@ impl ReportPos {
         match self {
             &ReportPos::Full(_, pair) => Some(pair),
             ReportPos::Range(range) => {
-                let (line, col) = lines.byte_to_line_column(range.start)?;
+                let (line, col) = lines.byte_to_line_column(range.start as usize)?;
                 Some(LineCol::zero_based(line, col))
             }
             &ReportPos::LineCol(pair) => Some(pair),
@@ -732,7 +739,9 @@ impl ReportPos {
     fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
         match self {
             &ReportPos::Full(_, pair) => Some(pair),
-            ReportPos::Range(range) => LineCol::try_from_byte_pos(range.start, bytes),
+            ReportPos::Range(range) => {
+                LineCol::try_from_byte_pos(range.start as usize, bytes)
+            }
             &ReportPos::LineCol(pair) => Some(pair),
             ReportPos::None => None,
         }
@@ -743,23 +752,23 @@ impl ReportPos {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct LineCol {
     /// The 0-based line.
-    line: usize,
+    line: u32,
     /// The 0-based column.
-    col: usize,
+    col: u32,
 }
 
 impl LineCol {
     /// Constructs the line/column pair from 0-based indices.
     pub fn zero_based(line: usize, col: usize) -> Self {
-        Self { line, col }
+        Self {
+            line: line.saturating_as(),
+            col: col.saturating_as(),
+        }
     }
 
     /// Constructs the line/column pair from 1-based numbers.
     pub fn one_based(line: usize, col: usize) -> Self {
-        Self {
-            line: line.saturating_sub(1),
-            col: col.saturating_sub(1),
-        }
+        Self::zero_based(line.saturating_sub(1), col.saturating_sub(1))
     }
 
     /// Try to compute a line/column pair from possibly invalid utf-8 data.

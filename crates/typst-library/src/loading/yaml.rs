@@ -85,7 +85,7 @@ pub fn format_yaml_error(
         .map(|loc| {
             let line_col = LineCol::one_based(loc.line(), loc.column());
             let range = loc.index()..loc.index();
-            ReportPos::Full(range, line_col)
+            ReportPos::full(range, line_col)
         })
         .unwrap_or_default();
     data.err_in_text(pos, "failed to parse YAML", error)
