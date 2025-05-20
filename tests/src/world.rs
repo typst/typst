@@ -20,6 +20,7 @@ use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
 use typst::{Feature, Library, World};
+use typst_syntax::Lines;
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -83,6 +84,22 @@ impl TestWorld {
     {
         let mut map = self.base.slots.lock();
         f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
+    }
+
+    /// Lookup line metadata for a file by id.
+    #[track_caller]
+    pub fn lookup(&self, id: FileId) -> Lines<String> {
+        self.slot(id, |slot| {
+            if let Some(source) = slot.source.get() {
+                let source = source.as_ref().expect("file is not valid");
+                source.lines()
+            } else if let Some(bytes) = slot.file.get() {
+                let bytes = bytes.as_ref().expect("file is not valid");
+                Lines::from_bytes(bytes.as_slice()).expect("file is not valid utf-8")
+            } else {
+                panic!("file id does not point to any source file");
+            }
+        })
     }
 }
 

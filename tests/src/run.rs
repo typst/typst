@@ -10,7 +10,7 @@ use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst::{Document, World, WorldExt};
 use typst_pdf::PdfOptions;
-use typst_syntax::{FileId, Lines};
+use typst_syntax::FileId;
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
@@ -326,15 +326,9 @@ impl<'a> Runner<'a> {
 
     /// Display a position as a line:column pair.
     fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let res = if file != self.test.source.id() {
-            let bytes = self.world.file(file).unwrap();
-            let lines = Lines::from_bytes(&bytes).unwrap();
-            lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1))
-        } else {
-            (self.test.source.lines())
-                .byte_to_line_column(pos)
-                .map(|(line, col)| (line + 1, col + 1))
-        };
+        let lines = self.world.lookup(file);
+
+        let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
         let Some((line, col)) = res else {
             return "oob".into();
         };
