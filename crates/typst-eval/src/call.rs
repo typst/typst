@@ -404,12 +404,14 @@ fn wrap_args_in_math(
     if trailing_comma {
         body += SymbolElem::packed(',');
     }
-    Ok(Value::Content(
-        callee.display().spanned(callee_span)
-            + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
-                .pack()
-                .spanned(args.span),
-    ))
+
+    let formatted = callee.display().spanned(callee_span)
+        + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
+            .pack()
+            .spanned(args.span);
+
+    args.finish()?;
+    Ok(Value::Content(formatted))
 }
 
 /// Provide a hint if the callee is a shadowed standard library function.
