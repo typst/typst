@@ -1,11 +1,10 @@
-use ecow::EcoVec;
 use roxmltree::ParsingOptions;
 use typst_syntax::Spanned;
 
-use crate::diag::{format_xml_like_error, SourceDiagnostic, SourceResult};
+use crate::diag::{format_xml_like_error, LoadError, LoadedAt, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
-use crate::loading::{DataSource, Load, Loaded, Readable};
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from an XML file.
 ///
@@ -62,12 +61,13 @@ pub fn xml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    let text = data.as_str()?;
+    let text = data.load_str()?;
     let document = roxmltree::Document::parse_with_options(
         text,
         ParsingOptions { allow_dtd: true, ..Default::default() },
     )
-    .map_err(|err| format_xml_error(&data, err))?;
+    .map_err(format_xml_error)
+    .in_text(&data)?;
     Ok(convert_xml(document.root()))
 }
 
@@ -110,6 +110,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(data: &Loaded, error: roxmltree::Error) -> EcoVec<SourceDiagnostic> {
-    format_xml_like_error("XML", data, error)
+fn format_xml_error(error: roxmltree::Error) -> LoadError {
+    format_xml_like_error("XML", error)
 }

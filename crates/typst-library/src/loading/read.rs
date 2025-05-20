@@ -38,7 +38,7 @@ pub fn read(
     let data = path.map(DataSource::Path).load(engine.world)?;
     Ok(match encoding {
         None => Readable::Bytes(data.bytes),
-        Some(Encoding::Utf8) => Readable::Str(data.as_str()?.into()),
+        Some(Encoding::Utf8) => Readable::Str(data.load_str()?.into()),
     })
 }
 

@@ -11,15 +11,15 @@ use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{LineCol, ReportPos, SourceDiagnostic, SourceResult};
+use crate::diag::{LineCol, LoadError, LoadResult, LoadedAt, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Derived, NativeElement, OneOrMultiple, Packed, PlainText,
-    Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
+    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
-use crate::loading::{DataSource, Load, Loaded};
+use crate::loading::{DataSource, Load, LoadStr};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
@@ -540,25 +540,28 @@ impl RawSyntax {
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Vec<RawSyntax>>> {
         let data = sources.load(world)?;
-        let list = data.iter().map(Self::decode).collect::<SourceResult<_>>()?;
+        let list = data
+            .iter()
+            .map(|data| Self::decode(&data.bytes).in_text(data))
+            .collect::<SourceResult<_>>()?;
         Ok(Derived::new(sources.v, list))
     }
 
     /// Decode a syntax from a loaded source.
     #[comemo::memoize]
     #[typst_macros::time(name = "load syntaxes")]
-    fn decode(data: &Loaded) -> SourceResult<RawSyntax> {
-        let str = data.as_str()?;
+    fn decode(bytes: &Bytes) -> LoadResult<RawSyntax> {
+        let str = bytes.load_str()?;
 
         let syntax = SyntaxDefinition::load_from_str(str, false, None)
-            .map_err(|err| format_syntax_error(data, err))?;
+            .map_err(format_syntax_error)?;
 
         let mut builder = SyntaxSetBuilder::new();
         builder.add(syntax);
 
         Ok(RawSyntax(Arc::new(ManuallyHash::new(
             builder.build(),
-            typst_utils::hash128(data),
+            typst_utils::hash128(bytes),
         ))))
     }
 
@@ -568,12 +571,9 @@ impl RawSyntax {
     }
 }
 
-fn format_syntax_error(
-    data: &Loaded,
-    error: ParseSyntaxError,
-) -> EcoVec<SourceDiagnostic> {
+fn format_syntax_error(error: ParseSyntaxError) -> LoadError {
     let pos = syntax_error_pos(&error);
-    data.err_in_text(pos, "failed to parse syntax", error)
+    LoadError::new(pos, "failed to parse syntax", error)
 }
 
 fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
@@ -600,17 +600,17 @@ impl RawTheme {
         source: Spanned<DataSource>,
     ) -> SourceResult<Derived<DataSource, Self>> {
         let data = source.load(world)?;
-        let theme = Self::decode(&data)?;
+        let theme = Self::decode(&data.bytes).in_text(&data)?;
         Ok(Derived::new(source.v, theme))
     }
 
     /// Decode a theme from bytes.
     #[comemo::memoize]
-    fn decode(data: &Loaded) -> SourceResult<RawTheme> {
-        let mut cursor = std::io::Cursor::new(data.bytes.as_slice());
-        let theme = synt::ThemeSet::load_from_reader(&mut cursor)
-            .map_err(|err| format_theme_error(data, err))?;
-        Ok(RawTheme(Arc::new(ManuallyHash::new(theme, typst_utils::hash128(data)))))
+    fn decode(bytes: &Bytes) -> LoadResult<RawTheme> {
+        let mut cursor = std::io::Cursor::new(bytes.as_slice());
+        let theme =
+            synt::ThemeSet::load_from_reader(&mut cursor).map_err(format_theme_error)?;
+        Ok(RawTheme(Arc::new(ManuallyHash::new(theme, typst_utils::hash128(bytes)))))
     }
 
     /// Get the underlying syntect theme.
@@ -619,15 +619,12 @@ impl RawTheme {
     }
 }
 
-fn format_theme_error(
-    data: &Loaded,
-    error: syntect::LoadingError,
-) -> EcoVec<SourceDiagnostic> {
+fn format_theme_error(error: syntect::LoadingError) -> LoadError {
     let pos = match &error {
         syntect::LoadingError::ParseSyntax(err, _) => syntax_error_pos(err),
         _ => ReportPos::None,
     };
-    data.err_in_text(pos, "failed to parse theme", error)
+    LoadError::new(pos, "failed to parse theme", error)
 }
 
 /// A highlighted line of raw text.
