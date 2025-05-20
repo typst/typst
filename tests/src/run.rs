@@ -8,7 +8,7 @@ use typst::diag::{SourceDiagnostic, Warned};
 use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
-use typst::{Document, World, WorldExt};
+use typst::{Document, WorldExt};
 use typst_pdf::PdfOptions;
 use typst_syntax::FileId;
 
@@ -289,19 +289,11 @@ impl<'a> Runner<'a> {
     fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No text".into() };
         if range.is_empty() {
-            "(empty)".into()
-        } else if file == self.test.source.id() {
-            format!(
-                "`{}`",
-                self.test.source.text()[range.clone()]
-                    .replace('\n', "\\n")
-                    .replace('\r', "\\r")
-            )
-        } else {
-            let bytes = self.world.file(file).unwrap();
-            let text = std::str::from_utf8(&bytes).unwrap();
-            format!("`{}`", text[range.clone()].replace('\n', "\\n").replace('\r', "\\r"))
+            return "(empty)".into();
         }
+
+        let lines = self.world.lookup(file);
+        lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
     /// Display a byte range as a line:column range.
