@@ -6,7 +6,6 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
-use typst::diag::LineCol;
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
     is_id_continue, is_ident, is_newline, FileId, Lines, Source, VirtualPath,
@@ -413,14 +412,13 @@ impl<'a> Parser<'a> {
         let start = self.parse_line_col()?;
         let lines = Lines::from_bytes(text.as_ref()).expect("Errors shouldn't be annotated for files that aren't human readable (not valid utf-8)");
         let range = if self.s.eat_if('-') {
-            let end = self.parse_line_col()?;
-            let (line, col) = start.indices();
+            let (line, col) = start;
             let start = lines.line_column_to_byte(line, col);
-            let (line, col) = end.indices();
+            let (line, col) = self.parse_line_col()?;
             let end = lines.line_column_to_byte(line, col);
             Option::zip(start, end).map(|(a, b)| a..b)
         } else {
-            let (line, col) = start.indices();
+            let (line, col) = start;
             lines.line_column_to_byte(line, col).map(|i| i..i)
         };
         if range.is_none() {
@@ -429,8 +427,8 @@ impl<'a> Parser<'a> {
         range
     }
 
-    /// Parses an absolute `line:column` position in an external file.
-    fn parse_line_col(&mut self) -> Option<LineCol> {
+    /// Parses absolute `line:column` indices in an external file.
+    fn parse_line_col(&mut self) -> Option<(usize, usize)> {
         let line = self.parse_number()?;
         if !self.s.eat_if(':') {
             self.error("positions in external files always require both `<line>:<col>`");
@@ -442,7 +440,7 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        Some(LineCol::one_based(line as usize, col as usize))
+        Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1)))
     }
 
     /// Parse a range, optionally abbreviated as just a position if the range
