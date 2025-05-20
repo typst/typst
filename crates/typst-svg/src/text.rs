@@ -11,7 +11,7 @@ use typst_library::visualize::{
 };
 use typst_utils::hash128;
 
-use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{SVGRenderer, State, SvgGlyphPathBuilder, SvgMatrix};
 
 impl SVGRenderer {
     /// Render a text item. The text is rendered as a group of glyphs. We will
@@ -22,7 +22,14 @@ impl SVGRenderer {
 
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
-        self.xml.write_attribute("transform", "scale(1, -1)");
+        self.xml.write_attribute(
+            "transform",
+            &format!(
+                "scale(1, -1) translate({} {})",
+                state.transform.tx.to_pt(),
+                -state.transform.ty.to_pt()
+            ),
+        );
 
         let mut x: f64 = 0.0;
         for glyph in &text.glyphs {
@@ -234,7 +241,7 @@ fn convert_outline_glyph_to_path(
     id: GlyphId,
     scale: Ratio,
 ) -> Option<EcoString> {
-    let mut builder = SvgPathBuilder::with_scale(scale);
+    let mut builder = SvgGlyphPathBuilder::with_scale(scale);
     font.ttf().outline_glyph(id, &mut builder)?;
     Some(builder.0)
 }
