@@ -125,15 +125,15 @@ pub struct FigureElem {
     ///
     /// ```example
     /// #set page(height: 200pt)
+    /// #show figure: set place(
+    ///   clearance: 1em,
+    /// )
     ///
     /// = Introduction
     /// #figure(
     ///   placement: bottom,
     ///   caption: [A glacier],
     ///   image("glacier.jpg", width: 60%),
-    /// )
-    /// #show figure: set place(
-    ///   clearance: 1em,
     /// )
     /// #lorem(60)
     /// ```
