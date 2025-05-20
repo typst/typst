@@ -1,3 +1,4 @@
+use az::SaturatingAs;
 use ecow::EcoVec;
 use typst_syntax::Spanned;
 
@@ -171,8 +172,8 @@ fn format_csv_error(
     let msg = "failed to parse CSV";
     let pos = (err.kind().position())
         .map(|pos| {
-            let start = pos.byte() as usize;
-            ReportPos::Range(start..start)
+            let start = pos.byte().saturating_as();
+            ReportPos::from(start..start)
         })
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {

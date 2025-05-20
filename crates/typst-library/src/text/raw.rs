@@ -580,7 +580,7 @@ fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
     match error {
         ParseSyntaxError::InvalidYaml(scan_error) => {
             let m = scan_error.marker();
-            ReportPos::Full(
+            ReportPos::full(
                 m.index()..m.index(),
                 LineCol::one_based(m.line(), m.col() + 1),
             )
