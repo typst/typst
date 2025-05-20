@@ -363,14 +363,11 @@ impl<'a> Parser<'a> {
         }
 
         let mut range = None;
-        if self.s.at('-') || self.s.at(char::is_numeric) || self.s.at('#') {
+        if self.s.at('-') || self.s.at(char::is_numeric) {
             if let Some(file) = file {
                 range = self.parse_range_external(file);
-            } else if !self.s.at('#') {
-                range = self.parse_range(source);
             } else {
-                self.error("raw byte positions are only allowed in external files");
-                return None;
+                range = self.parse_range(source);
             }
 
             if range.is_none() {
@@ -413,20 +410,6 @@ impl<'a> Parser<'a> {
             }
         };
 
-        // Allow parsing of byte positions for external files.
-        if self.s.peek() == Some('#') {
-            let start = self.parse_byte_position()?;
-            let end =
-                if self.s.eat_if('-') { self.parse_byte_position()? } else { start };
-
-            if start < 0 || end < 0 {
-                self.error("byte positions must be positive");
-                return None;
-            }
-
-            return Some((start as usize)..(end as usize));
-        }
-
         let start = self.parse_line_col()?;
         let lines = Lines::from_bytes(text.as_ref()).expect("Errors shouldn't be annotated for files that aren't human readable (not valid utf-8)");
         let range = if self.s.eat_if('-') {
@@ -460,11 +443,6 @@ impl<'a> Parser<'a> {
         }
 
         Some(LineCol::one_based(line as usize, col as usize))
-    }
-
-    /// Parses a number after a `#` character.
-    fn parse_byte_position(&mut self) -> Option<isize> {
-        self.s.eat_if("#").then(|| self.parse_number()).flatten()
     }
 
     /// Parse a range, optionally abbreviated as just a position if the range

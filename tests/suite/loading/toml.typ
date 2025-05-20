@@ -37,7 +37,7 @@
 ))
 
 --- toml-invalid ---
-// Error: "/assets/data/bad.toml" #15-#16 failed to parse TOML (expected `.`, `=`)
+// Error: "/assets/data/bad.toml" 1:16-2:1 failed to parse TOML (expected `.`, `=`)
 #toml("/assets/data/bad.toml")
 
 --- toml-decode-deprecated ---
