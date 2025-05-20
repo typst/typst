@@ -37,7 +37,12 @@ impl Eval for ast::FuncCall<'_> {
             let target = access.target();
             let field = access.field();
             match eval_field_call(target, field, args, span, vm)? {
-                FieldCall::Normal(callee, args) => (callee, args),
+                FieldCall::Normal(callee, args) => {
+                    if vm.inspected == Some(callee_span) {
+                        vm.trace(callee.clone());
+                    }
+                    (callee, args)
+                }
                 FieldCall::Resolved(value) => return Ok(value),
             }
         } else {
