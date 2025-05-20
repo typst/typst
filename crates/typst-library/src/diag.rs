@@ -570,8 +570,54 @@ impl From<PackageError> for EcoString {
     }
 }
 
-impl Loaded {
+pub type LoadResult<T> = Result<T, LoadError>;
+
+/// A callsite independent error that occurred during data loading.
+/// Can be turned into a [`SourceDiagnostic`] using the [`LoadedAt::in_text`]
+/// or [`LoadedAt::in_invalid_text`] methods available on [`LoadResult`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct LoadError {
+    pub pos: ReportPos,
+    pub message: EcoString,
+    pub error: EcoString,
+}
+
+impl LoadError {
+    pub fn new(
+        pos: impl Into<ReportPos>,
+        message: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> Self {
+        Self {
+            pos: pos.into(),
+            message: eco_format!("{message}"),
+            error: eco_format!("{error}"),
+        }
+    }
+}
+
+/// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`] context.
+pub trait LoadedAt<T> {
+    /// Add the span information.
+    fn in_text(self, data: &Loaded) -> SourceResult<T>;
+
+    /// Add the span information.
+    fn in_invalid_text(self, data: &Loaded) -> SourceResult<T>;
+}
+
+impl<T> LoadedAt<T> for Result<T, LoadError> {
     /// Report an error, possibly in an external file.
+    fn in_text(self, data: &Loaded) -> SourceResult<T> {
+        self.map_err(|err| data.err_in_text(err.pos, err.message, err.error))
+    }
+
+    /// Report an error in invalid text.
+    fn in_invalid_text(self, data: &Loaded) -> SourceResult<T> {
+        self.map_err(|err| data.err_in_invalid_text(err.pos, err.message, err.error))
+    }
+}
+
+impl Loaded {
     pub fn err_in_text(
         &self,
         pos: impl Into<ReportPos>,
@@ -632,7 +678,7 @@ impl Loaded {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ReportPos {
     /// Contains the range, and the 0-based line/column.
     Full(std::ops::Range<usize>, LineCol),
@@ -694,7 +740,7 @@ impl ReportPos {
 }
 
 /// A line/column pair.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct LineCol {
     /// The 0-based line.
     line: usize,
@@ -732,38 +778,34 @@ impl LineCol {
 
     /// Returns the 0-based line/column indices.
     pub fn indices(&self) -> (usize, usize) {
-        (self.line, self.col)
+        (self.line as usize, self.col as usize)
     }
 
     /// Returns the 1-based line/column numbers.
     pub fn numbers(&self) -> (usize, usize) {
-        (self.line + 1, self.col + 1)
+        (self.line as usize + 1, self.col as usize + 1)
     }
 }
 
 /// Format a user-facing error message for an XML-like file format.
-pub fn format_xml_like_error(
-    format: &str,
-    data: &Loaded,
-    error: roxmltree::Error,
-) -> EcoVec<SourceDiagnostic> {
+pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError {
     let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);
-    let msg = format!("failed to parse {format}");
+    let msg = eco_format!("failed to parse {format}");
     let err = match error {
         roxmltree::Error::UnexpectedCloseTag(expected, actual, _) => {
-            format!("found closing tag '{actual}' instead of '{expected}'")
+            eco_format!("found closing tag '{actual}' instead of '{expected}'")
         }
         roxmltree::Error::UnknownEntityReference(entity, _) => {
-            format!("unknown entity '{entity}'")
+            eco_format!("unknown entity '{entity}'")
         }
         roxmltree::Error::DuplicatedAttribute(attr, _) => {
-            format!("duplicate attribute '{attr}'")
+            eco_format!("duplicate attribute '{attr}'")
         }
         roxmltree::Error::NoRootNode => {
-            format!("missing root node")
+            eco_format!("missing root node")
         }
-        err => err.to_string(),
+        err => eco_format!("{err}"),
     };
 
-    data.err_in_text(pos, msg, err)
+    LoadError::new(pos, msg, err)
 }

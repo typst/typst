@@ -3039,6 +3039,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo",
+ "memchr",
  "rustybuzz",
  "smallvec",
  "ttf-parser",

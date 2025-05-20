@@ -1,10 +1,10 @@
-use ecow::{eco_format, EcoVec};
+use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, ReportPos, SourceDiagnostic, SourceResult};
+use crate::diag::{At, LoadError, LoadedAt, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
-use crate::loading::{DataSource, Load, Loaded, Readable};
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a TOML file.
 ///
@@ -33,8 +33,8 @@ pub fn toml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    let raw = data.as_str()?;
-    ::toml::from_str(raw).map_err(|err| format_toml_error(&data, err))
+    let raw = data.load_str()?;
+    ::toml::from_str(raw).map_err(format_toml_error).in_text(&data)
 }
 
 #[scope]
@@ -69,10 +69,7 @@ impl toml {
 }
 
 /// Format the user-facing TOML error message.
-fn format_toml_error(
-    data: &Loaded,
-    error: ::toml::de::Error,
-) -> EcoVec<SourceDiagnostic> {
-    let pos = error.span().map(ReportPos::Range).unwrap_or_default();
-    data.err_in_text(pos, "failed to parse TOML", error.message())
+fn format_toml_error(error: ::toml::de::Error) -> LoadError {
+    let pos = error.span().map(ReportPos::from).unwrap_or_default();
+    LoadError::new(pos, "failed to parse TOML", error.message())
 }

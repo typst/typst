@@ -20,8 +20,8 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{
-    bail, error, At, HintedStrResult, ReportPos, SourceDiagnostic, SourceResult,
-    StrResult,
+    bail, error, At, HintedStrResult, LoadError, LoadResult, LoadedAt, ReportPos,
+    SourceDiagnostic, SourceResult, StrResult,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
@@ -34,7 +34,7 @@ use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sides, Sizing, TrackSizings,
 };
-use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, Loaded};
+use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, LoadStr, Loaded};
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
@@ -356,7 +356,7 @@ impl Debug for Bibliography {
 
 /// Decode on library from one data source.
 fn decode_library(data: &Loaded) -> SourceResult<Library> {
-    let str = data.as_str()?;
+    let str = data.load_str()?;
 
     if let LoadSource::Path(file_id) = data.source.v {
         // If we got a path, use the extension to determine whether it is
@@ -451,7 +451,7 @@ impl CslStyle {
             CslSource::Named(style) => Self::from_archived(*style),
             CslSource::Normal(source) => {
                 let data = Spanned::new(source, span).load(world)?;
-                Self::from_data(&data)?
+                Self::from_data(&data.bytes).in_text(&data)?
             }
         };
         Ok(Derived::new(source, style))
@@ -472,17 +472,17 @@ impl CslStyle {
 
     /// Load a CSL style from file contents.
     #[comemo::memoize]
-    pub fn from_data(data: &Loaded) -> SourceResult<CslStyle> {
-        let text = data.as_str()?;
+    pub fn from_data(bytes: &Bytes) -> LoadResult<CslStyle> {
+        let text = bytes.load_str()?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| {
                 Self(Arc::new(ManuallyHash::new(
                     style,
-                    typst_utils::hash128(&(TypeId::of::<Bytes>(), data)),
+                    typst_utils::hash128(&(TypeId::of::<Bytes>(), bytes)),
                 )))
             })
             .map_err(|err| {
-                data.err_in_text(ReportPos::None, "failed to load CSL style", err)
+                LoadError::new(ReportPos::None, "failed to load CSL style", err)
             })
     }
 
