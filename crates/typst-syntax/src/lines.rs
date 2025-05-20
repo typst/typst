@@ -230,6 +230,18 @@ impl Lines<String> {
     }
 }
 
+impl<S: Hash> Hash for Lines<S> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.str.hash(state);
+    }
+}
+
+impl<S: AsRef<str>> AsRef<str> for Lines<S> {
+    fn as_ref(&self) -> &str {
+        self.0.str.as_ref()
+    }
+}
+
 /// Create a line vector.
 fn lines(text: &str) -> Vec<Line> {
     std::iter::once(Line { byte_idx: 0, utf16_idx: 0 })
@@ -391,17 +403,5 @@ mod tests {
 
         // Test removing everything.
         test(TEST, 0..21, "", "");
-    }
-}
-
-impl<S: Hash> Hash for Lines<S> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.str.hash(state);
-    }
-}
-
-impl<S: AsRef<str>> AsRef<str> for Lines<S> {
-    fn as_ref(&self) -> &str {
-        self.0.str.as_ref()
     }
 }
