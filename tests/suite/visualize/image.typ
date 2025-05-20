@@ -167,7 +167,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/plugins/hello.wasm")
 
 --- image-bad-svg ---
-// Error: "/assets/images/bad.svg" 4:0 failed to parse SVG (found closing tag 'g' instead of 'style' at 4:3)
+// Error: "/assets/images/bad.svg" 4:3 failed to parse SVG (found closing tag 'g' instead of 'style')
 #image("/assets/images/bad.svg")
 
 --- image-decode-svg ---
@@ -176,7 +176,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image.decode(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-bad-svg ---
-// Error: 2-168 failed to parse SVG (missing root node)
+// Error: 15-152 failed to parse SVG (missing root node at 1:1)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
 #image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
