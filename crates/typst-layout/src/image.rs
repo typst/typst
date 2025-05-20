@@ -65,7 +65,7 @@ pub fn layout_image(
                 engine.world,
                 &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
             )
-            .in_text(&data)?,
+            .in_text(data)?,
         ),
     };
 

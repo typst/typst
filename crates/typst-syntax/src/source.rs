@@ -63,7 +63,7 @@ impl Source {
 
     /// The whole source as a string slice.
     pub fn text(&self) -> &str {
-        &self.0.lines.text()
+        self.0.lines.text()
     }
 
     /// Slice out the part of the source code enclosed by the range.
