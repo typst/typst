@@ -17,7 +17,7 @@ mod yaml_;
 
 use comemo::Tracked;
 use ecow::EcoString;
-use typst_syntax::{FileId, Span, Spanned};
+use typst_syntax::{FileId, Spanned};
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
@@ -27,7 +27,7 @@ pub use self::toml_::*;
 pub use self::xml_::*;
 pub use self::yaml_::*;
 
-use crate::diag::{At, FileError, SourceResult};
+use crate::diag::{At, LoadError, LoadResult, LoadedAt, SourceResult};
 use crate::foundations::OneOrMultiple;
 use crate::foundations::{cast, Bytes, Scope, Str};
 use crate::World;
@@ -121,44 +121,45 @@ impl Load for Spanned<&OneOrMultiple<DataSource>> {
 }
 
 /// Data loaded from a [`DataSource`].
-#[derive(Clone, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Loaded {
     pub source: Spanned<LoadSource>,
     pub bytes: Bytes,
 }
 
 impl Loaded {
-    /// FIXME: remove this?
-    pub fn dummy() -> Self {
-        Loaded::new(
-            typst_syntax::Spanned::new(LoadSource::Bytes, Span::detached()),
-            Bytes::new([]),
-        )
-    }
-
     pub fn new(source: Spanned<LoadSource>, bytes: Bytes) -> Self {
         Self { source, bytes }
     }
 
-    pub fn as_str(&self) -> SourceResult<&str> {
-        self.bytes.as_str().map_err(|err| {
-            let start = err.valid_up_to();
-            let end = start + err.error_len().unwrap_or(0);
-            // always report this error in the source file.
-            self.err_in_invalid_text(
-                start..end,
-                "failed to convert to string",
-                FileError::from(err),
-            )
-        })
+    pub fn load_str(&self) -> SourceResult<&str> {
+        self.bytes.load_str().in_invalid_text(self)
     }
 }
 
 /// A loaded [`DataSource`].
-#[derive(Clone, Copy, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LoadSource {
     Path(FileId),
     Bytes,
+}
+
+pub trait LoadStr {
+    fn load_str(&self) -> LoadResult<&str>;
+}
+
+impl<T: AsRef<[u8]>> LoadStr for T {
+    fn load_str(&self) -> LoadResult<&str> {
+        std::str::from_utf8(self.as_ref()).map_err(|err| {
+            let start = err.valid_up_to();
+            let end = start + err.error_len().unwrap_or(0);
+            LoadError::new(
+                start..end,
+                "failed to convert to string",
+                "file is not valid utf-8",
+            )
+        })
+    }
 }
 
 /// A value that can be read from a file.
