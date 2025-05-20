@@ -307,7 +307,6 @@ impl Bibliography {
     #[typst_macros::time(name = "load bibliography")]
     fn decode(data: &[Loaded]) -> SourceResult<Bibliography> {
         let mut map = IndexMap::new();
-        // TODO: store spans of entries for duplicate key error messages
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
@@ -326,8 +325,9 @@ impl Bibliography {
         }
 
         if !duplicates.is_empty() {
-            // TODO: errors with spans of source files,
-            // requires hayagriva entries to store the range
+            // TODO: Store spans of entries for duplicate key error messages.
+            // Requires hayagriva entries to store their location, which should
+            // be fine, since they are 1kb anyway.
             let span = data.first().unwrap().source.span;
             bail!(span, "duplicate bibliography keys: {}", duplicates.join(", "));
         }
