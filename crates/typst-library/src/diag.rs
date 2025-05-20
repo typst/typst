@@ -573,7 +573,7 @@ impl From<PackageError> for EcoString {
 
 pub type LoadResult<T> = Result<T, LoadError>;
 
-/// A callsite independent error that occurred during data loading.
+/// A call site independent error that occurred during data loading.
 /// This avoids polluting the memoization with [`Span`]s and [`FileId`]s from source files.
 /// Can be turned into a [`SourceDiagnostic`] using the [`LoadedAt::in_text`]
 /// or [`LoadedAt::in_invalid_text`] methods available on [`LoadResult`].
@@ -622,6 +622,7 @@ impl<T> LoadedAt<T> for Result<T, LoadError> {
 }
 
 impl Loaded {
+    /// Report an error, possibly in an external file.
     pub fn err_in_text(
         &self,
         pos: impl Into<ReportPos>,
@@ -629,10 +630,11 @@ impl Loaded {
         error: impl std::fmt::Display,
     ) -> EcoVec<SourceDiagnostic> {
         let pos = pos.into();
+        // This also does utf-8 validation. Only report an error in an external
+        // file if it is human readable (valid utf-8), otherwise fall back to
+        // `err_in_invalid_text`.
         let lines = Lines::from_bytes(&self.bytes);
         match (self.source.v, lines) {
-            // Only report an error in an external file,
-            // if it is human readable (valid utf-8).
             (LoadSource::Path(file_id), Ok(lines)) => {
                 if let Some(range) = pos.range(&lines) {
                     let span = Span::from_range(file_id, range);
@@ -664,7 +666,7 @@ impl Loaded {
         }
     }
 
-    /// Report an error, possibly in an external file.
+    /// Report an error (possibly from an external file) that isn't valid utf-8.
     pub fn err_in_invalid_text(
         &self,
         pos: impl Into<ReportPos>,
