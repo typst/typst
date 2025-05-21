@@ -34,7 +34,7 @@ use typst_syntax::Span;
 use typst_utils::{SliceExt, SmallBitSet};
 
 /// Realize content into a flat list of well-known, styled items.
-#[typst_macros::time(name = "realize")]
+#[typst_macros::time(name = "realize", span = content.span())]
 pub fn realize<'a>(
     kind: RealizationKind,
     engine: &mut Engine,
