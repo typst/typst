@@ -75,7 +75,10 @@ pub fn definition(
             let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()));
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
-            return Some(Definition::Span(elem.span()));
+            let labelled_at = elem.labelled_at().or(elem.span());
+            if !labelled_at.is_detached() {
+                return Some(Definition::Span(labelled_at));
+            }
         }
 
         _ => {}
@@ -181,7 +184,13 @@ mod tests {
 
     #[test]
     fn test_definition_ref() {
-        test("#figure[] <hi> See @hi", -2, Side::After).must_be_at("main.typ", 1..9);
+        test("#figure[] <hi> See @hi", -2, Side::After).must_be_at("main.typ", 10..14);
+        let source =
+            r#"#let test1(body) = figure(body); #test1([Test1]) <fig:test1> @fig:test1"#;
+        test(source, -2, Side::After).must_be_at("main.typ", 49..60);
+        let source = r#"#let test1(body) = figure(body); #test1([Test1]) <fig:test1> @fig:test1
+#let test2(body) = test1(body); #test2([Test2]) <fig:test2>; @fig:test2"#;
+        test(source, -2, Side::After).must_be_at("main.typ", 120..131);
     }
 
     #[test]

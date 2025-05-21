@@ -82,6 +82,8 @@ pub struct Content {
 struct Inner<T: ?Sized + 'static> {
     /// An optional label attached to the element.
     label: Option<Label>,
+    /// The span where the label is attached.
+    labelled_at: Span,
     /// The element's location which identifies it in the layouted output.
     location: Option<Location>,
     /// Manages the element during realization.
@@ -99,6 +101,7 @@ impl Content {
         Self {
             inner: Arc::new(Inner {
                 label: None,
+                labelled_at: Span::detached(),
                 location: None,
                 lifecycle: SmallBitSet::new(),
                 elem: elem.into(),
@@ -135,9 +138,16 @@ impl Content {
         self.inner.label
     }
 
+    /// Get the span where the label is attached.
+    pub fn labelled_at(&self) -> Span {
+        self.inner.labelled_at
+    }
+
     /// Attach a label to the content.
-    pub fn labelled(mut self, label: Label) -> Self {
-        self.set_label(label);
+    pub fn labelled(mut self, label: Label, labelled_at: Span) -> Self {
+        let m = self.make_mut();
+        m.label = Some(label);
+        m.labelled_at = labelled_at;
         self
     }
 
@@ -540,8 +550,7 @@ impl Content {
     /// The content's element function. This function can be used to create the element
     /// contained in this content. It can be used in set and show rules for the
     /// element. Can be compared with global functions to check whether you have
-    /// a specific
-    /// kind of element.
+    /// a specific kind of element.
     #[func]
     pub fn func(&self) -> Element {
         self.elem()
@@ -742,6 +751,7 @@ impl<T: NativeElement> Bounds for T {
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
                 elem: LazyHash::reuse(self.clone(), &inner.elem),
+                labelled_at: inner.labelled_at,
             }),
             span,
         }
