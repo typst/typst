@@ -512,15 +512,18 @@ pub fn hline_stroke_at_column(
     );
 
     // Prioritize the footer's top stroke as well where applicable.
+    // TODO(subfooters): do this properly (store footer rows)
     let bottom_stroke_comes_from_footer = grid
-        .footer
-        .as_ref()
+        .footers
+        .last()
         .and_then(Repeatable::as_repeated)
         .is_some_and(|footer| {
             // Ensure the row below us is a repeated footer.
             // FIXME: Make this check more robust when footers at arbitrary
             // positions are added.
-            local_top_y.unwrap_or(0) + 1 < footer.start && y >= footer.start
+            footer.end == grid.rows.len()
+                && local_top_y.unwrap_or(0) + 1 < footer.start
+                && y >= footer.start
         });
 
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
