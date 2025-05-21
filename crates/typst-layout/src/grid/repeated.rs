@@ -463,6 +463,34 @@ impl<'a> GridLayouter<'a> {
         )
     }
 
+    pub fn bump_repeating_footers(&mut self) -> &'a [Repeatable<Footer>] {
+        let [next_footer, other_footers @ ..] = self.upcoming_sorted_footers else {
+            return &[];
+        };
+
+        if !next_footer.repeated {
+            // TODO(subfooters): grouping and laying them out together?
+            self.upcoming_sorted_footers = other_footers;
+            return &[];
+        }
+
+        if other_footers.is_empty() {
+            return std::mem::replace(&mut self.upcoming_sorted_footers, &[]);
+        }
+
+        let first_conflicting_index = other_footers
+            .iter()
+            .take_while(|f| f.level > next_footer.level)
+            .count()
+            + 1;
+
+        let (next_repeating_footers, new_upcoming_footers) =
+            self.upcoming_sorted_footers.split_at(first_conflicting_index);
+
+        self.upcoming_sorted_footers = new_upcoming_footers;
+        return next_repeating_footers;
+    }
+
     /// Updates `self.footer_height` by simulating the footer, and skips to fitting region.
     pub fn prepare_footer(
         &mut self,

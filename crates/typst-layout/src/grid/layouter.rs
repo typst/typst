@@ -6,6 +6,7 @@ use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
 };
+use typst_library::layout::resolve::Footer;
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,
@@ -60,6 +61,16 @@ pub struct GridLayouter<'a> {
     pub(super) pending_headers: &'a [Repeatable<Header>],
     /// Next headers to be processed.
     pub(super) upcoming_headers: &'a [Repeatable<Header>],
+    /// Currently repeating footers, one per level. Sorted by increasing
+    /// levels.
+    ///
+    /// Note that some levels may be absent, in particular level 0, which does
+    /// not exist (so all levels are >= 1).
+    pub(super) repeating_footers: Vec<&'a Footer>,
+    /// Next footers to be processed.
+    pub(super) upcoming_footers: &'a [Repeatable<Footer>],
+    /// Next footers sorted by when they start repeating.
+    pub(super) upcoming_sorted_footers: &'a [Repeatable<Footer>],
     /// State of the row being currently laid out.
     ///
     /// This is kept as a field to avoid passing down too many parameters from
@@ -253,6 +264,10 @@ impl<'a> GridLayouter<'a> {
             repeating_headers: vec![],
             upcoming_headers: &grid.headers,
             pending_headers: Default::default(),
+            // This is calculated on layout
+            repeating_footers: vec![],
+            upcoming_footers: &grid.footers,
+            upcoming_sorted_footers: &grid.sorted_footers,
             row_state: RowState::default(),
             current: Current {
                 initial: regions.size,
