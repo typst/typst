@@ -49,6 +49,33 @@ impl<'a> GridLayouter<'a> {
         self.upcoming_headers = new_upcoming_headers;
         *consecutive_header_count = 0;
 
+        let [first_header, ..] = consecutive_headers else {
+            self.flush_orphans();
+            return Ok(());
+        };
+
+        // Assuming non-conflicting headers sorted by increasing y, this must
+        // be the header with the lowest level (sorted by increasing levels).
+        let first_level = first_header.level;
+
+        // Stop repeating conflicting headers, even if the new headers are
+        // short-lived or won't repeat.
+        //
+        // If we go to a new region before the new headers fit alongside their
+        // children (or in general, for short-lived), the old headers should
+        // not be displayed anymore.
+        let first_conflicting_pos =
+            self.repeating_headers.partition_point(|h| h.level < first_level);
+        self.repeating_headers.truncate(first_conflicting_pos);
+
+        // Ensure upcoming rows won't see that these headers will occupy any
+        // space in future regions anymore.
+        for removed_height in
+            self.current.repeating_header_heights.drain(first_conflicting_pos..)
+        {
+            self.current.repeating_header_height -= removed_height;
+        }
+
         // Layout short-lived headers immediately.
         if consecutive_headers.last().is_some_and(|h| h.short_lived) {
             // No chance of orphans as we're immediately placing conflicting
@@ -63,11 +90,32 @@ impl<'a> GridLayouter<'a> {
             // header of the same or lower level, such that they never actually get
             // to repeat.
             self.layout_new_headers(consecutive_headers, true, engine)?;
-
-            Ok(())
         } else {
-            self.layout_new_pending_headers(consecutive_headers, engine)
+            // Let's try to place pending headers at least once.
+            // This might be a waste as we could generate an orphan and thus have
+            // to try to place old and new headers all over again, but that happens
+            // for every new region anyway, so it's rather unavoidable.
+            let snapshot_created =
+                self.layout_new_headers(consecutive_headers, false, engine)?;
+
+            // Queue the new headers for layout. They will remain in this
+            // vector due to orphan prevention.
+            //
+            // After the first subsequent row is laid out, move to repeating, as
+            // it's then confirmed the headers won't be moved due to orphan
+            // prevention anymore.
+            self.pending_headers = consecutive_headers;
+
+            if !snapshot_created {
+                // Region probably couldn't progress.
+                //
+                // Mark new pending headers as final and ensure there isn't a
+                // snapshot.
+                self.flush_orphans();
+            }
         }
+
+        Ok(())
     }
 
     /// Lays out rows belonging to a header, returning the calculated header
@@ -98,66 +146,6 @@ impl<'a> GridLayouter<'a> {
                 .unwrap_or_default();
         }
         Ok(header_height)
-    }
-
-    /// Queues new pending headers for layout. Headers remain pending until
-    /// they are successfully laid out in some page once. Then, they will be
-    /// moved to `repeating_headers`, at which point it is safe to stop them
-    /// from repeating at any time.
-    fn layout_new_pending_headers(
-        &mut self,
-        headers: &'a [Repeatable<Header>],
-        engine: &mut Engine,
-    ) -> SourceResult<()> {
-        let [first_header, ..] = headers else {
-            return Ok(());
-        };
-
-        // Should be impossible to have two consecutive chunks of pending
-        // headers since they are always as long as possible, only being
-        // interrupted by direct conflict between consecutive headers, in which
-        // case we flush pending headers immediately.
-        assert!(self.pending_headers.is_empty());
-
-        // Assuming non-conflicting headers sorted by increasing y, this must
-        // be the header with the lowest level (sorted by increasing levels).
-        let first_level = first_header.level;
-
-        // Stop repeating conflicting headers.
-        // If we go to a new region before the pending headers fit alongside
-        // their children, the old headers should not be displayed anymore.
-        let first_conflicting_pos =
-            self.repeating_headers.partition_point(|h| h.level < first_level);
-        self.repeating_headers.truncate(first_conflicting_pos);
-
-        // Ensure upcoming rows won't see that these headers will occupy any
-        // space in future regions anymore.
-        for removed_height in
-            self.current.repeating_header_heights.drain(first_conflicting_pos..)
-        {
-            self.current.repeating_header_height -= removed_height;
-        }
-
-        // Let's try to place them at least once.
-        // This might be a waste as we could generate an orphan and thus have
-        // to try to place old and new headers all over again, but that happens
-        // for every new region anyway, so it's rather unavoidable.
-        let snapshot_created = self.layout_new_headers(headers, false, engine)?;
-
-        // After the first subsequent row is laid out, move to repeating, as
-        // it's then confirmed the headers won't be moved due to orphan
-        // prevention anymore.
-        self.pending_headers = headers;
-
-        if !snapshot_created {
-            // Region probably couldn't progress.
-            //
-            // Mark new pending headers as final and ensure there isn't a
-            // snapshot.
-            self.flush_orphans();
-        }
-
-        Ok(())
     }
 
     /// This function should be called each time an additional row has been
