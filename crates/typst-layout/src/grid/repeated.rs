@@ -245,6 +245,7 @@ impl<'a> GridLayouter<'a> {
             // changed.
             let (footer_height, footer_heights) = self.simulate_footer_heights(
                 self.repeating_footers.iter().map(|x| *x),
+                &self.regions,
                 engine,
                 disambiguator,
             )?;
@@ -519,7 +520,7 @@ impl<'a> GridLayouter<'a> {
                 .first()
                 .is_none_or(|f| f.level >= footer.level)
         {
-            self.prepare_next_repeating_footers(false, engine);
+            self.prepare_next_repeating_footers(false, engine)?;
             return Ok(());
         }
 
@@ -564,7 +565,7 @@ impl<'a> GridLayouter<'a> {
             first_footers,
             engine,
             0,
-        );
+        )?;
 
         Ok(())
     }
@@ -578,8 +579,13 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
-        let (mut expected_footer_height, mut expected_footer_heights) =
-            self.simulate_footer_heights(footers.clone(), engine, disambiguator)?;
+        let (mut expected_footer_height, mut expected_footer_heights) = self
+            .simulate_footer_heights(
+                footers.clone(),
+                &self.regions,
+                engine,
+                disambiguator,
+            )?;
 
         // Skip to fitting region where all of them fit at once.
         //
@@ -612,8 +618,8 @@ impl<'a> GridLayouter<'a> {
         if skipped_region {
             // Simulate the footer again; the region's 'full' might have
             // changed, and the vector of heights was cleared.
-            (expected_footer_height, expected_footer_heights) =
-                self.simulate_footer_heights(footers, engine, disambiguator)?;
+            (expected_footer_height, expected_footer_heights) = self
+                .simulate_footer_heights(footers, &self.regions, engine, disambiguator)?;
         }
 
         self.current.footer_height += expected_footer_height;
@@ -622,18 +628,18 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
-    fn simulate_footer_heights(
+    pub fn simulate_footer_heights(
         &self,
         footers: impl Iterator<Item = &'a Footer> + ExactSizeIterator,
+        regions: &Regions<'_>,
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<(Abs, Vec<Abs>)> {
         let mut total_footer_height = Abs::zero();
         let mut footer_heights = Vec::with_capacity(footers.len());
         for footer in footers {
-            let footer_height = self
-                .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                .height;
+            let footer_height =
+                self.simulate_footer(footer, regions, engine, disambiguator)?.height;
 
             total_footer_height += footer_height;
             footer_heights.push(footer_height);
@@ -700,12 +706,4 @@ pub fn total_header_row_count<'h>(
     headers: impl IntoIterator<Item = &'h Header>,
 ) -> usize {
     headers.into_iter().map(|h| h.range.end - h.range.start).sum()
-}
-
-/// The total amount of rows in the given list of headers.
-#[inline]
-pub fn total_footer_row_count<'f>(
-    footers: impl IntoIterator<Item = &'f Footer>,
-) -> usize {
-    footers.into_iter().map(|f| f.end - f.start).sum()
 }
