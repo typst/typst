@@ -317,10 +317,11 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            if let Some(next_footer) = self.upcoming_footers.first() {
+            if let [next_footer, other_footers @ ..] = self.upcoming_footers {
                 // TODO(subfooters): effective range (consider gutter before
                 // if it was removed)
                 if next_footer.range().contains(&y) {
+                    self.upcoming_footers = other_footers;
                     self.place_new_footer(engine, next_footer)?;
                     self.flush_orphans();
                     y = next_footer.end;

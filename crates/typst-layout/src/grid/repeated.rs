@@ -567,6 +567,9 @@ impl<'a> GridLayouter<'a> {
             0,
         )?;
 
+        self.repeating_footers
+            .extend(next_repeating_footers.iter().filter_map(Repeatable::as_repeated));
+
         Ok(())
     }
 
