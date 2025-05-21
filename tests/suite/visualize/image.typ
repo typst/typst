@@ -243,7 +243,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-png-but-pixmap-format ---
 #image(
   read("/assets/images/tiger.jpg", encoding: none),
-  // Error: 11-18 expected "png", "jpg", "gif", dictionary, "svg", or auto
+  // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", or auto
   format: "rgba8",
 )
 
