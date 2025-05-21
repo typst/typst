@@ -1768,7 +1768,7 @@ impl<'a> GridLayouter<'a> {
                 // TODO(subfooters): let's not...
                 let footers = self.repeating_footers.clone();
                 self.prepare_repeating_footers(
-                    footers.iter().map(|f| *f),
+                    footers.iter().copied(),
                     true,
                     engine,
                     disambiguator,
