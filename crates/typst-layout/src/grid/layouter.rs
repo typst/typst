@@ -1587,9 +1587,10 @@ impl<'a> GridLayouter<'a> {
         // TODO(subfooters): explicitly check for short-lived footers.
         // TODO(subfooters): widow prevention for non-repeated footers with a
         // similar mechanism / when implementing multiple footers.
+        // TODO(subfooters): could progress check must be replaced to consider
+        // the presence of non-repeating footer (then always true).
         let may_place_footers = !self.repeating_footers.is_empty()
-            && self.current.lrows.is_empty()
-            && self.current.could_progress_at_top;
+            && (!self.current.lrows.is_empty() || !self.current.could_progress_at_top);
 
         if may_place_footers {
             // Don't layout the footer if it would be alone with the header
@@ -1704,7 +1705,7 @@ impl<'a> GridLayouter<'a> {
                 // laid out at the first frame of the row).
                 // Any rowspans ending before this row are laid out even
                 // on this row's first frame.
-                if !may_place_footers
+                if (!may_place_footers
                     || self.repeating_footers.iter().all(|footer| {
                         // If this is a footer row, then only lay out this rowspan
                         // if the rowspan is contained within the footer.
@@ -1720,7 +1721,8 @@ impl<'a> GridLayouter<'a> {
                         // (what about the gutter?).
                         !footer.range().contains(&y)
                             || footer.range().contains(&rowspan.y)
-                    }) && (rowspan.y + rowspan.rowspan < y + 1
+                    }))
+                    && (rowspan.y + rowspan.rowspan < y + 1
                         || rowspan.y + rowspan.rowspan == y + 1 && is_last)
                 {
                     // Rowspan ends at this or an earlier row, so we take
