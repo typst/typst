@@ -77,7 +77,7 @@ pub fn plain_docs_sentence(docs: &str) -> EcoString {
 }
 
 /// Create a short description of a font family.
-pub fn summarize_font_family<'a>(mut variants: Vec<&'a FontInfo>) -> EcoString {
+pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
     variants.sort_by_key(|info| info.variant);
 
     let mut has_italic = false;
