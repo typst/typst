@@ -10,11 +10,11 @@ use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
-use krilla::tagging::{Node, SpanTag, Tag, TagGroup, TagTree};
+use krilla::tagging::{ArtifactType, ContentTag, Node};
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
-use typst_library::foundations::{NativeElement, StyleChain};
+use typst_library::foundations::NativeElement;
 use typst_library::introspection::{self, Location};
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
@@ -31,6 +31,7 @@ use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
+use crate::tags::{handle_close_tag, handle_open_tag, Tags};
 use crate::text::handle_text;
 use crate::util::{convert_path, display_font, AbsExt, TransformExt};
 use crate::PdfOptions;
@@ -49,6 +50,8 @@ pub fn convert(
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: config,
+        // TODO: Should we just set this to false? If set to `false` this will
+        // automatically be enabled if the `UA1` validator is used.
         enable_tagging: true,
         render_svg_glyph_fn: render_svg_glyph,
     };
@@ -70,12 +73,7 @@ pub fn convert(
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
-
-    let mut tag_tree = TagTree::new();
-    for tag in gc.tags.drain(..) {
-        tag_tree.push(tag);
-    }
-    document.set_tag_tree(tag_tree);
+    document.set_tag_tree(gc.tags.take_tree());
 
     finish(document, gc, options.standards.config)
 }
@@ -115,6 +113,19 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             let mut surface = page.surface();
             let mut fc = FrameContext::new(typst_page.frame.size());
 
+            // Marked-content may not cross page boundaries: reopen tag
+            // that was closed at the end of the last page.
+            if let Some((_, _, nodes)) = gc.tags.stack.last_mut() {
+                let tag = if gc.tags.in_artifact {
+                    ContentTag::Artifact(ArtifactType::Other)
+                } else {
+                    ContentTag::Other
+                };
+                // TODO: somehow avoid empty marked-content sequences
+                let id = surface.start_tagged(tag);
+                nodes.push(Node::Leaf(id));
+            }
+
             handle_frame(
                 &mut fc,
                 &typst_page.frame,
@@ -122,6 +133,11 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                 &mut surface,
                 gc,
             )?;
+
+            // Marked-content may not cross page boundaries: close open tag.
+            if !gc.tags.stack.is_empty() {
+                surface.end_tagged();
+            }
 
             surface.finish();
 
@@ -235,8 +251,8 @@ pub(crate) struct GlobalContext<'a> {
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
     pub(crate) page_index_converter: PageIndexConverter,
-    pub(crate) tag_stack: Vec<Location>,
-    pub(crate) tags: Vec<Node>,
+    /// Tagged PDF context.
+    pub(crate) tags: Tags,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -256,8 +272,8 @@ impl<'a> GlobalContext<'a> {
             image_spans: HashSet::new(),
             languages: BTreeMap::new(),
             page_index_converter,
-            tag_stack: Vec::new(),
-            tags: Vec::new(),
+
+            tags: Tags::new(),
         }
     }
 }
@@ -294,33 +310,10 @@ pub(crate) fn handle_frame(
             }
             FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
             FrameItem::Tag(introspection::Tag::Start(elem)) => {
-                let Some(heading) = elem.to_packed::<HeadingElem>() else { continue };
-                let Some(loc) = heading.location() else { continue };
-
-                let level = heading.resolve_level(StyleChain::default());
-                let name = heading.body.plain_text().to_string();
-                let heading_id = surface
-                    .start_tagged(krilla::tagging::ContentTag::Span(SpanTag::empty()));
-                let tag = match level.get() {
-                    1 => Tag::H1(Some(name)),
-                    2 => Tag::H2(Some(name)),
-                    3 => Tag::H3(Some(name)),
-                    4 => Tag::H4(Some(name)),
-                    5 => Tag::H5(Some(name)),
-                    _ => Tag::H6(Some(name)),
-                };
-                let mut tag_group = TagGroup::new(tag);
-                tag_group.push(Node::Leaf(heading_id));
-                gc.tags.push(Node::Group(tag_group));
-
-                gc.tag_stack.push(loc);
+                handle_open_tag(gc, surface, elem)
             }
             FrameItem::Tag(introspection::Tag::End(loc, _)) => {
-                // FIXME: support or split up content tags that span multiple pages
-                if gc.tag_stack.last() == Some(loc) {
-                    surface.end_tagged();
-                    gc.tag_stack.pop();
-                }
+                handle_close_tag(gc, surface, loc);
             }
         }
 

@@ -185,6 +185,8 @@ fn layout_page_run_impl(
     )?;
 
     // Layouts a single marginal.
+    // TODO: add some sort of tag that indicates the marginals and use it to
+    // mark them as artifacts for PDF/UA.
     let mut layout_marginal = |content: &Option<Content>, area, align| {
         let Some(content) = content else { return Ok(None) };
         let aligned = content.clone().styled(AlignElem::set_alignment(align));
