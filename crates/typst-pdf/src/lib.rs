@@ -9,6 +9,7 @@ mod outline;
 mod page;
 mod paint;
 mod shape;
+mod tags;
 mod text;
 mod util;
 
