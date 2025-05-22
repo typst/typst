@@ -65,18 +65,13 @@ fn layout_inline_text(
         // Small optimization for numbers. Note that this lays out slightly
         // differently to normal text and is worth re-evaluating in the future.
         let mut fragments = vec![];
-        let is_single = text.chars().count() == 1;
         for unstyled_c in text.chars() {
             let c = styled_char(styles, unstyled_c, false);
             let mut glyph = GlyphFragment::new(ctx, styles, c, span);
-            if is_single {
-                // Duplicate what `layout_glyph` does exactly even if it's
-                // probably incorrect here.
-                match EquationElem::size_in(styles) {
-                    MathSize::Script => glyph.make_script_size(ctx),
-                    MathSize::ScriptScript => glyph.make_script_script_size(ctx),
-                    _ => {}
-                }
+            match EquationElem::size_in(styles) {
+                MathSize::Script => glyph.make_script_size(ctx),
+                MathSize::ScriptScript => glyph.make_script_script_size(ctx),
+                _ => {}
             }
             fragments.push(glyph.into());
         }
