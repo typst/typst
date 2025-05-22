@@ -49,6 +49,8 @@ pub fn convert(
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: config,
+        // TODO: Should we just set this to false? If set to `false` this will
+        // automatically be enabled if the `UA1` validator is used.
         enable_tagging: true,
         render_svg_glyph_fn: render_svg_glyph,
     };
@@ -115,6 +117,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             let mut surface = page.surface();
             let mut fc = FrameContext::new(typst_page.frame.size());
 
+            // TODO: PDF/UA tags may not cross page boundaries: close tags left
+            // in the stack and reopen them on a new page
             handle_frame(
                 &mut fc,
                 &typst_page.frame,
@@ -295,7 +299,10 @@ pub(crate) fn handle_frame(
             FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
             FrameItem::Tag(introspection::Tag::Start(elem)) => {
                 let Some(heading) = elem.to_packed::<HeadingElem>() else { continue };
-                let Some(loc) = heading.location() else { continue };
+                let loc = heading.location().expect("heading element to have a location");
+
+                // TODO: PDF/UA "Logical Structure" should not include artifacts:
+                // mabye close all open tags before an artifact and reopen them after?
 
                 let level = heading.resolve_level(StyleChain::default());
                 let name = heading.body.plain_text().to_string();
@@ -311,6 +318,8 @@ pub(crate) fn handle_frame(
                 };
                 let mut tag_group = TagGroup::new(tag);
                 tag_group.push(Node::Leaf(heading_id));
+                // TODO: Keep track of the logical document hierarchy and build
+                // a proper tag tree.
                 gc.tags.push(Node::Group(tag_group));
 
                 gc.tag_stack.push(loc);
