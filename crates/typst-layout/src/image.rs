@@ -147,6 +147,7 @@ fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat>
             "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
             "gif" => return Ok(ExchangeFormat::Gif.into()),
             "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
+            "webp" => return Ok(ExchangeFormat::Webp.into()),
             _ => {}
         }
     }
