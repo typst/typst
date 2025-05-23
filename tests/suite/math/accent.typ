@@ -58,3 +58,31 @@ $hat(a) hat(A)$
 $tilde(w) tilde(W)$
 $grave(i) grave(j)$
 $grave(I) grave(J)$
+
+--- math-accent-bottom ---
+// Test bottom accents.
+$accent(a, \u{20EE}), accent(T, \u{0323}), accent(xi, \u{0332}),
+  accent(f, \u{20ED}), accent(F, \u{20E8}), accent(y, \u{032E}),
+  accent(!, \u{032F}), accent(J, \u{0333}), accent(p, \u{0331})$
+
+--- math-accent-bottom-wide-base ---
+// Test wide base with bottom accents.
+$accent(x + y, \u{20EF}), accent(sum, \u{032D})$
+
+--- math-accent-bottom-subscript ---
+// Test effect of bottom accent on subscript.
+$q_x != accent(q, \u{032C})_x != accent(accent(q, \u{032C}), \u{032C})_x$
+
+--- math-accent-bottom-high-base ---
+// Test high base with bottom accents.
+$ accent(integral, \u{20EC}), accent(integral, \u{20EC})_a^b, accent(integral_a^b, \u{20EC}) $
+
+--- math-accent-bottom-sized ---
+// Test bottom accent size.
+$accent(sum, \u{0330}), accent(sum, \u{0330}, size: #50%), accent(H, \u{032D}, size: #200%)$
+
+--- math-accent-nested ---
+// Test nested top and bottom accents.
+$hat(accent(L, \u{0330})), accent(circle(p), \u{0323}),
+  macron(accent(caron(accent(A, \u{20ED})), \u{0333})) \
+  breve(accent(eta, \u{032E})) = accent(breve(eta), \u{032E})$

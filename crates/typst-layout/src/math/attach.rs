@@ -434,9 +434,13 @@ fn compute_script_shifts(
     }
 
     if bl.is_some() || br.is_some() {
+        let descent = match &base {
+            MathFragment::Frame(frame) => frame.base_descent,
+            _ => base.descent(),
+        };
         shift_down = shift_down
             .max(sub_shift_down)
-            .max(if is_text_like { Abs::zero() } else { base.descent() + sub_drop_min })
+            .max(if is_text_like { Abs::zero() } else { descent + sub_drop_min })
             .max(measure!(bl, ascent) - sub_top_max)
             .max(measure!(br, ascent) - sub_top_max);
     }
