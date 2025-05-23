@@ -15,7 +15,7 @@ use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
     SyntaxKind,
 };
-use typst::text::RawElem;
+use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
 use unscanny::Scanner;
 
@@ -827,7 +827,24 @@ fn param_value_completions<'a>(
     param: &'a ParamInfo,
 ) {
     if param.name == "font" {
-        ctx.font_completions();
+        // See if we are in a show-set rule that applies on equations
+        let equation = if_chain! {
+            if let Some(parent) = ctx.leaf.parent();
+            if let Some(grand) = parent.parent();
+            if let Some(grandgrand) = grand.parent();
+            if let Some(expr) = grandgrand.get().cast::<ast::Expr>();
+            if let ast::Expr::ShowRule(show) = expr;
+            if let Some(selector) = show.selector();
+            if let ast::Expr::FieldAccess(field) = selector;
+            if field.field().as_str() == "equation";
+            then {
+                true
+            } else {
+                false
+            }
+        };
+
+        ctx.font_completions(equation);
     } else if let Some(extensions) = path_completion(func, param) {
         ctx.file_completions_with_extensions(extensions);
     } else if func.name() == Some("figure") && param.name == "body" {
@@ -1151,11 +1168,12 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for all font families.
-    fn font_completions(&mut self) {
-        let equation = self.before_window(25).contains("equation");
+    fn font_completions(&mut self, equation: bool) {
         for (family, iter) in self.world.book().families() {
-            let detail = summarize_font_family(iter);
-            if !equation || family.contains("Math") {
+            let variants: Vec<_> = iter.collect();
+            let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
+            let detail = summarize_font_family(variants);
+            if !equation || is_math {
                 self.str_completion(
                     family,
                     Some(CompletionKind::Font),
@@ -1789,5 +1807,18 @@ mod tests {
         test("$ arrow. $", -3)
             .must_include(["r", "dashed"])
             .must_exclude(["cases"]);
+    }
+
+    #[test]
+    fn test_autocomplete_fonts() {
+        test("#text(font:)", -1)
+            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+
+        test("#show link: set text(font: )", -1)
+            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+
+        test("#show math.equation: set text(font: )", -1)
+            .must_include(["\"New Computer Modern Math\""])
+            .must_exclude(["\"Libertinus Serif\""]);
     }
 }
