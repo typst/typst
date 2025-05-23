@@ -39,7 +39,7 @@ impl TextItem {
 
 impl Debug for TextItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Text(")?;
+        f.write_str("TextItem(")?;
         self.text.fmt(f)?;
         f.write_str(")")
     }

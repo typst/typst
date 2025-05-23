@@ -765,7 +765,7 @@ impl TextElem {
 
 impl Debug for TextElem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Text({})", self.text)
+        write!(f, "TextElem({})", self.text)
     }
 }
 
