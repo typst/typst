@@ -99,6 +99,9 @@ Multiple trailing line breaks.
 #let hrule(x) = box(line(length: x))
 #hrule(90pt)$<;$\
 #hrule(95pt)$<;$\
+// We don't linebreak before a closing paren, but do before an opening paren.
+#hrule(90pt)$<($\
+#hrule(95pt)$<($
 #hrule(90pt)$<)$\
 #hrule(95pt)$<)$
 
