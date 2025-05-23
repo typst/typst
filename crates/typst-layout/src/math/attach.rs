@@ -1,8 +1,9 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
-use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
+use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Size};
 use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
+    StretchSize,
 };
 use typst_utils::OptionExt;
 
@@ -63,16 +64,9 @@ pub fn layout_attach(
     let t = layout!(t, sup_style_chain)?;
     let b = layout!(b, sub_style_chain)?;
     if let Some(stretch) = stretch {
-        let relative_to_width = measure!(t, width).max(measure!(b, width));
-        stretch_fragment(
-            ctx,
-            styles,
-            &mut base,
-            Some(Axis::X),
-            Some(relative_to_width),
-            stretch,
-            Abs::zero(),
-        );
+        let relative_to = measure!(t, width).max(measure!(b, width));
+        let width = stretch.resolve(ctx.engine, styles, relative_to)?;
+        stretch_fragment(ctx, styles, &mut base, Axis::X, width);
     }
 
     let fragments = [
@@ -155,7 +149,7 @@ pub fn layout_limits(
 }
 
 /// Get the size to stretch the base to.
-fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs>> {
+fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<StretchSize> {
     // Extract from an EquationElem.
     let mut base = &elem.base;
     while let Some(equation) = base.to_packed::<EquationElem>() {
