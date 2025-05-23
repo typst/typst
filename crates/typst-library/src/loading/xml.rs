@@ -1,8 +1,7 @@
-use ecow::EcoString;
 use roxmltree::ParsingOptions;
 use typst_syntax::Spanned;
 
-use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
+use crate::diag::{format_xml_like_error, LoadError, LoadedAt, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -62,13 +61,13 @@ pub fn xml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let data = source.load(engine.world)?;
-    let text = data.as_str().map_err(FileError::from).at(source.span)?;
+    let text = data.load_str()?;
     let document = roxmltree::Document::parse_with_options(
         text,
         ParsingOptions { allow_dtd: true, ..Default::default() },
     )
     .map_err(format_xml_error)
-    .at(source.span)?;
+    .in_text(&data)?;
     Ok(convert_xml(document.root()))
 }
 
@@ -111,6 +110,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(error: roxmltree::Error) -> EcoString {
+fn format_xml_error(error: roxmltree::Error) -> LoadError {
     format_xml_like_error("XML", error)
 }

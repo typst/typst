@@ -22,7 +22,7 @@ use crate::foundations::{
     Smart, StyleChain,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::LocalName;
 
@@ -68,7 +68,7 @@ pub struct ImageElem {
         let data = source.load(engine.world)?;
         Derived::new(source.v, data)
     )]
-    pub source: Derived<DataSource, Bytes>,
+    pub source: Derived<DataSource, Loaded>,
 
     /// The image's format.
     ///
@@ -155,7 +155,7 @@ pub struct ImageElem {
     #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
             let data = Spanned::new(&source, span).load(engine.world)?;
-            Derived::new(source, data)
+            Derived::new(source, data.bytes)
         })),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
@@ -173,7 +173,7 @@ impl ImageElem {
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
-        data: Readable,
+        data: Spanned<Readable>,
         /// The image's format. Detected automatically by default.
         #[named]
         format: Option<Smart<ImageFormat>>,
@@ -193,8 +193,9 @@ impl ImageElem {
         #[named]
         scaling: Option<Smart<ImageScaling>>,
     ) -> StrResult<Content> {
-        let bytes = data.into_bytes();
-        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
+        let bytes = data.v.into_bytes();
+        let data = Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
+        let source = Derived::new(DataSource::Bytes(bytes), data);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);

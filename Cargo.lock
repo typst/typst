@@ -3038,6 +3038,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo",
+ "memchr",
  "rustybuzz",
  "smallvec",
  "ttf-parser",
@@ -3111,6 +3112,7 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
+ "utf8_iter",
  "wasmi",
  "xmlwriter",
 ]
@@ -3199,6 +3201,7 @@ dependencies = [
 name = "typst-syntax"
 version = "0.13.1"
 dependencies = [
+ "comemo",
  "ecow",
  "serde",
  "toml",
