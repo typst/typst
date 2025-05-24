@@ -28,7 +28,7 @@ pub struct PackageStorage {
     /// The path at which non-local packages should be stored when downloaded.
     package_cache_path: Option<PathBuf>,
     /// The path at which local packages are stored.
-    package_path: Option<PathBuf>,
+    package_path: Option<Vec<PathBuf>>,
     /// The downloader used for fetching the index and packages.
     downloader: Downloader,
     /// The cached index of the default namespace.
@@ -40,7 +40,7 @@ impl PackageStorage {
     /// the recommended XDG directories if they are `None`.
     pub fn new(
         package_cache_path: Option<PathBuf>,
-        package_path: Option<PathBuf>,
+        package_path: Option<Vec<PathBuf>>,
         downloader: Downloader,
     ) -> Self {
         Self::with_index(package_cache_path, package_path, downloader, OnceCell::new())
@@ -51,7 +51,7 @@ impl PackageStorage {
     /// Useful for testing.
     fn with_index(
         package_cache_path: Option<PathBuf>,
-        package_path: Option<PathBuf>,
+        package_path: Option<Vec<PathBuf>>,
         downloader: Downloader,
         index: OnceCell<Vec<serde_json::Value>>,
     ) -> Self {
@@ -60,7 +60,8 @@ impl PackageStorage {
                 dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
             }),
             package_path: package_path.or_else(|| {
-                dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+                dirs::data_dir()
+                    .map(|data_dir| vec![data_dir.join(DEFAULT_PACKAGES_SUBDIR)])
             }),
             downloader,
             index,
@@ -74,7 +75,7 @@ impl PackageStorage {
     }
 
     /// Returns the path at which local packages are stored.
-    pub fn package_path(&self) -> Option<&Path> {
+    pub fn package_path(&self) -> Option<&[PathBuf]> {
         self.package_path.as_deref()
     }
 
@@ -87,8 +88,8 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-        if let Some(packages_dir) = &self.package_path {
-            let dir = packages_dir.join(&subdir);
+        for to_search in self.package_path.iter().flatten() {
+            let dir = to_search.join(&subdir);
             if dir.exists() {
                 return Ok(dir);
             }
@@ -134,6 +135,7 @@ impl PackageStorage {
             let subdir = format!("{}/{}", spec.namespace, spec.name);
             self.package_path
                 .iter()
+                .flatten()
                 .flat_map(|dir| std::fs::read_dir(dir.join(&subdir)).ok())
                 .flatten()
                 .filter_map(|entry| entry.ok())
