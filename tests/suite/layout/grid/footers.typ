@@ -89,7 +89,6 @@
   stroke: black,
   inset: 5pt,
   grid.cell(x: 1)[a],
-  // Error: 3-56 footer must end at the last row
   grid.footer(grid.cell(x: 0)[b1], grid.cell(x: 0)[b2]),
   // This should skip the footer
   grid.cell(x: 1)[c]
@@ -141,14 +140,12 @@
 )
 
 --- grid-footer-not-at-last-row ---
-// Error: 2:3-2:19 footer must end at the last row
 #grid(
   grid.footer([a]),
   [b],
 )
 
 --- grid-footer-not-at-last-row-two-columns ---
-// Error: 3:3-3:19 footer must end at the last row
 #grid(
   columns: 2,
   grid.footer([a]),
