@@ -1827,6 +1827,28 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         row_amount: usize,
         at_least_one_cell: bool,
     ) -> SourceResult<Option<Repeatable<Footer>>> {
+        // Mark consecutive headers right before the end of the table, or the
+        // final footer, as short lived, given that there are no normal rows
+        // after them, so repeating them is pointless.
+        //
+        // It is important to do this BEFORE we update header and footer ranges
+        // due to gutter below as 'row_amount' doesn't consider gutter.
+        //
+        // TODO(subfooters): take the last footer if it is at the end and
+        // backtrack through consecutive footers until the first one in the
+        // sequence is found. If there is no footer at the end, there are no
+        // haeders to turn short-lived.
+        let mut consecutive_header_start =
+            footer.as_ref().map(|(_, _, f)| f.start).unwrap_or(row_amount);
+        for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
+            let at_the_end = h.end == consecutive_header_start;
+
+            consecutive_header_start = h.start;
+            at_the_end
+        }) {
+            header_at_the_end.unwrap_mut().short_lived = true;
+        }
+
         // Repeat the gutter below a header (hence why we don't
         // subtract 1 from the gutter case).
         // Don't do this if there are no rows under the header.
@@ -1916,25 +1938,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     Repeatable::NotRepeated(footer)
                 }
             });
-
-        // Mark consecutive headers right before the end of the table, or the
-        // final footer, as short lived, given that there are no normal rows
-        // after them, so repeating them is pointless.
-        //
-        // TODO(subfooters): take the last footer if it is at the end and
-        // backtrack through consecutive footers until the first one in the
-        // sequence is found. If there is no footer at the end, there are no
-        // haeders to turn short-lived.
-        let mut consecutive_header_start =
-            footer.as_ref().map(|f| f.start).unwrap_or(row_amount);
-        for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
-            let at_the_end = h.end == consecutive_header_start;
-
-            consecutive_header_start = h.start;
-            at_the_end
-        }) {
-            header_at_the_end.unwrap_mut().short_lived = true;
-        }
 
         Ok(footer)
     }

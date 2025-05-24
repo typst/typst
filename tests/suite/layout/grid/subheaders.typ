@@ -824,6 +824,22 @@
   ),
 )
 
+--- grid-subheaders-alone-with-gutter-no-orphan-prevention ---
+#set page(height: 5.3em)
+#v(2em)
+#grid(
+  gutter: 3pt,
+  grid.header(
+  // (
+    [L1]
+  ),
+  grid.header(
+  // (
+    level: 2,
+    [L2]
+  ),
+)
+
 --- grid-subheaders-alone-with-footer ---
 #table(
   table.header(
