@@ -229,6 +229,26 @@
   ..([z],) * 6,
 )
 
+--- grid-subheaders-repeat-replace-gutter ---
+#set page(height: 8em)
+#grid(
+  gutter: 3pt,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 8,
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  ..([z],) * 4,
+)
+
 --- grid-subheaders-repeat-replace-orphan ---
 #set page(height: 8em)
 #grid(
@@ -269,6 +289,48 @@
     [d]
   ),
   ..([z],) * 10,
+)
+
+--- grid-subheaders-repeat-replace-gutter-orphan-at-child ---
+#set page(height: 8em)
+#grid(
+  gutter: 3pt,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 9,
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  [z \ z],
+  ..([z],) * 3,
+)
+
+--- grid-subheaders-repeat-replace-gutter-orphan-at-gutter ---
+#set page(height: 8em)
+#grid(
+  gutter: 3pt,
+  grid.header(
+    [a]
+  ),
+  [x],
+  grid.header(
+    level: 2,
+    [b]
+  ),
+  ..([y],) * 9,
+  box(height: 3pt),
+  grid.header(
+    level: 2,
+    [c]
+  ),
+  ..([z],) * 4,
 )
 
 --- grid-subheaders-repeat-replace-didnt-fit-once ---
