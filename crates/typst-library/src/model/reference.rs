@@ -21,9 +21,10 @@ use crate::text::TextElem;
 ///
 /// The default, a `{"normal"}` reference, produces a textual reference to a
 /// label. For example, a reference to a heading will yield an appropriate
-/// string such as "Section 1" for a reference to the first heading. The
-/// references are also links to the respective element. Reference syntax can
-/// also be used to [cite] from a bibliography.
+/// string such as "Section 1" for a reference to the first heading. The word
+/// "Section" depends on the [`lang`]($text.lang) setting and is localized
+/// accordingly. The references are also links to the respective element.
+/// Reference syntax can also be used to [cite] from a bibliography.
 ///
 /// As the default form requires a supplement and numbering, the label must be
 /// attached to a _referenceable element_. Referenceable elements include
