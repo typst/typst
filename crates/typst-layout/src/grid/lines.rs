@@ -641,7 +641,7 @@ mod test {
             vec![],
             vec![],
             vec![],
-            None,
+            vec![],
             entries,
         )
     }
@@ -1179,7 +1179,7 @@ mod test {
             vec![],
             vec![],
             vec![],
-            None,
+            vec![],
             entries,
         )
     }
