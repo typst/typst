@@ -12,7 +12,10 @@ use typst_syntax::{is_newline, Span};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun};
+use super::{
+    has_dtls_feat, style_dtls, FrameFragment, GlyphFragment, MathContext, MathFragment,
+    MathRun,
+};
 
 /// Lays out a [`TextElem`].
 pub fn layout_text(
@@ -67,12 +70,7 @@ fn layout_inline_text(
         let mut fragments = vec![];
         for unstyled_c in text.chars() {
             let c = styled_char(styles, unstyled_c, false);
-            let mut glyph = GlyphFragment::new(ctx, styles, c, span);
-            match EquationElem::size_in(styles) {
-                MathSize::Script => glyph.make_script_size(ctx),
-                MathSize::ScriptScript => glyph.make_script_script_size(ctx),
-                _ => {}
-            }
+            let glyph = GlyphFragment::new(ctx.font, styles, c, span);
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -121,15 +119,25 @@ pub fn layout_symbol(
 ) -> SourceResult<()> {
     // Switch dotless char to normal when we have the dtls OpenType feature.
     // This should happen before the main styling pass.
-    let (unstyled_c, dtls) = match try_dotless(elem.text) {
-        Some(c) if ctx.dtls_table.is_some() => (c, true),
-        _ => (elem.text, false),
+    let dtls = style_dtls();
+    let (unstyled_c, symbol_styles) = match try_dotless(elem.text) {
+        Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
+        _ => (elem.text, styles),
     };
     let c = styled_char(styles, unstyled_c, true);
-    let fragment = match GlyphFragment::try_new(ctx, styles, c, elem.span()) {
-        Some(glyph) => layout_glyph(glyph, dtls, ctx, styles),
+    let fragment: MathFragment = match GlyphFragment::try_new(
+        ctx.font,
+        symbol_styles,
+        c.encode_utf8(&mut [0; 4]),
+        elem.span(),
+    ) {
+        Some(mut glyph) => {
+            layout_glyph(&mut glyph, ctx, styles);
+            glyph.into()
+        }
         None => {
             // Not in the math font, fallback to normal inline text layout.
+            // TODO: Should replace this with proper fallback in [`GlyphFragment::try_new`].
             layout_inline_text(c.encode_utf8(&mut [0; 4]), elem.span(), ctx, styles)?
                 .into()
         }
@@ -139,36 +147,17 @@ pub fn layout_symbol(
 }
 
 /// Layout a [`GlyphFragment`].
-fn layout_glyph(
-    mut glyph: GlyphFragment,
-    dtls: bool,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) -> MathFragment {
-    if dtls {
-        glyph.make_dotless_form(ctx);
-    }
+fn layout_glyph(glyph: &mut GlyphFragment, ctx: &mut MathContext, styles: StyleChain) {
     let math_size = EquationElem::size_in(styles);
-    match math_size {
-        MathSize::Script => glyph.make_script_size(ctx),
-        MathSize::ScriptScript => glyph.make_script_script_size(ctx),
-        _ => {}
-    }
-
     if glyph.class == MathClass::Large {
-        let mut variant = if math_size == MathSize::Display {
+        if math_size == MathSize::Display {
             let height = scaled!(ctx, styles, display_operator_min_height)
-                .max(SQRT_2 * glyph.height());
-            glyph.stretch_vertical(ctx, height)
-        } else {
-            glyph.into_variant()
+                .max(SQRT_2 * glyph.size.y);
+            glyph.stretch_vertical(ctx, height);
         };
         // TeXbook p 155. Large operators are always vertically centered on the
         // axis.
-        variant.center_on_axis(ctx);
-        variant.into()
-    } else {
-        glyph.into()
+        glyph.center_on_axis();
     }
 }
 

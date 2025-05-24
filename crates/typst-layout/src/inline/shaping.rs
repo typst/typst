@@ -1,18 +1,16 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::str::FromStr;
 use std::sync::Arc;
 
 use az::SaturatingAs;
-use ecow::EcoString;
 use rustybuzz::{BufferFlags, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
-    families, features, is_default_ignorable, variant, Font, FontFamily, FontVariant,
-    Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
+    families, features, is_default_ignorable, language, variant, Font, FontFamily,
+    FontVariant, Glyph, Lang, Region, TextEdgeBounds, TextElem, TextItem,
 };
 use typst_library::World;
 use typst_utils::SliceExt;
@@ -295,6 +293,8 @@ impl<'a> ShapedText<'a> {
                             + justification_left
                             + justification_right,
                         x_offset: shaped.x_offset + justification_left,
+                        y_advance: Em::zero(),
+                        y_offset: Em::zero(),
                         range: (shaped.range.start - range.start).saturating_as()
                             ..(shaped.range.end - range.start).saturating_as(),
                         span,
@@ -934,7 +934,7 @@ fn shape_segment<'a>(
 
 /// Create a shape plan.
 #[comemo::memoize]
-fn create_shape_plan(
+pub fn create_shape_plan(
     font: &Font,
     direction: rustybuzz::Direction,
     script: rustybuzz::Script,
@@ -1047,17 +1047,6 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
     let space = font.ttf().glyph_index(' ')?.0;
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
     Some(font.advance(nbsp)? - font.advance(space)?)
-}
-
-/// Process the language and region of a style chain into a
-/// rustybuzz-compatible BCP 47 language.
-fn language(styles: StyleChain) -> rustybuzz::Language {
-    let mut bcp: EcoString = TextElem::lang_in(styles).as_str().into();
-    if let Some(region) = TextElem::region_in(styles) {
-        bcp.push('-');
-        bcp.push_str(region.as_str());
-    }
-    rustybuzz::Language::from_str(&bcp).unwrap()
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
