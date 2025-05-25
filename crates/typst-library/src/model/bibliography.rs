@@ -313,12 +313,17 @@ impl Bibliography {
         for (source, data) in sources.0.iter().zip(data) {
             let library = decode_library(source, data)?;
             for entry in library {
-                match map.entry(Label::new(PicoStr::intern(entry.key()))) {
+                let key = entry.key();
+                if key.is_empty() {
+                    bail!("empty bibliography key found");
+                }
+
+                match map.entry(Label::new(PicoStr::intern(key))) {
                     indexmap::map::Entry::Vacant(vacant) => {
                         vacant.insert(entry);
                     }
                     indexmap::map::Entry::Occupied(_) => {
-                        duplicates.push(entry.key().into());
+                        duplicates.push(key.into());
                     }
                 }
             }
