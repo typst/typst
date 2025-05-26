@@ -827,24 +827,7 @@ fn param_value_completions<'a>(
     param: &'a ParamInfo,
 ) {
     if param.name == "font" {
-        // See if we are in a show-set rule that applies on equations
-        let equation = if_chain! {
-            if let Some(parent) = ctx.leaf.parent();
-            if let Some(grand) = parent.parent();
-            if let Some(grandgrand) = grand.parent();
-            if let Some(expr) = grandgrand.get().cast::<ast::Expr>();
-            if let ast::Expr::ShowRule(show) = expr;
-            if let Some(selector) = show.selector();
-            if let ast::Expr::FieldAccess(field) = selector;
-            if field.field().as_str() == "equation";
-            then {
-                true
-            } else {
-                false
-            }
-        };
-
-        ctx.font_completions(equation);
+        ctx.font_completions();
     } else if let Some(extensions) = path_completion(func, param) {
         ctx.file_completions_with_extensions(extensions);
     } else if func.name() == Some("figure") && param.name == "body" {
@@ -1098,6 +1081,24 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
     }
 }
 
+/// See if the AST node is somewhere within a show rule applying to equations
+fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
+    let mut node = leaf;
+    while let Some(parent) = node.parent() {
+        if_chain! {
+            if let Some(expr) = parent.get().cast::<ast::Expr>();
+            if let ast::Expr::ShowRule(show) = expr;
+            if let Some(ast::Expr::FieldAccess(field)) = show.selector();
+            if field.field().as_str() == "equation";
+            then {
+                return true;
+            }
+        }
+        node = parent;
+    }
+    false
+}
+
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
@@ -1168,7 +1169,8 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for all font families.
-    fn font_completions(&mut self, equation: bool) {
+    fn font_completions(&mut self) {
+        let equation = is_in_equation_show_rule(self.leaf);
         for (family, iter) in self.world.book().families() {
             let variants: Vec<_> = iter.collect();
             let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
@@ -1818,6 +1820,10 @@ mod tests {
             .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
 
         test("#show math.equation: set text(font: )", -1)
+            .must_include(["\"New Computer Modern Math\""])
+            .must_exclude(["\"Libertinus Serif\""]);
+
+        test("#show math.equation: it => { set text(font: )\nit }", -6)
             .must_include(["\"New Computer Modern Math\""])
             .must_exclude(["\"Libertinus Serif\""]);
     }
