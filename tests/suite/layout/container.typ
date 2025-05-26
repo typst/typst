@@ -64,6 +64,12 @@ First!
   is the sun.
 ]
 
+--- block-multiple-pages-empty ---
+#set page(height: 60pt)
+A
+#block(height: 30pt)
+B
+
 --- block-box-fill ---
 #set page(height: 100pt)
 #let words = lorem(18).split()
@@ -286,6 +292,37 @@ Paragraph
 // Test box in 100% width block.
 #block(width: 100%, fill: red, box("a box"))
 #block(width: 100%, fill: red, [#box("a box") #box()])
+
+--- issue-2914-block-height-cut-off ---
+// Ensure that breaking a block doesn't shrink its height.
+#set page(height: 65pt)
+#set block(fill: aqua, width: 25pt, height: 25pt, inset: 5pt)
+
+#block[A]
+#block[B]
+
+--- issue-2914-block-fill-skip-nested ---
+// Ensure that fill and stroke are skipped for an empty frame with a nested block.
+#set page(height: 50pt)
+A
+#block(fill: aqua, stroke: blue, inset: 5pt, width: 100%, block[B])
+
+--- issue-6304-block-skip-label ---
+// Ensure that labeling is skipped for an empty orphan frame.
+#set page(height: 60pt)
+A
+#block(sticky: true)[B]
+#block[C] <label>
+
+--- issue-6125-block-place-width-limited ---
+// Ensure that the width of a placed block isn't limited by its siblings.
+#set page(height: 70pt)
+#let b = block({
+  square(size: 20pt, fill: aqua)
+  place(top, box(height: 10pt, width: 1fr, fill: blue))
+})
+#b
+#b
 
 --- issue-5296-block-sticky-in-block-at-top ---
 #set page(height: 3cm)
