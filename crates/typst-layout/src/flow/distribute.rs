@@ -283,6 +283,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Lay out the block.
         let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
+        if frame.is_empty() && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame) {
+            // If the first frame is empty, but there are non-empty frames in
+            // the spill, the whole child should be put in the next region to
+            // avoid any invisible orphans at the end of this region.
+            return Err(Stop::Finish(false));
+        }
+
         self.frame(frame, multi.align, multi.sticky, true)?;
 
         // If the block didn't fully fit into the current region, save it into
