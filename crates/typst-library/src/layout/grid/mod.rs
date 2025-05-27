@@ -13,6 +13,7 @@ use crate::foundations::{
     cast, elem, scope, Array, CastInfo, Content, Context, Fold, FromValue, Func,
     IntoValue, NativeElement, Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
 };
+use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockElem, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
@@ -136,7 +137,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope, Show)]
+#[elem(scope, Locatable, Show)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -462,7 +463,7 @@ impl TryFrom<Content> for GridItem {
 /// If `repeat` is set to `true`, the header will be repeated across pages. For
 /// an example, refer to the [`table.header`]($table.header) element and the
 /// [`grid.stroke`]($grid.stroke) parameter.
-#[elem(name = "header", title = "Grid Header")]
+#[elem(name = "header", title = "Grid Header", Locatable)]
 pub struct GridHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
@@ -490,7 +491,7 @@ pub struct GridHeader {
 /// itself on every page of the table.
 ///
 /// No other grid cells may be placed after the footer.
-#[elem(name = "footer", title = "Grid Footer")]
+#[elem(name = "footer", title = "Grid Footer", Locatable)]
 pub struct GridFooter {
     /// Whether this footer should be repeated across pages.
     #[default(true)]
@@ -657,7 +658,7 @@ pub struct GridVLine {
 /// which allows you, for example, to apply styles based on a cell's position.
 /// Refer to the examples of the [`table.cell`]($table.cell) element to learn
 /// more about this.
-#[elem(name = "cell", title = "Grid Cell", Show)]
+#[elem(name = "cell", title = "Grid Cell", Locatable, Show)]
 pub struct GridCell {
     /// The cell's body.
     #[required]

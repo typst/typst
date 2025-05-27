@@ -7,6 +7,7 @@ pub use self::dom::*;
 use ecow::EcoString;
 
 use crate::foundations::{elem, Content, Module, Scope};
+use crate::introspection::Locatable;
 
 /// Create a module with all HTML definitions.
 pub fn module() -> Module {
@@ -38,7 +39,7 @@ pub fn module() -> Module {
 ///   A div with _Typst content_ inside!
 /// ]
 /// ```
-#[elem(name = "elem")]
+#[elem(name = "elem", Locatable)]
 pub struct HtmlElem {
     /// The element's tag.
     #[required]

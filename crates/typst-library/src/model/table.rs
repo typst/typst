@@ -10,7 +10,7 @@ use crate::foundations::{
     TargetElem,
 };
 use crate::html::{attr, tag, HtmlAttrs, HtmlElem, HtmlTag};
-use crate::introspection::Locator;
+use crate::introspection::{Locatable, Locator};
 use crate::layout::grid::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
 use crate::layout::{
     show_grid_cell, Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine,
@@ -121,7 +121,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, Show, LocalName, Figurable)]
+#[elem(scope, Locatable, Show, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
@@ -531,7 +531,7 @@ impl TryFrom<Content> for TableItem {
 ///   [7.34], [57],  [2],
 /// )
 /// ```
-#[elem(name = "header", title = "Table Header")]
+#[elem(name = "header", title = "Table Header", Locatable)]
 pub struct TableHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
@@ -561,7 +561,7 @@ pub struct TableHeader {
 /// totals, or other information that should be visible on every page.
 ///
 /// No other table cells may be placed after the footer.
-#[elem(name = "footer", title = "Table Footer")]
+#[elem(name = "footer", title = "Table Footer", Locatable)]
 pub struct TableFooter {
     /// Whether this footer should be repeated across pages.
     #[default(true)]
@@ -604,7 +604,7 @@ pub struct TableFooter {
 ///   [19:00], [Day 1 Attendee Mixer],
 /// )
 /// ```
-#[elem(name = "hline", title = "Table Horizontal Line")]
+#[elem(name = "hline", title = "Table Horizontal Line", Locatable)]
 pub struct TableHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
     /// Functions identically to the `y` field in [`grid.hline`]($grid.hline.y).
@@ -649,7 +649,7 @@ pub struct TableHLine {
 /// use the [table's `stroke`]($table.stroke) field or [`table.cell`'s
 /// `stroke`]($table.cell.stroke) field instead if the line you want to place is
 /// part of all your tables' designs.
-#[elem(name = "vline", title = "Table Vertical Line")]
+#[elem(name = "vline", title = "Table Vertical Line", Locatable)]
 pub struct TableVLine {
     /// The column before which the horizontal line is placed (zero-indexed).
     /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
@@ -770,7 +770,7 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell", Show)]
+#[elem(name = "cell", title = "Table Cell", Locatable, Show)]
 pub struct TableCell {
     /// The cell's body.
     #[required]

@@ -1,6 +1,7 @@
 use typst_syntax::Span;
 
 use crate::foundations::{elem, func, Content, NativeElement};
+use crate::introspection::Locatable;
 use crate::math::Mathy;
 
 /// A square root.
@@ -22,7 +23,7 @@ pub fn sqrt(
 /// ```example
 /// $ root(3, x) $
 /// ```
-#[elem(Mathy)]
+#[elem(Mathy, Locatable)]
 pub struct RootElem {
     /// Which root of the radicand to take.
     #[positional]

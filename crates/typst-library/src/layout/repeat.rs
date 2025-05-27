@@ -1,6 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
+use crate::introspection::Locatable;
 use crate::layout::{BlockElem, Length};
 
 /// Repeats content to the available space.
@@ -24,7 +25,7 @@ use crate::layout::{BlockElem, Length};
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-#[elem(Show)]
+#[elem(Locatable, Show)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]
