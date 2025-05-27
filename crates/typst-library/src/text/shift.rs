@@ -6,6 +6,7 @@ use crate::foundations::{
     elem, Content, NativeElement, Packed, SequenceElem, Show, StyleChain, TargetElem,
 };
 use crate::html::{tag, HtmlElem};
+use crate::introspection::Locatable;
 use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
@@ -18,7 +19,7 @@ use crate::World;
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript", Show)]
+#[elem(title = "Subscript", Locatable, Show)]
 pub struct SubElem {
     /// Whether to prefer the dedicated subscript characters of the font.
     ///
@@ -84,7 +85,7 @@ impl Show for Packed<SubElem> {
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript", Show)]
+#[elem(title = "Superscript", Locatable, Show)]
 pub struct SuperElem {
     /// Whether to prefer the dedicated superscript characters of the font.
     ///

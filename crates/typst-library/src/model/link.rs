@@ -9,7 +9,7 @@ use crate::foundations::{
     StyleChain, Styles, TargetElem,
 };
 use crate::html::{attr, tag, HtmlElem};
-use crate::introspection::Location;
+use crate::introspection::{Locatable, Location};
 use crate::layout::Position;
 use crate::text::TextElem;
 
@@ -38,7 +38,7 @@ use crate::text::TextElem;
 /// # Syntax
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
-#[elem(Show)]
+#[elem(Locatable, Show)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///

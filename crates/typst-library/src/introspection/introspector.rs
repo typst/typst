@@ -388,6 +388,8 @@ impl IntrospectorBuilder {
             );
         }
 
+        dbg!(elems.len());
+
         self.finalize(elems)
     }
 

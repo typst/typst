@@ -1,6 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Show, StyleChain};
+use crate::introspection::Locatable;
 
 /// Hides content without affecting layout.
 ///
@@ -14,7 +15,7 @@ use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
-#[elem(Show)]
+#[elem(Locatable, Show)]
 pub struct HideElem {
     /// The content to hide.
     #[required]

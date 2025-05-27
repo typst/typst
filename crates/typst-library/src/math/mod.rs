@@ -28,6 +28,7 @@ use typst_utils::singleton;
 use unicode_math_class::MathClass;
 
 use crate::foundations::{elem, Content, Module, NativeElement, Scope};
+use crate::introspection::Locatable;
 use crate::layout::{Em, HElem};
 use crate::text::TextElem;
 
@@ -109,7 +110,7 @@ pub fn module() -> Module {
 pub trait Mathy {}
 
 /// A math alignment point: `&`, `&&`.
-#[elem(title = "Alignment Point", Mathy)]
+#[elem(title = "Alignment Point", Mathy, Locatable)]
 pub struct AlignPointElem {}
 
 impl AlignPointElem {
@@ -136,7 +137,7 @@ impl AlignPointElem {
 ///
 /// $x loves y and y loves 5$
 /// ```
-#[elem(Mathy)]
+#[elem(Mathy, Locatable)]
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]

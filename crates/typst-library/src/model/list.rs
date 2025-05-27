@@ -7,6 +7,7 @@ use crate::foundations::{
     Smart, StyleChain, Styles, TargetElem, Value,
 };
 use crate::html::{tag, HtmlElem};
+use crate::introspection::Locatable;
 use crate::layout::{BlockElem, Em, Length, VElem};
 use crate::model::{ParElem, ParbreakElem};
 use crate::text::TextElem;
@@ -42,7 +43,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", Show)]
+#[elem(scope, title = "Bullet List", Locatable, Show)]
 pub struct ListElem {
     /// Defines the default [spacing]($list.spacing) of the list. If it is
     /// `{false}`, the items are spaced apart with
@@ -178,7 +179,7 @@ impl Show for Packed<ListElem> {
 }
 
 /// A bullet list item.
-#[elem(name = "item", title = "Bullet List Item")]
+#[elem(name = "item", title = "Bullet List Item", Locatable)]
 pub struct ListItem {
     /// The item's body.
     #[required]

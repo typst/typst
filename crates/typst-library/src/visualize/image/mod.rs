@@ -21,6 +21,7 @@ use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Show,
     Smart, StyleChain,
 };
+use crate::introspection::Locatable;
 use crate::layout::{BlockElem, Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
@@ -44,7 +45,7 @@ use crate::text::LocalName;
 ///   ],
 /// )
 /// ```
-#[elem(scope, Show, LocalName, Figurable)]
+#[elem(scope, Locatable, Show, LocalName, Figurable)]
 pub struct ImageElem {
     /// A [path]($syntax/#paths) to an image file or raw bytes making up an
     /// image in one of the supported [formats]($image.format).
