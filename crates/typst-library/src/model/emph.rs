@@ -4,6 +4,7 @@ use crate::foundations::{
     elem, Content, NativeElement, Packed, Show, StyleChain, TargetElem,
 };
 use crate::html::{tag, HtmlElem};
+use crate::introspection::Locatable;
 use crate::text::{ItalicToggle, TextElem};
 
 /// Emphasizes content by toggling italics.
@@ -29,7 +30,7 @@ use crate::text::{ItalicToggle, TextElem};
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-#[elem(title = "Emphasis", keywords = ["italic"], Show)]
+#[elem(title = "Emphasis", keywords = ["italic"], Locatable, Show)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]

@@ -10,6 +10,7 @@ use crate::foundations::{
     Styles, TargetElem,
 };
 use crate::html::{attr, tag, HtmlElem};
+use crate::introspection::Locatable;
 use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
 use crate::model::{
     ListItemLike, ListLike, Numbering, NumberingPattern, ParElem, ParbreakElem,
@@ -71,7 +72,7 @@ use crate::model::{
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Show)]
+#[elem(scope, title = "Numbered List", Locatable, Show)]
 pub struct EnumElem {
     /// Defines the default [spacing]($enum.spacing) of the enumeration. If it
     /// is `{false}`, the items are spaced apart with
@@ -271,7 +272,7 @@ impl Show for Packed<EnumElem> {
 }
 
 /// An enumeration item.
-#[elem(name = "item", title = "Numbered List Item")]
+#[elem(name = "item", title = "Numbered List Item", Locatable)]
 pub struct EnumItem {
     /// The item's number.
     #[positional]

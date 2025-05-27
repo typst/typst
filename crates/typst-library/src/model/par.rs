@@ -93,7 +93,7 @@ use crate::model::Numbering;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(scope, title = "Paragraph")]
+#[elem(scope, title = "Paragraph", Locatable)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
