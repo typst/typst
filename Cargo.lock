@@ -1215,6 +1215,7 @@ dependencies = [
  "byteorder-lite",
  "color_quant",
  "gif",
+ "image-webp",
  "num-traits",
  "png",
  "zune-core",

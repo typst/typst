@@ -77,7 +77,7 @@ pub struct ImageElem {
     /// [`source`]($image.source) (even then, Typst will try to figure out the
     /// format automatically, but that's not always possible).
     ///
-    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}` as well
+    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`, `{"webp"}` as well
     /// as raw pixel data. Embedding PDFs as images is
     /// [not currently supported](https://github.com/typst/typst/issues/145).
     ///

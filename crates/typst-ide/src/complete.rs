@@ -841,7 +841,9 @@ fn param_value_completions<'a>(
 /// Returns which file extensions to complete for the given parameter if any.
 fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
     Some(match (func.name(), param.name) {
-        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("image"), "source") => {
+            &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp"]
+        }
         (Some("csv"), "source") => &["csv"],
         (Some("plugin"), "source") => &["wasm"],
         (Some("cbor"), "source") => &["cbor"],
