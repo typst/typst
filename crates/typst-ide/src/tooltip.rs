@@ -269,7 +269,7 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
             .find(|&(family, _)| family.to_lowercase().as_str() == lower.as_str());
 
         then {
-            let detail = summarize_font_family(iter);
+            let detail = summarize_font_family(iter.collect());
             return Some(Tooltip::Text(detail));
         }
     };
