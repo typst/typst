@@ -11,7 +11,7 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
-use typst_library::visualize::Paint;
+use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
@@ -235,6 +235,7 @@ pub struct GlyphFragment {
     pub lang: Lang,
     pub region: Option<Region>,
     pub fill: Paint,
+    pub stroke: Option<FixedStroke>,
     pub shift: Abs,
     pub width: Abs,
     pub ascent: Abs,
@@ -286,6 +287,7 @@ impl GlyphFragment {
             lang: TextElem::lang_in(styles),
             region: TextElem::region_in(styles),
             fill: TextElem::fill_in(styles).as_decoration(),
+            stroke: TextElem::stroke_in(styles).map(|s| s.unwrap_or_default()),
             shift: TextElem::baseline_in(styles),
             font_size: TextElem::size_in(styles),
             math_size: EquationElem::size_in(styles),
@@ -368,10 +370,10 @@ impl GlyphFragment {
             font: self.font.clone(),
             size: self.font_size,
             fill: self.fill,
+            stroke: self.stroke,
             lang: self.lang,
             region: self.region,
             text: self.c.into(),
-            stroke: None,
             glyphs: vec![Glyph {
                 id: self.id.0,
                 x_advance: Em::from_length(self.width, self.font_size),
