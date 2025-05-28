@@ -27,6 +27,7 @@ codex = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
 ecow = { workspace = true }
+ego-tree = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
 glidesort = { workspace = true }

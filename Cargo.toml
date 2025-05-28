@@ -54,6 +54,7 @@ csv = "1"
 ctrlc = "3.4.1"
 dirs = "6"
 ecow = { version = "0.2", features = ["serde"] }
+ego-tree = "0.10"
 env_proxy = "0.4"
 fastrand = "2.3"
 flate2 = "1"
