@@ -373,7 +373,6 @@ struct MathContext<'a, 'v, 'e> {
     // Font-related.
     font: &'a Font,
     constants: ttf_parser::math::Constants<'a>,
-    space_width: Em,
     // Mutable.
     fragments: Vec<MathFragment>,
 }
@@ -386,15 +385,10 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         base: Size,
         font: &'a Font,
     ) -> Self {
-        let math_table = font.ttf().tables().math.unwrap();
-        let constants = math_table.constants.unwrap();
-
-        let ttf = font.ttf();
-        let space_width = ttf
-            .glyph_index(' ')
-            .and_then(|id| ttf.glyph_hor_advance(id))
-            .map(|advance| font.to_em(advance))
-            .unwrap_or(THICK);
+        // These unwraps are safe as the font given is one returned by the
+        // find_math_font function, which only returns fonts that have a math
+        // constants table.
+        let constants = font.ttf().tables().math.unwrap().constants.unwrap();
 
         Self {
             engine,
@@ -402,7 +396,6 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             region: Region::new(base, Axes::splat(false)),
             font,
             constants,
-            space_width,
             fragments: vec![],
         }
     }
@@ -501,7 +494,8 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        ctx.push(MathFragment::Space(ctx.space_width.resolve(styles)));
+        let space_width = ctx.font.space_width().unwrap_or(THICK);
+        ctx.push(MathFragment::Space(space_width.resolve(styles)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
     } else if let Some(elem) = elem.to_packed::<HElem>() {
