@@ -1,5 +1,7 @@
+use std::cell::OnceCell;
+
 use krilla::surface::Surface;
-use krilla::tagging::{ContentTag, Node, Tag, TagGroup, TagTree};
+use krilla::tagging::{ContentTag, Identifier, Node, Tag, TagGroup, TagTree};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::model::{HeadingElem, OutlineElem, OutlineEntry};
@@ -8,24 +10,87 @@ use crate::convert::GlobalContext;
 
 pub(crate) struct Tags {
     /// The intermediary stack of nested tag groups.
-    pub(crate) stack: Vec<(Location, Tag, Vec<Node>)>,
+    pub(crate) stack: Vec<(Location, Tag, Vec<TagNode>)>,
+    pub(crate) placeholders: Vec<OnceCell<Node>>,
     pub(crate) in_artifact: bool,
 
     /// The output.
-    pub(crate) tree: TagTree,
+    pub(crate) tree: Vec<TagNode>,
 }
+
+pub(crate) enum TagNode {
+    Group(Tag, Vec<TagNode>),
+    Leaf(Identifier),
+    /// Allows inserting a placeholder into the tag tree.
+    /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
+    Placeholder(Placeholder),
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Placeholder(usize);
 
 impl Tags {
     pub(crate) fn new() -> Self {
         Self {
             stack: Vec::new(),
+            placeholders: Vec::new(),
             in_artifact: false,
-            tree: TagTree::new(),
+
+            tree: Vec::new(),
         }
     }
 
-    pub(crate) fn take_tree(&mut self) -> TagTree {
-        std::mem::take(&mut self.tree)
+    pub(crate) fn reserve_placeholder(&mut self) -> Placeholder {
+        let idx = self.placeholders.len();
+        self.placeholders.push(OnceCell::new());
+        Placeholder(idx)
+    }
+
+    pub(crate) fn init_placeholder(&mut self, placeholder: Placeholder, node: Node) {
+        self.placeholders[placeholder.0]
+            .set(node)
+            .map_err(|_| ())
+            .expect("placeholder to be uninitialized");
+    }
+
+    pub(crate) fn take_placeholder(&mut self, placeholder: Placeholder) -> Node {
+        self.placeholders[placeholder.0]
+            .take()
+            .expect("initialized placeholder node")
+    }
+
+    pub(crate) fn push(&mut self, node: TagNode) {
+        if let Some((_, _, nodes)) = self.stack.last_mut() {
+            nodes.push(node);
+        } else {
+            self.tree.push(node);
+        }
+    }
+
+    pub(crate) fn build_tree(&mut self) -> TagTree {
+        let mut tree = TagTree::new();
+        let nodes = std::mem::take(&mut self.tree);
+        // PERF: collect into vec and construct TagTree directly from tag nodes.
+        for node in nodes.into_iter().map(|node| self.resolve_node(node)) {
+            tree.push(node);
+        }
+        tree
+    }
+
+    /// Resolves [`Placeholder`] nodes.
+    fn resolve_node(&mut self, node: TagNode) -> Node {
+        match node {
+            TagNode::Group(tag, nodes) => {
+                let mut group = TagGroup::new(tag);
+                // PERF: collect into vec and construct TagTree directly from tag nodes.
+                for node in nodes.into_iter().map(|node| self.resolve_node(node)) {
+                    group.push(node);
+                }
+                Node::Group(group)
+            }
+            TagNode::Leaf(identifier) => Node::Leaf(identifier),
+            TagNode::Placeholder(placeholder) => self.take_placeholder(placeholder),
+        }
     }
 
     pub(crate) fn context_supports(&self, tag: &Tag) -> bool {
@@ -118,7 +183,7 @@ pub(crate) fn handle_open_tag(
     }
     let content_id = surface.start_tagged(krilla::tagging::ContentTag::Other);
 
-    gc.tags.stack.push((loc, tag, vec![Node::Leaf(content_id)]));
+    gc.tags.stack.push((loc, tag, vec![TagNode::Leaf(content_id)]));
 }
 
 pub(crate) fn handle_close_tag(
@@ -129,21 +194,16 @@ pub(crate) fn handle_close_tag(
     let Some((_, tag, nodes)) = gc.tags.stack.pop_if(|(l, ..)| l == loc) else {
         return;
     };
-    // TODO: contstruct group directly from nodes
-    let mut tag_group = TagGroup::new(tag);
-    for node in nodes {
-        tag_group.push(node);
-    }
 
     surface.end_tagged();
 
     if let Some((_, _, parent_nodes)) = gc.tags.stack.last_mut() {
-        parent_nodes.push(Node::Group(tag_group));
+        parent_nodes.push(TagNode::Group(tag, nodes));
 
         // TODO: somehow avoid empty marked-content sequences
         let id = surface.start_tagged(ContentTag::Other);
-        parent_nodes.push(Node::Leaf(id));
+        parent_nodes.push(TagNode::Leaf(id));
     } else {
-        gc.tags.tree.push(Node::Group(tag_group));
+        gc.tags.tree.push(TagNode::Group(tag, nodes));
     }
 }

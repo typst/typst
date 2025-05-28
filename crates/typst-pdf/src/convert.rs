@@ -31,7 +31,7 @@ use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
-use crate::tags::{handle_close_tag, handle_open_tag, Tags};
+use crate::tags::{handle_close_tag, handle_open_tag, Placeholder, TagNode, Tags};
 use crate::text::handle_text;
 use crate::util::{convert_path, display_font, AbsExt, TransformExt};
 use crate::PdfOptions;
@@ -42,6 +42,7 @@ pub fn convert(
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
     // HACK
+    // let config = Configuration::new();
     let config = Configuration::new_with_validator(Validator::UA1);
     let settings = SerializeSettings {
         compress_content_streams: true,
@@ -73,7 +74,7 @@ pub fn convert(
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
-    document.set_tag_tree(gc.tags.take_tree());
+    document.set_tag_tree(gc.tags.build_tree());
 
     finish(document, gc, options.standards.config)
 }
@@ -123,7 +124,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                 };
                 // TODO: somehow avoid empty marked-content sequences
                 let id = surface.start_tagged(tag);
-                nodes.push(Node::Leaf(id));
+                nodes.push(TagNode::Leaf(id));
             }
 
             handle_frame(
@@ -141,8 +142,9 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             surface.finish();
 
-            for annotation in fc.annotations {
-                page.add_annotation(annotation);
+            for (placeholder, annotation) in fc.annotations {
+                let annotation_id = page.add_tagged_annotation(annotation);
+                gc.tags.init_placeholder(placeholder, Node::Leaf(annotation_id));
             }
         }
     }
@@ -197,7 +199,7 @@ impl State {
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     states: Vec<State>,
-    annotations: Vec<Annotation>,
+    annotations: Vec<(Placeholder, Annotation)>,
 }
 
 impl FrameContext {
@@ -224,8 +226,12 @@ impl FrameContext {
         self.states.last_mut().unwrap()
     }
 
-    pub(crate) fn push_annotation(&mut self, annotation: Annotation) {
-        self.annotations.push(annotation);
+    pub(crate) fn push_annotation(
+        &mut self,
+        placeholder: Placeholder,
+        annotation: Annotation,
+    ) {
+        self.annotations.push((placeholder, annotation));
     }
 }
 
