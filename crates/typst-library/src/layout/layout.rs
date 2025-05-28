@@ -41,7 +41,7 @@ use crate::layout::{BlockElem, Size};
 /// receives the page's dimensions minus its margins. This is mostly useful in
 /// combination with [measurement]($measure).
 ///
-/// To retrieve the _remaining_ size of the page rather than its full size, you
+/// To retrieve the _remaining_ height of the page rather than its full size,
 /// you can wrap your `layout` call in a `{block(height: 1fr)}`. This works
 /// because the block automatically grows to fill the remaining space (see the
 /// [fraction] documentation for more details).
