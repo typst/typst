@@ -6,12 +6,15 @@ use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
+use az::SaturatingAs;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Span, Spanned, SyntaxError};
+use typst_syntax::{Lines, Span, Spanned, SyntaxError};
+use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
+use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -148,7 +151,7 @@ pub struct Warned<T> {
     pub warnings: EcoVec<SourceDiagnostic>,
 }
 
-/// An error or warning in a source file.
+/// An error or warning in a source or text file.
 ///
 /// The contained spans will only be detached if any of the input source files
 /// were detached.
@@ -568,31 +571,270 @@ impl From<PackageError> for EcoString {
     }
 }
 
+pub type LoadResult<T> = Result<T, LoadError>;
+
+/// A call site independent error that occurred during data loading.
+/// This avoids polluting the memoization with [`Span`]s and [`FileId`]s from source files.
+/// Can be turned into a [`SourceDiagnostic`] using the [`LoadedAt::in_text`]
+/// or [`LoadedAt::in_invalid_text`] methods available on [`LoadResult`].
+///
+/// [`FileId`]: typst_syntax::FileId
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct LoadError {
+    pub pos: ReportPos,
+    pub message: EcoString,
+    pub error: EcoString,
+}
+
+impl LoadError {
+    pub fn new(
+        pos: impl Into<ReportPos>,
+        message: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> Self {
+        Self {
+            pos: pos.into(),
+            message: eco_format!("{message}"),
+            error: eco_format!("{error}"),
+        }
+    }
+}
+
+/// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`] context.
+pub trait LoadedAt<T> {
+    /// Add the span information.
+    fn in_text(self, data: &Loaded) -> SourceResult<T>;
+
+    /// Add the span information.
+    fn in_invalid_text(self, data: &Loaded) -> SourceResult<T>;
+}
+
+impl<T> LoadedAt<T> for Result<T, LoadError> {
+    /// Report an error, possibly in an external file.
+    fn in_text(self, data: &Loaded) -> SourceResult<T> {
+        self.map_err(|err| data.err_in_text(err.pos, err.message, err.error))
+    }
+
+    /// Report an error in invalid text.
+    fn in_invalid_text(self, data: &Loaded) -> SourceResult<T> {
+        self.map_err(|err| data.err_in_invalid_text(err.pos, err.message, err.error))
+    }
+}
+
+impl Loaded {
+    /// Report an error, possibly in an external file.
+    pub fn err_in_text(
+        &self,
+        pos: impl Into<ReportPos>,
+        msg: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> EcoVec<SourceDiagnostic> {
+        let pos = pos.into();
+        // This also does utf-8 validation. Only report an error in an external
+        // file if it is human readable (valid utf-8), otherwise fall back to
+        // `err_in_invalid_text`.
+        let lines = Lines::from_bytes(&self.bytes);
+        match (self.source.v, lines) {
+            (LoadSource::Path(file_id), Ok(lines)) => {
+                if let Some(range) = pos.range(&lines) {
+                    let span = Span::from_range(file_id, range);
+                    return eco_vec!(error!(span, "{msg} ({error})"));
+                }
+
+                // Either `ReportPos::None` was provided, or resolving the range
+                // from the line/column failed. If present report the possibly
+                // wrong line/column in the error message anyway.
+                let span = Span::from_range(file_id, 0..self.bytes.len());
+                let error = if let Some(pair) = pos.line_col(&lines) {
+                    let (line, col) = pair.numbers();
+                    error!(span, "{msg} ({error} at {line}:{col})")
+                } else {
+                    error!(span, "{msg} ({error})")
+                };
+                eco_vec![error]
+            }
+            (LoadSource::Bytes, Ok(lines)) => {
+                let error = if let Some(pair) = pos.line_col(&lines) {
+                    let (line, col) = pair.numbers();
+                    error!(self.source.span, "{msg} ({error} at {line}:{col})")
+                } else {
+                    error!(self.source.span, "{msg} ({error})")
+                };
+                eco_vec![error]
+            }
+            _ => self.err_in_invalid_text(pos, msg, error),
+        }
+    }
+
+    /// Report an error (possibly from an external file) that isn't valid utf-8.
+    pub fn err_in_invalid_text(
+        &self,
+        pos: impl Into<ReportPos>,
+        msg: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> EcoVec<SourceDiagnostic> {
+        let line_col = pos.into().try_line_col(&self.bytes).map(|p| p.numbers());
+        let error = match (self.source.v, line_col) {
+            (LoadSource::Path(file), _) => {
+                let path = if let Some(package) = file.package() {
+                    format!("{package}{}", file.vpath().as_rooted_path().display())
+                } else {
+                    format!("{}", file.vpath().as_rootless_path().display())
+                };
+
+                if let Some((line, col)) = line_col {
+                    error!(self.source.span, "{msg} ({error} in {path}:{line}:{col})")
+                } else {
+                    error!(self.source.span, "{msg} ({error} in {path})")
+                }
+            }
+            (LoadSource::Bytes, Some((line, col))) => {
+                error!(self.source.span, "{msg} ({error} at {line}:{col})")
+            }
+            (LoadSource::Bytes, None) => {
+                error!(self.source.span, "{msg} ({error})")
+            }
+        };
+        eco_vec![error]
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ReportPos {
+    /// Contains a range, and a line/column pair.
+    Full(std::ops::Range<u32>, LineCol),
+    /// Contains a range.
+    Range(std::ops::Range<u32>),
+    /// Contains a line/column pair.
+    LineCol(LineCol),
+    #[default]
+    None,
+}
+
+impl From<std::ops::Range<usize>> for ReportPos {
+    fn from(value: std::ops::Range<usize>) -> Self {
+        Self::Range(value.start.saturating_as()..value.end.saturating_as())
+    }
+}
+
+impl From<LineCol> for ReportPos {
+    fn from(value: LineCol) -> Self {
+        Self::LineCol(value)
+    }
+}
+
+impl ReportPos {
+    pub fn full(range: std::ops::Range<usize>, pair: LineCol) -> Self {
+        let range = range.start.saturating_as()..range.end.saturating_as();
+        Self::Full(range, pair)
+    }
+
+    fn range(&self, lines: &Lines<String>) -> Option<std::ops::Range<usize>> {
+        match self {
+            ReportPos::Full(range, _) => Some(range.start as usize..range.end as usize),
+            ReportPos::Range(range) => Some(range.start as usize..range.end as usize),
+            &ReportPos::LineCol(pair) => {
+                let i =
+                    lines.line_column_to_byte(pair.line as usize, pair.col as usize)?;
+                Some(i..i)
+            }
+            ReportPos::None => None,
+        }
+    }
+
+    fn line_col(&self, lines: &Lines<String>) -> Option<LineCol> {
+        match self {
+            &ReportPos::Full(_, pair) => Some(pair),
+            ReportPos::Range(range) => {
+                let (line, col) = lines.byte_to_line_column(range.start as usize)?;
+                Some(LineCol::zero_based(line, col))
+            }
+            &ReportPos::LineCol(pair) => Some(pair),
+            ReportPos::None => None,
+        }
+    }
+
+    /// Either get the the line/column pair, or try to compute it from possibly
+    /// invalid utf-8 data.
+    fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
+        match self {
+            &ReportPos::Full(_, pair) => Some(pair),
+            ReportPos::Range(range) => {
+                LineCol::try_from_byte_pos(range.start as usize, bytes)
+            }
+            &ReportPos::LineCol(pair) => Some(pair),
+            ReportPos::None => None,
+        }
+    }
+}
+
+/// A line/column pair.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct LineCol {
+    /// The 0-based line.
+    line: u32,
+    /// The 0-based column.
+    col: u32,
+}
+
+impl LineCol {
+    /// Constructs the line/column pair from 0-based indices.
+    pub fn zero_based(line: usize, col: usize) -> Self {
+        Self {
+            line: line.saturating_as(),
+            col: col.saturating_as(),
+        }
+    }
+
+    /// Constructs the line/column pair from 1-based numbers.
+    pub fn one_based(line: usize, col: usize) -> Self {
+        Self::zero_based(line.saturating_sub(1), col.saturating_sub(1))
+    }
+
+    /// Try to compute a line/column pair from possibly invalid utf-8 data.
+    pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
+        let bytes = &bytes[..pos];
+        let mut line = 0;
+        let line_start = memchr::memchr_iter(b'\n', bytes)
+            .inspect(|_| line += 1)
+            .last()
+            .map(|i| i + 1)
+            .unwrap_or(bytes.len());
+
+        let col = ErrorReportingUtf8Chars::new(&bytes[line_start..]).count();
+        Some(LineCol::zero_based(line, col))
+    }
+
+    /// Returns the 0-based line/column indices.
+    pub fn indices(&self) -> (usize, usize) {
+        (self.line as usize, self.col as usize)
+    }
+
+    /// Returns the 1-based line/column numbers.
+    pub fn numbers(&self) -> (usize, usize) {
+        (self.line as usize + 1, self.col as usize + 1)
+    }
+}
+
 /// Format a user-facing error message for an XML-like file format.
-pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString {
-    match error {
-        roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => {
-            eco_format!(
-                "failed to parse {format} (found closing tag '{actual}' \
-                 instead of '{expected}' in line {})",
-                pos.row
-            )
+pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError {
+    let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);
+    let message = eco_format!("failed to parse {format}");
+    let error = match error {
+        roxmltree::Error::UnexpectedCloseTag(expected, actual, _) => {
+            eco_format!("found closing tag '{actual}' instead of '{expected}'")
         }
-        roxmltree::Error::UnknownEntityReference(entity, pos) => {
-            eco_format!(
-                "failed to parse {format} (unknown entity '{entity}' in line {})",
-                pos.row
-            )
+        roxmltree::Error::UnknownEntityReference(entity, _) => {
+            eco_format!("unknown entity '{entity}'")
         }
-        roxmltree::Error::DuplicatedAttribute(attr, pos) => {
-            eco_format!(
-                "failed to parse {format} (duplicate attribute '{attr}' in line {})",
-                pos.row
-            )
+        roxmltree::Error::DuplicatedAttribute(attr, _) => {
+            eco_format!("duplicate attribute '{attr}'")
         }
         roxmltree::Error::NoRootNode => {
-            eco_format!("failed to parse {format} (missing root node)")
+            eco_format!("missing root node")
         }
-        err => eco_format!("failed to parse {format} ({err})"),
-    }
+        err => eco_format!("{err}"),
+    };
+
+    LoadError { pos: pos.into(), message, error }
 }

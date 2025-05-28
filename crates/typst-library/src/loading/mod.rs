@@ -17,7 +17,7 @@ mod yaml_;
 
 use comemo::Tracked;
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{FileId, Spanned};
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
@@ -27,7 +27,7 @@ pub use self::toml_::*;
 pub use self::xml_::*;
 pub use self::yaml_::*;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, LoadError, LoadResult, LoadedAt, SourceResult};
 use crate::foundations::OneOrMultiple;
 use crate::foundations::{cast, Bytes, Scope, Str};
 use crate::World;
@@ -74,44 +74,91 @@ pub trait Load {
 }
 
 impl Load for Spanned<DataSource> {
-    type Output = Bytes;
+    type Output = Loaded;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Bytes> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.as_ref().load(world)
     }
 }
 
 impl Load for Spanned<&DataSource> {
-    type Output = Bytes;
+    type Output = Loaded;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Bytes> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         match &self.v {
             DataSource::Path(path) => {
                 let file_id = self.span.resolve_path(path).at(self.span)?;
-                world.file(file_id).at(self.span)
+                let bytes = world.file(file_id).at(self.span)?;
+                let source = Spanned::new(LoadSource::Path(file_id), self.span);
+                Ok(Loaded::new(source, bytes))
             }
-            DataSource::Bytes(bytes) => Ok(bytes.clone()),
+            DataSource::Bytes(bytes) => {
+                let source = Spanned::new(LoadSource::Bytes, self.span);
+                Ok(Loaded::new(source, bytes.clone()))
+            }
         }
     }
 }
 
 impl Load for Spanned<OneOrMultiple<DataSource>> {
-    type Output = Vec<Bytes>;
+    type Output = Vec<Loaded>;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Vec<Bytes>> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.as_ref().load(world)
     }
 }
 
 impl Load for Spanned<&OneOrMultiple<DataSource>> {
-    type Output = Vec<Bytes>;
+    type Output = Vec<Loaded>;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Vec<Bytes>> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.v
             .0
             .iter()
             .map(|source| Spanned::new(source, self.span).load(world))
             .collect()
+    }
+}
+
+/// Data loaded from a [`DataSource`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Loaded {
+    pub source: Spanned<LoadSource>,
+    pub bytes: Bytes,
+}
+
+impl Loaded {
+    pub fn new(source: Spanned<LoadSource>, bytes: Bytes) -> Self {
+        Self { source, bytes }
+    }
+
+    pub fn load_str(&self) -> SourceResult<&str> {
+        self.bytes.load_str().in_invalid_text(self)
+    }
+}
+
+/// A loaded [`DataSource`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LoadSource {
+    Path(FileId),
+    Bytes,
+}
+
+pub trait LoadStr {
+    fn load_str(&self) -> LoadResult<&str>;
+}
+
+impl<T: AsRef<[u8]>> LoadStr for T {
+    fn load_str(&self) -> LoadResult<&str> {
+        std::str::from_utf8(self.as_ref()).map_err(|err| {
+            let start = err.valid_up_to();
+            let end = start + err.error_len().unwrap_or(0);
+            LoadError::new(
+                start..end,
+                "failed to convert to string",
+                "file is not valid utf-8",
+            )
+        })
     }
 }
 
