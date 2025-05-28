@@ -207,7 +207,7 @@ impl SVGRenderer {
         for (pos, item) in frame.items() {
             // File size optimization.
             // TODO: SVGs could contain links, couldn't they?
-            if matches!(item, FrameItem::Link(_, _) | FrameItem::Tag(_)) {
+            if matches!(item, FrameItem::Link(..) | FrameItem::Tag(_)) {
                 continue;
             }
 
@@ -228,7 +228,7 @@ impl SVGRenderer {
                     self.render_shape(state.pre_translate(*pos), shape)
                 }
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
-                FrameItem::Link(_, _) => unreachable!(),
+                FrameItem::Link(..) => unreachable!(),
                 FrameItem::Tag(_) => unreachable!(),
             };
 

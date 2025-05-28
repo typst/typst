@@ -36,7 +36,7 @@ pub fn jump_from_click(
 ) -> Option<Jump> {
     // Try to find a link first.
     for (pos, item) in frame.items() {
-        if let FrameItem::Link(dest, size) = item {
+        if let FrameItem::Link(_, dest, size) = item {
             if is_in_rect(*pos, *size, click) {
                 return Some(match dest {
                     Destination::Url(url) => Jump::Url(url.clone()),

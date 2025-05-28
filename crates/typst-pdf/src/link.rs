@@ -2,7 +2,7 @@ use krilla::action::{Action, LinkAction};
 use krilla::annotation::{Annotation, LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::geom::Rect;
-use typst_library::layout::{Abs, Point, Size};
+use typst_library::layout::{Abs, Point, Position, Size};
 use typst_library::model::Destination;
 
 use crate::convert::{FrameContext, GlobalContext};
@@ -12,6 +12,7 @@ use crate::util::{AbsExt, PointExt};
 pub(crate) fn handle_link(
     fc: &mut FrameContext,
     gc: &mut GlobalContext,
+    alt: Option<String>,
     dest: &Destination,
     size: Size,
 ) {
@@ -45,61 +46,42 @@ pub(crate) fn handle_link(
 
     // TODO: Support quad points.
 
-    let placeholder = gc.tags.reserve_placeholder();
-    gc.tags.push(TagNode::Placeholder(placeholder));
-
-    // TODO: add some way to add alt text to annotations.
-    // probably through [typst_layout::modifiers::FrameModifiers]
-    let pos = match dest {
+    let target = match dest {
         Destination::Url(u) => {
-            fc.push_annotation(
-                placeholder,
-                Annotation::new_link(
-                    LinkAnnotation::new(
-                        rect,
-                        None,
-                        Target::Action(Action::Link(LinkAction::new(u.to_string()))),
-                    ),
-                    Some(u.to_string()),
-                ),
-            );
-            return;
+            Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
-        Destination::Position(p) => *p,
+        Destination::Position(p) => match pos_to_target(gc, *p) {
+            Some(target) => target,
+            None => return,
+        },
         Destination::Location(loc) => {
             if let Some(nd) = gc.loc_to_names.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
-                fc.push_annotation(
-                    placeholder,
-                    LinkAnnotation::new(
-                        rect,
-                        None,
-                        Target::Destination(krilla::destination::Destination::Named(
-                            nd.clone(),
-                        )),
-                    )
-                    .into(),
-                );
-                return;
+                Target::Destination(krilla::destination::Destination::Named(nd.clone()))
             } else {
-                gc.document.introspector.position(*loc)
+                let pos = gc.document.introspector.position(*loc);
+                match pos_to_target(gc, pos) {
+                    Some(target) => target,
+                    None => return,
+                }
             }
         }
     };
 
+    let placeholder = gc.tags.reserve_placeholder();
+    gc.tags.push(TagNode::Placeholder(placeholder));
+
+    fc.push_annotation(
+        placeholder,
+        Annotation::new_link(LinkAnnotation::new(rect, None, target), alt),
+    );
+}
+
+fn pos_to_target(gc: &mut GlobalContext, pos: Position) -> Option<Target> {
     let page_index = pos.page.get() - 1;
-    if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
-        fc.push_annotation(
-            placeholder,
-            LinkAnnotation::new(
-                rect,
-                None,
-                Target::Destination(krilla::destination::Destination::Xyz(
-                    XyzDestination::new(index, pos.point.to_krilla()),
-                )),
-            )
-            .into(),
-        );
-    }
+    let index = gc.page_index_converter.pdf_page_index(page_index)?;
+
+    let dest = XyzDestination::new(index, pos.point.to_krilla());
+    Some(Target::Destination(krilla::destination::Destination::Xyz(dest)))
 }

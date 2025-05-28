@@ -1,3 +1,4 @@
+use ecow::EcoString;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
 use typst_library::model::{Destination, LinkElem, ParElem};
@@ -21,6 +22,7 @@ use typst_library::model::{Destination, LinkElem, ParElem};
 pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
+    alt: Option<EcoString>,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
 }
@@ -28,8 +30,10 @@ pub struct FrameModifiers {
 impl FrameModifiers {
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
+        // TODO: maybe verify that an alt text was provided here
         Self {
             dest: LinkElem::current_in(styles),
+            alt: LinkElem::alt_in(styles),
             hidden: HideElem::hidden_in(styles),
         }
     }
@@ -102,7 +106,7 @@ fn modify_frame(
             pos.x -= outset.left;
             size += outset.sum_by_axis();
         }
-        frame.push(pos, FrameItem::Link(dest.clone(), size));
+        frame.push(pos, FrameItem::Link(modifiers.alt.clone(), dest.clone(), size));
     }
 
     if modifiers.hidden {

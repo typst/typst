@@ -2,6 +2,7 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use comemo::{Track, Tracked};
+use ecow::eco_format;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::{Get, NonZeroExt};
@@ -17,8 +18,7 @@ use crate::introspection::{
     Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink,
 };
 use crate::layout::{
-    Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,
-    RepeatElem, Sides,
+    Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, PageElem, Region, Rel, RepeatElem, Sides
 };
 use crate::math::EquationElem;
 use crate::model::{Destination, HeadingElem, NumberingPattern, ParElem, Refable};
@@ -422,7 +422,17 @@ impl Show for Packed<OutlineEntry> {
         let context = context.track();
 
         let prefix = self.prefix(engine, context, span)?;
-        let inner = self.inner(engine, context, span)?;
+        let body = self.body().at(span)?;
+        let page = self.page(engine, context, span)?;
+        let alt = {
+            // TODO: accept user supplied alt text
+            let prefix = prefix.as_ref().map(|p| p.plain_text()).unwrap_or_default();
+            let body = body.plain_text();
+            let page_str = PageElem::local_name_in(styles);
+            let page_nr = page.plain_text();
+            eco_format!("{prefix} {body} {page_str} {page_nr}")
+        };
+        let inner = self.inner(engine, context, span, body, page)?;
         let block = if self.element.is::<EquationElem>() {
             let body = prefix.unwrap_or_default() + inner;
             BlockElem::new()
@@ -434,7 +444,7 @@ impl Show for Packed<OutlineEntry> {
         };
 
         let loc = self.element_location().at(span)?;
-        Ok(block.linked(Destination::Location(loc)))
+        Ok(block.linked(Some(alt), Destination::Location(loc)))
     }
 }
 
@@ -571,6 +581,8 @@ impl OutlineEntry {
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
+        body: Content,
+        page: Content,
     ) -> SourceResult<Content> {
         let styles = context.styles().at(span)?;
 
@@ -591,7 +603,7 @@ impl OutlineEntry {
             seq.push(TextElem::packed("\u{202B}"));
         }
 
-        seq.push(self.body().at(span)?);
+        seq.push(body);
 
         if rtl {
             // "Pop Directional Formatting"
@@ -616,7 +628,7 @@ impl OutlineEntry {
         // Add the page number. The word joiner in front ensures that the page
         // number doesn't stand alone in its line.
         seq.push(TextElem::packed("\u{2060}"));
-        seq.push(self.page(engine, context, span)?);
+        seq.push(page);
 
         Ok(Content::sequence(seq))
     }
