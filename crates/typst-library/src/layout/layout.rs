@@ -41,8 +41,23 @@ use crate::layout::{BlockElem, Size};
 /// receives the page's dimensions minus its margins. This is mostly useful in
 /// combination with [measurement]($measure).
 ///
-/// You can also use this function to resolve [`ratio`] to fixed lengths. This
-/// might come in handy if you're building your own layout abstractions.
+/// To retrieve the _remaining_ size of the page rather than its full size, you
+/// you can wrap your `layout` call in a `{block(height: 1fr)}`. This works
+/// because the block automatically grows to fill the remaining space (see the
+/// [fraction] documentation for more details).
+///
+/// ```example
+/// #set page(height: 150pt)
+///
+/// #lorem(20)
+///
+/// #block(height: 1fr, layout(size => [
+///   Remaining height: #size.height
+/// ]))
+/// ```
+///
+/// You can also use this function to resolve a [`ratio`] to a fixed length.
+/// This might come in handy if you're building your own layout abstractions.
 ///
 /// ```example
 /// #layout(size => {
