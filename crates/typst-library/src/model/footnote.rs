@@ -147,7 +147,8 @@ impl Show for Packed<FootnoteElem> {
         let sup = SuperElem::new(num).pack().spanned(span);
         let loc = loc.variant(1);
         // Add zero-width weak spacing to make the footnote "sticky".
-        Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
+        // TODO: accept user supplied alt text
+        Ok(HElem::hole().pack() + sup.linked(None, Destination::Location(loc)))
     }
 }
 
@@ -296,7 +297,8 @@ impl Show for Packed<FootnoteEntry> {
         let sup = SuperElem::new(num)
             .pack()
             .spanned(span)
-            .linked(Destination::Location(loc))
+            // TODO: accept user supplied alt text
+            .linked(None, Destination::Location(loc))
             .located(loc.variant(1));
 
         Ok(Content::sequence([

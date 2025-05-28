@@ -309,7 +309,8 @@ fn show_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
-    Ok(content.linked(Destination::Location(loc)))
+    // TODO: accept user supplied alt text
+    Ok(content.linked(None, Destination::Location(loc)))
 }
 
 /// Turn a reference into a citation.

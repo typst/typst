@@ -40,6 +40,9 @@ use crate::text::TextElem;
 /// `https://` is automatically turned into a link.
 #[elem(Locatable, Show)]
 pub struct LinkElem {
+    /// A text describing the link.
+    pub alt: Option<EcoString>,
+
     /// The destination the link points to.
     ///
     /// - To link to web pages, `dest` should be a valid URL string. If the URL
@@ -123,12 +126,13 @@ impl Show for Packed<LinkElem> {
                 body
             }
         } else {
+            let alt = self.alt(styles);
             match &self.dest {
-                LinkTarget::Dest(dest) => body.linked(dest.clone()),
+                LinkTarget::Dest(dest) => body.linked(alt, dest.clone()),
                 LinkTarget::Label(label) => {
                     let elem = engine.introspector.query_label(*label).at(self.span())?;
                     let dest = Destination::Location(elem.location().unwrap());
-                    body.clone().linked(dest)
+                    body.clone().linked(alt, dest)
                 }
             }
         })

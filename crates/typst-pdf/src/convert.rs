@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
@@ -314,7 +314,9 @@ pub(crate) fn handle_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
+            FrameItem::Link(alt, dest, size) => {
+                handle_link(fc, gc, alt.as_ref().map(EcoString::to_string), dest, *size)
+            }
             FrameItem::Tag(introspection::Tag::Start(elem)) => {
                 handle_open_tag(gc, surface, elem)
             }

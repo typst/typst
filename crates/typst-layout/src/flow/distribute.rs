@@ -93,7 +93,7 @@ impl Item<'_, '_> {
             Self::Frame(frame, _) => {
                 frame.size().is_zero()
                     && frame.items().all(|(_, item)| {
-                        matches!(item, FrameItem::Link(_, _) | FrameItem::Tag(_))
+                        matches!(item, FrameItem::Link(..) | FrameItem::Tag(_))
                     })
             }
             Self::Placed(_, placed) => !placed.float,
