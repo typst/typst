@@ -13,7 +13,9 @@ use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };
-use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region, Sides};
+use crate::layout::{
+    Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region, Sides, Sticky,
+};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 
@@ -323,7 +325,7 @@ impl ShowSet for Packed<HeadingElem> {
         out.set(TextElem::set_weight(FontWeight::BOLD));
         out.set(BlockElem::set_above(Smart::Custom(above.into())));
         out.set(BlockElem::set_below(Smart::Custom(below.into())));
-        out.set(BlockElem::set_sticky(true));
+        out.set(BlockElem::set_sticky(Some(Sticky::Below)));
         out
     }
 }
