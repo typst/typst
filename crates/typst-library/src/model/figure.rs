@@ -125,6 +125,9 @@ pub struct FigureElem {
     ///
     /// ```example
     /// #set page(height: 200pt)
+    /// #show figure: set place(
+    ///   clearance: 1em,
+    /// )
     ///
     /// = Introduction
     /// #figure(
