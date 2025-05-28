@@ -4,6 +4,8 @@
 mod cbor_;
 #[path = "csv.rs"]
 mod csv_;
+#[path = "html.rs"]
+mod html_;
 #[path = "json.rs"]
 mod json_;
 #[path = "read.rs"]
@@ -21,6 +23,7 @@ use typst_syntax::Spanned;
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
+pub use self::html_::*;
 pub use self::json_::*;
 pub use self::read_::*;
 pub use self::toml_::*;
@@ -37,6 +40,7 @@ pub(super) fn define(global: &mut Scope) {
     global.start_category(crate::Category::DataLoading);
     global.define_func::<read>();
     global.define_func::<csv>();
+    global.define_func::<html_decode>();
     global.define_func::<json>();
     global.define_func::<toml>();
     global.define_func::<yaml>();
