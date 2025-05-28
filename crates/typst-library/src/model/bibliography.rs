@@ -224,7 +224,12 @@ impl Show for Packed<BibliographyElem> {
         let references = works
             .references
             .as_ref()
-            .ok_or("CSL style is not suitable for bibliographies")
+            .ok_or_else(|| {
+                eco_format!(
+                    "{:?} CSL style is not suitable for bibliographies",
+                    self.style(styles).into_value()
+                )
+            })
             .at(span)?;
 
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
