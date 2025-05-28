@@ -1,11 +1,12 @@
 use krilla::action::{Action, LinkAction};
-use krilla::annotation::{LinkAnnotation, Target};
+use krilla::annotation::{Annotation, LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::geom::Rect;
 use typst_library::layout::{Abs, Point, Size};
 use typst_library::model::Destination;
 
 use crate::convert::{FrameContext, GlobalContext};
+use crate::tags::TagNode;
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) fn handle_link(
@@ -44,15 +45,23 @@ pub(crate) fn handle_link(
 
     // TODO: Support quad points.
 
+    let placeholder = gc.tags.reserve_placeholder();
+    gc.tags.push(TagNode::Placeholder(placeholder));
+
+    // TODO: add some way to add alt text to annotations.
+    // probably through [typst_layout::modifiers::FrameModifiers]
     let pos = match dest {
         Destination::Url(u) => {
             fc.push_annotation(
-                LinkAnnotation::new(
-                    rect,
-                    None,
-                    Target::Action(Action::Link(LinkAction::new(u.to_string()))),
-                )
-                .into(),
+                placeholder,
+                Annotation::new_link(
+                    LinkAnnotation::new(
+                        rect,
+                        None,
+                        Target::Action(Action::Link(LinkAction::new(u.to_string()))),
+                    ),
+                    Some(u.to_string()),
+                ),
             );
             return;
         }
@@ -62,6 +71,7 @@ pub(crate) fn handle_link(
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
                 fc.push_annotation(
+                    placeholder,
                     LinkAnnotation::new(
                         rect,
                         None,
@@ -81,6 +91,7 @@ pub(crate) fn handle_link(
     let page_index = pos.page.get() - 1;
     if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
         fc.push_annotation(
+            placeholder,
             LinkAnnotation::new(
                 rect,
                 None,
