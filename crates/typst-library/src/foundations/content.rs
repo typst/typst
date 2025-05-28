@@ -503,8 +503,9 @@ impl Content {
     }
 
     /// Link the content somewhere.
-    pub fn linked(self, dest: Destination) -> Self {
-        self.styled(LinkElem::set_current(Some(dest)))
+    pub fn linked(self, alt: Option<EcoString>, dest: Destination) -> Self {
+        self.styled(LinkElem::set_alt(alt))
+            .styled(LinkElem::set_current(Some(dest)))
     }
 
     /// Set alignments for this content.

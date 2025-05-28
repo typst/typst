@@ -873,7 +873,8 @@ impl<'a> Generator<'a> {
                         renderer.display_elem_child(elem, &mut None, false)?;
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
                         let dest = Destination::Location(*location);
-                        content = content.linked(dest);
+                        // TODO: accept user supplied alt text
+                        content = content.linked(None, dest);
                     }
                     StrResult::Ok(content)
                 })
@@ -1008,7 +1009,8 @@ impl ElemRenderer<'_> {
         if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta {
             if let Some(location) = (self.link)(i) {
                 let dest = Destination::Location(location);
-                content = content.linked(dest);
+                // TODO: accept user supplied alt text
+                content = content.linked(None, dest);
             }
         }
 
