@@ -357,7 +357,7 @@ pub trait Outlinable: Refable {
     }
 
     /// Constructs the default prefix given the formatted numbering.
-    fn prefix(&self, numbers: Content) -> Content;
+    fn prefix(&self, numbers: Content, add_supplement: Smart<bool>) -> Content;
 
     /// The body of the entry.
     fn body(&self) -> Content;
@@ -421,7 +421,7 @@ impl Show for Packed<OutlineEntry> {
         let context = Context::new(None, Some(styles));
         let context = context.track();
 
-        let prefix = self.prefix(engine, context, span)?;
+        let prefix = self.prefix(engine, context, span, Smart::Auto)?;
         let inner = self.inner(engine, context, span)?;
         let block = if self.element.is::<EquationElem>() {
             let body = prefix.unwrap_or_default() + inner;
@@ -542,16 +542,21 @@ impl OutlineEntry {
     }
 
     /// Formats the element's numbering (if any).
-    ///
-    /// This also appends the element's supplement in case of figures or
-    /// equations. For instance, it would output `1.1` for a heading, but
-    /// `Figure 1` for a figure, as is usual for outlines.
     #[func(contextual)]
     pub fn prefix(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
+        /// Whether to add the element's supplement if it has one.
+        ///
+        /// If set to `{auto}`, the supplement is added for figures and
+        /// equations that have one. For instance, it would output `[1.1]`
+        /// for a heading, but `[Figure 1]` for a figure, as is usual for
+        /// outlines.
+        #[named]
+        #[default]
+        add_supplement: Smart<bool>,
     ) -> SourceResult<Option<Content>> {
         let outlinable = self.outlinable().at(span)?;
         let Some(numbering) = outlinable.numbering() else { return Ok(None) };
@@ -559,7 +564,7 @@ impl OutlineEntry {
         let styles = context.styles().at(span)?;
         let numbers =
             outlinable.counter().display_at_loc(engine, loc, styles, numbering)?;
-        Ok(Some(outlinable.prefix(numbers)))
+        Ok(Some(outlinable.prefix(numbers, add_supplement)))
     }
 
     /// Creates the default inner content of the entry.
