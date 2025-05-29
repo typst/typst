@@ -201,7 +201,9 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 ///   flexibility.
 /// - `#[synthesized]`: The field cannot be specified in a constructor or set
 ///   rule. Instead, it is added to an element before its show rule runs
-///   through the `Synthesize` trait.
+///   through the `Synthesize` trait. This implies `#[internal]`. If a
+///   synthesized field needs to be exposed to the user, that should be done via
+///   a getter method.
 /// - `#[ghost]`: Allows creating fields that are only present in the style chain,
 ///   this means that they *cannot* be accessed by the user, they cannot be set
 ///   on an individual instantiated element, and must be set via the style chain.
