@@ -142,12 +142,10 @@ pub struct BibliographyElem {
     pub style: Derived<CslSource, CslStyle>,
 
     /// The language setting where the bibliography is.
-    #[internal]
     #[synthesized]
     pub lang: Lang,
 
     /// The region setting where the bibliography is.
-    #[internal]
     #[synthesized]
     pub region: Option<Region>,
 }

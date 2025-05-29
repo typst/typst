@@ -546,7 +546,6 @@ pub struct FigureCaption {
     pub counter: Counter,
 
     /// The figure's location.
-    #[internal]
     #[synthesized]
     pub figure_location: Location,
 }
