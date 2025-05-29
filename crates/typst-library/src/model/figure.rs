@@ -463,13 +463,17 @@ impl Outlinable for Packed<FigureElem> {
 /// customize the appearance of captions for all figures or figures of a
 /// specific kind.
 ///
-/// In addition to its `position` and `body`, the `caption` also provides the
-/// figure's `kind`, `supplement`, `counter`, and `numbering` as fields. These
-/// parts can be used in [`where`]($function.where) selectors and show rules to
+/// In addition to its `position` and `body`, it is possible to retrieve the
+/// corresponding figure's `kind`, `supplement`, `counter`, and `numbering` by
+/// using the corresponding methods. These parts can be used in show rules to
 /// build a completely custom caption.
 ///
 /// ```example
-/// #show figure.caption: emph
+/// #show figure.caption: it => [
+///   #underline(it.body) |
+///   #it.supplement()
+///   #context it.counter().display(it.numbering())
+/// ]
 ///
 /// #figure(
 ///   rect[Hello],
@@ -522,22 +526,6 @@ pub struct FigureCaption {
     pub separator: Smart<Content>,
 
     /// The caption's body.
-    ///
-    /// Can be used alongside `kind`, `supplement`, `counter`, `numbering`, and
-    /// `location` to completely customize the caption.
-    ///
-    /// ```example
-    /// #show figure.caption: it => [
-    ///   #underline(it.body) |
-    ///   #it.supplement
-    ///   #context it.counter.display(it.numbering)
-    /// ]
-    ///
-    /// #figure(
-    ///   rect[Hello],
-    ///   caption: [A rectangle],
-    /// )
-    /// ```
     #[required]
     pub body: Content,
 

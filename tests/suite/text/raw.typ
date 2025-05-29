@@ -513,7 +513,7 @@ fn main() {
 
 --- raw-line-alternating-fill ---
 #set page(width: 200pt)
-#show raw: it => stack(dir: ttb, ..it.lines)
+#show raw: it => stack(dir: ttb, ..it.lines())
 #show raw.line: it => {
   box(
     width: 100%,
@@ -564,21 +564,21 @@ print(y)
 // Test line extraction works.
 
 #show raw: code => {
-  for i in code.lines {
+  for i in code.lines() {
     test(i.count, 10)
   }
 
-  test(code.lines.at(0).text, "import numpy as np")
-  test(code.lines.at(1).text, "")
-  test(code.lines.at(2).text, "def f(x):")
-  test(code.lines.at(3).text, "    return x**2")
-  test(code.lines.at(4).text, "")
-  test(code.lines.at(5).text, "x = np.linspace(0, 10, 100)")
-  test(code.lines.at(6).text, "y = f(x)")
-  test(code.lines.at(7).text, "")
-  test(code.lines.at(8).text, "print(x)")
-  test(code.lines.at(9).text, "print(y)")
-  test(code.lines.at(10, default: none), none)
+  test(code.lines().at(0).text, "import numpy as np")
+  test(code.lines().at(1).text, "")
+  test(code.lines().at(2).text, "def f(x):")
+  test(code.lines().at(3).text, "    return x**2")
+  test(code.lines().at(4).text, "")
+  test(code.lines().at(5).text, "x = np.linspace(0, 10, 100)")
+  test(code.lines().at(6).text, "y = f(x)")
+  test(code.lines().at(7).text, "")
+  test(code.lines().at(8).text, "print(x)")
+  test(code.lines().at(9).text, "print(y)")
+  test(code.lines().at(10, default: none), none)
 }
 
 ```py

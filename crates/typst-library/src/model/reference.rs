@@ -92,7 +92,7 @@ use typst_macros::scope;
 ///
 /// #show ref: it => {
 ///   let eq = math.equation
-///   let el = it.element
+///   let el = it.element()
 ///   if el != none and el.func() == eq {
 ///     // Override equation references.
 ///     link(el.location(),numbering(
