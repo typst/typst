@@ -6,6 +6,7 @@ use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use typst_macros::func;
 use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
@@ -14,8 +15,8 @@ use super::Lang;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
-    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    cast, elem, scope, Bytes, Content, Context, Derived, NativeElement, OneOrMultiple,
+    Packed, PlainText, Show, ShowSet, Smart, StyleChain, Styles, TargetElem,
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
@@ -72,16 +73,7 @@ use crate::World;
 /// needed, start the text with a single space (which will be trimmed) or use
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
-#[elem(
-    scope,
-    title = "Raw Text / Code",
-    Synthesize,
-    Show,
-    ShowSet,
-    LocalName,
-    Figurable,
-    PlainText
-)]
+#[elem(scope, title = "Raw Text / Code", Show, ShowSet, LocalName, Figurable, PlainText)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -265,19 +257,27 @@ pub struct RawElem {
     /// ````
     #[default(2)]
     pub tab_size: usize,
-
-    /// The stylized lines of raw text.
-    ///
-    /// Made accessible for the [`raw.line` element]($raw.line).
-    /// Allows more styling control in `show` rules.
-    #[synthesized]
-    pub lines: Vec<Packed<RawLine>>,
 }
 
 #[scope]
 impl RawElem {
     #[elem]
     type RawLine;
+
+    /// The stylized lines of raw text.
+    #[func(contextual)]
+    pub fn lines(
+        self,
+        context: Tracked<Context>,
+        span: Span,
+    ) -> SourceResult<Vec<Packed<RawLine>>> {
+        Ok(self.highlight(context.styles().at(span)?, span))
+    }
+}
+
+cast! {
+    RawElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected raw text / code")?
 }
 
 impl RawElem {
@@ -299,24 +299,13 @@ impl RawElem {
             ])
             .collect()
     }
-}
 
-impl Synthesize for Packed<RawElem> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let seq = self.highlight(styles);
-        self.push_lines(seq);
-        Ok(())
-    }
-}
-
-impl Packed<RawElem> {
     #[comemo::memoize]
-    fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
-        let elem = self.as_ref();
-        let lines = preprocess(&elem.text, styles, self.span());
+    fn highlight(&self, styles: StyleChain, span: Span) -> Vec<Packed<RawLine>> {
+        let lines = preprocess(&self.text, styles, span);
 
         let count = lines.len() as i64;
-        let lang = elem
+        let lang = self
             .lang(styles)
             .as_ref()
             .as_ref()
@@ -335,8 +324,8 @@ impl Packed<RawElem> {
             })
         };
 
-        let syntaxes = LazyCell::new(|| elem.syntaxes(styles));
-        let theme: &synt::Theme = match elem.theme(styles) {
+        let syntaxes = LazyCell::new(|| self.syntaxes(styles));
+        let theme: &synt::Theme = match self.theme(styles) {
             Smart::Auto => &RAW_THEME,
             Smart::Custom(Some(theme)) => theme.derived.get(),
             Smart::Custom(None) => return non_highlighted_result(lines).collect(),
@@ -432,7 +421,7 @@ impl Packed<RawElem> {
 impl Show for Packed<RawElem> {
     #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let lines = self.lines().map(|v| v.as_slice()).unwrap_or_default();
+        let lines = self.as_ref().highlight(styles, self.span());
 
         let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
         for (i, line) in lines.iter().enumerate() {

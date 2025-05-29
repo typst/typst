@@ -7,6 +7,7 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
+use crate::foundations::func;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
     Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
@@ -238,7 +239,7 @@ pub struct FigureElem {
     /// These are the counters you'll need to modify if you want to skip a
     /// number or reset the counter.
     #[synthesized]
-    pub counter: Option<Counter>,
+    pub counter: Counter,
 }
 
 #[scope]
@@ -312,15 +313,21 @@ impl Synthesize for Packed<FigureElem> {
         if let Some(caption) = &mut caption {
             caption.synthesize(engine, styles)?;
             caption.push_kind(kind.clone());
-            caption.push_supplement(supplement.clone());
-            caption.push_numbering(numbering.clone());
-            caption.push_counter(Some(counter.clone()));
-            caption.push_figure_location(location);
+            if let Some(supplement) = supplement.clone() {
+                caption.push_supplement(supplement);
+            }
+            if let Some(numbering) = numbering.clone() {
+                caption.push_numbering(numbering);
+            }
+            caption.push_counter(counter.clone());
+            if let Some(location) = location {
+                caption.push_figure_location(location);
+            }
         }
 
         elem.push_kind(Smart::Custom(kind));
         elem.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
-        elem.push_counter(Some(counter));
+        elem.push_counter(counter);
         elem.push_caption(caption);
 
         Ok(())
@@ -420,7 +427,6 @@ impl Refable for Packed<FigureElem> {
         (**self)
             .counter()
             .cloned()
-            .flatten()
             .unwrap_or_else(|| Counter::of(FigureElem::elem()))
     }
 
@@ -470,7 +476,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[elem(scope, name = "caption", Synthesize, Show)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -541,20 +547,72 @@ pub struct FigureCaption {
 
     /// The figure's supplement.
     #[synthesized]
-    pub supplement: Option<Content>,
+    pub supplement: Content,
 
     /// How to number the figure.
     #[synthesized]
-    pub numbering: Option<Numbering>,
+    pub numbering: Numbering,
 
     /// The counter for the figure.
     #[synthesized]
-    pub counter: Option<Counter>,
+    pub counter: Counter,
 
     /// The figure's location.
     #[internal]
     #[synthesized]
-    pub figure_location: Option<Location>,
+    pub figure_location: Location,
+}
+
+#[scope]
+impl FigureCaption {
+    /// The kind of the corresponding figure.
+    ///
+    /// This returns `{none}` in case the corresponding figure does not appear
+    /// in the document.
+    #[func]
+    pub fn kind_(self) -> Option<FigureKind> {
+        self.kind
+    }
+
+    /// The supplement of the corresponding figure.
+    ///
+    /// This returns `{none}` in case the corresponding figure does not appear
+    /// in the document.
+    #[func]
+    pub fn supplement_(self) -> Option<Content> {
+        self.supplement
+    }
+
+    /// The numbering of the corresponding figure.
+    ///
+    /// This returns `{none}` in case the corresponding figure does not appear
+    /// in the document.
+    #[func]
+    pub fn numbering_(self) -> Option<Numbering> {
+        self.numbering
+    }
+
+    /// The counter for the corresponding figure:
+    /// `{counter(figure.where(kind: kind))}` for a figure of kind `{kind}`.
+    ///
+    /// For example, for a table figure, this returns
+    /// `{counter(figure.where(kind: table))}`.
+    ///
+    /// This returns `{none}` in case the corresponding figure does not appear
+    /// in the document, or it is not numbered.
+    #[func]
+    pub fn counter_(self) -> Option<Counter> {
+        self.counter
+    }
+
+    /// The location of the corresponding figure.
+    ///
+    /// This returns `{none}` in case the corresponding figure does not appear
+    /// in the document.
+    #[func]
+    pub fn figure_location_(self) -> Option<Location> {
+        self.figure_location
+    }
 }
 
 impl FigureCaption {
@@ -592,12 +650,7 @@ impl Show for Packed<FigureCaption> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body.clone();
 
-        if let (
-            Some(Some(mut supplement)),
-            Some(Some(numbering)),
-            Some(Some(counter)),
-            Some(Some(location)),
-        ) = (
+        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) = (
             self.supplement().cloned(),
             self.numbering(),
             self.counter(),

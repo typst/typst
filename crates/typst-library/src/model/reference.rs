@@ -1,8 +1,9 @@
 use comemo::Track;
 use ecow::eco_format;
 
-use crate::diag::{bail, At, Hint, SourceResult};
+use crate::diag::{bail, At, Hint, SourceResult, StrResult};
 use crate::engine::Engine;
+use crate::foundations::func;
 use crate::foundations::{
     cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
     Show, Smart, StyleChain, Synthesize,
@@ -13,6 +14,7 @@ use crate::model::{
     BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, Numbering,
 };
 use crate::text::TextElem;
+use typst_macros::scope;
 
 /// A reference to a label or bibliography.
 ///
@@ -107,7 +109,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[elem(title = "Reference", Synthesize, Locatable, Show)]
+#[elem(scope, title = "Reference", Locatable, Show)]
 pub struct RefElem {
     /// The target label that should be referenced.
     ///
@@ -161,37 +163,6 @@ pub struct RefElem {
     /// ```
     #[default(RefForm::Normal)]
     pub form: RefForm,
-
-    /// A synthesized citation.
-    #[synthesized]
-    pub citation: Option<Packed<CiteElem>>,
-
-    /// The referenced element.
-    #[synthesized]
-    pub element: Option<Content>,
-}
-
-impl Synthesize for Packed<RefElem> {
-    fn synthesize(
-        &mut self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<()> {
-        let citation = to_citation(self, engine, styles)?;
-
-        let elem = self.as_mut();
-        elem.push_citation(Some(citation));
-        elem.push_element(None);
-
-        if !BibliographyElem::has(engine, elem.target) {
-            if let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
-                elem.push_element(Some(found));
-                return Ok(());
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl Show for Packed<RefElem> {
@@ -332,6 +303,25 @@ fn to_citation(
     elem.synthesize(engine, styles)?;
 
     Ok(elem)
+}
+
+#[scope]
+impl RefElem {
+    /// The referenced element.
+    ///
+    /// If this is a reference to a bibliography entry, this returns `{none}`.
+    #[func]
+    pub fn element(self, engine: &mut Engine) -> StrResult<Option<Content>> {
+        if BibliographyElem::has(engine, self.target) {
+            return Ok(None);
+        }
+        engine.introspector.query_label(self.target).cloned().map(Some)
+    }
+}
+
+cast! {
+    RefElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected reference")?
 }
 
 /// Additional content for a reference.
