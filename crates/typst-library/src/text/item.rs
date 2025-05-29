@@ -35,6 +35,11 @@ impl TextItem {
     pub fn width(&self) -> Abs {
         self.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size)
     }
+
+    /// The height of the text run.
+    pub fn height(&self) -> Abs {
+        self.glyphs.iter().map(|g| g.y_advance).sum::<Em>().at(self.size)
+    }
 }
 
 impl Debug for TextItem {
@@ -54,6 +59,10 @@ pub struct Glyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
+    /// The advance height of the glyph.
+    pub y_advance: Em,
+    /// The vertical offset of the glyph.
+    pub y_offset: Em,
     /// The range of the glyph in its item's text. The range's length may
     /// be more than one due to multi-byte UTF-8 encoding or ligatures.
     pub range: Range<u16>,
@@ -112,6 +121,15 @@ impl<'a> TextItemView<'a> {
         self.glyphs()
             .iter()
             .map(|g| g.x_advance)
+            .sum::<Em>()
+            .at(self.item.size)
+    }
+
+    /// The total height of this text slice
+    pub fn height(&self) -> Abs {
+        self.glyphs()
+            .iter()
+            .map(|g| g.y_advance)
             .sum::<Em>()
             .at(self.item.size)
     }

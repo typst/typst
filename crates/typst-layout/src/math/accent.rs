@@ -3,7 +3,10 @@ use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Em, Frame, Point, Size};
 use typst_library::math::{Accent, AccentElem};
 
-use super::{style_cramped, FrameFragment, GlyphFragment, MathContext, MathFragment};
+use super::{
+    style_cramped, style_dtls, style_flac, FrameFragment, GlyphFragment, MathContext,
+    MathFragment,
+};
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
@@ -15,15 +18,12 @@ pub fn layout_accent(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let cramped = style_cramped();
-    let mut base = ctx.layout_into_fragment(&elem.base, styles.chain(&cramped))?;
+    // Try to replace the base glyph with its dotless variant.
+    let dtls = style_dtls();
+    let base_styles = if elem.dotless(styles) { styles.chain(&dtls) } else { styles };
 
-    // Try to replace a glyph with its dotless variant.
-    if elem.dotless(styles) {
-        if let MathFragment::Glyph(glyph) = &mut base {
-            glyph.make_dotless_form(ctx);
-        }
-    }
+    let cramped = style_cramped();
+    let base = ctx.layout_into_fragment(&elem.base, base_styles.chain(&cramped))?;
 
     // Preserve class to preserve automatic spacing.
     let base_class = base.class();
@@ -31,21 +31,21 @@ pub fn layout_accent(
 
     let width = elem.size(styles).relative_to(base.width());
 
-    let Accent(c) = elem.accent;
-    let mut glyph = GlyphFragment::new(ctx, styles, c, elem.span());
-
-    // Try to replace accent glyph with flattened variant.
+    // Try to replace the accent glyph with its flattened variant.
     let flattened_base_height = scaled!(ctx, styles, flattened_accent_base_height);
-    if base.ascent() > flattened_base_height {
-        glyph.make_flattened_accent_form(ctx);
-    }
+    let flac = style_flac();
+    let accent_styles =
+        if base.ascent() > flattened_base_height { styles.chain(&flac) } else { styles };
+
+    let Accent(c) = elem.accent;
+    let mut glyph = GlyphFragment::new(ctx.font, accent_styles, c, elem.span());
 
     // Forcing the accent to be at least as large as the base makes it too
     // wide in many case.
-    let short_fall = ACCENT_SHORT_FALL.at(glyph.font_size);
-    let variant = glyph.stretch_horizontal(ctx, width, short_fall);
-    let accent = variant.frame;
-    let accent_attach = variant.accent_attach;
+    let short_fall = ACCENT_SHORT_FALL.at(glyph.text.size);
+    glyph.stretch_horizontal(ctx, width, short_fall);
+    let accent_attach = glyph.accent_attach;
+    let accent = glyph.into_frame();
 
     // Descent is negative because the accent's ink bottom is above the
     // baseline. Therefore, the default gap is the accent's negated descent
