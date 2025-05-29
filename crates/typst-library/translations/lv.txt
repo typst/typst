@@ -1,0 +1,8 @@
+figure = Attēls
+table = Tabula
+equation = Vienādojums
+bibliography = Izmantotā literatūra un avoti
+heading = Virsraksts
+outline = Saturs
+raw = Koda fragments
+page = lpp.
