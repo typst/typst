@@ -78,9 +78,7 @@ impl Elem {
 
     /// Fields that show up in the documentation.
     fn doc_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.fields
-            .iter()
-            .filter(|field| !field.internal && !field.synthesized)
+        self.fields.iter().filter(|field| !field.internal)
     }
 
     /// Fields that are relevant for `Construct` impl.
@@ -89,9 +87,8 @@ impl Elem {
     /// because it's a pattern used a lot for parsing data from the input and
     /// then storing it in a field.
     fn construct_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.real_fields().filter(|field| {
-            field.parse.is_some() || (!field.synthesized && !field.internal)
-        })
+        self.real_fields()
+            .filter(|field| field.parse.is_some() || !field.internal)
     }
 
     /// Fields that can be configured with set rules.
@@ -242,6 +239,8 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
     let variadic = has_attr(&mut attrs, "variadic");
     let required = has_attr(&mut attrs, "required") || variadic;
     let positional = has_attr(&mut attrs, "positional") || required;
+    let synthesized = has_attr(&mut attrs, "synthesized");
+    let internal = has_attr(&mut attrs, "internal") || synthesized;
 
     let mut field = Field {
         ident: ident.clone(),
@@ -261,11 +260,11 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         variadic,
         resolve: has_attr(&mut attrs, "resolve"),
         fold: has_attr(&mut attrs, "fold"),
-        internal: has_attr(&mut attrs, "internal"),
+        internal,
         external: has_attr(&mut attrs, "external"),
         borrowed: has_attr(&mut attrs, "borrowed"),
         ghost: has_attr(&mut attrs, "ghost"),
-        synthesized: has_attr(&mut attrs, "synthesized"),
+        synthesized,
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?.flatten(),
     };
