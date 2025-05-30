@@ -201,7 +201,7 @@ impl MathFragmentsExt for MathRun {
         let mut iter = self.into_iter().peekable();
         while let Some(fragment) = iter.next() {
             if space_is_visible && is_space(&fragment) {
-                items.push(InlineItem::Space(fragment.width(), true));
+                items.push(InlineItem::Absolute(fragment.width(), true));
                 continue;
             }
 
@@ -234,7 +234,7 @@ impl MathFragmentsExt for MathRun {
                 if let Some(f_next) = iter.peek()
                     && !is_space(f_next)
                 {
-                    items.push(InlineItem::Space(Abs::zero(), true));
+                    items.push(InlineItem::Absolute(Abs::zero(), true));
                 }
             } else {
                 space_is_visible = false;

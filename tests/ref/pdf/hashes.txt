@@ -1324,6 +1324,8 @@ be0c4b9d1ed4049165c49c797fa2ca13 math-spacing-basic
 2254f95f370dd25bb48a9ec825ef2b74 math-spacing-ignorant
 d548d78025e65a89e2bc94f9c01c113c math-spacing-kept-spaces
 dda2e858c1d2cbe4109eb136e977e634 math-spacing-predefined
+ed53e1ddfdaf46358da47549d95e8ed6 math-spacing-relative
+8ab419c3ac35b85e0b78aead5c98defc math-spacing-relative-inline
 2ac7e8eaadb4c0b7ddf20922392334a4 math-spacing-script
 4771eca8ea53080d96a55eb1579c457a math-spacing-set-comprehension
 17804d5fe2108179b69e2f4e489c2355 math-spacing-weak

@@ -1320,6 +1320,8 @@ d4a5d8cc101583975be27558c2167a29 math-spacing-decorated
 7a5cf24c1b9028e1a0f72364486d295f math-spacing-ignorant
 bf1661a14b9574260527c8fad090852e math-spacing-kept-spaces
 a4f3fee969ca0f0e27c6dcb7a5f6a64b math-spacing-predefined
+536caa34abbe2846de9bb04c658cfa29 math-spacing-relative
+c86438385e69acbde5af89d86d379015 math-spacing-relative-inline
 8a5252912c3e659ff4e15ca3f8ce7e32 math-spacing-script
 e537b7dd078a0e8606024f6b9b55497a math-spacing-set-comprehension
 43def851d92663bc3c3a2f9472c11420 math-spacing-weak
