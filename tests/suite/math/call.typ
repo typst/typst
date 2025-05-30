@@ -205,6 +205,7 @@ $ sin(#1) $
 // attach, etc.)
 //
 // This is not good, so this test should fail and be updated once it is fixed.
+#set math.equation(column-gap: 0em)
 #let id(body) = body
 #let bx(body) = box(body, stroke: blue+0.5pt, inset: (x:2pt, y:3pt))
 #let eq(body) = math.equation(body)
