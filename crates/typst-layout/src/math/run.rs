@@ -33,14 +33,14 @@ impl MathRun {
                 }
 
                 // Explicit spacing disables automatic spacing.
-                MathFragment::Spacing(width, weak) => {
+                MathFragment::Absolute(width, weak) => {
                     last = None;
                     space = None;
 
                     if weak {
                         match resolved.last_mut() {
                             None => continue,
-                            Some(MathFragment::Spacing(prev, true)) => {
+                            Some(MathFragment::Absolute(prev, true)) => {
                                 *prev = (*prev).max(width);
                                 continue;
                             }
@@ -48,6 +48,14 @@ impl MathRun {
                         }
                     }
 
+                    resolved.push(fragment);
+                    continue;
+                }
+
+                // Same as explicit spacing that isn't weak.
+                MathFragment::Fractional(_) => {
+                    last = None;
+                    space = None;
                     resolved.push(fragment);
                     continue;
                 }
@@ -99,7 +107,7 @@ impl MathRun {
             resolved.push(fragment);
         }
 
-        if let Some(MathFragment::Spacing(_, true)) = resolved.last() {
+        if let Some(MathFragment::Absolute(_, true)) = resolved.last() {
             resolved.pop();
         }
 
@@ -299,7 +307,7 @@ impl MathRun {
         let mut space_is_visible = false;
 
         let is_space = |f: &MathFragment| {
-            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_, _))
+            matches!(f, MathFragment::Space(_) | MathFragment::Absolute(_, _))
         };
         let is_line_break_opportunity = |class, next_fragment| match class {
             // Don't split when two relations are in a row or when preceding a
@@ -314,7 +322,7 @@ impl MathRun {
         let mut iter = self.0.into_iter().peekable();
         while let Some(fragment) = iter.next() {
             if space_is_visible && is_space(&fragment) {
-                items.push(InlineItem::Space(fragment.width(), true));
+                items.push(InlineItem::Absolute(fragment.width(), true));
                 continue;
             }
 
@@ -346,7 +354,7 @@ impl MathRun {
                 space_is_visible = true;
                 if let Some(f_next) = iter.peek() {
                     if !is_space(f_next) {
-                        items.push(InlineItem::Space(Abs::zero(), true));
+                        items.push(InlineItem::Absolute(Abs::zero(), true));
                     }
                 }
             } else {
@@ -435,7 +443,7 @@ fn spacing(
 
     let resolve = |v: Em, size_ref: &MathFragment| -> Option<MathFragment> {
         let width = size_ref.font_size().map_or(Abs::zero(), |size| v.at(size));
-        Some(MathFragment::Spacing(width, false))
+        Some(MathFragment::Absolute(width, false))
     };
     let script = |f: &MathFragment| f.math_size().is_some_and(|s| s <= MathSize::Script);
 

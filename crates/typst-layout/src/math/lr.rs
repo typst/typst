@@ -75,7 +75,7 @@ pub fn layout_lr(
     fragments.retain(|fragment| {
         let discard = (index == start_idx + 1 && opening_exists
             || index + 2 == end_idx && closing_exists)
-            && matches!(fragment, MathFragment::Spacing(_, true));
+            && matches!(fragment, MathFragment::Absolute(_, true));
         index += 1;
         !discard
     });

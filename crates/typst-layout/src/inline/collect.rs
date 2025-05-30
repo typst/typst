@@ -201,8 +201,11 @@ pub fn collect<'a>(
 
             for item in elem.layout(engine, locator.next(&elem.span()), styles, region)? {
                 match item {
-                    InlineItem::Space(space, weak) => {
+                    InlineItem::Absolute(space, weak) => {
                         collector.push_item(Item::Absolute(space, weak));
+                    }
+                    InlineItem::Fractional(fr) => {
+                        collector.push_item(Item::Fractional(fr, None));
                     }
                     InlineItem::Frame(mut frame) => {
                         frame.modify(&FrameModifiers::get_in(styles));

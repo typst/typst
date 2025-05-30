@@ -63,6 +63,30 @@ $#place(dx: 5em)[a] + b$
 // Validate that ignorant elements are layouted
 #context test(counter("test").get(), (3,))
 
+--- math-spacing-relative ---
+// Test relative spacing.
+$ A #h(50%) B \
+  A#block(width: 50%);B \
+  A #block(width: 50%) B \
+  A space #h(50%) space B $
+
+--- math-spacing-relative-inline ---
+// Test relative spacing in inline math.
+#let mtext = text.with(font: "Libertinus Serif")
+Hello#h(40%)world \
+Hello#box(width: 40%);world \
+Hello$#h(40%)$world \
+Hello$#box(width: 40%)$world \
+$mtext("Hello") #h(40%) mtext("world")$ \
+$mtext("Hello")#box(width: 40%);mtext("world")$
+
+Hello #h(40%) world \
+Hello #box(width: 40%) world \
+Hello $#h(40%)$ world \
+Hello $#box(width: 40%)$ world \
+$mtext("Hello") #h(40%) space mtext("world")$ \
+$mtext("Hello") #box(width: 40%) mtext("world")$
+
 --- issue-1052-math-number-spacing ---
 // Test spacing after numbers in math.
 $
