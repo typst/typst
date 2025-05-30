@@ -478,8 +478,8 @@ fn layout_realized(
             ));
             return Ok(());
         }
-        MathItem::Fractional(_) => {
-            // TODO
+        MathItem::Fractional(fr) => {
+            ctx.push(MathFragment::Fractional(*fr));
             return Ok(());
         }
         MathItem::Space => {
