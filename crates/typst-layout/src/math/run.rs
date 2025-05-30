@@ -304,8 +304,6 @@ impl MathRun {
             frame.translate(Point::with_y(ascent));
         };
 
-        let mut space_is_visible = false;
-
         let is_space = |f: &MathFragment| {
             matches!(f, MathFragment::Space(_) | MathFragment::Absolute(_, _))
         };
@@ -321,11 +319,6 @@ impl MathRun {
 
         let mut iter = self.0.into_iter().peekable();
         while let Some(fragment) = iter.next() {
-            if space_is_visible && is_space(&fragment) {
-                items.push(InlineItem::Absolute(fragment.width(), true));
-                continue;
-            }
-
             let class = fragment.class();
             let y = fragment.ascent();
 
@@ -351,14 +344,13 @@ impl MathRun {
                 ascent = Abs::zero();
                 descent = Abs::zero();
 
-                space_is_visible = true;
-                if let Some(f_next) = iter.peek() {
-                    if !is_space(f_next) {
-                        items.push(InlineItem::Absolute(Abs::zero(), true));
+                if iter.peek().map(is_space).is_some() {
+                    while let Some(f_next) = iter.next_if(is_space) {
+                        items.push(InlineItem::Absolute(f_next.width(), true));
                     }
+                } else {
+                    items.push(InlineItem::Absolute(Abs::zero(), true));
                 }
-            } else {
-                space_is_visible = false;
             }
         }
 
