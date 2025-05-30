@@ -307,7 +307,7 @@ impl GlyphFragment {
     }
 
     /// Apply GSUB substitutions.
-    fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
+    pub fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
         if let Some(glyphwise_tables) = &ctx.glyphwise_tables {
             glyphwise_tables.iter().fold(id, |id, table| table.apply(id))
         } else {
@@ -429,13 +429,8 @@ impl GlyphFragment {
     }
 
     /// Try to stretch a glyph to a desired height.
-    pub fn stretch_vertical(
-        self,
-        ctx: &mut MathContext,
-        height: Abs,
-        short_fall: Abs,
-    ) -> VariantFragment {
-        stretch_glyph(ctx, self, height, short_fall, Axis::Y)
+    pub fn stretch_vertical(self, ctx: &mut MathContext, height: Abs) -> VariantFragment {
+        stretch_glyph(ctx, self, height, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
@@ -443,9 +438,8 @@ impl GlyphFragment {
         self,
         ctx: &mut MathContext,
         width: Abs,
-        short_fall: Abs,
     ) -> VariantFragment {
-        stretch_glyph(ctx, self, width, short_fall, Axis::X)
+        stretch_glyph(ctx, self, width, Axis::X)
     }
 }
 

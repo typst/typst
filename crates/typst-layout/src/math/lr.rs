@@ -1,11 +1,11 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
-use typst_library::layout::{Abs, Axis, Rel};
+use typst_library::layout::{Abs, Axis};
 use typst_library::math::{EquationElem, LrElem, MidElem};
 use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
-use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
+use super::{stretch_fragment, MathContext, MathFragment};
 
 /// Lays out an [`LrElem`].
 #[typst_macros::time(name = "math.lr", span = elem.span())]
@@ -22,7 +22,7 @@ pub fn layout_lr(
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size(styles).is_one() {
+        if lr.size(styles).is_lr_default() {
             body = &lr.body;
         }
     }
@@ -41,14 +41,14 @@ pub fn layout_lr(
         .unwrap_or_default();
 
     let relative_to = 2.0 * max_extent;
-    let height = elem.size(styles);
+    let height = elem.size(styles).resolve(ctx.engine, styles, relative_to)?;
 
     // Scale up fragments at both ends.
     match inner_fragments {
-        [one] => scale(ctx, styles, one, relative_to, height, None),
+        [one] => scale(ctx, styles, one, height, None),
         [first, .., last] => {
-            scale(ctx, styles, first, relative_to, height, Some(MathClass::Opening));
-            scale(ctx, styles, last, relative_to, height, Some(MathClass::Closing));
+            scale(ctx, styles, first, height, Some(MathClass::Opening));
+            scale(ctx, styles, last, height, Some(MathClass::Closing));
         }
         _ => {}
     }
@@ -58,7 +58,7 @@ pub fn layout_lr(
         if let MathFragment::Variant(ref mut variant) = fragment {
             if variant.mid_stretched == Some(false) {
                 variant.mid_stretched = Some(true);
-                scale(ctx, styles, fragment, relative_to, height, Some(MathClass::Large));
+                scale(ctx, styles, fragment, height, Some(MathClass::Large));
             }
         }
     }
@@ -119,26 +119,14 @@ fn scale(
     ctx: &mut MathContext,
     styles: StyleChain,
     fragment: &mut MathFragment,
-    relative_to: Abs,
-    height: Rel<Abs>,
+    height: Abs,
     apply: Option<MathClass>,
 ) {
     if matches!(
         fragment.class(),
         MathClass::Opening | MathClass::Closing | MathClass::Fence
     ) {
-        // This unwrap doesn't really matter. If it is None, then the fragment
-        // won't be stretchable anyways.
-        let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
-        stretch_fragment(
-            ctx,
-            styles,
-            fragment,
-            Some(Axis::Y),
-            Some(relative_to),
-            height,
-            short_fall,
-        );
+        stretch_fragment(ctx, styles, fragment, Axis::Y, height);
 
         if let Some(class) = apply {
             fragment.set_class(class);
