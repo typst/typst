@@ -87,6 +87,22 @@ Hello $#box(width: 40%)$ world \
 $mtext("Hello") #h(40%) space mtext("world")$ \
 $mtext("Hello") #box(width: 40%) mtext("world")$
 
+--- math-spacing-fractional-inline ---
+// Test fractional spacing in inline math.
+Hello #h(1fr) world \
+Hello $#h(1fr)$ world
+
+x #h(1fr) y \
+$x #h(1fr) y$
+
+Blah #h(1.5fr) long$#h(0.5fr) x - #h(1fr) y$ line. \
+Blah #h(1.5fr) long $#h(0.5fr) x - #h(1fr) y$ line.
+
+--- math-spacing-mixed-inline ---
+// Test mixture of different kinds of spacing in inline math.
+Some #h(30%) inline $x + #h(5%) y - #h(1fr) sum_(1 #h(1fr) 2) $ spacing #h(2fr) blah.
+Long $(a #h(1fr) z) #h(1em, weak: true)$ #h(1%) $#h(0.5fr) sqrt(1 + #h(0.5fr) y)$.
+
 --- issue-1052-math-number-spacing ---
 // Test spacing after numbers in math.
 $

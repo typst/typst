@@ -319,6 +319,24 @@ impl MathRun {
 
         let mut iter = self.0.into_iter().peekable();
         while let Some(fragment) = iter.next() {
+            if let MathFragment::Fractional(fr) = fragment {
+                if !empty {
+                    let mut frame_prev =
+                        std::mem::replace(&mut frame, Frame::soft(Size::zero()));
+
+                    finalize_frame(&mut frame_prev, x, ascent, descent);
+                    items.push(InlineItem::Frame(frame_prev));
+                    empty = true;
+
+                    x = Abs::zero();
+                    ascent = Abs::zero();
+                    descent = Abs::zero();
+                }
+
+                items.push(InlineItem::Fractional(fr));
+                continue;
+            }
+
             let class = fragment.class();
             let y = fragment.ascent();
 
