@@ -1,14 +1,13 @@
 use std::f32::consts::TAU;
 
 use ecow::{eco_format, EcoString};
-use ttf_parser::OutlineBuilder;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
 use typst_library::visualize::{Color, FillRule, Gradient, Paint, RatioOrAngle, Tiling};
 use typst_utils::hash128;
 use xmlwriter::XmlWriter;
 
-use crate::{Id, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
+use crate::{Id, SVGRenderer, State, SvgMatrix, SvgRelativePathBuilder};
 
 /// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.
@@ -185,7 +184,7 @@ impl SVGRenderer {
                         let theta2 = dtheta * (i + 1) as f32;
 
                         // Create the path for the segment.
-                        let mut builder = SvgPathBuilder::default();
+                        let mut builder = SvgRelativePathBuilder::default();
                         builder.move_to(
                             correct_tiling_pos(center.0),
                             correct_tiling_pos(center.1),
@@ -227,7 +226,7 @@ impl SVGRenderer {
 
                         // Add the path to the pattern.
                         self.xml.start_element("path");
-                        self.xml.write_attribute("d", &builder.0);
+                        self.xml.write_attribute("d", &builder.path);
                         self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
                         self.xml
                             .write_attribute_fmt("stroke", format_args!("url(#{id})"));
