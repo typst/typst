@@ -635,11 +635,17 @@ fn layout_h(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    if let Spacing::Rel(rel) = elem.amount {
-        if rel.rel.is_zero() {
-            ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
-        }
+    if elem.amount.is_zero() {
+        return Ok(());
     }
+
+    ctx.push(match elem.amount {
+        Spacing::Fr(fr) => MathFragment::Fractional(fr),
+        Spacing::Rel(rel) => MathFragment::Absolute(
+            rel.resolve(styles).relative_to(ctx.region.size.x),
+            elem.weak(styles),
+        ),
+    });
     Ok(())
 }
 

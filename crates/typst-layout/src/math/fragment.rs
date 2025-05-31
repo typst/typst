@@ -7,7 +7,7 @@ use ttf_parser::{GlyphId, Rect};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
+    Abs, Axis, Corner, Em, Fr, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
@@ -24,7 +24,8 @@ pub enum MathFragment {
     Glyph(GlyphFragment),
     Variant(VariantFragment),
     Frame(FrameFragment),
-    Spacing(Abs, bool),
+    Absolute(Abs, bool),
+    Fractional(Fr),
     Space(Abs),
     Linebreak,
     Align,
@@ -41,7 +42,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.width,
             Self::Variant(variant) => variant.frame.width(),
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(amount, _) => *amount,
+            Self::Absolute(amount, _) => *amount,
             Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
@@ -87,7 +88,8 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.class,
             Self::Variant(variant) => variant.class,
             Self::Frame(fragment) => fragment.class,
-            Self::Spacing(_, _) => MathClass::Space,
+            Self::Absolute(_, _) => MathClass::Space,
+            Self::Fractional(_) => MathClass::Space,
             Self::Space(_) => MathClass::Space,
             Self::Linebreak => MathClass::Space,
             Self::Align => MathClass::Special,
