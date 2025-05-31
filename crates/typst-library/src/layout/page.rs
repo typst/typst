@@ -154,6 +154,46 @@ pub struct PageElem {
     #[ghost]
     pub margin: Margin,
 
+    /// The page's bleed margin.
+    ///
+    /// The bleed is a part of the content that extends beyond the edge of the
+    /// final trimmed page. It ensures that there are no unprinted edges in the
+    /// final product, even if there's a slight misalignment during trimming.
+    ///
+    /// - `{auto}`: The bleed is set to 0mm on each side.
+    /// - A single length: The same bleed on all sides.
+    /// - A dictionary: With a dictionary, the bleed can be set individually.
+    ///   The dictionary can contain the following keys in order of precedence:
+    ///   - `top`: The top bleed.
+    ///   - `right`: The right bleed.
+    ///   - `bottom`: The bottom bleed.
+    ///   - `left`: The left bleed.
+    ///   - `inside`: The bleed at the inner side of the page (where the
+    ///     [binding]($page.binding) is).
+    ///   - `outside`: The bleed at the outer side of the page (opposite to the
+    ///     [binding]($page.binding)).
+    ///   - `x`: The horizontal bleeds.
+    ///   - `y`: The vertical bleeds.
+    ///   - `rest`: The bleeds on all sides except those for which the
+    ///     dictionary explicitly sets a size.
+    ///
+    /// The values for `left` and `right` are mutually exclusive with
+    /// the values for `inside` and `outside`.
+    ///
+    /// On PDF output, if bleed is different of zero, it sets a TrimBox and a
+    /// BleedBox for the page.
+    ///
+    /// ```example
+    /// #set page(
+    ///   width: 3cm,
+    ///   height: 4cm,
+    ///   bleed: 5mm,
+    ///   background: rect(width: 100%, height: 100%, fill: aqua),
+    /// )
+    /// ```
+    #[ghost]
+    pub bleed: Margin,
+
     /// On which side the pages will be bound.
     ///
     /// - `{auto}`: Equivalent to `left` if the [text direction]($text.dir)
@@ -489,6 +529,8 @@ pub struct PagedDocument {
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
+    /// The bleed amount to be added on each side of the page.
+    pub bleed: Sides<Abs>,
     /// How the page is filled.
     ///
     /// - When `None`, the background is transparent.
