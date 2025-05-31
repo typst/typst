@@ -607,7 +607,11 @@ fn export_image_page(
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let pixmap = typst_render::render(page, config.ppi / 72.0);
+            let opts = typst_render::RenderOptions {
+                pixel_per_pt: config.ppi / 72.0,
+                render_bleed: false,
+            };
+            let pixmap = typst_render::render(page, &opts);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
@@ -616,7 +620,8 @@ fn export_image_page(
                 .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
         }
         ImageExportFormat::Svg => {
-            let svg = typst_svg::svg(page);
+            let opts = typst_svg::SvgOptions { render_bleed: false };
+            let svg = typst_svg::svg(page, &opts);
             output
                 .write(svg.as_bytes())
                 .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;

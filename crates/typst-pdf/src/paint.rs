@@ -10,7 +10,7 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Sides, Size, Transform};
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
     RelativeTo, Shape, Tiling, WeightedColor,
@@ -151,7 +151,14 @@ fn convert_pattern(
     let mut surface = stream_builder.surface();
     tags::tiling(gc, &mut surface, |gc, surface| {
         let mut fc = FrameContext::new(None, pattern.frame().size());
-        handle_frame(&mut fc, pattern.frame(), None, surface, gc)
+        handle_frame(
+            &mut fc,
+            pattern.frame(),
+            Sides::splat(Abs::zero()),
+            None,
+            surface,
+            gc,
+        )
     })?;
     surface.finish();
     let stream = stream_builder.finish();
