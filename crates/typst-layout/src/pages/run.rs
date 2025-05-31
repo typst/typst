@@ -29,6 +29,7 @@ use crate::flow::{FlowMode, layout_flow};
 pub struct LayoutedPage {
     pub inner: Frame,
     pub margin: Sides<Abs>,
+    pub bleed: Sides<Abs>,
     pub binding: Binding,
     pub two_sided: bool,
     pub header: Option<Frame>,
@@ -122,6 +123,12 @@ fn layout_page_run_impl(
     let margin = margin
         .sides
         .map(|side| side.and_then(Smart::custom).unwrap_or(default))
+        .resolve(styles)
+        .relative_to(size);
+
+    let bleed = PageElem::bleed_in(styles)
+        .sides
+        .map(|side| side.and_then(Smart::custom).unwrap_or(Rel::zero()))
         .resolve(styles)
         .relative_to(size);
 
@@ -224,6 +231,7 @@ fn layout_page_run_impl(
             background: layout_marginal(&background, full_size, mid)?,
             foreground: layout_marginal(foreground, full_size, mid)?,
             margin,
+            bleed,
             binding,
             two_sided,
         });
