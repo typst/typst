@@ -57,9 +57,9 @@ pub fn numbering(
     context: Tracked<Context>,
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `一`, `壹`,
-    /// `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `١`, `۱`, `१`, `১`, `ক`,
-    /// `①`, and `⓵`. They are replaced by the number in the sequence,
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `α`, `Α`, `а`, `А`,
+    /// `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, `*`, `١`, `۱`, `१`,
+    /// `১`, `ক`, `①`, and `⓵`. They are replaced by the number in the sequence,
     /// preserving the original case.
     ///
     /// The `*` character means that symbols should be used to count, in the
@@ -265,6 +265,10 @@ pub enum NumberingKind {
     LowerGreek,
     /// Uppercase Greek numerals (α, β, γ, etc.).
     UpperGreek,
+    /// Lowercase Russian letters (а, б, в, etc.), excluding ё, й, ъ, ы, ь.
+    LowerRussian,
+    /// Uppercase Russian letters (А, Б, В, etc.), excluding Ё, Й, Ъ, Ы, Ь.
+    UpperRussian,
     /// Paragraph/note-like symbols: *, †, ‡, §, ¶, and ‖. Further items use
     /// repeated symbols.
     Symbol,
@@ -327,6 +331,8 @@ impl NumberingKind {
             'I' => NumberingKind::UpperRoman,
             'α' => NumberingKind::LowerGreek,
             'Α' => NumberingKind::UpperGreek,
+            'а' => NumberingKind::LowerRussian,
+            'А' => NumberingKind::UpperRussian,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
             '一' => NumberingKind::LowerSimplifiedChinese,
@@ -358,6 +364,8 @@ impl NumberingKind {
             Self::UpperRoman => 'I',
             Self::LowerGreek => 'α',
             Self::UpperGreek => 'Α',
+            Self::LowerRussian => 'а',
+            Self::UpperRussian => 'А',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
             Self::LowerSimplifiedChinese | Self::LowerTraditionalChinese => '一',
@@ -410,6 +418,20 @@ impl NumberingKind {
                 [
                     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
                     'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                ],
+                n,
+            ),
+            Self::LowerRussian => zeroless(
+                [
+                    'а', 'б', 'в', 'г', 'д', 'е', 'ж', 'з', 'и', 'к', 'л', 'м', 'н', 'о',
+                    'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'э', 'ю', 'я',
+                ],
+                n,
+            ),
+            Self::UpperRussian => zeroless(
+                [
+                    'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И', 'К', 'Л', 'М', 'Н', 'О',
+                    'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Э', 'Ю', 'Я',
                 ],
                 n,
             ),
