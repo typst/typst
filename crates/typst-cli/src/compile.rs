@@ -75,6 +75,8 @@ pub struct CompileConfig {
     /// Server for `typst watch` to HTML.
     #[cfg(feature = "http-server")]
     pub server: Option<HtmlServer>,
+    /// Whether to create valid XML in HTML output
+    pub xml: bool,
 }
 
 impl CompileConfig {
@@ -158,6 +160,7 @@ impl CompileConfig {
             export_cache: ExportCache::new(),
             #[cfg(feature = "http-server")]
             server,
+            xml: args.xml,
         })
     }
 }
@@ -237,7 +240,7 @@ fn compile_and_export(
 
 /// Export to HTML.
 fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<()> {
-    let html = typst_html::html(document)?;
+    let html = typst_html::html(document, config.xml)?;
     let result = config.output.write(html.as_bytes());
 
     #[cfg(feature = "http-server")]
