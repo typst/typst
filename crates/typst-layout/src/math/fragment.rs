@@ -448,6 +448,8 @@ impl GlyphFragment {
         short_fall: Abs,
         axis: Axis,
     ) {
+        self.reset_glyph();
+
         // If the base glyph is good enough, use it.
         let mut advance = self.size.get(axis);
         if axis == Axis::X && !self.extended_shape {
