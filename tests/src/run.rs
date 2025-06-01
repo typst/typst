@@ -454,7 +454,7 @@ impl OutputType for HtmlDocument {
 
     fn make_live(&self) -> Self::Live {
         // TODO: Do this earlier to be able to process export errors.
-        typst_html::html(self).unwrap()
+        typst_html::html(self, false).unwrap()
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {
