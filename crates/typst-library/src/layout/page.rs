@@ -10,7 +10,7 @@ use crate::foundations::{
     cast, elem, Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement,
     Set, Smart, Value,
 };
-use crate::introspection::Introspector;
+use crate::introspection::{Introspector, Locatable};
 use crate::layout::{
     Abs, Alignment, FlushElem, Frame, HAlignment, Length, OuterVAlignment, Ratio, Rel,
     Sides, SpecificAlignment,
@@ -448,6 +448,28 @@ impl PagebreakElem {
             Content,
             PagebreakElem::new().with_weak(true).with_boundary(true).pack()
         )
+    }
+}
+
+// HACK: this should probably not be an element
+#[derive(Copy)]
+#[elem(Construct, Locatable)]
+pub struct ArtifactMarker {
+    #[internal]
+    #[required]
+    pub kind: ArtifactKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ArtifactKind {
+    Header,
+    Footer,
+    Page,
+}
+
+impl Construct for ArtifactMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
     }
 }
 

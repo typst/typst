@@ -123,17 +123,19 @@ fn layout_pages<'a>(
             Item::Run(..) => {
                 let layouted = runs.next().unwrap()?;
                 for layouted in layouted {
-                    let page = finalize(engine, &mut counter, &mut tags, layouted)?;
+                    let page =
+                        finalize(engine, locator, &mut counter, &mut tags, layouted)?;
                     pages.push(page);
                 }
             }
-            Item::Parity(parity, initial, locator) => {
+            Item::Parity(parity, initial, page_locator) => {
                 if !parity.matches(pages.len()) {
                     continue;
                 }
 
-                let layouted = layout_blank_page(engine, locator.relayout(), *initial)?;
-                let page = finalize(engine, &mut counter, &mut tags, layouted)?;
+                let layouted =
+                    layout_blank_page(engine, page_locator.relayout(), *initial)?;
+                let page = finalize(engine, locator, &mut counter, &mut tags, layouted)?;
                 pages.push(page);
             }
             Item::Tags(items) => {

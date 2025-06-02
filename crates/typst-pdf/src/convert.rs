@@ -10,7 +10,6 @@ use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
-use krilla::tagging::{ArtifactType, ContentTag, Node};
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
@@ -31,7 +30,7 @@ use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
-use crate::tags::{handle_close_tag, handle_open_tag, Placeholder, TagNode, Tags};
+use crate::tags::{self, Placeholder, Tags};
 use crate::text::handle_text;
 use crate::util::{convert_path, display_font, AbsExt, TransformExt};
 use crate::PdfOptions;
@@ -42,17 +41,15 @@ pub fn convert(
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
     // HACK
-    // let config = Configuration::new();
     let config = Configuration::new_with_validator(Validator::UA1);
     let settings = SerializeSettings {
-        compress_content_streams: true,
+        compress_content_streams: false, // true,
         no_device_cs: true,
-        ascii_compatible: false,
+        ascii_compatible: true, // false,
         xmp_metadata: true,
         cmyk_profile: None,
-        configuration: config,
-        // TODO: Should we just set this to false? If set to `false` this will
-        // automatically be enabled if the `UA1` validator is used.
+        configuration: config, // options.standards.config,
+        // TODO: allow opting out of tagging PDFs
         enable_tagging: true,
         render_svg_glyph_fn: render_svg_glyph,
     };
@@ -114,18 +111,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             let mut surface = page.surface();
             let mut fc = FrameContext::new(typst_page.frame.size());
 
-            // Marked-content may not cross page boundaries: reopen tag
-            // that was closed at the end of the last page.
-            if let Some((_, _, nodes)) = gc.tags.stack.last_mut() {
-                let tag = if gc.tags.in_artifact {
-                    ContentTag::Artifact(ArtifactType::Other)
-                } else {
-                    ContentTag::Other
-                };
-                // TODO: somehow avoid empty marked-content sequences
-                let id = surface.start_tagged(tag);
-                nodes.push(TagNode::Leaf(id));
-            }
+            tags::restart(gc, &mut surface);
 
             handle_frame(
                 &mut fc,
@@ -135,17 +121,11 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                 gc,
             )?;
 
-            // Marked-content may not cross page boundaries: close open tag.
-            if !gc.tags.stack.is_empty() {
-                surface.end_tagged();
-            }
+            tags::end_open(gc, &mut surface);
 
             surface.finish();
 
-            for (placeholder, annotation) in fc.annotations {
-                let annotation_id = page.add_tagged_annotation(annotation);
-                gc.tags.init_placeholder(placeholder, Node::Leaf(annotation_id));
-            }
+            tags::add_annotations(gc, &mut page, fc.annotations);
         }
     }
 
@@ -318,10 +298,10 @@ pub(crate) fn handle_frame(
                 handle_link(fc, gc, alt.as_ref().map(EcoString::to_string), dest, *size)
             }
             FrameItem::Tag(introspection::Tag::Start(elem)) => {
-                handle_open_tag(gc, surface, elem)
+                tags::handle_start(gc, surface, elem)
             }
             FrameItem::Tag(introspection::Tag::End(loc, _)) => {
-                handle_close_tag(gc, surface, loc);
+                tags::handle_end(gc, surface, loc);
             }
         }
 

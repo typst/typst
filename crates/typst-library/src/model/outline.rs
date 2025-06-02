@@ -18,7 +18,8 @@ use crate::introspection::{
     Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink,
 };
 use crate::layout::{
-    Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, PageElem, Region, Rel, RepeatElem, Sides
+    Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, PageElem,
+    Region, Rel, RepeatElem, Sides,
 };
 use crate::math::EquationElem;
 use crate::model::{Destination, HeadingElem, NumberingPattern, ParElem, Refable};
@@ -430,9 +431,9 @@ impl Show for Packed<OutlineEntry> {
             let body = body.plain_text();
             let page_str = PageElem::local_name_in(styles);
             let page_nr = page.plain_text();
-            eco_format!("{prefix} {body} {page_str} {page_nr}")
+            eco_format!("{prefix} \"{body}\", {page_str} {page_nr}")
         };
-        let inner = self.inner(engine, context, span, body, page)?;
+        let inner = self.inner(context, span, body, page)?;
         let block = if self.element.is::<EquationElem>() {
             let body = prefix.unwrap_or_default() + inner;
             BlockElem::new()
@@ -578,7 +579,6 @@ impl OutlineEntry {
     #[func(contextual)]
     pub fn inner(
         &self,
-        engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
         body: Content,
