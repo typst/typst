@@ -150,10 +150,10 @@ impl PackageStorage {
             .get_or_try_init(|| {
                 let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
                 match self.downloader.download(&url) {
-                    Ok(response) => response.into_json().map_err(|err| {
+                    Ok(mut response) => response.body_mut().read_json().map_err(|err| {
                         eco_format!("failed to parse package index: {err}")
                     }),
-                    Err(ureq::Error::Status(404, _)) => {
+                    Err(ureq::Error::StatusCode(404)) => {
                         bail!("failed to fetch package index (not found)")
                     }
                     Err(err) => bail!("failed to fetch package index ({err})"),
@@ -181,7 +181,7 @@ impl PackageStorage {
 
         let data = match self.downloader.download_with_progress(&url, progress) {
             Ok(data) => data,
-            Err(ureq::Error::Status(404, _)) => {
+            Err(ureq::Error::StatusCode(404)) => {
                 if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
                     return Err(PackageError::VersionNotFound(spec.clone(), version));
                 } else {
