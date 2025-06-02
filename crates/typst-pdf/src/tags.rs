@@ -1,9 +1,15 @@
 use std::cell::OnceCell;
+use std::ops::Deref;
 
+use krilla::annotation::Annotation;
+use krilla::page::Page;
 use krilla::surface::Surface;
-use krilla::tagging::{ContentTag, Identifier, Node, Tag, TagGroup, TagTree};
+use krilla::tagging::{
+    ArtifactType, ContentTag, Identifier, Node, Tag, TagGroup, TagTree,
+};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::Location;
+use typst_library::layout::{ArtifactKind, ArtifactMarker};
 use typst_library::model::{HeadingElem, OutlineElem, OutlineEntry};
 
 use crate::convert::GlobalContext;
@@ -12,7 +18,7 @@ pub(crate) struct Tags {
     /// The intermediary stack of nested tag groups.
     pub(crate) stack: Vec<(Location, Tag, Vec<TagNode>)>,
     pub(crate) placeholders: Vec<OnceCell<Node>>,
-    pub(crate) in_artifact: bool,
+    pub(crate) in_artifact: Option<(Location, ArtifactMarker)>,
 
     /// The output.
     pub(crate) tree: Vec<TagNode>,
@@ -34,7 +40,7 @@ impl Tags {
         Self {
             stack: Vec::new(),
             placeholders: Vec::new(),
-            in_artifact: false,
+            in_artifact: None,
 
             tree: Vec::new(),
         }
@@ -142,16 +148,61 @@ impl Tags {
     }
 }
 
-pub(crate) fn handle_open_tag(
+/// Marked-content may not cross page boundaries: restart tag that was still open
+/// at the end of the last page.
+pub(crate) fn restart(gc: &mut GlobalContext, surface: &mut Surface) {
+    // TODO: somehow avoid empty marked-content sequences
+    if let Some((_, marker)) = gc.tags.in_artifact {
+        let ty = artifact_type(marker.kind);
+        surface.start_tagged(ContentTag::Artifact(ty));
+    } else if let Some((_, _, nodes)) = gc.tags.stack.last_mut() {
+        let id = surface.start_tagged(ContentTag::Other);
+        nodes.push(TagNode::Leaf(id));
+    }
+}
+
+/// Marked-content may not cross page boundaries: end any open tag.
+pub(crate) fn end_open(gc: &mut GlobalContext, surface: &mut Surface) {
+    if !gc.tags.stack.is_empty() || gc.tags.in_artifact.is_some() {
+        surface.end_tagged();
+    }
+}
+
+/// Add all annotations that were found in the page frame.
+pub(crate) fn add_annotations(
+    gc: &mut GlobalContext,
+    page: &mut Page,
+    annotations: Vec<(Placeholder, Annotation)>,
+) {
+    for (placeholder, annotation) in annotations {
+        let annotation_id = page.add_tagged_annotation(annotation);
+        gc.tags.init_placeholder(placeholder, Node::Leaf(annotation_id));
+    }
+}
+
+pub(crate) fn handle_start(
     gc: &mut GlobalContext,
     surface: &mut Surface,
     elem: &Content,
 ) {
-    if gc.tags.in_artifact {
+    if gc.tags.in_artifact.is_some() {
+        // Don't nest artifacts
         return;
     }
 
-    let Some(loc) = elem.location() else { return };
+    let loc = elem.location().unwrap();
+
+    if let Some(marker) = elem.to_packed::<ArtifactMarker>() {
+        if !gc.tags.stack.is_empty() {
+            surface.end_tagged();
+        }
+
+        let marker = *marker.deref();
+        let ty = artifact_type(marker.kind);
+        surface.start_tagged(ContentTag::Artifact(ty));
+        gc.tags.in_artifact = Some((loc, marker));
+        return;
+    }
 
     let tag = if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.resolve_level(StyleChain::default());
@@ -186,11 +237,14 @@ pub(crate) fn handle_open_tag(
     gc.tags.stack.push((loc, tag, vec![TagNode::Leaf(content_id)]));
 }
 
-pub(crate) fn handle_close_tag(
-    gc: &mut GlobalContext,
-    surface: &mut Surface,
-    loc: &Location,
-) {
+pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: &Location) {
+    if gc.tags.in_artifact.is_some_and(|(l, _)| l == *loc) {
+        gc.tags.in_artifact = None;
+        surface.end_tagged();
+        restart(gc, surface);
+        return;
+    }
+
     let Some((_, tag, nodes)) = gc.tags.stack.pop_if(|(l, ..)| l == loc) else {
         return;
     };
@@ -205,5 +259,13 @@ pub(crate) fn handle_close_tag(
         parent_nodes.push(TagNode::Leaf(id));
     } else {
         gc.tags.tree.push(TagNode::Group(tag, nodes));
+    }
+}
+
+fn artifact_type(kind: ArtifactKind) -> ArtifactType {
+    match kind {
+        ArtifactKind::Header => ArtifactType::Header,
+        ArtifactKind::Footer => ArtifactType::Footer,
+        ArtifactKind::Page => ArtifactType::Page,
     }
 }

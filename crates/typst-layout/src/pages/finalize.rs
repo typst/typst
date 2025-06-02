@@ -1,7 +1,10 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::introspection::{ManualPageCounter, Tag};
-use typst_library::layout::{Frame, FrameItem, Page, Point};
+use typst_library::foundations::{Content, NativeElement};
+use typst_library::introspection::{ManualPageCounter, SplitLocator, Tag};
+use typst_library::layout::{
+    ArtifactKind, ArtifactMarker, Frame, FrameItem, Page, Point,
+};
 
 use super::LayoutedPage;
 
@@ -10,6 +13,7 @@ use super::LayoutedPage;
 /// physical page number, which is unknown during parallel layout.
 pub fn finalize(
     engine: &mut Engine,
+    locator: &mut SplitLocator,
     counter: &mut ManualPageCounter,
     tags: &mut Vec<Tag>,
     LayoutedPage {
@@ -45,10 +49,12 @@ pub fn finalize(
     // important as it affects the relative ordering of introspectable elements
     // and thus how counters resolve.
     if let Some(background) = background {
-        frame.push_frame(Point::zero(), background);
+        let tag = ArtifactMarker::new(ArtifactKind::Page).pack();
+        push_tagged(engine, locator, &mut frame, Point::zero(), background, tag);
     }
     if let Some(header) = header {
-        frame.push_frame(Point::with_x(margin.left), header);
+        let tag = ArtifactMarker::new(ArtifactKind::Header).pack();
+        push_tagged(engine, locator, &mut frame, Point::with_x(margin.left), header, tag);
     }
 
     // Add the inner contents.
@@ -57,7 +63,8 @@ pub fn finalize(
     // Add the "after" marginals.
     if let Some(footer) = footer {
         let y = frame.height() - footer.height();
-        frame.push_frame(Point::new(margin.left, y), footer);
+        let tag = ArtifactMarker::new(ArtifactKind::Footer).pack();
+        push_tagged(engine, locator, &mut frame, Point::new(margin.left, y), footer, tag);
     }
     if let Some(foreground) = foreground {
         frame.push_frame(Point::zero(), foreground);
@@ -71,4 +78,26 @@ pub fn finalize(
     counter.step();
 
     Ok(Page { frame, fill, numbering, supplement, number })
+}
+
+fn push_tagged(
+    engine: &mut Engine,
+    locator: &mut SplitLocator,
+    frame: &mut Frame,
+    mut pos: Point,
+    inner: Frame,
+    mut tag: Content,
+) {
+    // TODO: use general PDF Tagged/Artifact element that wraps some content and
+    // is also available to the user.
+    let key = typst_utils::hash128(&tag);
+    let loc = locator.next_location(engine.introspector, key);
+    tag.set_location(loc);
+    frame.push(pos, FrameItem::Tag(Tag::Start(tag)));
+
+    let height = inner.height();
+    frame.push_frame(pos, inner);
+
+    pos.y += height;
+    frame.push(pos, FrameItem::Tag(Tag::End(loc, key)));
 }

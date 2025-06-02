@@ -430,7 +430,7 @@ impl Show for Packed<OutlineEntry> {
             let body = body.plain_text();
             let page_str = PageElem::local_name_in(styles);
             let page_nr = page.plain_text();
-            eco_format!("{prefix} {body} {page_str} {page_nr}")
+            eco_format!("{prefix} \"{body}\", {page_str} {page_nr}")
         };
         let inner = self.inner(engine, context, span, body, page)?;
         let block = if self.element.is::<EquationElem>() {
