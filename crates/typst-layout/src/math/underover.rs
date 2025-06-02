@@ -10,8 +10,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    stack, style_cramped, style_for_subscript, style_for_superscript, FrameFragment,
-    GlyphFragment, LeftRightAlternator, MathContext, MathRun,
+    find_math_font, stack, style_cramped, style_for_subscript, style_for_superscript,
+    FrameFragment, LeftRightAlternator, MathContext, MathRun,
 };
 
 const BRACE_GAP: Em = Em::new(0.25);
@@ -206,11 +206,12 @@ fn layout_underoverline(
     position: Position,
 ) -> SourceResult<()> {
     let (extra_height, content, line_pos, content_pos, baseline, bar_height, line_adjust);
+    let font = find_math_font(ctx.engine, styles, span)?;
     match position {
         Position::Under => {
-            let sep = scaled!(ctx, styles, underbar_extra_descender);
-            bar_height = scaled!(ctx, styles, underbar_rule_thickness);
-            let gap = scaled!(ctx, styles, underbar_vertical_gap);
+            let sep = constant!(font, styles, underbar_extra_descender);
+            bar_height = constant!(font, styles, underbar_rule_thickness);
+            let gap = constant!(font, styles, underbar_vertical_gap);
             extra_height = sep + bar_height + gap;
 
             content = ctx.layout_into_fragment(body, styles)?;
@@ -221,9 +222,9 @@ fn layout_underoverline(
             line_adjust = -content.italics_correction();
         }
         Position::Over => {
-            let sep = scaled!(ctx, styles, overbar_extra_ascender);
-            bar_height = scaled!(ctx, styles, overbar_rule_thickness);
-            let gap = scaled!(ctx, styles, overbar_vertical_gap);
+            let sep = constant!(font, styles, overbar_extra_ascender);
+            bar_height = constant!(font, styles, overbar_rule_thickness);
+            let gap = constant!(font, styles, overbar_vertical_gap);
             extra_height = sep + bar_height + gap;
 
             let cramped = style_cramped();
@@ -285,7 +286,7 @@ fn layout_underoverspreader(
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(styles);
-    let mut glyph = GlyphFragment::new(ctx.font, styles, c, span);
+    let mut glyph = ctx.layout_into_glyph(c, span, styles)?;
     glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
     let mut rows = vec![];

@@ -179,7 +179,7 @@ $ a0 + a1 + a0_2 \
 #{
   let var = $x^1$
   for i in range(24) {
-    var = $var$    
+    var = $var$
   }
   $var_2$
 }

@@ -5,7 +5,9 @@ use typst_library::math::{EquationElem, LrElem, MidElem};
 use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
-use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
+use super::{
+    find_math_font, stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL,
+};
 
 /// Lays out an [`LrElem`].
 #[typst_macros::time(name = "math.lr", span = elem.span())]
@@ -33,7 +35,8 @@ pub fn layout_lr(
     let (start_idx, end_idx) = fragments.split_prefix_suffix(|f| f.is_ignorant());
     let inner_fragments = &mut fragments[start_idx..end_idx];
 
-    let axis = scaled!(ctx, styles, axis_height);
+    let font = find_math_font(ctx.engine, styles, elem.span())?;
+    let axis = constant!(font, styles, axis_height);
     let max_extent = inner_fragments
         .iter()
         .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))

@@ -196,12 +196,7 @@ $ mat(#1, #(foo: "bar")) $
 
 --- issue-2268-mat-augment-color ---
 // The augment line should be of the same color as the text
-#set text(
-  font: "New Computer Modern",
-  lang: "en",
-  fill: yellow,
-)
-
+#set text(fill: yellow)
 $mat(augment: #1, M, v) arrow.r.squiggly mat(augment: #1, R, b)$
 
 --- math-mat-delims ---
@@ -263,7 +258,7 @@ $ mat(a; b; c) mat(a \ b \ c) $
 --- math-mat-vec-cases-unity ---
 // Test that matrices, vectors, and cases are all laid out the same.
 $ mat(z_(n_p); a^2)
-  vec(z_(n_p), a^2) 
+  vec(z_(n_p), a^2)
   cases(reverse: #true, delim: \(, z_(n_p), a^2)
   cases(delim: \(, z_(n_p), a^2) $
 

@@ -938,6 +938,7 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone
             "noto color emoji",
             "apple color emoji",
             "segoe ui emoji",
+            "new computer modern math",
         ]
         .into_iter()
         .map(FontFamily::new)

@@ -3,14 +3,17 @@ use std::fmt::{self, Debug, Formatter};
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::GlyphId;
-use typst_library::diag::warning;
+use typst_library::diag::{bail, warning, SourceResult};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{features, language, Font, Glyph, TextElem, TextItem};
+use typst_library::text::{
+    families, features, language, variant, Font, Glyph, TextElem, TextItem,
+};
+use typst_library::World;
 use typst_syntax::Span;
 use typst_utils::{default_math_class, Get};
 use unicode_math_class::MathClass;
@@ -258,18 +261,51 @@ pub struct GlyphFragment {
 }
 
 impl GlyphFragment {
-    pub fn new(font: &Font, styles: StyleChain, c: char, span: Span) -> Self {
-        Self::try_new(font, styles, c.encode_utf8(&mut [0; 4]), span).unwrap()
-    }
-
-    pub fn try_new(
-        font: &Font,
+    pub fn new(
+        ctx: &MathContext,
         styles: StyleChain,
-        str: &str,
+        text: &str,
         span: Span,
-    ) -> Option<Self> {
+    ) -> SourceResult<Option<Self>> {
+        let families = families(styles);
+        let variant = variant(styles);
+        let fallback = TextElem::fallback_in(styles);
+        let end = text.char_indices().nth(1).map(|(i, _)| i).unwrap_or(text.len());
+
+        // Find the next available family.
+        let world = ctx.engine.world;
+        let book = world.book();
+        let mut selection = None;
+        for family in families {
+            selection = book
+                .select(family.as_str(), variant)
+                .and_then(|id| world.font(id))
+                .filter(|font| {
+                    font.ttf().tables().math.and_then(|math| math.constants).is_some()
+                })
+                .filter(|_| family.covers().is_none_or(|cov| cov.is_match(&text[..end])));
+            if selection.is_some() {
+                break;
+            }
+        }
+
+        // Do font fallback if the families are exhausted and fallback is enabled.
+        if selection.is_none() && fallback {
+            selection = book
+                .select_fallback(None, variant, text)
+                .and_then(|id| world.font(id))
+                .filter(|font| {
+                    font.ttf().tables().math.and_then(|math| math.constants).is_some()
+                });
+        }
+
+        // Error out if no math font could be found at all.
+        let Some(font) = selection else {
+            bail!(span, "current font does not support math");
+        };
+
         let mut buffer = UnicodeBuffer::new();
-        buffer.push_str(str);
+        buffer.push_str(text);
         buffer.set_language(language(styles));
         // TODO: Bug in rustybuzz? rustybuzz::script::SCRIPT_MATH does not work.
         // i.e. ssty is not applied
@@ -282,7 +318,7 @@ impl GlyphFragment {
 
         let features = features(styles);
         let plan = create_shape_plan(
-            font,
+            &font,
             buffer.direction(),
             buffer.script(),
             buffer.language().as_ref(),
@@ -290,20 +326,18 @@ impl GlyphFragment {
         );
 
         let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
-        if buffer.len() != 1 {
-            return None;
+
+        match buffer.len() {
+            0 => return Ok(None),
+            1 => {}
+            _ => unreachable!(),
         }
 
         let info = buffer.glyph_infos()[0];
         let pos = buffer.glyph_positions()[0];
 
-        // TODO: add support for coverage and fallback, like in normal text shaping.
-        if info.glyph_id == 0 {
-            return None;
-        }
-
         let cluster = info.cluster as usize;
-        let c = str[cluster..].chars().next().unwrap();
+        let c = text[cluster..].chars().next().unwrap();
         let limits = Limits::for_char(c);
         let class = EquationElem::class_in(styles)
             .or_else(|| default_math_class(c))
@@ -316,14 +350,14 @@ impl GlyphFragment {
             stroke: TextElem::stroke_in(styles).map(|s| s.unwrap_or_default()),
             lang: TextElem::lang_in(styles),
             region: TextElem::region_in(styles),
-            text: str.into(),
+            text: text.into(),
             glyphs: vec![Glyph {
                 id: info.glyph_id as u16,
                 x_advance: font.to_em(pos.x_advance),
                 x_offset: Em::zero(),
                 y_advance: Em::zero(),
                 y_offset: Em::zero(),
-                range: 0..str.len() as u16,
+                range: 0..text.len() as u16,
                 span: (span, 0),
             }],
         };
@@ -348,7 +382,7 @@ impl GlyphFragment {
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
-        Some(fragment)
+        Ok(Some(fragment))
     }
 
     /// Sets element id and boxes in appropriate way without changing other
@@ -505,7 +539,7 @@ impl GlyphFragment {
     /// to the given alignment on the axis.
     pub fn align_on_axis(&mut self, align: VAlignment) {
         let h = self.size.y;
-        let axis = axis_height(&self.text.font).unwrap().at(self.text.size);
+        let axis = value!(self.text, axis_height);
         self.align += self.baseline();
         self.baseline = Some(align.inv().position(h + axis * 2.0));
         self.align -= self.baseline();
@@ -639,10 +673,6 @@ fn kern_at_height(font: &Font, id: GlyphId, corner: Corner, height: Em) -> Optio
     }
 
     Some(font.to_em(kern.kern(i)?.value))
-}
-
-fn axis_height(font: &Font) -> Option<Em> {
-    Some(font.to_em(font.ttf().tables().math?.constants?.axis_height().value))
 }
 
 pub fn stretch_axes(font: &Font, id: GlyphId) -> Axes<bool> {
