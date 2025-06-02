@@ -56,7 +56,6 @@ fn convert_html(node_ref: NodeRef<Node>) -> Value {
         // https://en.wikipedia.org/wiki/Processing_Instruction
         Node::Doctype(..) | Node::ProcessingInstruction(..) => return Value::None,
         Node::Comment(comment) => {
-            // Werid but compatible with current `xml`.
             return Value::Dict(dict! {
                 "tag" => "",
                 "attrs" => dict! {},
