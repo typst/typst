@@ -156,32 +156,33 @@ pub struct PageElem {
 
     /// The page's bleed margin.
     ///
-    /// The bleed is a part of the content that extends beyond the edge of the
-    /// final trimmed page. It ensures that there are no unprinted edges in the
-    /// final product, even if there's a slight misalignment during trimming.
+    /// The bleed is the area of content that extends beyond the final trimmed
+    /// size of the page. It ensures that no unprinted edges appear in the final
+    /// product, even if minor trimming misalignments occur.
     ///
-    /// - `{auto}`: The bleed is set to 0mm on each side.
-    /// - A single length: The same bleed on all sides.
-    /// - A dictionary: With a dictionary, the bleed can be set individually.
-    ///   The dictionary can contain the following keys in order of precedence:
-    ///   - `top`: The top bleed.
-    ///   - `right`: The right bleed.
-    ///   - `bottom`: The bottom bleed.
-    ///   - `left`: The left bleed.
-    ///   - `inside`: The bleed at the inner side of the page (where the
-    ///     [binding]($page.binding) is).
-    ///   - `outside`: The bleed at the outer side of the page (opposite to the
+    /// Accepted values:
+    ///
+    /// - `{auto}`: Sets the bleed to `0mm` on all sides.
+    /// - A single length: Applies the same bleed to all sides.
+    /// - A dictionary: Allows setting bleed values individually. The dictionary
+    ///   may include the following keys, listed in order of precedence:
+    ///   - `top`: Bleed at the top of the page.
+    ///   - `right`: Bleed at the right side.
+    ///   - `bottom`: Bleed at the bottom.
+    ///   - `left`: Bleed at the left side.
+    ///   - `inside`: Bleed on the inner side of the page (next to
     ///     [binding]($page.binding)).
-    ///   - `x`: The horizontal bleeds.
-    ///   - `y`: The vertical bleeds.
-    ///   - `rest`: The bleeds on all sides except those for which the
-    ///     dictionary explicitly sets a size.
+    ///   - `outside`: Bleed on the outer side of the page (opposite the
+    ///     [binding]($page.binding)).
+    ///   - `x`: Horizontal bleed (applies to both left/right or inside/outside).
+    ///   - `y`: Vertical bleed (applies to both top and bottom).
+    ///   - `rest`: Default bleed for any sides not explicitly set.
     ///
-    /// The values for `left` and `right` are mutually exclusive with
-    /// the values for `inside` and `outside`.
+    /// Note: The keys `left` and `right` are mutually exclusive with `inside` and
+    /// `outside`.
     ///
-    /// On PDF output, if bleed is different of zero, it sets a TrimBox and a
-    /// BleedBox for the page.
+    /// On PDF output, if the bleed is non-zero, a `TrimBox` and a `BleedBox` are
+    /// defined for the page.
     ///
     /// ```example
     /// #set page(
