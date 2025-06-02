@@ -739,16 +739,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_proxy"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a5019be18538406a43b5419a5501461f0c8b49ea7dfda0cfc32f4e51fc44be1"
-dependencies = [
- "log",
- "url",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3184,7 +3174,6 @@ version = "0.13.1"
 dependencies = [
  "dirs",
  "ecow",
- "env_proxy",
  "fastrand",
  "flate2",
  "fontdb",

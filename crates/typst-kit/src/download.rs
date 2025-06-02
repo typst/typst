@@ -118,14 +118,6 @@ impl Downloader {
         // Set user agent.
         builder = builder.user_agent(&self.user_agent);
 
-        // Get the network proxy config from the environment and apply it.
-        if let Some(proxy) = env_proxy::for_url_str(url)
-            .to_string()
-            .and_then(|url| ureq::Proxy::new(&url).ok())
-        {
-            builder = builder.proxy(Some(proxy));
-        }
-
         // Apply a custom CA certificate if present.
         let maybe_cert = self.cert().transpose()?.cloned().map_or(
             RootCerts::PlatformVerifier,
