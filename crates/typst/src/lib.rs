@@ -27,7 +27,6 @@
 //! [module]: crate::foundations::Module
 //! [content]: crate::foundations::Content
 //! [laid out]: typst_layout::layout_document
-//! [document]: crate::model::Document
 //! [frame]: crate::layout::Frame
 
 pub extern crate comemo;
