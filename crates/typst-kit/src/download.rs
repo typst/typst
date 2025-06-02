@@ -13,9 +13,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ecow::EcoString;
-use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::OnceCell;
-use ureq::Response;
+use ureq::tls::{Certificate, RootCerts, TlsProvider};
 
 /// Manages progress reporting for downloads.
 pub trait Progress {
@@ -57,7 +56,7 @@ pub struct DownloadState {
 pub struct Downloader {
     user_agent: EcoString,
     cert_path: Option<PathBuf>,
-    cert: OnceCell<Certificate>,
+    cert: OnceCell<Certificate<'static>>,
 }
 
 impl Downloader {
@@ -82,7 +81,10 @@ impl Downloader {
     }
 
     /// Crates a new downloader with the given user agent and certificate.
-    pub fn with_cert(user_agent: impl Into<EcoString>, cert: Certificate) -> Self {
+    pub fn with_cert(
+        user_agent: impl Into<EcoString>,
+        cert: Certificate<'static>,
+    ) -> Self {
         Self {
             user_agent: user_agent.into(),
             cert_path: None,
@@ -96,7 +98,7 @@ impl Downloader {
     /// - Returns `None` if `--cert` and `TYPST_CERT` are not set.
     /// - Returns `Some(Ok(cert))` if the certificate was loaded successfully.
     /// - Returns `Some(Err(err))` if an error occurred while loading the certificate.
-    pub fn cert(&self) -> Option<io::Result<&Certificate>> {
+    pub fn cert(&self) -> Option<io::Result<&Certificate<'static>>> {
         self.cert_path.as_ref().map(|path| {
             self.cert.get_or_try_init(|| {
                 let pem = std::fs::read(path)?;
@@ -107,31 +109,42 @@ impl Downloader {
 
     /// Download binary data from the given url.
     #[allow(clippy::result_large_err)]
-    pub fn download(&self, url: &str) -> Result<ureq::Response, ureq::Error> {
-        let mut builder = ureq::AgentBuilder::new();
-        let mut tls = TlsConnector::builder();
+    pub fn download(
+        &self,
+        url: &str,
+    ) -> Result<ureq::http::Response<ureq::Body>, ureq::Error> {
+        let mut builder = ureq::config::Config::builder();
 
         // Set user agent.
         builder = builder.user_agent(&self.user_agent);
 
         // Get the network proxy config from the environment and apply it.
         if let Some(proxy) = env_proxy::for_url_str(url)
-            .to_url()
-            .and_then(|url| ureq::Proxy::new(url).ok())
+            .to_string()
+            .and_then(|url| ureq::Proxy::new(&url).ok())
         {
-            builder = builder.proxy(proxy);
+            builder = builder.proxy(Some(proxy));
         }
 
         // Apply a custom CA certificate if present.
-        if let Some(cert) = self.cert() {
-            tls.add_root_certificate(cert?.clone());
-        }
+        let maybe_cert = self.cert().transpose()?.cloned().map_or(
+            RootCerts::PlatformVerifier,
+            |cert| {
+                let certs = vec![cert];
+                RootCerts::Specific(Arc::new(certs))
+            },
+        );
 
         // Configure native TLS.
-        let connector = tls.build().map_err(io::Error::other)?;
-        builder = builder.tls_connector(Arc::new(connector));
+        let tls_config = ureq::tls::TlsConfig::builder()
+            .provider(TlsProvider::NativeTls)
+            .root_certs(maybe_cert);
 
-        builder.build().get(url).call()
+        builder = builder.tls_config(tls_config.build());
+
+        let agent = ureq::Agent::new_with_config(builder.build());
+
+        agent.get(url).call()
     }
 
     /// Download binary data from the given url and report its progress.
@@ -170,7 +183,7 @@ const SAMPLES: usize = 5;
 /// over a websocket and reports its progress.
 struct RemoteReader<'p> {
     /// The reader returned by the ureq::Response.
-    reader: Box<dyn Read + Send + Sync + 'static>,
+    reader: ureq::BodyReader<'static>,
     /// The download state, holding download metadata for progress reporting.
     state: DownloadState,
     /// The instant at which progress was last reported.
@@ -184,13 +197,18 @@ impl<'p> RemoteReader<'p> {
     ///
     /// The 'Content-Length' header is used as a size hint for read
     /// optimization, if present.
-    fn from_response(response: Response, progress: &'p mut dyn Progress) -> Self {
+    fn from_response(
+        response: ureq::http::Response<ureq::Body>,
+        progress: &'p mut dyn Progress,
+    ) -> Self {
         let content_len: Option<usize> = response
-            .header("Content-Length")
+            .headers()
+            .get("Content-Length")
+            .and_then(|header| header.to_str().ok())
             .and_then(|header| header.parse().ok());
 
         Self {
-            reader: response.into_reader(),
+            reader: response.into_body().into_reader(),
             last_progress: None,
             state: DownloadState {
                 content_len,
