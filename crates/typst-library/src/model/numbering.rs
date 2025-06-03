@@ -261,9 +261,9 @@ pub enum NumberingKind {
     LowerRoman,
     /// Uppercase Roman numerals (I, II, III, etc.).
     UpperRoman,
-    /// Lowercase Greek numerals (Α, Β, Γ, etc.).
+    /// Lowercase Greek letters (α, β, γ, etc.).
     LowerGreek,
-    /// Uppercase Greek numerals (α, β, γ, etc.).
+    /// Uppercase Greek letters (Α, Β, Γ, etc.).
     UpperGreek,
     /// Paragraph/note-like symbols: *, †, ‡, §, ¶, and ‖. Further items use
     /// repeated symbols.
