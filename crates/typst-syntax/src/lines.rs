@@ -26,7 +26,6 @@ pub struct Line {
 }
 
 impl<S: AsRef<str>> Lines<S> {
-    /// TODO: memoize this?
     pub fn new(text: S) -> Self {
         let lines = lines(text.as_ref());
         Lines(Arc::new(Repr { lines, text }))
