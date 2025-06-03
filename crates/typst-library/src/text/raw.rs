@@ -11,7 +11,9 @@ use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult};
+use crate::diag::{
+    LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
