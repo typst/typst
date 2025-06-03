@@ -11,7 +11,7 @@ use typst_utils::ArcExt;
 
 use crate::diag::{Hint, HintedStrResult, StrResult};
 use crate::foundations::{
-    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+    array, cast, func, repr, scope, ty, Array, Binding, Module, Repr, Scope, Str, Value,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -215,6 +215,22 @@ impl Dict {
         value: Value,
     ) {
         Arc::make_mut(&mut self.0).insert(key, value);
+    }
+
+    /// Converts the dictionary into an anonymous module.
+    ///
+    /// ```example
+    /// #let my-dict = (double: (x) => [#x #x], triple: (x) => [#x #x #x]);
+    /// #let my-module = my-dict.module();
+    /// #my-module.double[hello]  // instead of having to do (my-dict.double)[hello]
+    /// ```
+    #[func]
+    pub fn module(self) -> Module {
+        let mut scope = Scope::new();
+        for (name, value) in self {
+            scope.bind(name.into(), Binding::detached(value));
+        }
+        Module::anonymous(scope)
     }
 
     /// Removes a pair from the dictionary by key and return the value.
