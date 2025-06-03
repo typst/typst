@@ -1,11 +1,10 @@
 use az::SaturatingAs;
-use ecow::EcoVec;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, LineCol, ReportPos, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
-use crate::loading::{DataSource, Load, Loaded, Readable};
+use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a CSV file.
 ///
@@ -45,7 +44,7 @@ pub fn csv(
     #[default(RowType::Array)]
     row_type: RowType,
 ) -> SourceResult<Array> {
-    let data = source.load(engine.world)?;
+    let loaded = source.load(engine.world)?;
 
     let mut builder = ::csv::ReaderBuilder::new();
     let has_headers = row_type == RowType::Dict;
@@ -54,7 +53,7 @@ pub fn csv(
 
     // Counting lines from 1 by default.
     let mut line_offset: usize = 1;
-    let mut reader = builder.from_reader(data.bytes.as_slice());
+    let mut reader = builder.from_reader(loaded.data.as_slice());
     let mut headers: Option<::csv::StringRecord> = None;
 
     if has_headers {
@@ -64,7 +63,8 @@ pub fn csv(
             reader
                 .headers()
                 .cloned()
-                .map_err(|err| format_csv_error(&data, err, 1))?,
+                .map_err(|err| format_csv_error(err, 1))
+                .within(&loaded)?,
         );
     }
 
@@ -74,7 +74,7 @@ pub fn csv(
         // incorrect with `has_headers` set to `false`. See issue:
         // https://github.com/BurntSushi/rust-csv/issues/184
         let line = line + line_offset;
-        let row = result.map_err(|err| format_csv_error(&data, err, line))?;
+        let row = result.map_err(|err| format_csv_error(err, line)).within(&loaded)?;
         let item = if let Some(headers) = &headers {
             let mut dict = Dict::new();
             for (field, value) in headers.iter().zip(&row) {
@@ -164,11 +164,7 @@ cast! {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(
-    data: &Loaded,
-    err: ::csv::Error,
-    line: usize,
-) -> EcoVec<SourceDiagnostic> {
+fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
     let msg = "failed to parse CSV";
     let pos = (err.kind().position())
         .map(|pos| {
@@ -178,13 +174,13 @@ fn format_csv_error(
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
         ::csv::ErrorKind::Utf8 { .. } => {
-            data.err_in_text(pos, msg, "file is not valid utf-8")
+            LoadError::new(pos, msg, "file is not valid utf-8")
         }
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =
                 format!("found {len} instead of {expected_len} fields in line {line}");
-            data.err_in_text(pos, msg, err)
+            LoadError::new(pos, msg, err)
         }
-        _ => data.err_in_text(pos, "failed to parse CSV", err),
+        _ => LoadError::new(pos, "failed to parse CSV", err),
     }
 }

@@ -11,7 +11,7 @@ use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{LineCol, LoadError, LoadResult, LoadedAt, ReportPos, SourceResult};
+use crate::diag::{LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
@@ -19,7 +19,7 @@ use crate::foundations::{
 };
 use crate::html::{tag, HtmlElem};
 use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
-use crate::loading::{DataSource, Load, LoadStr};
+use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
@@ -539,10 +539,10 @@ impl RawSyntax {
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Vec<RawSyntax>>> {
-        let data = sources.load(world)?;
-        let list = data
+        let loaded = sources.load(world)?;
+        let list = loaded
             .iter()
-            .map(|data| Self::decode(&data.bytes).in_text(data))
+            .map(|data| Self::decode(&data.data).within(data))
             .collect::<SourceResult<_>>()?;
         Ok(Derived::new(sources.v, list))
     }
@@ -599,8 +599,8 @@ impl RawTheme {
         world: Tracked<dyn World + '_>,
         source: Spanned<DataSource>,
     ) -> SourceResult<Derived<DataSource, Self>> {
-        let data = source.load(world)?;
-        let theme = Self::decode(&data.bytes).in_text(&data)?;
+        let loaded = source.load(world)?;
+        let theme = Self::decode(&loaded.data).within(&loaded)?;
         Ok(Derived::new(source.v, theme))
     }
 

@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LoadError, LoadedAt, ReportPos, SourceResult};
+use crate::diag::{At, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -32,9 +32,9 @@ pub fn toml(
     /// A [path]($syntax/#paths) to a TOML file or raw TOML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    let raw = data.load_str()?;
-    ::toml::from_str(raw).map_err(format_toml_error).in_text(&data)
+    let loaded = source.load(engine.world)?;
+    let raw = loaded.load_str()?;
+    ::toml::from_str(raw).map_err(format_toml_error).within(&loaded)
 }
 
 #[scope]

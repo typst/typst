@@ -23,8 +23,8 @@ pub fn cbor(
     /// A [path]($syntax/#paths) to a CBOR file or raw CBOR bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    ciborium::from_reader(data.bytes.as_slice())
+    let loaded = source.load(engine.world)?;
+    ciborium::from_reader(loaded.data.as_slice())
         .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
         .at(source.span)
 }

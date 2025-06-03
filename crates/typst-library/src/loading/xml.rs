@@ -1,7 +1,7 @@
 use roxmltree::ParsingOptions;
 use typst_syntax::Spanned;
 
-use crate::diag::{format_xml_like_error, LoadError, LoadedAt, SourceResult};
+use crate::diag::{format_xml_like_error, LoadError, LoadedWithin, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -60,14 +60,14 @@ pub fn xml(
     /// A [path]($syntax/#paths) to an XML file or raw XML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    let text = data.load_str()?;
+    let loaded = source.load(engine.world)?;
+    let text = loaded.load_str()?;
     let document = roxmltree::Document::parse_with_options(
         text,
         ParsingOptions { allow_dtd: true, ..Default::default() },
     )
     .map_err(format_xml_error)
-    .in_text(&data)?;
+    .within(&loaded)?;
     Ok(convert_xml(document.root()))
 }
 

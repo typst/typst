@@ -151,8 +151,8 @@ pub fn plugin(
     /// A [path]($syntax/#paths) to a WebAssembly file or raw WebAssembly bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Module> {
-    let data = source.load(engine.world)?;
-    Plugin::module(data.bytes).at(source.span)
+    let loaded = source.load(engine.world)?;
+    Plugin::module(loaded.data).at(source.span)
 }
 
 #[scope]

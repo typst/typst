@@ -20,8 +20,8 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{
-    bail, error, At, HintedStrResult, LoadError, LoadResult, LoadedAt, ReportPos,
-    SourceDiagnostic, SourceResult, StrResult,
+    bail, error, At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    SourceResult, StrResult,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
@@ -34,7 +34,7 @@ use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sides, Sizing, TrackSizings,
 };
-use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, LoadStr, Loaded};
+use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, Loaded};
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
@@ -297,8 +297,8 @@ impl Bibliography {
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Self>> {
-        let data = sources.load(world)?;
-        let bibliography = Self::decode(&data)?;
+        let loaded = sources.load(world)?;
+        let bibliography = Self::decode(&loaded)?;
         Ok(Derived::new(sources.v, bibliography))
     }
 
@@ -355,10 +355,10 @@ impl Debug for Bibliography {
 }
 
 /// Decode on library from one data source.
-fn decode_library(data: &Loaded) -> SourceResult<Library> {
-    let str = data.load_str()?;
+fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
+    let data = loaded.load_str()?;
 
-    if let LoadSource::Path(file_id) = data.source.v {
+    if let LoadSource::Path(file_id) = loaded.source.v {
         // If we got a path, use the extension to determine whether it is
         // YAML or BibLaTeX.
         let ext = file_id
@@ -369,25 +369,27 @@ fn decode_library(data: &Loaded) -> SourceResult<Library> {
             .unwrap_or_default();
 
         match ext.to_lowercase().as_str() {
-            "yml" | "yaml" => hayagriva::io::from_yaml_str(str)
-                .map_err(|err| format_yaml_error(data, err)),
-            "bib" => hayagriva::io::from_biblatex_str(str)
-                .map_err(|errors| format_biblatex_error(data, errors)),
+            "yml" | "yaml" => hayagriva::io::from_yaml_str(data)
+                .map_err(format_yaml_error)
+                .within(loaded),
+            "bib" => hayagriva::io::from_biblatex_str(data)
+                .map_err(format_biblatex_error)
+                .within(loaded),
             _ => bail!(
-                data.source.span,
+                loaded.source.span,
                 "unknown bibliography format (must be .yml/.yaml or .bib)"
             ),
         }
     } else {
         // If we just got bytes, we need to guess. If it can be decoded as
         // hayagriva YAML, we'll use that.
-        let haya_err = match hayagriva::io::from_yaml_str(str) {
+        let haya_err = match hayagriva::io::from_yaml_str(data) {
             Ok(library) => return Ok(library),
             Err(err) => err,
         };
 
         // If it can be decoded as BibLaTeX, we use that isntead.
-        let bib_errs = match hayagriva::io::from_biblatex_str(str) {
+        let bib_errs = match hayagriva::io::from_biblatex_str(data) {
             // If the file is almost valid yaml, but contains no `@` character
             // it will be successfully parsed as an empty BibLaTeX library,
             // since BibLaTeX does support arbitrary text outside of entries.
@@ -401,7 +403,7 @@ fn decode_library(data: &Loaded) -> SourceResult<Library> {
         // and emit the more appropriate error.
         let mut yaml = 0;
         let mut biblatex = 0;
-        for c in str.chars() {
+        for c in data.chars() {
             match c {
                 ':' => yaml += 1,
                 '{' => biblatex += 1,
@@ -411,22 +413,19 @@ fn decode_library(data: &Loaded) -> SourceResult<Library> {
 
         match bib_errs {
             Some(bib_errs) if biblatex >= yaml => {
-                Err(format_biblatex_error(data, bib_errs))
+                Err(format_biblatex_error(bib_errs)).within(&loaded)
             }
-            _ => Err(format_yaml_error(data, haya_err)),
+            _ => Err(format_yaml_error(haya_err)).within(&loaded),
         }
     }
 }
 
 /// Format a BibLaTeX loading error.
-fn format_biblatex_error(
-    data: &Loaded,
-    errors: Vec<BibLaTeXError>,
-) -> EcoVec<SourceDiagnostic> {
+fn format_biblatex_error(errors: Vec<BibLaTeXError>) -> LoadError {
     // TODO: return multiple errors?
     let Some(error) = errors.into_iter().next() else {
         // TODO: can this even happen, should we just unwrap?
-        return data.err_in_text(ReportPos::None, "failed to parse BibLaTeX", "???");
+        return LoadError::new(ReportPos::None, "failed to parse BibLaTeX", "???");
     };
 
     let (range, msg) = match error {
@@ -434,7 +433,7 @@ fn format_biblatex_error(
         BibLaTeXError::Type(error) => (error.span, error.kind.to_string()),
     };
 
-    data.err_in_text(range, "failed to parse BibLaTeX", msg)
+    LoadError::new(range, "failed to parse BibLaTeX", msg)
 }
 
 /// A loaded CSL style.
@@ -450,8 +449,8 @@ impl CslStyle {
         let style = match &source {
             CslSource::Named(style) => Self::from_archived(*style),
             CslSource::Normal(source) => {
-                let data = Spanned::new(source, span).load(world)?;
-                Self::from_data(&data.bytes).in_text(&data)?
+                let loaded = Spanned::new(source, span).load(world)?;
+                Self::from_data(&loaded.data).within(&loaded)?
             }
         };
         Ok(Derived::new(source, style))

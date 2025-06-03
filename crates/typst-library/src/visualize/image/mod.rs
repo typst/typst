@@ -65,8 +65,8 @@ pub struct ImageElem {
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
-        let data = source.load(engine.world)?;
-        Derived::new(source.v, data)
+        let loaded = source.load(engine.world)?;
+        Derived::new(source.v, loaded)
     )]
     pub source: Derived<DataSource, Loaded>,
 
@@ -154,8 +154,8 @@ pub struct ImageElem {
     /// to `{auto}`, Typst will try to extract an ICC profile from the image.
     #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
-            let data = Spanned::new(&source, span).load(engine.world)?;
-            Derived::new(source, data.bytes)
+            let loaded = Spanned::new(&source, span).load(engine.world)?;
+            Derived::new(source, loaded.data)
         })),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
@@ -194,8 +194,8 @@ impl ImageElem {
         scaling: Option<Smart<ImageScaling>>,
     ) -> StrResult<Content> {
         let bytes = data.v.into_bytes();
-        let data = Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
-        let source = Derived::new(DataSource::Bytes(bytes), data);
+        let loaded = Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
+        let source = Derived::new(DataSource::Bytes(bytes), loaded);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);
