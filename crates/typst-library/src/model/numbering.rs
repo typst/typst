@@ -682,8 +682,9 @@ impl NumberingKind {
     }
 }
 
-/// Stringify a number using symbols representing values. The decimal representation of the number
-/// is recovered by summing over the values of the symbols present.
+/// Stringify a number using symbols representing values. The decimal
+/// representation of the number is recovered by summing over the values of the
+/// symbols present.
 ///
 /// Consider the situation where ['I': 1, 'IV': 4, 'V': 5],
 ///
@@ -730,8 +731,8 @@ fn additive<const N_DIGITS: usize>(
     s
 }
 
-/// Stringify a number using a base-n (where n is the number of provided symbols) system without a
-/// zero symbol.
+/// Stringify a number using a base-n (where n is the number of provided
+/// symbols) system without a zero symbol.
 ///
 /// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
 ///
@@ -761,8 +762,8 @@ fn alphabetic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> E
     s.chars().rev().collect()
 }
 
-/// Stringify a number using the symbols provided, defaulting to the arabic representation when the
-/// number is greater than the number of symbols.
+/// Stringify a number using the symbols provided, defaulting to the arabic
+/// representation when the number is greater than the number of symbols.
 ///
 /// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
 ///
@@ -782,8 +783,8 @@ fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString 
     eco_format!("{n}")
 }
 
-/// Stringify a number using a base-n (where n is the number of provided symbols) system with a
-/// zero symbol.
+/// Stringify a number using a base-n (where n is the number of provided
+/// symbols) system with a zero symbol.
 ///
 /// Consider the situation where ['0', '1', '2'] are the provided symbols,
 ///
