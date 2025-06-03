@@ -51,6 +51,12 @@ $hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #f
 #set math.accent(dotless: false)
 $ hat(i) $
 
+--- math-accent-dotless-greedy ---
+// Currently the dotless style propogates to everything in the accent's base,
+// even though it shouldn't.
+$ arrow(P_(c, i dot j) P_(1, i) j) \
+  arrow(P_(c, i dot j) P_(1, i) j, dotless: #false) $
+
 --- math-accent-flattened ---
 // Test flattened accent glyph variants.
 #show math.equation: set text(font: "STIX Two Math")

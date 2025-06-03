@@ -2,10 +2,9 @@ use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
 use typst_library::math::{EquationElem, MathSize, RootElem};
-use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 
-use super::{style_cramped, FrameFragment, GlyphFragment, MathContext};
+use super::{find_math_font, style_cramped, FrameFragment, MathContext};
 
 /// Lays out a [`RootElem`].
 ///
@@ -17,19 +16,7 @@ pub fn layout_root(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let index = elem.index(styles);
     let span = elem.span();
-
-    let gap = scaled!(
-        ctx, styles,
-        text: radical_vertical_gap,
-        display: radical_display_style_vertical_gap,
-    );
-    let thickness = scaled!(ctx, styles, radical_rule_thickness);
-    let extra_ascender = scaled!(ctx, styles, radical_extra_ascender);
-    let kern_before = scaled!(ctx, styles, radical_kern_before_degree);
-    let kern_after = scaled!(ctx, styles, radical_kern_after_degree);
-    let raise_factor = percent!(ctx, radical_degree_bottom_raise_percent);
 
     // Layout radicand.
     let radicand = {
@@ -39,23 +26,41 @@ pub fn layout_root(
         let multiline = run.is_multiline();
         let mut radicand = run.into_fragment(styles).into_frame();
         if multiline {
+            let font = find_math_font(ctx.engine, styles, elem.span())?;
+            let axis = constant!(font, styles, axis_height);
             // Align the frame center line with the math axis.
-            radicand.set_baseline(
-                radicand.height() / 2.0 + scaled!(ctx, styles, axis_height),
-            );
+            radicand.set_baseline(radicand.height() / 2.0 + axis);
         }
         radicand
     };
 
     // Layout root symbol.
+    let mut sqrt = ctx.layout_into_glyph('√', span, styles)?;
+    let gap = value!(
+        sqrt.text, styles,
+        inline: radical_vertical_gap,
+        display: radical_display_style_vertical_gap,
+    );
+    let thickness = value!(sqrt.text, radical_rule_thickness);
+    let extra_ascender = value!(sqrt.text, radical_extra_ascender);
+    let kern_before = value!(sqrt.text, radical_kern_before_degree);
+    let kern_after = value!(sqrt.text, radical_kern_after_degree);
+    let raise_factor = percent!(sqrt.text, radical_degree_bottom_raise_percent);
+
+    let line = FrameItem::Shape(
+        Geometry::Line(Point::with_x(radicand.width()))
+            .stroked(FixedStroke::from_pair(sqrt.text.fill.clone(), thickness)),
+        span,
+    );
+
     let target = radicand.height() + thickness + gap;
-    let sqrt = GlyphFragment::new(ctx, styles, '√', span)
-        .stretch_vertical(ctx, target, Abs::zero())
-        .frame;
+    sqrt.stretch_vertical(ctx, target, Abs::zero());
+    let sqrt = sqrt.into_frame();
 
     // Layout the index.
     let sscript = EquationElem::set_size(MathSize::ScriptScript).wrap();
-    let index = index
+    let index = elem
+        .index(styles)
         .as_ref()
         .map(|elem| ctx.layout_into_frame(elem, styles.chain(&sscript)))
         .transpose()?;
@@ -107,19 +112,7 @@ pub fn layout_root(
     }
 
     frame.push_frame(sqrt_pos, sqrt);
-    frame.push(
-        line_pos,
-        FrameItem::Shape(
-            Geometry::Line(Point::with_x(radicand.width())).stroked(
-                FixedStroke::from_pair(
-                    TextElem::fill_in(styles).as_decoration(),
-                    thickness,
-                ),
-            ),
-            span,
-        ),
-    );
-
+    frame.push(line_pos, line);
     frame.push_frame(radicand_pos, radicand);
     ctx.push(FrameFragment::new(styles, frame));
 

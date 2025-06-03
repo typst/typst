@@ -9,6 +9,7 @@ mod prepare;
 mod shaping;
 
 pub use self::box_::layout_box;
+pub use self::shaping::create_shape_plan;
 
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;

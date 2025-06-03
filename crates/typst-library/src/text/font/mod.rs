@@ -113,6 +113,11 @@ impl Font {
             .map(|units| self.to_em(units))
     }
 
+    /// Look up the width of a space.
+    pub fn space_width(&self) -> Option<Em> {
+        self.0.ttf.glyph_index(' ').and_then(|id| self.advance(id.0))
+    }
+
     /// Lookup a name by id.
     pub fn find_name(&self, id: u16) -> Option<String> {
         find_name(&self.0.ttf, id)

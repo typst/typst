@@ -14,18 +14,20 @@ use crate::{shape, AbsExt, State};
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
     let mut x = Abs::zero();
+    let mut y = Abs::zero();
     for glyph in &text.glyphs {
         let id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.at(text.size);
+        let x_offset = x + glyph.x_offset.at(text.size);
+        let y_offset = y + glyph.y_offset.at(text.size);
 
         if should_outline(&text.font, glyph) {
-            let state = state.pre_translate(Point::with_x(offset));
+            let state = state.pre_translate(Point::new(x_offset, -y_offset));
             render_outline_glyph(canvas, state, text, id);
         } else {
             let upem = text.font.units_per_em();
             let text_scale = text.size / upem;
             let state = state
-                .pre_translate(Point::new(offset, -text.size))
+                .pre_translate(Point::new(x_offset, -y_offset - text.size))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
             let (glyph_frame, _) = glyph_frame(&text.font, glyph.id);
@@ -33,6 +35,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
         }
 
         x += glyph.x_advance.at(text.size);
+        y += glyph.y_advance.at(text.size);
     }
 }
 

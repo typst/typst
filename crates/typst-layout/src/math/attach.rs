@@ -1,14 +1,16 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain, SymbolElem};
+use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
 use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
 };
+use typst_library::text::Font;
+use typst_syntax::Span;
 use typst_utils::OptionExt;
 
 use super::{
-    stretch_fragment, style_for_subscript, style_for_superscript, FrameFragment, Limits,
-    MathContext, MathFragment,
+    find_math_font, stretch_fragment, style_for_subscript, style_for_superscript,
+    FrameFragment, Limits, MathContext, MathFragment,
 };
 
 macro_rules! measure {
@@ -66,7 +68,6 @@ pub fn layout_attach(
         let relative_to_width = measure!(t, width).max(measure!(b, width));
         stretch_fragment(
             ctx,
-            styles,
             &mut base,
             Some(Axis::X),
             Some(relative_to_width),
@@ -103,14 +104,12 @@ pub fn layout_primes(
                 4 => '⁗',
                 _ => unreachable!(),
             };
-            let f = ctx.layout_into_fragment(&SymbolElem::packed(c), styles)?;
+            let f = ctx.layout_into_glyph(c, elem.span(), styles)?;
             ctx.push(f);
         }
         count => {
             // Custom amount of primes
-            let prime = ctx
-                .layout_into_fragment(&SymbolElem::packed('′'), styles)?
-                .into_frame();
+            let prime = ctx.layout_into_glyph('′', elem.span(), styles)?.into_frame();
             let width = prime.width() * (count + 1) as f64 / 2.0;
             let mut frame = Frame::soft(Size::new(width, prime.height()));
             frame.set_baseline(prime.ascent());
@@ -174,18 +173,21 @@ fn layout_attachments(
 ) -> SourceResult<()> {
     let base_class = base.class();
 
+    // TODO: should use base's font.
+    let font = find_math_font(ctx.engine, styles, Span::detached())?;
+
     // Calculate the distance from the base's baseline to the superscripts' and
     // subscripts' baseline.
     let (tx_shift, bx_shift) = if [&tl, &tr, &bl, &br].iter().all(|e| e.is_none()) {
         (Abs::zero(), Abs::zero())
     } else {
-        compute_script_shifts(ctx, styles, &base, [&tl, &tr, &bl, &br])
+        compute_script_shifts(&font, styles, &base, [&tl, &tr, &bl, &br])
     };
 
     // Calculate the distance from the base's baseline to the top attachment's
     // and bottom attachment's baseline.
     let (t_shift, b_shift) =
-        compute_limit_shifts(ctx, styles, &base, [t.as_ref(), b.as_ref()]);
+        compute_limit_shifts(&font, styles, &base, [t.as_ref(), b.as_ref()]);
 
     // Calculate the final frame height.
     let ascent = base
@@ -215,12 +217,11 @@ fn layout_attachments(
     // `space_after_script` is extra spacing that is at the start before each
     // pre-script, and at the end after each post-script (see the MathConstants
     // table in the OpenType MATH spec).
-    let space_after_script = scaled!(ctx, styles, space_after_script);
+    let space_after_script = constant!(font, styles, space_after_script);
 
     // Calculate the distance each pre-script extends to the left of the base's
     // width.
     let (tl_pre_width, bl_pre_width) = compute_pre_script_widths(
-        ctx,
         &base,
         [tl.as_ref(), bl.as_ref()],
         (tx_shift, bx_shift),
@@ -231,7 +232,6 @@ fn layout_attachments(
     // base's width. Also calculate each post-script's kerning (we need this for
     // its position later).
     let ((tr_post_width, tr_kern), (br_post_width, br_kern)) = compute_post_script_widths(
-        ctx,
         &base,
         [tr.as_ref(), br.as_ref()],
         (tx_shift, bx_shift),
@@ -287,14 +287,13 @@ fn layout_attachments(
 /// post-script's kerning value. The first tuple is for the post-superscript,
 /// and the second is for the post-subscript.
 fn compute_post_script_widths(
-    ctx: &MathContext,
     base: &MathFragment,
     [tr, br]: [Option<&MathFragment>; 2],
     (tr_shift, br_shift): (Abs, Abs),
     space_after_post_script: Abs,
 ) -> ((Abs, Abs), (Abs, Abs)) {
     let tr_values = tr.map_or_default(|tr| {
-        let kern = math_kern(ctx, base, tr, tr_shift, Corner::TopRight);
+        let kern = math_kern(base, tr, tr_shift, Corner::TopRight);
         (space_after_post_script + tr.width() + kern, kern)
     });
 
@@ -302,7 +301,7 @@ fn compute_post_script_widths(
     // need to shift the post-subscript left by the base's italic correction
     // (see the kerning algorithm as described in the OpenType MATH spec).
     let br_values = br.map_or_default(|br| {
-        let kern = math_kern(ctx, base, br, br_shift, Corner::BottomRight)
+        let kern = math_kern(base, br, br_shift, Corner::BottomRight)
             - base.italics_correction();
         (space_after_post_script + br.width() + kern, kern)
     });
@@ -317,19 +316,18 @@ fn compute_post_script_widths(
 /// extends left of the base's width and the second being the distance the
 /// pre-subscript extends left of the base's width.
 fn compute_pre_script_widths(
-    ctx: &MathContext,
     base: &MathFragment,
     [tl, bl]: [Option<&MathFragment>; 2],
     (tl_shift, bl_shift): (Abs, Abs),
     space_before_pre_script: Abs,
 ) -> (Abs, Abs) {
     let tl_pre_width = tl.map_or_default(|tl| {
-        let kern = math_kern(ctx, base, tl, tl_shift, Corner::TopLeft);
+        let kern = math_kern(base, tl, tl_shift, Corner::TopLeft);
         space_before_pre_script + tl.width() + kern
     });
 
     let bl_pre_width = bl.map_or_default(|bl| {
-        let kern = math_kern(ctx, base, bl, bl_shift, Corner::BottomLeft);
+        let kern = math_kern(base, bl, bl_shift, Corner::BottomLeft);
         space_before_pre_script + bl.width() + kern
     });
 
@@ -368,7 +366,7 @@ fn compute_limit_widths(
 /// Returns two lengths, the first being the distance to the upper-limit's
 /// baseline and the second being the distance to the lower-limit's baseline.
 fn compute_limit_shifts(
-    ctx: &MathContext,
+    font: &Font,
     styles: StyleChain,
     base: &MathFragment,
     [t, b]: [Option<&MathFragment>; 2],
@@ -379,14 +377,14 @@ fn compute_limit_shifts(
     // MathConstants table in the OpenType MATH spec).
 
     let t_shift = t.map_or_default(|t| {
-        let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
-        let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
+        let upper_gap_min = constant!(font, styles, upper_limit_gap_min);
+        let upper_rise_min = constant!(font, styles, upper_limit_baseline_rise_min);
         base.ascent() + upper_rise_min.max(upper_gap_min + t.descent())
     });
 
     let b_shift = b.map_or_default(|b| {
-        let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
-        let lower_drop_min = scaled!(ctx, styles, lower_limit_baseline_drop_min);
+        let lower_gap_min = constant!(font, styles, lower_limit_gap_min);
+        let lower_drop_min = constant!(font, styles, lower_limit_baseline_drop_min);
         base.descent() + lower_drop_min.max(lower_gap_min + b.ascent())
     });
 
@@ -397,25 +395,25 @@ fn compute_limit_shifts(
 /// Returns two lengths, the first being the distance to the superscripts'
 /// baseline and the second being the distance to the subscripts' baseline.
 fn compute_script_shifts(
-    ctx: &MathContext,
+    font: &Font,
     styles: StyleChain,
     base: &MathFragment,
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
     let sup_shift_up = if EquationElem::cramped_in(styles) {
-        scaled!(ctx, styles, superscript_shift_up_cramped)
+        constant!(font, styles, superscript_shift_up_cramped)
     } else {
-        scaled!(ctx, styles, superscript_shift_up)
+        constant!(font, styles, superscript_shift_up)
     };
 
-    let sup_bottom_min = scaled!(ctx, styles, superscript_bottom_min);
+    let sup_bottom_min = constant!(font, styles, superscript_bottom_min);
     let sup_bottom_max_with_sub =
-        scaled!(ctx, styles, superscript_bottom_max_with_subscript);
-    let sup_drop_max = scaled!(ctx, styles, superscript_baseline_drop_max);
-    let gap_min = scaled!(ctx, styles, sub_superscript_gap_min);
-    let sub_shift_down = scaled!(ctx, styles, subscript_shift_down);
-    let sub_top_max = scaled!(ctx, styles, subscript_top_max);
-    let sub_drop_min = scaled!(ctx, styles, subscript_baseline_drop_min);
+        constant!(font, styles, superscript_bottom_max_with_subscript);
+    let sup_drop_max = constant!(font, styles, superscript_baseline_drop_max);
+    let gap_min = constant!(font, styles, sub_superscript_gap_min);
+    let sub_shift_down = constant!(font, styles, subscript_shift_down);
+    let sub_top_max = constant!(font, styles, subscript_top_max);
+    let sub_drop_min = constant!(font, styles, subscript_baseline_drop_min);
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
@@ -467,13 +465,7 @@ fn compute_script_shifts(
 /// a negative value means shifting the script closer to the base. Requires the
 /// distance from the base's baseline to the script's baseline, as well as the
 /// script's corner (tl, tr, bl, br).
-fn math_kern(
-    ctx: &MathContext,
-    base: &MathFragment,
-    script: &MathFragment,
-    shift: Abs,
-    pos: Corner,
-) -> Abs {
+fn math_kern(base: &MathFragment, script: &MathFragment, shift: Abs, pos: Corner) -> Abs {
     // This process is described under the MathKernInfo table in the OpenType
     // MATH spec.
 
@@ -498,8 +490,8 @@ fn math_kern(
 
     // Calculate the sum of kerning values for each correction height.
     let summed_kern = |height| {
-        let base_kern = base.kern_at_height(ctx, pos, height);
-        let attach_kern = script.kern_at_height(ctx, pos.inv(), height);
+        let base_kern = base.kern_at_height(pos, height);
+        let attach_kern = script.kern_at_height(pos.inv(), height);
         base_kern + attach_kern
     };
 

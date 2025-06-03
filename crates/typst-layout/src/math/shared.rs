@@ -1,62 +1,116 @@
-use ttf_parser::math::MathValue;
+use ttf_parser::Tag;
+use typst_library::diag::{bail, SourceResult};
+use typst_library::engine::Engine;
 use typst_library::foundations::{Style, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size, VAlignment};
 use typst_library::math::{EquationElem, MathSize};
+use typst_library::text::{families, variant, Font, FontFeatures, TextElem};
+use typst_library::World;
+use typst_syntax::Span;
 use typst_utils::LazyHash;
 
-use super::{LeftRightAlternator, MathContext, MathFragment, MathRun};
+use super::{LeftRightAlternator, MathFragment, MathRun};
 
-macro_rules! scaled {
-    ($ctx:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
-        match typst_library::math::EquationElem::size_in($styles) {
-            typst_library::math::MathSize::Display => scaled!($ctx, $styles, $display),
-            _ => scaled!($ctx, $styles, $text),
-        }
-    };
-    ($ctx:expr, $styles:expr, $name:ident) => {
-        $crate::math::Scaled::scaled(
-            $ctx.constants.$name(),
-            $ctx,
-            typst_library::text::TextElem::size_in($styles),
-        )
+macro_rules! percent {
+    ($text:expr, $name:ident) => {
+        $text
+            .font
+            .ttf()
+            .tables()
+            .math
+            .and_then(|math| math.constants)
+            .map(|constants| constants.$name())
+            .unwrap() as f64
+            / 100.0
     };
 }
 
-macro_rules! percent {
-    ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name() as f64 / 100.0
+macro_rules! word {
+    ($text:expr, $name:ident) => {
+        $text
+            .font
+            .ttf()
+            .tables()
+            .math
+            .and_then(|math| math.constants)
+            .map(|constants| $text.font.to_em(constants.$name()).at($text.size))
+            .unwrap()
+    };
+}
+
+macro_rules! value {
+    ($text:expr, $styles:expr, inline: $inline:ident, display: $display:ident $(,)?) => {
+        match typst_library::math::EquationElem::size_in($styles) {
+            typst_library::math::MathSize::Display => value!($text, $display),
+            _ => value!($text, $inline),
+        }
+    };
+    ($text:expr, $name:ident) => {
+        $text
+            .font
+            .ttf()
+            .tables()
+            .math
+            .and_then(|math| math.constants)
+            .map(|constants| $text.font.to_em(constants.$name().value).at($text.size))
+            .unwrap()
+    };
+}
+
+macro_rules! constant {
+    ($font:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
+        match typst_library::math::EquationElem::size_in($styles) {
+            typst_library::math::MathSize::Display => constant!($font, $styles, $display),
+            _ => constant!($font, $styles, $text),
+        }
+    };
+    ($font:expr, $styles:expr, $name:ident) => {
+        typst_library::foundations::Resolve::resolve(
+            $font
+                .ttf()
+                .tables()
+                .math
+                .and_then(|math| math.constants)
+                .map(|constants| $font.to_em(constants.$name().value))
+                .unwrap(),
+            $styles,
+        )
     };
 }
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
-/// Converts some unit to an absolute length with the current font & font size.
-pub trait Scaled {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs;
-}
-
-impl Scaled for i16 {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        ctx.font.to_em(self).at(font_size)
-    }
-}
-
-impl Scaled for u16 {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        ctx.font.to_em(self).at(font_size)
-    }
-}
-
-impl Scaled for MathValue<'_> {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        self.value.scaled(ctx, font_size)
-    }
+pub fn find_math_font(
+    engine: &mut Engine<'_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    let world = engine.world;
+    let Some(font) = families(styles).find_map(|family| {
+        let id = world.book().select(family.as_str(), variant)?;
+        let font = world.font(id)?;
+        let _ = font.ttf().tables().math?.constants?;
+        // Take the base font as the "main" math font.
+        family.covers().map_or(Some(font), |_| None)
+    }) else {
+        bail!(span, "current font does not support math");
+    };
+    Ok(font)
 }
 
 /// Styles something as cramped.
 pub fn style_cramped() -> LazyHash<Style> {
     EquationElem::set_cramped(true).wrap()
+}
+
+pub fn style_flac() -> LazyHash<Style> {
+    TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)])).wrap()
+}
+
+pub fn style_dtls() -> LazyHash<Style> {
+    TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)])).wrap()
 }
 
 /// The style for subscripts in the current style.
@@ -89,10 +143,11 @@ pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
 }
 
 /// Styles to add font constants to the style chain.
-pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
+pub fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+    let constants = font.ttf().tables().math.and_then(|math| math.constants).unwrap();
     EquationElem::set_script_scale((
-        ctx.constants.script_percent_scale_down(),
-        ctx.constants.script_script_percent_scale_down(),
+        constants.script_percent_scale_down(),
+        constants.script_script_percent_scale_down(),
     ))
     .wrap()
 }

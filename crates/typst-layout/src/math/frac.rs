@@ -7,7 +7,7 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    style_for_denominator, style_for_numerator, FrameFragment, GlyphFragment,
+    find_math_font, style_for_denominator, style_for_numerator, FrameFragment,
     MathContext, DELIM_SHORT_FALL,
 };
 
@@ -49,29 +49,30 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let short_fall = DELIM_SHORT_FALL.resolve(styles);
-    let axis = scaled!(ctx, styles, axis_height);
-    let thickness = scaled!(ctx, styles, fraction_rule_thickness);
-    let shift_up = scaled!(
-        ctx, styles,
+    let font = find_math_font(ctx.engine, styles, span)?;
+    let axis = constant!(font, styles, axis_height);
+    let thickness = constant!(font, styles, fraction_rule_thickness);
+    let shift_up = constant!(
+        font, styles,
         text: fraction_numerator_shift_up,
         display: fraction_numerator_display_style_shift_up,
     );
-    let shift_down = scaled!(
-        ctx, styles,
+    let shift_down = constant!(
+        font, styles,
         text: fraction_denominator_shift_down,
         display: fraction_denominator_display_style_shift_down,
     );
-    let num_min = scaled!(
-        ctx, styles,
+    let num_min = constant!(
+        font, styles,
         text: fraction_numerator_gap_min,
         display: fraction_num_display_style_gap_min,
     );
-    let denom_min = scaled!(
-        ctx, styles,
+    let denom_min = constant!(
+        font, styles,
         text: fraction_denominator_gap_min,
         display: fraction_denom_display_style_gap_min,
     );
+    let short_fall = DELIM_SHORT_FALL.resolve(styles);
 
     let num_style = style_for_numerator(styles);
     let num = ctx.layout_into_frame(num, styles.chain(&num_style))?;
@@ -109,14 +110,14 @@ fn layout_frac_like(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        let mut left = GlyphFragment::new(ctx, styles, '(', span)
-            .stretch_vertical(ctx, height, short_fall);
-        left.center_on_axis(ctx);
+        let mut left = ctx.layout_into_glyph('(', span, styles)?;
+        left.stretch_vertical(ctx, height, short_fall);
+        left.center_on_axis();
         ctx.push(left);
         ctx.push(FrameFragment::new(styles, frame));
-        let mut right = GlyphFragment::new(ctx, styles, ')', span)
-            .stretch_vertical(ctx, height, short_fall);
-        right.center_on_axis(ctx);
+        let mut right = ctx.layout_into_glyph(')', span, styles)?;
+        right.stretch_vertical(ctx, height, short_fall);
+        right.center_on_axis();
         ctx.push(right);
     } else {
         frame.push(
