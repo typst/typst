@@ -1,8 +1,8 @@
 figure = Attēls
 table = Tabula
 equation = Vienādojums
-bibliography = Izmantotā literatūra un avoti
-heading = Virsraksts
+bibliography = Literatūra
+heading = Sadaļa
 outline = Saturs
-raw = Koda fragments
+raw = Saraksts
 page = lpp.
