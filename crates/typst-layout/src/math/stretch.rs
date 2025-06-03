@@ -278,7 +278,7 @@ fn assemble(
     }
 
     let accent_attach = match axis {
-        Axis::X => frame.width() / 2.0,
+        Axis::X => (frame.width() / 2.0, frame.width() / 2.0),
         Axis::Y => base.accent_attach,
     };
 
