@@ -34,6 +34,7 @@ impl Eval for ast::ModuleImport<'_> {
                 source = Value::Module(import(&mut vm.engine, path, source_span)?);
                 is_str = true;
             }
+            Value::Dict(dict) => source = Value::Module(dict.clone().module()),
             v => {
                 bail!(
                     source_span,
