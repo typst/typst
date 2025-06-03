@@ -13,7 +13,7 @@ pub struct Lines<S>(Arc<Repr<S>>);
 #[derive(Clone)]
 struct Repr<S> {
     lines: Vec<Line>,
-    str: S,
+    text: S,
 }
 
 /// Metadata about a line.
@@ -27,18 +27,18 @@ pub struct Line {
 
 impl<S: AsRef<str>> Lines<S> {
     /// TODO: memoize this?
-    pub fn new(str: S) -> Self {
-        let lines = lines(str.as_ref());
-        Lines(Arc::new(Repr { lines, str }))
+    pub fn new(text: S) -> Self {
+        let lines = lines(text.as_ref());
+        Lines(Arc::new(Repr { lines, text }))
     }
 
     pub fn text(&self) -> &str {
-        self.0.str.as_ref()
+        self.0.text.as_ref()
     }
 
     /// Get the length of the file in UTF-8 encoded bytes.
     pub fn len_bytes(&self) -> usize {
-        self.0.str.as_ref().len()
+        self.0.text.as_ref().len()
     }
 
     /// Get the length of the file in UTF-16 code units.
@@ -146,8 +146,8 @@ impl Lines<String> {
     /// Tries to convert the bytes
     #[comemo::memoize]
     pub fn from_bytes(bytes: &[u8]) -> Result<Lines<String>, Utf8Error> {
-        let str = std::str::from_utf8(bytes)?;
-        Ok(Lines::new(str.to_string()))
+        let text = std::str::from_utf8(bytes)?;
+        Ok(Lines::new(text.to_string()))
     }
 
     /// Fully replace the source text.
@@ -213,32 +213,34 @@ impl Lines<String> {
         let inner = Arc::make_mut(&mut self.0);
 
         // Update the text itself.
-        inner.str.replace_range(replace.clone(), with);
+        inner.text.replace_range(replace.clone(), with);
 
         // Remove invalidated line starts.
         inner.lines.truncate(line + 1);
 
         // Handle adjoining of \r and \n.
-        if inner.str[..start_byte].ends_with('\r') && with.starts_with('\n') {
+        if inner.text[..start_byte].ends_with('\r') && with.starts_with('\n') {
             inner.lines.pop();
         }
 
         // Recalculate the line starts after the edit.
-        inner
-            .lines
-            .extend(lines_from(start_byte, start_utf16, &inner.str[start_byte..]));
+        inner.lines.extend(lines_from(
+            start_byte,
+            start_utf16,
+            &inner.text[start_byte..],
+        ));
     }
 }
 
 impl<S: Hash> Hash for Lines<S> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.str.hash(state);
+        self.0.text.hash(state);
     }
 }
 
 impl<S: AsRef<str>> AsRef<str> for Lines<S> {
     fn as_ref(&self) -> &str {
-        self.0.str.as_ref()
+        self.0.text.as_ref()
     }
 }
 
