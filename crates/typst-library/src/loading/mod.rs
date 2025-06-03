@@ -27,7 +27,7 @@ pub use self::toml_::*;
 pub use self::xml_::*;
 pub use self::yaml_::*;
 
-use crate::diag::{At, LoadError, LoadResult, LoadedAt, SourceResult};
+use crate::diag::{At, LoadedWithin, SourceResult};
 use crate::foundations::OneOrMultiple;
 use crate::foundations::{cast, Bytes, Scope, Str};
 use crate::World;
@@ -124,16 +124,16 @@ impl Load for Spanned<&OneOrMultiple<DataSource>> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Loaded {
     pub source: Spanned<LoadSource>,
-    pub bytes: Bytes,
+    pub data: Bytes,
 }
 
 impl Loaded {
     pub fn new(source: Spanned<LoadSource>, bytes: Bytes) -> Self {
-        Self { source, bytes }
+        Self { source, data: bytes }
     }
 
     pub fn load_str(&self) -> SourceResult<&str> {
-        self.bytes.load_str().in_invalid_text(self)
+        self.data.load_str().within(self)
     }
 }
 
@@ -142,24 +142,6 @@ impl Loaded {
 pub enum LoadSource {
     Path(FileId),
     Bytes,
-}
-
-pub trait LoadStr {
-    fn load_str(&self) -> LoadResult<&str>;
-}
-
-impl<T: AsRef<[u8]>> LoadStr for T {
-    fn load_str(&self) -> LoadResult<&str> {
-        std::str::from_utf8(self.as_ref()).map_err(|err| {
-            let start = err.valid_up_to();
-            let end = start + err.error_len().unwrap_or(0);
-            LoadError::new(
-                start..end,
-                "failed to convert to string",
-                "file is not valid utf-8",
-            )
-        })
-    }
 }
 
 /// A value that can be read from a file.

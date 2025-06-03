@@ -35,10 +35,10 @@ pub fn read(
     #[default(Some(Encoding::Utf8))]
     encoding: Option<Encoding>,
 ) -> SourceResult<Readable> {
-    let data = path.map(DataSource::Path).load(engine.world)?;
+    let loaded = path.map(DataSource::Path).load(engine.world)?;
     Ok(match encoding {
-        None => Readable::Bytes(data.bytes),
-        Some(Encoding::Utf8) => Readable::Str(data.load_str()?.into()),
+        None => Readable::Bytes(loaded.data),
+        Some(Encoding::Utf8) => Readable::Str(loaded.load_str()?.into()),
     })
 }
 
