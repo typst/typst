@@ -194,7 +194,8 @@ impl ImageElem {
         scaling: Option<Smart<ImageScaling>>,
     ) -> StrResult<Content> {
         let bytes = data.v.into_bytes();
-        let loaded = Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
+        let loaded =
+            Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
         let source = Derived::new(DataSource::Bytes(bytes), loaded);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
