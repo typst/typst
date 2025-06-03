@@ -640,16 +640,16 @@ impl NumberingKind {
             ),
             Self::CircledNumber => fixed(
                 [
-                    '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬', '⑭',
-                    '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕', '㉖',
-                    '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱', '㊲',
-                    '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼', '㊽',
-                    '㊾', '㊿',
+                    '⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬',
+                    '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕',
+                    '㉖', '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱',
+                    '㊲', '㊳', '㊴', '㊵', '㊶', '㊷', '㊸', '㊹', '㊺', '㊻', '㊼',
+                    '㊽', '㊾', '㊿',
                 ],
                 n,
             ),
             Self::DoubleCircledNumber => {
-                fixed(['⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
+                fixed(['0', '⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
             }
 
             Self::LowerSimplifiedChinese => {
@@ -777,8 +777,8 @@ fn alphabetic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> E
 /// ```
 fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString {
     let n_digits = N_DIGITS as u64;
-    if n - 1 < n_digits {
-        return symbols[(n - 1) as usize].into();
+    if n < n_digits {
+        return symbols[(n) as usize].into();
     }
     eco_format!("{n}")
 }
