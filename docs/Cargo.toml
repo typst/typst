@@ -22,6 +22,7 @@ typst-utils = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
 clap = { workspace = true, optional = true }
+codex = { workspace = true }
 ecow = { workspace = true }
 heck = { workspace = true }
 pulldown-cmark = { workspace = true }
