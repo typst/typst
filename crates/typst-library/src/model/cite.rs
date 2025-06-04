@@ -110,12 +110,10 @@ pub struct CiteElem {
     pub style: Smart<Derived<CslSource, CslStyle>>,
 
     /// The text language setting where the citation is.
-    #[internal]
     #[synthesized]
     pub lang: Lang,
 
     /// The text region setting where the citation is.
-    #[internal]
     #[synthesized]
     pub region: Option<Region>,
 }
