@@ -286,7 +286,7 @@ fn layout_underoverspreader(
     let body_class = body.class();
     let body = body.into_fragment(styles);
     let glyph = GlyphFragment::new(ctx, styles, c, span);
-    let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
+    let stretched = glyph.stretch_horizontal(ctx, body.width());
 
     let mut rows = vec![];
     let baseline = match position {

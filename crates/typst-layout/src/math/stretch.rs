@@ -67,8 +67,7 @@ pub fn stretch_fragment(
     let mut variant = stretch_glyph(
         ctx,
         glyph,
-        stretch.relative_to(relative_to_size),
-        short_fall,
+        stretch.relative_to(relative_to_size) - short_fall,
         axis,
     );
 
@@ -120,7 +119,6 @@ pub fn stretch_glyph(
     ctx: &mut MathContext,
     mut base: GlyphFragment,
     target: Abs,
-    short_fall: Abs,
     axis: Axis,
 ) -> VariantFragment {
     // If the base glyph is good enough, use it.
@@ -128,8 +126,7 @@ pub fn stretch_glyph(
         Axis::X => base.width,
         Axis::Y => base.height(),
     };
-    let short_target = target - short_fall;
-    if short_target <= advance {
+    if target <= advance {
         return base.into_variant();
     }
 
@@ -153,13 +150,13 @@ pub fn stretch_glyph(
     for variant in construction.variants {
         best_id = variant.variant_glyph;
         best_advance = base.font.to_em(variant.advance_measurement).at(base.font_size);
-        if short_target <= best_advance {
+        if target <= best_advance {
             break;
         }
     }
 
     // This is either good or the best we've got.
-    if short_target <= best_advance || construction.assembly.is_none() {
+    if target <= best_advance || construction.assembly.is_none() {
         base.set_id(ctx, best_id);
         return base.into_variant();
     }
