@@ -450,8 +450,8 @@ impl OutlineEntry {
     /// at the same level are aligned.
     ///
     /// If the outline's indent is a fixed value or a function, the prefixes are
-    /// indented, but the inner contents are simply inset from the prefix by the
-    /// specified `gap`, rather than aligning outline-wide.
+    /// indented, but the inner contents are simply offset from the prefix by
+    /// the specified `gap`, rather than aligning outline-wide.
     #[func(contextual)]
     pub fn indented(
         &self,
