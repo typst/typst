@@ -174,7 +174,9 @@ impl Packed<InlineElem> {
 #[derive(Debug, Clone)]
 pub enum InlineItem {
     /// Absolute spacing between other items, and whether it is weak.
-    Space(Abs, bool),
+    Absolute(Abs, bool),
+    /// Fractional spacing between other items.
+    Fractional(Fr),
     /// Layouted inline-level content.
     Frame(Frame),
 }
