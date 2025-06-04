@@ -166,7 +166,7 @@ pub fn stretch_glyph(
 
     // Assemble from parts.
     let assembly = construction.assembly.unwrap();
-    assemble(ctx, base, assembly, min_overlap, target, axis)
+    assemble(ctx, base, assembly, min_overlap, short_target, axis)
 }
 
 /// Assemble a glyph from parts.
