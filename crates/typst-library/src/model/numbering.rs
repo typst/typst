@@ -702,10 +702,8 @@ impl NumberingKind {
 /// where this is the start of the familiar Roman numeral system.
 fn additive(symbols: &[(&str, u64)], mut n: u64) -> EcoString {
     if n == 0 {
-        for (symbol, weight) in symbols {
-            if *weight == 0 {
-                return (*symbol).into();
-            }
+        if let Some(&(symbol, 0)) = symbols.last() {
+            return symbol.into();
         }
         return '0'.into();
     }
@@ -762,9 +760,10 @@ fn alphabetic(symbols: &[char], mut n: u64) -> EcoString {
 /// Stringify a number using the symbols provided, defaulting to the arabic
 /// representation when the number is greater than the number of symbols.
 ///
-/// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
+/// Consider the situation where ['0', 'A', 'B', 'C'] are the provided symbols,
 ///
 /// ```text
+/// 0 => '0'
 /// 1 => 'A'
 /// 2 => 'B'
 /// 3 => 'C'
@@ -786,6 +785,7 @@ fn fixed(symbols: &[char], n: u64) -> EcoString {
 /// Consider the situation where ['0', '1', '2'] are the provided symbols,
 ///
 /// ```text
+/// 0 => '0'
 /// 1 => '1'
 /// 2 => '2'
 /// 3 => '10'
@@ -814,6 +814,7 @@ fn numeric(symbols: &[char], mut n: u64) -> EcoString {
 /// Consider the situation where ['A', 'B', 'C'] are the provided symbols,
 ///
 /// ```text
+/// 0 => '-'
 /// 1 => 'A'
 /// 2 => 'B'
 /// 3 => 'C'
