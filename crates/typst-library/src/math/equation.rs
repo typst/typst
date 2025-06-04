@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+use codex::styling::MathVariant;
 use typst_utils::NonZeroExt;
 use unicode_math_class::MathClass;
 
@@ -14,7 +15,7 @@ use crate::layout::{
     AlignElem, Alignment, BlockElem, InlineElem, OuterHAlignment, SpecificAlignment,
     VAlignment,
 };
-use crate::math::{MathSize, MathVariant};
+use crate::math::MathSize;
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
 use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 
@@ -114,7 +115,7 @@ pub struct EquationElem {
     /// The style variant to select.
     #[internal]
     #[ghost]
-    pub variant: MathVariant,
+    pub variant: Option<MathVariant>,
 
     /// Affects the height of exponents.
     #[internal]
@@ -131,7 +132,7 @@ pub struct EquationElem {
     /// Whether to use italic glyphs.
     #[internal]
     #[ghost]
-    pub italic: Smart<bool>,
+    pub italic: Option<bool>,
 
     /// A forced class to use for all fragment.
     #[internal]
