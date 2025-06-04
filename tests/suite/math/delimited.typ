@@ -34,6 +34,11 @@ $ lr(a/b\]) = a = lr(\{a/b) $
 $ lr(]sum_(x=1)^n x], size: #70%)
   < lr((1, 2), size: #200%) $
 
+--- math-lr-size-function ---
+// Test using a function as an argument to size.
+#set math.lr(size: x => if x > 10pt { 1em } else { 4 * x })
+$ (a) (1/2) $
+
 --- math-lr-shorthands ---
 // Test predefined delimiter pairings.
 $floor(x/2), ceil(x/2), abs(x), norm(x)$
