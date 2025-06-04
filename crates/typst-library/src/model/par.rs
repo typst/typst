@@ -138,6 +138,9 @@ pub struct ParElem {
     #[default(false)]
     pub justify: bool,
 
+    /// Microtypographical settings that are used during justification.
+    pub microtype: Microtype,
+
     /// How to determine line breaks.
     ///
     /// When this property is set to `{auto}`, its default value, optimized line
@@ -225,6 +228,36 @@ pub struct ParElem {
 impl ParElem {
     #[elem]
     type ParLine;
+}
+
+/// Configuration for microtypographical settings to be used during
+/// justification.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+pub struct Microtype {
+    /// How much a glyph is allowed to translate into its neighbor.
+    pub max_retract: Length,
+    /// How much a glyph is allowed to translate away from its neighbor.
+    pub max_expand: Length,
+}
+
+cast! {
+    Microtype,
+    self => Value::Dict(self.into()),
+    mut dict: Dict => {
+        let max_retract = dict.take("max-retract")?.cast()?;
+        let max_expand = dict.take("max-expand")?.cast()?;
+        dict.finish(&["max-retract", "max-expand"])?;
+        Self { max_retract, max_expand }
+    },
+}
+
+impl From<Microtype> for Dict {
+    fn from(microtype: Microtype) -> Self {
+        dict! {
+            "max-retract" => microtype.max_retract,
+            "max-expand" => microtype.max_expand,
+        }
+    }
 }
 
 /// How to determine line breaks in a paragraph.
