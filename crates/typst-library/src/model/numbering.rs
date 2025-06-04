@@ -381,10 +381,10 @@ impl NumberingKind {
     pub fn apply(self, n: u64) -> EcoString {
         match self {
             Self::Arabic => {
-                numeric(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
+                numeric(&['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], n)
             }
             Self::LowerRoman => additive(
-                [
+                &[
                     ("m̅", 1000000),
                     ("d̅", 500000),
                     ("c̅", 100000),
@@ -410,7 +410,7 @@ impl NumberingKind {
                 n,
             ),
             Self::UpperRoman => additive(
-                [
+                &[
                     ("M̅", 1000000),
                     ("D̅", 500000),
                     ("C̅", 100000),
@@ -436,7 +436,7 @@ impl NumberingKind {
                 n,
             ),
             Self::LowerGreek => additive(
-                [
+                &[
                     ("͵θ", 9000),
                     ("͵η", 8000),
                     ("͵ζ", 7000),
@@ -478,7 +478,7 @@ impl NumberingKind {
                 n,
             ),
             Self::UpperGreek => additive(
-                [
+                &[
                     ("͵Θ", 9000),
                     ("͵Η", 8000),
                     ("͵Ζ", 7000),
@@ -520,7 +520,7 @@ impl NumberingKind {
                 n,
             ),
             Self::Hebrew => additive(
-                [
+                &[
                     ("י׳", 10000),
                     ("ט׳", 9000),
                     ("ח׳", 8000),
@@ -563,21 +563,21 @@ impl NumberingKind {
                 n,
             ),
             Self::LowerLatin => alphabetic(
-                [
+                &[
                     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
                     'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
                 ],
                 n,
             ),
             Self::UpperLatin => alphabetic(
-                [
+                &[
                     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
                     'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
                 ],
                 n,
             ),
             Self::HiraganaAiueo => alphabetic(
-                [
+                &[
                     'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ',
                     'し', 'す', 'せ', 'そ', 'た', 'ち', 'つ', 'て', 'と', 'な', 'に',
                     'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み', 'む',
@@ -587,7 +587,7 @@ impl NumberingKind {
                 n,
             ),
             Self::HiraganaIroha => alphabetic(
-                [
+                &[
                     'い', 'ろ', 'は', 'に', 'ほ', 'へ', 'と', 'ち', 'り', 'ぬ', 'る',
                     'を', 'わ', 'か', 'よ', 'た', 'れ', 'そ', 'つ', 'ね', 'な', 'ら',
                     'む', 'う', 'ゐ', 'の', 'お', 'く', 'や', 'ま', 'け', 'ふ', 'こ',
@@ -597,7 +597,7 @@ impl NumberingKind {
                 n,
             ),
             Self::KatakanaAiueo => alphabetic(
-                [
+                &[
                     'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ',
                     'シ', 'ス', 'セ', 'ソ', 'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ',
                     'ヌ', 'ネ', 'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'マ', 'ミ', 'ム',
@@ -607,7 +607,7 @@ impl NumberingKind {
                 n,
             ),
             Self::KatakanaIroha => alphabetic(
-                [
+                &[
                     'イ', 'ロ', 'ハ', 'ニ', 'ホ', 'ヘ', 'ト', 'チ', 'リ', 'ヌ', 'ル',
                     'ヲ', 'ワ', 'カ', 'ヨ', 'タ', 'レ', 'ソ', 'ツ', 'ネ', 'ナ', 'ラ',
                     'ム', 'ウ', 'ヰ', 'ノ', 'オ', 'ク', 'ヤ', 'マ', 'ケ', 'フ', 'コ',
@@ -617,21 +617,21 @@ impl NumberingKind {
                 n,
             ),
             Self::KoreanJamo => alphabetic(
-                [
+                &[
                     'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
                     'ㅌ', 'ㅍ', 'ㅎ',
                 ],
                 n,
             ),
             Self::KoreanSyllable => alphabetic(
-                [
+                &[
                     '가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카',
                     '타', '파', '하',
                 ],
                 n,
             ),
             Self::BengaliLetter => alphabetic(
-                [
+                &[
                     'ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ', 'ছ', 'জ', 'ঝ', 'ঞ', 'ট', 'ঠ', 'ড', 'ঢ',
                     'ণ', 'ত', 'থ', 'দ', 'ধ', 'ন', 'প', 'ফ', 'ব', 'ভ', 'ম', 'য', 'র', 'ল',
                     'শ', 'ষ', 'স', 'হ',
@@ -639,7 +639,7 @@ impl NumberingKind {
                 n,
             ),
             Self::CircledNumber => fixed(
-                [
+                &[
                     '⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '⑬',
                     '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳', '㉑', '㉒', '㉓', '㉔', '㉕',
                     '㉖', '㉗', '㉘', '㉙', '㉚', '㉛', '㉜', '㉝', '㉞', '㉟', '㊱',
@@ -649,7 +649,7 @@ impl NumberingKind {
                 n,
             ),
             Self::DoubleCircledNumber => {
-                fixed(['0', '⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
+                fixed(&['0', '⓵', '⓶', '⓷', '⓸', '⓹', '⓺', '⓻', '⓼', '⓽', '⓾'], n)
             }
 
             Self::LowerSimplifiedChinese => {
@@ -666,18 +666,18 @@ impl NumberingKind {
             }
 
             Self::EasternArabic => {
-                numeric(['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'], n)
+                numeric(&['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'], n)
             }
             Self::EasternArabicPersian => {
-                numeric(['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'], n)
+                numeric(&['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'], n)
             }
             Self::DevanagariNumber => {
-                numeric(['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'], n)
+                numeric(&['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'], n)
             }
             Self::BengaliNumber => {
-                numeric(['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'], n)
+                numeric(&['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'], n)
             }
-            Self::Symbol => symbolic(['*', '†', '‡', '§', '¶', '‖'], n),
+            Self::Symbol => symbolic(&['*', '†', '‡', '§', '¶', '‖'], n),
         }
     }
 }
@@ -700,13 +700,10 @@ impl NumberingKind {
 /// ```
 ///
 /// where this is the start of the familiar Roman numeral system.
-fn additive<const N_DIGITS: usize>(
-    symbols: [(&str, u64); N_DIGITS],
-    mut n: u64,
-) -> EcoString {
+fn additive(symbols: &[(&str, u64)], mut n: u64) -> EcoString {
     if n == 0 {
         for (symbol, weight) in symbols {
-            if weight == 0 {
+            if *weight == 0 {
                 return (*symbol).into();
             }
         }
@@ -715,7 +712,7 @@ fn additive<const N_DIGITS: usize>(
 
     let mut s = EcoString::new();
     for (symbol, weight) in symbols {
-        if weight == 0 || weight > n {
+        if *weight == 0 || *weight > n {
             continue;
         }
         let reps = n / weight;
@@ -748,8 +745,8 @@ fn additive<const N_DIGITS: usize>(
 /// ```
 ///
 /// This system is commonly used in spreadsheet software.
-fn alphabetic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> EcoString {
-    let n_digits = N_DIGITS as u64;
+fn alphabetic(symbols: &[char], mut n: u64) -> EcoString {
+    let n_digits = symbols.len() as u64;
     if n == 0 {
         return '-'.into();
     }
@@ -775,8 +772,8 @@ fn alphabetic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> E
 /// ...
 /// n => 'n'
 /// ```
-fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString {
-    let n_digits = N_DIGITS as u64;
+fn fixed(symbols: &[char], n: u64) -> EcoString {
+    let n_digits = symbols.len() as u64;
     if n < n_digits {
         return symbols[(n) as usize].into();
     }
@@ -799,8 +796,8 @@ fn fixed<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString 
 /// ```
 ///
 /// which is the familiar trinary counting system.
-fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> EcoString {
-    let n_digits = N_DIGITS as u64;
+fn numeric(symbols: &[char], mut n: u64) -> EcoString {
+    let n_digits = symbols.len() as u64;
     if n == 0 {
         return symbols[0].into();
     }
@@ -826,8 +823,8 @@ fn numeric<const N_DIGITS: usize>(symbols: [char; N_DIGITS], mut n: u64) -> EcoS
 /// 7 => 'AAA'
 /// ...
 /// ```
-fn symbolic<const N_DIGITS: usize>(symbols: [char; N_DIGITS], n: u64) -> EcoString {
-    let n_digits = N_DIGITS as u64;
+fn symbolic(symbols: &[char], n: u64) -> EcoString {
+    let n_digits = symbols.len() as u64;
     if n == 0 {
         return '-'.into();
     }
