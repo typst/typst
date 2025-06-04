@@ -10,11 +10,12 @@ use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
-use typst::diag::{bail, StrResult};
+use typst::diag::{bail, warning, StrResult};
+use typst::syntax::Span;
 use typst::utils::format_duration;
 
 use crate::args::{Input, Output, WatchCommand};
-use crate::compile::{compile_once, CompileConfig};
+use crate::compile::{compile_once, print_diagnostics, CompileConfig};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
@@ -23,8 +24,19 @@ use crate::{print_error, terminal};
 pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
     let mut config = CompileConfig::watching(command)?;
 
+    // Validate the config
     let Output::Path(output) = &config.output else {
         bail!("cannot write document to stdout in watch mode");
+    };
+    let config_warnings = if matches!(&config.input, Input::Stdin) {
+        &[warning!(
+            Span::detached(),
+            "cannot watch changes for stdin, will only compile once";
+            hint: "to compile once and exit, please use `typst compile` instead";
+            hint: "to recompile on changes, watch a regular file instead"
+        )]
+    } else {
+        &[][..]
     };
 
     // Create a file system watcher.
@@ -54,6 +66,9 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut config))??;
+    // Print config warnings
+    print_diagnostics(&world, &[], config_warnings, config.diagnostic_format)
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
     // Recompile whenever something relevant happens.
     loop {
@@ -68,6 +83,9 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
         // Recompile.
         timer.record(&mut world, |world| compile_once(world, &mut config))??;
+
+        // For now, there is only one config warning, and it warns that recompilation won't happen.
+        // Therefore, there is no need to print config warnings here.
 
         // Evict the cache.
         comemo::evict(10);
