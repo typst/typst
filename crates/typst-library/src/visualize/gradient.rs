@@ -549,7 +549,7 @@ impl Gradient {
     }
 
     /// Repeats this gradient a given number of times, optionally mirroring it
-    /// at each repetition.
+    /// at every second repetition.
     ///
     /// ```example
     /// #circle(
@@ -564,7 +564,17 @@ impl Gradient {
         &self,
         /// The number of times to repeat the gradient.
         repetitions: Spanned<usize>,
-        /// Whether to mirror the gradient at each repetition.
+        /// Whether to mirror the gradient at every second repetition, i.e.,
+        /// the first instance (and all odd ones) stays unchanged.
+        ///
+        /// ```example
+        /// #circle(
+        ///   radius: 40pt,
+        ///   fill: gradient
+        ///     .conic(green, black)
+        ///     .repeat(2, mirror: true)
+        /// )
+        /// ```
         #[named]
         #[default(false)]
         mirror: bool,
