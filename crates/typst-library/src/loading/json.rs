@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -54,10 +54,13 @@ pub fn json(
     /// A [path]($syntax/#paths) to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    serde_json::from_slice(data.as_slice())
-        .map_err(|err| eco_format!("failed to parse JSON ({err})"))
-        .at(source.span)
+    let loaded = source.load(engine.world)?;
+    serde_json::from_slice(loaded.data.as_slice())
+        .map_err(|err| {
+            let pos = LineCol::one_based(err.line(), err.column());
+            LoadError::new(pos, "failed to parse JSON", err)
+        })
+        .within(&loaded)
 }
 
 #[scope]

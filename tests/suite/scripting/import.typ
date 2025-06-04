@@ -334,6 +334,7 @@
 
 --- import-cyclic-in-other-file ---
 // Cyclic import in other file.
+// Error: "tests/suite/scripting/modules/cycle2.typ" 2:9-2:21 cyclic import
 #import "./modules/cycle1.typ": *
 
 This is never reached.
