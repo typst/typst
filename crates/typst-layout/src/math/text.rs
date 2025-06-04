@@ -159,7 +159,7 @@ fn layout_glyph(
         let mut variant = if math_size == MathSize::Display {
             let height = scaled!(ctx, styles, display_operator_min_height)
                 .max(SQRT_2 * glyph.height());
-            glyph.stretch_vertical(ctx, height, Abs::zero())
+            glyph.stretch_vertical(ctx, height)
         } else {
             glyph.into_variant()
         };

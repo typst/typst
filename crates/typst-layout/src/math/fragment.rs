@@ -435,13 +435,8 @@ impl GlyphFragment {
     }
 
     /// Try to stretch a glyph to a desired height.
-    pub fn stretch_vertical(
-        self,
-        ctx: &mut MathContext,
-        height: Abs,
-        short_fall: Abs,
-    ) -> VariantFragment {
-        stretch_glyph(ctx, self, height, short_fall, Axis::Y)
+    pub fn stretch_vertical(self, ctx: &mut MathContext, height: Abs) -> VariantFragment {
+        stretch_glyph(ctx, self, height, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
@@ -449,9 +444,8 @@ impl GlyphFragment {
         self,
         ctx: &mut MathContext,
         width: Abs,
-        short_fall: Abs,
     ) -> VariantFragment {
-        stretch_glyph(ctx, self, width, short_fall, Axis::X)
+        stretch_glyph(ctx, self, width, Axis::X)
     }
 }
 

@@ -46,7 +46,7 @@ pub fn layout_accent(
     // wide in many case.
     let width = elem.size(styles).relative_to(base.width());
     let short_fall = ACCENT_SHORT_FALL.at(glyph.font_size);
-    let variant = glyph.stretch_horizontal(ctx, width, short_fall);
+    let variant = glyph.stretch_horizontal(ctx, width - short_fall);
     let accent = variant.frame;
     let accent_attach = variant.accent_attach.0;
 
