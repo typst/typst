@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use typst_syntax::FileId;
+use typst_syntax::{FileId, Spanned};
 
 use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{func, repr, scope, ty, Binding, Content, Dict, Scope, Value};
@@ -63,10 +63,10 @@ impl Module {
     /// m.hello[World]
     /// ```
     #[func(constructor)]
-    pub fn construct(dict: Dict) -> Module {
+    pub fn construct(dict: Spanned<Dict>) -> Module {
         let mut scope = Scope::new();
-        for (name, value) in dict {
-            scope.bind(name.into(), Binding::detached(value));
+        for (name, value) in dict.v {
+            scope.bind(name.into(), Binding::new(value, dict.span));
         }
         Module::anonymous(scope)
     }
