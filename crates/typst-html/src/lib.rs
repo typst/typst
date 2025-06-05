@@ -193,12 +193,18 @@ fn handle(
     } else if let Some(elem) = child.to_packed::<ParElem>() {
         let children =
             html_fragment(engine, &elem.body, locator.next(&elem.span()), styles)?;
-        output.push(
-            HtmlElement::new(tag::p)
-                .with_children(children)
-                .spanned(elem.span())
-                .into(),
-        );
+        // If the body is already an HtmlElem, then the user has directly specified it via
+        // `html.elem`, and it shouldn't be wrapped in a <p> tag.
+        if elem.body.is::<HtmlElem>() {
+            output.extend(children);
+        } else {
+            output.push(
+                HtmlElement::new(tag::p)
+                    .with_children(children)
+                    .spanned(elem.span())
+                    .into(),
+            );
+        };
     } else if let Some(elem) = child.to_packed::<BoxElem>() {
         // TODO: This is rather incomplete.
         if let Some(body) = elem.body(styles) {
@@ -257,6 +263,7 @@ fn handle(
             child.elem().name()
         ));
     }
+
     Ok(())
 }
 
