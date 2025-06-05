@@ -13,3 +13,12 @@ Text
   val
 })
 #metadata("Hi") <l>
+
+--- issue-5907-html-elem-at-root html ---
+#html.elem("span", [Not wrapped in p tag])
+
+#html.elem("span", html.elem("p", [Wrapped in p tag]))
+#html.elem("div", [Not wrapped in p tag])
+
+#html.elem("p", [*Wrapped* in p tag])
+
