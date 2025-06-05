@@ -2,10 +2,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use typst_syntax::FileId;
+use typst_syntax::{FileId, Spanned};
 
 use crate::diag::{bail, DeprecationSink, StrResult};
-use crate::foundations::{repr, ty, Content, Scope, Value};
+use crate::foundations::{func, repr, scope, ty, Binding, Content, Dict, Scope, Value};
 
 /// A module of definitions.
 ///
@@ -33,7 +33,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 /// >>>
 /// >>> #(-3)
 /// ```
-#[ty(cast)]
+#[ty(scope, cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
@@ -52,6 +52,24 @@ struct Repr {
     content: Content,
     /// The id of the file which defines the module, if any.
     file_id: Option<FileId>,
+}
+
+#[scope]
+impl Module {
+    /// Build a module from a dictionary.
+    ///
+    /// ```example
+    /// #let m = module((hello: (who) => [Hello, #who !]))
+    /// m.hello[World]
+    /// ```
+    #[func(constructor)]
+    pub fn construct(dict: Spanned<Dict>) -> Module {
+        let mut scope = Scope::new();
+        for (name, value) in dict.v {
+            scope.bind(name.into(), Binding::new(value, dict.span));
+        }
+        Module::anonymous(scope)
+    }
 }
 
 impl Module {
