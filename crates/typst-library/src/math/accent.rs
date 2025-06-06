@@ -1,3 +1,10 @@
+use std::sync::LazyLock;
+
+use icu_properties::maps::CodePointMapData;
+use icu_properties::CanonicalCombiningClass;
+use icu_provider::AsDeserializingBufferProvider;
+use icu_provider_blob::BlobDataProvider;
+
 use crate::diag::bail;
 use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
 use crate::layout::{Length, Rel};
@@ -81,17 +88,22 @@ impl Accent {
         Self(Self::combine(c).unwrap_or(c))
     }
 
-    /// List of bottom accents. Currently just a list of ones included in the
-    /// Unicode math class document.
-    const BOTTOM: &[char] = &[
-        '\u{0323}', '\u{032C}', '\u{032D}', '\u{032E}', '\u{032F}', '\u{0330}',
-        '\u{0331}', '\u{0332}', '\u{0333}', '\u{033A}', '\u{20E8}', '\u{20EC}',
-        '\u{20ED}', '\u{20EE}', '\u{20EF}',
-    ];
-
     /// Whether this accent is a bottom accent or not.
     pub fn is_bottom(&self) -> bool {
-        Self::BOTTOM.contains(&self.0)
+        static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
+            LazyLock::new(|| {
+                icu_properties::maps::load_canonical_combining_class(
+                    &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
+                        .unwrap()
+                        .as_deserializing(),
+                )
+                .unwrap()
+            });
+
+        matches!(
+            COMBINING_CLASS_DATA.as_borrowed().get(self.0),
+            CanonicalCombiningClass::Below
+        )
     }
 }
 
