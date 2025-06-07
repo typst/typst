@@ -755,7 +755,14 @@ impl Show for Packed<GridCell> {
 
 impl Default for Packed<GridCell> {
     fn default() -> Self {
-        Packed::new(GridCell::new(Content::default()))
+        Packed::new(
+            // Explicitly set colspan and rowspan to ensure they won't be
+            // overridden by set rules (default cells are created after
+            // colspans and rowspans are processed in the resolver)
+            GridCell::new(Content::default())
+                .with_colspan(NonZeroUsize::ONE)
+                .with_rowspan(NonZeroUsize::ONE),
+        )
     }
 }
 

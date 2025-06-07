@@ -140,3 +140,7 @@
   [e], [g], grid.cell(colspan: 2)[eee\ e\ e\ e],
   grid.cell(colspan: 4)[eeee e e e]
 )
+
+--- issue-6399-grid-cell-colspan-set-rule ---
+#set grid.cell(colspan: 2)
+#grid(columns: 3, [hehe])
