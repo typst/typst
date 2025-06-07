@@ -4,12 +4,13 @@ use serde::Serialize;
 use typst::diag::{bail, HintedStrResult, StrResult, Warned};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::html::HtmlDocument;
 use typst::layout::PagedDocument;
 use typst::syntax::Span;
-use typst::World;
+use typst::{Document, World};
 use typst_eval::{eval_string, EvalMode};
 
-use crate::args::{QueryCommand, SerializationFormat};
+use crate::args::{QueryCommand, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -22,12 +23,17 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let Warned { output, warnings } = typst::compile(&world);
+    let Warned { output, warnings } = match command.target {
+        Target::Paged => typst::compile::<PagedDocument>(&world)
+            .map(|output| output.map(|document| retrieve(&world, command, &document))),
+        Target::Html => typst::compile::<HtmlDocument>(&world)
+            .map(|output| output.map(|document| retrieve(&world, command, &document))),
+    };
 
     match output {
         // Retrieve and print query results.
-        Ok(document) => {
-            let data = retrieve(&world, command, &document)?;
+        Ok(data) => {
+            let data = data?;
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
@@ -51,10 +57,10 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
 }
 
 /// Retrieve the matches for the selector.
-fn retrieve(
+fn retrieve<D: Document>(
     world: &dyn World,
     command: &QueryCommand,
-    document: &PagedDocument,
+    document: &D,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
         &typst::ROUTINES,
@@ -77,7 +83,7 @@ fn retrieve(
     .cast::<LocatableSelector>()?;
 
     Ok(document
-        .introspector
+        .introspector()
         .query(&selector.0)
         .into_iter()
         .collect::<Vec<_>>())
