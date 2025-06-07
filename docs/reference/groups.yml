@@ -130,6 +130,42 @@
     In addition to the functions listed below, the `calc` module also defines
     the constants `pi`, `tau`, `e`, and `inf`.
 
+- name: std
+  title: Standard library
+  category: foundations
+  path: ["std"]
+  details: |
+    # Collection of globally accessible items under `std` variable.
+    # Collection of globally accessible items under `std.` prefix.
+    # Module consisting of globally accessible items.
+    # The standard library as a value.
+    An alias for globally accessible items comprsing the standard library.
+
+    This is useful whenever you override a name from the global scope, e.g.,
+    the [`text`] element. To access the element simply write `std.text`.
+    Since `std` is not a keyword, you can override it if necessary.
+    # Note that element items from `std` variable work exactly the same way,
+    Note that element items from `std` module work exactly like normal ones,
+    meaning they can be used as constructors, in set rules, etc.
+
+    # Example
+    ```example
+    #let par = [My special paragraph.]
+    #let special(text) = {
+      set std.text(style: "italic", weight: "bold")
+      set std.par.line(numbering: "1")
+      parbreak()
+      text
+      parbreak()
+    }
+
+    #lorem(10)
+    #special[
+      #par
+    ]
+    #lorem(10)
+    ```
+
 - name: sys
   title: System
   category: foundations
