@@ -1,16 +1,14 @@
-use std::borrow::Cow;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use comemo::Track;
 use typst_utils::{singleton, NonZeroExt, Scalar};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Cast, Construct, Content, Context, Dict, Fold, Func,
-    NativeElement, Set, Smart, StyleChain, Value,
+    cast, elem, Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement,
+    Set, Smart, Value,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -647,43 +645,6 @@ cast! {
         Alignment::RIGHT => Self::Right,
         _ => bail!("must be `left` or `right`"),
     },
-}
-
-/// A header, footer, foreground or background definition.
-#[derive(Debug, Clone, Hash)]
-pub enum Marginal {
-    /// Bare content.
-    Content(Content),
-    /// A closure mapping from a page number to content.
-    Func(Func),
-}
-
-impl Marginal {
-    /// Resolve the marginal based on the page number.
-    pub fn resolve(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        page: usize,
-    ) -> SourceResult<Cow<'_, Content>> {
-        Ok(match self {
-            Self::Content(content) => Cow::Borrowed(content),
-            Self::Func(func) => Cow::Owned(
-                func.call(engine, Context::new(None, Some(styles)).track(), [page])?
-                    .display(),
-            ),
-        })
-    }
-}
-
-cast! {
-    Marginal,
-    self => match self {
-        Self::Content(v) => v.into_value(),
-        Self::Func(v) => v.into_value(),
-    },
-    v: Content => Self::Content(v),
-    v: Func => Self::Func(v),
 }
 
 /// A list of page ranges to be exported.

@@ -110,12 +110,12 @@ fn layout_frac_like(
 
     if binom {
         let mut left = GlyphFragment::new(ctx, styles, '(', span)
-            .stretch_vertical(ctx, height, short_fall);
+            .stretch_vertical(ctx, height - short_fall);
         left.center_on_axis(ctx);
         ctx.push(left);
         ctx.push(FrameFragment::new(styles, frame));
         let mut right = GlyphFragment::new(ctx, styles, ')', span)
-            .stretch_vertical(ctx, height, short_fall);
+            .stretch_vertical(ctx, height - short_fall);
         right.center_on_axis(ctx);
         ctx.push(right);
     } else {

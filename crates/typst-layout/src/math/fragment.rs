@@ -11,7 +11,7 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{Font, Glyph, Lang, Region, TextElem, TextItem};
-use typst_library::visualize::Paint;
+use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
@@ -164,12 +164,12 @@ impl MathFragment {
         }
     }
 
-    pub fn accent_attach(&self) -> Abs {
+    pub fn accent_attach(&self) -> (Abs, Abs) {
         match self {
             Self::Glyph(glyph) => glyph.accent_attach,
             Self::Variant(variant) => variant.accent_attach,
             Self::Frame(fragment) => fragment.accent_attach,
-            _ => self.width() / 2.0,
+            _ => (self.width() / 2.0, self.width() / 2.0),
         }
     }
 
@@ -235,12 +235,13 @@ pub struct GlyphFragment {
     pub lang: Lang,
     pub region: Option<Region>,
     pub fill: Paint,
+    pub stroke: Option<FixedStroke>,
     pub shift: Abs,
     pub width: Abs,
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
-    pub accent_attach: Abs,
+    pub accent_attach: (Abs, Abs),
     pub font_size: Abs,
     pub class: MathClass,
     pub math_size: MathSize,
@@ -286,6 +287,7 @@ impl GlyphFragment {
             lang: TextElem::lang_in(styles),
             region: TextElem::region_in(styles),
             fill: TextElem::fill_in(styles).as_decoration(),
+            stroke: TextElem::stroke_in(styles).map(|s| s.unwrap_or_default()),
             shift: TextElem::baseline_in(styles),
             font_size: TextElem::size_in(styles),
             math_size: EquationElem::size_in(styles),
@@ -294,7 +296,7 @@ impl GlyphFragment {
             descent: Abs::zero(),
             limits: Limits::for_char(c),
             italics_correction: Abs::zero(),
-            accent_attach: Abs::zero(),
+            accent_attach: (Abs::zero(), Abs::zero()),
             class,
             span,
             modifiers: FrameModifiers::get_in(styles),
@@ -326,8 +328,14 @@ impl GlyphFragment {
         });
 
         let mut width = advance.scaled(ctx, self.font_size);
-        let accent_attach =
+
+        // The fallback for accents is half the width plus or minus the italics
+        // correction. This is similar to how top and bottom attachments are
+        // shifted. For bottom accents we do not use the accent attach of the
+        // base as it is meant for top acccents.
+        let top_accent_attach =
             accent_attach(ctx, id, self.font_size).unwrap_or((width + italics) / 2.0);
+        let bottom_accent_attach = (width - italics) / 2.0;
 
         let extended_shape = is_extended_shape(ctx, id);
         if !extended_shape {
@@ -339,7 +347,7 @@ impl GlyphFragment {
         self.ascent = bbox.y_max.scaled(ctx, self.font_size);
         self.descent = -bbox.y_min.scaled(ctx, self.font_size);
         self.italics_correction = italics;
-        self.accent_attach = accent_attach;
+        self.accent_attach = (top_accent_attach, bottom_accent_attach);
         self.extended_shape = extended_shape;
     }
 
@@ -368,10 +376,10 @@ impl GlyphFragment {
             font: self.font.clone(),
             size: self.font_size,
             fill: self.fill,
+            stroke: self.stroke,
             lang: self.lang,
             region: self.region,
             text: self.c.into(),
-            stroke: None,
             glyphs: vec![Glyph {
                 id: self.id.0,
                 x_advance: Em::from_length(self.width, self.font_size),
@@ -427,13 +435,8 @@ impl GlyphFragment {
     }
 
     /// Try to stretch a glyph to a desired height.
-    pub fn stretch_vertical(
-        self,
-        ctx: &mut MathContext,
-        height: Abs,
-        short_fall: Abs,
-    ) -> VariantFragment {
-        stretch_glyph(ctx, self, height, short_fall, Axis::Y)
+    pub fn stretch_vertical(self, ctx: &mut MathContext, height: Abs) -> VariantFragment {
+        stretch_glyph(ctx, self, height, Axis::Y)
     }
 
     /// Try to stretch a glyph to a desired width.
@@ -441,9 +444,8 @@ impl GlyphFragment {
         self,
         ctx: &mut MathContext,
         width: Abs,
-        short_fall: Abs,
     ) -> VariantFragment {
-        stretch_glyph(ctx, self, width, short_fall, Axis::X)
+        stretch_glyph(ctx, self, width, Axis::X)
     }
 }
 
@@ -457,7 +459,7 @@ impl Debug for GlyphFragment {
 pub struct VariantFragment {
     pub c: char,
     pub italics_correction: Abs,
-    pub accent_attach: Abs,
+    pub accent_attach: (Abs, Abs),
     pub frame: Frame,
     pub font_size: Abs,
     pub class: MathClass,
@@ -499,8 +501,9 @@ pub struct FrameFragment {
     pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
+    pub base_descent: Abs,
     pub italics_correction: Abs,
-    pub accent_attach: Abs,
+    pub accent_attach: (Abs, Abs),
     pub text_like: bool,
     pub ignorant: bool,
 }
@@ -508,6 +511,7 @@ pub struct FrameFragment {
 impl FrameFragment {
     pub fn new(styles: StyleChain, frame: Frame) -> Self {
         let base_ascent = frame.ascent();
+        let base_descent = frame.descent();
         let accent_attach = frame.width() / 2.0;
         Self {
             frame: frame.modified(&FrameModifiers::get_in(styles)),
@@ -517,8 +521,9 @@ impl FrameFragment {
             limits: Limits::Never,
             spaced: false,
             base_ascent,
+            base_descent,
             italics_correction: Abs::zero(),
-            accent_attach,
+            accent_attach: (accent_attach, accent_attach),
             text_like: false,
             ignorant: false,
         }
@@ -540,11 +545,15 @@ impl FrameFragment {
         Self { base_ascent, ..self }
     }
 
+    pub fn with_base_descent(self, base_descent: Abs) -> Self {
+        Self { base_descent, ..self }
+    }
+
     pub fn with_italics_correction(self, italics_correction: Abs) -> Self {
         Self { italics_correction, ..self }
     }
 
-    pub fn with_accent_attach(self, accent_attach: Abs) -> Self {
+    pub fn with_accent_attach(self, accent_attach: (Abs, Abs)) -> Self {
         Self { accent_attach, ..self }
     }
 

@@ -508,9 +508,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.14"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ba6d68e24814cb8de6bb986db8222d3a027d15872cabc0d18817bc3c0e4471"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -1215,6 +1215,7 @@ dependencies = [
  "byteorder-lite",
  "color_quant",
  "gif",
+ "image-webp",
  "num-traits",
  "png",
  "zune-core",
@@ -1258,6 +1259,12 @@ dependencies = [
  "rayon",
  "serde",
 ]
+
+[[package]]
+name = "infer"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
 
 [[package]]
 name = "inotify"
@@ -2857,7 +2864,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-assets?rev=ab1295f#ab1295ff896444e51902e03c2669955e1d73604a"
+source = "git+https://github.com/typst/typst-assets?rev=c74e539#c74e539b090070a0c66fd007c550f5b6d3b724bd"
 
 [[package]]
 name = "typst-cli"
@@ -3127,6 +3134,7 @@ dependencies = [
  "comemo",
  "ecow",
  "image",
+ "infer",
  "krilla",
  "krilla-svg",
  "serde",

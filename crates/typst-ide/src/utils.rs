@@ -77,23 +77,20 @@ pub fn plain_docs_sentence(docs: &str) -> EcoString {
 }
 
 /// Create a short description of a font family.
-pub fn summarize_font_family<'a>(
-    variants: impl Iterator<Item = &'a FontInfo>,
-) -> EcoString {
-    let mut infos: Vec<_> = variants.collect();
-    infos.sort_by_key(|info| info.variant);
+pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
+    variants.sort_by_key(|info| info.variant);
 
     let mut has_italic = false;
     let mut min_weight = u16::MAX;
     let mut max_weight = 0;
-    for info in &infos {
+    for info in &variants {
         let weight = info.variant.weight.to_number();
         has_italic |= info.variant.style == FontStyle::Italic;
         min_weight = min_weight.min(weight);
         max_weight = min_weight.max(weight);
     }
 
-    let count = infos.len();
+    let count = variants.len();
     let mut detail = eco_format!("{count} variant{}.", if count == 1 { "" } else { "s" });
 
     if min_weight == max_weight {
