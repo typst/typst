@@ -59,6 +59,34 @@ sequence(
 )
 ```)
 
+// #test(repr([*Hey*], verbatim: true), `[*Hey*]`.text)
+// #test(repr([#{"*Hey*"}], verbatim: true), `[#{"*Hey*"}]`.text)
+#test(repr([A _sequence_], verbatim: true), `[A _sequence_]`.text)
+#test(repr([A _longer_ *sequence*!], verbatim: true), `[A _longer_ *sequence*!]`.text)
+#let some-content = [Some _italic_ and *bold* text]
+#test(
+  repr([Some function calls: #rect(height: 10pt, fill: blue), #align(right)[more *content*!] #some-content], verbatim: true),
+  `[Some function calls: #rect(height: 10pt, fill: blue), #align(right)[more *content*!] #some-content]`.text
+)
+#test(
+  repr([Inline math: $x^2 lim_(n -> infinity) x / n = Pr[x] "text" 123; \$ and "$" or $ cos], 
+  verbatim: true),
+  `[Inline math: $x^2 lim_(n -> infinity) x / n = Pr[x] "text" 123; \$ and "$" or $ cos]`.text
+)
+// #test(repr(example([*Hey*])), `example([*Hey*])`.text)
+#let example(c) = { return (content: c, verbatim: repr(c, verbatim: true)) }
+#test(example([A _longer_ *sequence*!]).verbatim, `[A _longer_ *sequence*!]`.text)
+
+// Content > Verbatim use case > Metadata and content.
+#let card(title, body) = [
+  #metadata((title: repr(title, verbatim: true), body: repr(body, verbatim: true))) <card>
+]
+#card("Title 123", [*Body* _123_ $x^2$])
+#context {
+  test(query(<card>).at(0).value.title, `"Title 123"`.text)
+  test(query(<card>).at(0).value.body, `[*Body* _123_ $x^2$]`.text)
+}
+
 // Colors and strokes.
 #t(rgb("f7a205"), `rgb("#f7a205")`)
 #t(2pt + rgb("f7a205"), `2pt + rgb("#f7a205")`)

@@ -3,7 +3,9 @@
 use ecow::{eco_format, EcoString};
 use typst_utils::round_with_precision;
 
+use crate::engine::Engine;
 use crate::foundations::{func, Str, Value};
+use crate::World;
 
 /// The Unicode minus sign.
 pub const MINUS_SIGN: &str = "\u{2212}";
@@ -24,12 +26,58 @@ pub const MINUS_SIGN: &str = "\u{2212}";
 /// #(1, 2) vs #repr((1, 2)) \
 /// #[*Hi*] vs #repr([*Hi*])
 /// ```
+///
+/// ## Verbatim parameter
+/// If `verbatim` is `true` and the value is content, the function returns the
+/// original source code text instead of the structured representation.
+///
+/// ```example
+/// #let content = [*bold*]
+/// #repr(content) \
+/// #repr(content, verbatim: true)
+/// ```
 #[func(title = "Representation")]
 pub fn repr(
+    engine: &mut Engine,
     /// The value whose string representation to produce.
     value: Value,
+    /// Whether to return the original source text for content values.
+    #[named]
+    #[default(false)]
+    verbatim: bool,
 ) -> Str {
+    if verbatim {
+        if let Value::Content(content) = &value {
+            if let Some(source_text) = extract_content_source_text(engine, content) {
+                return source_text.into();
+            }
+        }
+    }
     value.repr().into()
+}
+
+/// Extract the original source text for a content value.
+///
+/// Returns `None` if the source text cannot be extracted (e.g., when the content
+/// doesn't have valid span information or the source is not available).
+fn extract_content_source_text(
+    engine: &Engine,
+    content: &crate::foundations::Content,
+) -> Option<EcoString> {
+    let span = content.span();
+
+    let file_id = span.id()?;
+
+    // Get the source file
+    let source = engine.world.source(file_id).ok()?;
+
+    // Get the byte range for this span - use source.range method instead of world.range
+    let range = source.range(span)?;
+
+    // Extract the text from the source
+    let text = source.get(range.clone())?;
+
+    Some(text.into())
 }
 
 /// A trait that defines the `repr` of a Typst value.
