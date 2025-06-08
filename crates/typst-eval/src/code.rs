@@ -298,7 +298,7 @@ impl Eval for ast::ContentBlock<'_> {
         vm.scopes.enter();
         let content = self.body().eval(vm)?;
         vm.scopes.exit();
-        Ok(content.with_span(self.span()))
+        Ok(content)
     }
 }
 
