@@ -1676,8 +1676,8 @@ mod tests {
     /// Test that autocomplete in math uses the correct global scope.
     #[test]
     fn test_autocomplete_math_scope() {
-        test("$ #col $", -3).must_include(["colbreak"]).must_exclude(["colon"]);
-        test("$ col $", -3).must_include(["colon"]).must_exclude(["colbreak"]);
+        test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
+        test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
