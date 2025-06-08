@@ -4,6 +4,7 @@ pub mod calc;
 pub mod ops;
 pub mod repr;
 pub mod sys;
+pub mod verbatim;
 
 mod args;
 mod array;
@@ -67,6 +68,7 @@ pub use self::symbol::*;
 pub use self::target_::*;
 pub use self::ty::*;
 pub use self::value::*;
+pub use self::verbatim::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
 
@@ -110,6 +112,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict, features: &Features) {
     global.define_type::<Duration>();
     global.define_type::<Version>();
     global.define_func::<repr::repr>();
+    global.define_func::<verbatim::verbatim>();
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
