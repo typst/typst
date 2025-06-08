@@ -59,8 +59,8 @@ sequence(
 )
 ```)
 
-// #test(repr([*Hey*], verbatim: true), `[*Hey*]`.text)
-// #test(repr([#{"*Hey*"}], verbatim: true), `[#{"*Hey*"}]`.text)
+#test(repr([*Hey*], verbatim: true), `[*Hey*]`.text)
+#test(repr([#{"*Hey*"}], verbatim: true), `[#{"*Hey*"}]`.text)
 #test(repr([A _sequence_], verbatim: true), `[A _sequence_]`.text)
 #test(repr([A _longer_ *sequence*!], verbatim: true), `[A _longer_ *sequence*!]`.text)
 #let some-content = [Some _italic_ and *bold* text]
