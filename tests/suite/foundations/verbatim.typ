@@ -93,9 +93,12 @@
 #let with_newlines = [Content
 with
 newlines]
-#test(verbatim(with_newlines), `[Content
+#test(
+  verbatim(with_newlines).replace("\r\n", "\n"),
+  `[Content
 with
-newlines]`.text)
+newlines]`.text
+)
 
 // Empty content blocks
 #let empty = []
@@ -158,7 +161,7 @@ newlines]`.text)
 #{[ #test(verbatim([{]), "[{]") ]}
 #{[ #test(verbatim([;]), "[;]") ]}
 #{[ #test(verbatim([
-]), "[
+]).replace("\r\n", "\n"), "[
 ]") ]}
 
 // Content with regex-like patterns
@@ -200,7 +203,7 @@ newlines]`.text)
 #let newlines_edges = [
   Leading and trailing spaces
 ]
-#test(verbatim(newlines_edges), "[
+#test(verbatim(newlines_edges).replace("\r\n", "\n"), "[
   Leading and trailing spaces
 ]")
 
@@ -211,7 +214,7 @@ newlines]`.text)
 // Content with line continuation characters
 #let line_continuation = [Text with \
 line continuation character]
-#test(verbatim(line_continuation), `[Text with \
+#test(verbatim(line_continuation).replace("\r\n", "\n"), `[Text with \
 line continuation character]`.text)
 
 // Nested function calls with content
@@ -247,7 +250,7 @@ line continuation character]`.text)
   // comment [syntax] 
   {curly: "json[like]"} structures
 ]
-#test(verbatim(complex_mix), "[
+#test(verbatim(complex_mix).replace("\r\n", "\n"), "[
   Multi-line with \"quotes [nested]\" and 
   `code [blocks]` plus $x^2 [...]_2$ and
   // comment [syntax] 
