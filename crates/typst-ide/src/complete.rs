@@ -298,9 +298,16 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
-    // Start of an interpolated identifier: "#|".
+    // Start of an interpolated identifier: "$#|$".
     if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind existing interpolated identifier: "$#pa|$".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
         return true;
     }
