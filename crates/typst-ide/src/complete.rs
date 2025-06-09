@@ -298,9 +298,16 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
-    // Start of an interpolated identifier: "#|".
+    // Start of an interpolated identifier: "$#|$".
     if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind existing interpolated identifier: "$#pa|$".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
         return true;
     }
@@ -1664,6 +1671,13 @@ mod tests {
         test("#{() .}", -2).must_include(["insert", "remove", "len", "all"]);
         test("#() .a", -1).must_exclude(["insert", "remove", "len", "all"]);
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
+    }
+
+    /// Test that autocomplete in math uses the correct global scope.
+    #[test]
+    fn test_autocomplete_math_scope() {
+        test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
+        test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
