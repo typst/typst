@@ -32,8 +32,6 @@
 #test(verbatim([#a #b]), "[#a #b]")
 #test(verbatim(a.body), "[_A_]")
 #test(verbatim(a.body + b.body), "a.body + b.body")
-#test(verbatim(c.text), "\"C\"")
-#test(verbatim(c.text + c.text), "\"CC\"")
 #test(verbatim([#a #{b}]), "[#a #{b}]")
 
 --- verbatim-function-usage ---
@@ -63,9 +61,9 @@
 #let card(title, body) = [
   #metadata((title: verbatim(title), body: verbatim(body))) <card>
 ]
-#card("Title 123", [*Body* _123_ $x^2$])
+#card([Title], [*Body* _123_ $x^2$])
 #context {
-  test(query(<card>).at(0).value.title, "\"Title 123\"")
+  test(query(<card>).at(0).value.title, "[Title]")
   test(query(<card>).at(0).value.body, "[*Body* _123_ $x^2$]")
 }
 
@@ -88,9 +86,6 @@
 #test(verbatim(unbalanced_in_string), "[Text with \"unbalanced \\[ bracket in string\"]")
 #let complex_strings = [Text with "string containing \" quotes and [brackets]" here]
 #test(verbatim(complex_strings), "[Text with \"string containing \\\" quotes and [brackets]\" here]")
-#let plain_string = "abc"
-#test(verbatim(plain_string), "\"abc\"")
-#test(verbatim("abc"), "\"abc\"")
 
 --- verbatim-escaped-characters ---
 // Escaped brackets, backslashes, and special characters
@@ -212,7 +207,6 @@ line continuation character]".replace("/r/n", "/n"))
 
 --- verbatim-minimal-cases ---
 // Minimal and edge cases: single chars, brackets, semicolons, empty lines
-#{[ #test(verbatim("abc"), "\"abc\"") ]}
 #{[ #test(verbatim(["abc"]), "[\"abc\"]") ]}
 #{[ #test(verbatim([abc]), "[abc]") ]}
 #{[ #test(verbatim([{]), "[{]") ]}

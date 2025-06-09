@@ -1,52 +1,41 @@
-//! Verbatim representation of values.
+//! Verbatim representation of content.
 
 use ecow::EcoString;
 
 use crate::engine::Engine;
-use crate::foundations::{func, Repr, Str, Value};
+use crate::foundations::{func, Content, Str};
 use crate::World;
 
-/// Returns the verbatim source representation of a value.
+/// Returns the verbatim source code text that was used to create the content
+/// passed to this function.
 ///
-/// For content values, this returns the original source code text that was used
-/// to create the content. For all other values, this returns the same result
-/// as [`repr`].
-///
-/// **Note:** This function is for debugging and metaprogramming purposes. Its
-/// output should not be considered stable and may change at any time!
+/// If the source text cannot be extracted (e.g., when the content doesn't have
+/// valid span information or the source is not available), this function will
+/// panic with an error message.
 ///
 /// # Example
-/// ```example
-/// #let content = [*bold*]
-/// #verbatim(content) \
-/// #verbatim("hello") \
-/// #verbatim(42) \
-/// #verbatim((1, 2, 3))
-/// ```
 ///
-/// The main use case is extracting the original markup from content:
-/// ```example
+/// ```typ
 /// #let markup = [Some _italic_ and *bold* text]
 /// #verbatim(markup)
 /// ```
 #[func]
 pub fn verbatim(
     engine: &mut Engine,
-    /// The value whose verbatim representation to produce.
-    value: Value,
+    /// The content whose verbatim representation to produce.
+    content: Content,
 ) -> Str {
-    if let Value::Content(content) = &value {
-        if let Some(source_text) = extract_content_source_text(engine, content) {
-            return source_text.into();
-        }
+    if let Some(source_text) = extract_content_source_text(engine, &content) {
+        source_text.into()
+    } else {
+        panic!("cannot extract verbatim source text for this content")
     }
-    value.repr().into()
 }
 
 /// Extract the original source text for a content value.
 ///
-/// Returns `None` if the source text cannot be extracted (e.g., when the content
-/// doesn't have valid span information or the source is not available).
+/// Returns `None` if the source text cannot be extracted (e.g., when the
+/// content doesn't have valid span information or the source is not available).
 fn extract_content_source_text(
     engine: &Engine,
     content: &crate::foundations::Content,
@@ -63,9 +52,10 @@ fn extract_content_source_text(
     // Extract the text from the source
     let text = source.get(range.clone())?;
 
-    // If the text doesn't start with '[', it likely means this content was created
-    // from a ContentBlock but the span only covers the inner markup, not the brackets.
-    // Try to find the surrounding ContentBlock by looking for brackets.
+    // If the text doesn't start with '[', it likely means this content was
+    // created from a ContentBlock but the span only covers the inner markup,
+    // not the brackets. Try to find the surrounding ContentBlock by looking for
+    // brackets.
     if !text.starts_with('[') {
         if let Some(expanded_text) = find_surrounding_content_block(&source, range) {
             return Some(expanded_text);
@@ -121,7 +111,8 @@ fn find_surrounding_content_block(
                 }
                 b']' => bracket_depth += 1,
                 b'[' => bracket_depth -= 1,
-                // Stop searching if we hit certain delimiters that suggest we've gone too far
+                // Stop searching if we hit certain delimiters that suggest
+                // we've gone too far
                 b'\n' | b';' | b'{' | b'}' if bracket_depth == 0 => return None,
                 _ => {}
             }
