@@ -130,15 +130,6 @@ impl Content {
         self
     }
 
-    /// Unconditionally set the span of the content.
-    /// This is useful when you need to force a specific span,
-    /// such as for content blocks that should use the block's span
-    /// rather than the spans of their constituent elements.
-    pub fn with_span(mut self, span: Span) -> Self {
-        self.span = span;
-        self
-    }
-
     /// Get the label of the content.
     pub fn label(&self) -> Option<Label> {
         self.inner.label
