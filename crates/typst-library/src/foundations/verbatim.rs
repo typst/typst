@@ -10,7 +10,7 @@ use crate::World;
 ///
 /// For content values, this returns the original source code text that was used
 /// to create the content. For all other values, this returns the same result
-/// as [`repr`]($foundations/repr).
+/// as [`repr`].
 ///
 /// **Note:** This function is for debugging and metaprogramming purposes. Its
 /// output should not be considered stable and may change at any time!
