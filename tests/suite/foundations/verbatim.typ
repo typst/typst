@@ -3,6 +3,7 @@
 #test(verbatim([*Hey*]), "[*Hey*]")
 #test(verbatim([A _sequence_]), "[A _sequence_]")
 #test(verbatim([A _longer_ *sequence*!]), "[A _longer_ *sequence*!]")
+#test(verbatim([a _b_ *c* $d$ $ e $ `f` [g](https://example.com)]), "[a _b_ *c* $d$ $ e $ `f` [g](https://example.com)]")
 
 --- verbatim-bracket-edges ---
 // Bracket edge cases: single brackets, nested, and adjacent
@@ -17,10 +18,23 @@
 #test(verbatim([#{"*Hey*"}]), "[#{\"*Hey*\"}]")
 #test(verbatim([#{{"*Hey*"}}]), "[#{{\"*Hey*\"}}]")
 
---- verbatim-variable-content ---
+--- verbatim-variables ---
 // Verbatim with variable assignments
 #let some-content = [Some _italic_ and *bold* text]
 #test(verbatim(some-content), "[Some _italic_ and *bold* text]")
+#let a = [_A_]
+#let b = [*B*]
+#let c = [C]
+#test(verbatim(a), "[_A_]")
+#test(verbatim([#a]), "[_A_]")
+#test(verbatim({a}), "[_A_]")
+#test(verbatim([#a b]), "[#a b]")
+#test(verbatim([#a #b]), "[#a #b]")
+#test(verbatim(a.body), "[_A_]")
+#test(verbatim(a.body + b.body), "a.body + b.body")
+#test(verbatim(c.text), "\"C\"")
+#test(verbatim(c.text + c.text), "\"CC\"")
+#test(verbatim([#a #{b}]), "[#a #{b}]")
 
 --- verbatim-function-usage ---
 // Verbatim with function calls and nested function usage
