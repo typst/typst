@@ -59,8 +59,6 @@ sequence(
 )
 ```)
 
-
-
 // Colors and strokes.
 #t(rgb("f7a205"), `rgb("#f7a205")`)
 #t(2pt + rgb("f7a205"), `2pt + rgb("#f7a205")`)
@@ -90,4 +88,3 @@ sequence(
   gradient.linear(blue, red, space: rgb, angle: 45deg),
   `gradient.linear(angle: 45deg, space: rgb, (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
 )
-
