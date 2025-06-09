@@ -87,13 +87,36 @@ fn find_surrounding_content_block(
                     let mut end = range.end;
                     bracket_depth = 1;
                     let mut pos = start + 1;
+                    let mut in_string = false;
+                    let mut in_raw = false;
+                    let mut escape_next = false;
 
                     while pos < bytes.len() && bracket_depth > 0 {
                         match bytes[pos] {
-                            b'[' => bracket_depth += 1,
-                            b']' => bracket_depth -= 1,
-                            _ => {}
+                            b'\\' if in_string => {
+                                escape_next = !escape_next;
+                            }
+                            b'"' if !escape_next && !in_raw => {
+                                in_string = !in_string;
+                            }
+                            b'`' if !escape_next && !in_string => {
+                                in_raw = !in_raw;
+                            }
+                            b'[' if !in_string && !in_raw => {
+                                bracket_depth += 1;
+                            }
+                            b']' if !in_string && !in_raw => {
+                                bracket_depth -= 1;
+                            }
+                            _ => {
+                                escape_next = false;
+                            }
                         }
+
+                        if bytes[pos] != b'\\' {
+                            escape_next = false;
+                        }
+
                         pos += 1;
                         if bracket_depth == 0 {
                             end = pos;
@@ -109,11 +132,17 @@ fn find_surrounding_content_block(
                     }
                     return None;
                 }
-                b']' => bracket_depth += 1,
-                b'[' => bracket_depth -= 1,
+                b']' => {
+                    bracket_depth += 1;
+                }
+                b'[' => {
+                    bracket_depth -= 1;
+                }
                 // Stop searching if we hit certain delimiters that suggest
                 // we've gone too far
-                b'\n' | b';' | b'{' | b'}' if bracket_depth == 0 => return None,
+                b'\n' | b';' if bracket_depth == 0 => {
+                    return None;
+                }
                 _ => {}
             }
         }

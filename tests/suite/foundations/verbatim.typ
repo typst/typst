@@ -41,6 +41,12 @@
   verbatim([Some function calls: #rect(height: 10pt, fill: blue), #align(right)[more *content*!] #some-content]),
   "[Some function calls: #rect(height: 10pt, fill: blue), #align(right)[more *content*!] #some-content]"
 )
+
+--- verbatim-within-function ---
+// Verbatim within function calls
+#let wrapper(content) = { return verbatim(content) }
+#test(wrapper([*Hey*]), "[*Hey*]")
+#test(wrapper([A _sequence_]), "[A _sequence_]")
 #let example(c) = { return (content: c, verbatim: verbatim(c)) }
 #test(example([A _longer_ *sequence*!]).verbatim, "[A _longer_ *sequence*!]")
 
@@ -209,10 +215,66 @@ line continuation character]".replace("/r/n", "/n"))
 // Minimal and edge cases: single chars, brackets, semicolons, empty lines
 #{[ #test(verbatim(["abc"]), "[\"abc\"]") ]}
 #{[ #test(verbatim([abc]), "[abc]") ]}
-#{[ #test(verbatim([{]), "[{]") ]}
-#{[ #test(verbatim([;]), "[;]") ]}
 #{[ #test(verbatim([
 ]).replace("/r/n", "/n"), "[
 ]".replace("/r/n", "/n")) ]}
-#let complex_expr = [Content with array access]
-#test(verbatim(complex_expr), "[Content with array access]")
+
+--- verbatim-single-chars ---
+// Single characters and minimal content
+#{[ #test(verbatim([;]), "[;]") ]}
+
+--- verbatim-curly-brackets ---
+// Curly brackets and edge cases
+#{[ #test(verbatim([{]), "[{]") ]}
+#{[ #test(verbatim([}]), "[}]") ]}
+#{[ #test(verbatim([{}]), "[{}]") ]}
+#{[ #test(verbatim([}{]), "[}{]") ]}
+
+--- verbatim-parentheses ---
+// Parentheses and edge cases
+#{[ #test(verbatim([)]), "[)]") ]}
+#{[ #test(verbatim([(]), "[(]") ]}
+#{[ #test(verbatim([()]), "[()]") ]}
+#{[ #test(verbatim([)(]), "[)(]") ]}
+
+--- verbatim-square-brackets ---
+// Square brackets and edge cases
+#{[ #test(verbatim([[]]), "[[]]") ]}
+#{[ #test(verbatim([#{"]"}]), "[#{\"]\"}]") ]}
+#{[ #test(verbatim([#{"["}]), "[#{\"[\"}]") ]}
+#{[ #test(verbatim([#{"]["}]), "[#{\"][\"}]") ]}
+
+--- verbatim-square-brackets-and-quotes ---
+// Square brackets and quotes
+#{[ #test(verbatim([#{"\"]"}]), "[#{\"\\\"]\"}]") ]}
+#{[ #test(verbatim([#{"\"["}]), "[#{\"\\\"[\"}]") ]}
+#{[ #test(verbatim([#{"\"]["}]), "[#{\"\\\"][\"}]") ]}
+#{[ #test(verbatim(["#{"]"}]), "[\"#{\"]\"}]") ]}
+#{[ #test(verbatim(["#{"["}]), "[\"#{\"[\"}]") ]}
+#{[ #test(verbatim(["#{"]["}]), "[\"#{\"][\"}]") ]}
+#{[ #test(verbatim([#{"\"\"]"}]), "[#{\"\\\"\\\"]\"}]") ]}
+#{[ #test(verbatim([#{"\"\"["}]), "[#{\"\\\"\\\"[\"}]") ]}
+#{[ #test(verbatim([#{"\"\"]["}]), "[#{\"\\\"\\\"][\"}]") ]}
+
+--- verbatim-square-brackets-and-backticks ---
+// Square brackets and backticks
+#{[ #test(verbatim([#{`]`}]), "[#{`]`}]") ]}
+#{[ #test(verbatim([#{`]`
+}]).replace("/r/n", "/n"), "[#{`]`
+}]".replace("/r/n", "/n")) ]}
+#{[ #test(verbatim([#{`]`;}]), "[#{`]`;}]") ]}
+#{[ #test(verbatim([#{`[`}]), "[#{`[`}]") ]}
+#{[ #test(verbatim([#{`][`}]), "[#{`][`}]") ]}
+#{[ #test(verbatim([#{"`]"}]), "[#{\"`]\"}]") ]}
+#{[ #test(verbatim([#{"`["}]), "[#{\"`[\"}]") ]}
+#{[ #test(verbatim([#{"`]["}]), "[#{\"`][\"}]") ]}
+#{[ #test(verbatim([#{"``]"}]), "[#{\"``]\"}]") ]}
+#{[ #test(verbatim([#{"``["}]), "[#{\"``[\"}]") ]}
+#{[ #test(verbatim([#{"``]["}]), "[#{\"``][\"}]") ]}
+
+// These will fail
+// #{[ #test(verbatim([\]]), "[]]") ]}
+// #{[ #test(verbatim(eval("]", "markup")), "[]]") ]}
+// #let to-content(text) = { return [#text] }
+// #{[ #test(verbatim(to-content("abc")), "[abc]") ]}
+
