@@ -105,21 +105,21 @@
 with
 newlines]
 #test(
-  verbatim(with_newlines).replace("\r\n", "\n"),
+  verbatim(with_newlines).replace("/r/n", "/n"),
   "[Content
 with
-newlines]"
+newlines]".replace("/r/n", "/n")
 )
 #let newlines_edges = [
   Leading and trailing spaces
 ]
-#test(verbatim(newlines_edges).replace("\r\n", "\n"), "[
+#test(verbatim(newlines_edges).replace("/r/n", "/n"), "[
   Leading and trailing spaces
-]")
+]".replace("/r/n", "/n"))
 #let line_continuation = [Text with \
 line continuation character]
-#test(verbatim(line_continuation).replace("\r\n", "\n"), "[Text with \\
-line continuation character]")
+#test(verbatim(line_continuation).replace("/r/n", "/n"), "[Text with \\
+line continuation character]".replace("/r/n", "/n"))
 
 --- verbatim-empty-and-whitespace ---
 // Empty, whitespace-only, and edge whitespace
@@ -196,12 +196,12 @@ line continuation character]")
   // comment [syntax] 
   {curly: "json[like]"} structures
 ]
-#test(verbatim(complex_mix).replace("\r\n", "\n"), "[
+#test(verbatim(complex_mix).replace("/r/n", "/n"), "[
   Multi-line with \"quotes [nested]\" and 
   `code [blocks]` plus $x^2 [...]_2$ and
   // comment [syntax] 
   {curly: \"json[like]\"} structures
-]")
+]".replace("/r/n", "/n"))
 
 --- verbatim-tabs-and-zero-width ---
 // Tabs, zero-width spaces, and special whitespace
@@ -218,7 +218,7 @@ line continuation character]")
 #{[ #test(verbatim([{]), "[{]") ]}
 #{[ #test(verbatim([;]), "[;]") ]}
 #{[ #test(verbatim([
-]).replace("\r\n", "\n"), "[
-]") ]}
+]).replace("/r/n", "/n"), "[
+]".replace("/r/n", "/n")) ]}
 #let complex_expr = [Content with array access]
 #test(verbatim(complex_expr), "[Content with array access]")
