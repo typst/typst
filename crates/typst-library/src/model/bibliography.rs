@@ -230,7 +230,7 @@ impl Show for Packed<BibliographyElem> {
                     style.display_name()
                 ),
                 CslSource::Normal(..) => {
-                    eco_format!("CSL style is not suitable for bibliographies")
+                    "CSL style is not suitable for bibliographies".into()
                 }
             })
             .at(span)?;
