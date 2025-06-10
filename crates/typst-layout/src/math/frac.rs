@@ -109,12 +109,12 @@ fn layout_frac_like(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        let mut left = GlyphFragment::new(ctx.font, styles, '(', span);
+        let mut left = GlyphFragment::new_char(ctx.font, styles, '(', span)?;
         left.stretch_vertical(ctx, height - short_fall);
         left.center_on_axis();
         ctx.push(left);
         ctx.push(FrameFragment::new(styles, frame));
-        let mut right = GlyphFragment::new(ctx.font, styles, ')', span);
+        let mut right = GlyphFragment::new_char(ctx.font, styles, ')', span)?;
         right.stretch_vertical(ctx, height - short_fall);
         right.center_on_axis();
         ctx.push(right);

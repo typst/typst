@@ -49,7 +49,7 @@ pub fn layout_root(
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let mut sqrt = GlyphFragment::new(ctx.font, styles, '√', span);
+    let mut sqrt = GlyphFragment::new_char(ctx.font, styles, '√', span)?;
     sqrt.stretch_vertical(ctx, target);
     let sqrt = sqrt.into_frame();
 

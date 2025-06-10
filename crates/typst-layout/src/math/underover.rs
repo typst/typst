@@ -285,7 +285,7 @@ fn layout_underoverspreader(
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(styles);
-    let mut glyph = GlyphFragment::new(ctx.font, styles, c, span);
+    let mut glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
     glyph.stretch_horizontal(ctx, body.width());
 
     let mut rows = vec![];

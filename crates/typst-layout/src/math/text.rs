@@ -70,7 +70,7 @@ fn layout_inline_text(
         let mut fragments = vec![];
         for unstyled_c in text.chars() {
             let c = styled_char(styles, unstyled_c, false);
-            let glyph = GlyphFragment::new(ctx.font, styles, c, span);
+            let glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -125,23 +125,19 @@ pub fn layout_symbol(
         _ => (elem.text, styles),
     };
     let c = styled_char(styles, unstyled_c, true);
-    let fragment: MathFragment = match GlyphFragment::try_new(
-        ctx.font,
-        symbol_styles,
-        c.encode_utf8(&mut [0; 4]),
-        elem.span(),
-    ) {
-        Some(mut glyph) => {
-            adjust_glyph_layout(&mut glyph, ctx, styles);
-            glyph.into()
-        }
-        None => {
-            // Not in the math font, fallback to normal inline text layout.
-            // TODO: Should replace this with proper fallback in [`GlyphFragment::try_new`].
-            layout_inline_text(c.encode_utf8(&mut [0; 4]), elem.span(), ctx, styles)?
-                .into()
-        }
-    };
+    let fragment: MathFragment =
+        match GlyphFragment::new_char(ctx.font, symbol_styles, c, elem.span()) {
+            Ok(mut glyph) => {
+                adjust_glyph_layout(&mut glyph, ctx, styles);
+                glyph.into()
+            }
+            Err(_) => {
+                // Not in the math font, fallback to normal inline text layout.
+                // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
+                layout_inline_text(c.encode_utf8(&mut [0; 4]), elem.span(), ctx, styles)?
+                    .into()
+            }
+        };
     ctx.push(fragment);
     Ok(())
 }

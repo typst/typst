@@ -4,7 +4,7 @@ use az::SaturatingAs;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::GlyphId;
-use typst_library::diag::warning;
+use typst_library::diag::{bail, warning, SourceResult};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
@@ -258,21 +258,25 @@ pub struct GlyphFragment {
 }
 
 impl GlyphFragment {
-    /// Calls `try_new` with the given character, assuming the font has a glyph
-    /// for it.
-    pub fn new(font: &Font, styles: StyleChain, c: char, span: Span) -> Self {
-        Self::try_new(font, styles, c.encode_utf8(&mut [0; 4]), span).unwrap()
+    /// Calls `new` with the given character.
+    pub fn new_char(
+        font: &Font,
+        styles: StyleChain,
+        c: char,
+        span: Span,
+    ) -> SourceResult<Self> {
+        Self::new(font, styles, c.encode_utf8(&mut [0; 4]), span)
     }
 
-    /// Try to create a new glyph out of the given string. Will return None if
-    /// the result from shaping the string is not a single glyph or is a tofu.
+    /// Try to create a new glyph out of the given string. Will bail if the
+    /// result from shaping the string is not a single glyph or is a tofu.
     #[comemo::memoize]
-    pub fn try_new(
+    pub fn new(
         font: &Font,
         styles: StyleChain,
         text: &str,
         span: Span,
-    ) -> Option<GlyphFragment> {
+    ) -> SourceResult<GlyphFragment> {
         let mut buffer = UnicodeBuffer::new();
         buffer.push_str(text);
         buffer.set_language(language(styles));
@@ -296,7 +300,7 @@ impl GlyphFragment {
 
         let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
         if buffer.len() != 1 {
-            return None;
+            bail!(span, "did not get a single glyph after shaping {}", text);
         }
 
         let info = buffer.glyph_infos()[0];
@@ -304,7 +308,7 @@ impl GlyphFragment {
 
         // TODO: add support for coverage and fallback, like in normal text shaping.
         if info.glyph_id == 0 {
-            return None;
+            bail!(span, "current font is missing a glyph for {}", text);
         }
 
         let cluster = info.cluster as usize;
@@ -353,7 +357,7 @@ impl GlyphFragment {
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
-        Some(fragment)
+        Ok(fragment)
     }
 
     /// Sets element id and boxes in appropriate way without changing other

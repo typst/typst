@@ -42,7 +42,8 @@ pub fn layout_accent(
         styles
     };
 
-    let mut glyph = GlyphFragment::new(ctx.font, accent_styles, accent.0, elem.span());
+    let mut glyph =
+        GlyphFragment::new_char(ctx.font, accent_styles, accent.0, elem.span())?;
 
     // Forcing the accent to be at least as large as the base makes it too wide
     // in many cases.
