@@ -575,8 +575,8 @@ pub type LoadResult<T> = Result<T, LoadError>;
 
 /// A call site independent error that occurred during data loading.
 /// This avoids polluting the memoization with [`Span`]s and [`FileId`]s from source files.
-/// Can be turned into a [`SourceDiagnostic`] using the [`LoadedAt::in_text`]
-/// or [`LoadedAt::in_invalid_text`] methods available on [`LoadResult`].
+/// Can be turned into a [`SourceDiagnostic`] using the [`LoadedWithin::within`] method
+/// available on [`LoadResult`].
 ///
 /// [`FileId`]: typst_syntax::FileId
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
