@@ -59,9 +59,9 @@ pub struct Glyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
-    /// The advance height of the glyph.
+    /// The advance height (Y-up) of the glyph.
     pub y_advance: Em,
-    /// The vertical offset of the glyph.
+    /// The vertical offset (Y-up) of the glyph.
     pub y_offset: Em,
     /// The range of the glyph in its item's text. The range's length may
     /// be more than one due to multi-byte UTF-8 encoding or ligatures.
