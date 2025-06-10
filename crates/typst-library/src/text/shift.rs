@@ -2,7 +2,10 @@ use ecow::EcoString;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, SequenceElem, Show, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, SequenceElem, Show, StyleChain, TargetElem,
+};
+use crate::html::{tag, HtmlElem};
 use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
@@ -110,6 +113,13 @@ impl Show for Packed<SuperElem> {
     #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
+
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::sup)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
 
         if self.typographic(styles) {
             if let Some(text) = convert_script(&body, false) {
