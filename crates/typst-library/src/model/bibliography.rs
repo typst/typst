@@ -356,7 +356,7 @@ impl Debug for Bibliography {
 
 /// Decode on library from one data source.
 fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
-    let data = loaded.load_str()?;
+    let data = loaded.data.as_str().within(loaded)?;
 
     if let LoadSource::Path(file_id) = loaded.source.v {
         // If we got a path, use the extension to determine whether it is

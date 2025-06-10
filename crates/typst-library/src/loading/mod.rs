@@ -131,10 +131,6 @@ impl Loaded {
     pub fn new(source: Spanned<LoadSource>, bytes: Bytes) -> Self {
         Self { source, data: bytes }
     }
-
-    pub fn load_str(&self) -> SourceResult<&str> {
-        self.data.as_str().map_err(Into::into).within(self)
-    }
 }
 
 /// A loaded [`DataSource`].

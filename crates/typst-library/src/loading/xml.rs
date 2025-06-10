@@ -61,7 +61,7 @@ pub fn xml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    let text = loaded.load_str()?;
+    let text = loaded.data.as_str().within(&loaded)?;
     let document = roxmltree::Document::parse_with_options(
         text,
         ParsingOptions { allow_dtd: true, ..Default::default() },

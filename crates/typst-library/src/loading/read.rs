@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::SourceResult;
+use crate::diag::{LoadedWithin, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, Cast};
 use crate::loading::{DataSource, Load, Readable};
@@ -38,7 +38,7 @@ pub fn read(
     let loaded = path.map(DataSource::Path).load(engine.world)?;
     Ok(match encoding {
         None => Readable::Bytes(loaded.data),
-        Some(Encoding::Utf8) => Readable::Str(loaded.load_str()?.into()),
+        Some(Encoding::Utf8) => Readable::Str(loaded.data.to_str().within(&loaded)?),
     })
 }
 

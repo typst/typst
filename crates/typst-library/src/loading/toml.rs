@@ -33,7 +33,7 @@ pub fn toml(
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
-    let raw = loaded.load_str()?;
+    let raw = loaded.data.as_str().within(&loaded)?;
     ::toml::from_str(raw).map_err(format_toml_error).within(&loaded)
 }
 

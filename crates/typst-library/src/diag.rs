@@ -617,9 +617,15 @@ pub trait LoadedWithin<T> {
     fn within(self, loaded: &Loaded) -> SourceResult<T>;
 }
 
-impl<T> LoadedWithin<T> for Result<T, LoadError> {
+impl<T, E> LoadedWithin<T> for Result<T, E>
+where
+    E: Into<LoadError>,
+{
     fn within(self, loaded: &Loaded) -> SourceResult<T> {
-        self.map_err(|err| load_err_in_text(loaded, err.pos, err.message))
+        self.map_err(|err| {
+            let LoadError { pos, message } = err.into();
+            load_err_in_text(loaded, pos, message)
+        })
     }
 }
 
