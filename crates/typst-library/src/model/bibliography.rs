@@ -226,7 +226,7 @@ impl Show for Packed<BibliographyElem> {
             .as_ref()
             .ok_or_else(|| match self.style(styles).source {
                 CslSource::Named(style) => eco_format!(
-                    "CSL style `{}` is not suitable for bibliographies",
+                    "CSL style \"{}\" is not suitable for bibliographies",
                     style.display_name()
                 ),
                 CslSource::Normal(..) => {
