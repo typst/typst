@@ -542,7 +542,7 @@ pub struct TableHeader {
     /// This allows repeating multiple headers at once. Headers with different
     /// levels can repeat together, as long as they have ascending levels.
     ///
-    /// Notably, when a level with a lower level starts repeating, all higher
+    /// Notably, when a header with a lower level starts repeating, all higher
     /// or equal level headers stop repeating (they are "replaced" by the new
     /// header).
     #[default(NonZeroU32::ONE)]
