@@ -2,7 +2,10 @@ use smallvec::smallvec;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Show, Smart, StyleChain, TargetElem,
+};
+use crate::html::{tag, HtmlElem};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
 use crate::text::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};
@@ -81,15 +84,23 @@ pub struct UnderlineElem {
 impl Show for Packed<UnderlineElem> {
     #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().styled(TextElem::set_deco(smallvec![Decoration {
-            line: DecoLine::Underline {
-                stroke: self.stroke(styles).unwrap_or_default(),
-                offset: self.offset(styles),
-                evade: self.evade(styles),
-                background: self.background(styles),
-            },
-            extent: self.extent(styles),
-        }])))
+        let body = self.body.clone();
+        Ok(if TargetElem::target_in(styles).is_html() {
+            HtmlElem::new(tag::sub)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span())
+        } else {
+            body.styled(TextElem::set_deco(smallvec![Decoration {
+                line: DecoLine::Underline {
+                    stroke: self.stroke(styles).unwrap_or_default(),
+                    offset: self.offset(styles),
+                    evade: self.evade(styles),
+                    background: self.background(styles),
+                },
+                extent: self.extent(styles),
+            }]))
+        })
     }
 }
 

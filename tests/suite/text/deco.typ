@@ -18,6 +18,10 @@
 // Both over- and underline.
 #overline(underline[Running amongst the wolves.])
 
+--- basic-underline html ---
+// Basic underline for HTML.
+#underline[This text should be wrapped in sub.]
+
 --- strike-with ---
 #let redact = strike.with(stroke: 10pt, extent: 0.05em)
 #let highlight-custom = strike.with(stroke: 10pt + rgb("abcdef88"), extent: 0.05em)
