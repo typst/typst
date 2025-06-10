@@ -45,6 +45,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
                     ExchangeFormat::Png => "png",
                     ExchangeFormat::Jpg => "jpeg",
                     ExchangeFormat::Gif => "gif",
+                    ExchangeFormat::Webp => "webp",
                 },
                 raster.data(),
             ),

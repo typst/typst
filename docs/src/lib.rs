@@ -622,7 +622,7 @@ fn group_page(
     });
 
     let model = PageModel {
-        route: eco_format!("{parent}{}", group.name),
+        route: eco_format!("{parent}{}/", group.name),
         title: group.title.clone(),
         description: eco_format!("Documentation for the {} functions.", group.name),
         part: None,

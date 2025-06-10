@@ -30,6 +30,7 @@ pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
+use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
@@ -348,15 +349,17 @@ pub struct TextElem {
     /// This can make justification visually more pleasing.
     ///
     /// ```example
+    /// #set page(width: 220pt)
+    ///
     /// #set par(justify: true)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     ///
     /// #set text(overhang: false)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
@@ -1281,11 +1284,28 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"frac", 1);
     }
 
+    match EquationElem::size_in(styles) {
+        MathSize::Script => feat(b"ssty", 1),
+        MathSize::ScriptScript => feat(b"ssty", 2),
+        _ => {}
+    }
+
     for (tag, value) in TextElem::features_in(styles).0 {
         tags.push(Feature::new(tag, value, ..))
     }
 
     tags
+}
+
+/// Process the language and region of a style chain into a
+/// rustybuzz-compatible BCP 47 language.
+pub fn language(styles: StyleChain) -> rustybuzz::Language {
+    let mut bcp: EcoString = TextElem::lang_in(styles).as_str().into();
+    if let Some(region) = TextElem::region_in(styles) {
+        bcp.push('-');
+        bcp.push_str(region.as_str());
+    }
+    rustybuzz::Language::from_str(&bcp).unwrap()
 }
 
 /// A toggle that turns on and off alternatingly if folded.

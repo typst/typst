@@ -228,7 +228,7 @@ impl FilePos for (&str, isize) {
 #[track_caller]
 fn cursor(source: &Source, cursor: isize) -> usize {
     if cursor < 0 {
-        source.len_bytes().checked_add_signed(cursor + 1).unwrap()
+        source.text().len().checked_add_signed(cursor + 1).unwrap()
     } else {
         cursor as usize
     }

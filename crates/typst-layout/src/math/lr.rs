@@ -45,20 +45,20 @@ pub fn layout_lr(
 
     // Scale up fragments at both ends.
     match inner_fragments {
-        [one] => scale(ctx, styles, one, relative_to, height, None),
+        [one] => scale(ctx, one, relative_to, height, None),
         [first, .., last] => {
-            scale(ctx, styles, first, relative_to, height, Some(MathClass::Opening));
-            scale(ctx, styles, last, relative_to, height, Some(MathClass::Closing));
+            scale(ctx, first, relative_to, height, Some(MathClass::Opening));
+            scale(ctx, last, relative_to, height, Some(MathClass::Closing));
         }
         _ => {}
     }
 
-    // Handle MathFragment::Variant fragments that should be scaled up.
+    // Handle MathFragment::Glyph fragments that should be scaled up.
     for fragment in inner_fragments.iter_mut() {
-        if let MathFragment::Variant(ref mut variant) = fragment {
-            if variant.mid_stretched == Some(false) {
-                variant.mid_stretched = Some(true);
-                scale(ctx, styles, fragment, relative_to, height, Some(MathClass::Large));
+        if let MathFragment::Glyph(ref mut glyph) = fragment {
+            if glyph.mid_stretched == Some(false) {
+                glyph.mid_stretched = Some(true);
+                scale(ctx, fragment, relative_to, height, Some(MathClass::Large));
             }
         }
     }
@@ -95,18 +95,9 @@ pub fn layout_mid(
     let mut fragments = ctx.layout_into_fragments(&elem.body, styles)?;
 
     for fragment in &mut fragments {
-        match fragment {
-            MathFragment::Glyph(glyph) => {
-                let mut new = glyph.clone().into_variant();
-                new.mid_stretched = Some(false);
-                new.class = MathClass::Fence;
-                *fragment = MathFragment::Variant(new);
-            }
-            MathFragment::Variant(variant) => {
-                variant.mid_stretched = Some(false);
-                variant.class = MathClass::Fence;
-            }
-            _ => {}
+        if let MathFragment::Glyph(ref mut glyph) = fragment {
+            glyph.mid_stretched = Some(false);
+            glyph.class = MathClass::Fence;
         }
     }
 
@@ -117,7 +108,6 @@ pub fn layout_mid(
 /// Scale a math fragment to a height.
 fn scale(
     ctx: &mut MathContext,
-    styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
     height: Rel<Abs>,
@@ -132,7 +122,6 @@ fn scale(
         let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
         stretch_fragment(
             ctx,
-            styles,
             fragment,
             Some(Axis::Y),
             Some(relative_to),

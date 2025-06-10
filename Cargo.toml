@@ -32,7 +32,7 @@ typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "c74e539" }
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
 arrayvec = "0.7.4"
 az = "1.2"
@@ -71,8 +71,9 @@ icu_provider_adapters = "1.4"
 icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
-image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
+image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 indexmap = { version = "2", features = ["serde"] }
+infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
 krilla = { version = "0.4.0", default-features = false, features = ["raster-images", "comemo", "rayon"] }
 krilla-svg = "0.1.0"
@@ -136,6 +137,7 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.45", default-features = false, features = ["text"] }
+utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = "0.40.0"
 web-sys = "0.3"

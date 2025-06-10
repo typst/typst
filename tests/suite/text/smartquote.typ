@@ -46,6 +46,10 @@
 #set text(lang: "ru")
 "Лошадь не ест салат из огурцов" - это была первая фраза, сказанная по 'телефону'.
 
+--- smartquote-uk ---
+#set text(lang: "uk")
+"Кінь не їсть огірковий салат" — перше речення, коли-небудь вимовлене по 'телефону'.
+
 --- smartquote-it ---
 #set text(lang: "it")
 "Il cavallo non mangia insalata di cetrioli" è stata la prima frase pronunciata al 'telefono'.
