@@ -470,9 +470,12 @@ pub struct GridHeader {
 
     /// The level of the header. Must not be zero.
     ///
-    /// This is used during repetition multiple headers at once. When a header
-    /// with a lower level starts repeating, all headers with a lower level stop
-    /// repeating.
+    /// This allows repeating multiple headers at once. Headers with different
+    /// levels can repeat together, as long as they have ascending levels.
+    ///
+    /// Notably, when a level with a lower level starts repeating, all higher
+    /// or equal level headers stop repeating (they are "replaced" by the new
+    /// header).
     #[default(NonZeroU32::ONE)]
     pub level: NonZeroU32,
 
