@@ -153,9 +153,8 @@ fn adjust_glyph_layout(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) {
-    let math_size = EquationElem::size_in(styles);
     if glyph.class == MathClass::Large {
-        if math_size == MathSize::Display {
+        if EquationElem::size_in(styles) == MathSize::Display {
             let height = scaled!(ctx, styles, display_operator_min_height)
                 .max(SQRT_2 * glyph.size.y);
             glyph.stretch_vertical(ctx, height);
