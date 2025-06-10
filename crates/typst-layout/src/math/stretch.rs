@@ -65,7 +65,6 @@ pub fn stretch_fragment(
     glyph.stretch(ctx, stretch.relative_to(relative_to_size) - short_fall, stretch_axis);
 
     if stretch_axis == Axis::Y {
-        // TODO: this should use delimiter_alignment
         glyph.center_on_axis();
     }
 }

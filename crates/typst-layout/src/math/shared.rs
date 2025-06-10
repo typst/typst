@@ -1,7 +1,7 @@
 use ttf_parser::math::MathValue;
 use ttf_parser::Tag;
 use typst_library::foundations::{Style, StyleChain};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size, VAlignment};
+use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{FontFeatures, TextElem};
 use typst_utils::LazyHash;
@@ -105,15 +105,6 @@ pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
         ctx.constants.script_script_percent_scale_down(),
     ))
     .wrap()
-}
-
-/// How a delimieter should be aligned when scaling.
-pub fn delimiter_alignment(delimiter: char) -> VAlignment {
-    match delimiter {
-        '⌜' | '⌝' => VAlignment::Top,
-        '⌞' | '⌟' => VAlignment::Bottom,
-        _ => VAlignment::Horizon,
-    }
 }
 
 /// Stack rows on top of each other.

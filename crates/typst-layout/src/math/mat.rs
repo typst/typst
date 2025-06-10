@@ -9,8 +9,8 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, delimiter_alignment, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
+    alignments, style_for_denominator, AlignmentResult, FrameFragment, GlyphFragment,
+    LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -315,7 +315,7 @@ fn layout_delimiters(
     if let Some(left_c) = left {
         let mut left = GlyphFragment::new(ctx.font, styles, left_c, span);
         left.stretch_vertical(ctx, target - short_fall);
-        left.align_on_axis(delimiter_alignment(left_c));
+        left.center_on_axis();
         ctx.push(left);
     }
 
@@ -324,7 +324,7 @@ fn layout_delimiters(
     if let Some(right_c) = right {
         let mut right = GlyphFragment::new(ctx.font, styles, right_c, span);
         right.stretch_vertical(ctx, target - short_fall);
-        right.align_on_axis(delimiter_alignment(right_c));
+        right.center_on_axis();
         ctx.push(right);
     }
 
