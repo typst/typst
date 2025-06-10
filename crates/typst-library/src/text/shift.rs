@@ -55,6 +55,13 @@ impl Show for Packed<SubElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
 
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::sub)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
+
         if self.typographic(styles) {
             if let Some(text) = convert_script(&body, true) {
                 if is_shapable(engine, &text, styles) {
