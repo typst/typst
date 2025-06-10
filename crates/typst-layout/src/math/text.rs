@@ -132,7 +132,7 @@ pub fn layout_symbol(
         elem.span(),
     ) {
         Some(mut glyph) => {
-            layout_glyph(&mut glyph, ctx, styles);
+            adjust_glyph_layout(&mut glyph, ctx, styles);
             glyph.into()
         }
         None => {
@@ -146,8 +146,13 @@ pub fn layout_symbol(
     Ok(())
 }
 
-/// Layout a [`GlyphFragment`].
-fn layout_glyph(glyph: &mut GlyphFragment, ctx: &mut MathContext, styles: StyleChain) {
+/// Centers large glyphs vertically on the axis, scaling them if in display
+/// style.
+fn adjust_glyph_layout(
+    glyph: &mut GlyphFragment,
+    ctx: &mut MathContext,
+    styles: StyleChain,
+) {
     let math_size = EquationElem::size_in(styles);
     if glyph.class == MathClass::Large {
         if math_size == MathSize::Display {
