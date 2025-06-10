@@ -82,6 +82,8 @@ $ lr(body) quad
 $ (a | b) $
 $ (a mid(|) b) $
 $ (a class("unary", |) b) $
+$ (a class("unary", mid(|)) b) $
+$ (a mid(class("unary", |)) b) $
 
 --- math-lr-unbalanced ---
 // Test unbalanced delimiters.

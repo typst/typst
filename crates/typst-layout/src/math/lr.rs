@@ -47,20 +47,8 @@ pub fn layout_lr(
     match inner_fragments {
         [one] => scale_if_delimiter(ctx, one, relative_to, height, None),
         [first, .., last] => {
-            scale_if_delimiter(
-                ctx,
-                first,
-                relative_to,
-                height,
-                Some(MathClass::Opening),
-            );
-            scale_if_delimiter(
-                ctx,
-                last,
-                relative_to,
-                height,
-                Some(MathClass::Closing),
-            );
+            scale_if_delimiter(ctx, first, relative_to, height, Some(MathClass::Opening));
+            scale_if_delimiter(ctx, last, relative_to, height, Some(MathClass::Closing));
         }
         [] => {}
     }
@@ -151,12 +139,5 @@ fn scale(
     // This unwrap doesn't really matter. If it is None, then the fragment
     // won't be stretchable anyways.
     let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
-    stretch_fragment(
-        ctx,
-        fragment,
-        Some(Axis::Y),
-        Some(relative_to),
-        height,
-        short_fall,
-    );
+    stretch_fragment(ctx, fragment, Some(Axis::Y), Some(relative_to), height, short_fall);
 }
