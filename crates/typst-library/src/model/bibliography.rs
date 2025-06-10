@@ -425,7 +425,11 @@ fn format_biblatex_error(errors: Vec<BibLaTeXError>) -> LoadError {
     // TODO: return multiple errors?
     let Some(error) = errors.into_iter().next() else {
         // TODO: can this even happen, should we just unwrap?
-        return LoadError::new(ReportPos::None, "failed to parse BibLaTeX", "???");
+        return LoadError::new(
+            ReportPos::None,
+            "failed to parse BibLaTeX",
+            "something went wrong",
+        );
     };
 
     let (range, msg) = match error {
