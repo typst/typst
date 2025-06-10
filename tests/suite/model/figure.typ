@@ -97,7 +97,7 @@ We can clearly see that @fig-cylinder and
   if not it.numbering == none {
     title = it.supplement
     if not it.numbering == none {
-      title += " " +  it.counter.display(it.numbering)
+      title += " " + counter(figure.where(kind: it.kind)).display(it.numbering)
     }
   }
   title = strong(title)
@@ -168,7 +168,10 @@ We can clearly see that @fig-cylinder and
 
 --- figure-caption-where-selector ---
 // Test figure.caption element for specific figure kinds
-#show figure.caption.where(kind: table): underline
+#show figure.where(kind: table): it => {
+  show figure.caption: underline
+  it
+}
 
 #figure(
   [Not a table],
@@ -212,8 +215,8 @@ We can clearly see that @fig-cylinder and
 
 #show figure.caption: it => emph[
   #it.body
-  (#it.supplement
-   #context it.counter.display(it.numbering))
+  (#it.supplement()
+   #context it.counter().display(it.numbering()))
 ]
 
 #figure(
