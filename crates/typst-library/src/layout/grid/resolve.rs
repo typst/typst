@@ -1,5 +1,5 @@
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::ops::{Deref, Range};
+use std::ops::{Deref, DerefMut, Range};
 use std::sync::Arc;
 
 use ecow::eco_format;
@@ -485,21 +485,13 @@ impl<T> Deref for Repeatable<T> {
     }
 }
 
-impl<T> Repeatable<T> {
-    /// Gets the value inside this repeatable, regardless of whether
-    /// it repeats.
-    #[inline]
-    pub fn unwrap(&self) -> &T {
-        &self.inner
-    }
-
-    /// Gets the value inside this repeatable, regardless of whether
-    /// it repeats (mutably).
-    #[inline]
-    pub fn unwrap_mut(&mut self) -> &mut T {
+impl<T> DerefMut for Repeatable<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
+}
 
+impl<T> Repeatable<T> {
     /// Returns `Some` if the value is repeated, `None` otherwise.
     #[inline]
     pub fn as_repeated(&self) -> Option<&T> {
@@ -1606,7 +1598,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                             conflicts
                         })
                     {
-                        conflicting_header.unwrap_mut().short_lived = true;
+                        conflicting_header.short_lived = true;
                     }
 
                     headers.push(Repeatable { inner: data, repeated: row_group.repeat });
@@ -1825,7 +1817,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             consecutive_header_start = h.range.start;
             at_the_end
         }) {
-            header_at_the_end.unwrap_mut().short_lived = true;
+            header_at_the_end.short_lived = true;
         }
 
         // Repeat the gutter below a header (hence why we don't
@@ -1833,8 +1825,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // Don't do this if there are no rows under the header.
         if has_gutter {
             for header in &mut *headers {
-                let header = header.unwrap_mut();
-
                 // Index of first y is doubled, as each row before it
                 // receives a gutter row below.
                 header.range.start *= 2;

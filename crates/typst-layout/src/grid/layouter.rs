@@ -274,13 +274,14 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(footer) = self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
-        {
-            // Ensure rows in the first region will be aware of the possible
-            // presence of the footer.
-            self.prepare_footer(footer, engine, 0)?;
-            self.regions.size.y -= self.current.footer_height;
-            self.current.initial_after_repeats = self.regions.size.y;
+        if let Some(footer) = &self.grid.footer {
+            if footer.repeated {
+                // Ensure rows in the first region will be aware of the
+                // possible presence of the footer.
+                self.prepare_footer(footer, engine, 0)?;
+                self.regions.size.y -= self.current.footer_height;
+                self.current.initial_after_repeats = self.regions.size.y;
+            }
         }
 
         let mut y = 0;
@@ -297,10 +298,8 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            if let Some(footer) =
-                self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
-            {
-                if y >= footer.start {
+            if let Some(footer) = &self.grid.footer {
+                if footer.repeated && y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
                         self.flush_orphans();
@@ -1573,9 +1572,7 @@ impl<'a> GridLayouter<'a> {
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
-            if let Some(footer) =
-                self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
-            {
+            if let Some(footer) = &self.grid.footer {
                 // Don't layout the footer if it would be alone with the header
                 // in the page (hence the widow check), and don't layout it
                 // twice (check below).
@@ -1583,7 +1580,9 @@ impl<'a> GridLayouter<'a> {
                 // TODO(subfooters): this check can be replaced by a vector of
                 // repeating footers in the future, and/or some "pending
                 // footers" vector for footers we're about to place.
-                if self.current.lrows.iter().all(|row| row.index() < footer.start) {
+                if footer.repeated
+                    && self.current.lrows.iter().all(|row| row.index() < footer.start)
+                {
                     laid_out_footer_start = Some(footer.start);
                     self.layout_footer(footer, engine, self.finished.len())?;
                 }

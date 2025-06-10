@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
@@ -205,7 +207,7 @@ impl<'a> GridLayouter<'a> {
             self.repeating_headers
                 .iter()
                 .copied()
-                .chain(self.pending_headers.iter().map(Repeatable::unwrap)),
+                .chain(self.pending_headers.iter().map(Repeatable::deref)),
             &self.regions,
             engine,
             disambiguator,
@@ -254,7 +256,7 @@ impl<'a> GridLayouter<'a> {
             total_header_row_count(self.repeating_headers.iter().copied());
 
         let pending_header_rows =
-            total_header_row_count(self.pending_headers.iter().map(Repeatable::unwrap));
+            total_header_row_count(self.pending_headers.iter().map(Repeatable::deref));
 
         // Group of headers is unbreakable.
         // Thus, no risk of 'finish_region' being recursively called from
@@ -326,7 +328,7 @@ impl<'a> GridLayouter<'a> {
                 has_non_repeated_pending_header = true;
             }
             let header_height =
-                self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
+                self.layout_header_rows(header, engine, disambiguator, false)?;
             if header.repeated {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
@@ -364,7 +366,7 @@ impl<'a> GridLayouter<'a> {
         // for upcoming regions, we will have to consider repeating headers as
         // well.
         let header_height = self.simulate_header_height(
-            headers.iter().map(Repeatable::unwrap),
+            headers.iter().map(Repeatable::deref),
             &self.regions,
             engine,
             0,
@@ -398,11 +400,10 @@ impl<'a> GridLayouter<'a> {
         let mut at_top = self.regions.size.y == self.current.initial_after_repeats;
 
         self.unbreakable_rows_left +=
-            total_header_row_count(headers.iter().map(Repeatable::unwrap));
+            total_header_row_count(headers.iter().map(Repeatable::deref));
 
         for header in headers {
-            let header_height =
-                self.layout_header_rows(header.unwrap(), engine, 0, false)?;
+            let header_height = self.layout_header_rows(header, engine, 0, false)?;
 
             // Only store this header height if it is actually going to
             // become a pending header. Otherwise, pretend it's not a
