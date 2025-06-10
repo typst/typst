@@ -95,10 +95,7 @@ impl PicoStr {
             }
         };
 
-        match NonZeroU64::new(value) {
-            Some(value) => Ok(Self(value)),
-            None => unreachable!(),
-        }
+        Ok(Self(NonZeroU64::new(value).unwrap()))
     }
 
     /// Resolve to a decoded string.

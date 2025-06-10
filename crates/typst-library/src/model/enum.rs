@@ -129,7 +129,7 @@ pub struct EnumElem {
     ///   [Ahead],
     /// )
     /// ```
-    pub start: Smart<usize>,
+    pub start: Smart<u64>,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -217,7 +217,7 @@ pub struct EnumElem {
     #[internal]
     #[fold]
     #[ghost]
-    pub parents: SmallVec<[usize; 4]>,
+    pub parents: SmallVec<[u64; 4]>,
 }
 
 #[scope]
@@ -259,10 +259,11 @@ impl Show for Packed<EnumElem> {
                 .spanned(self.span());
 
         if tight {
-            let leading = ParElem::leading_in(styles);
-            let spacing =
-                VElem::new(leading.into()).with_weak(true).with_attach(true).pack();
-            realized = spacing + realized;
+            let spacing = self
+                .spacing(styles)
+                .unwrap_or_else(|| ParElem::leading_in(styles).into());
+            let v = VElem::new(spacing.into()).with_weak(true).with_attach(true).pack();
+            realized = v + realized;
         }
 
         Ok(realized)
@@ -274,7 +275,7 @@ impl Show for Packed<EnumElem> {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<usize>,
+    pub number: Option<u64>,
 
     /// The item's body.
     #[required]

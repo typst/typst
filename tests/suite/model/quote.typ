@@ -118,3 +118,6 @@ An inline #quote[quote.]
 #quote(block: true, attribution: [The Test Author])[
   A block-level quote.
 ]
+
+--- issue-5536-quote-inline-quotes-false ---
+Lorem #quote(block: false, quotes: false)[dolor].

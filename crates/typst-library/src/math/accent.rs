@@ -13,8 +13,8 @@ use crate::math::Mathy;
 /// ```
 #[elem(Mathy)]
 pub struct AccentElem {
-    /// The base to which the accent is applied.
-    /// May consist of multiple letters.
+    /// The base to which the accent is applied. May consist of multiple
+    /// letters.
     ///
     /// ```example
     /// $arrow(A B C)$
@@ -51,9 +51,24 @@ pub struct AccentElem {
     pub accent: Accent,
 
     /// The size of the accent, relative to the width of the base.
+    ///
+    /// ```example
+    /// $dash(A, size: #150%)$
+    /// ```
     #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
+
+    /// Whether to remove the dot on top of lowercase i and j when adding a top
+    /// accent.
+    ///
+    /// This enables the `dtls` OpenType feature.
+    ///
+    /// ```example
+    /// $hat(dotless: #false, i)$
+    /// ```
+    #[default(true)]
+    pub dotless: bool,
 }
 
 /// An accent character.
@@ -64,6 +79,19 @@ impl Accent {
     /// Normalize a character into an accent.
     pub fn new(c: char) -> Self {
         Self(Self::combine(c).unwrap_or(c))
+    }
+
+    /// List of bottom accents. Currently just a list of ones included in the
+    /// Unicode math class document.
+    const BOTTOM: &[char] = &[
+        '\u{0323}', '\u{032C}', '\u{032D}', '\u{032E}', '\u{032F}', '\u{0330}',
+        '\u{0331}', '\u{0332}', '\u{0333}', '\u{033A}', '\u{20E8}', '\u{20EC}',
+        '\u{20ED}', '\u{20EE}', '\u{20EF}',
+    ];
+
+    /// Whether this accent is a bottom accent or not.
+    pub fn is_bottom(&self) -> bool {
+        Self::BOTTOM.contains(&self.0)
     }
 }
 
@@ -103,10 +131,17 @@ macro_rules! accents {
                 /// The size of the accent, relative to the width of the base.
                 #[named]
                 size: Option<Rel<Length>>,
+                /// Whether to remove the dot on top of lowercase i and j when
+                /// adding a top accent.
+                #[named]
+                dotless: Option<bool>,
             ) -> Content {
                 let mut accent = AccentElem::new(base, Accent::new($primary));
                 if let Some(size) = size {
                     accent = accent.with_size(size);
+                }
+                if let Some(dotless) = dotless {
+                    accent = accent.with_dotless(dotless);
                 }
                 accent.pack()
             }

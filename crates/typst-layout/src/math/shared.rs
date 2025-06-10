@@ -1,7 +1,9 @@
 use ttf_parser::math::MathValue;
+use ttf_parser::Tag;
 use typst_library::foundations::{Style, StyleChain};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size, VAlignment};
+use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
+use typst_library::text::{FontFeatures, TextElem};
 use typst_utils::LazyHash;
 
 use super::{LeftRightAlternator, MathContext, MathFragment, MathRun};
@@ -59,6 +61,16 @@ pub fn style_cramped() -> LazyHash<Style> {
     EquationElem::set_cramped(true).wrap()
 }
 
+/// Sets flac OpenType feature.
+pub fn style_flac() -> LazyHash<Style> {
+    TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)])).wrap()
+}
+
+/// Sets dtls OpenType feature.
+pub fn style_dtls() -> LazyHash<Style> {
+    TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)])).wrap()
+}
+
 /// The style for subscripts in the current style.
 pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_superscript(styles), EquationElem::set_cramped(true).wrap()]
@@ -97,15 +109,6 @@ pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
     .wrap()
 }
 
-/// How a delimieter should be aligned when scaling.
-pub fn delimiter_alignment(delimiter: char) -> VAlignment {
-    match delimiter {
-        '⌜' | '⌝' => VAlignment::Top,
-        '⌞' | '⌟' => VAlignment::Bottom,
-        _ => VAlignment::Horizon,
-    }
-}
-
 /// Stack rows on top of each other.
 ///
 /// Add a `gap` between each row and uses the baseline of the `baseline`-th
@@ -117,7 +120,6 @@ pub fn stack(
     gap: Abs,
     baseline: usize,
     alternator: LeftRightAlternator,
-    minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
@@ -125,13 +127,9 @@ pub fn stack(
         .map(|row| row.into_line_frame(&points, alternator))
         .collect();
 
-    let padded_height = |height: Abs| {
-        height.max(minimum_ascent_descent.map_or(Abs::zero(), |(a, d)| a + d))
-    };
-
     let mut frame = Frame::soft(Size::new(
         width,
-        rows.iter().map(|row| padded_height(row.height())).sum::<Abs>()
+        rows.iter().map(|row| row.height()).sum::<Abs>()
             + rows.len().saturating_sub(1) as f64 * gap,
     ));
 
@@ -142,14 +140,11 @@ pub fn stack(
         } else {
             Abs::zero()
         };
-        let ascent_padded_part = minimum_ascent_descent
-            .map_or(Abs::zero(), |(a, _)| (a - row.ascent()))
-            .max(Abs::zero());
-        let pos = Point::new(x, y + ascent_padded_part);
+        let pos = Point::new(x, y);
         if i == baseline {
-            frame.set_baseline(y + row.baseline() + ascent_padded_part);
+            frame.set_baseline(y + row.baseline());
         }
-        y += padded_height(row.height()) + gap;
+        y += row.height() + gap;
         frame.push_frame(pos, row);
     }
 

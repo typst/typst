@@ -3,15 +3,17 @@ use std::ops::Range;
 use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
-use syntect::highlighting as synt;
-use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use ecow::{EcoString, EcoVec};
+use syntect::highlighting::{self as synt};
+use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
-use crate::diag::{At, FileError, SourceResult, StrResult};
+use crate::diag::{
+    LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
@@ -188,7 +190,7 @@ pub struct RawElem {
     /// - A path string to load a syntax file from the given path. For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which the syntax should be decoded.
-    /// - An array where each item is one the above.
+    /// - An array where each item is one of the above.
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
@@ -539,46 +541,53 @@ impl RawSyntax {
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Vec<RawSyntax>>> {
-        let data = sources.load(world)?;
-        let list = sources
-            .v
-            .0
+        let loaded = sources.load(world)?;
+        let list = loaded
             .iter()
-            .zip(&data)
-            .map(|(source, data)| Self::decode(source, data))
-            .collect::<StrResult<_>>()
-            .at(sources.span)?;
+            .map(|data| Self::decode(&data.data).within(data))
+            .collect::<SourceResult<_>>()?;
         Ok(Derived::new(sources.v, list))
     }
 
     /// Decode a syntax from a loaded source.
     #[comemo::memoize]
     #[typst_macros::time(name = "load syntaxes")]
-    fn decode(source: &DataSource, data: &Bytes) -> StrResult<RawSyntax> {
-        let src = data.as_str().map_err(FileError::from)?;
-        let syntax = SyntaxDefinition::load_from_str(src, false, None).map_err(
-            |err| match source {
-                DataSource::Path(path) => {
-                    eco_format!("failed to parse syntax file `{path}` ({err})")
-                }
-                DataSource::Bytes(_) => {
-                    eco_format!("failed to parse syntax ({err})")
-                }
-            },
-        )?;
+    fn decode(bytes: &Bytes) -> LoadResult<RawSyntax> {
+        let str = bytes.as_str()?;
+
+        let syntax = SyntaxDefinition::load_from_str(str, false, None)
+            .map_err(format_syntax_error)?;
 
         let mut builder = SyntaxSetBuilder::new();
         builder.add(syntax);
 
         Ok(RawSyntax(Arc::new(ManuallyHash::new(
             builder.build(),
-            typst_utils::hash128(data),
+            typst_utils::hash128(bytes),
         ))))
     }
 
     /// Return the underlying syntax set.
     fn get(&self) -> &SyntaxSet {
         self.0.as_ref()
+    }
+}
+
+fn format_syntax_error(error: ParseSyntaxError) -> LoadError {
+    let pos = syntax_error_pos(&error);
+    LoadError::new(pos, "failed to parse syntax", error)
+}
+
+fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
+    match error {
+        ParseSyntaxError::InvalidYaml(scan_error) => {
+            let m = scan_error.marker();
+            ReportPos::full(
+                m.index()..m.index(),
+                LineCol::one_based(m.line(), m.col() + 1),
+            )
+        }
+        _ => ReportPos::None,
     }
 }
 
@@ -592,24 +601,32 @@ impl RawTheme {
         world: Tracked<dyn World + '_>,
         source: Spanned<DataSource>,
     ) -> SourceResult<Derived<DataSource, Self>> {
-        let data = source.load(world)?;
-        let theme = Self::decode(&data).at(source.span)?;
+        let loaded = source.load(world)?;
+        let theme = Self::decode(&loaded.data).within(&loaded)?;
         Ok(Derived::new(source.v, theme))
     }
 
     /// Decode a theme from bytes.
     #[comemo::memoize]
-    fn decode(data: &Bytes) -> StrResult<RawTheme> {
-        let mut cursor = std::io::Cursor::new(data.as_slice());
-        let theme = synt::ThemeSet::load_from_reader(&mut cursor)
-            .map_err(|err| eco_format!("failed to parse theme ({err})"))?;
-        Ok(RawTheme(Arc::new(ManuallyHash::new(theme, typst_utils::hash128(data)))))
+    fn decode(bytes: &Bytes) -> LoadResult<RawTheme> {
+        let mut cursor = std::io::Cursor::new(bytes.as_slice());
+        let theme =
+            synt::ThemeSet::load_from_reader(&mut cursor).map_err(format_theme_error)?;
+        Ok(RawTheme(Arc::new(ManuallyHash::new(theme, typst_utils::hash128(bytes)))))
     }
 
     /// Get the underlying syntect theme.
     pub fn get(&self) -> &synt::Theme {
         self.0.as_ref()
     }
+}
+
+fn format_theme_error(error: syntect::LoadingError) -> LoadError {
+    let pos = match &error {
+        syntect::LoadingError::ParseSyntax(err, _) => syntax_error_pos(err),
+        _ => ReportPos::None,
+    };
+    LoadError::new(pos, "failed to parse theme", error)
 }
 
 /// A highlighted line of raw text.

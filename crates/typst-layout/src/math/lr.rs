@@ -45,11 +45,10 @@ pub fn layout_lr(
 
     // Scale up fragments at both ends.
     match inner_fragments {
-        [one] => scale_if_delimiter(ctx, styles, one, relative_to, height, None),
+        [one] => scale_if_delimiter(ctx, one, relative_to, height, None),
         [first, .., last] => {
             scale_if_delimiter(
                 ctx,
-                styles,
                 first,
                 relative_to,
                 height,
@@ -57,7 +56,6 @@ pub fn layout_lr(
             );
             scale_if_delimiter(
                 ctx,
-                styles,
                 last,
                 relative_to,
                 height,
@@ -67,12 +65,12 @@ pub fn layout_lr(
         [] => {}
     }
 
-    // Handle MathFragment::Variant fragments that should be scaled up.
+    // Handle MathFragment::Glyph fragments that should be scaled up.
     for fragment in inner_fragments.iter_mut() {
-        if let MathFragment::Variant(ref mut variant) = fragment {
-            if variant.mid_stretched == Some(false) {
-                variant.mid_stretched = Some(true);
-                scale(ctx, styles, fragment, relative_to, height);
+        if let MathFragment::Glyph(ref mut glyph) = fragment {
+            if glyph.mid_stretched == Some(false) {
+                glyph.mid_stretched = Some(true);
+                scale(ctx, fragment, relative_to, height);
             }
         }
     }
@@ -109,18 +107,9 @@ pub fn layout_mid(
     let mut fragments = ctx.layout_into_fragments(&elem.body, styles)?;
 
     for fragment in &mut fragments {
-        match fragment {
-            MathFragment::Glyph(glyph) => {
-                let mut new = glyph.clone().into_variant();
-                new.mid_stretched = Some(false);
-                new.class = MathClass::Relation;
-                *fragment = MathFragment::Variant(new);
-            }
-            MathFragment::Variant(variant) => {
-                variant.mid_stretched = Some(false);
-                variant.class = MathClass::Relation;
-            }
-            _ => {}
+        if let MathFragment::Glyph(ref mut glyph) = fragment {
+            glyph.mid_stretched = Some(false);
+            glyph.class = MathClass::Relation;
         }
     }
 
@@ -135,7 +124,6 @@ pub fn layout_mid(
 /// it is a delimiter, in a way that cannot be overridden by the user.
 fn scale_if_delimiter(
     ctx: &mut MathContext,
-    styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
     height: Rel<Abs>,
@@ -145,7 +133,7 @@ fn scale_if_delimiter(
         fragment.class(),
         MathClass::Opening | MathClass::Closing | MathClass::Fence
     ) {
-        scale(ctx, styles, fragment, relative_to, height);
+        scale(ctx, fragment, relative_to, height);
 
         if let Some(class) = apply {
             fragment.set_class(class);
@@ -156,7 +144,6 @@ fn scale_if_delimiter(
 /// Scales a math fragment to a height.
 fn scale(
     ctx: &mut MathContext,
-    styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
     height: Rel<Abs>,
@@ -166,7 +153,6 @@ fn scale(
     let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
     stretch_fragment(
         ctx,
-        styles,
         fragment,
         Some(Axis::Y),
         Some(relative_to),

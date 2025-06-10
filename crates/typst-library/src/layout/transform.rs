@@ -307,6 +307,20 @@ impl Transform {
         Self { sx, sy, ..Self::identity() }
     }
 
+    /// A scale transform at a specific position.
+    pub fn scale_at(sx: Ratio, sy: Ratio, px: Abs, py: Abs) -> Self {
+        Self::translate(px, py)
+            .pre_concat(Self::scale(sx, sy))
+            .pre_concat(Self::translate(-px, -py))
+    }
+
+    /// A rotate transform at a specific position.
+    pub fn rotate_at(angle: Angle, px: Abs, py: Abs) -> Self {
+        Self::translate(px, py)
+            .pre_concat(Self::rotate(angle))
+            .pre_concat(Self::translate(-px, -py))
+    }
+
     /// A rotate transform.
     pub fn rotate(angle: Angle) -> Self {
         let cos = Ratio::new(angle.cos());

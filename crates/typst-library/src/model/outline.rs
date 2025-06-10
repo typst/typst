@@ -388,7 +388,7 @@ pub struct OutlineEntry {
     /// space between the entry's body and the page number. When using show
     /// rules to override outline entries, it is thus recommended to wrap the
     /// fill in a [`box`] with fractional width, i.e.
-    /// `{box(width: 1fr, it.fill}`.
+    /// `{box(width: 1fr, it.fill)}`.
     ///
     /// When using [`repeat`], the [`gap`]($repeat.gap) property can be useful
     /// to tweak the visual weight of the fill.

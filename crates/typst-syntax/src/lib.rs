@@ -7,6 +7,7 @@ mod file;
 mod highlight;
 mod kind;
 mod lexer;
+mod lines;
 mod node;
 mod parser;
 mod path;
@@ -22,6 +23,7 @@ pub use self::lexer::{
     is_id_continue, is_id_start, is_ident, is_newline, is_valid_label_literal_id,
     link_prefix, split_newlines,
 };
+pub use self::lines::Lines;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
 pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::VirtualPath;

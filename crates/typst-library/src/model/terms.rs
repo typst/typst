@@ -189,13 +189,15 @@ impl Show for Packed<TermsElem> {
             .styled(TermsElem::set_within(true));
 
         if tight {
-            let leading = ParElem::leading_in(styles);
-            let spacing = VElem::new(leading.into())
+            let spacing = self
+                .spacing(styles)
+                .unwrap_or_else(|| ParElem::leading_in(styles).into());
+            let v = VElem::new(spacing.into())
                 .with_weak(true)
                 .with_attach(true)
                 .pack()
                 .spanned(span);
-            realized = spacing + realized;
+            realized = v + realized;
         }
 
         Ok(realized)
