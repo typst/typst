@@ -136,7 +136,7 @@ impl Symbol {
 
         if let Repr::Modified(arc) = &mut self.0 {
             let (list, modifiers) = Arc::make_mut(arc);
-            modifiers.add_unchecked(modifier);
+            modifiers.insert_raw(modifier);
             if modifiers.best_match_in(list.variants()).is_some() {
                 return Ok(self);
             }
@@ -256,7 +256,7 @@ impl Symbol {
 
         let list = variants
             .into_iter()
-            .map(|s| (ModifierSet::new_unchecked(s.v.0), s.v.1))
+            .map(|s| (ModifierSet::from_raw_dotted(s.v.0), s.v.1))
             .collect();
         Ok(Symbol::runtime(list))
     }
