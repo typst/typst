@@ -86,7 +86,7 @@ impl Show for Packed<UnderlineElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
         Ok(if TargetElem::target_in(styles).is_html() {
-            HtmlElem::new(tag::sub)
+            HtmlElem::new(tag::u)
                 .with_body(Some(body))
                 .pack()
                 .spanned(self.span())
