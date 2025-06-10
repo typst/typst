@@ -271,11 +271,11 @@ impl GlyphFragment {
     pub fn try_new(
         font: &Font,
         styles: StyleChain,
-        str: &str,
+        text: &str,
         span: Span,
     ) -> Option<GlyphFragment> {
         let mut buffer = UnicodeBuffer::new();
-        buffer.push_str(str);
+        buffer.push_str(text);
         buffer.set_language(language(styles));
         // TODO: Use `rustybuzz::script::MATH` once
         // https://github.com/harfbuzz/rustybuzz/pull/165 is released.
@@ -309,7 +309,7 @@ impl GlyphFragment {
         }
 
         let cluster = info.cluster as usize;
-        let c = str[cluster..].chars().next().unwrap();
+        let c = text[cluster..].chars().next().unwrap();
         let limits = Limits::for_char(c);
         let class = EquationElem::class_in(styles)
             .or_else(|| default_math_class(c))
@@ -322,14 +322,14 @@ impl GlyphFragment {
             stroke: TextElem::stroke_in(styles).map(|s| s.unwrap_or_default()),
             lang: TextElem::lang_in(styles),
             region: TextElem::region_in(styles),
-            text: str.into(),
+            text: text.into(),
             glyphs: vec![Glyph {
                 id: info.glyph_id as u16,
                 x_advance: font.to_em(pos.x_advance),
                 x_offset: Em::zero(),
                 y_advance: Em::zero(),
                 y_offset: Em::zero(),
-                range: 0..str.len().saturating_as(),
+                range: 0..text.len().saturating_as(),
                 span: (span, 0),
             }],
         };
