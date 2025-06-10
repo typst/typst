@@ -274,7 +274,8 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+        if let Some(footer) = self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+        {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
             self.prepare_footer(footer, engine, 0)?;
@@ -296,7 +297,9 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            if let Some(footer) =
+                self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+            {
                 if y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
@@ -1564,14 +1567,15 @@ impl<'a> GridLayouter<'a> {
         // TODO(subfooters): explicitly check for short-lived footers.
         // TODO(subfooters): widow prevention for non-repeated footers with a
         // similar mechanism / when implementing multiple footers.
-        let footer_would_be_widow =
-            matches!(self.grid.footer, Some(Repeatable::Repeated(_)))
-                && self.current.lrows.is_empty()
-                && self.current.could_progress_at_top;
+        let footer_would_be_widow = matches!(&self.grid.footer, Some(footer) if footer.repeated)
+            && self.current.lrows.is_empty()
+            && self.current.could_progress_at_top;
 
         let mut laid_out_footer_start = None;
         if !footer_would_be_widow {
-            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            if let Some(footer) =
+                self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+            {
                 // Don't layout the footer if it would be alone with the header
                 // in the page (hence the widow check), and don't layout it
                 // twice (check below).
@@ -1735,7 +1739,9 @@ impl<'a> GridLayouter<'a> {
             self.current.repeating_header_heights.clear();
 
             let disambiguator = self.finished.len();
-            if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
+            if let Some(footer) =
+                self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+            {
                 self.prepare_footer(footer, engine, disambiguator)?;
             }
 

@@ -238,8 +238,8 @@ impl GridLayouter<'_> {
             // current row is dynamic and depends on the amount of upcoming
             // unbreakable cells (with or without a rowspan setting).
             let mut amount_unbreakable_rows = None;
-            if let Some(Repeatable::NotRepeated(footer)) = &self.grid.footer {
-                if current_row >= footer.start {
+            if let Some(footer) = &self.grid.footer {
+                if !footer.repeated && current_row >= footer.start {
                     // Non-repeated footer, so keep it unbreakable.
                     //
                     // TODO(subfooters): This will become unnecessary
@@ -400,7 +400,7 @@ impl GridLayouter<'_> {
             if breakable
                 && (!self.repeating_headers.is_empty()
                     || !self.pending_headers.is_empty()
-                    || matches!(self.grid.footer, Some(Repeatable::Repeated(_))))
+                    || matches!(&self.grid.footer, Some(footer) if footer.repeated))
             {
                 // Subtract header and footer height from all upcoming regions
                 // when measuring the cell, including the last repeated region.
@@ -1176,14 +1176,15 @@ impl<'a> RowspanSimulator<'a> {
             (None, Abs::zero())
         };
 
-        let footer_height =
-            if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
-                layouter
-                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                    .height
-            } else {
-                Abs::zero()
-            };
+        let footer_height = if let Some(footer) =
+            layouter.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+        {
+            layouter
+                .simulate_footer(footer, &self.regions, engine, disambiguator)?
+                .height
+        } else {
+            Abs::zero()
+        };
 
         let mut skipped_region = false;
 
@@ -1211,7 +1212,9 @@ impl<'a> RowspanSimulator<'a> {
             };
         }
 
-        if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
+        if let Some(footer) =
+            layouter.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+        {
             self.footer_height = if skipped_region {
                 // Simulate footers again, at the new region, as
                 // the full region height may change.

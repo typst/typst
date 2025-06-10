@@ -465,23 +465,23 @@ impl Footer {
     }
 }
 
-/// A possibly repeatable grid child.
+/// A possibly repeatable grid child (header or footer).
 ///
 /// It still exists even when not repeatable, but must not have additional
 /// considerations by grid layout, other than for consistency (such as making
 /// a certain group of rows unbreakable).
-pub enum Repeatable<T> {
-    /// The user asked this grid child to repeat.
-    Repeated(T),
-    /// The user asked this grid child to not repeat.
-    NotRepeated(T),
+pub struct Repeatable<T> {
+    inner: T,
+
+    /// Whether the user requested the child to repeat.
+    pub repeated: bool,
 }
 
 impl<T> Deref for Repeatable<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.unwrap()
+        &self.inner
     }
 }
 
@@ -490,28 +490,23 @@ impl<T> Repeatable<T> {
     /// it repeats.
     #[inline]
     pub fn unwrap(&self) -> &T {
-        match self {
-            Self::Repeated(repeated) => repeated,
-            Self::NotRepeated(not_repeated) => not_repeated,
-        }
+        &self.inner
     }
 
     /// Gets the value inside this repeatable, regardless of whether
     /// it repeats (mutably).
     #[inline]
     pub fn unwrap_mut(&mut self) -> &mut T {
-        match self {
-            Self::Repeated(repeated) => repeated,
-            Self::NotRepeated(not_repeated) => not_repeated,
-        }
+        &mut self.inner
     }
 
     /// Returns `Some` if the value is repeated, `None` otherwise.
     #[inline]
     pub fn as_repeated(&self) -> Option<&T> {
-        match self {
-            Self::Repeated(repeated) => Some(repeated),
-            Self::NotRepeated(_) => None,
+        if self.repeated {
+            Some(&self.inner)
+        } else {
+            None
         }
     }
 }
@@ -906,7 +901,7 @@ impl<'a> CellGrid<'a> {
 
     #[inline]
     pub fn has_repeated_headers(&self) -> bool {
-        self.headers.iter().any(|h| matches!(h, Repeatable::Repeated(_)))
+        self.headers.iter().any(|h| h.repeated)
     }
 }
 
@@ -1614,11 +1609,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         conflicting_header.unwrap_mut().short_lived = true;
                     }
 
-                    headers.push(if row_group.repeat {
-                        Repeatable::Repeated(data)
-                    } else {
-                        Repeatable::NotRepeated(data)
-                    });
+                    headers.push(Repeatable { inner: data, repeated: row_group.repeat });
                 }
 
                 RowGroupKind::Footer => {
@@ -1920,10 +1911,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // footers.
                 // TODO(subfooters): Switch this to marking the last N
                 // consecutive footers as short lived.
-                if repeat_footer && at_least_one_cell {
-                    Repeatable::Repeated(footer)
-                } else {
-                    Repeatable::NotRepeated(footer)
+                Repeatable {
+                    inner: footer,
+                    repeated: repeat_footer && at_least_one_cell,
                 }
             });
 

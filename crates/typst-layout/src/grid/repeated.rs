@@ -170,7 +170,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         for header in self.pending_headers {
-            if let Repeatable::Repeated(header) = header {
+            if header.repeated {
                 // Vector remains sorted by increasing levels:
                 // - 'pending_headers' themselves are sorted, since we only
                 // push non-mutually-conflicting headers at a time.
@@ -238,8 +238,8 @@ impl<'a> GridLayouter<'a> {
             self.current.initial_after_repeats = self.regions.size.y;
         }
 
-        if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
-            if skipped_region {
+        if let Some(footer) = &self.grid.footer {
+            if footer.repeated && skipped_region {
                 // Simulate the footer again; the region's 'full' might have
                 // changed.
                 self.regions.size.y += self.current.footer_height;
@@ -321,13 +321,13 @@ impl<'a> GridLayouter<'a> {
 
         let mut has_non_repeated_pending_header = false;
         for header in self.pending_headers {
-            if matches!(header, Repeatable::NotRepeated(_)) {
+            if !header.repeated {
                 self.current.initial_after_repeats = self.regions.size.y;
                 has_non_repeated_pending_header = true;
             }
             let header_height =
                 self.layout_header_rows(header.unwrap(), engine, disambiguator, false)?;
-            if matches!(header, Repeatable::Repeated(_)) {
+            if header.repeated {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
             }
@@ -410,7 +410,7 @@ impl<'a> GridLayouter<'a> {
             // it is guaranteed this header won't appear in a future
             // region, so multi-page rows and cells can effectively ignore
             // this header.
-            if !short_lived && matches!(header, Repeatable::Repeated(_)) {
+            if !short_lived && header.repeated {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
                 if at_top {
@@ -519,11 +519,7 @@ impl<'a> GridLayouter<'a> {
         // anyway, so this is mostly for correctness.
         self.regions.size.y += self.current.footer_height;
 
-        let repeats = self
-            .grid
-            .footer
-            .as_ref()
-            .is_some_and(|f| matches!(f, Repeatable::Repeated(_)));
+        let repeats = self.grid.footer.as_ref().is_some_and(|f| f.repeated);
         let footer_len = self.grid.rows.len() - footer.start;
         self.unbreakable_rows_left += footer_len;
 
