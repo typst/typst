@@ -39,7 +39,8 @@ impl<'a> GridLayouter<'a> {
 
         if new_upcoming_headers.first().is_some_and(|next_header| {
             consecutive_headers.last().is_none_or(|latest_header| {
-                !latest_header.short_lived && next_header.start == latest_header.end
+                !latest_header.short_lived
+                    && next_header.range.start == latest_header.range.end
             }) && !next_header.short_lived
         }) {
             // More headers coming, so wait until we reach them.
@@ -131,7 +132,7 @@ impl<'a> GridLayouter<'a> {
         as_short_lived: bool,
     ) -> SourceResult<Abs> {
         let mut header_height = Abs::zero();
-        for y in header.range() {
+        for y in header.range.clone() {
             header_height += self
                 .layout_row_with_state(
                     y,
@@ -261,7 +262,7 @@ impl<'a> GridLayouter<'a> {
         self.unbreakable_rows_left += repeating_header_rows + pending_header_rows;
 
         self.current.last_repeated_header_end =
-            self.repeating_headers.last().map(|h| h.end).unwrap_or_default();
+            self.repeating_headers.last().map(|h| h.range.end).unwrap_or_default();
 
         // Reset the header height for this region.
         // It will be re-calculated when laying out each header row.
@@ -453,8 +454,8 @@ impl<'a> GridLayouter<'a> {
         // assume that the amount of unbreakable rows following the first row
         // in the header will be precisely the rows in the header.
         self.simulate_unbreakable_row_group(
-            header.start,
-            Some(header.end - header.start),
+            header.range.start,
+            Some(header.range.end - header.range.start),
             regions,
             engine,
             disambiguator,
@@ -569,5 +570,5 @@ impl<'a> GridLayouter<'a> {
 pub fn total_header_row_count<'h>(
     headers: impl IntoIterator<Item = &'h Header>,
 ) -> usize {
-    headers.into_iter().map(|h| h.end - h.start).sum()
+    headers.into_iter().map(|h| h.range.end - h.range.start).sum()
 }

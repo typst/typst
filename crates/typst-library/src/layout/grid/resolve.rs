@@ -428,10 +428,8 @@ pub struct Line {
 /// A repeatable grid header. Starts at the first row.
 #[derive(Debug)]
 pub struct Header {
-    /// The first row included in this header.
-    pub start: usize,
-    /// The index after the last row included in this header.
-    pub end: usize,
+    /// The range of rows included in this header.
+    pub range: Range<usize>,
     /// The header's level.
     ///
     /// Higher level headers repeat together with lower level headers. If a
@@ -444,14 +442,6 @@ pub struct Header {
     /// it is at the end of the table (possibly followed by some footers at the
     /// end).
     pub short_lived: bool,
-}
-
-impl Header {
-    /// The header's range of included rows.
-    #[inline]
-    pub fn range(&self) -> Range<usize> {
-        self.start..self.end
-    }
 }
 
 /// A repeatable grid footer. Stops at the last row.
@@ -1594,13 +1584,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             match row_group.kind {
                 RowGroupKind::Header => {
                     let data = Header {
-                        start: group_range.start,
-
-                        // Later on, we have to correct this number in case there
+                        // Later on, we have to correct this range in case there
                         // is gutter. But only once all cells have been analyzed
                         // and the header has fully expanded in the fixup loop
                         // below.
-                        end: group_range.end,
+                        range: group_range,
 
                         level: row_group.repeatable_level.get(),
 
@@ -1613,13 +1601,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // lived if they would have a higher or equal level, as
                     // then they would immediately stop repeating during
                     // layout.
-                    let mut consecutive_header_start = data.start;
+                    let mut consecutive_header_start = data.range.start;
                     for conflicting_header in
                         headers.iter_mut().rev().take_while(move |h| {
-                            let conflicts = h.end == consecutive_header_start
+                            let conflicts = h.range.end == consecutive_header_start
                                 && h.level >= data.level;
 
-                            consecutive_header_start = h.start;
+                            consecutive_header_start = h.range.start;
                             conflicts
                         })
                     {
@@ -1841,9 +1829,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut consecutive_header_start =
             footer.as_ref().map(|(_, _, f)| f.start).unwrap_or(row_amount);
         for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
-            let at_the_end = h.end == consecutive_header_start;
+            let at_the_end = h.range.end == consecutive_header_start;
 
-            consecutive_header_start = h.start;
+            consecutive_header_start = h.range.start;
             at_the_end
         }) {
             header_at_the_end.unwrap_mut().short_lived = true;
@@ -1858,7 +1846,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 // Index of first y is doubled, as each row before it
                 // receives a gutter row below.
-                header.start *= 2;
+                header.range.start *= 2;
 
                 // - 'header.end' is always 'last y + 1'. The header stops
                 // before that row.
@@ -1871,14 +1859,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // to the index of the gutter row right below the header,
                 // which is what we want (that gutter spacing should be
                 // repeated across pages to maintain uniformity).
-                header.end *= 2;
+                header.range.end *= 2;
 
                 // If the header occupies the entire grid, ensure we don't
                 // include an extra gutter row when it doesn't exist, since
                 // the last row of the header is at the very bottom,
                 // therefore '2 * last y + 1' is not a valid index.
                 let row_amount = (2 * row_amount).saturating_sub(1);
-                header.end = header.end.min(row_amount);
+                header.range.end = header.range.end.min(row_amount);
             }
         }
 
@@ -1898,7 +1886,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // only the gutter above the footer is kept, ensuring the same
                 // gutter row isn't laid out two times in a row. When laying
                 // out the footer for real, the mechanism can be disabled.
-                let last_header_end = headers.last().map(|header| header.end);
+                let last_header_end = headers.last().map(|header| header.range.end);
 
                 if has_gutter {
                     // Convert the footer's start index to post-gutter coordinates.
@@ -2122,7 +2110,7 @@ fn check_for_conflicting_cell_row(
     // conflict.
     if headers
         .iter()
-        .any(|header| cell_y < header.end && cell_y + rowspan > header.start)
+        .any(|header| cell_y < header.range.end && cell_y + rowspan > header.range.start)
     {
         bail!(
             "cell would conflict with header spanning the same position";
@@ -2341,14 +2329,14 @@ fn find_next_available_position(
             }
         } else if let Some(header) = headers
             .get(*next_header)
-            .filter(|header| resolved_index >= header.start * columns)
+            .filter(|header| resolved_index >= header.range.start * columns)
         {
             // Skip header (can't place a cell inside it from outside it).
             // No changes needed if we already passed this header (which
             // also triggers this branch) - in that case, we only update the
             // counter.
-            if resolved_index < header.end * columns {
-                resolved_index = header.end * columns;
+            if resolved_index < header.range.end * columns {
+                resolved_index = header.range.end * columns;
 
                 if skip_rows {
                     // Ensure the cell's chosen column is kept after the

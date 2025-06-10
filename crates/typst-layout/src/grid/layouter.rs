@@ -287,9 +287,9 @@ impl<'a> GridLayouter<'a> {
         while y < self.grid.rows.len() {
             if let Some(next_header) = self.upcoming_headers.get(consecutive_header_count)
             {
-                if next_header.range().contains(&y) {
+                if next_header.range.contains(&y) {
                     self.place_new_headers(&mut consecutive_header_count, engine)?;
-                    y = next_header.end;
+                    y = next_header.range.end;
 
                     // Skip header rows during normal layout.
                     continue;

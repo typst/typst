@@ -306,8 +306,8 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         .headers
         .iter()
         .take_while(|hd| {
-            let is_consecutive = hd.start == consecutive_header_end;
-            consecutive_header_end = hd.end;
+            let is_consecutive = hd.range.start == consecutive_header_end;
+            consecutive_header_end = hd.range.end;
 
             is_consecutive
         })
@@ -315,7 +315,7 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
 
     let (y_offset, header) = if first_mid_table_header > 0 {
         let removed_header_rows =
-            grid.headers.get(first_mid_table_header - 1).unwrap().end;
+            grid.headers.get(first_mid_table_header - 1).unwrap().range.end;
         let rows = rows.drain(..removed_header_rows);
 
         (
@@ -335,9 +335,9 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         Content::sequence(rows.into_iter().enumerate().map(|(relative_y, row)| {
             let y = relative_y + y_offset;
             if let Some(current_header) =
-                grid.headers.get(next_header).filter(|h| h.range().contains(&y))
+                grid.headers.get(next_header).filter(|h| h.range.contains(&y))
             {
-                if y + 1 == current_header.end {
+                if y + 1 == current_header.range.end {
                     next_header += 1;
                 }
 
