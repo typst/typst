@@ -61,10 +61,12 @@ pub fn style_cramped() -> LazyHash<Style> {
     EquationElem::set_cramped(true).wrap()
 }
 
+/// Sets flac OpenType feature.
 pub fn style_flac() -> LazyHash<Style> {
     TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)])).wrap()
 }
 
+/// Sets dtls OpenType feature.
 pub fn style_dtls() -> LazyHash<Style> {
     TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)])).wrap()
 }
