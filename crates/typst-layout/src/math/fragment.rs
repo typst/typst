@@ -23,6 +23,7 @@ use crate::modifiers::{FrameModifiers, FrameModify};
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum MathFragment {
     Glyph(GlyphFragment),
@@ -199,7 +200,7 @@ impl MathFragment {
                 // For glyph assemblies we pick either the start or end glyph
                 // depending on the corner.
                 let is_vertical =
-                    glyph.item.glyphs.iter().any(|glyph| glyph.y_advance != Em::zero());
+                    glyph.item.glyphs.iter().all(|glyph| glyph.y_advance != Em::zero());
                 let glyph_index = match (is_vertical, corner) {
                     (true, Corner::TopLeft | Corner::TopRight) => {
                         glyph.item.glyphs.len() - 1
@@ -240,7 +241,7 @@ impl From<FrameFragment> for MathFragment {
 pub struct GlyphFragment {
     // Text stuff.
     pub item: TextItem,
-    pub base_id: GlyphId,
+    pub base_glyph: Glyph,
     // Math stuff.
     pub size: Size,
     pub baseline: Option<Abs>,
@@ -318,6 +319,16 @@ impl GlyphFragment {
             .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
+        let glyph = Glyph {
+            id: info.glyph_id as u16,
+            x_advance: font.to_em(pos.x_advance),
+            x_offset: font.to_em(pos.x_offset),
+            y_advance: font.to_em(pos.y_advance),
+            y_offset: font.to_em(pos.y_offset),
+            range: 0..text.len().saturating_as(),
+            span: (span, 0),
+        };
+
         let item = TextItem {
             font: font.clone(),
             size: TextElem::size_in(styles),
@@ -326,20 +337,12 @@ impl GlyphFragment {
             lang: TextElem::lang_in(styles),
             region: TextElem::region_in(styles),
             text: text.into(),
-            glyphs: vec![Glyph {
-                id: info.glyph_id as u16,
-                x_advance: font.to_em(pos.x_advance),
-                x_offset: Em::zero(),
-                y_advance: Em::zero(),
-                y_offset: Em::zero(),
-                range: 0..text.len().saturating_as(),
-                span: (span, 0),
-            }],
+            glyphs: vec![glyph.clone()],
         };
 
         let mut fragment = Self {
             item,
-            base_id: GlyphId(info.glyph_id as u16),
+            base_glyph: glyph,
             // Math
             math_size: EquationElem::size_in(styles),
             class,
@@ -399,11 +402,7 @@ impl GlyphFragment {
     // base_id's. This is used to return a glyph to its unstretched state.
     pub fn reset_glyph(&mut self) {
         self.align = Abs::zero();
-        self.item.glyphs = vec![Glyph {
-            id: self.base_id.0,
-            x_advance: self.item.font.advance(self.base_id.0).unwrap_or_default(),
-            ..self.item.glyphs[0].clone()
-        }];
+        self.item.glyphs = vec![self.base_glyph.clone()];
         self.update_glyph();
     }
 
@@ -479,7 +478,11 @@ impl GlyphFragment {
         if target <= best_advance || construction.assembly.is_none() {
             self.item.glyphs[0].id = best_id.0;
             self.item.glyphs[0].x_advance =
-                self.item.font.advance(best_id.0).unwrap_or_default();
+                self.item.font.x_advance(best_id.0).unwrap_or_default();
+            self.item.glyphs[0].x_offset = Em::zero();
+            self.item.glyphs[0].y_advance =
+                self.item.font.y_advance(best_id.0).unwrap_or_default();
+            self.item.glyphs[0].y_offset = Em::zero();
             self.update_glyph();
             return;
         }
@@ -649,7 +652,8 @@ fn axis_height(font: &Font) -> Option<Em> {
     Some(font.to_em(font.ttf().tables().math?.constants?.axis_height().value))
 }
 
-pub fn stretch_axes(font: &Font, id: GlyphId) -> Axes<bool> {
+pub fn stretch_axes(font: &Font, id: u16) -> Axes<bool> {
+    let id = GlyphId(id);
     let horizontal = font
         .ttf()
         .tables()
@@ -783,7 +787,7 @@ fn assemble(
             base.size.y = full;
             base.size.x = glyphs
                 .iter()
-                .map(|glyph| base.item.font.advance(glyph.id).unwrap_or_default())
+                .map(|glyph| base.item.font.x_advance(glyph.id).unwrap_or_default())
                 .max()
                 .unwrap_or_default()
                 .at(base.item.size);

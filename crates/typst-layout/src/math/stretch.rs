@@ -34,7 +34,7 @@ pub fn stretch_fragment(
 
     // Return if we attempt to stretch along an axis which isn't stretchable,
     // so that the original fragment isn't modified.
-    let axes = stretch_axes(&glyph.item.font, glyph.base_id);
+    let axes = stretch_axes(&glyph.item.font, glyph.base_glyph.id);
     let stretch_axis = if let Some(axis) = axis {
         if !axes.get(axis) {
             return;

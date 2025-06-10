@@ -952,7 +952,7 @@ pub fn create_shape_plan(
 
 /// Shape the text with tofus from the given font.
 fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
-    let x_advance = font.advance(0).unwrap_or_default();
+    let x_advance = font.x_advance(0).unwrap_or_default();
     let add_glyph = |(cluster, c): (usize, char)| {
         let start = base + cluster;
         let end = start + c.len_utf8();
@@ -1045,7 +1045,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 /// Difference between non-breaking and normal space.
 fn nbsp_delta(font: &Font) -> Option<Em> {
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
-    Some(font.advance(nbsp)? - font.space_width()?)
+    Some(font.x_advance(nbsp)? - font.space_width()?)
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
