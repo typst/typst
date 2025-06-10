@@ -77,6 +77,7 @@ impl yaml {
     }
 }
 
+/// Format the user-facing YAML error message.
 pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
     let pos = error
         .location()

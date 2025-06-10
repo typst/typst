@@ -27,7 +27,7 @@ pub use self::toml_::*;
 pub use self::xml_::*;
 pub use self::yaml_::*;
 
-use crate::diag::{At, LoadedWithin, SourceResult};
+use crate::diag::{At, SourceResult};
 use crate::foundations::OneOrMultiple;
 use crate::foundations::{cast, Bytes, Scope, Str};
 use crate::World;
@@ -88,13 +88,13 @@ impl Load for Spanned<&DataSource> {
         match &self.v {
             DataSource::Path(path) => {
                 let file_id = self.span.resolve_path(path).at(self.span)?;
-                let bytes = world.file(file_id).at(self.span)?;
+                let data = world.file(file_id).at(self.span)?;
                 let source = Spanned::new(LoadSource::Path(file_id), self.span);
-                Ok(Loaded::new(source, bytes))
+                Ok(Loaded::new(source, data))
             }
-            DataSource::Bytes(bytes) => {
+            DataSource::Bytes(data) => {
                 let source = Spanned::new(LoadSource::Bytes, self.span);
-                Ok(Loaded::new(source, bytes.clone()))
+                Ok(Loaded::new(source, data.clone()))
             }
         }
     }
@@ -123,7 +123,9 @@ impl Load for Spanned<&OneOrMultiple<DataSource>> {
 /// Data loaded from a [`DataSource`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Loaded {
+    /// Details about where `data` was loaded from.
     pub source: Spanned<LoadSource>,
+    /// The loaded data.
     pub data: Bytes,
 }
 

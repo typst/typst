@@ -571,22 +571,27 @@ impl From<PackageError> for EcoString {
     }
 }
 
+/// A result type with a data-loading-related error.
 pub type LoadResult<T> = Result<T, LoadError>;
 
-/// A call site independent error that occurred during data loading.
-/// This avoids polluting the memoization with [`Span`]s and [`FileId`]s from source files.
-/// Can be turned into a [`SourceDiagnostic`] using the [`LoadedWithin::within`] method
-/// available on [`LoadResult`].
+/// A call site independent error that occurred during data loading. This avoids
+/// polluting the memoization with [`Span`]s and [`FileId`]s from source files.
+/// Can be turned into a [`SourceDiagnostic`] using the [`LoadedWithin::within`]
+/// method available on [`LoadResult`].
 ///
 /// [`FileId`]: typst_syntax::FileId
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LoadError {
+    /// The position in the file at which the error occured.
     pos: ReportPos,
     /// Must contain a message formatted like this: `"failed to do thing (cause)"`.
     message: EcoString,
 }
 
 impl LoadError {
+    /// Creates a new error from a position in a file, a base message
+    /// (e.g. `failed to parse JSON`) and a concrete error (e.g. `invalid
+    /// number`)
     pub fn new(
         pos: impl Into<ReportPos>,
         message: impl std::fmt::Display,
@@ -611,7 +616,8 @@ impl From<Utf8Error> for LoadError {
     }
 }
 
-/// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`] context.
+/// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`]
+/// context.
 pub trait LoadedWithin<T> {
     /// Report an error, possibly in an external file.
     fn within(self, loaded: &Loaded) -> SourceResult<T>;
@@ -706,6 +712,7 @@ fn load_err_in_invalid_text(
     eco_vec![SourceDiagnostic::error(loaded.source.span, message)]
 }
 
+/// A position at which an error was reported.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ReportPos {
     /// Contains a range, and a line/column pair.
@@ -731,11 +738,13 @@ impl From<LineCol> for ReportPos {
 }
 
 impl ReportPos {
+    /// Creates a position from a pre-existing range and line-column pair.
     pub fn full(range: std::ops::Range<usize>, pair: LineCol) -> Self {
         let range = range.start.saturating_as()..range.end.saturating_as();
         Self::Full(range, pair)
     }
 
+    /// Tries to determine the byte range for this position.
     fn range(&self, lines: &Lines<String>) -> Option<std::ops::Range<usize>> {
         match self {
             ReportPos::Full(range, _) => Some(range.start as usize..range.end as usize),
@@ -749,6 +758,7 @@ impl ReportPos {
         }
     }
 
+    /// Tries to determine the line/column for this position.
     fn line_col(&self, lines: &Lines<String>) -> Option<LineCol> {
         match self {
             &ReportPos::Full(_, pair) => Some(pair),
@@ -761,7 +771,7 @@ impl ReportPos {
         }
     }
 
-    /// Either get the the line/column pair, or try to compute it from possibly
+    /// Either gets the line/column pair, or tries to compute it from possibly
     /// invalid utf-8 data.
     fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
         match self {
