@@ -2182,13 +2182,14 @@ fn resolve_cell_position(
             // Note that the counter ignores any cells with fixed positions,
             // but automatically-positioned cells will avoid conflicts by
             // simply skipping existing cells, headers and footers.
-            let resolved_index = find_next_available_position::<false>(
+            let resolved_index = find_next_available_position(
                 headers,
                 footer,
                 resolved_cells,
                 columns,
                 *auto_index,
                 next_header,
+                false,
             )?;
 
             // Ensure the next cell with automatic position will be
@@ -2241,7 +2242,7 @@ fn resolve_cell_position(
                 // requested column ('Some(None)') or an out of bounds position
                 // ('None'), in which case we'd create a new row to place this
                 // cell in.
-                find_next_available_position::<true>(
+                find_next_available_position(
                     headers,
                     footer,
                     resolved_cells,
@@ -2262,6 +2263,7 @@ fn resolve_cell_position(
                     // Still, it is something to consider for the future if
                     // this turns out to be a bottleneck in important cases.
                     &mut 0,
+                    true,
                 )
             }
         }
@@ -2303,14 +2305,18 @@ fn resolve_cell_position(
 /// Finds the first available position after the initial index in the resolved
 /// grid of cells. Skips any non-absent positions (positions which already
 /// have cells specified by the user) as well as any headers and footers.
+///
+/// When `skip_rows` is true, one row is skipped on each iteration, preserving
+/// the column. That is used to find a position for a fixed column cell.
 #[inline]
-fn find_next_available_position<const SKIP_ROWS: bool>(
+fn find_next_available_position(
     headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
     initial_index: usize,
     next_header: &mut usize,
+    skip_rows: bool,
 ) -> HintedStrResult<usize> {
     let mut resolved_index = initial_index;
 
@@ -2320,7 +2326,7 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
             // determine where this cell will be placed. An out of
             // bounds position (thus `None`) is also a valid new
             // position (only requires expanding the vector).
-            if SKIP_ROWS {
+            if skip_rows {
                 // Skip one row at a time (cell chose its column, so we don't
                 // change it).
                 resolved_index =
@@ -2344,7 +2350,7 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
             if resolved_index < header.end * columns {
                 resolved_index = header.end * columns;
 
-                if SKIP_ROWS {
+                if skip_rows {
                     // Ensure the cell's chosen column is kept after the
                     // header.
                     resolved_index += initial_index % columns;
@@ -2359,7 +2365,7 @@ fn find_next_available_position<const SKIP_ROWS: bool>(
             // Skip footer, for the same reason.
             resolved_index = *footer_end * columns;
 
-            if SKIP_ROWS {
+            if skip_rows {
                 resolved_index += initial_index % columns;
             }
         } else {
