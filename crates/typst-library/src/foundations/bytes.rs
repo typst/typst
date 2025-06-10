@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
+use typst_syntax::Lines;
 use typst_utils::LazyHash;
 
 use crate::diag::{bail, StrResult};
@@ -283,6 +284,16 @@ impl Serialize for Bytes {
         } else {
             serializer.serialize_bytes(self)
         }
+    }
+}
+
+impl TryFrom<&Bytes> for Lines<String> {
+    type Error = Utf8Error;
+
+    #[comemo::memoize]
+    fn try_from(value: &Bytes) -> Result<Lines<String>, Utf8Error> {
+        let text = value.as_str()?;
+        Ok(Lines::new(text.to_string()))
     }
 }
 
