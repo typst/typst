@@ -681,8 +681,8 @@ fn glyph_construction(font: &Font, id: GlyphId, axis: Axis) -> Option<GlyphConst
         .map(|variants| match axis {
             Axis::X => variants.horizontal_constructions,
             Axis::Y => variants.vertical_constructions,
-        })
-        .and_then(|constructions| constructions.get(id))
+        })?
+        .get(id)
 }
 
 /// Assemble a glyph from parts.
