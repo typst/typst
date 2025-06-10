@@ -107,11 +107,11 @@
 #123.E // this is a field access, so is fine syntactically
 #0.e
 #1.E+020
-// Error: 2-10 invalid number: 123.456e
+// Error: 2-10 invalid floating point number: 123.456e
 #123.456e
-// Error: 2-11 invalid number: 123.456e+
+// Error: 2-11 invalid floating point number: 123.456e+
 #123.456e+
-// Error: 2-6 invalid number: .1E-
+// Error: 2-6 invalid floating point number: .1E-
 #.1E-
-// Error: 2-4 invalid number: 0e
+// Error: 2-4 invalid floating point number: 0e
 #0e
