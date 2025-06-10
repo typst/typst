@@ -266,12 +266,13 @@ impl GlyphFragment {
 
     /// Try to create a new glyph out of the given string. Will return None if
     /// the result from shaping the string is not a single glyph or is a tofu.
+    #[comemo::memoize]
     pub fn try_new(
         font: &Font,
         styles: StyleChain,
         str: &str,
         span: Span,
-    ) -> Option<Self> {
+    ) -> Option<GlyphFragment> {
         let mut buffer = UnicodeBuffer::new();
         buffer.push_str(str);
         buffer.set_language(language(styles));
