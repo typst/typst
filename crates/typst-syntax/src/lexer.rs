@@ -807,86 +807,96 @@ impl Lexer<'_> {
         }
     }
 
-    fn number(&mut self, mut start: usize, c: char) -> SyntaxKind {
+    fn number(&mut self, start: usize, first_c: char) -> SyntaxKind {
         // Handle alternative integer bases.
-        let mut base = 10;
-        if c == '0' {
-            if self.s.eat_if('b') {
-                base = 2;
-            } else if self.s.eat_if('o') {
-                base = 8;
-            } else if self.s.eat_if('x') {
-                base = 16;
-            }
-            if base != 10 {
-                start = self.s.cursor();
-            }
-        }
-
-        // Read the first part (integer or fractional depending on `first`).
-        self.s.eat_while(if base == 16 {
-            char::is_ascii_alphanumeric
-        } else {
-            char::is_ascii_digit
-        });
-
-        // Read the fractional part if not already done.
-        // Make sure not to confuse a range for the decimal separator.
-        if c != '.'
-            && !self.s.at("..")
-            && !self.s.scout(1).is_some_and(is_id_start)
-            && self.s.eat_if('.')
-            && base == 10
-        {
-            self.s.eat_while(char::is_ascii_digit);
-        }
-
-        // Read the exponent.
-        if !self.s.at("em") && self.s.eat_if(['e', 'E']) && base == 10 {
-            self.s.eat_if(['+', '-']);
-            self.s.eat_while(char::is_ascii_digit);
-        }
-
-        // Read the suffix.
-        let suffix_start = self.s.cursor();
-        if !self.s.eat_if('%') {
-            self.s.eat_while(char::is_ascii_alphanumeric);
-        }
-
-        let number = self.s.get(start..suffix_start);
-        let suffix = self.s.from(suffix_start);
-
-        let kind = if i64::from_str_radix(number, base).is_ok() {
-            SyntaxKind::Int
-        } else if base == 10 && number.parse::<f64>().is_ok() {
-            SyntaxKind::Float
-        } else {
-            return self.error(match base {
-                2 => eco_format!("invalid binary number: 0b{}", number),
-                8 => eco_format!("invalid octal number: 0o{}", number),
-                16 => eco_format!("invalid hexadecimal number: 0x{}", number),
-                _ => eco_format!("invalid number: {}", number),
-            });
+        let base = match first_c {
+            '0' if self.s.eat_if('b') => 2,
+            '0' if self.s.eat_if('o') => 8,
+            '0' if self.s.eat_if('x') => 16,
+            _ => 10,
         };
 
-        if suffix.is_empty() {
-            return kind;
+        // Read the initial digits.
+        if base == 16 {
+            self.s.eat_while(char::is_ascii_alphanumeric);
+        } else {
+            self.s.eat_while(char::is_ascii_digit);
         }
 
-        if !matches!(
-            suffix,
-            "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%"
-        ) {
-            return self.error(eco_format!("invalid number suffix: {}", suffix));
+        // Read floating point digits and exponents.
+        let mut is_float = false;
+        if base == 10 {
+            // Read digits following a dot. Make sure not to confuse a spread
+            // operator or a method call for the decimal separator.
+            if first_c == '.' {
+                is_float = true; // We already ate the trailing digits above.
+            } else if !self.s.at("..")
+                && !self.s.scout(1).is_some_and(is_id_start)
+                && self.s.eat_if('.')
+            {
+                is_float = true;
+                self.s.eat_while(char::is_ascii_digit);
+            }
+
+            // Read the exponent.
+            if !self.s.at("em") && self.s.eat_if(['e', 'E']) {
+                is_float = true;
+                self.s.eat_if(['+', '-']);
+                self.s.eat_while(char::is_ascii_digit);
+            }
         }
 
-        if base != 10 {
-            let kind = self.error(eco_format!("invalid base-{base} prefix"));
-            self.hint("numbers with a unit cannot have a base prefix");
-            return kind;
-        }
+        let number = self.s.from(start);
+        let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
 
-        SyntaxKind::Numeric
+        let mut suffix_result = match suffix {
+            "" => Ok(None),
+            "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => Ok(Some(())),
+            _ => Err(eco_format!("invalid number suffix: {suffix}")),
+        };
+
+        let number_result = if is_float && number.parse::<f64>().is_err() {
+            // The only invalid case should be when a float lacks digits after
+            // the exponent: e.g. `1.2e`, `2.3E-`, or `1EM`.
+            Err(eco_format!("invalid floating point number: {number}"))
+        } else if base == 10 {
+            Ok(())
+        } else {
+            let name = match base {
+                2 => "binary",
+                8 => "octal",
+                16 => "hexadecimal",
+                _ => unreachable!(),
+            };
+            // The index `[2..]` skips the leading `0b`/`0o`/`0x`.
+            match i64::from_str_radix(&number[2..], base) {
+                Ok(_) if suffix.is_empty() => Ok(()),
+                Ok(value) => {
+                    if suffix_result.is_ok() {
+                        suffix_result = Err(eco_format!(
+                            "try using a decimal number: {value}{suffix}"
+                        ));
+                    }
+                    Err(eco_format!("{name} numbers cannot have a suffix"))
+                }
+                Err(_) => Err(eco_format!("invalid {name} number: {number}")),
+            }
+        };
+
+        // Return our number or write an error with helpful hints.
+        match (number_result, suffix_result) {
+            // Valid numbers :D
+            (Ok(()), Ok(None)) if is_float => SyntaxKind::Float,
+            (Ok(()), Ok(None)) => SyntaxKind::Int,
+            (Ok(()), Ok(Some(()))) => SyntaxKind::Numeric,
+            // Invalid numbers :(
+            (Err(number_err), Err(suffix_err)) => {
+                let err = self.error(number_err);
+                self.hint(suffix_err);
+                err
+            }
+            (Ok(()), Err(msg)) | (Err(msg), Ok(_)) => self.error(msg),
+        }
     }
 
     fn string(&mut self) -> SyntaxKind {
