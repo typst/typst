@@ -16,10 +16,9 @@ use typst_syntax::Span;
 use typst_utils::{default_math_class, Get};
 use unicode_math_class::MathClass;
 
+use super::MathContext;
 use crate::inline::create_shape_plan;
 use crate::modifiers::{FrameModifiers, FrameModify};
-
-use super::MathContext;
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
