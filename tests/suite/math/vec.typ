@@ -50,6 +50,12 @@ $ vec(1, 2) $
 // Error: 22-33 invalid delimiter: "%"
 #set math.vec(delim: (none, "%"))
 
+--- math-vec-delim-size ---
+// Test setting delimiter size.
+$ vec(1, 2, 3) vec(delim-size: #100%, 1, 2, 3) $
+#set math.vec(delim-size: x => calc.max(x - 5pt, x * 0.901))
+$ vec(delim: "{", 1, 2, 3) vec(delim: "[", 1, 2, 3) $
+
 --- math-vec-linebreaks ---
 // Warning: 20-29 linebreaks are ignored in elements
 // Hint: 20-29 use commas instead to separate each line

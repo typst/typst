@@ -307,7 +307,7 @@ impl GlyphFragment {
     }
 
     /// Apply GSUB substitutions.
-    fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
+    pub fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
         if let Some(glyphwise_tables) = &ctx.glyphwise_tables {
             glyphwise_tables.iter().fold(id, |id, table| table.apply(id))
         } else {
