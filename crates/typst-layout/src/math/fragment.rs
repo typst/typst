@@ -1,5 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
+use az::SaturatingAs;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::GlyphId;
@@ -328,7 +329,7 @@ impl GlyphFragment {
                 x_offset: Em::zero(),
                 y_advance: Em::zero(),
                 y_offset: Em::zero(),
-                range: 0..str.len() as u16,
+                range: 0..str.len().saturating_as(),
                 span: (span, 0),
             }],
         };
