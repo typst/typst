@@ -258,10 +258,14 @@ pub struct GlyphFragment {
 }
 
 impl GlyphFragment {
+    /// Calls `try_new` with the given character, assuming the font has a glyph
+    /// for it.
     pub fn new(font: &Font, styles: StyleChain, c: char, span: Span) -> Self {
         Self::try_new(font, styles, c.encode_utf8(&mut [0; 4]), span).unwrap()
     }
 
+    /// Try to create a new glyph out of the given string. Will return None if
+    /// the result from shaping the string is not a single glyph or is a tofu.
     pub fn try_new(
         font: &Font,
         styles: StyleChain,
