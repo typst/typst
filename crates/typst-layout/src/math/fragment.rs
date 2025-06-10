@@ -109,7 +109,7 @@ impl MathFragment {
 
     pub fn font_size(&self) -> Option<Abs> {
         match self {
-            Self::Glyph(glyph) => Some(glyph.text.size),
+            Self::Glyph(glyph) => Some(glyph.item.size),
             Self::Frame(fragment) => Some(fragment.font_size),
             _ => None,
         }
@@ -199,25 +199,25 @@ impl MathFragment {
                 // For glyph assemblies we pick either the start or end glyph
                 // depending on the corner.
                 let is_vertical =
-                    glyph.text.glyphs.iter().any(|glyph| glyph.y_advance != Em::zero());
+                    glyph.item.glyphs.iter().any(|glyph| glyph.y_advance != Em::zero());
                 let glyph_index = match (is_vertical, corner) {
                     (true, Corner::TopLeft | Corner::TopRight) => {
-                        glyph.text.glyphs.len() - 1
+                        glyph.item.glyphs.len() - 1
                     }
                     (false, Corner::TopRight | Corner::BottomRight) => {
-                        glyph.text.glyphs.len() - 1
+                        glyph.item.glyphs.len() - 1
                     }
                     _ => 0,
                 };
 
                 kern_at_height(
-                    &glyph.text.font,
-                    GlyphId(glyph.text.glyphs[glyph_index].id),
+                    &glyph.item.font,
+                    GlyphId(glyph.item.glyphs[glyph_index].id),
                     corner,
-                    Em::from_length(height, glyph.text.size),
+                    Em::from_length(height, glyph.item.size),
                 )
                 .unwrap_or_default()
-                .at(glyph.text.size)
+                .at(glyph.item.size)
             }
             _ => Abs::zero(),
         }
@@ -239,7 +239,7 @@ impl From<FrameFragment> for MathFragment {
 #[derive(Clone)]
 pub struct GlyphFragment {
     // Text stuff.
-    pub text: TextItem,
+    pub item: TextItem,
     pub base_id: GlyphId,
     // Math stuff.
     pub size: Size,
@@ -313,7 +313,7 @@ impl GlyphFragment {
             .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
-        let text = TextItem {
+        let item = TextItem {
             font: font.clone(),
             size: TextElem::size_in(styles),
             fill: TextElem::fill_in(styles).as_decoration(),
@@ -333,7 +333,7 @@ impl GlyphFragment {
         };
 
         let mut fragment = Self {
-            text,
+            item,
             base_id: GlyphId(info.glyph_id as u16),
             // Math
             math_size: EquationElem::size_in(styles),
@@ -358,32 +358,32 @@ impl GlyphFragment {
     /// Sets element id and boxes in appropriate way without changing other
     /// styles. This is used to replace the glyph with a stretch variant.
     pub fn update_glyph(&mut self) {
-        let id = GlyphId(self.text.glyphs[0].id);
+        let id = GlyphId(self.item.glyphs[0].id);
 
-        let extended_shape = is_extended_shape(&self.text.font, id);
-        let italics = italics_correction(&self.text.font, id).unwrap_or_default();
-        let width = self.text.width();
+        let extended_shape = is_extended_shape(&self.item.font, id);
+        let italics = italics_correction(&self.item.font, id).unwrap_or_default();
+        let width = self.item.width();
         if !extended_shape {
-            self.text.glyphs[0].x_advance += italics;
+            self.item.glyphs[0].x_advance += italics;
         }
-        let italics = italics.at(self.text.size);
+        let italics = italics.at(self.item.size);
 
         let (ascent, descent) =
-            ascent_descent(&self.text.font, id).unwrap_or((Em::zero(), Em::zero()));
+            ascent_descent(&self.item.font, id).unwrap_or((Em::zero(), Em::zero()));
 
         // The fallback for accents is half the width plus or minus the italics
         // correction. This is similar to how top and bottom attachments are
         // shifted. For bottom accents we do not use the accent attach of the
         // base as it is meant for top acccents.
-        let top_accent_attach = accent_attach(&self.text.font, id)
-            .map(|x| x.at(self.text.size))
+        let top_accent_attach = accent_attach(&self.item.font, id)
+            .map(|x| x.at(self.item.size))
             .unwrap_or((width + italics) / 2.0);
         let bottom_accent_attach = (width - italics) / 2.0;
 
-        self.baseline = Some(ascent.at(self.text.size));
+        self.baseline = Some(ascent.at(self.item.size));
         self.size = Size::new(
-            self.text.width(),
-            ascent.at(self.text.size) + descent.at(self.text.size),
+            self.item.width(),
+            ascent.at(self.item.size) + descent.at(self.item.size),
         );
         self.italics_correction = italics;
         self.accent_attach = (top_accent_attach, bottom_accent_attach);
@@ -394,10 +394,10 @@ impl GlyphFragment {
     // base_id's. This is used to return a glyph to its unstretched state.
     pub fn reset_glyph(&mut self) {
         self.align = Abs::zero();
-        self.text.glyphs = vec![Glyph {
+        self.item.glyphs = vec![Glyph {
             id: self.base_id.0,
-            x_advance: self.text.font.advance(self.base_id.0).unwrap_or_default(),
-            ..self.text.glyphs[0].clone()
+            x_advance: self.item.font.advance(self.base_id.0).unwrap_or_default(),
+            ..self.item.glyphs[0].clone()
         }];
         self.update_glyph();
     }
@@ -421,7 +421,7 @@ impl GlyphFragment {
         frame.set_baseline(self.baseline());
         frame.push(
             Point::with_y(self.ascent() + self.shift + self.align),
-            FrameItem::Text(self.text),
+            FrameItem::Text(self.item),
         );
         frame.modify(&self.modifiers);
         frame
@@ -454,8 +454,8 @@ impl GlyphFragment {
             return;
         }
 
-        let id = GlyphId(self.text.glyphs[0].id);
-        let font = self.text.font.clone();
+        let id = GlyphId(self.item.glyphs[0].id);
+        let font = self.item.font.clone();
         let Some(construction) = glyph_construction(&font, id, axis) else { return };
 
         // Search for a pre-made variant with a good advance.
@@ -464,7 +464,7 @@ impl GlyphFragment {
         for variant in construction.variants {
             best_id = variant.variant_glyph;
             best_advance =
-                self.text.font.to_em(variant.advance_measurement).at(self.text.size);
+                self.item.font.to_em(variant.advance_measurement).at(self.item.size);
             if target <= best_advance {
                 break;
             }
@@ -472,18 +472,18 @@ impl GlyphFragment {
 
         // This is either good or the best we've got.
         if target <= best_advance || construction.assembly.is_none() {
-            self.text.glyphs[0].id = best_id.0;
-            self.text.glyphs[0].x_advance =
-                self.text.font.advance(best_id.0).unwrap_or_default();
+            self.item.glyphs[0].id = best_id.0;
+            self.item.glyphs[0].x_advance =
+                self.item.font.advance(best_id.0).unwrap_or_default();
             self.update_glyph();
             return;
         }
 
         // Assemble from parts.
         let assembly = construction.assembly.unwrap();
-        let min_overlap = min_connector_overlap(&self.text.font)
+        let min_overlap = min_connector_overlap(&self.item.font)
             .unwrap_or_default()
-            .at(self.text.size);
+            .at(self.item.size);
         assemble(ctx, self, assembly, min_overlap, target, axis);
     }
 
@@ -497,7 +497,7 @@ impl GlyphFragment {
     /// to the given alignment on the axis.
     pub fn align_on_axis(&mut self, align: VAlignment) {
         let h = self.size.y;
-        let axis = axis_height(&self.text.font).unwrap().at(self.text.size);
+        let axis = axis_height(&self.item.font).unwrap().at(self.item.size);
         self.align += self.baseline();
         self.baseline = Some(align.inv().position(h + axis * 2.0));
         self.align -= self.baseline();
@@ -506,7 +506,7 @@ impl GlyphFragment {
 
 impl Debug for GlyphFragment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "GlyphFragment({:?})", self.text.text)
+        write!(f, "GlyphFragment({:?})", self.item.text)
     }
 }
 
@@ -706,18 +706,18 @@ fn assemble(
         let mut growable = Abs::zero();
 
         while let Some(part) = parts.next() {
-            let mut advance = base.text.font.to_em(part.full_advance).at(base.text.size);
+            let mut advance = base.item.font.to_em(part.full_advance).at(base.item.size);
             if let Some(next) = parts.peek() {
                 let max_overlap = base
-                    .text
+                    .item
                     .font
                     .to_em(part.end_connector_length.min(next.start_connector_length))
-                    .at(base.text.size);
+                    .at(base.item.size);
                 if max_overlap < min_overlap {
                     // This condition happening is indicative of a bug in the
                     // font.
                     ctx.engine.sink.warn(warning!(
-                       base.text.glyphs[0].span.0,
+                       base.item.glyphs[0].span.0,
                        "glyph has assembly parts with overlap less than minConnectorOverlap";
                        hint: "its rendering may appear broken - this is probably a font bug";
                        hint: "please file an issue at https://github.com/typst/typst/issues"
@@ -747,19 +747,19 @@ fn assemble(
     let mut glyphs = vec![];
     let mut parts = parts(assembly, repeat).peekable();
     while let Some(part) = parts.next() {
-        let mut advance = base.text.font.to_em(part.full_advance).at(base.text.size);
+        let mut advance = base.item.font.to_em(part.full_advance).at(base.item.size);
         if let Some(next) = parts.peek() {
             let max_overlap = base
-                .text
+                .item
                 .font
                 .to_em(part.end_connector_length.min(next.start_connector_length))
-                .at(base.text.size);
+                .at(base.item.size);
             advance -= max_overlap;
             advance += ratio * (max_overlap - min_overlap);
         }
         let (x, y) = match axis {
-            Axis::X => (Em::from_length(advance, base.text.size), Em::zero()),
-            Axis::Y => (Em::zero(), Em::from_length(advance, base.text.size)),
+            Axis::X => (Em::from_length(advance, base.item.size), Em::zero()),
+            Axis::Y => (Em::zero(), Em::from_length(advance, base.item.size)),
         };
         glyphs.push(Glyph {
             id: part.glyph_id.0,
@@ -767,7 +767,7 @@ fn assemble(
             x_offset: Em::zero(),
             y_advance: y,
             y_offset: Em::zero(),
-            ..base.text.glyphs[0].clone()
+            ..base.item.glyphs[0].clone()
         });
     }
 
@@ -778,19 +778,19 @@ fn assemble(
             base.size.y = full;
             base.size.x = glyphs
                 .iter()
-                .map(|glyph| base.text.font.advance(glyph.id).unwrap_or_default())
+                .map(|glyph| base.item.font.advance(glyph.id).unwrap_or_default())
                 .max()
                 .unwrap_or_default()
-                .at(base.text.size);
+                .at(base.item.size);
         }
     }
 
-    base.text.glyphs = glyphs;
+    base.item.glyphs = glyphs;
     base.italics_correction = base
-        .text
+        .item
         .font
         .to_em(assembly.italics_correction.value)
-        .at(base.text.size);
+        .at(base.item.size);
     if axis == Axis::X {
         base.accent_attach = (full / 2.0, full / 2.0);
     }

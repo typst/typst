@@ -34,7 +34,7 @@ pub fn stretch_fragment(
 
     // Return if we attempt to stretch along an axis which isn't stretchable,
     // so that the original fragment isn't modified.
-    let axes = stretch_axes(&glyph.text.font, glyph.base_id);
+    let axes = stretch_axes(&glyph.item.font, glyph.base_id);
     let stretch_axis = if let Some(axis) = axis {
         if !axes.get(axis) {
             return;
@@ -50,7 +50,7 @@ pub fn stretch_fragment(
                 // vertical and horizontal constructions. So for the time being, we
                 // will assume that a glyph cannot have both.
                 ctx.engine.sink.warn(warning!(
-                   glyph.text.glyphs[0].span.0,
+                   glyph.item.glyphs[0].span.0,
                    "glyph has both vertical and horizontal constructions";
                    hint: "this is probably a font bug";
                    hint: "please file an issue at https://github.com/typst/typst/issues"

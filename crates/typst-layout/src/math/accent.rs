@@ -47,7 +47,7 @@ pub fn layout_accent(
     // Forcing the accent to be at least as large as the base makes it too wide
     // in many cases.
     let width = elem.size(styles).relative_to(base.width());
-    let short_fall = ACCENT_SHORT_FALL.at(glyph.text.size);
+    let short_fall = ACCENT_SHORT_FALL.at(glyph.item.size);
     glyph.stretch_horizontal(ctx, width - short_fall);
     let accent_attach = glyph.accent_attach.0;
     let accent = glyph.into_frame();
