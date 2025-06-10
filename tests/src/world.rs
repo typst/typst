@@ -92,7 +92,7 @@ impl TestWorld {
         self.slot(id, |slot| {
             if let Some(source) = slot.source.get() {
                 let source = source.as_ref().expect("file is not valid");
-                source.lines()
+                source.lines().clone()
             } else if let Some(bytes) = slot.file.get() {
                 let bytes = bytes.as_ref().expect("file is not valid");
                 Lines::try_from(bytes).expect("file is not valid utf-8")
