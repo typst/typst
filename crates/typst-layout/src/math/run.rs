@@ -6,7 +6,7 @@ use typst_library::math::{EquationElem, MathSize, MEDIUM, THICK, THIN};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
-use super::{alignments, FrameFragment, MathFragment};
+use super::{alignments, EquationSizings, FrameFragment, MathFragment};
 
 const TIGHT_LEADING: Em = Em::new(0.25);
 
@@ -165,7 +165,7 @@ impl MathRun {
         if !self.is_multiline() {
             self.into_line_frame(&[], LeftRightAlternator::Right)
         } else {
-            self.multiline_frame_builder(styles).build()
+            self.multiline_frame_builder(styles, None).build()
         }
     }
 
@@ -189,10 +189,15 @@ impl MathRun {
     /// Returns a builder that lays out the [`MathFragment`]s into a possibly
     /// multi-row [`Frame`]. The rows are aligned using the same set of alignment
     /// points computed from them as a whole.
-    pub fn multiline_frame_builder(self, styles: StyleChain) -> MathRunFrameBuilder {
+    pub fn multiline_frame_builder(
+        self,
+        styles: StyleChain,
+        sizings: Option<EquationSizings>,
+    ) -> MathRunFrameBuilder {
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
-        let alignments = alignments(&rows);
+
+        let alignments = alignments(&rows, sizings);
 
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
             ParElem::leading_in(styles)
@@ -213,14 +218,16 @@ impl MathRun {
                 size.y += leading;
             }
 
-            let mut pos = Point::with_y(size.y);
+            let mut pos = Point::new(alignments.padding.0, size.y);
             if alignments.points.is_empty() {
-                pos.x = align.position(alignments.width - sub.width());
+                pos.x += align.position(alignments.width - sub.width());
             }
-            size.x.set_max(sub.width());
+            size.x.set_max(sub.width() + alignments.padding.0);
             size.y += sub.height();
             frames.push((sub, pos));
         }
+
+        size.x += alignments.padding.1;
 
         MathRunFrameBuilder { size, frames }
     }

@@ -54,6 +54,32 @@ This is big: $sum_(i=0)^n$
 #eq(start)
 #eq(end)
 
+--- math-equation-align-columns-1 ---
+// Test columns in equations.
+#set page(width: auto)
+$     sum a &<= &     sum b &<= &     &sum c \
+  log sum a &<= & log sum b &<= & log &sum c $
+
+#math.equation(block: true, column-gap: 0em, $
+      sum a &<= &     sum b &<= &     &sum c \
+  log sum a &<= & log sum b &<= & log &sum c
+$)
+
+--- math-equation-align-columns-2 ---
+// Test columns in equations.
+#set page(width: auto)
+#set math.equation(column-gap: 1em)
+#block(stroke: black + 1pt, $
+  &&       x & = y  && & a   & = b + c && && && \
+  && -4 + 5x & = -2 && & a b & = c b   && && &&
+$)
+
+--- math-equation-align-column-gap ---
+// Test column-gap in equations.
+#set math.equation(column-gap: 4em)
+$ a &=b & c&=d \
+  e &=f & g&=h $
+
 --- math-equation-number-align ---
 #set math.equation(numbering: "(1)")
 

@@ -98,6 +98,12 @@ pub fn layout_equation_inline(
     Ok(items)
 }
 
+pub struct EquationSizings<'a> {
+    region_size_x: Abs,
+    gaps: &'a [GapSizing<Abs>],
+    padding: &'a [GapSizing<Abs>],
+}
+
 /// Layout a block-level equation (in a flow).
 #[typst_macros::time(span = elem.span())]
 pub fn layout_equation_block(
@@ -118,9 +124,17 @@ pub fn layout_equation_block(
     let scale_style = style_for_script_scale(&ctx);
     let styles = styles.chain(&scale_style);
 
+    let gaps = elem.column_gap(styles).resolve(styles);
+    let padding = elem.column_padding(styles).resolve(styles);
+    let sizings = EquationSizings {
+        region_size_x: regions.size.x,
+        gaps: gaps.0.as_slice(),
+        padding: padding.0.as_slice(),
+    };
+
     let full_equation_builder = ctx
         .layout_into_run(&elem.body, styles)?
-        .multiline_frame_builder(styles);
+        .multiline_frame_builder(styles, Some(sizings));
     let width = full_equation_builder.size.x;
 
     let equation_builders = if BlockElem::breakable_in(styles) {

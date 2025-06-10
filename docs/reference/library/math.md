@@ -78,6 +78,9 @@ alternating the alignment twice. `& &` and `&&` behave exactly the same way.
 Meanwhile, "multiply by 7" is right-aligned because just one `&` precedes it.
 Each alignment point simply alternates between right-aligned/left-aligned.
 
+By default, there is a gap of `1em` added between columns. You can modify this
+with the [`column-gap`]($math.equation.column-gap) parameter.
+
 ```example
 $ (3x + y) / 7 &= 9 && "given" \
   3x + y &= 63 & "multiply by 7" \
