@@ -227,7 +227,15 @@ impl Show for Packed<BibliographyElem> {
         let references = works
             .references
             .as_ref()
-            .ok_or("CSL style is not suitable for bibliographies")
+            .ok_or_else(|| match self.style(styles).source {
+                CslSource::Named(style) => eco_format!(
+                    "CSL style \"{}\" is not suitable for bibliographies",
+                    style.display_name()
+                ),
+                CslSource::Normal(..) => {
+                    "CSL style is not suitable for bibliographies".into()
+                }
+            })
             .at(span)?;
 
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
