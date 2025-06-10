@@ -5,7 +5,7 @@ use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem};
+use typst_library::text::{variant, Lang, TextElem};
 use typst_utils::Numeric;
 
 use super::*;
@@ -412,9 +412,30 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
     }
 }
 
-/// Apply the current baseline shift to a frame.
-pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
-    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+/// Apply the current baseline shift and italic compensation to a frame.
+pub fn apply_shift<'a>(
+    world: &Tracked<'a, dyn World + 'a>,
+    frame: &mut Frame,
+    styles: StyleChain,
+) {
+    let mut baseline = TextElem::baseline_in(styles);
+    let mut compensation = Abs::zero();
+    if let Some(scripts) = TextElem::subperscript_in(styles) {
+        let font_metrics = TextElem::font_in(styles)
+            .into_iter()
+            .find_map(|family| {
+                world
+                    .book()
+                    .select(family.as_str(), variant(styles))
+                    .and_then(|id| world.font(id))
+            })
+            .map_or(scripts.kind.default_metrics(), |f| {
+                scripts.kind.read_metrics(f.metrics())
+            });
+        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).resolve(styles);
+        compensation += font_metrics.horizontal_offset.resolve(styles);
+    }
+    frame.translate(Point::new(compensation, baseline));
 }
 
 /// Commit to a line and build its frame.
@@ -519,7 +540,7 @@ pub fn commit(
                     let mut frame = layout_and_modify(*styles, |styles| {
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
-                    apply_baseline_shift(&mut frame, *styles);
+                    apply_shift(&engine.world, &mut frame, *styles);
                     push(&mut offset, frame);
                 } else {
                     offset += amount;
