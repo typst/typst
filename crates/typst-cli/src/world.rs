@@ -9,7 +9,7 @@ use ecow::{eco_format, EcoString};
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::{FileId, Lines, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, World};
@@ -181,10 +181,20 @@ impl SystemWorld {
         }
     }
 
-    /// Lookup a source file by id.
+    /// Lookup line metadata for a file by id.
     #[track_caller]
-    pub fn lookup(&self, id: FileId) -> Source {
-        self.source(id).expect("file id does not point to any source file")
+    pub fn lookup(&self, id: FileId) -> Lines<String> {
+        self.slot(id, |slot| {
+            if let Some(source) = slot.source.get() {
+                let source = source.as_ref().expect("file is not valid");
+                source.lines()
+            } else if let Some(bytes) = slot.file.get() {
+                let bytes = bytes.as_ref().expect("file is not valid");
+                Lines::try_from(bytes).expect("file is not valid utf-8")
+            } else {
+                panic!("file id does not point to any source file");
+            }
+        })
     }
 }
 
@@ -337,6 +347,11 @@ impl<T: Clone> SlotCell<T> {
     /// compilation.
     fn reset(&mut self) {
         self.accessed = false;
+    }
+
+    /// Gets the contents of the cell.
+    fn get(&self) -> Option<&FileResult<T>> {
+        self.data.as_ref()
     }
 
     /// Gets the contents of the cell or initialize them.
