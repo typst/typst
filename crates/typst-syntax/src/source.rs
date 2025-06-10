@@ -57,18 +57,14 @@ impl Source {
     }
 
     /// The whole source as a string slice.
-    pub fn lines(&self) -> Lines<String> {
-        Lines::clone(&self.0.lines)
-    }
-
-    /// The whole source as a string slice.
     pub fn text(&self) -> &str {
         self.0.lines.text()
     }
 
-    /// Slice out the part of the source code enclosed by the range.
-    pub fn get(&self, range: Range<usize>) -> Option<&str> {
-        self.text().get(range)
+    /// An acceleration structure for conversion of UTF-8, UTF-16 and
+    /// line/column indices.
+    pub fn lines(&self) -> &Lines<String> {
+        &self.0.lines
     }
 
     /// Fully replace the source text.
@@ -105,21 +101,6 @@ impl Source {
 
         // Incrementally reparse the replaced range.
         reparse(&mut inner.root, inner.lines.text(), replace, with.len())
-    }
-
-    /// Get the length of the file in UTF-8 encoded bytes.
-    pub fn len_bytes(&self) -> usize {
-        self.0.lines.len_bytes()
-    }
-
-    /// Get the length of the file in UTF-16 code units.
-    pub fn len_utf16(&self) -> usize {
-        self.0.lines.len_utf16()
-    }
-
-    /// Get the length of the file in lines.
-    pub fn len_lines(&self) -> usize {
-        self.0.lines.len_lines()
     }
 
     /// Find the node with the given span.
