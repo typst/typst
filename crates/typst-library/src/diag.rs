@@ -599,6 +599,18 @@ impl LoadError {
     }
 }
 
+impl From<Utf8Error> for LoadError {
+    fn from(err: Utf8Error) -> Self {
+        let start = err.valid_up_to();
+        let end = start + err.error_len().unwrap_or(0);
+        LoadError::new(
+            start..end,
+            "failed to convert to string",
+            "file is not valid utf-8",
+        )
+    }
+}
+
 /// Convert a [`LoadResult`] to a [`SourceResult`] by adding the [`Loaded`] context.
 pub trait LoadedWithin<T> {
     /// Report an error, possibly in an external file.
@@ -622,7 +634,7 @@ fn load_err_in_text(
     // This also does utf-8 validation. Only report an error in an external
     // file if it is human readable (valid utf-8), otherwise fall back to
     // `load_err_in_invalid_text`.
-    let lines = Lines::from_bytes(&loaded.data);
+    let lines = Lines::try_from(&loaded.data);
     match (loaded.source.v, lines) {
         (LoadSource::Path(file_id), Ok(lines)) => {
             if let Some(range) = pos.range(&lines) {
@@ -784,6 +796,7 @@ impl LineCol {
     pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
+        #[allow(clippy::double_ended_iterator_last)]
         let line_start = memchr::memchr_iter(b'\n', bytes)
             .inspect(|_| line += 1)
             .last()

@@ -7,9 +7,10 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
+use typst_syntax::Lines;
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, LoadError, LoadResult, StrResult};
+use crate::diag::{bail, StrResult};
 use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
 
 /// A sequence of bytes.
@@ -109,21 +110,6 @@ impl Bytes {
         match self.inner().as_any().downcast_ref::<Str>() {
             Some(string) => Ok(string.clone()),
             None => self.as_str().map(Into::into),
-        }
-    }
-
-    pub fn load_str(&self) -> LoadResult<&str> {
-        match self.inner().as_any().downcast_ref::<Str>() {
-            Some(string) => Ok(string.as_str()),
-            None => self.as_str().map_err(|err| {
-                let start = err.valid_up_to();
-                let end = start + err.error_len().unwrap_or(0);
-                LoadError::new(
-                    start..end,
-                    "failed to convert to string",
-                    "file is not valid utf-8",
-                )
-            }),
         }
     }
 
@@ -298,6 +284,16 @@ impl Serialize for Bytes {
         } else {
             serializer.serialize_bytes(self)
         }
+    }
+}
+
+impl TryFrom<&Bytes> for Lines<String> {
+    type Error = Utf8Error;
+
+    #[comemo::memoize]
+    fn try_from(value: &Bytes) -> Result<Lines<String>, Utf8Error> {
+        let text = value.as_str()?;
+        Ok(Lines::new(text.to_string()))
     }
 }
 

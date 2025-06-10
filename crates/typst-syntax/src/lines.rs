@@ -1,7 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::iter::zip;
 use std::ops::Range;
-use std::str::Utf8Error;
 use std::sync::Arc;
 
 use crate::is_newline;
@@ -11,9 +10,9 @@ use crate::is_newline;
 pub struct Lines<S>(Arc<Repr<S>>);
 
 #[derive(Clone)]
-struct Repr<S> {
+struct Repr<T> {
     lines: Vec<Line>,
-    text: S,
+    text: T,
 }
 
 /// Metadata about a line.
@@ -25,12 +24,14 @@ pub struct Line {
     utf16_idx: usize,
 }
 
-impl<S: AsRef<str>> Lines<S> {
-    pub fn new(text: S) -> Self {
+impl<T: AsRef<str>> Lines<T> {
+    /// Create from the text buffer and compute the line metadata.
+    pub fn new(text: T) -> Self {
         let lines = lines(text.as_ref());
         Lines(Arc::new(Repr { lines, text }))
     }
 
+    /// The text as a string slice.
     pub fn text(&self) -> &str {
         self.0.text.as_ref()
     }
@@ -142,13 +143,6 @@ impl<S: AsRef<str>> Lines<S> {
 }
 
 impl Lines<String> {
-    /// Tries to convert the bytes
-    #[comemo::memoize]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Lines<String>, Utf8Error> {
-        let text = std::str::from_utf8(bytes)?;
-        Ok(Lines::new(text.to_string()))
-    }
-
     /// Fully replace the source text.
     ///
     /// This performs a naive (suffix/prefix-based) diff of the old and new text

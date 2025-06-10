@@ -397,6 +397,8 @@ impl<'a> Parser<'a> {
     /// if the range is empty.
     #[cfg(feature = "default")]
     fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
+        use typst::foundations::Bytes;
+
         use crate::world::{read, system_path};
 
         let path = match system_path(file) {
@@ -407,8 +409,8 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let text = match read(&path) {
-            Ok(text) => text,
+        let bytes = match read(&path) {
+            Ok(data) => Bytes::new(data),
             Err(err) => {
                 self.error(err.to_string());
                 return None;
@@ -416,7 +418,7 @@ impl<'a> Parser<'a> {
         };
 
         let start = self.parse_line_col()?;
-        let lines = Lines::from_bytes(text.as_ref()).expect("Errors shouldn't be annotated for files that aren't human readable (not valid utf-8)");
+        let lines = Lines::try_from(&bytes).expect("Errors shouldn't be annotated for files that aren't human readable (not valid utf-8)");
         let range = if self.s.eat_if('-') {
             let (line, col) = start;
             let start = lines.line_column_to_byte(line, col);

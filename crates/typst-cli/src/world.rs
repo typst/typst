@@ -190,7 +190,7 @@ impl SystemWorld {
                 source.lines()
             } else if let Some(bytes) = slot.file.get() {
                 let bytes = bytes.as_ref().expect("file is not valid");
-                Lines::from_bytes(bytes).expect("file is not valid utf-8")
+                Lines::try_from(bytes).expect("file is not valid utf-8")
             } else {
                 panic!("file id does not point to any source file");
             }

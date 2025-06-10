@@ -133,7 +133,7 @@ impl Loaded {
     }
 
     pub fn load_str(&self) -> SourceResult<&str> {
-        self.data.load_str().within(self)
+        self.data.as_str().map_err(Into::into).within(self)
     }
 }
 

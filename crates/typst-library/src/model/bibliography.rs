@@ -413,9 +413,9 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
 
         match bib_errs {
             Some(bib_errs) if biblatex >= yaml => {
-                Err(format_biblatex_error(bib_errs)).within(&loaded)
+                Err(format_biblatex_error(bib_errs)).within(loaded)
             }
-            _ => Err(format_yaml_error(haya_err)).within(&loaded),
+            _ => Err(format_yaml_error(haya_err)).within(loaded),
         }
     }
 }
@@ -472,7 +472,7 @@ impl CslStyle {
     /// Load a CSL style from file contents.
     #[comemo::memoize]
     pub fn from_data(bytes: &Bytes) -> LoadResult<CslStyle> {
-        let text = bytes.load_str()?;
+        let text = bytes.as_str()?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| {
                 Self(Arc::new(ManuallyHash::new(

@@ -553,7 +553,7 @@ impl RawSyntax {
     #[comemo::memoize]
     #[typst_macros::time(name = "load syntaxes")]
     fn decode(bytes: &Bytes) -> LoadResult<RawSyntax> {
-        let str = bytes.load_str()?;
+        let str = bytes.as_str()?;
 
         let syntax = SyntaxDefinition::load_from_str(str, false, None)
             .map_err(format_syntax_error)?;
