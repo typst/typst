@@ -10,7 +10,7 @@ use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst::{Document, WorldExt};
 use typst_pdf::PdfOptions;
-use typst_syntax::FileId;
+use typst_syntax::{FileId, Lines};
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
@@ -292,7 +292,7 @@ impl<'a> Runner<'a> {
             return "(empty)".into();
         }
 
-        let lines = self.world.lookup(file);
+        let lines = self.lookup(file);
         lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
@@ -318,7 +318,7 @@ impl<'a> Runner<'a> {
 
     /// Display a position as a line:column pair.
     fn format_pos(&self, file: FileId, pos: usize) -> String {
-        let lines = self.world.lookup(file);
+        let lines = self.lookup(file);
 
         let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
         let Some((line, col)) = res else {
@@ -329,6 +329,15 @@ impl<'a> Runner<'a> {
             format!("{col}")
         } else {
             format!("{line}:{col}")
+        }
+    }
+
+    #[track_caller]
+    fn lookup(&self, file: FileId) -> Lines<String> {
+        if self.test.source.id() == file {
+            self.test.source.lines().clone()
+        } else {
+            self.world.lookup(file)
         }
     }
 }
