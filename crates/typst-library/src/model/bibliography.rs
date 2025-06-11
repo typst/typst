@@ -16,7 +16,7 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::diag::{
@@ -39,7 +39,7 @@ use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
 };
-use crate::routines::{EvalMode, Routines};
+use crate::routines::Routines;
 use crate::text::{
     FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
     WeightDelta,
@@ -1024,7 +1024,7 @@ impl ElemRenderer<'_> {
             Sink::new().track_mut(),
             math,
             self.span,
-            EvalMode::Math,
+            SyntaxMode::Math,
             Scope::new(),
         )
         .map(Value::display)

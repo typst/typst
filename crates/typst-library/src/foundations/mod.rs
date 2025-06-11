@@ -69,6 +69,7 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
+use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
@@ -83,7 +84,6 @@ use typst_syntax::Spanned;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -250,6 +250,18 @@ impl assert {
     }
 }
 
+cast! {
+    SyntaxMode,
+    self => match self {
+        SyntaxMode::Markup => "markup".into_value(),
+        SyntaxMode::Math => "math".into_value(),
+        SyntaxMode::Code => "code".into_value(),
+    },
+    "markup" => SyntaxMode::Markup,
+    "math" => SyntaxMode::Math,
+    "code" => SyntaxMode::Code,
+}
+
 /// Evaluates a string as Typst code.
 ///
 /// This function should only be used as a last resort.
@@ -273,8 +285,8 @@ pub fn eval(
     /// #eval("1_2^3", mode: "math")
     /// ```
     #[named]
-    #[default(EvalMode::Code)]
-    mode: EvalMode,
+    #[default(SyntaxMode::Code)]
+    mode: SyntaxMode,
     /// A scope of definitions that are made available.
     ///
     /// ```example
