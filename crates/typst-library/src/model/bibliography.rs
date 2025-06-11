@@ -51,8 +51,8 @@ use crate::World;
 /// You can create a new bibliography by calling this function with a path
 /// to a bibliography file in either one of two formats:
 ///
-/// - A Hayagriva `.yml` file. Hayagriva is a new bibliography file format
-///   designed for use with Typst. Visit its
+/// - A Hayagriva `.yaml`/`.yml` file. Hayagriva is a new bibliography
+///   file format designed for use with Typst. Visit its
 ///   [documentation](https://github.com/typst/hayagriva/blob/main/docs/file-format.md)
 ///   for more details.
 /// - A BibLaTeX `.bib` file.
