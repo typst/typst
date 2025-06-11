@@ -199,7 +199,7 @@ impl PackageStorage {
                 if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
                     return Err(PackageError::VersionNotFound(spec.clone(), version));
                 } else {
-                    return Err(PackageError::NotFound(spec.clone()));
+                    return Err(PackageError::NotFound(spec.clone(), Some(eco_format!("attempted to download"))));
                 }
             }
             Err(err) => {
