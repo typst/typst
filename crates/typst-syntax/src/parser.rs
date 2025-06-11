@@ -271,11 +271,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
-            continuable = !p.at(SyntaxKind::MathShorthand)
-                && matches!(
-                    math_class(p.current_text()),
-                    None | Some(MathClass::Alphabetic)
-                );
+            // `a(b)/c` parses as `(a(b))/c` if `a` is continuable.
+            continuable = math_class(p.current_text()) == Some(MathClass::Alphabetic)
+                || p.current_text().chars().all(char::is_alphabetic);
             if !maybe_delimited(p) {
                 p.eat();
             }
@@ -1573,10 +1571,10 @@ struct Token {
     prev_end: usize,
 }
 
-/// Information about a newline if present (currently only relevant in Markup).
+/// Information about newlines in a group of trivia.
 #[derive(Debug, Clone, Copy)]
 struct Newline {
-    /// The column of the start of our token in its line.
+    /// The column of the start of the next token in its line.
     column: Option<usize>,
     /// Whether any of our newlines were paragraph breaks.
     parbreak: bool,
@@ -1589,7 +1587,7 @@ enum AtNewline {
     Continue,
     /// Stop at any newline.
     Stop,
-    /// Continue only if there is no continuation with `else` or `.` (Code only).
+    /// Continue only if there is a continuation with `else` or `.` (Code only).
     ContextualContinue,
     /// Stop only at a parbreak, not normal newlines (Markup only).
     StopParBreak,
@@ -1612,9 +1610,10 @@ impl AtNewline {
             },
             AtNewline::StopParBreak => parbreak,
             AtNewline::RequireColumn(min_col) => {
-                // Don't stop if this newline doesn't start a column (this may
-                // be checked on the boundary of lexer modes, since we only
-                // report a column in Markup).
+                // When the column is `None`, the newline doesn't start a
+                // column, and we continue parsing. This may happen on the
+                // boundary of lexer modes, since we only report a column in
+                // Markup.
                 column.is_some_and(|column| column <= min_col)
             }
         }

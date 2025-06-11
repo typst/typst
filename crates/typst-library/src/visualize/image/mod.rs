@@ -22,7 +22,7 @@ use crate::foundations::{
     Smart, StyleChain,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::LocalName;
 
@@ -65,10 +65,10 @@ pub struct ImageElem {
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
-        let data = source.load(engine.world)?;
-        Derived::new(source.v, data)
+        let loaded = source.load(engine.world)?;
+        Derived::new(source.v, loaded)
     )]
-    pub source: Derived<DataSource, Bytes>,
+    pub source: Derived<DataSource, Loaded>,
 
     /// The image's format.
     ///
@@ -77,8 +77,8 @@ pub struct ImageElem {
     /// [`source`]($image.source) (even then, Typst will try to figure out the
     /// format automatically, but that's not always possible).
     ///
-    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}` as well
-    /// as raw pixel data. Embedding PDFs as images is
+    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
+    /// `{"webp"}` as well as raw pixel data. Embedding PDFs as images is
     /// [not currently supported](https://github.com/typst/typst/issues/145).
     ///
     /// When providing raw pixel data as the `source`, you must specify a
@@ -154,8 +154,8 @@ pub struct ImageElem {
     /// to `{auto}`, Typst will try to extract an ICC profile from the image.
     #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
-            let data = Spanned::new(&source, span).load(engine.world)?;
-            Derived::new(source, data)
+            let loaded = Spanned::new(&source, span).load(engine.world)?;
+            Derived::new(source, loaded.data)
         })),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
@@ -173,7 +173,7 @@ impl ImageElem {
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
-        data: Readable,
+        data: Spanned<Readable>,
         /// The image's format. Detected automatically by default.
         #[named]
         format: Option<Smart<ImageFormat>>,
@@ -193,8 +193,10 @@ impl ImageElem {
         #[named]
         scaling: Option<Smart<ImageScaling>>,
     ) -> StrResult<Content> {
-        let bytes = data.into_bytes();
-        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
+        let bytes = data.v.into_bytes();
+        let loaded =
+            Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
+        let source = Derived::new(DataSource::Bytes(bytes), loaded);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);

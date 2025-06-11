@@ -7,9 +7,10 @@ use typst_syntax::FileId;
 use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
-/// An module of definitions.
+/// A collection of variables and functions that are commonly related to
+/// a single theme.
 ///
-/// A module
+/// A module can
 /// - be built-in
 /// - stem from a [file import]($scripting/#modules)
 /// - stem from a [package import]($scripting/#packages) (and thus indirectly

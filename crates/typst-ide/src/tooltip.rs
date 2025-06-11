@@ -86,7 +86,7 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
                 *count += 1;
                 continue;
             } else if *count > 1 {
-                write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
+                write!(pieces.last_mut().unwrap(), " (×{count})").unwrap();
             }
         }
         pieces.push(value.repr());
@@ -95,7 +95,7 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 
     if let Some((_, count)) = last {
         if count > 1 {
-            write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
+            write!(pieces.last_mut().unwrap(), " (×{count})").unwrap();
         }
     }
 
@@ -269,7 +269,7 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
             .find(|&(family, _)| family.to_lowercase().as_str() == lower.as_str());
 
         then {
-            let detail = summarize_font_family(iter);
+            let detail = summarize_font_family(iter.collect());
             return Some(Tooltip::Text(detail));
         }
     };
@@ -370,5 +370,12 @@ mod tests {
             .with_source("other.typ", "#let (a, b, c) = (1, 2, 3)");
         test(&world, -2, Side::Before).must_be_none();
         test(&world, -2, Side::After).must_be_text("This star imports `a`, `b`, and `c`");
+    }
+
+    #[test]
+    fn test_tooltip_field_call() {
+        let world = TestWorld::new("#import \"other.typ\"\n#other.f()")
+            .with_source("other.typ", "#let f = (x) => 1");
+        test(&world, -4, Side::After).must_be_code("(..) => ..");
     }
 }

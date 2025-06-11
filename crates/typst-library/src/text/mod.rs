@@ -30,6 +30,7 @@ pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
+use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
@@ -42,7 +43,7 @@ use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult};
+use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
@@ -348,15 +349,17 @@ pub struct TextElem {
     /// This can make justification visually more pleasing.
     ///
     /// ```example
+    /// #set page(width: 220pt)
+    ///
     /// #set par(justify: true)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     ///
     /// #set text(overhang: false)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
@@ -891,8 +894,20 @@ cast! {
 }
 
 /// Font family fallback list.
+///
+/// Must contain at least one font.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
+
+impl FontList {
+    pub fn new(fonts: Vec<FontFamily>) -> StrResult<Self> {
+        if fonts.is_empty() {
+            bail!("font fallback list must not be empty")
+        } else {
+            Ok(Self(fonts))
+        }
+    }
+}
 
 impl<'a> IntoIterator for &'a FontList {
     type IntoIter = std::slice::Iter<'a, FontFamily>;
@@ -911,7 +926,7 @@ cast! {
         self.0.into_value()
     },
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
+    values: Array => Self::new(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?)?,
 }
 
 /// Resolve a prioritized iterator over the font families.
@@ -1269,11 +1284,28 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"frac", 1);
     }
 
+    match EquationElem::size_in(styles) {
+        MathSize::Script => feat(b"ssty", 1),
+        MathSize::ScriptScript => feat(b"ssty", 2),
+        _ => {}
+    }
+
     for (tag, value) in TextElem::features_in(styles).0 {
         tags.push(Feature::new(tag, value, ..))
     }
 
     tags
+}
+
+/// Process the language and region of a style chain into a
+/// rustybuzz-compatible BCP 47 language.
+pub fn language(styles: StyleChain) -> rustybuzz::Language {
+    let mut bcp: EcoString = TextElem::lang_in(styles).as_str().into();
+    if let Some(region) = TextElem::region_in(styles) {
+        bcp.push('-');
+        bcp.push_str(region.as_str());
+    }
+    rustybuzz::Language::from_str(&bcp).unwrap()
 }
 
 /// A toggle that turns on and off alternatingly if folded.

@@ -172,17 +172,29 @@ impl Array {
     }
 
     /// Returns the first item in the array. May be used on the left-hand side
-    /// of an assignment. Fails with an error if the array is empty.
+    /// an assignment. Returns the default value if the array is empty
+    /// or fails with an error is no default value was specified.
     #[func]
-    pub fn first(&self) -> StrResult<Value> {
-        self.0.first().cloned().ok_or_else(array_is_empty)
+    pub fn first(
+        &self,
+        /// A default value to return if the array is empty.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.0.first().cloned().or(default).ok_or_else(array_is_empty)
     }
 
     /// Returns the last item in the array. May be used on the left-hand side of
-    /// an assignment. Fails with an error if the array is empty.
+    /// an assignment. Returns the default value if the array is empty
+    /// or fails with an error is no default value was specified.
     #[func]
-    pub fn last(&self) -> StrResult<Value> {
-        self.0.last().cloned().ok_or_else(array_is_empty)
+    pub fn last(
+        &self,
+        /// A default value to return if the array is empty.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.0.last().cloned().or(default).ok_or_else(array_is_empty)
     }
 
     /// Returns the item at the specified index in the array. May be used on the
@@ -796,7 +808,7 @@ impl Array {
     /// function. The sorting algorithm used is stable.
     ///
     /// Returns an error if two values could not be compared or if the key
-    /// function (if given) yields an error.
+    /// or comparison function (if given) yields an error.
     ///
     /// To sort according to multiple criteria at once, e.g. in case of equality
     /// between some criteria, the key function can return an array. The results
@@ -820,33 +832,134 @@ impl Array {
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
+        /// If given, uses this function to compare elements in the array.
+        ///
+        /// This function should return a boolean: `{true}` indicates that the
+        /// elements are in order, while `{false}` indicates that they should be
+        /// swapped. To keep the sort stable, if the two elements are equal, the
+        /// function should return `{true}`.
+        ///
+        /// If this function does not order the elements properly (e.g., by
+        /// returning `{false}` for both `{(x, y)}` and `{(y, x)}`, or for
+        /// `{(x, x)}`), the resulting array will be in unspecified order.
+        ///
+        /// When used together with `key`, `by` will be passed the keys instead
+        /// of the elements.
+        ///
+        /// ```example
+        /// #(
+        ///   "sorted",
+        ///   "by",
+        ///   "decreasing",
+        ///   "length",
+        /// ).sorted(
+        ///   key: s => s.len(),
+        ///   by: (l, r) => l >= r,
+        /// )
+        /// ```
+        #[named]
+        by: Option<Func>,
     ) -> SourceResult<Array> {
-        let mut result = Ok(());
-        let mut vec = self.0;
-        let mut key_of = |x: Value| match &key {
-            // NOTE: We are relying on `comemo`'s memoization of function
-            // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, context, [x]),
-            None => Ok(x),
-        };
-        vec.make_mut().sort_by(|a, b| {
-            // Until we get `try` blocks :)
-            match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
-                    if result.is_ok() {
-                        result = Err(err).at(span);
+        match by {
+            Some(by) => {
+                let mut are_in_order = |mut x, mut y| {
+                    if let Some(f) = &key {
+                        // We rely on `comemo`'s memoization of function
+                        // evaluation to not excessively reevaluate the key.
+                        x = f.call(engine, context, [x])?;
+                        y = f.call(engine, context, [y])?;
                     }
-                    Ordering::Equal
-                }),
-                (Err(e), _) | (_, Err(e)) => {
-                    if result.is_ok() {
-                        result = Err(e);
+                    match by.call(engine, context, [x, y])? {
+                        Value::Bool(b) => Ok(b),
+                        x => {
+                            bail!(
+                                span,
+                                "expected boolean from `by` function, got {}",
+                                x.ty(),
+                            )
+                        }
                     }
-                    Ordering::Equal
-                }
+                };
+                // If a comparison function is provided, we use `glidesort`
+                // instead of the standard library sorting algorithm to prevent
+                // panics in case the comparison function does not define a
+                // valid order (see https://github.com/typst/typst/pull/5627).
+                let mut result = Ok(());
+                let mut vec = self.0.into_iter().enumerate().collect::<Vec<_>>();
+                glidesort::sort_by(&mut vec, |(i, x), (j, y)| {
+                    // Because we use booleans for the comparison function, in
+                    // order to keep the sort stable, we need to compare in the
+                    // right order.
+                    if i < j {
+                        // If `x` and `y` appear in this order in the original
+                        // array, then we should change their order (i.e.,
+                        // return `Ordering::Greater`) iff `y` is strictly less
+                        // than `x` (i.e., `compare(x, y)` returns `false`).
+                        // Otherwise, we should keep them in the same order
+                        // (i.e., return `Ordering::Less`).
+                        match are_in_order(x.clone(), y.clone()) {
+                            Ok(false) => Ordering::Greater,
+                            Ok(true) => Ordering::Less,
+                            Err(err) => {
+                                if result.is_ok() {
+                                    result = Err(err);
+                                }
+                                Ordering::Equal
+                            }
+                        }
+                    } else {
+                        // If `x` and `y` appear in the opposite order in the
+                        // original array, then we should change their order
+                        // (i.e., return `Ordering::Less`) iff `x` is strictly
+                        // less than `y` (i.e., `compare(y, x)` returns
+                        // `false`). Otherwise, we should keep them in the same
+                        // order (i.e., return `Ordering::Less`).
+                        match are_in_order(y.clone(), x.clone()) {
+                            Ok(false) => Ordering::Less,
+                            Ok(true) => Ordering::Greater,
+                            Err(err) => {
+                                if result.is_ok() {
+                                    result = Err(err);
+                                }
+                                Ordering::Equal
+                            }
+                        }
+                    }
+                });
+                result.map(|()| vec.into_iter().map(|(_, x)| x).collect())
             }
-        });
-        result.map(|_| vec.into())
+
+            None => {
+                let mut key_of = |x: Value| match &key {
+                    // We rely on `comemo`'s memoization of function evaluation
+                    // to not excessively reevaluate the key.
+                    Some(f) => f.call(engine, context, [x]),
+                    None => Ok(x),
+                };
+                // If no comparison function is provided, we know the order is
+                // valid, so we can use the standard library sort and prevent an
+                // extra allocation.
+                let mut result = Ok(());
+                let mut vec = self.0;
+                vec.make_mut().sort_by(|a, b| {
+                    match (key_of(a.clone()), key_of(b.clone())) {
+                        (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
+                            if result.is_ok() {
+                                result = Err(err).at(span);
+                            }
+                            Ordering::Equal
+                        }),
+                        (Err(e), _) | (_, Err(e)) => {
+                            if result.is_ok() {
+                                result = Err(e);
+                            }
+                            Ordering::Equal
+                        }
+                    }
+                });
+                result.map(|()| vec.into())
+            }
+        }
     }
 
     /// Deduplicates all items in the array.

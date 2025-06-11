@@ -32,8 +32,8 @@ typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "9879589" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "c74e539" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -59,6 +59,7 @@ fastrand = "2.3"
 flate2 = "1"
 fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
+glidesort = "0.1.2"
 hayagriva = "0.8.1"
 heck = "0.5"
 hypher = "0.1.4"
@@ -68,24 +69,25 @@ icu_provider_adapters = "1.4"
 icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
 if_chain = "1"
-image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
+image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 indexmap = { version = "2", features = ["serde"] }
+infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
+krilla = { version = "0.4.0", default-features = false, features = ["raster-images", "comemo", "rayon"] }
+krilla-svg = "0.1.0"
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 memchr = "2"
-miniz_oxide = "0.8"
 native-tls = "0.2"
 notify = "8"
 once_cell = "1"
 open = "5.0.1"
-openssl = "0.10"
+openssl = "0.10.72"
 oxipng = { version = "9.0", default-features = false, features = ["filetime", "parallel", "zopfli"] }
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
-pdf-writer = "0.12.1"
 phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.6"
 png = "0.17"
@@ -112,8 +114,6 @@ sigpipe = "0.1"
 siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 stacker = "0.1.15"
-subsetter = "0.2"
-svg2pdf = "0.13"
 syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
@@ -135,15 +135,15 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.45", default-features = false, features = ["text"] }
+utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = "0.40.0"
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
-xmp-writer = "0.3.1"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "2.5", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
 opt-level = 2

@@ -194,6 +194,8 @@ bitflags::bitflags! {
         const MONOSPACE = 1 << 0;
         /// Glyphs have short strokes at their stems.
         const SERIF = 1 << 1;
+        /// Font face has a MATH table
+        const MATH = 1 << 2;
     }
 }
 
@@ -272,6 +274,7 @@ impl FontInfo {
 
         let mut flags = FontFlags::empty();
         flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
+        flags.set(FontFlags::MATH, ttf.tables().math.is_some());
 
         // Determine whether this is a serif or sans-serif font.
         if let Some(panose) = ttf
