@@ -24,19 +24,8 @@ use crate::{print_error, terminal};
 pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
     let mut config = CompileConfig::watching(command)?;
 
-    // Validate the config
     let Output::Path(output) = &config.output else {
         bail!("cannot write document to stdout in watch mode");
-    };
-    let config_warnings = if matches!(&config.input, Input::Stdin) {
-        &[warning!(
-            Span::detached(),
-            "cannot watch changes for stdin, will only compile once";
-            hint: "to compile once and exit, please use `typst compile` instead";
-            hint: "to recompile on changes, watch a regular file instead"
-        )]
-    } else {
-        &[][..]
     };
 
     // Create a file system watcher.
@@ -66,9 +55,11 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut config))??;
-    // Print config warnings
-    print_diagnostics(&world, &[], config_warnings, config.diagnostic_format)
-        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+    // Print warning when trying to watch stdin.
+    if matches!(&config.input, Input::Stdin) {
+        warn_watching_std(&world, &config)?;
+    }
 
     // Recompile whenever something relevant happens.
     loop {
@@ -83,9 +74,6 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
         // Recompile.
         timer.record(&mut world, |world| compile_once(world, &mut config))??;
-
-        // For now, there is only one config warning, and it warns that recompilation won't happen.
-        // Therefore, there is no need to print config warnings here.
 
         // Evict the cache.
         comemo::evict(10);
@@ -349,4 +337,16 @@ impl Status {
             _ => styles.header_note,
         }
     }
+}
+
+/// Emits a warning when trying to watch stdin.
+fn warn_watching_std(world: &SystemWorld, config: &CompileConfig) -> StrResult<()> {
+    let warning = warning!(
+        Span::detached(),
+        "cannot watch changes for stdin";
+        hint: "to recompile on changes, watch a regular file instead";
+        hint: "to compile once and exit, please use `typst compile` instead"
+    );
+    print_diagnostics(world, &[], &[warning], config.diagnostic_format)
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))
 }
