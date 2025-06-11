@@ -485,14 +485,14 @@ This is never reached.
 #import "#test/mypkg:1.0.0": *
 
 --- import-from-package-namespace-not-found ---
-// Error: todo
+// Error: 9-33 package not found
 #import "@missingdir/test:0.0.0": *
 
 --- import-from-package-not-found ---
-// Error: todo
+// Error: 9-33 package not found
 #import "@test/missingpkg:0.0.0": *
 
 --- import-from-package-version-not-found ---
-// Error: todo
+// Error: 9-28 package not found
 #import "@test/mypkg:5.0.0": *
 
