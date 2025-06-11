@@ -8,6 +8,7 @@ mod highlight;
 mod kind;
 mod lexer;
 mod lines;
+mod mode;
 mod node;
 mod parser;
 mod path;
@@ -24,11 +25,12 @@ pub use self::lexer::{
     link_prefix, split_newlines,
 };
 pub use self::lines::Lines;
+pub use self::mode::SyntaxMode;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};
 pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::VirtualPath;
 pub use self::source::Source;
 pub use self::span::{Span, Spanned};
 
-use self::lexer::{LexMode, Lexer};
+use self::lexer::Lexer;
 use self::parser::{reparse_block, reparse_markup};
