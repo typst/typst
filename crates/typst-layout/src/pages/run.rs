@@ -13,6 +13,7 @@ use typst_library::layout::{
     VAlignment,
 };
 use typst_library::model::Numbering;
+use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
@@ -200,6 +201,11 @@ fn layout_page_run_impl(
 
     // Layout marginals.
     let mut layouted = Vec::with_capacity(fragment.len());
+
+    let header = header.as_ref().map(|h| h.clone().artifact(ArtifactKind::Header));
+    let footer = footer.as_ref().map(|f| f.clone().artifact(ArtifactKind::Footer));
+    let background = background.as_ref().map(|b| b.clone().artifact(ArtifactKind::Page));
+
     for inner in fragment {
         let header_size = Size::new(inner.width(), margin.top - header_ascent);
         let footer_size = Size::new(inner.width(), margin.bottom - footer_descent);
@@ -210,9 +216,9 @@ fn layout_page_run_impl(
             fill: fill.clone(),
             numbering: numbering.clone(),
             supplement: supplement.clone(),
-            header: layout_marginal(header, header_size, Alignment::BOTTOM)?,
-            footer: layout_marginal(footer, footer_size, Alignment::TOP)?,
-            background: layout_marginal(background, full_size, mid)?,
+            header: layout_marginal(&header, header_size, Alignment::BOTTOM)?,
+            footer: layout_marginal(&footer, footer_size, Alignment::TOP)?,
+            background: layout_marginal(&background, full_size, mid)?,
             foreground: layout_marginal(foreground, full_size, mid)?,
             margin,
             binding,
