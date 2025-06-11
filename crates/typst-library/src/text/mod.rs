@@ -1421,7 +1421,7 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                     engine.sink.warn(warning!(
                         list.span,
                         "variable fonts are not currently supported and may render incorrectly";
-                        hint: "try installing a static version of {} instead", family.as_str()
+                        hint: "try installing a static version of \"{}\" instead", family.as_str()
                     ))
                 }
             }
