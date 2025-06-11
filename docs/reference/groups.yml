@@ -135,11 +135,7 @@
   category: foundations
   path: ["std"]
   details: |
-    # Collection of globally accessible items under `std` variable.
-    # Collection of globally accessible items under `std.` prefix.
-    # Module consisting of globally accessible items.
-    # The standard library as a value.
-    An alias for globally accessible items comprsing the standard library.
+    A module that contains all globally accessible items.
 
     This is useful whenever you override a name from the global scope, e.g.,
     the [`text`] element. To access the element simply write `std.text`.
