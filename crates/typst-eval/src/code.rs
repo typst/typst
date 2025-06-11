@@ -7,6 +7,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
+use typst_syntax::Span;
 use typst_utils::singleton;
 
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
@@ -284,21 +285,19 @@ impl Eval for ast::CodeBlock<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        vm.scopes.enter();
-        if let Some((span, kind)) =
-            self.body().exprs().next_back().and_then(|x| match x {
-                ast::Expr::ShowRule(_) => Some((x.span(), "show")),
-                ast::Expr::SetRule(_) => Some((x.span(), "set")),
-                _ => None,
-            })
-        {
-            vm.engine.sink.warn(typst_library::diag::warning!(
-                span,
-                "{kind} rule has no effect";
-                hint: "See https://typst.app/docs/tutorial/making-a-template/#set-and-show-rules"
-            ));
+        let body = self.body();
+        match body.exprs().next_back() {
+            Some(expr @ ast::Expr::ShowRule(_)) => {
+                warn_for_useless_rule(&mut vm.engine, expr.span(), "show")
+            }
+            Some(expr @ ast::Expr::SetRule(_)) => {
+                warn_for_useless_rule(&mut vm.engine, expr.span(), "set")
+            }
+            _ => {}
         }
-        let output = self.body().eval(vm)?;
+
+        vm.scopes.enter();
+        let output = body.eval(vm)?;
         vm.scopes.exit();
         Ok(output)
     }
@@ -405,4 +404,13 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
     }
 
     engine.sink.warn(warning);
+}
+
+/// Emits a warning when a set or show rule has no effect.
+fn warn_for_useless_rule(engine: &mut Engine, span: Span, kind: &str) {
+    engine.sink.warn(warning!(
+        span,
+        "{kind} rule has no effect";
+        hint: "a {kind} rule is only in effect until the end of the surrounding code block"
+    ));
 }
