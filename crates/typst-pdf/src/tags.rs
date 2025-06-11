@@ -1,5 +1,4 @@
 use std::cell::OnceCell;
-use std::ops::Deref;
 
 use krilla::annotation::Annotation;
 use krilla::page::Page;
@@ -9,8 +8,8 @@ use krilla::tagging::{
 };
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::Location;
-use typst_library::layout::{ArtifactKind, ArtifactMarker};
 use typst_library::model::{HeadingElem, OutlineElem, OutlineEntry};
+use typst_library::pdf::{ArtifactElem, ArtifactKind};
 
 use crate::convert::GlobalContext;
 
@@ -18,7 +17,7 @@ pub(crate) struct Tags {
     /// The intermediary stack of nested tag groups.
     pub(crate) stack: Vec<(Location, Tag, Vec<TagNode>)>,
     pub(crate) placeholders: Vec<OnceCell<Node>>,
-    pub(crate) in_artifact: Option<(Location, ArtifactMarker)>,
+    pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
 
     /// The output.
     pub(crate) tree: Vec<TagNode>,
@@ -161,8 +160,8 @@ impl Tags {
 /// at the end of the last page.
 pub(crate) fn restart(gc: &mut GlobalContext, surface: &mut Surface) {
     // TODO: somehow avoid empty marked-content sequences
-    if let Some((_, marker)) = gc.tags.in_artifact {
-        start_artifact(gc, surface, marker.kind);
+    if let Some((_, kind)) = gc.tags.in_artifact {
+        start_artifact(gc, surface, kind);
     } else if let Some((_, _, nodes)) = gc.tags.stack.last_mut() {
         let id = surface.start_tagged(ContentTag::Other);
         nodes.push(TagNode::Leaf(id));
@@ -200,12 +199,13 @@ pub(crate) fn handle_start(
 
     let loc = elem.location().unwrap();
 
-    if let Some(marker) = elem.to_packed::<ArtifactMarker>() {
+    if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         if !gc.tags.stack.is_empty() {
             surface.end_tagged();
         }
-        start_artifact(gc, surface, marker.kind);
-        gc.tags.in_artifact = Some((loc, *marker.deref()));
+        let kind = artifact.kind(StyleChain::default());
+        start_artifact(gc, surface, kind);
+        gc.tags.in_artifact = Some((loc, kind));
         return;
     }
 
@@ -282,5 +282,6 @@ fn artifact_type(kind: ArtifactKind) -> ArtifactType {
         ArtifactKind::Header => ArtifactType::Header,
         ArtifactKind::Footer => ArtifactType::Footer,
         ArtifactKind::Page => ArtifactType::Page,
+        ArtifactKind::Other => ArtifactType::Other,
     }
 }
