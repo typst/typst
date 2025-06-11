@@ -483,3 +483,16 @@ This is never reached.
 --- import-from-file-package-lookalike paged ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
+
+--- import-from-package-namespace-not-found ---
+// Error: todo
+#import "@missingdir/test:0.0.0": *
+
+--- import-from-package-not-found ---
+// Error: todo
+#import "@test/missingpkg:0.0.0": *
+
+--- import-from-package-version-not-found ---
+// Error: todo
+#import "@test/mypkg:5.0.0": *
+

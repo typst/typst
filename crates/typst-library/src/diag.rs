@@ -579,7 +579,9 @@ pub type PackageResult<T> = Result<T, PackageError>;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PackageError {
     /// The specified package does not exist.
-    NotFound(PackageSpec),
+    /// Optionally provides information on where we tried to find the package,
+    /// defaults to simply "searched for" if absent.
+    NotFound(PackageSpec, Option<EcoString>),
     /// The specified package found, but the version does not exist.
     VersionNotFound(PackageSpec, PackageVersion),
     /// Failed to retrieve the package through the network.
@@ -595,8 +597,11 @@ impl std::error::Error for PackageError {}
 impl Display for PackageError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::NotFound(spec) => {
+            Self::NotFound(spec, None) => {
                 write!(f, "package not found (searched for {spec})",)
+            }
+            Self::NotFound(spec, Some(attempted)) => {
+                write!(f, "package not found ({attempted} {spec})",)
             }
             Self::VersionNotFound(spec, latest) => {
                 write!(
