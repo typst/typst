@@ -1412,12 +1412,24 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        if !book.contains_family(family.as_str()) {
-            engine.sink.warn(warning!(
+        match book.select_family(family.as_str()).nth(0) {
+            Some(index) => {
+                if book
+                    .info(index)
+                    .is_some_and(|x| x.flags.contains(FontFlags::VARIABLE))
+                {
+                    engine.sink.warn(warning!(
+                        list.span,
+                        "variable font family: {}", family.as_str();
+                        hint: "variable fonts are not currently supported and may render incorrectly"
+                    ))
+                }
+            }
+            None => engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
                 family.as_str(),
-            ));
+            )),
         }
     }
 }
