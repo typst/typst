@@ -48,4 +48,5 @@
   let n = query(<a>).len()
   let fonts = ("nope", "Roboto")
   set text(font: fonts.at(n))
+  lorem(5)
 }

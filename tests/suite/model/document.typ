@@ -51,4 +51,5 @@ Hello
 #context {
   set document(author: "Changed") if "Normal" in document.author
   set document(title: "Changed") if document.title ==  "Normal"
+  lorem(5)
 }
