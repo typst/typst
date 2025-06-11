@@ -1412,7 +1412,7 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        match book.select_family(family.as_str()).nth(0) {
+        match book.select_family(family.as_str()).next() {
             Some(index) => {
                 if book
                     .info(index)
