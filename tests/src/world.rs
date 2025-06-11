@@ -88,7 +88,7 @@ impl TestWorld {
 
     /// Lookup line metadata for a file by id.
     #[track_caller]
-    pub fn lookup(&self, id: FileId) -> Lines<String> {
+    pub(crate) fn lookup(&self, id: FileId) -> Lines<String> {
         self.slot(id, |slot| {
             if let Some(source) = slot.source.get() {
                 let source = source.as_ref().expect("file is not valid");
