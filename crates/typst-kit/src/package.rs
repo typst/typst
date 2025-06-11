@@ -101,13 +101,9 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-        if let Some(packages_dir) = &self.package_path {
-            let dir = packages_dir.join(&subdir);
-            if dir.exists() {
-                return Ok(dir);
-            }
-        }
-
+        // QUESTION: is it sometimes the case that both package_path
+        // and package_cache_path are Some? Is it a problem if we change
+        // this order?
         if let Some(cache_dir) = &self.package_cache_path {
             let dir = cache_dir.join(&subdir);
             if dir.exists() {
@@ -116,14 +112,39 @@ impl PackageStorage {
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == DEFAULT_NAMESPACE {
-                self.download_package(spec, cache_dir, progress)?;
-                if dir.exists() {
-                    return Ok(dir);
-                }
+                return self.download_package(spec, cache_dir, progress);
             }
         }
 
-        Err(PackageError::NotFound(spec.clone()))
+        // In all paths from now, we either succeed or fail with a NotFound.
+        let not_found = |msg| Err(PackageError::NotFound(spec.clone(), msg));
+
+        let Some(packages_dir) = &self.package_path else {
+            // QUESTION: when is this code path hit?
+            return not_found(None);
+        };
+        // We try the fast path
+        let dir = packages_dir.join(&subdir);
+        if dir.exists() {
+            return Ok(dir);
+        }
+        // Fast path failed. Instead we try to diagnose the issue by going
+        // down the subdirectories of the expected path one at a time.
+        let namespace_dir = packages_dir.join(format!("{}", spec.namespace));
+        if !namespace_dir.exists() {
+            return not_found(Some(eco_format!("did not find namespace '{}' while searching at {} for", spec.namespace, namespace_dir.display())));
+        }
+        let package_dir = namespace_dir.join(format!("{}", spec.name));
+        if !package_dir.exists() {
+            return not_found(Some(eco_format!("did not find package '{}' while searching at {} for", spec.name, package_dir.display())));
+        }
+        let version_dir = package_dir.join(format!("{}", spec.version));
+        if !version_dir.exists() {
+            return not_found(Some(eco_format!("did not find version {} while searching at {} for", spec.version, version_dir.display())));
+        }
+        // We'll never hit this path as long as subdir is indeed namespace/name/version.
+        // What's Typst's policy on `unreachable`?
+        unreachable!()
     }
 
     /// Tries to determine the latest version of a package.
@@ -185,7 +206,7 @@ impl PackageStorage {
         spec: &PackageSpec,
         cache_dir: &Path,
         progress: &mut dyn Progress,
-    ) -> PackageResult<()> {
+    ) -> PackageResult<PathBuf> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
 
         let url = format!(
@@ -249,8 +270,8 @@ impl PackageStorage {
         // broken packages still occur even with the rename safeguard, we might
         // consider more complex solutions like file locking or checksums.
         match fs::rename(&tempdir, &package_dir) {
-            Ok(()) => Ok(()),
-            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
+            Ok(()) => Ok(package_dir),
+            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(package_dir),
             Err(err) => Err(error("failed to move downloaded package directory", err)),
         }
     }
