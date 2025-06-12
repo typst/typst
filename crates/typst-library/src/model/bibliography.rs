@@ -560,6 +560,7 @@ impl IntoValue for CslSource {
 /// memoization) for the whole document. This setup is necessary because
 /// citation formatting is inherently stateful and we need access to all
 /// citations to do it.
+#[derive(Debug)]
 pub(super) struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: HashMap<Location, SourceResult<Content>>,
@@ -592,7 +593,7 @@ impl Works {
 
 /// Context for generating the bibliography.
 struct Generator<'a> {
-    /// The routines that is used to evaluate mathematical material in citations.
+    /// The routines that are used to evaluate mathematical material in citations.
     routines: &'a Routines,
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
@@ -609,7 +610,7 @@ struct Generator<'a> {
 
 /// Details about a group of merged citations. All citations are put into groups
 /// of adjacent ones (e.g., `@foo @bar` will merge into a group of length two).
-/// Even single citations will be put into groups of length ones.
+/// Even single citations will be put into groups of length one.
 struct GroupInfo {
     /// The group's location.
     location: Location,
