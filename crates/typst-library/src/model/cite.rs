@@ -18,6 +18,10 @@ use crate::text::{Lang, Region, TextElem};
 /// bibliography file. For more information see [bibliography.summary].
 ///
 /// # Example
+/// Link to the BibLaTeX file from example:
+/// [`works.bib`](https://github.com/typst/typst-dev-assets/blob/main/files/bib/works.bib).
+/// For more Hayagriva examples see [this](https://github.com/typst/hayagriva/blob/main/tests/data/basic.yml).
+///
 /// ```example
 /// This was already noted by
 /// pirates long ago. @arrgh
