@@ -755,7 +755,7 @@ pub struct TextElem {
     #[ghost]
     pub smallcaps: Option<Smallcaps>,
 
-    /// Whether subscripts or superscripts are enabled.
+    /// The settings for superscripts or subscripts, if one of them is enabled.
     #[internal]
     #[ghost]
     pub subperscript: Option<ScriptSettings>,

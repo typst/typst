@@ -134,6 +134,29 @@ impl Show for Packed<SuperElem> {
     }
 }
 
+/// Configuration values for sub- or superscript text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ScriptSettings {
+    /// Whether the OpenType feature should be used if possible.
+    pub typographic: bool,
+    /// The baseline shift of the script, relative to the outer text size.
+    ///
+    /// For superscripts, this is positive. For subscripts, this is negative. A
+    /// value of [`Smart::Auto`] indicates that the value should be obtained
+    /// from font metrics.
+    pub shift: Smart<Em>,
+    /// The size of the script, relative to the outer text size.
+    ///
+    /// A value of [`Smart::Auto`] indicates that the value should be obtained
+    /// from font metrics.
+    pub size: Smart<Em>,
+    /// The kind of script (either a subscript, or a superscript).
+    ///
+    /// This is used to know which OpenType table to use to resolve
+    /// [`Smart::Auto`] values.
+    pub kind: ScriptKind,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ScriptKind {
     Sub,
@@ -141,6 +164,10 @@ pub enum ScriptKind {
 }
 
 impl ScriptKind {
+    /// Returns the default metrics for this script kind.
+    ///
+    /// This can be used as a last resort if neither the user nor the font
+    /// provided those metrics.
     pub const fn default_metrics(self) -> ScriptMetrics {
         match self {
             Self::Sub => ScriptMetrics::default_subscript(),
@@ -148,6 +175,7 @@ impl ScriptKind {
         }
     }
 
+    /// Reads the script metrics from the font table for to this script kind.
     pub const fn read_metrics(self, font_metrics: &FontMetrics) -> ScriptMetrics {
         match self {
             Self::Sub => font_metrics.subscript,
@@ -162,13 +190,4 @@ impl ScriptKind {
             Self::Super => Tag::from_bytes(b"sups"),
         }
     }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ScriptSettings {
-    /// Whether the OpenType feature should be used if possible.
-    pub typographic: bool,
-    pub shift: Smart<Em>,
-    pub size: Smart<Em>,
-    pub kind: ScriptKind,
 }

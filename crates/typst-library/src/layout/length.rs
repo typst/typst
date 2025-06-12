@@ -76,6 +76,11 @@ impl Length {
         self.abs + self.em.at(font_size)
     }
 
+    /// Expresses this length in em's of the provided outer text size.
+    pub fn to_em(&self, text_size: Abs) -> Em {
+        self.em + Em::new(self.abs / text_size)
+    }
+
     /// Fails with an error if the length has a non-zero font-relative part.
     fn ensure_that_em_is_zero(&self, span: Span, unit: &str) -> SourceResult<()> {
         if self.em == Em::zero() {
@@ -90,10 +95,6 @@ impl Length {
                    (requires context)";
             hint: "or use `length.abs.{unit}()` instead to ignore its em component"
         )
-    }
-
-    pub fn to_em(&self, text_size: Abs) -> Em {
-        self.em + Em::new(self.abs / text_size)
     }
 }
 

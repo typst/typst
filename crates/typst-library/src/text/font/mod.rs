@@ -313,13 +313,23 @@ pub struct LineMetrics {
 /// Metrics for subscripts or superscripts.
 #[derive(Debug, Copy, Clone)]
 pub struct ScriptMetrics {
+    /// The width of those scripts, relative to the outer font size.
     pub width: Em,
+    /// The height of those scripts, relative to the outer font size.
     pub height: Em,
+    /// The horizontal (to the right) offset of those scripts, relative to the
+    /// outer font size.
+    ///
+    /// This is used for italic correction.
     pub horizontal_offset: Em,
+    /// The vertical (to the top) offset of those scripts, relative to the outer font size.
+    ///
+    /// For superscripts, this is positive. For subscripts, this is negative.
     pub vertical_offset: Em,
 }
 
 impl ScriptMetrics {
+    /// Creates default script metrics with the specified vertical offset.
     pub const fn default_with_vertical_offset(offset: Em) -> Self {
         Self {
             width: Em::new(0.6),
@@ -329,10 +339,18 @@ impl ScriptMetrics {
         }
     }
 
+    /// Returns the default metrics for subscripts.
+    ///
+    /// This can be used as a last resort if neither the user nor the font
+    /// provided those metrics.
     pub const fn default_subscript() -> Self {
         Self::default_with_vertical_offset(Em::new(-0.2))
     }
 
+    /// Returns the default metrics for superscripts.
+    ///
+    /// This can be used as a last resort if neither the user nor the font
+    /// provided those metrics.
     pub const fn default_superscript() -> Self {
         Self::default_with_vertical_offset(Em::new(0.5))
     }
