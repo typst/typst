@@ -84,8 +84,9 @@ meaning in Typst. We can use `=`, `-`, `+`, and `_` to create headings, lists
 and emphasized text, respectively. However, having a special symbol for
 everything we want to insert into our document would soon become cryptic and
 unwieldy. For this reason, Typst reserves markup symbols only for the most
-common things. Everything else is inserted with _functions._ For our image to
-show up on the page, we use Typst's [`image`] function.
+common things. Everything else is inserted with _functions._ For
+[our image](https://github.com/typst/typst-dev-assets/blob/main/files/images/glacier.jpg)
+to show up on the page, we use Typst's [`image`] function.
 
 ```example
 #image("glacier.jpg")
@@ -125,17 +126,36 @@ mode. This means, you now have to remove the hash before the image function call
 The hash is only needed directly in markup (to disambiguate text from function
 calls).
 
-The caption consists of arbitrary markup. To give markup to a function, we
-enclose it in square brackets. This construct is called a _content block._
+The caption consists of arbitrary markup, and can also be a string. To give
+markup to a function, we enclose it in square brackets. This construct is called
+a _content block._
 
 ```example
 #figure(
   image("glacier.jpg", width: 70%),
-  caption: [
+  caption: box[
     _Glaciers_ form an important part
     of the earth's climate system.
   ],
 )
+```
+
+**Be careful** about putting the square brackets by themselves on separate
+lines. This will introduce leading and trailing space around inline text inside
+the brackets, that is hard to notice. Below are several caption examples: one
+with extra undesired space, and 3 correct ones.
+
+```example
+#show rect: none
+#figure(rect(), caption: [
+  Caption text
+])
+#figure(rect(), caption: box[
+  Caption text
+])
+#figure(rect(), caption: [Caption
+  text]) // Many spaces in markup counts as one.
+#figure(rect(), caption: "Caption text") // Spaces in strings are displayed verbatim.
 ```
 
 You continue to write your report and now want to reference the figure. To do
