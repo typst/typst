@@ -250,18 +250,6 @@ impl assert {
     }
 }
 
-cast! {
-    SyntaxMode,
-    self => match self {
-        SyntaxMode::Markup => "markup".into_value(),
-        SyntaxMode::Math => "math".into_value(),
-        SyntaxMode::Code => "code".into_value(),
-    },
-    "markup" => SyntaxMode::Markup,
-    "math" => SyntaxMode::Math,
-    "code" => SyntaxMode::Code,
-}
-
 /// Evaluates a string as Typst code.
 ///
 /// This function should only be used as a last resort.
