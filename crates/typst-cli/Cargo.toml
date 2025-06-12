@@ -83,7 +83,7 @@ vendor-openssl = ["typst-kit/vendor-openssl"]
 workspace = true
 
 # The following metadata is used by `cargo-binstall`, and should be synchronized
-# with `.github/workflows/release.yml`.
+# with `.github/workflows/release.yaml`.
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/typst-{ target }{ archive-suffix }"
 bin-dir = "typst-{ target }/typst{ binary-ext }"

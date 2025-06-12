@@ -19,7 +19,7 @@ const TYPST_REPO: &str = "typst";
 
 /// Determine the asset to download based on the target platform.
 ///
-/// See `.github/workflows/release.yml` for the list of prebuilt assets.
+/// See `.github/workflows/release.yaml` for the list of prebuilt assets.
 macro_rules! determine_asset {
     () => {
         // For some platforms, only some targets are prebuilt in the release.
