@@ -202,7 +202,7 @@ fn hint_invalid_main_file(
     file_error: FileError,
     input: FileId,
 ) -> EcoVec<SourceDiagnostic> {
-    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8);
+    let is_utf8_error = matches!(file_error, FileError::InvalidUtf8(_));
     let mut diagnostic =
         SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
 

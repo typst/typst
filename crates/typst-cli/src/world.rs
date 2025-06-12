@@ -425,7 +425,9 @@ fn system_path(
 
     // Join the path to the root. If it tries to escape, deny
     // access. Note: It can still escape via symlinks.
-    id.vpath().resolve(root).ok_or(FileError::AccessDenied)
+    id.vpath()
+        .resolve(root)
+        .ok_or_else(|| FileError::AccessDenied(id.vpath().as_rootless_path().into()))
 }
 
 /// Reads a file from a `FileId`.
@@ -449,7 +451,7 @@ fn read(
 fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {
-        Err(FileError::IsDirectory)
+        Err(FileError::IsDirectory(path.into()))
     } else {
         fs::read(path).map_err(f)
     }
