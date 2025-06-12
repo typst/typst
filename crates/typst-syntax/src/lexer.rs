@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind, SyntaxNode};
+use crate::{SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
 
 /// An iterator over a source code string which returns tokens.
 #[derive(Clone)]
@@ -13,28 +13,17 @@ pub(super) struct Lexer<'s> {
     s: Scanner<'s>,
     /// The mode the lexer is in. This determines which kinds of tokens it
     /// produces.
-    mode: LexMode,
+    mode: SyntaxMode,
     /// Whether the last token contained a newline.
     newline: bool,
     /// An error for the last token.
     error: Option<SyntaxError>,
 }
 
-/// What kind of tokens to emit.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(super) enum LexMode {
-    /// Text and markup.
-    Markup,
-    /// Math atoms, operators, etc.
-    Math,
-    /// Keywords, literals and operators.
-    Code,
-}
-
 impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode and a prefix to offset column
     /// calculations.
-    pub fn new(text: &'s str, mode: LexMode) -> Self {
+    pub fn new(text: &'s str, mode: SyntaxMode) -> Self {
         Self {
             s: Scanner::new(text),
             mode,
@@ -44,12 +33,12 @@ impl<'s> Lexer<'s> {
     }
 
     /// Get the current lexing mode.
-    pub fn mode(&self) -> LexMode {
+    pub fn mode(&self) -> SyntaxMode {
         self.mode
     }
 
     /// Change the lexing mode.
-    pub fn set_mode(&mut self, mode: LexMode) {
+    pub fn set_mode(&mut self, mode: SyntaxMode) {
         self.mode = mode;
     }
 
@@ -92,7 +81,7 @@ impl Lexer<'_> {
     }
 }
 
-/// Shared methods with all [`LexMode`].
+/// Shared methods with all [`SyntaxMode`].
 impl Lexer<'_> {
     /// Return the next token in our text. Returns both the [`SyntaxNode`]
     /// and the raw [`SyntaxKind`] to make it more ergonomic to check the kind
@@ -114,14 +103,14 @@ impl Lexer<'_> {
                 );
                 kind
             }
-            Some('`') if self.mode != LexMode::Math => return self.raw(),
+            Some('`') if self.mode != SyntaxMode::Math => return self.raw(),
             Some(c) => match self.mode {
-                LexMode::Markup => self.markup(start, c),
-                LexMode::Math => match self.math(start, c) {
+                SyntaxMode::Markup => self.markup(start, c),
+                SyntaxMode::Math => match self.math(start, c) {
                     (kind, None) => kind,
                     (kind, Some(node)) => return (kind, node),
                 },
-                LexMode::Code => self.code(start, c),
+                SyntaxMode::Code => self.code(start, c),
             },
 
             None => SyntaxKind::End,
@@ -145,7 +134,7 @@ impl Lexer<'_> {
         };
 
         self.newline = newlines > 0;
-        if self.mode == LexMode::Markup && newlines >= 2 {
+        if self.mode == SyntaxMode::Markup && newlines >= 2 {
             SyntaxKind::Parbreak
         } else {
             SyntaxKind::Space
@@ -965,9 +954,9 @@ impl ScannerExt for Scanner<'_> {
 
 /// Whether a character will become a [`SyntaxKind::Space`] token.
 #[inline]
-fn is_space(character: char, mode: LexMode) -> bool {
+fn is_space(character: char, mode: SyntaxMode) -> bool {
     match mode {
-        LexMode::Markup => matches!(character, ' ' | '\t') || is_newline(character),
+        SyntaxMode::Markup => matches!(character, ' ' | '\t') || is_newline(character),
         _ => character.is_whitespace(),
     }
 }

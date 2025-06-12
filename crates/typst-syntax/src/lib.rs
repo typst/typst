@@ -30,5 +30,16 @@ pub use self::path::VirtualPath;
 pub use self::source::Source;
 pub use self::span::{Span, Spanned};
 
-use self::lexer::{LexMode, Lexer};
+use self::lexer::Lexer;
 use self::parser::{reparse_block, reparse_markup};
+
+/// The syntax mode of a portion of Typst code.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SyntaxMode {
+    /// Text and markup, as in the top level.
+    Markup,
+    /// Math atoms, operators, etc., as in equations.
+    Math,
+    /// Keywords, literals and operators, as after hashes.
+    Code,
+}
