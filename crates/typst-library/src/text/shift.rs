@@ -62,16 +62,14 @@ pub struct SubElem {
 impl Show for Packed<SubElem> {
     #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let outer_text_size = TextElem::size_in(styles);
-        Ok(self
-            .body
-            .clone()
-            .styled(TextElem::set_subperscript(Some(ScriptSettings {
-                typographic: self.typographic(styles),
-                shift: self.baseline(styles).map(|l| -l.to_em(outer_text_size)),
-                size: self.size(styles).map(|t| t.0.to_em(outer_text_size)),
-                kind: ScriptKind::Sub,
-            }))))
+        show_script(
+            styles,
+            self.body.clone(),
+            self.typographic(styles),
+            self.baseline(styles),
+            self.size(styles),
+            ScriptKind::Sub,
+        )
     }
 }
 
@@ -135,17 +133,32 @@ pub struct SuperElem {
 impl Show for Packed<SuperElem> {
     #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let outer_text_size = TextElem::size_in(styles);
-        Ok(self
-            .body
-            .clone()
-            .styled(TextElem::set_subperscript(Some(ScriptSettings {
-                typographic: self.typographic(styles),
-                shift: self.baseline(styles).map(|l| -l.to_em(outer_text_size)),
-                size: self.size(styles).map(|t| t.0.to_em(outer_text_size)),
-                kind: ScriptKind::Super,
-            }))))
+        show_script(
+            styles,
+            self.body.clone(),
+            self.typographic(styles),
+            self.baseline(styles),
+            self.size(styles),
+            ScriptKind::Super,
+        )
     }
+}
+
+fn show_script(
+    styles: StyleChain,
+    body: Content,
+    typographic: bool,
+    baseline: Smart<Length>,
+    size: Smart<TextSize>,
+    kind: ScriptKind,
+) -> SourceResult<Content> {
+    let outer_text_size = TextElem::size_in(styles);
+    Ok(body.styled(TextElem::set_subperscript(Some(ScriptSettings {
+        typographic,
+        shift: baseline.map(|l| -l.to_em(outer_text_size)),
+        size: size.map(|t| t.0.to_em(outer_text_size)),
+        kind,
+    }))))
 }
 
 /// Configuration values for sub- or superscript text.
