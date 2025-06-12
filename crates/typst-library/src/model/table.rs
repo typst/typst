@@ -297,7 +297,7 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
     // appear to be an equivalent of 'th' for footers in HTML.)
     // TODO: test
     let footer = {
-        let mut consecutive_footer_start = grid.footers.len();
+        let mut consecutive_footer_start = grid.rows.len();
         let footers_at_end = grid
             .footers
             .iter()
@@ -312,7 +312,9 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
 
         if footers_at_end > 0 {
             let last_mid_table_footer = grid.footers.len() - footers_at_end;
-            let rows = rows.drain(last_mid_table_footer..);
+            let removed_footer_rows =
+                grid.footers.get(last_mid_table_footer).unwrap().start;
+            let rows = rows.drain(removed_footer_rows..);
 
             Some(elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row)))))
         } else {
