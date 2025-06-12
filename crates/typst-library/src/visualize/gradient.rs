@@ -1300,9 +1300,21 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     if low == 0 {
         low = 1;
     }
+    if t == 1.0 {
+        while stops[low - 1].1 >= stops[low].1 {
+            low -= 1;
+        }
+    } else {
+        while stops[low - 1].1 >= stops[low].1 {
+            low += 1;
+        }
+    }
 
     let (col_0, pos_0) = stops[low - 1];
     let (col_1, pos_1) = stops[low];
+    debug_assert!(pos_0 < pos_1);
+    debug_assert!(pos_0.get() <= t);
+    debug_assert!(t <= pos_1.get());
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
     Color::mix_iter(
