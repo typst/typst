@@ -110,8 +110,8 @@ font. For the purposes of the example, we'll also set another page size.
   margin: (x: 1.8cm, y: 1.5cm),
 )
 #set text(
+  size: 10pt,
   font: "New Computer Modern",
-  size: 10pt
 )
 #set par(
   justify: true,
@@ -235,19 +235,27 @@ Instead, you could maybe
 [define a custom function]($function/#defining-functions) that always yields the
 logo with its image. However, there is an even easier way:
 
-With show rules, you can redefine how Typst displays certain elements. You
+With show rules, you can redefine how Typst displays certain elements. You can
 specify which elements Typst should show differently and how they should look.
 Show rules can be applied to instances of text, many functions, and even the
 whole document.
 
 ```example
-#show "ArtosFlow": name => box[
-  #box(image(
+// #show "ArtosFlow": name => {
+//   let logo = box(image(
+//     "logo.svg",
+//     height: 0.7em,
+//   ))
+//   [#logo #name]
+// }
+#show "ArtosFlow": name => {
+  box(image(
     "logo.svg",
     height: 0.7em,
   ))
-  #name
-]
+  " "
+  name
+}
 
 This report is embedded in the
 ArtosFlow project. ArtosFlow is a
@@ -256,18 +264,18 @@ project of the Artos Institute.
 
 There is a lot of new syntax in this example: We write the `{show}` keyword,
 followed by a string of text we want to show differently and a colon. Then, we
-write a function that takes the content that shall be shown as an argument.
-Here, we called that argument `name`. We can now use the `name` variable in the
-function's body to print the ArtosFlow name. Our show rule adds the logo image
-in front of the name and puts the result into a box to prevent linebreaks from
-occurring between logo and name. The image is also put inside of a box, so that
-it does not appear in its own paragraph.
+write a function that takes the content as an argument that shall be shown.
+Here, we called that argument `name`. We can now use the `name` variable in
+the function's body to display the ArtosFlow name. Our show rule adds the logo
+image to the left of the name and inserts a single space between the two.
+The image is put inside of a `box`, so that it does not appear in its own
+paragraph, because `image` is a block-level element.
 
-The calls to the first box function and the image function did not require a
-leading `#` because they were not embedded directly in markup. When Typst
-expects code instead of markup, the leading `#` is not needed to access
-functions, keywords, and variables. This can be observed in parameter lists,
-function definitions, and [code blocks]($scripting).
+<!-- The calls to the first box function and the image function did not require a -->
+<!-- leading `#` because they were not embedded directly in markup. When Typst -->
+<!-- expects code instead of markup, the leading `#` is not needed to access -->
+<!-- functions, keywords, and variables. This can be observed in parameter lists, -->
+<!-- function definitions, and [code blocks]($scripting). -->
 
 ## Review
 You now know how to apply basic formatting to your Typst documents. You learned
