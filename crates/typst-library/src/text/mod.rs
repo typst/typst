@@ -755,10 +755,11 @@ pub struct TextElem {
     #[ghost]
     pub smallcaps: Option<Smallcaps>,
 
-    /// The settings for superscripts or subscripts, if one of them is enabled.
+    /// The configuration for superscripts or subscripts, if one of them is
+    /// enabled.
     #[internal]
     #[ghost]
-    pub subperscript: Option<ScriptSettings>,
+    pub shift_settings: Option<ShiftSettings>,
 }
 
 impl TextElem {

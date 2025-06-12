@@ -420,7 +420,7 @@ pub fn apply_shift<'a>(
 ) {
     let mut baseline = TextElem::baseline_in(styles);
     let mut compensation = Abs::zero();
-    if let Some(scripts) = TextElem::subperscript_in(styles) {
+    if let Some(scripts) = TextElem::shift_settings_in(styles) {
         let font_metrics = TextElem::font_in(styles)
             .into_iter()
             .find_map(|family| {

@@ -13,7 +13,7 @@ use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
     families, features, is_default_ignorable, variant, Font, FontFamily, FontVariant,
-    Glyph, Lang, Region, ScriptSettings, TextEdgeBounds, TextElem, TextItem,
+    Glyph, Lang, Region, ShiftSettings, TextEdgeBounds, TextElem, TextItem,
 };
 use typst_library::World;
 use typst_utils::SliceExt;
@@ -672,7 +672,7 @@ fn shape<'a>(
     region: Option<Region>,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
-    let script_settings = TextElem::subperscript_in(styles);
+    let script_settings = TextElem::shift_settings_in(styles);
     let mut ctx = ShapingContext {
         engine,
         size,
@@ -736,7 +736,7 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
-    script_settings: Option<ScriptSettings>,
+    script_settings: Option<ShiftSettings>,
 ) {
     // Don't try shaping newlines, tabs, or default ignorables.
     if text

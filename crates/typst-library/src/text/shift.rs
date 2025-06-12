@@ -153,7 +153,7 @@ fn show_script(
     kind: ScriptKind,
 ) -> SourceResult<Content> {
     let outer_text_size = TextElem::size_in(styles);
-    Ok(body.styled(TextElem::set_subperscript(Some(ScriptSettings {
+    Ok(body.styled(TextElem::set_shift_settings(Some(ShiftSettings {
         typographic,
         shift: baseline.map(|l| -l.to_em(outer_text_size)),
         size: size.map(|t| t.0.to_em(outer_text_size)),
@@ -163,7 +163,7 @@ fn show_script(
 
 /// Configuration values for sub- or superscript text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ScriptSettings {
+pub struct ShiftSettings {
     /// Whether the OpenType feature should be used if possible.
     pub typographic: bool,
     /// The baseline shift of the script, relative to the outer text size.
