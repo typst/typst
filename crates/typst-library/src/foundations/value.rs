@@ -157,7 +157,9 @@ impl Value {
     /// Try to access a field on the value.
     pub fn field(&self, field: &str, sink: impl DeprecationSink) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Symbol(symbol) => {
+                symbol.clone().modified(sink, field).map(Self::Symbol)
+            }
             Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
             Self::Content(content) => content.field_by_name(field),
