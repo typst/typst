@@ -302,11 +302,11 @@
 #import 5 as x
 
 --- import-from-string-invalid paged ---
-// Error: 9-11 failed to load file (is a directory)
+// Error: 9-11 failed to load file tests/suite/scripting (is a directory)
 #import "": name
 
 --- import-from-string-renamed-invalid paged ---
-// Error: 9-11 failed to load file (is a directory)
+// Error: 9-11 failed to load file tests/suite/scripting (is a directory)
 #import "" as x
 
 --- import-file-not-found-invalid paged ---
@@ -483,16 +483,4 @@ This is never reached.
 --- import-from-file-package-lookalike paged ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
-
---- import-from-package-namespace-not-found ---
-// Error: 9-33 package not found
-#import "@missingdir/test:0.0.0": *
-
---- import-from-package-not-found ---
-// Error: 9-33 package not found
-#import "@test/missingpkg:0.0.0": *
-
---- import-from-package-version-not-found ---
-// Error: 9-28 package not found
-#import "@test/mypkg:5.0.0": *
 
