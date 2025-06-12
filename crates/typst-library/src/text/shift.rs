@@ -16,12 +16,11 @@ use typst_library::text::ScriptMetrics;
 /// ```
 #[elem(title = "Subscript", Show)]
 pub struct SubElem {
-    /// Whether to create artificial subscripts by shifting and scaling down
+    /// Whether to create artificial subscripts by lowering and scaling down
     /// regular glyphs.
     ///
-    /// Ideally, subscripts glyphs should be provided by the font (using the
-    /// `subs` OpenType feature). Otherwise, Typst is able to synthesize
-    /// subscripts as explained above.
+    /// Ideally, subscripts glyphs are provided by the font (using the `subs`
+    /// OpenType feature). Otherwise, Typst is able to synthesize subscripts.
     ///
     /// When this is set to `{false}`, synthesized glyphs will be used
     /// regardless of whether the font provides dedicated subscript glyphs. When
@@ -35,11 +34,14 @@ pub struct SubElem {
     #[default(true)]
     pub typographic: bool,
 
-    /// The baseline shift for synthesized subscripts.
+    /// The downward baseline shift for synthesized subscripts.
     ///
     /// This only applies to synthesized subscripts. In other words, this has no
     /// effect if `typographic` is `{true}` and the font provides the necessary
     /// subscript glyphs.
+    ///
+    /// If set to `{auto}`, the baseline is shifted according to the metrics
+    /// provided by the font.
     pub baseline: Smart<Length>,
 
     /// The font size for synthesized subscripts.
@@ -47,6 +49,9 @@ pub struct SubElem {
     /// This only applies to synthesized subscripts. In other words, this has no
     /// effect if `typographic` is `{true}` and the font provides the necessary
     /// subscript glyphs.
+    ///
+    /// If set to `{auto}`, the size is scaled according to the metrics provided
+    /// by the font.
     pub size: Smart<TextSize>,
 
     /// The text to display in subscript.
@@ -80,12 +85,11 @@ impl Show for Packed<SubElem> {
 /// ```
 #[elem(title = "Superscript", Show)]
 pub struct SuperElem {
-    /// Whether to create artificial superscripts by shifting and scaling down
+    /// Whether to create artificial superscripts by raising and scaling down
     /// regular glyphs.
     ///
-    /// Ideally, superscripts glyphs should be provided by the font (using the
-    /// `subs` OpenType feature). Otherwise, Typst is able to synthesize
-    /// superscripts as explained above.
+    /// Ideally, superscripts glyphs are provided by the font (using the `sups`
+    /// OpenType feature). Otherwise, Typst is able to synthesize superscripts.
     ///
     /// When this is set to `{false}`, synthesized glyphs will be used
     /// regardless of whether the font provides dedicated superscript glyphs.
@@ -99,11 +103,18 @@ pub struct SuperElem {
     #[default(true)]
     pub typographic: bool,
 
-    /// The baseline shift for synthesized superscripts.
+    /// The downward baseline shift for synthesized superscripts.
     ///
     /// This only applies to synthesized superscripts. In other words, this has
     /// no effect if `typographic` is `{true}` and the font provides the
     /// necessary superscript glyphs.
+    ///
+    /// If set to `{auto}`, the baseline is shifted according to the metrics
+    /// provided by the font.
+    ///
+    /// Note that, since the baseline shift is applied downward, you will need
+    /// to provide a negative value for the content to appear as raised above
+    /// the normal baseline.
     pub baseline: Smart<Length>,
 
     /// The font size for synthesized superscripts.
@@ -111,6 +122,9 @@ pub struct SuperElem {
     /// This only applies to synthesized superscripts. In other words, this has
     /// no effect if `typographic` is `{true}` and the font provides the
     /// necessary superscript glyphs.
+    ///
+    /// If set to `{auto}`, the size is scaled according to the metrics provided
+    /// by the font.
     pub size: Smart<TextSize>,
 
     /// The text to display in superscript.
