@@ -59,7 +59,7 @@ pub struct EmbedElem {
     // We can't distinguish between the two at the moment.
     #[required]
     #[parse(
-        match args.find::<Bytes>()? {
+        match args.eat::<Bytes>()? {
             Some(data) => data,
             None => engine.world.file(id).at(span)?,
         }

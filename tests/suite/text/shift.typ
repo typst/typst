@@ -17,3 +17,8 @@ n#super[1], n#sub[2], ... n#super[N]
 #underline[The claim#super[\[4\]]] has been disputed. \
 The claim#super[#underline[\[4\]]] has been disputed. \
 It really has been#super(box(text(baseline: 0pt, underline[\[4\]]))) \
+
+--- basic-sup-sub html ---
+1#super[st], 2#super[nd], 3#super[rd].
+
+log#sub[2], log#sub[3], log#sub[variable].

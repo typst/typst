@@ -196,6 +196,8 @@ bitflags::bitflags! {
         const SERIF = 1 << 1;
         /// Font face has a MATH table
         const MATH = 1 << 2;
+        /// Font face has an fvar table
+        const VARIABLE = 1 << 3;
     }
 }
 
@@ -275,6 +277,7 @@ impl FontInfo {
         let mut flags = FontFlags::empty();
         flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
         flags.set(FontFlags::MATH, ttf.tables().math.is_some());
+        flags.set(FontFlags::VARIABLE, ttf.is_variable());
 
         // Determine whether this is a serif or sans-serif font.
         if let Some(panose) = ttf

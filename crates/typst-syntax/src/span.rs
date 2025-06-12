@@ -71,10 +71,7 @@ impl Span {
 
     /// Create a span that does not point into any file.
     pub const fn detached() -> Self {
-        match NonZeroU64::new(Self::DETACHED) {
-            Some(v) => Self(v),
-            None => unreachable!(),
-        }
+        Self(NonZeroU64::new(Self::DETACHED).unwrap())
     }
 
     /// Create a new span from a file id and a number.
@@ -111,11 +108,9 @@ impl Span {
     /// Pack a file ID and the low bits into a span.
     const fn pack(id: FileId, low: u64) -> Self {
         let bits = ((id.into_raw().get() as u64) << Self::FILE_ID_SHIFT) | low;
-        match NonZeroU64::new(bits) {
-            Some(v) => Self(v),
-            // The file ID is non-zero.
-            None => unreachable!(),
-        }
+
+        // The file ID is non-zero.
+        Self(NonZeroU64::new(bits).unwrap())
     }
 
     /// Whether the span is detached.

@@ -47,7 +47,7 @@ clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = "0.1.1"
+codex = { git = "https://github.com/typst/codex", rev = "56eb217" }
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
@@ -135,6 +135,7 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.45", default-features = false, features = ["text"] }
+utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = "0.40.0"
 web-sys = "0.3"

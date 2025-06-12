@@ -7,7 +7,9 @@ use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{is_id_continue, is_ident, is_newline, FileId, Source, VirtualPath};
+use typst_syntax::{
+    is_id_continue, is_ident, is_newline, FileId, Lines, Source, VirtualPath,
+};
 use unscanny::Scanner;
 
 /// Collects all tests from all files.
@@ -79,6 +81,8 @@ impl Display for FileSize {
 pub struct Note {
     pub pos: FilePos,
     pub kind: NoteKind,
+    /// The file [`Self::range`] belongs to.
+    pub file: FileId,
     pub range: Option<Range<usize>>,
     pub message: String,
 }
@@ -341,9 +345,28 @@ impl<'a> Parser<'a> {
         let kind: NoteKind = head.parse().ok()?;
         self.s.eat_if(' ');
 
+        let mut file = None;
+        if self.s.eat_if('"') {
+            let path = self.s.eat_until(|c| is_newline(c) || c == '"');
+            if !self.s.eat_if('"') {
+                self.error("expected closing quote after file path");
+                return None;
+            }
+
+            let vpath = VirtualPath::new(path);
+            file = Some(FileId::new(None, vpath));
+
+            self.s.eat_if(' ');
+        }
+
         let mut range = None;
         if self.s.at('-') || self.s.at(char::is_numeric) {
-            range = self.parse_range(source);
+            if let Some(file) = file {
+                range = self.parse_range_external(file);
+            } else {
+                range = self.parse_range(source);
+            }
+
             if range.is_none() {
                 self.error("range is malformed");
                 return None;
@@ -359,9 +382,76 @@ impl<'a> Parser<'a> {
         Some(Note {
             pos: FilePos::new(self.path, self.line),
             kind,
+            file: file.unwrap_or(source.id()),
             range,
             message,
         })
+    }
+
+    #[cfg(not(feature = "default"))]
+    fn parse_range_external(&mut self, _file: FileId) -> Option<Range<usize>> {
+        panic!("external file ranges are not expected when testing `typst_syntax`");
+    }
+
+    /// Parse a range in an external file, optionally abbreviated as just a position
+    /// if the range is empty.
+    #[cfg(feature = "default")]
+    fn parse_range_external(&mut self, file: FileId) -> Option<Range<usize>> {
+        use typst::foundations::Bytes;
+
+        use crate::world::{read, system_path};
+
+        let path = match system_path(file) {
+            Ok(path) => path,
+            Err(err) => {
+                self.error(err.to_string());
+                return None;
+            }
+        };
+
+        let bytes = match read(&path) {
+            Ok(data) => Bytes::new(data),
+            Err(err) => {
+                self.error(err.to_string());
+                return None;
+            }
+        };
+
+        let start = self.parse_line_col()?;
+        let lines = Lines::try_from(&bytes).expect(
+            "errors shouldn't be annotated for files \
+            that aren't human readable (not valid utf-8)",
+        );
+        let range = if self.s.eat_if('-') {
+            let (line, col) = start;
+            let start = lines.line_column_to_byte(line, col);
+            let (line, col) = self.parse_line_col()?;
+            let end = lines.line_column_to_byte(line, col);
+            Option::zip(start, end).map(|(a, b)| a..b)
+        } else {
+            let (line, col) = start;
+            lines.line_column_to_byte(line, col).map(|i| i..i)
+        };
+        if range.is_none() {
+            self.error("range is out of bounds");
+        }
+        range
+    }
+
+    /// Parses absolute `line:column` indices in an external file.
+    fn parse_line_col(&mut self) -> Option<(usize, usize)> {
+        let line = self.parse_number()?;
+        if !self.s.eat_if(':') {
+            self.error("positions in external files always require both `<line>:<col>`");
+            return None;
+        }
+        let col = self.parse_number()?;
+        if line < 0 || col < 0 {
+            self.error("line and column numbers must be positive");
+            return None;
+        }
+
+        Some(((line as usize).saturating_sub(1), (col as usize).saturating_sub(1)))
     }
 
     /// Parse a range, optionally abbreviated as just a position if the range
@@ -389,13 +479,13 @@ impl<'a> Parser<'a> {
         let line_idx = (line_idx_in_test + comments).checked_add_signed(line_delta)?;
         let column_idx = if column < 0 {
             // Negative column index is from the back.
-            let range = source.line_to_range(line_idx)?;
+            let range = source.lines().line_to_range(line_idx)?;
             text[range].chars().count().saturating_add_signed(column)
         } else {
             usize::try_from(column).ok()?.checked_sub(1)?
         };
 
-        source.line_column_to_byte(line_idx, column_idx)
+        source.lines().line_column_to_byte(line_idx, column_idx)
     }
 
     /// Parse a number.

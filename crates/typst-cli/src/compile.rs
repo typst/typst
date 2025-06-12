@@ -16,7 +16,7 @@ use typst::diag::{
 use typst::foundations::{Datetime, Smart};
 use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Source, Span};
+use typst::syntax::{FileId, Lines, Span};
 use typst::WorldExt;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -696,7 +696,7 @@ fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
     type Name = String;
-    type Source = Source;
+    type Source = Lines<String>;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
         let vpath = id.vpath();

@@ -413,8 +413,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "724d27a0ee38b700e5e164350e79aba601a0db673ac47fce1cb74c3e38864036"
+source = "git+https://github.com/typst/codex?rev=56eb217#56eb2172fc0670f4c1c8b79a63d11f9354e5babe"
 
 [[package]]
 name = "color-print"
@@ -2921,6 +2920,7 @@ name = "typst-docs"
 version = "0.13.1"
 dependencies = [
  "clap",
+ "codex",
  "ecow",
  "heck",
  "pulldown-cmark",
@@ -3039,6 +3039,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo",
+ "memchr",
  "rustybuzz",
  "smallvec",
  "ttf-parser",
@@ -3112,6 +3113,7 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
+ "utf8_iter",
  "wasmi",
  "xmlwriter",
 ]
@@ -3200,6 +3202,7 @@ dependencies = [
 name = "typst-syntax"
 version = "0.13.1"
 dependencies = [
+ "comemo",
  "ecow",
  "serde",
  "toml",
