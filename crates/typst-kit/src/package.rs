@@ -143,7 +143,6 @@ impl PackageStorage {
     }
 
     /// Tries to determine the latest version of a package.
-    /// TODO improve here too
     pub fn determine_latest_version(
         &self,
         spec: &VersionlessPackageSpec,
