@@ -496,13 +496,13 @@ pub enum FileError {
     /// A file was not found at this path.
     NotFound(PathBuf),
     /// A file could not be accessed.
-    AccessDenied,
+    AccessDenied(PathBuf),
     /// A directory was found, but a file was expected.
-    IsDirectory,
+    IsDirectory(PathBuf),
     /// The file is not a Typst source file, but should have been.
-    NotSource,
+    NotSource(PathBuf),
     /// The file was not valid UTF-8, but should have been.
-    InvalidUtf8,
+    InvalidUtf8(Option<PathBuf>),
     /// The package the file is part of could not be loaded.
     Package(PackageError),
     /// Another error.
@@ -516,11 +516,11 @@ impl FileError {
     pub fn from_io(err: io::Error, path: &Path) -> Self {
         match err.kind() {
             io::ErrorKind::NotFound => Self::NotFound(path.into()),
-            io::ErrorKind::PermissionDenied => Self::AccessDenied,
+            io::ErrorKind::PermissionDenied => Self::AccessDenied(path.into()),
             io::ErrorKind::InvalidData
                 if err.to_string().contains("stream did not contain valid UTF-8") =>
             {
-                Self::InvalidUtf8
+                Self::InvalidUtf8(Some(path.into()))
             }
             _ => Self::Other(Some(eco_format!("{err}"))),
         }
@@ -535,10 +535,19 @@ impl Display for FileError {
             Self::NotFound(path) => {
                 write!(f, "file not found (searched at {})", path.display())
             }
-            Self::AccessDenied => f.pad("failed to load file (access denied)"),
-            Self::IsDirectory => f.pad("failed to load file (is a directory)"),
-            Self::NotSource => f.pad("not a Typst source file"),
-            Self::InvalidUtf8 => f.pad("file is not valid UTF-8"),
+            Self::AccessDenied(path) => {
+                write!(f, "failed to load file {} (access denied)", path.display())
+            }
+            Self::IsDirectory(path) => {
+                write!(f, "failed to load file {} (is a directory)", path.display())
+            }
+            Self::NotSource(path) => {
+                write!(f, "{} is not a typst source file", path.display())
+            }
+            Self::InvalidUtf8(Some(path)) => {
+                write!(f, "file {} is not valid utf-8", path.display())
+            }
+            Self::InvalidUtf8(None) => f.pad("file is not valid utf-8"),
             Self::Package(error) => error.fmt(f),
             Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
             Self::Other(None) => f.pad("failed to load file"),
@@ -548,13 +557,13 @@ impl Display for FileError {
 
 impl From<Utf8Error> for FileError {
     fn from(_: Utf8Error) -> Self {
-        Self::InvalidUtf8
+        Self::InvalidUtf8(None)
     }
 }
 
 impl From<FromUtf8Error> for FileError {
     fn from(_: FromUtf8Error) -> Self {
-        Self::InvalidUtf8
+        Self::InvalidUtf8(None)
     }
 }
 
@@ -601,7 +610,11 @@ impl Display for PackageError {
                 write!(f, "package not found: {detail} (searching for {spec})",)
             }
             Self::VersionNotFound(spec, latest, registry) => {
-                write!(f, "package found, but version {} does not exist", spec.version,)?;
+                write!(
+                    f,
+                    "package '{}' found, but version {} does not exist",
+                    spec.name, spec.version
+                )?;
                 if let Some(version) = latest {
                     write!(f, " (latest version provided by {registry} is {version})")
                 } else {
