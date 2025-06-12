@@ -452,6 +452,23 @@ impl OutlineEntry {
     /// If the outline's indent is a fixed value or a function, the prefixes are
     /// indented, but the inner contents are simply offset from the prefix by
     /// the specified `gap`, rather than aligning outline-wide.
+    ///
+    /// ```example
+    /// >>> #show heading: none
+    /// #set heading(numbering: "I-I.")
+    /// #set outline(title: none)
+    ///
+    /// #outline()
+    /// #line(length: 100%)
+    /// #outline(indent: 3em)
+    ///
+    /// = Software engineering technologies
+    /// == Requirements
+    /// == Tools and technologies
+    /// == Analyzing alternatives
+    /// = Designing software components
+    /// = Testing and integration
+    /// ```
     #[func(contextual)]
     pub fn indented(
         &self,
