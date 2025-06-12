@@ -72,7 +72,7 @@ impl PicoStr {
     pub const fn constant(string: &'static str) -> PicoStr {
         match PicoStr::try_constant(string) {
             Ok(value) => value,
-            Err(err) => panic!("{}", err.message()),
+            Err(err) => failed_to_compile_time_intern(err, string),
         }
     }
 
@@ -190,15 +190,9 @@ mod bitcode {
     impl EncodingError {
         pub const fn message(&self) -> &'static str {
             match self {
-                Self::TooLong => {
-                    "the maximum auto-internible string length is 12. \
-                     you can add an exception to typst-utils/src/pico.rs \
-                     to intern longer strings."
-                }
+                Self::TooLong => "the maximum auto-internible string length is 12",
                 Self::BadChar => {
-                    "can only auto-intern the chars 'a'-'z', '1'-'4', and '-'. \
-                     you can add an exception to typst-utils/src/pico.rs \
-                     to intern other strings."
+                    "can only auto-intern the chars 'a'-'z', '1'-'4', and '-'"
                 }
             }
         }
@@ -354,6 +348,39 @@ impl Hash for ResolvedPicoStr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
+}
+
+/// The error when a string could not be interned at compile time. Because the
+/// normal formatting machinery is not available at compile time, just producing
+/// the message is a bit involved ...
+#[track_caller]
+const fn failed_to_compile_time_intern(
+    error: bitcode::EncodingError,
+    string: &'static str,
+) -> ! {
+    const CAPACITY: usize = 512;
+    const fn push((buf, i): &mut ([u8; CAPACITY], usize), s: &str) {
+        let mut k = 0;
+        while k < s.len() && *i < buf.len() {
+            buf[*i] = s.as_bytes()[k];
+            k += 1;
+            *i += 1;
+        }
+    }
+
+    let mut dest = ([0; CAPACITY], 0);
+    push(&mut dest, "failed to compile-time intern string \"");
+    push(&mut dest, string);
+    push(&mut dest, "\". ");
+    push(&mut dest, error.message());
+    push(&mut dest, ". you can add an exception to ");
+    push(&mut dest, file!());
+    push(&mut dest, " to intern longer strings.");
+
+    let (slice, _) = dest.0.split_at(dest.1);
+    let Ok(message) = std::str::from_utf8(slice) else { panic!() };
+
+    panic!("{}", message);
 }
 
 #[cfg(test)]
