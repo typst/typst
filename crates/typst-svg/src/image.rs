@@ -2,7 +2,7 @@ use base64::Engine;
 use ecow::{eco_format, EcoString};
 use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::foundations::Smart;
-use typst_library::layout::{Abs, Axes};
+use typst_library::layout::{Abs, Axes, Transform};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat,
 };
@@ -11,10 +11,17 @@ use crate::SVGRenderer;
 
 impl SVGRenderer {
     /// Render an image element.
-    pub(super) fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
+    pub(super) fn render_image(
+        &mut self,
+        transform: &Transform,
+        image: &Image,
+        size: &Axes<Abs>,
+    ) {
         let url = convert_image_to_base64_url(image);
         self.xml.start_element("image");
         self.xml.write_attribute("xlink:href", &url);
+        self.xml.write_attribute("x", &transform.tx.to_pt());
+        self.xml.write_attribute("y", &transform.ty.to_pt());
         self.xml.write_attribute("width", &size.x.to_pt());
         self.xml.write_attribute("height", &size.y.to_pt());
         self.xml.write_attribute("preserveAspectRatio", "none");
