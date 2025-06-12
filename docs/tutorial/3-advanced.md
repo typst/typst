@@ -6,7 +6,7 @@ description: Typst's tutorial.
 In the previous two chapters of this tutorial, you have learned how to write a
 document in Typst and how to change its formatting. The report you wrote
 throughout the last two chapters got a straight A and your supervisor wants to
-base a conference paper on it! The report will of course have to comply with the
+base a conference paper on it! The paper will of course have to comply with the
 conference's style guide. Let's see how we can achieve that.
 
 Before we start, let's create a team, invite your supervisor and add them to the
@@ -30,12 +30,12 @@ to find other users and try teams with them!
 The layout guidelines are available on the conference website. Let's take a look
 at them:
 
-- The font should be an 11pt serif font
-- The title should be in 17pt and bold
+- The font should be an 11 pt serif font
+- The title should be in 17 pt and bold
 - The paper contains a single-column abstract and two-column main text
 - The abstract should be centered
 - The main text should be justified
-- First level section headings should be 13pt, centered, and rendered in small
+- First level section headings should be 13 pt, centered, and rendered in small
   capitals
 - Second level headings are run-ins, italicized and have the same size as the
   body text
@@ -51,7 +51,6 @@ Let's start by writing some set rules for the document.
 
 ```example
 #set page(
->>>  margin: auto,
   paper: "us-letter",
   header: align(right)[
     A fluid dynamic model for
@@ -61,8 +60,8 @@ Let's start by writing some set rules for the document.
 )
 #set par(justify: true)
 #set text(
-  font: "Libertinus Serif",
   size: 11pt,
+  font: "Libertinus Serif",
 )
 
 #lorem(600)
@@ -72,14 +71,14 @@ You are already familiar with most of what is going on here. We set the text
 size to `{11pt}` and the font to Libertinus Serif. We also enable paragraph
 justification and set the page size to US letter.
 
-The `header` argument is new: With it, we can provide content to fill the top
+The `header` field is new: with it, we can provide content to fill the top
 margin of every page. In the header, we specify our paper's title as requested
 by the conference style guide. We use the `align` function to align the text to
 the right.
 
-Last but not least is the `numbering` argument. Here, we can provide a
+Last but not least is the `numbering` field. Here, we can provide a
 [numbering pattern]($numbering) that defines how to number the pages. By
-setting into to `{"1"}`, Typst only displays the bare page number. Setting it to
+setting it to `{"1"}`, Typst only displays the bare page number. Setting it to
 `{"(1/1)"}` would have displayed the current page and total number of pages
 surrounded by parentheses. And we could even have provided a completely custom
 function here to format things to our liking.
@@ -89,35 +88,65 @@ Now, let's add a title and an abstract. We'll start with the title. We center
 align it and increase its font weight by enclosing it in `[*stars*]`.
 
 ```example
->>> #set page(width: 300pt, margin: 30pt)
->>> #set text(font: "Libertinus Serif", 11pt)
-#align(center, text(17pt)[
+>>> #set page(
+>>>   // paper: "us-letter",
+>>>   width: 300pt,
+>>>   margin: 30pt,
+>>>   header: align(right)[
+>>>     A fluid dynamic model for
+>>>     glacier flow
+>>>   ],
+>>>   // numbering: "1",
+>>> )
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
+<<< ...
+#align(center, block(text(
+  17pt,
+  hyphenate: false
+)[
   *A fluid dynamic model
   for glacier flow*
-])
+]))
 ```
 
 This looks right. We used the `text` function to override the previous text
-set rule locally, increasing the size to 17pt for the function's argument. Let's
-also add the author list: Since we are writing this paper together with our
-supervisor, we'll add our own and their name.
+set rule locally, increasing the size to 17 pt.
+Add explanation about block+hyphenate, which is pretty convoluted.
+Let's also add the author list: Since we are writing this paper together with
+our supervisor, we'll add our own and their name.
 
 ```example
->>> #set page(width: 300pt, margin: 30pt)
->>> #set text(font: "Libertinus Serif", 11pt)
+>>> #set page(
+>>>   // paper: "us-letter",
+>>>   width: 300pt,
+>>>   margin: 30pt,
+>>>   header: align(right)[
+>>>     A fluid dynamic model for
+>>>     glacier flow
+>>>   ],
+>>>   // numbering: "1",
+>>> )
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
 >>>
->>> #align(center, text(17pt)[
+>>> #align(center, block(text(
+>>>   17pt,
+>>>   hyphenate: false
+>>> )[
 >>>   *A fluid dynamic model
 >>>   for glacier flow*
->>> ])
+>>> ]))
+<<< ...
 #grid(
   columns: (1fr, 1fr),
-  align(center)[
+  align: center,
+  [
     Therese Tungsten \
     Artos Institute \
     #link("mailto:tung@artos.edu")
   ],
-  align(center)[
+  [
     Dr. John Doe \
     Artos Institute \
     #link("mailto:doe@artos.edu")
@@ -127,45 +156,49 @@ supervisor, we'll add our own and their name.
 
 The two author blocks are laid out next to each other. We use the [`grid`]
 function to create this layout. With a grid, we can control exactly how large
-each column is and which content goes into which cell. The `columns` argument
-takes an array of [relative lengths]($relative) or [fractions]($fraction). In
-this case, we passed it two equal fractional sizes, telling it to split the
-available space into two equal columns. We then passed two content arguments to
-the grid function. The first with our own details, and the second with our
-supervisors'. We again use the `align` function to center the content within the
-column. The grid takes an arbitrary number of content arguments specifying the
-cells. Rows are added automatically, but they can also be manually sized with
-the `rows` argument.
+each column is and which content goes into which cell. The `columns` field
+takes the number of columns, or an array of [relative lengths]($relative) or
+[fractions]($fraction). In this case, we passed it two equal fractional sizes,
+telling it to split the available space into two equal columns. We then passed
+two content arguments to the grid function --- the first with our own details,
+and the second with our supervisor's. With grid, we can avoid using `align` on
+each cell content to center them, and instead use the `align` field to do this
+for all cells automatically. The grid takes an arbitrary number of content
+arguments specifying the cells. Rows are added automatically, but they can also
+be manually sized with the `rows` field.
 
 Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
 
 ```example:0,0,612,317.5
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
->>>   "us-letter",
->>>   margin: auto,
->>>   header: align(right + horizon)[
+>>>   paper: "us-letter",
+>>>   header: align(right)[
 >>>     A fluid dynamic model for
 >>>     glacier flow
 >>>   ],
 >>>   numbering: "1",
 >>> )
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
 >>>
->>> #align(center, text(17pt)[
+>>> #align(center, block(text(
+>>>   17pt,
+>>>   hyphenate: false
+>>> )[
 >>>   *A fluid dynamic model
 >>>   for glacier flow*
->>> ])
+>>> ]))
 >>>
 >>> #grid(
 >>>   columns: (1fr, 1fr),
->>>   align(center)[
+>>>   align: center,
+>>>   [
 >>>     Therese Tungsten \
 >>>     Artos Institute \
 >>>     #link("mailto:tung@artos.edu")
 >>>   ],
->>>   align(center)[
+>>>   [
 >>>     Dr. John Doe \
 >>>     Artos Institute \
 >>>     #link("mailto:doe@artos.edu")
@@ -198,35 +231,33 @@ keyword:
   for glacier flow
 ]
 
-<<< ...
-
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 #set page(
->>>   "us-letter",
->>>   margin: auto,
-  header: align(
-    right + horizon,
-    title
-  ),
+>>>   paper: "us-letter",
+<<<   ...
+  header: align(right, title),
 <<<   ...
 >>>   numbering: "1",
 )
-
-#align(center, text(17pt)[
-  *#title*
-])
-
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
 <<< ...
 
+#align(center, block(text(
+  17pt,
+  hyphenate: false,
+  strong(title),
+)))
+
+<<< ...
 >>> #grid(
 >>>   columns: (1fr, 1fr),
->>>   align(center)[
+>>>   align: center,
+>>>   [
 >>>     Therese Tungsten \
 >>>     Artos Institute \
 >>>     #link("mailto:tung@artos.edu")
 >>>   ],
->>>   align(center)[
+>>>   [
 >>>     Dr. John Doe \
 >>>     Artos Institute \
 >>>     #link("mailto:doe@artos.edu")
@@ -247,55 +278,48 @@ and also within markup (prefixed by `#`, like functions). This way, if we decide
 on another title, we can easily change it in one place.
 
 ## Adding columns and headings { #columns-and-headings }
-The paper above unfortunately looks like a wall of lead. To fix that, let's add
+The paper above unfortunately looks like a wall of lead(?). To fix that, let's add
 some headings and switch our paper to a two-column layout. Fortunately, that's
-easy to do: We just need to amend our `page` set rule with the `columns`
-argument.
+easy to do: we just need to amend our `page` set rule with the `columns` field.
 
 By adding `{columns: 2}` to the argument list, we have wrapped the whole
 document in two columns. However, that would also affect the title and authors
 overview. To keep them spanning the whole page, we can wrap them in a function
-call to [`{place}`]($place). Place expects an alignment and the content it
-should place as positional arguments. Using the named `{scope}` argument, we can
+call to [`{place}`]($place). The `place` expects an alignment and the content it
+should place as positional arguments. Using the named `scope` field, we can
 decide if the items should be placed relative to the current column or its
 parent (the page). There is one more thing to configure: If no other arguments
-are provided, `{place}` takes its content out of the flow of the document and
+are provided, `place` takes its content out of the flow of the document and
 positions it over the other content without affecting the layout of other
 content in its container:
 
 ```example
-#place(
-  top + center,
-  rect(fill: black),
-)
+#place(top + center, rect())
 #lorem(30)
 ```
 
-If we hadn't used `{place}` here, the square would be in its own line, but here
-it overlaps the few lines of text following it. Likewise, that text acts like as
-if there was no square. To change this behavior, we can pass the argument
-`{float: true}` to ensure that the space taken up by the placed item at the top
-or bottom of the page is not occupied by any other content.
+If we hadn't used `place` here, the rectangle would be in its own line, but
+here it overlaps the few lines of text following it. Likewise, that text acts
+like as if there was no rectangle. To change this behavior, we can pass the
+argument `{float: true}` to ensure that the space taken up by the placed item
+at the top or bottom of the page is not occupied by any other content.
 
 ```example:single
 >>> #let title = [
 >>>   A fluid dynamic model
 >>>   for glacier flow
 >>> ]
->>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
->>>
+<<< ...
+
 #set page(
->>> margin: auto,
   paper: "us-letter",
-  header: align(
-    right + horizon,
-    title
-  ),
+  header: align(right, title),
   numbering: "1",
   columns: 2,
 )
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
+<<< ...
 
 #place(
   top + center,
@@ -303,11 +327,7 @@ or bottom of the page is not occupied by any other content.
   scope: "parent",
   clearance: 2em,
 )[
->>>  #text(
->>>    17pt,
->>>    weight: "bold",
->>>    title,
->>>  )
+>>>  #block(text(17pt, hyphenate: false, strong(title)))
 >>>
 >>>  #grid(
 >>>    columns: (1fr, 1fr),
@@ -324,10 +344,9 @@ or bottom of the page is not occupied by any other content.
 >>>  )
 <<<   ...
 
-  #par(justify: false)[
-    *Abstract* \
-    #lorem(80)
-  ]
+  #set par(justify: false) // Put it above to remove hyphenate?
+  *Abstract* \
+  #lorem(80)
 ]
 
 = Introduction
@@ -337,14 +356,14 @@ or bottom of the page is not occupied by any other content.
 #lorem(200)
 ```
 
-In this example, we also used the `clearance` argument of the `{place}` function
-to provide the space between it and the body instead of using the [`{v}`]($v)
+In this example, we also used the `clearance` argument of the `place` function
+to provide the space between it and the body instead of using the [`v`]
 function. We can also remove the explicit `{align(center, ..)}` calls around the
 various parts since they inherit the center alignment from the placement.
 
-Now there is only one thing left to do: Style our headings. We need to make them
-centered and use small capitals. Because the `heading` function does not offer
-a way to set any of that, we need to write our own heading show rule.
+Now there is only one thing left to do: style our headings. We need to make them
+centered and use small capitals. For centering we can use a show-set rule, but
+to use small capitals we need to write our own heading show rule.
 
 ```example:50,250,265,270
 >>> #let title = [
@@ -352,37 +371,27 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
->>>   "us-letter",
->>>   margin: auto,
->>>   header: align(
->>>     right + horizon,
->>>     title
->>>   ),
+>>>   paper: "us-letter",
+>>>   header: align(right, title),
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
-#show heading: it => [
-  #set align(center)
-  #set text(13pt, weight: "regular")
-  #block(smallcaps(it.body))
-]
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
+<<< ...
+#show heading: set align(center)
+#show heading: set text(13pt, weight: "regular")
+#show heading: it => block(smallcaps(it.body))
 
 <<< ...
->>>
 >>> #place(
 >>>   top + center,
 >>>   float: true,
 >>>   scope: "parent",
 >>>   clearance: 2em,
 >>> )[
->>>   #text(
->>>     17pt,
->>>     weight: "bold",
->>>     title,
->>>   )
+>>>   #block(text(17pt, hyphenate: false, strong(title)))
 >>>
 >>>   #grid(
 >>>     columns: (1fr, 1fr),
@@ -398,10 +407,9 @@ a way to set any of that, we need to write our own heading show rule.
 >>>     ]
 >>>   )
 >>>
->>>   #par(justify: false)[
->>>     *Abstract* \
->>>     #lorem(80)
->>>   ]
+>>>   #set par(justify: false)
+>>>   *Abstract* \
+>>>   #lorem(80)
 >>> ]
 >>>
 >>> = Introduction
@@ -411,19 +419,26 @@ a way to set any of that, we need to write our own heading show rule.
 >>> #lorem(45)
 ```
 
-This looks great! We used a show rule that applies to all headings. We give it a
-function that gets passed the heading as a parameter. That parameter can be used
-as content but it also has some fields like `title`, `numbers`, and `level` from
-which we can compose a custom look. Here, we are center-aligning, setting the
-font weight to `{"regular"}` because headings are bold by default, and use the
-[`smallcaps`] function to render the heading's title in small capitals.
+This looks great! We used a few rules that apply to all headings. First, we
+made headings centered, then we set font size to 13 pt and removed default
+heading boldness by setting `weight` to `{"regular"}`. Lastly, there is a show
+rule with a closure, i.e., a callback function. We gave it a function that
+passes the heading as argument. That argument can be used as content but it
+also has some fields like `title`, `numbers`, and `level`, from which we can
+compose a custom look. Here, we use the [`smallcaps`] function to render the
+heading's title in small capitals. Note that heading itself is wrapped in a
+block by default, as it's a block-level element, and by using `{it.body}` we
+are destroying the default structure of the heading. This means we strip away
+not only the `block` "shell", but also any potential numbering and other
+heading features. To restore it's semantic structure, we wrap
+`{smallcaps(it.body)}` in a `block`. This way it will behave like usual.
 
-The only remaining problem is that all headings look the same now. The
-"Motivation" and "Problem Statement" subsections ought to be italic run in
-headers, but right now, they look indistinguishable from the section headings. We
-can fix that by using a `where` selector on our set rule: This is a
-[method]($scripting/#methods) we can call on headings (and other
-elements) that allows us to filter them by their level. We can use it to
+The only remaining problem is that all headings now look the same. The
+"Motivation" and "Problem Statement" subsections ought to be italic run-in
+headings, but right now, they look indistinguishable from the section headings.
+We can fix that by using a `where` selector on our show rules: this is a
+[method]($scripting/#methods) we can call on headings (and other elements) that
+allows us to filter them by their level (and other fields). We can use it to
 differentiate between section and subsection headings:
 
 ```example:50,250,265,245
@@ -432,66 +447,49 @@ differentiate between section and subsection headings:
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
->>>   "us-letter",
->>>   margin: auto,
->>>   header: align(
->>>     right + horizon,
->>>     title
->>>   ),
+>>>   paper: "us-letter",
+>>>   header: align(right, title),
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
->>>
-#show heading.where(
-  level: 1
-): it => block(width: 100%)[
-  #set align(center)
-  #set text(13pt, weight: "regular")
-  #smallcaps(it.body)
-]
+>>> #set par(justify: true)
+>>> #set text(11pt, font: "Libertinus Serif")
+<<< ...
 
-#show heading.where(
-  level: 2
-): it => text(
-  size: 11pt,
-  weight: "regular",
-  style: "italic",
-  it.body + [.],
-)
->>>
+#show heading.where(level: 1): set align(center)
+#show heading.where(level: 1): set text(13pt, weight: "regular")
+#show heading.where(level: 1): it => block(smallcaps(it.body))
+
+#show heading.where(level: 2): set text(11pt, weight: "regular", style: "italic")
+#show heading.where(level: 2): it => [#it.body.]
+
+<<< ...
 >>> #place(
 >>>   top + center,
 >>>   float: true,
 >>>   scope: "parent",
 >>>   clearance: 2em,
 >>> )[
->>>   #text(
->>>     17pt,
->>>     weight: "bold",
->>>     title,
+>>>   #block(text(17pt, hyphenate: false, strong(title)))
+>>>
+>>>   #grid(
+>>>     columns: (1fr, 1fr),
+>>>     [
+>>>       Therese Tungsten \
+>>>       Artos Institute \
+>>>       #link("mailto:tung@artos.edu")
+>>>     ],
+>>>     [
+>>>       Dr. John Doe \
+>>>       Artos Institute \
+>>>       #link("mailto:doe@artos.edu")
+>>>     ]
 >>>   )
 >>>
->>>  #grid(
->>>    columns: (1fr, 1fr),
->>>    [
->>>      Therese Tungsten \
->>>      Artos Institute \
->>>      #link("mailto:tung@artos.edu")
->>>    ],
->>>    [
->>>      Dr. John Doe \
->>>      Artos Institute \
->>>      #link("mailto:doe@artos.edu")
->>>    ]
->>>  )
->>>
->>>   #par(justify: false)[
->>>     *Abstract* \
->>>     #lorem(80)
->>>   ]
+>>>   #set par(justify: false)
+>>>   *Abstract* \
+>>>   #lorem(80)
 >>> ]
 >>>
 >>> = Introduction
@@ -501,23 +499,26 @@ differentiate between section and subsection headings:
 >>> #lorem(45)
 ```
 
-This looks great! We wrote two show rules that each selectively apply to the
-first and second level headings. We used a `where` selector to filter the
-headings by their level. We then rendered the subsection headings as run-ins. We
-also automatically add a period to the end of the subsection headings.
+Excellent! We wrote several rules that selectively apply to the first and second
+level headings. We used a `where` selector to filter the headings by their
+level. We then rendered the subsection headings as run-ins. We also
+automatically added a period to the end of the subsection headings. This time
+we did not wrap result in a `block`, because we need the heading to be inline
+with the following text.
 
 Let's review the conference's style guide:
-- The font should be an 11pt serif font ✓
-- The title should be in 17pt and bold ✓
+- The font should be an 11 pt serif font ✓
+- The title should be in 17 pt and bold ✓
 - The paper contains a single-column abstract and two-column main text ✓
 - The abstract should be centered ✓
 - The main text should be justified ✓
 - First level section headings should be centered, rendered in small caps and in
-  13pt ✓
+  13 pt ✓
 - Second level headings are run-ins, italicized and have the same size as the
   body text ✓
-- Finally, the pages should be US letter sized, numbered in the center and the
-  top right corner of each page should contain the title of the paper ✓
+- Finally, the pages should be US letter sized, numbered in the center of the
+  footer and the top right corner of each page should contain the title of the
+  paper ✓
 
 We are now in compliance with all of these styles and can submit the paper to
 the conference! The finished paper looks like this:
@@ -527,6 +528,62 @@ the conference! The finished paper looks like this:
   alt="The finished paper"
   style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; display: block; margin: 24px auto;"
 >
+
+Here is a full listing of the finished paper:
+
+```example
+#let title = [A fluid dynamic model for glacier flow]
+
+#set page(
+  paper: "us-letter",
+  header: align(right, title),
+  numbering: "1",
+  columns: 2,
+)
+#set par(justify: true)
+#set text(11pt, font: "Libertinus Serif")
+
+#show heading.where(level: 1): set align(center)
+#show heading.where(level: 1): set text(13pt, weight: "regular")
+#show heading.where(level: 1): it => block(smallcaps(it.body))
+
+#show heading.where(level: 2): set text(11pt, weight: "regular", style: "italic")
+#show heading.where(level: 2): it => [#it.body.]
+
+#place(top + center, float: true, scope: "parent", clearance: 2em)[
+  #block(text(17pt, hyphenate: false, strong(title)))
+
+  #grid(
+    columns: (1fr, 1fr),
+    [
+      Therese Tungsten \
+      Artos Institute \
+      #link("mailto:tung@artos.edu")
+    ],
+    [
+      Dr. John Doe \
+      Artos Institute \
+      #link("mailto:doe@artos.edu")
+    ]
+  )
+
+  #set par(justify: false)
+  *Abstract* \
+  #lorem(80)
+]
+
+= Introduction
+#lorem(90)
+
+== Motivation
+#lorem(140)
+
+== Problem Statement
+#lorem(50)
+
+= Related Work
+#lorem(200)
+```
 
 ## Review
 You have now learned how to create headers and footers, how to use functions and
