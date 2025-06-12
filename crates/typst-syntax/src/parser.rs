@@ -7,7 +7,7 @@ use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use crate::set::{syntax_set, SyntaxSet};
-use crate::{ast, set, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
+use crate::{ast, set, Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -1578,17 +1578,6 @@ struct Newline {
     column: Option<usize>,
     /// Whether any of our newlines were paragraph breaks.
     parbreak: bool,
-}
-
-/// The syntax mode of a portion of Typst code.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SyntaxMode {
-    /// Text and markup, as in the top level.
-    Markup,
-    /// Math atoms, operators, etc., as in equations.
-    Math,
-    /// Keywords, literals and operators, as after hashes.
-    Code,
 }
 
 /// How to proceed with parsing when at a newline.
