@@ -5,13 +5,14 @@
 #table(
   columns: 3,
   [Typo.], [Fallb.], [Synth.],
-  [x#super[1 #sq]], [x#super[5: #sq]], [x#super(typographic: false)[2 #sq]],
-  [x#sub[1 #sq]], [x#sub[5: #sq]], [x#sub(typographic: false)[2 #sq]],
+  [x#super[1#sq]], [x#super[5: #sq]], [x#super(typographic: false)[2 #sq]],
+  [x#sub[1#sq]], [x#sub[5: #sq]], [x#sub(typographic: false)[2 #sq]],
 )
 
 --- sub-super-typographic ---
 #set text(size: 20pt)
-// Libertinus Serif supports "subs" and "sups" for `typo`, but not for `synth`.
+// Libertinus Serif supports "subs" and "sups" for `typo` and `sq`, but not for
+// `synth`.
 #let synth = [1,2,3]
 #let typo = [123]
 #let sq = [1#box(square(size: 4pt))2]
@@ -34,26 +35,27 @@ n#super[1], n#sub[2], ... n#super[N]
 --- super-underline ---
 #set underline(stroke: 0.5pt, offset: 0.15em)
 #set super(typographic: false)
-#underline[The claim#super[4]] has been disputed. \
-The claim#super[#underline[4]] has been disputed. \
-The claim #underline(super[4]) has been disputed. \
+#underline[A#super[4]] B \
+A#super[#underline[4]] B \
+A #underline(super[4]) B \
 #set super(typographic: true)
-#underline[The claim#super[4]] has been disputed. \
-The claim#super[#underline[4]] has been disputed. \
-The claim #underline(super[4]) has been disputed.
+#underline[A#super[4]] B \
+A#super[#underline[4]] B \
+A #underline(super[4]) B
 
 --- super-highlight ---
 #set super(typographic: false)
-#highlight[The claim#super[4]] has been disputed. \
-The claim#super[#highlight[4]] has been disputed. \
-It really has been#super(highlight[4]) \
+#highlight[A#super[4]] B \
+A#super[#highlight[4]] B \
+A#super(highlight[4]) \
 #set super(typographic: true)
-#highlight[The claim#super[4]] has been disputed. \
-The claim#super[#highlight[4]] has been disputed. \
-It really has been#super(highlight[4])
+#highlight[A#super[4]] B \
+A#super[#highlight[4]] B \
+A#super(highlight[4])
 
 --- super-1em ---
-Test#super[#box(rect(height: 1em))]#box(rect(height: 1em))
+#set text(size: 10pt)
+#super(context test(1em.to-absolute(), 10pt))
 
 --- long-scripts ---
 |longscript| \
@@ -62,7 +64,13 @@ Test#super[#box(rect(height: 1em))]#box(rect(height: 1em))
 |#sub(typographic: true)[longscript]| \
 |#sub(typographic: false)[longscript]|
 
---- scripts-with-bundeled-fonts ---
+--- script-metrics-bundeled-fonts ---
+// Tests whether the script metrics are used properly by synthesizing
+// superscripts and subscripts for all bundled fonts.
+
+#set super(typographic: false)
+#set sub(typographic: false)
+
 #let test(font, weights, styles) = {
   for weight in weights {
     for style in styles {
