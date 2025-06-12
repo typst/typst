@@ -332,6 +332,7 @@ mod tests {
         assert!(option_eq(region, "US"));
         assert!(!option_eq(region, "AB"));
     }
+
     #[test]
     fn test_all_translations_included() {
         let defined_keys =
@@ -353,6 +354,7 @@ mod tests {
         }
         assert_eq!(TRANSLATIONS.len(), checked);
     }
+
     #[test]
     fn test_all_translation_files_formatted() {
         for file in translation_files_iter() {
@@ -372,6 +374,7 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn test_translations_sorted() {
         assert!(
