@@ -90,7 +90,7 @@ use crate::World;
 /// ```
 #[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
 pub struct BibliographyElem {
-    /// One or multiple paths to or raw bytes for Hayagriva `.yml` and/or
+    /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
@@ -385,7 +385,7 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
                 .within(loaded),
             _ => bail!(
                 loaded.source.span,
-                "unknown bibliography format (must be .yml/.yaml or .bib)"
+                "unknown bibliography format (must be .yaml/.yml or .bib)"
             ),
         }
     } else {
