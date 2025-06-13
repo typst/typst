@@ -298,11 +298,6 @@ impl<'a> GridLayouter<'a> {
 
         self.prepare_next_repeating_footers(true, engine)?;
 
-        // Ensure rows in the first region will be aware of the possible
-        // presence of the footer.
-        self.regions.size.y -= self.current.footer_height;
-        self.current.initial_after_repeats = self.regions.size.y;
-
         let mut y = 0;
         let mut consecutive_header_count = 0;
         while y < self.grid.rows.len() {
@@ -1784,13 +1779,6 @@ impl<'a> GridLayouter<'a> {
                     disambiguator,
                 )?;
             }
-
-            // Ensure rows don't try to overrun the footer.
-            // Note that header layout will only subtract this again if it has
-            // to skip regions to fit headers, so there is no risk of
-            // subtracting this twice.
-            self.regions.size.y -= self.current.footer_height;
-            self.current.initial_after_repeats = self.regions.size.y;
 
             if !self.repeating_headers.is_empty() || !self.pending_headers.is_empty() {
                 // Add headers to the new region.

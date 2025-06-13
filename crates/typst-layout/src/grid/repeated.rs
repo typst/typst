@@ -632,8 +632,17 @@ impl<'a> GridLayouter<'a> {
                 .simulate_footer_heights(footers, &self.regions, engine, disambiguator)?;
         }
 
+        // Ensure rows don't try to overrun the new footers.
+        // Note that header layout will only subtract this again if it has
+        // to skip regions to fit headers, so there is no risk of
+        // subtracting this twice.
+        self.regions.size.y -= expected_footer_height;
         self.current.footer_height += expected_footer_height;
         self.current.repeating_footer_heights.extend(expected_footer_heights);
+
+        if at_region_top {
+            self.current.initial_after_repeats = self.regions.size.y;
+        }
 
         Ok(())
     }
