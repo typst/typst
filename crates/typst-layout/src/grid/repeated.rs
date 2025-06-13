@@ -518,10 +518,9 @@ impl<'a> GridLayouter<'a> {
             || self
                 .upcoming_sorted_footers
                 .first()
-                .is_none_or(|f| f.level >= footer.level)
+                .is_some_and(|f| f.level >= footer.level)
         {
             self.prepare_next_repeating_footers(false, engine)?;
-            return Ok(());
         }
 
         Ok(())
