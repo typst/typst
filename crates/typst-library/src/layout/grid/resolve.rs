@@ -1632,11 +1632,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         level: row_group.repeatable_level.get(),
                     };
 
-                    footers.push(if row_group.repeat {
-                        Repeatable::Repeated(data)
-                    } else {
-                        Repeatable::NotRepeated(data)
-                    });
+                    footers.push(Repeatable { inner: data, repeated: row_group.repeat });
                 }
             }
         }
@@ -1869,9 +1865,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 header.range.end = header.range.end.min(row_amount);
             }
 
-            for repeatable_footer in &mut *footers {
-                let footer = repeatable_footer.unwrap_mut();
-
+            for footer in &mut *footers {
                 // TODO(subfooters): will need a global slice of headers and
                 // footers for when we have multiple footers
                 // Alternatively, never include the gutter in the footer's
@@ -1909,7 +1903,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 if !at_least_one_cell {
                     // TODO: short-lived (and remove this?)
-                    repeatable_footer.repeated = false;
+                    footer.repeated = false;
                 }
             }
         }
