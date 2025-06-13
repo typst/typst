@@ -493,7 +493,7 @@ impl<'a> GridLayouter<'a> {
             // Placing a non-short-lived repeating footer, so it must be
             // the latest one in the repeating footers vector.
             let latest_repeating_footer = self.repeating_footers.pop().unwrap();
-            assert_eq!(latest_repeating_footer.start, footer.start);
+            assert_eq!(latest_repeating_footer.range.start, footer.range.start);
 
             let expected_footer_height =
                 self.current.repeating_footer_heights.pop().unwrap();
@@ -660,12 +660,12 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
-        let footer_len = footer.end - footer.start;
+        let footer_len = footer.range.end - footer.range.start;
         self.unbreakable_rows_left += footer_len;
 
         // TODO(subfooters): also consider omitted gutter before the footer
         // when there is a header right before it taking it.
-        for y in footer.start..self.grid.rows.len() {
+        for y in footer.range.start..self.grid.rows.len() {
             self.layout_row_with_state(
                 y,
                 engine,
@@ -694,8 +694,8 @@ impl<'a> GridLayouter<'a> {
         // assume that the amount of unbreakable rows following the first row
         // in the footer will be precisely the rows in the footer.
         self.simulate_unbreakable_row_group(
-            footer.start,
-            Some(footer.end - footer.start),
+            footer.range.start,
+            Some(footer.range.end - footer.range.start),
             regions,
             engine,
             disambiguator,

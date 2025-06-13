@@ -447,22 +447,12 @@ pub struct Header {
 /// A repeatable grid footer. Stops at the last row.
 #[derive(Debug, Clone)]
 pub struct Footer {
-    /// The first row included in this footer.
-    pub start: usize,
-    /// The index after the last row included in this footer.
-    pub end: usize,
+    /// The range of rows included in this footer.
+    pub range: Range<usize>,
     /// The footer's level.
     ///
     /// Used similarly to header level.
     pub level: u32,
-}
-
-impl Footer {
-    /// The footer's range of included rows.
-    #[inline]
-    pub fn range(&self) -> Range<usize> {
-        self.start..self.end
-    }
 }
 
 /// A possibly repeatable grid child (header or footer).
@@ -1621,14 +1611,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // Only check if the footer is at the end later, once we know
                     // the final amount of rows.
                     let data = Footer {
-                        // Later on, we have to correct this number in case there
+                        // Later on, we have to correct this range in case there
                         // is gutter, but only once all cells have been analyzed
                         // and the header's and footer's exact boundaries are
                         // known. That is because the gutter row immediately
                         // before the footer might not be included as part of
                         // the footer if it is contained within the header.
-                        start: group_range.start,
-                        end: group_range.end,
+                        range: group_range,
                         level: row_group.repeatable_level.get(),
                     };
 
@@ -1818,11 +1807,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // TODO: interleaved headers and footers?
         let mut first_end_footer = row_amount;
         for end_footer in footers.iter().rev() {
-            if end_footer.end != first_end_footer {
+            if end_footer.range.end != first_end_footer {
                 break;
             }
 
-            first_end_footer = end_footer.start;
+            first_end_footer = end_footer.range.start;
         }
 
         let mut consecutive_header_start = first_end_footer;
@@ -1879,14 +1868,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 let last_header_end = headers.last().map(|header| header.range.end);
 
                 // Convert the footer's start index to post-gutter coordinates.
-                footer.start *= 2;
+                footer.range.start *= 2;
 
                 // TODO: this probably has to change
                 // Include the gutter right before the footer, unless there is
                 // none, or the gutter is already included in the header (no
                 // rows between the header and the footer).
-                if last_header_end != Some(footer.start) {
-                    footer.start = footer.start.saturating_sub(1);
+                if last_header_end != Some(footer.range.start) {
+                    footer.range.start = footer.range.start.saturating_sub(1);
                 }
 
                 // Adapt footer end but DO NOT include the gutter below it,
@@ -1899,7 +1888,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 //
                 // It also keeps us within the total amount of rows, so we
                 // don't need to '.min()' later.
-                footer.end = (2 * footer.end).saturating_sub(1);
+                footer.range.end = (2 * footer.range.end).saturating_sub(1);
 
                 if !at_least_one_cell {
                     // TODO: short-lived (and remove this?)
@@ -2101,7 +2090,7 @@ fn check_for_conflicting_cell_row(
 
     if footers
         .iter()
-        .any(|footer| cell_y < footer.end && cell_y + rowspan > footer.start)
+        .any(|footer| cell_y < footer.range.end && cell_y + rowspan > footer.range.start)
     {
         bail!(
             "cell would conflict with footer spanning the same position";
@@ -2335,11 +2324,11 @@ fn find_next_available_position(
             *next_header += 1;
         } else if let Some(footer) = footers
             .get(*next_footer)
-            .filter(|footer| resolved_index >= footer.start * columns)
+            .filter(|footer| resolved_index >= footer.range.start * columns)
         {
             // Skip footer, for the same reason.
-            if resolved_index < footer.end * columns {
-                resolved_index = footer.end * columns;
+            if resolved_index < footer.range.end * columns {
+                resolved_index = footer.range.end * columns;
 
                 if skip_rows {
                     resolved_index += initial_index % columns;
