@@ -7,8 +7,8 @@ use typst_library::layout::Frame;
 use typst_syntax::Span;
 
 /// Encodes an HTML document into a string.
-pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer { pretty: true, ..Writer::default() };
+pub fn html(document: &HtmlDocument, xml: bool) -> SourceResult<String> {
+    let mut w = Writer { pretty: true, xml, ..Writer::default() };
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, &document.root)?;
@@ -26,6 +26,8 @@ struct Writer {
     level: usize,
     /// Whether pretty printing is enabled.
     pretty: bool,
+    /// Whether to create 'XHTML' style output
+    xml: bool,
 }
 
 /// Write a newline and indent, if pretty printing is enabled.
@@ -81,10 +83,16 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         w.buf.push('"');
     }
 
-    w.buf.push('>');
-
     if tag::is_void(element.tag) {
+        if w.xml {
+            w.buf.push_str("/>");
+        } else {
+            w.buf.push('>');
+        }
+
         return Ok(());
+    } else {
+        w.buf.push('>');
     }
 
     let pretty = w.pretty;
