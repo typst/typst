@@ -42,9 +42,23 @@ attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
 $
 
 --- math-attach-followed-by-func-call ---
-// Test function call after subscript.
-$pi_1(Y), a_f(x), a^zeta (x), a^abs(b)_sqrt(c) \
- a^subset.eq (x), a_(zeta(x)), pi_(1(Y)), a^(abs(b))_(sqrt(c))$
+// Test function call after subscripts and superscripts.
+#set page(width: auto)
+$a_1(x), a^10(x), a_f(x), a^zeta(x), a_"text"(x),
+ a_∂(x), a^cos(x), a_abs(x), a^root(2, x), a_subset.eq(x) \
+ a_(1(x)), a^(10(x)), a_(f(x)), a^(zeta(x)), a_("text"(x)),
+ a_(∂(x)), a^(cos(x)), a_(abs(x)), a^(root(2, x)), a_(subset.eq(x))$
+
+--- math-attach-followed-by-func-call-complex ---
+// Test function call with named arguments after scripts.
+#let cross = $c$
+$a_cancel(x, cross: #true)$
+
+--- math-attach-followed-by-func-call-error ---
+// Error: 14-19 unknown variable: cross
+// Hint: 14-19 if you meant to display multiple letters as is, try adding spaces between each letter: `c r o s s`
+// Hint: 14-19 or if you meant to display this as text, try placing it in quotes: `"cross"`
+$a_cancel(x, cross: #true)$
 
 --- math-attach-nested ---
 // Test associativity and scaling.
