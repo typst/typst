@@ -2441,6 +2441,8 @@ fn simulate_footer_repetition(footers: &[Repeatable<Footer>]) -> Vec<Repeatable<
         }
     }
 
+    // Push remaining footers that repeat starting from the top of the grid
+    ordered_footers.extend(repeating_footers.into_iter().rev().cloned());
     ordered_footers.reverse();
 
     ordered_footers
