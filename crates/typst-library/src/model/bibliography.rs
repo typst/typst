@@ -315,7 +315,7 @@ impl Bibliography {
             for entry in library {
                 let key = entry.key();
                 if key.is_empty() {
-                    bail!("empty bibliography key found");
+                    bail!("bibliography key must not be empty");
                 }
 
                 match map.entry(Label::new(PicoStr::intern(key))) {

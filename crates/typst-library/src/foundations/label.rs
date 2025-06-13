@@ -1,10 +1,8 @@
 use ecow::{eco_format, EcoString};
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::{
-    diag::StrResult,
-    foundations::{bail, func, scope, ty, Repr, Str},
-};
+use crate::diag::StrResult;
+use crate::foundations::{bail, func, scope, ty, Repr, Str};
 
 /// A label for an element.
 ///
@@ -80,7 +78,7 @@ impl Label {
         name: Str,
     ) -> StrResult<Label> {
         if name.is_empty() {
-            bail!("expected non-empty label name");
+            bail!("label name must not be empty");
         }
 
         Ok(Self(PicoStr::intern(name.as_str())))
