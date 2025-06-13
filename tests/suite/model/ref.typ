@@ -90,6 +90,8 @@ Text seen on #ref(<text>, form: "page", supplement: "Page").
 // @ without any following label should just produce the symbol in the output
 // and not produce a reference to a label with an empty name.
 @ \<- this should show up
+
+--- ref-function-can-not-form-empty-label ---
 // using ref() should also not be possible
 // Error: 6-7 unexpected less-than operator
 // Error: 7-8 unexpected greater-than operator
