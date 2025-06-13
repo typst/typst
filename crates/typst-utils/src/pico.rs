@@ -38,6 +38,9 @@ struct Interner {
 pub struct PicoStr(NonZeroU64);
 
 impl PicoStr {
+    /// Empty string as PicoStr
+    pub const EMPTY: PicoStr = PicoStr::constant("");
+
     /// Intern a string at runtime.
     pub fn intern(string: &str) -> PicoStr {
         // Try to use bitcode or exception representations.
