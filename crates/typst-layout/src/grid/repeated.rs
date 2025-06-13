@@ -244,7 +244,7 @@ impl<'a> GridLayouter<'a> {
             // Simulate the footer again; the region's 'full' might have
             // changed.
             let (footer_height, footer_heights) = self.simulate_footer_heights(
-                self.repeating_footers.iter().map(|x| *x),
+                self.repeating_footers.iter().copied(),
                 &self.regions,
                 engine,
                 disambiguator,
@@ -585,7 +585,7 @@ impl<'a> GridLayouter<'a> {
     /// footers, and skips to fitting region.
     pub fn prepare_repeating_footers(
         &mut self,
-        footers: impl Iterator<Item = &'a Footer> + ExactSizeIterator + Clone,
+        footers: impl ExactSizeIterator<Item = &'a Footer> + Clone,
         at_region_top: bool,
         engine: &mut Engine,
         disambiguator: usize,
@@ -641,7 +641,7 @@ impl<'a> GridLayouter<'a> {
 
     pub fn simulate_footer_heights(
         &self,
-        footers: impl Iterator<Item = &'a Footer> + ExactSizeIterator,
+        footers: impl ExactSizeIterator<Item = &'a Footer>,
         regions: &Regions<'_>,
         engine: &mut Engine,
         disambiguator: usize,
