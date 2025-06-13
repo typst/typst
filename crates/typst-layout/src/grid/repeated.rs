@@ -665,7 +665,7 @@ impl<'a> GridLayouter<'a> {
 
         // TODO(subfooters): also consider omitted gutter before the footer
         // when there is a header right before it taking it.
-        for y in footer.range.start..self.grid.rows.len() {
+        for y in footer.range.clone() {
             self.layout_row_with_state(
                 y,
                 engine,
