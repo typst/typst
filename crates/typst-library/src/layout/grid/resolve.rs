@@ -2272,6 +2272,7 @@ fn resolve_cell_position(
 ///
 /// When `skip_rows` is true, one row is skipped on each iteration, preserving
 /// the column. That is used to find a position for a fixed column cell.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn find_next_available_position(
     headers: &[Repeatable<Header>],
@@ -2398,7 +2399,7 @@ fn skip_auto_index_through_fully_merged_rows(
 /// repeating.
 fn simulate_footer_repetition(footers: &[Repeatable<Footer>]) -> Vec<Repeatable<Footer>> {
     if footers.len() <= 1 {
-        return footers.iter().cloned().collect();
+        return footers.to_vec();
     }
 
     let mut ordered_footers = Vec::with_capacity(footers.len());
