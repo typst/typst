@@ -550,9 +550,17 @@ impl<'a> GridLayouter<'a> {
             return Ok(());
         }
 
+        // Collect upcoming consecutive footers, they will start repeating with
+        // this one if compatible
+        let mut min_level = next_footer.level;
         let first_conflicting_index = other_footers
             .iter()
-            .take_while(|f| f.level > next_footer.level)
+            .take_while(|f| {
+                // TODO(subfooters): check for short-lived
+                let compatible = f.repeated && f.level > min_level;
+                min_level = f.level;
+                compatible
+            })
             .count()
             + 1;
 
