@@ -163,7 +163,6 @@
 )
 
 --- grid-footer-multiple ---
-// Error: 4:3-4:19 cannot have more than one footer
 #grid(
   [a],
   grid.footer([a]),
