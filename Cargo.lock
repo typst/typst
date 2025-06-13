@@ -413,8 +413,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "724d27a0ee38b700e5e164350e79aba601a0db673ac47fce1cb74c3e38864036"
+source = "git+https://github.com/typst/codex?rev=56eb217#56eb2172fc0670f4c1c8b79a63d11f9354e5babe"
 
 [[package]]
 name = "color-print"
@@ -508,9 +507,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.14"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ba6d68e24814cb8de6bb986db8222d3a027d15872cabc0d18817bc3c0e4471"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -1215,6 +1214,7 @@ dependencies = [
  "byteorder-lite",
  "color_quant",
  "gif",
+ "image-webp",
  "num-traits",
  "png",
  "zune-core",
@@ -2863,7 +2863,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-assets?rev=ab1295f#ab1295ff896444e51902e03c2669955e1d73604a"
+source = "git+https://github.com/typst/typst-assets?rev=c74e539#c74e539b090070a0c66fd007c550f5b6d3b724bd"
 
 [[package]]
 name = "typst-cli"
@@ -2920,6 +2920,7 @@ name = "typst-docs"
 version = "0.13.1"
 dependencies = [
  "clap",
+ "codex",
  "ecow",
  "heck",
  "pulldown-cmark",
@@ -3038,6 +3039,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "kurbo",
+ "memchr",
  "rustybuzz",
  "smallvec",
  "ttf-parser",
@@ -3111,6 +3113,7 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
+ "utf8_iter",
  "wasmi",
  "xmlwriter",
 ]
@@ -3199,6 +3202,7 @@ dependencies = [
 name = "typst-syntax"
 version = "0.13.1"
 dependencies = [
+ "comemo",
  "ecow",
  "serde",
  "toml",

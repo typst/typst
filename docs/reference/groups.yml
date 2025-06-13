@@ -112,11 +112,18 @@
     a few more functions that create delimiter pairings for absolute, ceiled,
     and floored values as well as norms.
 
+    To prevent a delimiter from being matched by Typst, and thus auto-scaled,
+    escape it with a backslash. To instead disable auto-scaling completely, use
+    `{set math.lr(size: 1em)}`.
+
     # Example
     ```example
     $ [a, b/2] $
     $ lr(]sum_(x=1)^n], size: #50%) x $
     $ abs((x + y) / 2) $
+    $ \{ (x / y) \} $
+    #set math.lr(size: 1em)
+    $ { (a / b), a, b in (0; 1/2] } $
     ```
 
 - name: calc

@@ -14,13 +14,14 @@ macro_rules! translation {
     };
 }
 
-const TRANSLATIONS: [(&str, &str); 39] = [
+const TRANSLATIONS: &[(&str, &str)] = &[
     translation!("ar"),
     translation!("bg"),
     translation!("ca"),
     translation!("cs"),
     translation!("da"),
     translation!("de"),
+    translation!("el"),
     translation!("en"),
     translation!("es"),
     translation!("et"),
@@ -28,7 +29,6 @@ const TRANSLATIONS: [(&str, &str); 39] = [
     translation!("fi"),
     translation!("fr"),
     translation!("gl"),
-    translation!("el"),
     translation!("he"),
     translation!("hu"),
     translation!("id"),
@@ -36,12 +36,13 @@ const TRANSLATIONS: [(&str, &str); 39] = [
     translation!("it"),
     translation!("ja"),
     translation!("la"),
+    translation!("lv"),
     translation!("nb"),
     translation!("nl"),
     translation!("nn"),
     translation!("pl"),
-    translation!("pt-PT"),
     translation!("pt"),
+    translation!("pt-PT"),
     translation!("ro"),
     translation!("ru"),
     translation!("sl"),
@@ -52,8 +53,8 @@ const TRANSLATIONS: [(&str, &str); 39] = [
     translation!("tr"),
     translation!("uk"),
     translation!("vi"),
-    translation!("zh-TW"),
     translation!("zh"),
+    translation!("zh-TW"),
 ];
 
 /// An identifier for a natural language.
@@ -87,6 +88,7 @@ impl Lang {
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const LATIN: Self = Self(*b"la ", 2);
+    pub const LATVIAN: Self = Self(*b"lv ", 2);
     pub const LOWER_SORBIAN: Self = Self(*b"dsb", 3);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
@@ -310,14 +312,74 @@ fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+
     use typst_utils::option_eq;
 
     use super::*;
+
+    fn translation_files_iter() -> impl Iterator<Item = PathBuf> {
+        std::fs::read_dir("translations")
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|e| e.is_file() && e.extension().is_some_and(|e| e == "txt"))
+    }
 
     #[test]
     fn test_region_option_eq() {
         let region = Some(Region([b'U', b'S']));
         assert!(option_eq(region, "US"));
         assert!(!option_eq(region, "AB"));
+    }
+
+    #[test]
+    fn test_all_translations_included() {
+        let defined_keys =
+            HashSet::<&str>::from_iter(TRANSLATIONS.iter().map(|(lang, _)| *lang));
+        let mut checked = 0;
+        for file in translation_files_iter() {
+            assert!(
+                defined_keys.contains(
+                    file.file_stem()
+                        .expect("translation file should have basename")
+                        .to_str()
+                        .expect("translation file name should be utf-8 encoded")
+                ),
+                "translation from {:?} should be registered in TRANSLATIONS in {}",
+                file.file_name().unwrap(),
+                file!(),
+            );
+            checked += 1;
+        }
+        assert_eq!(TRANSLATIONS.len(), checked);
+    }
+
+    #[test]
+    fn test_all_translation_files_formatted() {
+        for file in translation_files_iter() {
+            let content = std::fs::read_to_string(&file)
+                .expect("translation file should be in utf-8 encoding");
+            let filename = file.file_name().unwrap();
+            assert!(
+                content.ends_with('\n'),
+                "translation file {filename:?} should end with linebreak",
+            );
+            for line in content.lines() {
+                assert_eq!(
+                    line.trim(),
+                    line,
+                    "line {line:?} in {filename:?} should not have extra whitespaces"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_translations_sorted() {
+        assert!(
+            TRANSLATIONS.is_sorted_by_key(|(lang, _)| lang),
+            "TRANSLATIONS should be sorted"
+        );
     }
 }

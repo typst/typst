@@ -185,6 +185,7 @@ struct Cast {
 }
 
 /// A pattern in a cast, e.g.`"ascender"` or `v: i64`.
+#[allow(clippy::large_enum_variant)]
 enum Pattern {
     Str(syn::LitStr),
     Ty(syn::Pat, syn::Type),

@@ -15,7 +15,7 @@ use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
     SyntaxKind,
 };
-use typst::text::RawElem;
+use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
 use unscanny::Scanner;
 
@@ -298,9 +298,16 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
-    // Start of an interpolated identifier: "#|".
+    // Start of an interpolated identifier: "$#|$".
     if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind existing interpolated identifier: "$#pa|$".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
         return true;
     }
@@ -841,7 +848,9 @@ fn param_value_completions<'a>(
 /// Returns which file extensions to complete for the given parameter if any.
 fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
     Some(match (func.name(), param.name) {
-        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("image"), "source") => {
+            &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp"]
+        }
         (Some("csv"), "source") => &["csv"],
         (Some("plugin"), "source") => &["wasm"],
         (Some("cbor"), "source") => &["cbor"],
@@ -1081,6 +1090,24 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
     }
 }
 
+/// See if the AST node is somewhere within a show rule applying to equations
+fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
+    let mut node = leaf;
+    while let Some(parent) = node.parent() {
+        if_chain! {
+            if let Some(expr) = parent.get().cast::<ast::Expr>();
+            if let ast::Expr::ShowRule(show) = expr;
+            if let Some(ast::Expr::FieldAccess(field)) = show.selector();
+            if field.field().as_str() == "equation";
+            then {
+                return true;
+            }
+        }
+        node = parent;
+    }
+    false
+}
+
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
@@ -1152,10 +1179,12 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
-        let equation = self.before_window(25).contains("equation");
+        let equation = is_in_equation_show_rule(self.leaf);
         for (family, iter) in self.world.book().families() {
-            let detail = summarize_font_family(iter);
-            if !equation || family.contains("Math") {
+            let variants: Vec<_> = iter.collect();
+            let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
+            let detail = summarize_font_family(variants);
+            if !equation || is_math {
                 self.str_completion(
                     family,
                     Some(CompletionKind::Font),
@@ -1644,6 +1673,13 @@ mod tests {
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
     }
 
+    /// Test that autocomplete in math uses the correct global scope.
+    #[test]
+    fn test_autocomplete_math_scope() {
+        test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
+        test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
@@ -1662,7 +1698,7 @@ mod tests {
 
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
-        let end = world.main.len_bytes();
+        let end = world.main.text().len();
         world.main.edit(end..end, " #cite()");
 
         test_with_doc(&world, -2, doc.as_ref())
@@ -1789,5 +1825,22 @@ mod tests {
         test("$ arrow. $", -3)
             .must_include(["r", "dashed"])
             .must_exclude(["cases"]);
+    }
+
+    #[test]
+    fn test_autocomplete_fonts() {
+        test("#text(font:)", -1)
+            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+
+        test("#show link: set text(font: )", -1)
+            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+
+        test("#show math.equation: set text(font: )", -1)
+            .must_include(["\"New Computer Modern Math\""])
+            .must_exclude(["\"Libertinus Serif\""]);
+
+        test("#show math.equation: it => { set text(font: )\nit }", -6)
+            .must_include(["\"New Computer Modern Math\""])
+            .must_exclude(["\"Libertinus Serif\""]);
     }
 }

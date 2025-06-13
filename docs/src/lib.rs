@@ -622,7 +622,7 @@ fn group_page(
     });
 
     let model = PageModel {
-        route: eco_format!("{parent}{}", group.name),
+        route: eco_format!("{parent}{}/", group.name),
         title: group.title.clone(),
         description: eco_format!("Documentation for the {} functions.", group.name),
         part: None,
@@ -712,11 +712,11 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
     for (name, binding) in group.module().scope().iter() {
         let Value::Symbol(symbol) = binding.read() else { continue };
-        let complete = |variant: &str| {
+        let complete = |variant: codex::ModifierSet<&str>| {
             if variant.is_empty() {
                 name.clone()
             } else {
-                eco_format!("{}.{}", name, variant)
+                eco_format!("{}.{}", name, variant.as_str())
             }
         };
 

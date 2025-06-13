@@ -25,19 +25,22 @@ impl Eval for ast::FuncCall<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let callee = self.callee();
-        let in_math = in_math(callee);
         let callee_span = callee.span();
         let args = self.args();
-        let trailing_comma = args.trailing_comma();
 
         vm.engine.route.check_call_depth().at(span)?;
 
         // Try to evaluate as a call to an associated function or field.
-        let (callee, args) = if let ast::Expr::FieldAccess(access) = callee {
+        let (callee_value, args_value) = if let ast::Expr::FieldAccess(access) = callee {
             let target = access.target();
             let field = access.field();
             match eval_field_call(target, field, args, span, vm)? {
-                FieldCall::Normal(callee, args) => (callee, args),
+                FieldCall::Normal(callee, args) => {
+                    if vm.inspected == Some(callee_span) {
+                        vm.trace(callee.clone());
+                    }
+                    (callee, args)
+                }
                 FieldCall::Resolved(value) => return Ok(value),
             }
         } else {
@@ -45,9 +48,15 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        let func_result = callee.clone().cast::<Func>();
-        if in_math && func_result.is_err() {
-            return wrap_args_in_math(callee, callee_span, args, trailing_comma);
+        let func_result = callee_value.clone().cast::<Func>();
+
+        if func_result.is_err() && in_math(callee) {
+            return wrap_args_in_math(
+                callee_value,
+                callee_span,
+                args_value,
+                args.trailing_comma(),
+            );
         }
 
         let func = func_result
@@ -56,8 +65,11 @@ impl Eval for ast::FuncCall<'_> {
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
-            func.call(&mut vm.engine, vm.context, args)
-                .trace(vm.world(), point, span)
+            func.call(&mut vm.engine, vm.context, args_value).trace(
+                vm.world(),
+                point,
+                span,
+            )
         };
 
         // Stacker is broken on WASM.

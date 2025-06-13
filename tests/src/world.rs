@@ -20,6 +20,7 @@ use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
 use typst::{Feature, Library, World};
+use typst_syntax::Lines;
 
 /// A world that provides access to the tests environment.
 #[derive(Clone)]
@@ -83,6 +84,22 @@ impl TestWorld {
     {
         let mut map = self.base.slots.lock();
         f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
+    }
+
+    /// Lookup line metadata for a file by id.
+    #[track_caller]
+    pub(crate) fn lookup(&self, id: FileId) -> Lines<String> {
+        self.slot(id, |slot| {
+            if let Some(source) = slot.source.get() {
+                let source = source.as_ref().expect("file is not valid");
+                source.lines().clone()
+            } else if let Some(bytes) = slot.file.get() {
+                let bytes = bytes.as_ref().expect("file is not valid");
+                Lines::try_from(bytes).expect("file is not valid utf-8")
+            } else {
+                panic!("file id does not point to any source file");
+            }
+        })
     }
 }
 
@@ -149,7 +166,7 @@ impl FileSlot {
 }
 
 /// The file system path for a file ID.
-fn system_path(id: FileId) -> FileResult<PathBuf> {
+pub(crate) fn system_path(id: FileId) -> FileResult<PathBuf> {
     let root: PathBuf = match id.package() {
         Some(spec) => format!("tests/packages/{}-{}", spec.name, spec.version).into(),
         None => PathBuf::new(),
@@ -159,7 +176,7 @@ fn system_path(id: FileId) -> FileResult<PathBuf> {
 }
 
 /// Read a file.
-fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
+pub(crate) fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
     // Resolve asset.
     if let Ok(suffix) = path.strip_prefix("assets/") {
         return typst_dev_assets::get(&suffix.to_string_lossy())

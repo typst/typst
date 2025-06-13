@@ -5,9 +5,9 @@ use typst::diag::{bail, HintedStrResult, StrResult, Warned};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::layout::PagedDocument;
-use typst::syntax::Span;
+use typst::syntax::{Span, SyntaxMode};
 use typst::World;
-use typst_eval::{eval_string, EvalMode};
+use typst_eval::eval_string;
 
 use crate::args::{QueryCommand, SerializationFormat};
 use crate::compile::print_diagnostics;
@@ -63,7 +63,7 @@ fn retrieve(
         Sink::new().track_mut(),
         &command.selector,
         Span::detached(),
-        EvalMode::Code,
+        SyntaxMode::Code,
         Scope::default(),
     )
     .map_err(|errors| {

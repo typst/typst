@@ -259,10 +259,10 @@ mod tests {
             panic!("test failed");
         }
         if incremental {
-            assert_ne!(source.len_bytes(), range.len(), "should have been incremental");
+            assert_ne!(source.text().len(), range.len(), "should have been incremental");
         } else {
             assert_eq!(
-                source.len_bytes(),
+                source.text().len(),
                 range.len(),
                 "shouldn't have been incremental"
             );

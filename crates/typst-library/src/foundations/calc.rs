@@ -708,12 +708,13 @@ pub fn fract(
     }
 }
 
-/// Rounds a number to the nearest integer away from zero.
+/// Rounds a number to the nearest integer.
 ///
-/// Optionally, a number of decimal places can be specified.
+/// Half-integers are rounded away from zero.
 ///
-/// If the number of digits is negative, its absolute value will indicate the
-/// amount of significant integer digits to remove before the decimal point.
+/// Optionally, a number of decimal places can be specified. If negative, its
+/// absolute value will indicate the amount of significant integer digits to
+/// remove before the decimal point.
 ///
 /// Note that this function will return the same type as the operand. That is,
 /// applying `round` to a [`float`] will return a `float`, and to a [`decimal`],

@@ -13,7 +13,7 @@
 #test(data.at("1"), "ok")
 
 --- yaml-invalid ---
-// Error: 7-30 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
+// Error: "/assets/data/bad.yaml" 2:1 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/assets/data/bad.yaml")
 
 --- yaml-decode-deprecated ---

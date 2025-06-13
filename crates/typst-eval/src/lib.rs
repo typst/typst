@@ -18,7 +18,6 @@ pub use self::call::{eval_closure, CapturesVisitor};
 pub use self::flow::FlowEvent;
 pub use self::import::import;
 pub use self::vm::Vm;
-pub use typst_library::routines::EvalMode;
 
 use self::access::*;
 use self::binding::*;
@@ -32,7 +31,7 @@ use typst_library::introspection::Introspector;
 use typst_library::math::EquationElem;
 use typst_library::routines::Routines;
 use typst_library::World;
-use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span};
+use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span, SyntaxMode};
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
@@ -104,13 +103,13 @@ pub fn eval_string(
     sink: TrackedMut<Sink>,
     string: &str,
     span: Span,
-    mode: EvalMode,
+    mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
     let mut root = match mode {
-        EvalMode::Code => parse_code(string),
-        EvalMode::Markup => parse(string),
-        EvalMode::Math => parse_math(string),
+        SyntaxMode::Code => parse_code(string),
+        SyntaxMode::Markup => parse(string),
+        SyntaxMode::Math => parse_math(string),
     };
 
     root.synthesize(span);
@@ -141,11 +140,11 @@ pub fn eval_string(
 
     // Evaluate the code.
     let output = match mode {
-        EvalMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm)?,
-        EvalMode::Markup => {
+        SyntaxMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm)?,
+        SyntaxMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
-        EvalMode::Math => Value::Content(
+        SyntaxMode::Math => Value::Content(
             EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
                 .with_block(false)
                 .pack()
