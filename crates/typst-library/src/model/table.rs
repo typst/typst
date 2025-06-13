@@ -590,6 +590,16 @@ pub struct TableFooter {
     #[default(true)]
     pub repeat: bool,
 
+    /// The level of the footer. Must not be zero.
+    ///
+    /// This allows repeating multiple footers at once. Footers with different
+    /// levels can repeat together, as long as they have descending levels.
+    ///
+    /// Notably, when a footer with a lower level stops repeating, all higher
+    /// or equal level headers start repeating, replacing the previous footer.
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
+
     /// The cells and lines within the footer.
     #[variadic]
     pub children: Vec<TableItem>,
