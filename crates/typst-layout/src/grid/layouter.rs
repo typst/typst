@@ -1600,12 +1600,20 @@ impl<'a> GridLayouter<'a> {
             //
             // Use index for iteration to avoid borrow conflict.
             //
+            // Note that repeating footers are in reverse order.
+            //
             // TODO(subfooters): "pending footers" vector for footers we're
             // about to place. Needed for widow prevention of non-repeated
             // footers.
             let mut i = 0;
-            while let Some(footer) = self.repeating_footers.get(i) {
-                self.layout_footer(footer, false, engine, self.finished.len())?;
+            while let Some(footer_index) = self.repeating_footers.len().checked_sub(1 + i)
+            {
+                self.layout_footer(
+                    self.repeating_footers[footer_index],
+                    false,
+                    engine,
+                    self.finished.len(),
+                )?;
                 i += 1;
             }
         }
