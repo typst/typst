@@ -521,9 +521,9 @@ pub fn hline_stroke_at_column(
             // Ensure the row below us is a repeated footer.
             // FIXME: Make this check more robust when footers at arbitrary
             // positions are added.
-            footer.end == grid.rows.len()
-                && local_top_y.unwrap_or(0) + 1 < footer.start
-                && y >= footer.start
+            footer.range.end == grid.rows.len()
+                && local_top_y.unwrap_or(0) + 1 < footer.range.start
+                && y >= footer.range.start
         });
 
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =

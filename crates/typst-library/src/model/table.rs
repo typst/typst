@@ -303,8 +303,8 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
             .iter()
             .rev()
             .take_while(|ft| {
-                let is_consecutive = ft.end == consecutive_footer_start;
-                consecutive_footer_start = ft.start;
+                let is_consecutive = ft.range.end == consecutive_footer_start;
+                consecutive_footer_start = ft.range.start;
 
                 is_consecutive
             })
@@ -313,7 +313,7 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         if footers_at_end > 0 {
             let last_mid_table_footer = grid.footers.len() - footers_at_end;
             let removed_footer_rows =
-                grid.footers.get(last_mid_table_footer).unwrap().start;
+                grid.footers.get(last_mid_table_footer).unwrap().range.start;
             let rows = rows.drain(removed_footer_rows..);
 
             Some(elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row)))))
