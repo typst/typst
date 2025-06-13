@@ -318,7 +318,12 @@ impl Bibliography {
                     bail!("bibliography key must not be empty");
                 }
 
-                match map.entry(Label::new(PicoStr::intern(key))) {
+                let label = match Label::new(PicoStr::intern(key)) {
+                    Some(lbl) => lbl,
+                    None => bail!("unexpected error while creating a label"),
+                };
+
+                match map.entry(label) {
                     indexmap::map::Entry::Vacant(vacant) => {
                         vacant.insert(entry);
                     }

@@ -53,9 +53,11 @@ pub struct Label(PicoStr);
 impl Label {
     /// Creates a label from an interned string.
     /// Callers need to ensure the given string is not empty.
-    pub fn new(name: PicoStr) -> Self {
-        debug_assert!(name != PicoStr::EMPTY);
-        Self(name)
+    pub fn new(name: PicoStr) -> Option<Self> {
+        match name {
+            PicoStr::EMPTY => None,
+            _ => Some(Self(name)),
+        }
     }
 
     /// Resolves the label to a string.
