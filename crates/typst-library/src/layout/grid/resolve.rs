@@ -54,6 +54,7 @@ pub fn grid_to_cellgrid<'a>(
         },
         GridChild::Footer(footer) => ResolvableGridChild::Footer {
             repeat: footer.repeat(styles),
+            level: footer.level(styles),
             span: footer.span(),
             items: footer.children.iter().map(resolve_item),
         },
@@ -108,6 +109,7 @@ pub fn table_to_cellgrid<'a>(
         },
         TableChild::Footer(footer) => ResolvableGridChild::Footer {
             repeat: footer.repeat(styles),
+            level: footer.level(styles),
             span: footer.span(),
             items: footer.children.iter().map(resolve_item),
         },
@@ -647,7 +649,7 @@ impl<'a> Entry<'a> {
 /// Any grid child, which can be either a header or an item.
 pub enum ResolvableGridChild<T: ResolvableCell, I> {
     Header { repeat: bool, level: NonZeroU32, span: Span, items: I },
-    Footer { repeat: bool, span: Span, items: I },
+    Footer { repeat: bool, level: NonZeroU32, span: Span, items: I },
     Item(ResolvableGridItem<T>),
 }
 
@@ -1213,7 +1215,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut first_available_row = 0;
 
         let (header_footer_items, simple_item) = match child {
-            ResolvableGridChild::Header { repeat, level, span, items, .. } => {
+            ResolvableGridChild::Header { repeat, level, span, items } => {
                 row_group_data = Some(RowGroupData {
                     range: None,
                     span,
@@ -1240,13 +1242,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 (Some(items), None)
             }
-            ResolvableGridChild::Footer { repeat, span, items, .. } => {
+            ResolvableGridChild::Footer { repeat, level, span, items } => {
                 row_group_data = Some(RowGroupData {
                     range: None,
                     span,
                     repeat,
                     kind: RowGroupKind::Footer,
-                    repeatable_level: NonZeroU32::ONE,
+                    repeatable_level: level,
                     top_hlines_start: pending_hlines.len(),
                     top_hlines_end: None,
                 });
