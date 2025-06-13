@@ -323,12 +323,14 @@ impl Bibliography {
             for entry in library {
                 let key = entry.key();
                 if key.is_empty() {
-                    bail!("bibliography key must not be empty");
+                    bail!(Span::detached(), "bibliography key must not be empty");
                 }
 
                 let label = match Label::new(PicoStr::intern(key)) {
                     Some(lbl) => lbl,
-                    None => bail!("unexpected error while creating a label"),
+                    None => {
+                        bail!(Span::detached(), "unexpected error while creating a label")
+                    }
                 };
 
                 match map.entry(label) {
