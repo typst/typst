@@ -24,6 +24,7 @@ $a"is"b, a "is" b$
 --- math-spacing-predefined ---
 // Test predefined spacings.
 $a thin b, a med b, a thick b, a quad b$ \
+$a thin.neg b, a med.neg b, a thick.neg b, quad a quad.neg b$ \
 $a = thin b$ \
 $a - b equiv c quad (mod 2)$
 

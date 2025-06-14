@@ -93,11 +93,20 @@ pub fn module() -> Module {
     op::define(&mut math);
 
     // Spacings.
-    math.define("thin", HElem::new(THIN.into()).pack());
-    math.define("med", HElem::new(MEDIUM.into()).pack());
-    math.define("thick", HElem::new(THICK.into()).pack());
-    math.define("quad", HElem::new(QUAD.into()).pack());
-    math.define("wide", HElem::new(WIDE.into()).pack());
+    for (name, value) in &[
+        ("thin", THIN),
+        ("med", MEDIUM),
+        ("thick", THICK),
+        ("quad", QUAD),
+        ("wide", WIDE),
+    ] {
+        let h = |em: Em| HElem::new(em.into()).pack();
+        let mut scope = Scope::new();
+        scope.define("neg", h(Em::new(-value.get())));
+        let mut module = Module::new(*name, scope);
+        module = module.with_content(h(*value));
+        math.define(name, module);
+    }
 
     // Symbols.
     crate::symbols::define_math(&mut math);
