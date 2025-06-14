@@ -86,7 +86,7 @@ use ecow::EcoString;
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;
-use crate::{is_ident, is_newline, Span, SyntaxKind, SyntaxNode};
+use crate::{is_ident, is_keyword, is_newline, Span, SyntaxKind, SyntaxNode};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -2223,6 +2223,10 @@ impl<'a> ModuleImport<'a> {
                     return Err(BareImportError::PathInvalid);
                 }
 
+                if is_keyword(&name) {
+                    return Err(BareImportError::Keyword(name));
+                }
+
                 Ok(name)
             }
             _ => Err(BareImportError::Dynamic),
@@ -2240,13 +2244,15 @@ impl<'a> ModuleImport<'a> {
 }
 
 /// Reasons why a bare name cannot be determined for an import source.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum BareImportError {
     /// There is no statically resolvable binding name.
     Dynamic,
     /// The import source is not a valid path or the path stem not a valid
     /// identifier.
     PathInvalid,
+    /// The import source is a valid path but the path stem is a keyword.
+    Keyword(EcoString),
     /// The import source is not a valid package spec.
     PackageInvalid,
 }

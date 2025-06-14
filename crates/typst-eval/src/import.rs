@@ -85,6 +85,10 @@ impl Eval for ast::ModuleImport<'_> {
                             source_span, "module name would not be a valid identifier";
                             hint: "you can rename the import with `as`",
                         ),
+                        Err(BareImportError::Keyword(name)) => bail!(
+                            source_span, "module `{name}` would be overridden as a keyword";
+                            hint: "you can rename the import with `as`",
+                        ),
                         // Bad package spec would have failed the import already.
                         Err(BareImportError::PackageInvalid) => unreachable!(),
                     }

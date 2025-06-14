@@ -20,8 +20,8 @@ pub use self::file::FileId;
 pub use self::highlight::{highlight, highlight_html, Tag};
 pub use self::kind::SyntaxKind;
 pub use self::lexer::{
-    is_id_continue, is_id_start, is_ident, is_newline, is_valid_label_literal_id,
-    link_prefix, split_newlines,
+    is_id_continue, is_id_start, is_ident, is_keyword, is_newline,
+    is_valid_label_literal_id, link_prefix, split_newlines,
 };
 pub use self::lines::Lines;
 pub use self::node::{LinkedChildren, LinkedNode, Side, SyntaxError, SyntaxNode};

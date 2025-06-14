@@ -1063,6 +1063,12 @@ pub fn is_ident(string: &str) -> bool {
         .is_some_and(|c| is_id_start(c) && chars.all(is_id_continue))
 }
 
+/// Whether a string is a Typst keyword.
+#[inline]
+pub fn is_keyword(string: &str) -> bool {
+    keyword(string).is_some()
+}
+
 /// Whether a character can start an identifier.
 #[inline]
 pub fn is_id_start(c: char) -> bool {
