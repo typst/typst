@@ -29,7 +29,8 @@ use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 /// # Mathematical Spacing { #math-spacing }
 /// In [mathematical formulas]($category/math), you can additionally use these
 /// constants to add spacing between elements: `thin` (1/6 em), `med` (2/9 em),
-/// `thick` (5/18 em), `quad` (1 em), `wide` (2 em).
+/// `thick` (5/18 em), `quad` (1 em), `wide` (2 em). These also have `.neg`
+/// variants, which apply negative spacing to bring elements closer together.
 #[elem(title = "Spacing (H)")]
 pub struct HElem {
     /// How much spacing to insert.
