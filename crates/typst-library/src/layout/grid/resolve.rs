@@ -1042,9 +1042,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut headers: Vec<Repeatable<Header>> = vec![];
         let mut footers: Vec<Repeatable<Footer>> = vec![];
 
-        // If true, there has been at least one cell besides headers and
-        // footers. When false, footers at the end are forced to not repeat.
-        let mut at_least_one_cell = false;
+        // The first and last rows containing a cell outside a row group, that
+        // is, outside a header or footer. Headers after the last such row and
+        // footers before the first such row have no "children" cells and thus
+        // are not repeated.
+        let mut first_last_cell_rows = None;
 
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
@@ -1094,7 +1096,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 &mut next_header,
                 &mut next_footer,
                 &mut resolved_cells,
-                &mut at_least_one_cell,
+                &mut first_last_cell_rows,
                 child,
             )?;
         }
@@ -1115,7 +1117,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             &mut headers,
             &mut footers,
             row_amount,
-            at_least_one_cell,
+            first_last_cell_rows,
         )?;
 
         Ok(CellGrid::new_internal(
@@ -1149,7 +1151,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         next_header: &mut usize,
         next_footer: &mut usize,
         resolved_cells: &mut Vec<Option<Entry<'x>>>,
-        at_least_one_cell: &mut bool,
+        first_last_cell_rows: &mut Option<(usize, usize)>,
         child: ResolvableGridChild<T, I>,
     ) -> SourceResult<()>
     where
@@ -1260,13 +1262,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 (Some(items), None)
             }
-            ResolvableGridChild::Item(item) => {
-                if matches!(item, ResolvableGridItem::Cell(_)) {
-                    *at_least_one_cell = true;
-                }
-
-                (None, Some(item))
-            }
+            ResolvableGridChild::Item(item) => (None, Some(item)),
         };
 
         let items = header_footer_items.into_iter().flatten().chain(simple_item);
@@ -1448,6 +1444,13 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // no longer appear at the top.
                     *top_hlines_end = Some(pending_hlines.len());
                 }
+            } else {
+                // This is a cell outside a row group.
+                *first_last_cell_rows = Some(
+                    first_last_cell_rows
+                        .map(|(first, last)| (first.min(y), last.max(y)))
+                        .unwrap_or((y, y)),
+                );
             }
 
             // Let's resolve the cell so it can determine its own fields
@@ -1788,42 +1791,41 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
     ///    an adjacent gutter row to be repeated alongside that header or
     ///    footer, if there is gutter;
     /// 3. Wrap headers and footers in the correct [`Repeatable`] variant.
-    #[allow(clippy::type_complexity)]
     fn finalize_headers_and_footers(
         &self,
         has_gutter: bool,
         headers: &mut [Repeatable<Header>],
         footers: &mut [Repeatable<Footer>],
         row_amount: usize,
-        at_least_one_cell: bool,
+        first_last_cell_rows: Option<(usize, usize)>,
     ) -> SourceResult<()> {
         // Mark consecutive headers right before the end of the table, or the
-        // final footer, as short lived, given that there are no normal rows
-        // after them, so repeating them is pointless.
+        // footers at the end, as short lived, given that there are no normal
+        // rows after them, so repeating them is pointless.
         //
-        // TODO(subfooters): take the last footer if it is at the end and
-        // backtrack through consecutive footers until the first one in the
-        // sequence is found. If there is no footer at the end, there are no
-        // haeders to turn short-lived.
-        //
-        // TODO: interleaved headers and footers?
-        let mut first_end_footer = row_amount;
-        for end_footer in footers.iter().rev() {
-            if end_footer.range.end != first_end_footer {
-                break;
+        // Same for consecutive footers right after the start of the table or
+        // any initial headers.
+        if let Some((first_cell_row, last_cell_row)) = first_last_cell_rows {
+            for header in
+                headers.iter_mut().rev().take_while(|h| h.range.start > last_cell_row)
+            {
+                header.short_lived = true;
             }
 
-            first_end_footer = end_footer.range.start;
-        }
-
-        let mut consecutive_header_start = first_end_footer;
-        for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
-            let at_the_end = h.range.end == consecutive_header_start;
-
-            consecutive_header_start = h.range.start;
-            at_the_end
-        }) {
-            header_at_the_end.short_lived = true;
+            for footer in footers.iter_mut().take_while(|f| f.range.end <= first_cell_row)
+            {
+                // TODO(subfooters): short lived
+                footer.repeated = false;
+            }
+        } else {
+            // No cells outside headers or footers, so nobody repeats!
+            for header in &mut *headers {
+                header.short_lived = true;
+            }
+            for footer in &mut *footers {
+                // TODO(subfooters): short lived
+                footer.repeated = false;
+            }
         }
 
         // Repeat the gutter below a header (hence why we don't
@@ -1891,11 +1893,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 // It also keeps us within the total amount of rows, so we
                 // don't need to '.min()' later.
                 footer.range.end = (2 * footer.range.end).saturating_sub(1);
-
-                if !at_least_one_cell {
-                    // TODO: short-lived (and remove this?)
-                    footer.repeated = false;
-                }
             }
         }
 
