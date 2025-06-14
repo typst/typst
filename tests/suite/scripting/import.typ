@@ -483,3 +483,8 @@ This is never reached.
 --- import-from-file-package-lookalike ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
+
+--- import-keyword ---
+// Error: 9-26 module `set` would be overridden as a keyword
+// Hint: 9-26 you can rename the import with `as`
+#import "modules/set.typ"
