@@ -94,6 +94,6 @@ _Visible_
 #[].label
 
 --- label-not-named-error ---
-// Error: 23-32 expected non-empty label name
+// Error: 23-32 label name must not be empty
 = Something to label #label("")
 
