@@ -185,7 +185,7 @@ impl Lexer<'_> {
             'h' if self.s.eat_if("ttp://") => self.link(),
             'h' if self.s.eat_if("ttps://") => self.link(),
             '<' if self.s.at(is_id_continue) => self.label(),
-            '@' => self.ref_marker(),
+            '@' if self.s.at(is_id_continue) => self.ref_marker(),
 
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
