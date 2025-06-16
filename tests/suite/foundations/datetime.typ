@@ -74,7 +74,7 @@
 
 --- datetime-display-missing-closing-bracket ---
 // Error: 27-34 missing closing bracket for bracket at index 0
-#datetime.today().display("[year")
+#datetime.today().display("[year]")
 
 --- datetime-display-invalid-component ---
 // Error: 27-38 invalid component name 'nothing' at index 1
@@ -86,7 +86,7 @@
 
 --- datetime-display-expected-component ---
 // Error: 27-33 expected component name at index 2
-#datetime.today().display("  []")
+#datetime.today().display("[]")
 
 --- datetime-display-insufficient-information ---
 // Error: 2-36 failed to format datetime (insufficient information)

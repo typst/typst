@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
 use std::{fmt, fs, io, mem};
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
 use ecow::{eco_format, EcoString};
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
@@ -245,6 +245,29 @@ impl World for SystemWorld {
             with_offset.month().try_into().ok()?,
             with_offset.day().try_into().ok()?,
         )
+    }
+
+    fn now(&self,offset:Option<i64>) -> Option<Datetime> {
+        let now = match &self.now {
+            Now::Fixed(time) => time,
+            Now::System(time) => time.get_or_init(Utc::now),
+        };
+
+        // The time with the specified UTC offset, or within the local time zone.
+        let with_offset = match offset {
+            None => now.with_timezone(&Local).fixed_offset(),
+            Some(hours) => {
+                let seconds = i32::try_from(hours).ok()?.checked_mul(3600)?;
+                now.with_timezone(&FixedOffset::east_opt(seconds)?)
+            }
+        };
+
+        Datetime::from_hms(
+            with_offset.hour().try_into().ok()?,
+            with_offset.minute().try_into().ok()?,
+            with_offset.second().try_into().ok()?,
+        )
+
     }
 }
 
