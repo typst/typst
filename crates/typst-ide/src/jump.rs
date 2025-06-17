@@ -50,10 +50,11 @@ pub fn jump_from_click(
     }
 
     // If there's no link, search for a jump target.
-    for (mut pos, item) in frame.items().rev() {
+    for (pos, item) in frame.items().rev() {
+        let pos = pos;
         match item {
             FrameItem::Group(group) => {
-                let pos = click - pos;
+                let pos = click - *pos;
                 if let Some(clip) = &group.clip {
                     if !clip.contains(FillRule::NonZero, pos) {
                         continue;
@@ -72,6 +73,7 @@ pub fn jump_from_click(
             }
 
             FrameItem::Text(text) => {
+                let mut pos = *pos;
                 for glyph in &text.glyphs {
                     let width = glyph.x_advance.at(text.size);
                     if is_in_rect(
@@ -107,9 +109,9 @@ pub fn jump_from_click(
                 if shape.fill.is_some() {
                     let within = match &shape.geometry {
                         Geometry::Line(..) => false,
-                        Geometry::Rect(size) => is_in_rect(pos, *size, click),
+                        Geometry::Rect(size) => is_in_rect(*pos, *size, click),
                         Geometry::Curve(curve) => {
-                            curve.contains(shape.fill_rule, click - pos)
+                            curve.contains(shape.fill_rule, click - *pos)
                         }
                     };
                     if within {
@@ -125,7 +127,7 @@ pub fn jump_from_click(
                             Geometry::Rect(size) => &Curve::rect(*size),
                             Geometry::Curve(curve) => curve,
                         };
-                        base_curve.stroke_contains(stroke, click - pos)
+                        base_curve.stroke_contains(stroke, click - *pos)
                     };
                     if within {
                         return Jump::from_span(world, *span);
@@ -133,7 +135,7 @@ pub fn jump_from_click(
                 }
             }
 
-            FrameItem::Image(_, size, span) if is_in_rect(pos, *size, click) => {
+            FrameItem::Image(_, size, span) if is_in_rect(*pos, *size, click) => {
                 return Jump::from_span(world, *span);
             }
 
@@ -177,14 +179,15 @@ pub fn jump_from_cursor(
 
 /// Find the position of a span in a frame.
 fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
-    for (mut pos, item) in frame.items() {
+    for (pos, item) in frame.items() {
         if let FrameItem::Group(group) = item {
             if let Some(point) = find_in_frame(&group.frame, span) {
-                return Some(pos + point.transform(group.transform));
+                return Some(*pos + point.transform(group.transform));
             }
         }
 
         if let FrameItem::Text(text) = item {
+            let mut pos = *pos;
             for glyph in &text.glyphs {
                 if glyph.span.0 == span {
                     return Some(pos);

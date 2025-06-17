@@ -1228,7 +1228,7 @@ impl<'a> GridLayouter<'a> {
                     .skip(parent.y)
                     .take(rowspan)
                     .rev()
-                    .find(|(_, &row)| row == Sizing::Auto)
+                    .find(|&(_, &row)| row == Sizing::Auto)
                     .map(|(y, _)| y);
 
                 if last_spanned_auto_row != Some(y) {

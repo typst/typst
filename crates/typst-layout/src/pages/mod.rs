@@ -100,7 +100,7 @@ fn layout_pages<'a>(
     let items = collect(children, locator, styles);
 
     // Layout the page runs in parallel.
-    let mut runs = engine.parallelize(
+    let runs = engine.parallelize(
         items.iter().filter_map(|item| match item {
             Item::Run(children, initial, locator) => {
                 Some((children, initial, locator.relayout()))
@@ -118,14 +118,20 @@ fn layout_pages<'a>(
 
     // Collect and finalize the runs, handling things like page parity and tags
     // between pages.
+
+    // Collect all layouted runs first to avoid multiple mutable borrows of engine.
+    let layouted_runs: Vec<Result<Vec<LayoutedPage>, _>> = runs.collect();
+    let mut run_idx = 0;
+
     for item in &items {
         match item {
             Item::Run(..) => {
-                let layouted = runs.next().unwrap()?;
-                for layouted in layouted {
+                let mut layouted_pages = layouted_runs[run_idx].as_ref().map_err(|e| e.clone())?.clone();
+                for layouted in layouted_pages.drain(..) {
                     let page = finalize(engine, &mut counter, &mut tags, layouted)?;
                     pages.push(page);
                 }
+                run_idx += 1;
             }
             Item::Parity(parity, initial, locator) => {
                 if !parity.matches(pages.len()) {

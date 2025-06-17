@@ -319,7 +319,7 @@ where
         self.0.entry(key).or_default().push(value);
     }
 
-    fn take(&mut self, key: &K) -> Option<impl Iterator<Item = V>> {
+    fn take(&mut self, key: &K) -> Option<impl Iterator<Item = V> + use<K, V>> {
         self.0.remove(key).map(|vec| vec.into_iter())
     }
 }

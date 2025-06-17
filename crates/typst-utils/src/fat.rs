@@ -19,7 +19,7 @@ use std::ptr::NonNull;
 pub unsafe fn from_raw_parts<T: ?Sized>(data: *const (), vtable: *const ()) -> *const T {
     let fat = FatPointer { data, vtable };
     debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
-    mem::transmute_copy::<FatPointer, *const T>(&fat)
+    unsafe { mem::transmute_copy::<FatPointer, *const T>(&fat) }
 }
 
 /// Create a mutable fat pointer from a data address and a vtable address.
@@ -32,7 +32,7 @@ pub unsafe fn from_raw_parts<T: ?Sized>(data: *const (), vtable: *const ()) -> *
 pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) -> *mut T {
     let fat = FatPointer { data, vtable };
     debug_assert_eq!(Layout::new::<*mut T>(), Layout::new::<FatPointer>());
-    mem::transmute_copy::<FatPointer, *mut T>(&fat)
+    unsafe { mem::transmute_copy::<FatPointer, *mut T>(&fat) }
 }
 
 /// Extract the address to a trait object's vtable.
@@ -42,9 +42,9 @@ pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) ->
 #[track_caller]
 pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> NonNull<()> {
     debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
-    NonNull::new_unchecked(
+    unsafe { NonNull::new_unchecked(
         mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable as *mut (),
-    )
+    ) }
 }
 
 /// The memory representation of a trait object pointer.
