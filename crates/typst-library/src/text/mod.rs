@@ -930,7 +930,7 @@ cast! {
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone {
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &FontFamily> + Clone {
     let fallbacks = singleton!(Vec<FontFamily>, {
         [
             "libertinus serif",
