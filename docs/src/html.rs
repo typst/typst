@@ -4,7 +4,6 @@ use std::ops::Range;
 use ecow::EcoString;
 use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
-use pulldown_cmark_escape;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
@@ -315,7 +314,7 @@ impl<'a> Handler<'a> {
         let id: String = match (&id_slot, default) {
             (Some(id), default) => {
                 if Some(id.as_str()) == default.as_deref() {
-                    eprintln!("heading id #{} was specified unnecessarily", id);
+                    eprintln!("heading id #{id} was specified unnecessarily");
                 }
                 id.clone()
             }
