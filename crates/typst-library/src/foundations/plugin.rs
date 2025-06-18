@@ -533,7 +533,7 @@ impl PluginInstance {
         let snapshot_pages = u64::from(snapshot.mem_pages);
         if current_size < snapshot_pages {
             memory
-                .grow(&mut self.store, (snapshot_pages - current_size).into())
+                .grow(&mut self.store, snapshot_pages - current_size)
                 .unwrap();
         }
 
