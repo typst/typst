@@ -157,6 +157,29 @@
     #lorem(10)
     ```
 
+    # Conditional access
+    You can also use this in combination with the [dictionary
+    constructor]($dictionary) to conditionally access global definitions. This
+    can, for instance, be useful to use new or experimental functionality (like
+    the [`target`] function) when it is available, while falling back to an
+    alternative implementation if used on an older Typst version.
+
+    ```example
+    #let target = dictionary(std).at(
+      "target",
+      default: () => "paged",
+    )
+
+    #context if target() == "html" [
+      HTML
+    ] else [
+      Paged
+    ]
+    ```
+
+    Make sure to use this functionality responsibly as the behavior of your code
+    can change with new Typst versions!
+
 - name: sys
   title: System
   category: foundations
