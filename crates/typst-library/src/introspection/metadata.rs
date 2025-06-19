@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain, Value};
+use crate::foundations::{Content, Packed, Show, StyleChain, Value, elem};
 use crate::introspection::Locatable;
 
 /// Exposes a value to the query system without producing visible content.
