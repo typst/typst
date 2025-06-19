@@ -3,11 +3,11 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parse_quote, Ident, Result, Token};
+use syn::{Ident, Result, Token, parse_quote};
 
 use crate::util::{
-    determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,
-    parse_flag, parse_string, parse_string_array, validate_attrs, BlockWithReturn,
+    BlockWithReturn, determine_name_and_title, documentation, foundations, has_attr, kw,
+    parse_attr, parse_flag, parse_string, parse_string_array, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.

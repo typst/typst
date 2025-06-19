@@ -5,7 +5,7 @@ use typst_syntax::Span;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Content, NativeElement, Packed, Show, Smart, StyleChain, elem, func, scope,
 };
 use crate::layout::{Axes, BlockElem, Em, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};

@@ -1,10 +1,10 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
-    StyleChain, Styles, TargetElem,
+    Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart, StyleChain,
+    Styles, TargetElem, cast, elem,
 };
-use crate::html::{attr, tag, HtmlElem};
+use crate::html::{HtmlElem, attr, tag};
 use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, BlockBody, BlockElem, Em, HElem, PadElem, Spacing, VElem,

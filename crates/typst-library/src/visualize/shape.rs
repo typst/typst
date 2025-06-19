@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Cast, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Cast, Content, NativeElement, Packed, Show, Smart, StyleChain, elem,
 };
 use crate::layout::{Abs, BlockElem, Corners, Length, Point, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};

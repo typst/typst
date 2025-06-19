@@ -1,4 +1,4 @@
-use crate::{ast, LinkedNode, SyntaxKind, SyntaxNode};
+use crate::{LinkedNode, SyntaxKind, SyntaxNode, ast};
 
 /// A syntax highlighting tag.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

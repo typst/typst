@@ -1,11 +1,11 @@
 use kurbo::ParamCurveExtrema;
-use typst_macros::{scope, Cast};
+use typst_macros::{Cast, scope};
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Content, NativeElement, Packed, Show, Smart, StyleChain, cast, elem,
 };
 use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};

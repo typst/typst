@@ -9,7 +9,7 @@ use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
-use crate::{shape, AbsExt, State};
+use crate::{AbsExt, State, shape};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {

@@ -1,10 +1,10 @@
 use typst_syntax::Spanned;
 
-use crate::diag::{error, At, HintedString, SourceResult};
+use crate::diag::{At, HintedString, SourceResult, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Derived, Label, Packed, Show, Smart, StyleChain,
-    Synthesize,
+    Cast, Content, Derived, Label, Packed, Show, Smart, StyleChain, Synthesize, cast,
+    elem,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;

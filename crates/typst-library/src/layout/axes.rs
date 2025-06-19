@@ -5,7 +5,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, Not};
 use typst_utils::Get;
 
 use crate::diag::bail;
-use crate::foundations::{array, cast, Array, Resolve, Smart, StyleChain};
+use crate::foundations::{Array, Resolve, Smart, StyleChain, array, cast};
 use crate::layout::{Abs, Dir, Length, Ratio, Rel, Size};
 
 /// A container with a horizontal and vertical component.

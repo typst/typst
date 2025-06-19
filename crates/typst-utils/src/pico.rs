@@ -261,11 +261,7 @@ mod exceptions {
 
     /// Determine the minimum of two integers.
     const fn min(a: usize, b: usize) -> usize {
-        if a < b {
-            a
-        } else {
-            b
-        }
+        if a < b { a } else { b }
     }
 }
 

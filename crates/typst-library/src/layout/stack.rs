@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, NativeElement, Packed, Show, StyleChain};
+use crate::foundations::{Content, NativeElement, Packed, Show, StyleChain, cast, elem};
 use crate::layout::{BlockElem, Dir, Spacing};
 
 /// Arranges content and spacing horizontally or vertically.

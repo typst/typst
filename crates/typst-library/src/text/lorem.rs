@@ -1,4 +1,4 @@
-use crate::foundations::{func, Str};
+use crate::foundations::{Str, func};
 
 /// Creates blind text.
 ///

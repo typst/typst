@@ -42,9 +42,11 @@ pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) ->
 #[track_caller]
 pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> NonNull<()> {
     debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
-    unsafe { NonNull::new_unchecked(
-        mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable as *mut (),
-    ) }
+    unsafe {
+        NonNull::new_unchecked(
+            mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable as *mut (),
+        )
+    }
 }
 
 /// The memory representation of a trait object pointer.
