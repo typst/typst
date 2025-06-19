@@ -497,6 +497,7 @@ mod callbacks {
 
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
+            #[allow(unpredictable_function_pointer_comparisons)]
             #[derive(Debug, Clone, PartialEq, Hash)]
             pub struct $name {
                 captured: Content,
