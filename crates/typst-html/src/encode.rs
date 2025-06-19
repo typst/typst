@@ -69,16 +69,21 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     for (attr, value) in &element.attrs.0 {
         w.buf.push(' ');
         w.buf.push_str(&attr.resolve());
-        w.buf.push('=');
-        w.buf.push('"');
-        for c in value.chars() {
-            if charsets::is_valid_in_attribute_value(c) {
-                w.buf.push(c);
-            } else {
-                write_escape(w, c).at(element.span)?;
+
+        // If the string is empty, we can use shorthand syntax.
+        // `<elem attr="">..</div` is equivalent to `<elem attr>..</div>`
+        if !value.is_empty() {
+            w.buf.push('=');
+            w.buf.push('"');
+            for c in value.chars() {
+                if charsets::is_valid_in_attribute_value(c) {
+                    w.buf.push(c);
+                } else {
+                    write_escape(w, c).at(element.span)?;
+                }
             }
+            w.buf.push('"');
         }
-        w.buf.push('"');
     }
 
     w.buf.push('>');
