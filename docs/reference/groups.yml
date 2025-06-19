@@ -137,10 +137,12 @@
   details: |
     A module that contains all globally accessible items.
 
-    This is useful whenever you overrode a name from the global scope (e.g.
-    the [`text`] element). To still access the `text` element, write `std.text`.
+    # Using "shadowed" definitions
+    The `std` module is useful whenever you overrode a name from the global
+    scope (this is called _shadowing_). For instance, you might have used the
+    name `text` for a parameter. To still access the `text` element, write
+    `std.text`.
 
-    # Example
     ```example
     >>> #set page(margin: (left: 3em))
     #let par = [My special paragraph.]
