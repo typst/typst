@@ -104,7 +104,7 @@ impl Show for Packed<AlignElem> {
     }
 }
 
-/// Where to [align]($align) something along an axis.
+/// Where to align something along an axis.
 ///
 /// Possible values are:
 /// - `start`: Aligns at the [start]($direction.start) of the [text
