@@ -4,7 +4,6 @@ use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
 use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
 };
-use typst_utils::OptionExt;
 
 use super::{
     FrameFragment, Limits, MathContext, MathFragment, stretch_fragment,
