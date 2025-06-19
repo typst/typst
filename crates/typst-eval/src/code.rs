@@ -1,9 +1,9 @@
-use ecow::{eco_vec, EcoVec};
-use typst_library::diag::{bail, error, warning, At, SourceResult};
+use ecow::{EcoVec, eco_vec};
+use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement,
-    Selector, Str, Value,
+    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Selector,
+    Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
-use typst_library::layout::grid::resolve::{CellGrid, Line, Repeatable};
 use typst_library::layout::Abs;
+use typst_library::layout::grid::resolve::{CellGrid, Line, Repeatable};
 use typst_library::visualize::Stroke;
 
 use super::RowPiece;

@@ -2,18 +2,18 @@ use std::fmt::{self, Debug, Formatter};
 
 use az::SaturatingAs;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
-use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::GlyphId;
-use typst_library::diag::{bail, warning, SourceResult};
+use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
+use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{features, language, Font, Glyph, TextElem, TextItem};
+use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language};
 use typst_syntax::Span;
-use typst_utils::{default_math_class, Get};
+use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 
 use super::MathContext;

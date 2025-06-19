@@ -5,11 +5,12 @@ mod encode;
 pub use self::encode::html;
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{bail, warning, At, SourceResult};
+use typst_library::World;
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
 use typst_library::html::{
-    attr, tag, FrameElem, HtmlDocument, HtmlElem, HtmlElement, HtmlNode,
+    FrameElem, HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag,
 };
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, SplitLocator, TagElem,
@@ -18,7 +19,6 @@ use typst_library::layout::{Abs, Axes, BlockBody, BlockElem, BoxElem, Region, Si
 use typst_library::model::{DocumentInfo, ParElem};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use typst_library::World;
 use typst_syntax::Span;
 
 /// Produce an HTML document from content.

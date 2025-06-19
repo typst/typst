@@ -1,16 +1,16 @@
 use comemo::TrackedMut;
-use ecow::{eco_format, eco_vec, EcoString};
+use ecow::{EcoString, eco_format, eco_vec};
+use typst_library::World;
 use typst_library::diag::{
-    bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint,
+    At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
 use typst_library::foundations::{Binding, Content, Module, Value};
-use typst_library::World;
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
 use typst_syntax::{FileId, Span, VirtualPath};
 
-use crate::{eval, Eval, Vm};
+use crate::{Eval, Vm, eval};
 
 impl Eval for ast::ModuleImport<'_> {
     type Output = Value;
