@@ -315,15 +315,15 @@ fn create_func_data(func: &Func) -> TokenStream {
 
     quote! {
         #foundations::NativeFuncData {
-            function: #closure,
+            function: #foundations::NativeFuncPtr(&#closure),
             name: #name,
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
             contextual: #contextual,
-            scope: ::std::sync::LazyLock::new(|| #scope),
-            params: ::std::sync::LazyLock::new(|| ::std::vec![#(#params),*]),
-            returns:  ::std::sync::LazyLock::new(|| <#returns as #foundations::Reflect>::output()),
+            scope: ::std::sync::LazyLock::new(&|| #scope),
+            params: ::std::sync::LazyLock::new(&|| ::std::vec![#(#params),*]),
+            returns:  ::std::sync::LazyLock::new(&|| <#returns as #foundations::Reflect>::output()),
         }
     }
 }
