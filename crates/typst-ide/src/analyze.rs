@@ -1,9 +1,9 @@
 use comemo::Track;
-use ecow::{eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_vec};
 use typst::foundations::{Label, Styles, Value};
 use typst::layout::PagedDocument;
 use typst::model::BibliographyElem;
-use typst::syntax::{ast, LinkedNode, SyntaxKind};
+use typst::syntax::{LinkedNode, SyntaxKind, ast};
 
 use crate::IdeWorld;
 
