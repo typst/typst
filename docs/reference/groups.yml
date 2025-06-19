@@ -142,6 +142,7 @@
 
     # Example
     ```example
+    >>> #set page(margin: (left: 3em))
     #let par = [My special paragraph.]
     #let special(text) = {
       set std.text(style: "italic")
