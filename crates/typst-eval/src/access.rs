@@ -1,9 +1,9 @@
 use ecow::eco_format;
-use typst_library::diag::{bail, At, Hint, SourceResult, Trace, Tracepoint};
+use typst_library::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{call_method_access, is_accessor_method, Eval, Vm};
+use crate::{Eval, Vm, call_method_access, is_accessor_method};
 
 /// Access an expression mutably.
 pub(crate) trait Access {

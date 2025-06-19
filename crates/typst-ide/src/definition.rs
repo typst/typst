@@ -1,12 +1,12 @@
 use typst::foundations::{Label, Selector, Value};
 use typst::layout::PagedDocument;
-use typst::syntax::{ast, LinkedNode, Side, Source, Span};
+use typst::syntax::{LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
 use crate::utils::globals;
 use crate::{
-    analyze_expr, analyze_import, deref_target, named_items, DerefTarget, IdeWorld,
-    NamedItem,
+    DerefTarget, IdeWorld, NamedItem, analyze_expr, analyze_import, deref_target,
+    named_items,
 };
 
 /// A definition of some item.
@@ -89,11 +89,11 @@ mod tests {
     use std::borrow::Borrow;
     use std::ops::Range;
 
+    use typst::WorldExt;
     use typst::foundations::{IntoValue, NativeElement};
     use typst::syntax::Side;
-    use typst::WorldExt;
 
-    use super::{definition, Definition};
+    use super::{Definition, definition};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = (TestWorld, Option<Definition>);
