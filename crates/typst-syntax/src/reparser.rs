@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    is_newline, parse, reparse_block, reparse_markup, Span, SyntaxKind, SyntaxNode,
+    Span, SyntaxKind, SyntaxNode, is_newline, parse, reparse_block, reparse_markup,
 };
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -240,7 +240,7 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 mod tests {
     use std::ops::Range;
 
-    use crate::{parse, Source, Span};
+    use crate::{Source, Span, parse};
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, incremental: bool) {

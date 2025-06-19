@@ -11,14 +11,14 @@ use arrayvec::ArrayVec;
 use bumpalo::collections::{String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_library::diag::{bail, At, SourceResult};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, Recipe, RecipeIndex, Selector,
     SequenceElem, Show, ShowSet, Style, StyleChain, StyledElem, Styles, SymbolElem,
     Synthesize, Transformation,
 };
-use typst_library::html::{tag, HtmlElem};
+use typst_library::html::{HtmlElem, tag};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,

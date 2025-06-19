@@ -2,13 +2,13 @@ use ecow::EcoString;
 use typst_library::foundations::Target;
 use typst_syntax::Spanned;
 
-use crate::diag::{warning, At, SourceResult};
+use crate::World;
+use crate::diag::{At, SourceResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain, TargetElem,
+    Bytes, Cast, Content, Derived, Packed, Show, StyleChain, TargetElem, elem,
 };
 use crate::introspection::Locatable;
-use crate::World;
 
 /// A file that will be embedded into the output PDF.
 ///

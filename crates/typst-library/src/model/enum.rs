@@ -3,13 +3,13 @@ use std::str::FromStr;
 use ecow::eco_format;
 use smallvec::SmallVec;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles, TargetElem,
+    Array, Content, NativeElement, Packed, Show, Smart, StyleChain, Styles, TargetElem,
+    cast, elem, scope,
 };
-use crate::html::{attr, tag, HtmlElem};
+use crate::html::{HtmlElem, attr, tag};
 use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
 use crate::model::{
     ListItemLike, ListLike, Numbering, NumberingPattern, ParElem, ParbreakElem,

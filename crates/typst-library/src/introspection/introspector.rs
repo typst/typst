@@ -8,7 +8,7 @@ use ecow::EcoVec;
 use smallvec::SmallVec;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::html::HtmlNode;
 use crate::introspection::{Location, Tag};
