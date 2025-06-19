@@ -79,7 +79,12 @@ impl Label {
 
 impl Repr for Label {
     fn repr(&self) -> EcoString {
-        eco_format!("<{}>", self.resolve())
+        let resolved = self.resolve();
+        if typst_syntax::is_valid_label_literal_id(&resolved) {
+            eco_format!("<{resolved}>")
+        } else {
+            eco_format!("label({})", resolved.repr())
+        }
     }
 }
 

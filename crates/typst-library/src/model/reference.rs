@@ -4,8 +4,8 @@ use ecow::eco_format;
 use crate::diag::{At, Hint, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show, Smart,
-    StyleChain, Synthesize, cast, elem,
+    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Show,
+    Smart, StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -229,8 +229,15 @@ impl Show for Packed<RefElem> {
         // RefForm::Normal
 
         if BibliographyElem::has(engine, self.target) {
-            if elem.is_ok() {
-                bail!(span, "label occurs in the document and its bibliography");
+            if let Ok(elem) = elem {
+                bail!(
+                    span,
+                    "label `{}` occurs both in the document and its bibliography",
+                    self.target.repr();
+                    hint: "change either the {}'s label or the \
+                           bibliography key to resolve the ambiguity",
+                    elem.func().name(),
+                );
             }
 
             return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
