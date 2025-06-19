@@ -137,8 +137,8 @@
   details: |
     A module that contains all globally accessible items.
 
-    This is useful whenever you overrode a name from the global scope, e.g.,
-    the [`text`] element. To still access the `text` element, write `std.text`.
+    This is useful whenever you overrode a name from the global scope (e.g.
+    the [`text`] element). To still access the `text` element, write `std.text`.
 
     # Example
     ```example
