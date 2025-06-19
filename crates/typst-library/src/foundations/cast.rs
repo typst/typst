@@ -14,7 +14,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
 use crate::foundations::{
-    array, repr, Fold, NativeElement, Packed, Repr, Str, Type, Value,
+    Fold, NativeElement, Packed, Repr, Str, Type, Value, array, repr,
 };
 
 /// Determine details of a type.
