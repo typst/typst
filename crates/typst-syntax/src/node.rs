@@ -3,7 +3,7 @@ use std::ops::{Deref, Range};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 
 use crate::{FileId, Span, SyntaxKind};
 
@@ -759,11 +759,7 @@ impl LinkedNode<'_> {
         let node = parent.node.children().nth(index)?;
         let offset = self.offset - node.len();
         let prev = Self { node, parent: self.parent.clone(), index, offset };
-        if prev.kind().is_trivia() {
-            prev.prev_sibling()
-        } else {
-            Some(prev)
-        }
+        if prev.kind().is_trivia() { prev.prev_sibling() } else { Some(prev) }
     }
 
     /// Get the next non-trivia sibling node.
@@ -773,11 +769,7 @@ impl LinkedNode<'_> {
         let node = parent.node.children().nth(index)?;
         let offset = self.offset + self.node.len();
         let next = Self { node, parent: self.parent.clone(), index, offset };
-        if next.kind().is_trivia() {
-            next.next_sibling()
-        } else {
-            Some(next)
-        }
+        if next.kind().is_trivia() { next.next_sibling() } else { Some(next) }
     }
 
     /// Get the kind of this node's parent.

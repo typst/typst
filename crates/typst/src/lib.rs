@@ -41,9 +41,9 @@ pub use typst_utils as utils;
 use std::collections::HashSet;
 
 use comemo::{Track, Tracked, Validate};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_library::diag::{
-    bail, warning, FileError, SourceDiagnostic, SourceResult, Warned,
+    FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{StyleChain, Styles, Value};
@@ -52,7 +52,7 @@ use typst_library::introspection::Introspector;
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
-use typst_timing::{timed, TimingScope};
+use typst_timing::{TimingScope, timed};
 
 use crate::foundations::{Target, TargetElem};
 use crate::model::DocumentInfo;
