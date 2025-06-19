@@ -5,7 +5,7 @@ use std::sync::{LazyLock, OnceLock};
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
@@ -246,7 +246,7 @@ impl World for SystemWorld {
             with_offset.day().try_into().ok()?,
         )
     }
-    fn now(&self,offset:Option<i64>) -> Option<Datetime> {
+    fn now(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = match &self.now {
             Now::Fixed(time) => time,
             Now::System(time) => time.get_or_init(Utc::now),

@@ -2,12 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::{Index, IndexMut, Range};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
-use crate::set::{syntax_set, SyntaxSet};
-use crate::{ast, set, Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
+use crate::set::{SyntaxSet, syntax_set};
+use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {

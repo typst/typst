@@ -33,7 +33,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -43,17 +43,17 @@ use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
+use crate::World;
+use crate::diag::{HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
-    NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set,
-    Smart, StyleChain,
+    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
+    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, StyleChain,
+    cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
-use crate::World;
 
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {

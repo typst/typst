@@ -7,17 +7,16 @@ use std::ops::{Add, AddAssign, ControlFlow, Deref, DerefMut};
 use std::sync::Arc;
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
 use typst_syntax::Span;
-use typst_utils::{fat, singleton, LazyHash, SmallBitSet};
+use typst_utils::{LazyHash, SmallBitSet, fat, singleton};
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Context, Dict, Element, Fields, IntoValue, Label,
-    NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
-    Value,
+    Context, Dict, Element, Fields, IntoValue, Label, NativeElement, Recipe, RecipeIndex,
+    Repr, Selector, Str, Style, StyleChain, Styles, Value, elem, func, scope, ty,
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};

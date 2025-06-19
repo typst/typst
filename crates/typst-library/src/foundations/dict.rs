@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
@@ -11,7 +11,7 @@ use typst_utils::ArcExt;
 
 use crate::diag::{Hint, HintedStrResult, StrResult};
 use crate::foundations::{
-    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+    Array, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
