@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use typst_library::diag::{warning, At, LoadedWithin, SourceResult, StrResult};
+use typst_library::diag::{At, LoadedWithin, SourceResult, StrResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
 use typst_library::introspection::Locator;

@@ -4,8 +4,8 @@ use typst_library::foundations::Resolve;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 
-use super::layouter::{points, Row};
-use super::{layout_cell, Cell, GridLayouter};
+use super::layouter::{Row, points};
+use super::{Cell, GridLayouter, layout_cell};
 
 /// All information needed to layout a single rowspan.
 pub struct Rowspan {

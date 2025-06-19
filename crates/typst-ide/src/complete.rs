@@ -2,18 +2,18 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashSet};
 use std::ffi::OsStr;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
-    StyleChain, Styles, Type, Value,
+    AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr, StyleChain, Styles,
+    Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
-    SyntaxKind,
+    FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
+    is_ident,
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
@@ -22,7 +22,7 @@ use unscanny::Scanner;
 use crate::utils::{
     check_value_recursively, globals, plain_docs_sentence, summarize_font_family,
 };
-use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld};
+use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -1561,7 +1561,7 @@ mod tests {
 
     use typst::layout::PagedDocument;
 
-    use super::{autocomplete, Completion};
+    use super::{Completion, autocomplete};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     /// Quote a string.
@@ -1579,7 +1579,7 @@ mod tests {
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_apply<'a>(&self, label: &str, apply: impl Into<Option<&'a str>>)
-            -> &Self;
+        -> &Self;
     }
 
     impl ResponseExt for Response {

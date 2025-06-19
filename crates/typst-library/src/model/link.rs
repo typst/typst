@@ -1,14 +1,14 @@
 use std::ops::Deref;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, warning, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Packed, Repr, Show, ShowSet, Smart,
-    StyleChain, Styles, TargetElem,
+    Content, Label, NativeElement, Packed, Repr, Show, ShowSet, Smart, StyleChain,
+    Styles, TargetElem, cast, elem,
 };
-use crate::html::{attr, tag, HtmlElem};
+use crate::html::{HtmlElem, attr, tag};
 use crate::introspection::Location;
 use crate::layout::Position;
 use crate::text::TextElem;

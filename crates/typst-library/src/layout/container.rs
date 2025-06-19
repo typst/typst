@@ -1,8 +1,8 @@
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Construct, Content, NativeElement, Packed, Smart,
-    StyleChain, Value,
+    Args, AutoValue, Construct, Content, NativeElement, Packed, Smart, StyleChain, Value,
+    cast, elem,
 };
 use crate::introspection::Locator;
 use crate::layout::{
@@ -497,6 +497,7 @@ mod callbacks {
 
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
+            #[allow(unpredictable_function_pointer_comparisons)]
             #[derive(Debug, Clone, PartialEq, Hash)]
             pub struct $name {
                 captured: Content,

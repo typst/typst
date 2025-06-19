@@ -1,5 +1,5 @@
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
+use crate::foundations::{Content, NativeElement, SymbolElem, cast, elem, func};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 

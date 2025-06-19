@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain};
+use crate::foundations::{Content, Packed, Show, StyleChain, elem};
 use crate::text::TextElem;
 
 /// Displays text in small capitals.

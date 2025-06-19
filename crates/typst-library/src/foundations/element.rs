@@ -14,8 +14,8 @@ use typst_utils::Static;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, Args, Content, Dict, FieldAccessError, Func, ParamInfo, Repr, Scope, Selector,
-    StyleChain, Styles, Value,
+    Args, Content, Dict, FieldAccessError, Func, ParamInfo, Repr, Scope, Selector,
+    StyleChain, Styles, Value, cast,
 };
 use crate::text::{Lang, Region};
 
@@ -313,7 +313,7 @@ cast! {
 pub trait Synthesize {
     /// Prepare the element for show rule application.
     fn synthesize(&mut self, engine: &mut Engine, styles: StyleChain)
-        -> SourceResult<()>;
+    -> SourceResult<()>;
 }
 
 /// Defines a built-in show rule for an element.

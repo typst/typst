@@ -5,9 +5,9 @@ use std::cmp::Ordering;
 use ecow::eco_format;
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    format_str, Datetime, IntoValue, Regex, Repr, SymbolElem, Value,
+    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;

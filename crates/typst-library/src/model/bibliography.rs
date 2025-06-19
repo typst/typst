@@ -7,34 +7,35 @@ use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Track, Tracked};
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
-    citationberg, BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest,
-    Library, SpecificLocator,
+    BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest, Library,
+    SpecificLocator, citationberg,
 };
 use indexmap::IndexMap;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
+use crate::World;
 use crate::diag::{
-    bail, error, At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
-    SourceResult, StrResult,
+    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
+    StrResult, bail, error,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
+    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
     OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value,
+    Synthesize, Value, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sides, Sizing, TrackSizings,
 };
-use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, Loaded};
+use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
@@ -44,7 +45,6 @@ use crate::text::{
     FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
     WeightDelta,
 };
-use crate::World;
 
 /// A bibliography / reference listing.
 ///

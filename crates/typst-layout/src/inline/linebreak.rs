@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::LineBreak;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -11,7 +11,7 @@ use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{is_default_ignorable, Lang, TextElem};
+use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -892,11 +892,7 @@ impl CostMetrics {
     /// we allow less because otherwise we get an invalid layout fairly often,
     /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
-        if approx {
-            self.min_approx_ratio
-        } else {
-            self.min_ratio
-        }
+        if approx { self.min_approx_ratio } else { self.min_ratio }
     }
 }
 

@@ -2,17 +2,17 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
-use time::{format_description, Month, PrimitiveDateTime};
+use time::{Month, PrimitiveDateTime, format_description};
 
-use crate::diag::{bail, StrResult};
+use crate::World;
+use crate::diag::{StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Dict, Duration, Repr, Smart, Str, Value,
+    Dict, Duration, Repr, Smart, Str, Value, cast, func, repr, scope, ty,
 };
-use crate::World;
 
 /// Represents a date, a time, or a combination of both.
 ///
@@ -329,6 +329,27 @@ impl Datetime {
             .world
             .today(offset.custom())
             .ok_or("unable to get the current date")?)
+    }
+
+    /// Returns the current time.
+    ///
+    /// ```example
+    /// The current time is
+    /// #datetime.now().display().
+    /// ```
+    #[func]
+    pub fn now(
+        engine: &mut Engine,
+        /// An offset to apply to the current UTC time. If set to `{auto}`, the
+        /// offset will be the local offset.
+        #[named]
+        #[default]
+        offset: Smart<i64>,
+    ) -> StrResult<Datetime> {
+        Ok(engine
+            .world
+            .now(offset.custom())
+            .ok_or("unable to get the current time")?)
     }
 
     /// Displays the datetime in a specified format.

@@ -2,7 +2,7 @@ use smallvec::smallvec;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
+use crate::foundations::{Content, Packed, Show, Smart, StyleChain, elem};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
 use crate::text::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};

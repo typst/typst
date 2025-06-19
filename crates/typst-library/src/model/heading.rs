@@ -3,13 +3,13 @@ use std::num::NonZeroUsize;
 use ecow::eco_format;
 use typst_utils::{Get, NonZeroExt};
 
-use crate::diag::{warning, SourceResult};
+use crate::diag::{SourceResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, TargetElem,
+    Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain, Styles,
+    Synthesize, TargetElem, elem,
 };
-use crate::html::{attr, tag, HtmlElem};
+use crate::html::{HtmlElem, attr, tag};
 use crate::introspection::{
     Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
 };

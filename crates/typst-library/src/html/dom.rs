@@ -4,8 +4,8 @@ use ecow::{EcoString, EcoVec};
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::diag::{bail, HintedStrResult, StrResult};
-use crate::foundations::{cast, Dict, Repr, Str};
+use crate::diag::{HintedStrResult, StrResult, bail};
+use crate::foundations::{Dict, Repr, Str, cast};
 use crate::introspection::{Introspector, Tag};
 use crate::layout::Frame;
 use crate::model::DocumentInfo;

@@ -5,6 +5,7 @@ mod finalize;
 mod run;
 
 use comemo::{Tracked, TrackedMut};
+use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
@@ -14,11 +15,10 @@ use typst_library::introspection::{
 use typst_library::layout::{FrameItem, Page, PagedDocument, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
-use typst_library::World;
 
-use self::collect::{collect, Item};
+use self::collect::{Item, collect};
 use self::finalize::finalize;
-use self::run::{layout_blank_page, layout_page_run, LayoutedPage};
+use self::run::{LayoutedPage, layout_blank_page, layout_page_run};
 
 /// Layout content into a document.
 ///
@@ -126,7 +126,8 @@ fn layout_pages<'a>(
     for item in &items {
         match item {
             Item::Run(..) => {
-                let mut layouted_pages = layouted_runs[run_idx].as_ref().map_err(|e| e.clone())?.clone();
+                let mut layouted_pages =
+                    layouted_runs[run_idx].as_ref().map_err(|e| e.clone())?.clone();
                 for layouted in layouted_pages.drain(..) {
                     let page = finalize(engine, &mut counter, &mut tags, layouted)?;
                     pages.push(page);

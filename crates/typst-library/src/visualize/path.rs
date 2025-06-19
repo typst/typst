@@ -1,9 +1,9 @@
 use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, elem, Array, Content, NativeElement, Packed, Reflect, Show, Smart,
-    StyleChain,
+    Array, Content, NativeElement, Packed, Reflect, Show, Smart, StyleChain, array, cast,
+    elem,
 };
 use crate::layout::{Axes, BlockElem, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};

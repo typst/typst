@@ -130,11 +130,7 @@ impl State<'_> {
     /// Sets the current mask.
     fn with_mask(self, mask: Option<&sk::Mask>) -> State<'_> {
         // Ensure that we're using the parent's mask if we don't have one.
-        if mask.is_some() {
-            State { mask, ..self }
-        } else {
-            State { mask: None, ..self }
-        }
+        if mask.is_some() { State { mask, ..self } } else { State { mask: None, ..self } }
     }
 
     /// Sets the size of the first hard frame in the hierarchy.

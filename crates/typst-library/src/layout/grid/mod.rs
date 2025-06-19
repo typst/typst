@@ -4,14 +4,14 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use comemo::Track;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, CastInfo, Content, Context, Fold, FromValue, Func,
-    IntoValue, NativeElement, Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
+    Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, NativeElement,
+    Packed, Reflect, Resolve, Show, Smart, StyleChain, Value, cast, elem, scope,
 };
 use crate::layout::{
     Alignment, BlockElem, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,

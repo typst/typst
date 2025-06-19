@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
 
 use comemo::Tracked;
-use ecow::{eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_vec};
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -12,8 +12,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, ty, Content, Context, Element, Func, NativeElement, OneOrMultiple, Repr,
-    Selector,
+    Content, Context, Element, Func, NativeElement, OneOrMultiple, Repr, Selector, cast,
+    ty,
 };
 use crate::text::{FontFamily, FontList, TextElem};
 

@@ -1,9 +1,9 @@
 use comemo::Track;
 
-use crate::diag::{bail, Hint, HintedStrResult, SourceResult};
+use crate::diag::{Hint, HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Construct, Content, Func, Packed, Show, StyleChain, Value,
+    Args, Construct, Content, Func, Packed, Show, StyleChain, Value, elem,
 };
 use crate::introspection::{Locatable, Location};
 

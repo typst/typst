@@ -1,12 +1,12 @@
 use std::ops::Add;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
-    Reflect, Repr, Resolve, Show, StyleChain, Value,
+    CastInfo, Content, Fold, FromValue, IntoValue, Packed, Reflect, Repr, Resolve, Show,
+    StyleChain, Value, cast, elem, func, scope, ty,
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;

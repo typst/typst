@@ -14,7 +14,7 @@ mod methods;
 mod rules;
 mod vm;
 
-pub use self::call::{eval_closure, CapturesVisitor};
+pub use self::call::{CapturesVisitor, eval_closure};
 pub use self::flow::FlowEvent;
 pub use self::import::import;
 pub use self::vm::Vm;
@@ -24,14 +24,14 @@ use self::binding::*;
 use self::methods::*;
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{bail, SourceResult};
+use typst_library::World;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
 use typst_library::introspection::Introspector;
 use typst_library::math::EquationElem;
 use typst_library::routines::Routines;
-use typst_library::World;
-use typst_syntax::{ast, parse, parse_code, parse_math, Source, Span, SyntaxMode};
+use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]

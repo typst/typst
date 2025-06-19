@@ -4,7 +4,7 @@ use typst_syntax::Span;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    dict, elem, func, Content, Context, Func, NativeElement, Packed, Show, StyleChain,
+    Content, Context, Func, NativeElement, Packed, Show, StyleChain, dict, elem, func,
 };
 use crate::introspection::Locatable;
 use crate::layout::{BlockElem, Size};

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::foundations::{cast, dict, Dict, Label, Value};
+use crate::foundations::{Dict, Label, Value, cast, dict};
 use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
 use crate::model::Destination;

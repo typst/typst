@@ -1,11 +1,11 @@
 use comemo::Track;
 use ecow::eco_format;
 
-use crate::diag::{bail, At, Hint, SourceResult};
+use crate::diag::{At, Hint, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Show, Smart, StyleChain, Synthesize,
+    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show, Smart,
+    StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;

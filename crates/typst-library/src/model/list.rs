@@ -1,12 +1,12 @@
 use comemo::Track;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed, Show,
-    Smart, StyleChain, Styles, TargetElem, Value,
+    Array, Content, Context, Depth, Func, NativeElement, Packed, Show, Smart, StyleChain,
+    Styles, TargetElem, Value, cast, elem, scope,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{HtmlElem, tag};
 use crate::layout::{BlockElem, Em, Length, VElem};
 use crate::model::{ParElem, ParbreakElem};
 use crate::text::TextElem;

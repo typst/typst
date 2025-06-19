@@ -7,9 +7,9 @@ use ecow::EcoString;
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::foundations::{
-    array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue, Repr, Smart,
+    Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
@@ -893,11 +893,7 @@ impl Gradient {
     /// the special case of `auto`.
     pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
         self.relative().unwrap_or_else(|| {
-            if on_text {
-                RelativeTo::Parent
-            } else {
-                RelativeTo::Self_
-            }
+            if on_text { RelativeTo::Parent } else { RelativeTo::Self_ }
         })
     }
 

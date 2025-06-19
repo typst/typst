@@ -10,11 +10,11 @@ use typst_syntax::{Span, Spanned};
 use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Cast, Context, Decimal, Dict, Func,
-    IntoValue, Label, Repr, Type, Value, Version,
+    Array, Bytes, Cast, Context, Decimal, Dict, Func, IntoValue, Label, Repr, Type,
+    Value, Version, cast, dict, func, repr, scope, ty,
 };
 use crate::layout::Alignment;
 
@@ -865,7 +865,11 @@ fn out_of_bounds(index: i64, len: usize) -> EcoString {
 /// The out of bounds access error message when no default value was given.
 #[cold]
 fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
-    eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
+    eco_format!(
+        "no default value was specified and string index out of bounds (index: {}, len: {})",
+        index,
+        len
+    )
 }
 
 /// The char boundary access error message.

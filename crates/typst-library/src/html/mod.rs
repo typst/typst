@@ -6,7 +6,7 @@ pub use self::dom::*;
 
 use ecow::EcoString;
 
-use crate::foundations::{elem, Content, Module, Scope};
+use crate::foundations::{Content, Module, Scope, elem};
 
 /// Create a module with all HTML definitions.
 pub fn module() -> Module {

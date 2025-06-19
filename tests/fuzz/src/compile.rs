@@ -62,6 +62,10 @@ impl World for FuzzWorld {
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         None
     }
+
+    fn now(&self, _: Option<i64>) -> Option<Datetime> {
+        None
+    }
 }
 
 fuzz_target!(|text: &str| {

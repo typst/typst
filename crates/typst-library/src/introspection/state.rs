@@ -1,17 +1,17 @@
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::Span;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::World;
+use crate::diag::{At, SourceResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
-    LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str, StyleChain,
-    Value,
+    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Packed,
+    Repr, Selector, Show, Str, StyleChain, Value, cast, elem, func, scope, select_where,
+    ty,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::routines::Routines;
-use crate::World;
 
 /// Manages stateful parts of your document.
 ///

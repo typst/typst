@@ -2,7 +2,7 @@ use std::fmt::Write;
 use std::ops::ControlFlow;
 
 use comemo::Track;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
 use typst::introspection::Introspector;
@@ -119,11 +119,7 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
         .is_none_or(|prev| !matches!(prev.kind(), SyntaxKind::Hash));
 
     let library = world.library();
-    if in_math {
-        library.math.scope()
-    } else {
-        library.global.scope()
-    }
+    if in_math { library.math.scope() } else { library.global.scope() }
 }
 
 /// Checks whether the given value or any of its constituent parts satisfy the

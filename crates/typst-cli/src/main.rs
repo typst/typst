@@ -20,8 +20,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 use std::sync::LazyLock;
 
-use clap::error::ErrorKind;
 use clap::Parser;
+use clap::error::ErrorKind;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use typst::diag::HintedStrResult;
@@ -100,7 +100,7 @@ fn print_error(msg: &str) -> io::Result<()> {
 
 #[cfg(not(feature = "self-update"))]
 mod update {
-    use typst::diag::{bail, StrResult};
+    use typst::diag::{StrResult, bail};
 
     use crate::args::UpdateCommand;
 

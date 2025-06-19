@@ -4,8 +4,8 @@ use typst_library::layout::{Em, Frame, Point, Size};
 use typst_library::math::AccentElem;
 
 use super::{
-    style_cramped, style_dtls, style_flac, FrameFragment, GlyphFragment, MathContext,
-    MathFragment,
+    FrameFragment, GlyphFragment, MathContext, MathFragment, style_cramped, style_dtls,
+    style_flac,
 };
 
 /// How much the accent can be shorter than the base.

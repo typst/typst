@@ -1,5 +1,5 @@
-use ttf_parser::math::MathValue;
 use ttf_parser::Tag;
+use ttf_parser::math::MathValue;
 use typst_library::foundations::{Style, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};

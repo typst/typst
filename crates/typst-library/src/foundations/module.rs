@@ -1,11 +1,11 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
-use crate::diag::{bail, DeprecationSink, StrResult};
-use crate::foundations::{repr, ty, Content, Scope, Value};
+use crate::diag::{DeprecationSink, StrResult, bail};
+use crate::foundations::{Content, Scope, Value, repr, ty};
 
 /// A collection of variables and functions that are commonly related to
 /// a single theme.

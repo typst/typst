@@ -2,9 +2,9 @@ use ecow::EcoString;
 use typst_syntax::is_newline;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
+    Array, Dict, FromValue, Packed, PlainText, Smart, Str, array, cast, dict, elem,
 };
 use crate::layout::Dir;
 use crate::text::{Lang, Region};
@@ -287,20 +287,12 @@ impl<'s> SmartQuotes<'s> {
 
     /// The opening quote.
     pub fn open(&self, double: bool) -> &'s str {
-        if double {
-            self.double_open
-        } else {
-            self.single_open
-        }
+        if double { self.double_open } else { self.single_open }
     }
 
     /// The closing quote.
     pub fn close(&self, double: bool) -> &'s str {
-        if double {
-            self.double_close
-        } else {
-            self.single_close
-        }
+        if double { self.double_close } else { self.single_close }
     }
 }
 

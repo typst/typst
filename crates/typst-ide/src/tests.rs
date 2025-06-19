@@ -9,7 +9,7 @@ use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
-use typst::utils::{singleton, LazyHash};
+use typst::utils::{LazyHash, singleton};
 use typst::{Library, World};
 
 use crate::IdeWorld;
@@ -101,6 +101,9 @@ impl World for TestWorld {
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        None
+    }
+    fn now(&self, _: Option<i64>) -> Option<Datetime> {
         None
     }
 }

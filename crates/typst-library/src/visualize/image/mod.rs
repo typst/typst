@@ -18,8 +18,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Show,
-    Smart, StyleChain,
+    Bytes, Cast, Content, Derived, NativeElement, Packed, Show, Smart, StyleChain, cast,
+    elem, func, scope,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};

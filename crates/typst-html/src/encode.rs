@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
-use typst_library::diag::{bail, At, SourceResult, StrResult};
+use typst_library::diag::{At, SourceResult, StrResult, bail};
 use typst_library::foundations::Repr;
-use typst_library::html::{charsets, tag, HtmlDocument, HtmlElement, HtmlNode, HtmlTag};
+use typst_library::html::{HtmlDocument, HtmlElement, HtmlNode, HtmlTag, charsets, tag};
 use typst_library::layout::Frame;
 use typst_syntax::Span;
 

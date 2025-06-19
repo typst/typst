@@ -1,6 +1,6 @@
 use heck::{ToKebabCase, ToTitleCase};
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Token;
 use syn::{Attribute, Ident, Result, Token};

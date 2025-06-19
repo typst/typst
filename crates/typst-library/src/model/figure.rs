@@ -5,13 +5,13 @@ use std::str::FromStr;
 use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
-    Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    Content, Element, NativeElement, Packed, Selector, Show, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, TargetElem, cast, elem, scope, select_where,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{HtmlElem, tag};
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };

@@ -1,14 +1,14 @@
 use ecow::EcoString;
 
+use crate::World;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, SequenceElem, Show, StyleChain, TargetElem,
+    Content, NativeElement, Packed, SequenceElem, Show, StyleChain, TargetElem, elem,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{HtmlElem, tag};
 use crate::layout::{Em, Length};
-use crate::text::{variant, SpaceElem, TextElem, TextSize};
-use crate::World;
+use crate::text::{SpaceElem, TextElem, TextSize, variant};
 
 /// Renders text in subscript.
 ///

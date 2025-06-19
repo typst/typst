@@ -4,7 +4,6 @@ use std::ops::Range;
 use ecow::EcoString;
 use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
-use pulldown_cmark_escape;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileError, FileResult, StrResult};
@@ -17,7 +16,7 @@ use typst::{Library, World};
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
-use crate::{contributors, OutlineItem, Resolver, FONTS, LIBRARY};
+use crate::{FONTS, LIBRARY, OutlineItem, Resolver, contributors};
 
 /// HTML documentation.
 #[derive(Serialize)]
@@ -85,14 +84,16 @@ impl Html {
             md::Parser::new_with_broken_link_callback(text, options, Some(&mut link))
                 .peekable();
 
-        let iter = std::iter::from_fn(|| loop {
-            let mut event = events.next()?;
-            handler.peeked = events.peek().and_then(|event| match event {
-                md::Event::Text(text) => Some(text.clone()),
-                _ => None,
-            });
-            if handler.handle(&mut event) {
-                return Some(event);
+        let iter = std::iter::from_fn(|| {
+            loop {
+                let mut event = events.next()?;
+                handler.peeked = events.peek().and_then(|event| match event {
+                    md::Event::Text(text) => Some(text.clone()),
+                    _ => None,
+                });
+                if handler.handle(&mut event) {
+                    return Some(event);
+                }
             }
         });
 
@@ -190,7 +191,12 @@ impl<'a> Handler<'a> {
     fn handle(&mut self, event: &mut md::Event<'a>) -> bool {
         match event {
             // Rewrite Markdown images.
-            md::Event::Start(md::Tag::Image { link_type: _, dest_url: path, title: _, id: _ }) => {
+            md::Event::Start(md::Tag::Image {
+                link_type: _,
+                dest_url: path,
+                title: _,
+                id: _,
+            }) => {
                 *path = self.handle_image(path).into();
             }
 
@@ -315,7 +321,7 @@ impl<'a> Handler<'a> {
         let id: String = match (&id_slot, default) {
             (Some(id), default) => {
                 if Some(id.as_str()) == default.as_deref() {
-                    eprintln!("heading id #{} was specified unnecessarily", id);
+                    eprintln!("heading id #{id} was specified unnecessarily");
                 }
                 id.clone()
             }
@@ -510,5 +516,9 @@ impl World for DocWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
+    }
+
+    fn now(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd_hms(1970, 1, 1, 0, 0, 0).unwrap())
     }
 }

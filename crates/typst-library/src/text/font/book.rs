@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{name_id, PlatformId, Tag};
+use ttf_parser::{PlatformId, Tag, name_id};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
@@ -337,11 +337,7 @@ fn decode_mac_roman(coded: &[u8]) -> String {
     ];
 
     fn char_from_mac_roman(code: u8) -> char {
-        if code < 128 {
-            code as char
-        } else {
-            TABLE[(code - 128) as usize]
-        }
+        if code < 128 { code as char } else { TABLE[(code - 128) as usize] }
     }
 
     coded.iter().copied().map(char_from_mac_roman).collect()

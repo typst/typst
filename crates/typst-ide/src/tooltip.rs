@@ -1,17 +1,17 @@
 use std::fmt::Write;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use if_chain::if_chain;
 use typst::engine::Sink;
-use typst::foundations::{repr, Binding, Capturer, CastInfo, Repr, Value};
+use typst::foundations::{Binding, Capturer, CastInfo, Repr, Value, repr};
 use typst::layout::{Length, PagedDocument};
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, LinkedNode, Side, Source, SyntaxKind};
-use typst::utils::{round_with_precision, Numeric};
+use typst::syntax::{LinkedNode, Side, Source, SyntaxKind, ast};
+use typst::utils::{Numeric, round_with_precision};
 use typst_eval::CapturesVisitor;
 
 use crate::utils::{plain_docs_sentence, summarize_font_family};
-use crate::{analyze_expr, analyze_import, analyze_labels, IdeWorld};
+use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels};
 
 /// Describe the item under the cursor.
 ///
@@ -283,7 +283,7 @@ mod tests {
 
     use typst::syntax::Side;
 
-    use super::{tooltip, Tooltip};
+    use super::{Tooltip, tooltip};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = Option<Tooltip>;
