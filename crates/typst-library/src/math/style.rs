@@ -1,4 +1,4 @@
-use crate::foundations::{func, Cast, Content, Smart};
+use crate::foundations::{Cast, Content, Smart, func};
 use crate::math::EquationElem;
 
 /// Bold font style in math.

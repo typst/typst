@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, NativeElement, Packed, Show, Smart, StyleChain,
+    Content, NativeElement, Packed, Show, Smart, StyleChain, cast, elem,
 };
 use crate::layout::{
     Abs, Alignment, Angle, BlockElem, HAlignment, Length, Ratio, Rel, VAlignment,

@@ -1,4 +1,4 @@
-use crate::foundations::{cast, func, Cast, Content, Str};
+use crate::foundations::{Cast, Content, Str, cast, func};
 use crate::text::TextElem;
 
 /// Converts a string or content to lowercase.
