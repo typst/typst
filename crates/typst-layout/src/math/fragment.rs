@@ -680,7 +680,7 @@ fn min_connector_overlap(font: &Font) -> Option<Em> {
         .map(|variants| font.to_em(variants.min_connector_overlap))
 }
 
-fn glyph_construction(font: &Font, id: GlyphId, axis: Axis) -> Option<GlyphConstruction> {
+fn glyph_construction(font: &Font, id: GlyphId, axis: Axis) -> Option<GlyphConstruction<'_>> {
     font.ttf()
         .tables()
         .math?
@@ -809,7 +809,7 @@ fn assemble(
 
 /// Return an iterator over the assembly's parts with extenders repeated the
 /// specified number of times.
-fn parts(assembly: GlyphAssembly, repeat: usize) -> impl Iterator<Item = GlyphPart> + '_ {
+fn parts(assembly: GlyphAssembly<'_>, repeat: usize) -> impl Iterator<Item = GlyphPart> + '_ {
     assembly.parts.into_iter().flat_map(move |part| {
         let count = if part.part_flags.extender() { repeat } else { 1 };
         std::iter::repeat_n(part, count)
