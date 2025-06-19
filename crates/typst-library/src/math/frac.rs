@@ -1,7 +1,7 @@
 use typst_syntax::Spanned;
 
 use crate::diag::bail;
-use crate::foundations::{elem, Content, Value};
+use crate::foundations::{Content, Value, elem};
 use crate::math::Mathy;
 
 /// A mathematical fraction.

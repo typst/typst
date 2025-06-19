@@ -1,9 +1,9 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, StyleChain, TargetElem,
+    Content, NativeElement, Packed, Show, StyleChain, TargetElem, elem,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{HtmlElem, tag};
 use crate::text::{TextElem, WeightDelta};
 
 /// Strongly emphasizes content by increasing the font weight.

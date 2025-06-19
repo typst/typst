@@ -2,11 +2,11 @@ use std::iter::once;
 
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
-use typst_library::math::{EquationElem, MathSize, MEDIUM, THICK, THIN};
+use typst_library::math::{EquationElem, MEDIUM, MathSize, THICK, THIN};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
-use super::{alignments, FrameFragment, MathFragment};
+use super::{FrameFragment, MathFragment, alignments};
 
 const TIGHT_LEADING: Em = Em::new(0.25);
 

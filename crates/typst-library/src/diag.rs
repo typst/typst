@@ -8,7 +8,7 @@ use std::string::FromUtf8Error;
 
 use az::SaturatingAs;
 use comemo::Tracked;
-use ecow::{eco_vec, EcoVec};
+use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Lines, Span, Spanned, SyntaxError};
 use utf8_iter::ErrorReportingUtf8Chars;
@@ -839,7 +839,9 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
     let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);
     let message = match error {
         roxmltree::Error::UnexpectedCloseTag(expected, actual, _) => {
-            eco_format!("failed to parse {format} (found closing tag '{actual}' instead of '{expected}')")
+            eco_format!(
+                "failed to parse {format} (found closing tag '{actual}' instead of '{expected}')"
+            )
         }
         roxmltree::Error::UnknownEntityReference(entity, _) => {
             eco_format!("failed to parse {format} (unknown entity '{entity}')")

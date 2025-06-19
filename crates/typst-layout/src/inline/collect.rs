@@ -6,14 +6,14 @@ use typst_library::layout::{
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
-    is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
-    SpaceElem, TextElem,
+    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_default_ignorable,
 };
 use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{layout_and_modify, FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.

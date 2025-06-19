@@ -5,7 +5,7 @@ use typst_library::math::{EquationElem, LrElem, MidElem};
 use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
-use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
+use super::{DELIM_SHORT_FALL, MathContext, MathFragment, stretch_fragment};
 
 /// Lays out an [`LrElem`].
 #[typst_macros::time(name = "math.lr", span = elem.span())]

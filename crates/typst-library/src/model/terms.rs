@@ -1,12 +1,12 @@
 use typst_utils::{Get, Numeric};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles, TargetElem,
+    Array, Content, NativeElement, Packed, Show, Smart, StyleChain, Styles, TargetElem,
+    cast, elem, scope,
 };
-use crate::html::{tag, HtmlElem};
+use crate::html::{HtmlElem, tag};
 use crate::layout::{Em, HElem, Length, Sides, StackChild, StackElem, VElem};
 use crate::model::{ListItemLike, ListLike, ParElem, ParbreakElem};
 use crate::text::TextElem;

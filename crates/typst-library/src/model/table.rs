@@ -3,19 +3,19 @@ use std::sync::Arc;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    TargetElem,
+    Content, NativeElement, Packed, Show, Smart, StyleChain, TargetElem, cast, elem,
+    scope,
 };
-use crate::html::{attr, tag, HtmlAttrs, HtmlElem, HtmlTag};
+use crate::html::{HtmlAttrs, HtmlElem, HtmlTag, attr, tag};
 use crate::introspection::Locator;
-use crate::layout::grid::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
+use crate::layout::grid::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine,
-    GridHeader, GridVLine, Length, OuterHAlignment, OuterVAlignment, Rel, Sides,
-    TrackSizings,
+    Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine, GridHeader,
+    GridVLine, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
+    show_grid_cell,
 };
 use crate::model::Figurable;
 use crate::text::LocalName;
