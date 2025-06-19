@@ -51,7 +51,6 @@ pub fn jump_from_click(
 
     // If there's no link, search for a jump target.
     for (pos, item) in frame.items().rev() {
-        let pos = pos;
         match item {
             FrameItem::Group(group) => {
                 let pos = click - *pos;
