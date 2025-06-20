@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "docs", "tests", "tests/fuzz"]
+members = ["crates/*", "docs", "tests", "tests/fuzz", "tools/codegen"]
 default-members = ["crates/typst-cli"]
 resolver = "2"
 
@@ -104,6 +104,7 @@ roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustybuzz = "0.20"
 same-file = "1"
+scraper = "0.23"
 self-replace = "1.3.7"
 semver = "1"
 serde = { version = "1.0.184", features = ["derive"] }

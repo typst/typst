@@ -1,6 +1,8 @@
 //! HTML output.
 
 mod dom;
+mod generated;
+mod typed;
 
 pub use self::dom::*;
 
@@ -14,6 +16,7 @@ pub fn module() -> Module {
     html.start_category(crate::Category::Html);
     html.define_elem::<HtmlElem>();
     html.define_elem::<FrameElem>();
+    self::typed::define(&mut html);
     Module::new("html", html)
 }
 

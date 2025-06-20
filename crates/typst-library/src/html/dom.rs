@@ -188,7 +188,7 @@ cast! {
         .collect::<HintedStrResult<_>>()?),
 }
 
-/// An attribute of an HTML.
+/// An attribute of an HTML element.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlAttr(PicoStr);
 
@@ -350,132 +350,9 @@ pub mod charsets {
 pub mod tag {
     use super::HtmlTag;
 
-    macro_rules! tags {
-        ($($tag:ident)*) => {
-            $(#[allow(non_upper_case_globals)]
-            pub const $tag: HtmlTag = HtmlTag::constant(
-                stringify!($tag)
-            );)*
-        }
-    }
+    pub use crate::html::generated::tag::*;
 
-    tags! {
-        a
-        abbr
-        address
-        area
-        article
-        aside
-        audio
-        b
-        base
-        bdi
-        bdo
-        blockquote
-        body
-        br
-        button
-        canvas
-        caption
-        cite
-        code
-        col
-        colgroup
-        data
-        datalist
-        dd
-        del
-        details
-        dfn
-        dialog
-        div
-        dl
-        dt
-        em
-        embed
-        fieldset
-        figcaption
-        figure
-        footer
-        form
-        h1
-        h2
-        h3
-        h4
-        h5
-        h6
-        head
-        header
-        hgroup
-        hr
-        html
-        i
-        iframe
-        img
-        input
-        ins
-        kbd
-        label
-        legend
-        li
-        link
-        main
-        map
-        mark
-        menu
-        meta
-        meter
-        nav
-        noscript
-        object
-        ol
-        optgroup
-        option
-        output
-        p
-        param
-        picture
-        pre
-        progress
-        q
-        rp
-        rt
-        ruby
-        s
-        samp
-        script
-        search
-        section
-        select
-        slot
-        small
-        source
-        span
-        strong
-        style
-        sub
-        summary
-        sup
-        table
-        tbody
-        td
-        template
-        textarea
-        tfoot
-        th
-        thead
-        time
-        title
-        tr
-        track
-        u
-        ul
-        var
-        video
-        wbr
-    }
-
-    /// Whether this is a void tag whose associated element may not have a
+    /// Whether this is a void tag whose associated element may not have
     /// children.
     pub fn is_void(tag: HtmlTag) -> bool {
         matches!(
@@ -490,7 +367,6 @@ pub mod tag {
                 | self::input
                 | self::link
                 | self::meta
-                | self::param
                 | self::source
                 | self::track
                 | self::wbr
@@ -629,36 +505,4 @@ pub mod tag {
     }
 }
 
-/// Predefined constants for HTML attributes.
-///
-/// Note: These are very incomplete.
-#[allow(non_upper_case_globals)]
-pub mod attr {
-    use super::HtmlAttr;
-
-    macro_rules! attrs {
-        ($($attr:ident)*) => {
-            $(#[allow(non_upper_case_globals)]
-            pub const $attr: HtmlAttr = HtmlAttr::constant(
-                stringify!($attr)
-            );)*
-        }
-    }
-
-    attrs! {
-        charset
-        cite
-        colspan
-        content
-        href
-        name
-        reversed
-        role
-        rowspan
-        start
-        style
-        value
-    }
-
-    pub const aria_level: HtmlAttr = HtmlAttr::constant("aria-level");
-}
+pub use crate::html::generated::attr;
