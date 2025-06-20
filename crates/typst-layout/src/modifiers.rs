@@ -1,7 +1,6 @@
-use ecow::EcoString;
-use typst_library::foundations::StyleChain;
+use typst_library::foundations::{LinkMarker, Packed, StyleChain};
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
-use typst_library::model::{Destination, LinkElem, ParElem};
+use typst_library::model::ParElem;
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -21,8 +20,7 @@ use typst_library::model::{Destination, LinkElem, ParElem};
 #[derive(Debug, Clone)]
 pub struct FrameModifiers {
     /// A destination to link to.
-    dest: Option<Destination>,
-    alt: Option<EcoString>,
+    link: Option<Packed<LinkMarker>>,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
 }
@@ -32,8 +30,7 @@ impl FrameModifiers {
     pub fn get_in(styles: StyleChain) -> Self {
         // TODO: maybe verify that an alt text was provided here
         Self {
-            dest: LinkElem::current_in(styles),
-            alt: LinkElem::alt_in(styles),
+            link: LinkMarker::current_in(styles),
             hidden: HideElem::hidden_in(styles),
         }
     }
@@ -98,7 +95,7 @@ fn modify_frame(
     modifiers: &FrameModifiers,
     link_box_outset: Option<Sides<Abs>>,
 ) {
-    if let Some(dest) = &modifiers.dest {
+    if let Some(link) = &modifiers.link {
         let mut pos = Point::zero();
         let mut size = frame.size();
         if let Some(outset) = link_box_outset {
@@ -106,7 +103,7 @@ fn modify_frame(
             pos.x -= outset.left;
             size += outset.sum_by_axis();
         }
-        frame.push(pos, FrameItem::Link(modifiers.alt.clone(), dest.clone(), size));
+        frame.push(pos, FrameItem::Link(link.clone(), size));
     }
 
     if modifiers.hidden {
@@ -133,8 +130,8 @@ where
     let reset;
     let outer = styles;
     let mut styles = styles;
-    if modifiers.dest.is_some() {
-        reset = LinkElem::set_current(None).wrap();
+    if modifiers.link.is_some() {
+        reset = LinkMarker::set_current(None).wrap();
         styles = outer.chain(&reset);
     }
 

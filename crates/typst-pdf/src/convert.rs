@@ -1,8 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
-use ecow::{eco_format, EcoString, EcoVec};
-use krilla::annotation::Annotation;
+use ecow::{eco_format, EcoVec};
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::embed::EmbedError;
@@ -25,12 +24,12 @@ use typst_syntax::Span;
 
 use crate::embed::embed_files;
 use crate::image::handle_image;
-use crate::link::handle_link;
+use crate::link::{handle_link, LinkAnnotation};
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
-use crate::tags::{self, Placeholder, Tags};
+use crate::tags::{self, Tags};
 use crate::text::handle_text;
 use crate::util::{convert_path, display_font, AbsExt, TransformExt};
 use crate::PdfOptions;
@@ -111,7 +110,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             let mut surface = page.surface();
             let mut fc = FrameContext::new(typst_page.frame.size());
 
-            tags::restart(gc, &mut surface);
+            tags::restart_open(gc, &mut surface);
 
             handle_frame(
                 &mut fc,
@@ -125,7 +124,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             surface.finish();
 
-            tags::add_annotations(gc, &mut page, fc.annotations);
+            tags::add_annotations(gc, &mut page, fc.link_annotations);
         }
     }
 
@@ -179,14 +178,14 @@ impl State {
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     states: Vec<State>,
-    annotations: Vec<(Placeholder, Annotation)>,
+    pub(crate) link_annotations: HashMap<tags::LinkId, LinkAnnotation>,
 }
 
 impl FrameContext {
     pub(crate) fn new(size: Size) -> Self {
         Self {
             states: vec![State::new(size)],
-            annotations: vec![],
+            link_annotations: HashMap::new(),
         }
     }
 
@@ -204,14 +203,6 @@ impl FrameContext {
 
     pub(crate) fn state_mut(&mut self) -> &mut State {
         self.states.last_mut().unwrap()
-    }
-
-    pub(crate) fn push_annotation(
-        &mut self,
-        placeholder: Placeholder,
-        annotation: Annotation,
-    ) {
-        self.annotations.push((placeholder, annotation));
     }
 }
 
@@ -294,14 +285,12 @@ pub(crate) fn handle_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(alt, dest, size) => {
-                handle_link(fc, gc, alt.as_ref().map(EcoString::to_string), dest, *size)
-            }
+            FrameItem::Link(link, size) => handle_link(fc, gc, link, *size),
             FrameItem::Tag(introspection::Tag::Start(elem)) => {
                 tags::handle_start(gc, surface, elem)
             }
             FrameItem::Tag(introspection::Tag::End(loc, _)) => {
-                tags::handle_end(gc, surface, loc);
+                tags::handle_end(gc, surface, *loc);
             }
         }
 

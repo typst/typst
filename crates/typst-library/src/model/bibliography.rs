@@ -874,7 +874,7 @@ impl<'a> Generator<'a> {
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
                         let dest = Destination::Location(*location);
                         // TODO: accept user supplied alt text
-                        content = content.linked(None, dest);
+                        content = content.linked(dest, None);
                     }
                     StrResult::Ok(content)
                 })
@@ -1010,7 +1010,7 @@ impl ElemRenderer<'_> {
             if let Some(location) = (self.link)(i) {
                 let dest = Destination::Location(location);
                 // TODO: accept user supplied alt text
-                content = content.linked(None, dest);
+                content = content.linked(dest, None);
             }
         }
 

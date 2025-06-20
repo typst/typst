@@ -148,7 +148,7 @@ impl Show for Packed<FootnoteElem> {
         let loc = loc.variant(1);
         // Add zero-width weak spacing to make the footnote "sticky".
         // TODO: accept user supplied alt text
-        Ok(HElem::hole().pack() + sup.linked(None, Destination::Location(loc)))
+        Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc), None))
     }
 }
 
@@ -298,7 +298,7 @@ impl Show for Packed<FootnoteEntry> {
             .pack()
             .spanned(span)
             // TODO: accept user supplied alt text
-            .linked(None, Destination::Location(loc))
+            .linked(Destination::Location(loc), None)
             .located(loc.variant(1));
 
         Ok(Content::sequence([

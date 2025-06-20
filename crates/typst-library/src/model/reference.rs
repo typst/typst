@@ -317,7 +317,7 @@ fn show_reference(
     }
 
     // TODO: accept user supplied alt text
-    Ok(content.linked(None, Destination::Location(loc)))
+    Ok(content.linked(Destination::Location(loc), None))
 }
 
 /// Turn a reference into a citation.

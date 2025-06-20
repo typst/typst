@@ -4,14 +4,12 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::EcoString;
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
-use crate::foundations::{cast, dict, Dict, Label, Value};
+use crate::foundations::{cast, dict, Dict, Label, LinkMarker, Packed, Value};
 use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Length, Point, Size, Transform};
-use crate::model::Destination;
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
 
@@ -474,7 +472,7 @@ pub enum FrameItem {
     /// An image and its size.
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
-    Link(Option<EcoString>, Destination, Size),
+    Link(Packed<LinkMarker>, Size),
     /// An introspectable element that produced something within this frame.
     Tag(Tag),
 }
@@ -486,7 +484,7 @@ impl Debug for FrameItem {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
-            Self::Link(alt, dest, _) => write!(f, "Link({alt:?}, {dest:?})"),
+            Self::Link(link, _) => write!(f, "Link({:?}, {:?})", link.dest, link.alt),
             Self::Tag(tag) => write!(f, "{tag:?}"),
         }
     }

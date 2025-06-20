@@ -1,26 +1,41 @@
 use std::cell::OnceCell;
+use std::collections::HashMap;
 
-use krilla::annotation::Annotation;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
     ArtifactType, ContentTag, Identifier, Node, Tag, TagGroup, TagTree,
 };
-use typst_library::foundations::{Content, StyleChain};
+use typst_library::foundations::{Content, LinkMarker, StyleChain};
 use typst_library::introspection::Location;
-use typst_library::model::{HeadingElem, OutlineElem, OutlineEntry};
+use typst_library::model::{
+    Destination, HeadingElem, Outlinable, OutlineElem, OutlineEntry,
+};
 use typst_library::pdf::{ArtifactElem, ArtifactKind};
 
 use crate::convert::GlobalContext;
+use crate::link::LinkAnnotation;
 
 pub(crate) struct Tags {
     /// The intermediary stack of nested tag groups.
-    pub(crate) stack: Vec<(Location, Tag, Vec<TagNode>)>,
+    pub(crate) stack: Vec<StackEntry>,
+    /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub(crate) placeholders: Vec<OnceCell<Node>>,
     pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
+    pub(crate) link_id: LinkId,
 
     /// The output.
     pub(crate) tree: Vec<TagNode>,
+}
+
+pub(crate) struct StackEntry {
+    pub(crate) loc: Location,
+    pub(crate) link_id: Option<LinkId>,
+    /// A list of tags that are wrapped around this tag when it is inserted into
+    /// the tag tree.
+    pub(crate) wrappers: Vec<Tag>,
+    pub(crate) tag: Tag,
+    pub(crate) nodes: Vec<TagNode>,
 }
 
 pub(crate) enum TagNode {
@@ -30,6 +45,9 @@ pub(crate) enum TagNode {
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
     Placeholder(Placeholder),
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct LinkId(u32);
 
 #[derive(Clone, Copy)]
 pub(crate) struct Placeholder(usize);
@@ -42,6 +60,7 @@ impl Tags {
             in_artifact: None,
 
             tree: Vec::new(),
+            link_id: LinkId(0),
         }
     }
 
@@ -64,12 +83,18 @@ impl Tags {
             .expect("initialized placeholder node")
     }
 
-    pub(crate) fn push(&mut self, node: TagNode) {
-        if let Some((_, _, nodes)) = self.stack.last_mut() {
-            nodes.push(node);
+    /// Returns the current parent's list of children and the structure type ([Tag]).
+    /// In case of the document root the structure type will be `None`.
+    pub(crate) fn parent(&mut self) -> (Option<&mut Tag>, &mut Vec<TagNode>) {
+        if let Some(entry) = self.stack.last_mut() {
+            (Some(&mut entry.tag), &mut entry.nodes)
         } else {
-            self.tree.push(node);
+            (None, &mut self.tree)
         }
+    }
+
+    pub(crate) fn push(&mut self, node: TagNode) {
+        self.parent().1.push(node);
     }
 
     pub(crate) fn build_tree(&mut self) -> TagTree {
@@ -98,73 +123,26 @@ impl Tags {
         }
     }
 
-    /// Returns the current parent's list of children and whether it is the tree root.
-    fn parent_nodes(&mut self) -> (bool, &mut Vec<TagNode>) {
-        if let Some((_, _, parent_nodes)) = self.stack.last_mut() {
-            (false, parent_nodes)
-        } else {
-            (true, &mut self.tree)
-        }
+    fn context_supports(&self, _tag: &Tag) -> bool {
+        // TODO: generate using: https://pdfa.org/resource/iso-ts-32005-hierarchical-inclusion-rules/
+        true
     }
 
-    fn context_supports(&self, tag: &Tag) -> bool {
-        let Some((_, parent, _)) = self.stack.last() else { return true };
-
-        use Tag::*;
-
-        match parent {
-            Part => true,
-            Article => !matches!(tag, Article),
-            Section => true,
-            BlockQuote => todo!(),
-            Caption => todo!(),
-            TOC => matches!(tag, TOC | TOCI),
-            // TODO: NonStruct is allowed to but (currently?) not supported by krilla
-            TOCI => matches!(tag, TOC | Lbl | Reference | P),
-            Index => todo!(),
-            P => todo!(),
-            H1(_) => todo!(),
-            H2(_) => todo!(),
-            H3(_) => todo!(),
-            H4(_) => todo!(),
-            H5(_) => todo!(),
-            H6(_) => todo!(),
-            L(_list_numbering) => todo!(),
-            LI => todo!(),
-            Lbl => todo!(),
-            LBody => todo!(),
-            Table => todo!(),
-            TR => todo!(),
-            TH(_table_header_scope) => todo!(),
-            TD => todo!(),
-            THead => todo!(),
-            TBody => todo!(),
-            TFoot => todo!(),
-            InlineQuote => todo!(),
-            Note => todo!(),
-            Reference => todo!(),
-            BibEntry => todo!(),
-            Code => todo!(),
-            Link => todo!(),
-            Annot => todo!(),
-            Figure(_) => todo!(),
-            Formula(_) => todo!(),
-            Datetime => todo!(),
-            Terms => todo!(),
-            Title => todo!(),
-        }
+    fn next_link_id(&mut self) -> LinkId {
+        self.link_id.0 += 1;
+        self.link_id
     }
 }
 
 /// Marked-content may not cross page boundaries: restart tag that was still open
 /// at the end of the last page.
-pub(crate) fn restart(gc: &mut GlobalContext, surface: &mut Surface) {
+pub(crate) fn restart_open(gc: &mut GlobalContext, surface: &mut Surface) {
     // TODO: somehow avoid empty marked-content sequences
     if let Some((_, kind)) = gc.tags.in_artifact {
         start_artifact(gc, surface, kind);
-    } else if let Some((_, _, nodes)) = gc.tags.stack.last_mut() {
+    } else if let Some(entry) = gc.tags.stack.last_mut() {
         let id = surface.start_tagged(ContentTag::Other);
-        nodes.push(TagNode::Leaf(id));
+        entry.nodes.push(TagNode::Leaf(id));
     }
 }
 
@@ -179,11 +157,16 @@ pub(crate) fn end_open(gc: &mut GlobalContext, surface: &mut Surface) {
 pub(crate) fn add_annotations(
     gc: &mut GlobalContext,
     page: &mut Page,
-    annotations: Vec<(Placeholder, Annotation)>,
+    annotations: HashMap<LinkId, LinkAnnotation>,
 ) {
-    for (placeholder, annotation) in annotations {
-        let annotation_id = page.add_tagged_annotation(annotation);
-        gc.tags.init_placeholder(placeholder, Node::Leaf(annotation_id));
+    for annotation in annotations.into_values() {
+        let LinkAnnotation { placeholder, alt, rect, quad_points, target } = annotation;
+        let annot = krilla::annotation::Annotation::new_link(
+            krilla::annotation::LinkAnnotation::new(rect, Some(quad_points), target),
+            alt,
+        );
+        let annot_id = page.add_tagged_annotation(annot);
+        gc.tags.init_placeholder(placeholder, Node::Leaf(annot_id));
     }
 }
 
@@ -209,8 +192,10 @@ pub(crate) fn handle_start(
         return;
     }
 
+    let mut link_id = None;
+    let mut wrappers = Vec::new();
     let tag = if let Some(heading) = elem.to_packed::<HeadingElem>() {
-        let level = heading.resolve_level(StyleChain::default());
+        let level = heading.level();
         let name = heading.body.plain_text().to_string();
         match level.get() {
             1 => Tag::H1(Some(name)),
@@ -223,8 +208,14 @@ pub(crate) fn handle_start(
         }
     } else if let Some(_) = elem.to_packed::<OutlineElem>() {
         Tag::TOC
-    } else if let Some(_outline_entry) = elem.to_packed::<OutlineEntry>() {
+    } else if let Some(_) = elem.to_packed::<OutlineEntry>() {
         Tag::TOCI
+    } else if let Some(link) = elem.to_packed::<LinkMarker>() {
+        link_id = Some(gc.tags.next_link_id());
+        if let Destination::Position(_) | Destination::Location(_) = link.dest {
+            wrappers.push(Tag::Reference);
+        }
+        Tag::Link
     } else {
         return;
     };
@@ -234,35 +225,43 @@ pub(crate) fn handle_start(
     }
 
     // close previous marked-content and open a nested tag.
-    if !gc.tags.stack.is_empty() {
-        surface.end_tagged();
-    }
+    end_open(gc, surface);
     let id = surface.start_tagged(krilla::tagging::ContentTag::Other);
-    gc.tags.stack.push((loc, tag, vec![TagNode::Leaf(id)]));
+    gc.tags.stack.push(StackEntry {
+        loc,
+        link_id,
+        wrappers,
+        tag,
+        nodes: vec![TagNode::Leaf(id)],
+    });
 }
 
-pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: &Location) {
-    if let Some((l, _)) = &gc.tags.in_artifact {
+pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) {
+    if let Some((l, _)) = gc.tags.in_artifact {
         if l == loc {
             gc.tags.in_artifact = None;
             surface.end_tagged();
-            if let Some((_, _, nodes)) = gc.tags.stack.last_mut() {
+            if let Some(entry) = gc.tags.stack.last_mut() {
                 let id = surface.start_tagged(ContentTag::Other);
-                nodes.push(TagNode::Leaf(id));
+                entry.nodes.push(TagNode::Leaf(id));
             }
         }
         return;
     }
 
-    let Some((_, tag, nodes)) = gc.tags.stack.pop_if(|(l, ..)| l == loc) else {
+    let Some(entry) = gc.tags.stack.pop_if(|e| e.loc == loc) else {
         return;
     };
 
     surface.end_tagged();
 
-    let (is_root, parent_nodes) = gc.tags.parent_nodes();
-    parent_nodes.push(TagNode::Group(tag, nodes));
-    if !is_root {
+    let (parent_tag, parent_nodes) = gc.tags.parent();
+    let mut node = TagNode::Group(entry.tag, entry.nodes);
+    for tag in entry.wrappers {
+        node = TagNode::Group(tag, vec![node]);
+    }
+    parent_nodes.push(node);
+    if parent_tag.is_some() {
         // TODO: somehow avoid empty marked-content sequences
         let id = surface.start_tagged(ContentTag::Other);
         parent_nodes.push(TagNode::Leaf(id));
@@ -273,8 +272,7 @@ fn start_artifact(gc: &mut GlobalContext, surface: &mut Surface, kind: ArtifactK
     let ty = artifact_type(kind);
     let id = surface.start_tagged(ContentTag::Artifact(ty));
 
-    let (_, parent_nodes) = gc.tags.parent_nodes();
-    parent_nodes.push(TagNode::Leaf(id));
+    gc.tags.push(TagNode::Leaf(id));
 }
 
 fn artifact_type(kind: ArtifactKind) -> ArtifactType {

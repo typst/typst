@@ -91,11 +91,6 @@ pub struct LinkElem {
         _ => args.expect("body")?,
     })]
     pub body: Content,
-
-    /// A destination style that should be applied to elements.
-    #[internal]
-    #[ghost]
-    pub current: Option<Destination>,
 }
 
 impl LinkElem {
@@ -128,11 +123,11 @@ impl Show for Packed<LinkElem> {
         } else {
             let alt = self.alt(styles);
             match &self.dest {
-                LinkTarget::Dest(dest) => body.linked(alt, dest.clone()),
+                LinkTarget::Dest(dest) => body.linked(dest.clone(), alt),
                 LinkTarget::Label(label) => {
                     let elem = engine.introspector.query_label(*label).at(self.span())?;
                     let dest = Destination::Location(elem.location().unwrap());
-                    body.clone().linked(alt, dest)
+                    body.linked(dest, alt)
                 }
             }
         })

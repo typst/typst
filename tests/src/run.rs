@@ -524,7 +524,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
                 let ts = ts.pre_concat(to_sk_transform(&group.transform));
                 render_links(canvas, ts, &group.frame);
             }
-            FrameItem::Link(_, _, size) => {
+            FrameItem::Link(_, size) => {
                 let w = size.x.to_pt() as f32;
                 let h = size.y.to_pt() as f32;
                 let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();

@@ -30,10 +30,6 @@ pub(crate) fn handle_image(
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
-    if let Some(alt) = image.alt() {
-        surface.start_alt_text(alt);
-    }
-
     gc.image_spans.insert(span);
 
     match image.kind() {
@@ -60,10 +56,6 @@ pub(crate) fn handle_image(
                 SvgSettings { embed_text: true, ..Default::default() },
             );
         }
-    }
-
-    if image.alt().is_some() {
-        surface.end_alt_text();
     }
 
     surface.pop();
