@@ -111,19 +111,43 @@ impl CompileConfig {
             OutputFormat::Pdf
         };
 
-        let output = args.output.clone().unwrap_or_else(|| {
-            let Input::Path(path) = &input else {
-                panic!("output must be specified when input is from stdin, as guarded by the CLI");
-            };
-            Output::Path(path.with_extension(
-                match output_format {
+        let output = match args.output.clone() {
+            None => {
+                let Input::Path(path) = &input else {
+                    panic!("output must be specified when input is from stdin, as guarded by the CLI");
+                };
+                Output::Path(path.with_extension(match output_format {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",
                     OutputFormat::Svg => "svg",
                     OutputFormat::Html => "html",
-                },
-            ))
-        });
+                }))
+            }
+            // Check if a [`Path`] has a trailing `/` (or on `windows` a `\`) character,
+            // indicating that the output should be written to `{output}/{input_file_name}.{ext}`
+            Some(Output::Path(mut path)) if has_trailing_path_separator(&path) => {
+                let Input::Path(input) = &input else {
+                    bail!(
+                        "can't infer output file when input is from stdin\n\
+                         consider providing a full path to write to, or get input from file",
+                    );
+                };
+
+                let Some(file_name) = input.file_name() else {
+                    panic!("input path must be non-empty, as guarded by the CLI");
+                };
+
+                path.push(file_name);
+                path.set_extension(match output_format {
+                    OutputFormat::Pdf => "pdf",
+                    OutputFormat::Png => "png",
+                    OutputFormat::Svg => "svg",
+                    OutputFormat::Html => "html",
+                });
+                Output::Path(path)
+            }
+            Some(output) => output,
+        };
 
         let pages = args.pages.as_ref().map(|export_ranges| {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
@@ -160,6 +184,16 @@ impl CompileConfig {
             server,
         })
     }
+}
+
+fn has_trailing_path_separator(path: &Path) -> bool {
+    path.as_os_str()
+        .as_encoded_bytes()
+        .last()
+        .copied()
+        .map(Into::<char>::into)
+        .map(std::path::is_separator)
+        .unwrap_or(false)
 }
 
 /// Compile a single time.
