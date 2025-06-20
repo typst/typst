@@ -47,7 +47,7 @@ cast! {
 }
 
 impl Show for Packed<ArtifactElem> {
-    #[typst_macros::time(name = "underline", span = self.span())]
+    #[typst_macros::time(name = "pdf.artifact", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body.clone())
     }

@@ -9,9 +9,11 @@ use krilla::tagging::{
 use typst_library::foundations::{Content, LinkMarker, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::model::{
-    Destination, HeadingElem, Outlinable, OutlineElem, OutlineEntry,
+    Destination, FigureCaption, FigureElem, HeadingElem, Outlinable, OutlineElem,
+    OutlineEntry,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind};
+use typst_library::visualize::ImageElem;
 
 use crate::convert::GlobalContext;
 use crate::link::LinkAnnotation;
@@ -210,6 +212,30 @@ pub(crate) fn handle_start(
         Tag::TOC
     } else if let Some(_) = elem.to_packed::<OutlineEntry>() {
         Tag::TOCI
+    } else if let Some(_) = elem.to_packed::<FigureElem>() {
+        let alt = None; // TODO
+        Tag::Figure(alt)
+    } else if let Some(image) = elem.to_packed::<ImageElem>() {
+        let alt = image.alt(StyleChain::default()).map(|s| s.to_string());
+
+        end_open(gc, surface);
+        let id = surface.start_tagged(ContentTag::Other);
+        let mut node = TagNode::Leaf(id);
+
+        if let Some(Tag::Figure(alt_text)) = gc.tags.parent().0 {
+            // HACK: set alt text of outer figure tag, if the contained image
+            // has alt text specified
+            if alt_text.is_none() {
+                *alt_text = alt;
+            }
+        } else {
+            node = TagNode::Group(Tag::Figure(alt), vec![node]);
+        }
+        gc.tags.push(node);
+
+        return;
+    } else if let Some(_) = elem.to_packed::<FigureCaption>() {
+        Tag::Caption
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         link_id = Some(gc.tags.next_link_id());
         if let Destination::Position(_) | Destination::Location(_) = link.dest {

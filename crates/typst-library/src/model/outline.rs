@@ -422,6 +422,7 @@ impl Show for Packed<OutlineEntry> {
         let context = Context::new(None, Some(styles));
         let context = context.track();
 
+        // TODO: prefix should be wrapped in a `Lbl` structure element
         let prefix = self.prefix(engine, context, span)?;
         let body = self.body().at(span)?;
         let page = self.page(engine, context, span)?;
