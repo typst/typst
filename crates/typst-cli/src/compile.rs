@@ -137,6 +137,14 @@ impl CompileConfig {
                     panic!("input path must be non-empty, as guarded by the CLI");
                 };
 
+                // create directory if doesn't exist yet
+                std::fs::create_dir_all(&path).map_err(|err| {
+                    eco_format!(
+                        "failed to create output directory at {path}: {err}",
+                        path = path.display()
+                    )
+                })?;
+
                 path.push(file_name);
                 path.set_extension(match output_format {
                     OutputFormat::Pdf => "pdf",
