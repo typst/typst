@@ -13,6 +13,7 @@ pub fn module() -> Module {
     let mut pdf = Scope::deduplicating();
     pdf.start_category(crate::Category::Pdf);
     pdf.define_elem::<EmbedElem>();
+    pdf.define_elem::<PdfTagElem>();
     pdf.define_elem::<ArtifactElem>();
     Module::new("pdf", pdf)
 }

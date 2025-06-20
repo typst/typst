@@ -12,7 +12,7 @@ use typst_library::model::{
     Destination, FigureCaption, FigureElem, HeadingElem, Outlinable, OutlineElem,
     OutlineEntry,
 };
-use typst_library::pdf::{ArtifactElem, ArtifactKind};
+use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfTagElem, PdfTagKind};
 use typst_library::visualize::ImageElem;
 
 use crate::convert::GlobalContext;
@@ -196,7 +196,13 @@ pub(crate) fn handle_start(
 
     let mut link_id = None;
     let mut wrappers = Vec::new();
-    let tag = if let Some(heading) = elem.to_packed::<HeadingElem>() {
+    let tag = if let Some(pdf_tag) = elem.to_packed::<PdfTagElem>() {
+        let kind = pdf_tag.kind(StyleChain::default());
+        match kind {
+            PdfTagKind::Part => Tag::Part,
+            _ => todo!(),
+        }
+    } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level();
         let name = heading.body.plain_text().to_string();
         match level.get() {
