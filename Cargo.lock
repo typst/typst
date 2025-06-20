@@ -327,8 +327,7 @@ dependencies = [
 [[package]]
 name = "citationberg"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4595e03beafb40235070080b5286d3662525efc622cca599585ff1d63f844fa"
+source = "git+https://github.com/typst/citationberg.git?rev=67db988c7155f17b2e0aff9aabcd9a00745e4c04#67db988c7155f17b2e0aff9aabcd9a00745e4c04"
 dependencies = [
  "quick-xml 0.36.2",
  "serde",
@@ -946,8 +945,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "954907554bb7fcba29a4f917c2d43e289ec21b69d872ccf97db160eca6caeed8"
+source = "git+https://github.com/wkordalski/hayagriva.git?branch=transparent-locator-payload-with-discrimination-ids#63c73bd163b997218fccd2713bdbf211bc7051cb"
 dependencies = [
  "biblatex",
  "ciborium",
