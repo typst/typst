@@ -202,7 +202,8 @@ impl WorldLike for &str {
     }
 }
 
-/// Specifies a position in a file for a test.
+/// Specifies a position in a file for a test. Negative numbers index from the
+/// back. `-1` is at the very back.
 pub trait FilePos {
     fn resolve(self, world: &TestWorld) -> (Source, usize);
 }
