@@ -1,23 +1,24 @@
 //! The compiler for the _Typst_ markup language.
 //!
-//! # Steps
+//! # Overview
+//! This crate provides the main entry points for compiling Typst documents from source to various output formats.
+//!
+//! ## Compilation Steps
 //! - **Parsing:**
-//!   The compiler first transforms a plain string into an iterator of [tokens].
-//!   This token stream is [parsed] into a [syntax tree]. The tree itself is
-//!   untyped, but the [AST] module provides a typed layer over it.
+//!   Converts a plain string into an iterator of [tokens], which are then [parsed] into a [syntax tree]. The tree is untyped, but the [AST] module provides a typed layer.
 //! - **Evaluation:**
-//!   The next step is to [evaluate] the markup. This produces a [module],
-//!   consisting of a scope of values that were exported by the code and
-//!   [content], a hierarchical, styled representation of what was written in
-//!   the source file. The elements of the content tree are well structured and
-//!   order-independent and thus much better suited for further processing than
-//!   the raw markup.
+//!   Evaluates the markup to produce a [module] with exported values and [content], a hierarchical, styled representation of the source. The content tree is well-structured and order-independent, making it suitable for further processing.
 //! - **Layouting:**
-//!   Next, the content is [laid out] into a [`PagedDocument`] containing one
-//!   [frame] per page with items at fixed positions.
+//!   Lays out the content into a [`PagedDocument`] with one [frame] per page, placing items at fixed positions.
 //! - **Exporting:**
-//!   These frames can finally be exported into an output format (currently PDF,
-//!   PNG, SVG, and HTML).
+//!   Exports the frames into output formats (currently PDF, PNG, SVG, and HTML).
+//!
+//! ## Related Modules
+//! - [`typst_syntax`]: Syntax tree and parsing utilities.
+//! - [`typst_eval`]: Evaluation of Typst markup.
+//! - [`typst_layout`]: Document layout algorithms.
+//! - [`typst_html`]: HTML export support.
+//! - [`typst_library`]: Core library definitions and routines.
 //!
 //! [tokens]: typst_syntax::SyntaxKind
 //! [parsed]: typst_syntax::parse
@@ -212,17 +213,22 @@ fn hint_invalid_main_file(
                     "a file with the `.{}` extension is not usually a Typst file",
                     extension.to_string_lossy()
                 ));
+                diagnostic.hint("if you intended to compile a Typst file, ensure the extension is `.typ`.");
             }
 
             None => {
                 diagnostic
                     .hint("a file without an extension is not usually a Typst file");
+                diagnostic.hint("consider adding a `.typ` extension to your file name.");
             }
         };
 
         if world.source(input.with_extension("typ")).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");
         }
+    } else {
+        // For other file errors, provide a generic suggestion.
+        diagnostic.hint("verify that the file exists and is readable, and that the path is correct.");
     }
 
     eco_vec![diagnostic]
