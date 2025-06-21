@@ -91,16 +91,13 @@ use crate::text::TextElem;
 /// #show ref: it => {
 ///   let eq = math.equation
 ///   let el = it.element
-///   if el != none and el.func() == eq {
-///     // Override equation references.
-///     link(el.location(),numbering(
-///       el.numbering,
-///       ..counter(eq).at(el.location())
-///     ))
-///   } else {
-///     // Other references as usual.
-///     it
-///   }
+///   // Skip all other references.
+///   if el == none or el.func() != eq { return it }
+///   // Override equation references.
+///   link(el.location(), numbering(
+///     el.numbering,
+///     ..counter(eq).at(el.location())
+///   ))
 /// }
 ///
 /// = Beginnings <beginning>
