@@ -720,18 +720,12 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
             }
         };
 
-        for (variant, c) in symbol.variants() {
+        for (variant, c, deprecation) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
                 list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
             };
 
             let name = complete(variant);
-            let deprecation = match name.as_str() {
-                "integral.sect" => {
-                    Some("`integral.sect` is deprecated, use `integral.inter` instead")
-                }
-                _ => binding.deprecation(),
-            };
 
             list.push(SymbolModel {
                 name,
@@ -742,10 +736,10 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 accent: typst::math::Accent::combine(c).is_some(),
                 alternates: symbol
                     .variants()
-                    .filter(|(other, _)| other != &variant)
-                    .map(|(other, _)| complete(other))
+                    .filter(|(other, _, _)| other != &variant)
+                    .map(|(other, _, _)| complete(other))
                     .collect(),
-                deprecation,
+                deprecation: deprecation.or_else(|| binding.deprecation()),
             });
         }
     }

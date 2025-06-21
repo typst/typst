@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 use typst_syntax::{is_ident, Span, Spanned};
 use typst_utils::hash128;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, DeprecationSink, SourceResult, StrResult};
 use crate::foundations::{
     cast, elem, func, scope, ty, Array, Content, Func, NativeElement, NativeFunc, Packed,
     PlainText, Repr as _,
@@ -54,18 +54,22 @@ enum Repr {
     /// A native symbol that has no named variant.
     Single(char),
     /// A native symbol with multiple named variants.
-    Complex(&'static [(ModifierSet<&'static str>, char)]),
+    Complex(&'static [Variant<&'static str>]),
     /// A symbol with multiple named variants, where some modifiers may have
     /// been applied. Also used for symbols defined at runtime by the user with
     /// no modifier applied.
     Modified(Arc<(List, ModifierSet<EcoString>)>),
 }
 
+/// A symbol variant, consisting of a set of modifiers, a character, and an
+/// optional deprecation message.
+type Variant<S> = (ModifierSet<S>, char, Option<S>);
+
 /// A collection of symbols.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum List {
-    Static(&'static [(ModifierSet<&'static str>, char)]),
-    Runtime(Box<[(ModifierSet<EcoString>, char)]>),
+    Static(&'static [Variant<&'static str>]),
+    Runtime(Box<[Variant<EcoString>]>),
 }
 
 impl Symbol {
@@ -76,14 +80,14 @@ impl Symbol {
 
     /// Create a symbol with a static variant list.
     #[track_caller]
-    pub const fn list(list: &'static [(ModifierSet<&'static str>, char)]) -> Self {
+    pub const fn list(list: &'static [Variant<&'static str>]) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Complex(list))
     }
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
-    pub fn runtime(list: Box<[(ModifierSet<EcoString>, char)]>) -> Self {
+    pub fn runtime(list: Box<[Variant<EcoString>]>) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Modified(Arc::new((List::Runtime(list), ModifierSet::default()))))
     }
@@ -93,9 +97,11 @@ impl Symbol {
         match &self.0 {
             Repr::Single(c) => *c,
             Repr::Complex(_) => ModifierSet::<&'static str>::default()
-                .best_match_in(self.variants())
+                .best_match_in(self.variants().map(|(m, c, _)| (m, c)))
                 .unwrap(),
-            Repr::Modified(arc) => arc.1.best_match_in(self.variants()).unwrap(),
+            Repr::Modified(arc) => {
+                arc.1.best_match_in(self.variants().map(|(m, c, _)| (m, c))).unwrap()
+            }
         }
     }
 
@@ -128,7 +134,11 @@ impl Symbol {
     }
 
     /// Apply a modifier to the symbol.
-    pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
+    pub fn modified(
+        mut self,
+        sink: impl DeprecationSink,
+        modifier: &str,
+    ) -> StrResult<Self> {
         if let Repr::Complex(list) = self.0 {
             self.0 =
                 Repr::Modified(Arc::new((List::Static(list), ModifierSet::default())));
@@ -137,7 +147,12 @@ impl Symbol {
         if let Repr::Modified(arc) = &mut self.0 {
             let (list, modifiers) = Arc::make_mut(arc);
             modifiers.insert_raw(modifier);
-            if modifiers.best_match_in(list.variants()).is_some() {
+            if let Some(deprecation) =
+                modifiers.best_match_in(list.variants().map(|(m, _, d)| (m, d)))
+            {
+                if let Some(message) = deprecation {
+                    sink.emit(message)
+                }
                 return Ok(self);
             }
         }
@@ -146,7 +161,7 @@ impl Symbol {
     }
 
     /// The characters that are covered by this symbol.
-    pub fn variants(&self) -> impl Iterator<Item = (ModifierSet<&str>, char)> {
+    pub fn variants(&self) -> impl Iterator<Item = Variant<&str>> {
         match &self.0 {
             Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
             Repr::Complex(list) => Variants::Static(list.iter()),
@@ -161,7 +176,7 @@ impl Symbol {
             _ => ModifierSet::default(),
         };
         self.variants()
-            .flat_map(|(m, _)| m)
+            .flat_map(|(m, _, _)| m)
             .filter(|modifier| !modifier.is_empty() && !modifiers.contains(modifier))
             .collect::<BTreeSet<_>>()
             .into_iter()
@@ -256,7 +271,7 @@ impl Symbol {
 
         let list = variants
             .into_iter()
-            .map(|s| (ModifierSet::from_raw_dotted(s.v.0), s.v.1))
+            .map(|s| (ModifierSet::from_raw_dotted(s.v.0), s.v.1, None))
             .collect();
         Ok(Symbol::runtime(list))
     }
@@ -316,17 +331,17 @@ impl crate::foundations::Repr for Symbol {
 }
 
 fn repr_variants<'a>(
-    variants: impl Iterator<Item = (ModifierSet<&'a str>, char)>,
+    variants: impl Iterator<Item = Variant<&'a str>>,
     applied_modifiers: ModifierSet<&str>,
 ) -> String {
     crate::foundations::repr::pretty_array_like(
         &variants
-            .filter(|(modifiers, _)| {
+            .filter(|(modifiers, _, _)| {
                 // Only keep variants that can still be accessed, i.e., variants
                 // that contain all applied modifiers.
                 applied_modifiers.iter().all(|am| modifiers.contains(am))
             })
-            .map(|(modifiers, c)| {
+            .map(|(modifiers, c, _)| {
                 let trimmed_modifiers =
                     modifiers.into_iter().filter(|&m| !applied_modifiers.contains(m));
                 if trimmed_modifiers.clone().all(|m| m.is_empty()) {
@@ -379,18 +394,20 @@ cast! {
 /// Iterator over variants.
 enum Variants<'a> {
     Single(std::option::IntoIter<char>),
-    Static(std::slice::Iter<'static, (ModifierSet<&'static str>, char)>),
-    Runtime(std::slice::Iter<'a, (ModifierSet<EcoString>, char)>),
+    Static(std::slice::Iter<'static, Variant<&'static str>>),
+    Runtime(std::slice::Iter<'a, Variant<EcoString>>),
 }
 
 impl<'a> Iterator for Variants<'a> {
-    type Item = (ModifierSet<&'a str>, char);
+    type Item = Variant<&'a str>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Single(iter) => Some((ModifierSet::default(), iter.next()?)),
+            Self::Single(iter) => Some((ModifierSet::default(), iter.next()?, None)),
             Self::Static(list) => list.next().copied(),
-            Self::Runtime(list) => list.next().map(|(m, c)| (m.as_deref(), *c)),
+            Self::Runtime(list) => {
+                list.next().map(|(m, c, d)| (m.as_deref(), *c, d.as_deref()))
+            }
         }
     }
 }
