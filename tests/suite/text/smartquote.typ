@@ -46,6 +46,10 @@
 #set text(lang: "ru")
 "Лошадь не ест салат из огурцов" - это была первая фраза, сказанная по 'телефону'.
 
+--- smartquote-uk ---
+#set text(lang: "uk")
+"Кінь не їсть огірковий салат" — перше речення, коли-небудь вимовлене по 'телефону'.
+
 --- smartquote-it ---
 #set text(lang: "it")
 "Il cavallo non mangia insalata di cetrioli" è stata la prima frase pronunciata al 'telefono'.
@@ -99,7 +103,7 @@ He's told some books contain questionable "example text".
 
 --- smartquote-disabled-temporarily ---
 // Test changing properties within text.
-"She suddenly started speaking french: #text(lang: "fr")['Je suis une banane.']" Roman told me.
+"She suddenly started speaking french: #text(lang: "fr", region: "CH")['Je suis une banane.']" Roman told me.
 
 Some people's thought on this would be #[#set smartquote(enabled: false); "strange."]
 

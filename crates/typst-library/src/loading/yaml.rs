@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -41,24 +41,20 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "YAML")]
 pub fn yaml(
     engine: &mut Engine,
-    /// A path to a YAML file or raw YAML bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    serde_yaml::from_slice(data.as_slice())
-        .map_err(|err| eco_format!("failed to parse YAML ({err})"))
-        .at(source.span)
+    let loaded = source.load(engine.world)?;
+    serde_yaml::from_slice(loaded.data.as_slice())
+        .map_err(format_yaml_error)
+        .within(&loaded)
 }
 
 #[scope]
 impl yaml {
     /// Reads structured data from a YAML string/bytes.
-    ///
-    /// This function is deprecated. The [`yaml`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode YAML")]
+    #[deprecated = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// YAML data.
@@ -79,4 +75,17 @@ impl yaml {
             .map_err(|err| eco_format!("failed to encode value as YAML ({err})"))
             .at(span)
     }
+}
+
+/// Format the user-facing YAML error message.
+pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
+    let pos = error
+        .location()
+        .map(|loc| {
+            let line_col = LineCol::one_based(loc.line(), loc.column());
+            let range = loc.index()..loc.index();
+            ReportPos::full(range, line_col)
+        })
+        .unwrap_or_default();
+    LoadError::new(pos, "failed to parse YAML", error)
 }

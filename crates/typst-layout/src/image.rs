@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use typst_library::diag::{warning, At, SourceResult, StrResult};
+use typst_library::diag::{warning, At, LoadedWithin, SourceResult, StrResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
 use typst_library::introspection::Locator;
@@ -27,17 +27,17 @@ pub fn layout_image(
 
     // Take the format that was explicitly defined, or parse the extension,
     // or try to detect the format.
-    let Derived { source, derived: data } = &elem.source;
+    let Derived { source, derived: loaded } = &elem.source;
     let format = match elem.format(styles) {
         Smart::Custom(v) => v,
-        Smart::Auto => determine_format(source, data).at(span)?,
+        Smart::Auto => determine_format(source, &loaded.data).at(span)?,
     };
 
     // Warn the user if the image contains a foreign object. Not perfect
     // because the svg could also be encoded, but that's an edge case.
     if format == ImageFormat::Vector(VectorFormat::Svg) {
         let has_foreign_object =
-            data.as_str().is_ok_and(|s| s.contains("<foreignObject"));
+            memchr::memmem::find(&loaded.data, b"<foreignObject").is_some();
 
         if has_foreign_object {
             engine.sink.warn(warning!(
@@ -53,7 +53,7 @@ pub fn layout_image(
     let kind = match format {
         ImageFormat::Raster(format) => ImageKind::Raster(
             RasterImage::new(
-                data.clone(),
+                loaded.data.clone(),
                 format,
                 elem.icc(styles).as_ref().map(|icc| icc.derived.clone()),
             )
@@ -61,12 +61,11 @@ pub fn layout_image(
         ),
         ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
             SvgImage::with_fonts(
-                data.clone(),
+                loaded.data.clone(),
                 engine.world,
-                elem.flatten_text(styles),
                 &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
             )
-            .at(span)?,
+            .within(loaded)?,
         ),
     };
 
@@ -96,6 +95,8 @@ pub fn layout_image(
     } else {
         // If neither is forced, take the natural image size at the image's
         // DPI bounded by the available space.
+        //
+        // Division by DPI is fine since it's guaranteed to be positive.
         let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
         let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
         Size::new(
@@ -146,6 +147,7 @@ fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat>
             "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
             "gif" => return Ok(ExchangeFormat::Gif.into()),
             "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
+            "webp" => return Ok(ExchangeFormat::Webp.into()),
             _ => {}
         }
     }

@@ -3,10 +3,9 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use ecow::EcoString;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
-use crate::diag::{format_xml_like_error, StrResult};
+use crate::diag::{format_xml_like_error, LoadError, LoadResult, ReportPos};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
@@ -22,7 +21,6 @@ pub struct SvgImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     size: Axes<f64>,
-    flatten_text: bool,
     font_hash: u128,
     tree: usvg::Tree,
 }
@@ -31,16 +29,10 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
-    pub fn new(data: Bytes) -> StrResult<SvgImage> {
+    pub fn new(data: Bytes) -> LoadResult<SvgImage> {
         let tree =
             usvg::Tree::from_data(&data, &base_options()).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash: 0,
-            flatten_text: false,
-            tree,
-        })))
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
     /// Decode an SVG image with access to fonts.
@@ -49,9 +41,8 @@ impl SvgImage {
     pub fn with_fonts(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        flatten_text: bool,
         families: &[&str],
-    ) -> StrResult<SvgImage> {
+    ) -> LoadResult<SvgImage> {
         let book = world.book();
         let resolver = Mutex::new(FontResolver::new(world, book, families));
         let tree = usvg::Tree::from_data(
@@ -70,13 +61,7 @@ impl SvgImage {
         )
         .map_err(format_usvg_error)?;
         let font_hash = resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr {
-            data,
-            size: tree_size(&tree),
-            font_hash,
-            flatten_text,
-            tree,
-        })))
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -87,11 +72,6 @@ impl SvgImage {
     /// The SVG's width in pixels.
     pub fn width(&self) -> f64 {
         self.0.size.x
-    }
-
-    /// Whether the SVG's text should be flattened.
-    pub fn flatten_text(&self) -> bool {
-        self.0.flatten_text
     }
 
     /// The SVG's height in pixels.
@@ -112,7 +92,6 @@ impl Hash for Repr {
         // all used fonts gives us something similar.
         self.data.hash(state);
         self.font_hash.hash(state);
-        self.flatten_text.hash(state);
     }
 }
 
@@ -145,16 +124,15 @@ fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
 }
 
 /// Format the user-facing SVG decoding error message.
-fn format_usvg_error(error: usvg::Error) -> EcoString {
-    match error {
-        usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
-        usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
-        usvg::Error::ElementsLimitReached => "file is too large".into(),
-        usvg::Error::InvalidSize => {
-            "failed to parse SVG (width, height, or viewbox is invalid)".into()
-        }
-        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
-    }
+fn format_usvg_error(error: usvg::Error) -> LoadError {
+    let error = match error {
+        usvg::Error::NotAnUtf8Str => "file is not valid utf-8",
+        usvg::Error::MalformedGZip => "file is not compressed correctly",
+        usvg::Error::ElementsLimitReached => "file is too large",
+        usvg::Error::InvalidSize => "width, height, or viewbox is invalid",
+        usvg::Error::ParsingFailed(error) => return format_xml_like_error("SVG", error),
+    };
+    LoadError::new(ReportPos::None, "failed to parse SVG", error)
 }
 
 /// Provides Typst's fonts to usvg.

@@ -285,14 +285,14 @@ fn layout_underoverspreader(
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(styles);
-    let glyph = GlyphFragment::new(ctx, styles, c, span);
-    let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
+    let mut glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
+    glyph.stretch_horizontal(ctx, body.width());
 
     let mut rows = vec![];
     let baseline = match position {
         Position::Under => {
             rows.push(MathRun::new(vec![body]));
-            rows.push(stretched.into());
+            rows.push(glyph.into());
             if let Some(annotation) = annotation {
                 let under_style = style_for_subscript(styles);
                 let annotation_styles = styles.chain(&under_style);
@@ -306,20 +306,14 @@ fn layout_underoverspreader(
                 let annotation_styles = styles.chain(&over_style);
                 rows.extend(ctx.layout_into_run(annotation, annotation_styles)?.rows());
             }
-            rows.push(stretched.into());
+            rows.push(glyph.into());
             rows.push(MathRun::new(vec![body]));
             rows.len() - 1
         }
     };
 
-    let frame = stack(
-        rows,
-        FixedAlignment::Center,
-        gap,
-        baseline,
-        LeftRightAlternator::Right,
-        None,
-    );
+    let frame =
+        stack(rows, FixedAlignment::Center, gap, baseline, LeftRightAlternator::Right);
     ctx.push(FrameFragment::new(styles, frame).with_class(body_class));
 
     Ok(())

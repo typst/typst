@@ -297,3 +297,10 @@ Looks at the @quadratic formula.
 #set page(width: 150pt)
 #set text(lang: "he")
 תהא סדרה $a_n$: $[a_n: 1, 1/2, 1/3, dots]$
+
+--- issue-6170-equation-stroke ---
+// In this bug stroke settings did not apply to math content.
+// We expect all of these to have a green stroke.
+#set text(stroke: green + 0.5pt)
+
+A $B^2$ $ grave(C)' $

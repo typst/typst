@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use ecow::{eco_format, EcoString};
 use typst_utils::Static;
 
-use crate::diag::StrResult;
+use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{
     cast, func, AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value,
 };
@@ -39,11 +39,25 @@ use crate::foundations::{
 /// #type(image("glacier.jpg")).
 /// ```
 ///
-/// The type of `10` is `int`. Now, what is the type of `int` or even `type`?
+/// The type of `{10}` is `int`. Now, what is the type of `int` or even `type`?
 /// ```example
 /// #type(int) \
 /// #type(type)
 /// ```
+///
+/// Unlike other types like `int`, [none] and [auto] do not have a name
+/// representing them. To test if a value is one of these, compare your value to
+/// them directly, e.g:
+/// ```example
+/// #let val = none
+/// #if val == none [
+///   Yep, it's none.
+/// ]
+/// ```
+///
+/// Note that `type` will return [`content`] for all document elements. To
+/// programmatically determine which kind of content you are dealing with, see
+/// [`content.func`].
 #[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
@@ -94,10 +108,15 @@ impl Type {
     }
 
     /// Get a field from this type's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
-        self.scope()
-            .get(field)
-            .ok_or_else(|| eco_format!("type {self} does not contain field `{field}`"))
+    pub fn field(
+        &self,
+        field: &str,
+        sink: impl DeprecationSink,
+    ) -> StrResult<&'static Value> {
+        match self.scope().get(field) {
+            Some(binding) => Ok(binding.read_checked(sink)),
+            None => bail!("type {self} does not contain field `{field}`"),
+        }
     }
 }
 

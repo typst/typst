@@ -361,7 +361,7 @@ pub struct FontArgs {
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
-    #[arg(long)]
+    #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
     pub ignore_system_fonts: bool,
 }
 
@@ -467,15 +467,45 @@ display_possible_values!(Feature);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum PdfStandard {
+    /// PDF 1.4.
+    #[value(name = "1.4")]
+    V_1_4,
+    /// PDF 1.5.
+    #[value(name = "1.5")]
+    V_1_5,
+    /// PDF 1.5.
+    #[value(name = "1.6")]
+    V_1_6,
     /// PDF 1.7.
     #[value(name = "1.7")]
     V_1_7,
+    /// PDF 2.0.
+    #[value(name = "2.0")]
+    V_2_0,
+    /// PDF/A-1b.
+    #[value(name = "a-1b")]
+    A_1b,
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
-    /// PDF/A-3b.
+    /// PDF/A-2u.
+    #[value(name = "a-2u")]
+    A_2u,
+    /// PDF/A-3u.
     #[value(name = "a-3b")]
     A_3b,
+    /// PDF/A-3u.
+    #[value(name = "a-3u")]
+    A_3u,
+    /// PDF/A-4.
+    #[value(name = "a-4")]
+    A_4,
+    /// PDF/A-4f.
+    #[value(name = "a-4f")]
+    A_4f,
+    /// PDF/A-4e.
+    #[value(name = "a-4e")]
+    A_4e,
 }
 
 display_possible_values!(PdfStandard);

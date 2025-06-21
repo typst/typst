@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use typst_utils::NonZeroExt;
@@ -282,7 +282,7 @@ fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
 
 fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
     let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
-    let mut rows: Vec<_> = grid.entries.chunks(grid.cols.len()).collect();
+    let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
 
     let tr = |tag, row: &[Entry]| {
         let row = row
@@ -292,16 +292,61 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         elem(tag::tr, Content::sequence(row))
     };
 
+    // TODO(subfooters): similarly to headers, take consecutive footers from
+    // the end for 'tfoot'.
     let footer = grid.footer.map(|ft| {
-        let rows = rows.drain(ft.unwrap().start..);
+        let rows = rows.drain(ft.start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
-    let header = grid.header.map(|hd| {
-        let rows = rows.drain(..hd.unwrap().end);
-        elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))
-    });
 
-    let mut body = Content::sequence(rows.into_iter().map(|row| tr(tag::td, row)));
+    // Store all consecutive headers at the start in 'thead'. All remaining
+    // headers are just 'th' rows across the table body.
+    let mut consecutive_header_end = 0;
+    let first_mid_table_header = grid
+        .headers
+        .iter()
+        .take_while(|hd| {
+            let is_consecutive = hd.range.start == consecutive_header_end;
+            consecutive_header_end = hd.range.end;
+
+            is_consecutive
+        })
+        .count();
+
+    let (y_offset, header) = if first_mid_table_header > 0 {
+        let removed_header_rows =
+            grid.headers.get(first_mid_table_header - 1).unwrap().range.end;
+        let rows = rows.drain(..removed_header_rows);
+
+        (
+            removed_header_rows,
+            Some(elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))),
+        )
+    } else {
+        (0, None)
+    };
+
+    // TODO: Consider improving accessibility properties of multi-level headers
+    // inside tables in the future, e.g. indicating which columns they are
+    // relative to and so on. See also:
+    // https://www.w3.org/WAI/tutorials/tables/multi-level/
+    let mut next_header = first_mid_table_header;
+    let mut body =
+        Content::sequence(rows.into_iter().enumerate().map(|(relative_y, row)| {
+            let y = relative_y + y_offset;
+            if let Some(current_header) =
+                grid.headers.get(next_header).filter(|h| h.range.contains(&y))
+            {
+                if y + 1 == current_header.range.end {
+                    next_header += 1;
+                }
+
+                tr(tag::th, row)
+            } else {
+                tr(tag::td, row)
+            }
+        }));
+
     if header.is_some() || footer.is_some() {
         body = elem(tag::tbody, body);
     }
@@ -491,6 +536,17 @@ pub struct TableHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
     pub repeat: bool,
+
+    /// The level of the header. Must not be zero.
+    ///
+    /// This allows repeating multiple headers at once. Headers with different
+    /// levels can repeat together, as long as they have ascending levels.
+    ///
+    /// Notably, when a header with a lower level starts repeating, all higher
+    /// or equal level headers stop repeating (they are "replaced" by the new
+    /// header).
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
 
     /// The cells and lines within the header.
     #[variadic]
@@ -770,7 +826,14 @@ impl Show for Packed<TableCell> {
 
 impl Default for Packed<TableCell> {
     fn default() -> Self {
-        Packed::new(TableCell::new(Content::default()))
+        Packed::new(
+            // Explicitly set colspan and rowspan to ensure they won't be
+            // overridden by set rules (default cells are created after
+            // colspans and rowspans are processed in the resolver)
+            TableCell::new(Content::default())
+                .with_colspan(NonZeroUsize::ONE)
+                .with_rowspan(NonZeroUsize::ONE),
+        )
     }
 }
 

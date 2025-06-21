@@ -326,7 +326,10 @@ fn visit_math_rules<'a>(
         // Symbols in non-math content transparently convert to `TextElem` so we
         // don't have to handle them in non-math layout.
         if let Some(elem) = content.to_packed::<SymbolElem>() {
-            let text = TextElem::packed(elem.text).spanned(elem.span());
+            let mut text = TextElem::packed(elem.text).spanned(elem.span());
+            if let Some(label) = elem.label() {
+                text.set_label(label);
+            }
             visit(s, s.store(text), styles)?;
             return Ok(true);
         }
@@ -652,6 +655,7 @@ fn visit_grouping_rules<'a>(
     let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, &s.kind));
 
     // Try to continue or finish an existing grouping.
+    let mut i = 0;
     while let Some(active) = s.groupings.last() {
         // Start a nested group if a rule with higher priority matches.
         if matching.is_some_and(|rule| rule.priority > active.rule.priority) {
@@ -667,6 +671,16 @@ fn visit_grouping_rules<'a>(
         }
 
         finish_innermost_grouping(s)?;
+        i += 1;
+        if i > 512 {
+            // It seems like this case is only hit when there is a cycle between
+            // a show rule and a grouping rule. The show rule produces content
+            // that is matched by a grouping rule, which is then again processed
+            // by the show rule, and so on. The two must be at an equilibrium,
+            // otherwise either the "maximum show rule depth" or "maximum
+            // grouping depth" errors are triggered.
+            bail!(content.span(), "maximum grouping depth exceeded");
+        }
     }
 
     // Start a new grouping.

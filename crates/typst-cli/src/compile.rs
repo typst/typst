@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use parking_lot::RwLock;
+use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{
     bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
@@ -15,7 +16,7 @@ use typst::diag::{
 use typst::foundations::{Datetime, Smart};
 use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Source, Span};
+use typst::syntax::{FileId, Lines, Span};
 use typst::WorldExt;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -62,8 +63,7 @@ pub struct CompileConfig {
     /// Opens the output file with the default viewer or a specific program after
     /// compilation.
     pub open: Option<Option<String>>,
-    /// One (or multiple comma-separated) PDF standards that Typst will enforce
-    /// conformance with.
+    /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
@@ -129,18 +129,9 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let pdf_standards = {
-            let list = args
-                .pdf_standard
-                .iter()
-                .map(|standard| match standard {
-                    PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-                    PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-                    PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
-                })
-                .collect::<Vec<_>>();
-            PdfStandards::new(&list)?
-        };
+        let pdf_standards = PdfStandards::new(
+            &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
+        )?;
 
         #[cfg(feature = "http-server")]
         let server = match watch {
@@ -188,7 +179,7 @@ pub fn compile_once(
 
     match output {
         // Export the PDF / PNG.
-        Ok(()) => {
+        Ok(outputs) => {
             let duration = start.elapsed();
 
             if config.watching {
@@ -202,7 +193,7 @@ pub fn compile_once(
             print_diagnostics(world, &[], &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
-            write_make_deps(world, config)?;
+            write_make_deps(world, config, outputs)?;
             open_output(config)?;
         }
 
@@ -226,12 +217,15 @@ pub fn compile_once(
 fn compile_and_export(
     world: &mut SystemWorld,
     config: &mut CompileConfig,
-) -> Warned<SourceResult<()>> {
+) -> Warned<SourceResult<Vec<Output>>> {
     match config.output_format {
         OutputFormat::Html => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
             let result = output.and_then(|document| export_html(&document, config));
-            Warned { output: result, warnings }
+            Warned {
+                output: result.map(|()| vec![config.output.clone()]),
+                warnings,
+            }
         }
         _ => {
             let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
@@ -257,9 +251,14 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
 }
 
 /// Export to a paged target format.
-fn export_paged(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+fn export_paged(
+    document: &PagedDocument,
+    config: &CompileConfig,
+) -> SourceResult<Vec<Output>> {
     match config.output_format {
-        OutputFormat::Pdf => export_pdf(document, config),
+        OutputFormat::Pdf => {
+            export_pdf(document, config).map(|()| vec![config.output.clone()])
+        }
         OutputFormat::Png => {
             export_image(document, config, ImageExportFormat::Png).at(Span::detached())
         }
@@ -286,6 +285,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
             })
         }
     };
+
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
@@ -327,7 +327,7 @@ fn export_image(
     document: &PagedDocument,
     config: &CompileConfig,
     fmt: ImageExportFormat,
-) -> StrResult<()> {
+) -> StrResult<Vec<Output>> {
     // Determine whether we have indexable templates in output
     let can_handle_multiple = match config.output {
         Output::Stdout => false,
@@ -341,7 +341,7 @@ fn export_image(
         .iter()
         .enumerate()
         .filter(|(i, _)| {
-            config.pages.as_ref().map_or(true, |exported_page_ranges| {
+            config.pages.as_ref().is_none_or(|exported_page_ranges| {
                 exported_page_ranges.includes_page_index(*i)
             })
         })
@@ -383,7 +383,7 @@ fn export_image(
                         && config.export_cache.is_cached(*i, &page.frame)
                         && path.exists()
                     {
-                        return Ok(());
+                        return Ok(Output::Path(path.to_path_buf()));
                     }
 
                     Output::Path(path.to_owned())
@@ -392,11 +392,9 @@ fn export_image(
             };
 
             export_image_page(config, page, &output, fmt)?;
-            Ok(())
+            Ok(output)
         })
-        .collect::<Result<Vec<()>, EcoString>>()?;
-
-    Ok(())
+        .collect::<StrResult<Vec<Output>>>()
 }
 
 mod output_template {
@@ -501,14 +499,25 @@ impl ExportCache {
 /// Writes a Makefile rule describing the relationship between the output and
 /// its dependencies to the path specified by the --make-deps argument, if it
 /// was provided.
-fn write_make_deps(world: &mut SystemWorld, config: &CompileConfig) -> StrResult<()> {
+fn write_make_deps(
+    world: &mut SystemWorld,
+    config: &CompileConfig,
+    outputs: Vec<Output>,
+) -> StrResult<()> {
     let Some(ref make_deps_path) = config.make_deps else { return Ok(()) };
-    let Output::Path(output_path) = &config.output else {
-        bail!("failed to create make dependencies file because output was stdout")
-    };
-    let Some(output_path) = output_path.as_os_str().to_str() else {
+    let Ok(output_paths) = outputs
+        .into_iter()
+        .filter_map(|o| match o {
+            Output::Path(path) => Some(path.into_os_string().into_string()),
+            Output::Stdout => None,
+        })
+        .collect::<Result<Vec<_>, _>>()
+    else {
         bail!("failed to create make dependencies file because output path was not valid unicode")
     };
+    if output_paths.is_empty() {
+        bail!("failed to create make dependencies file because output was stdout")
+    }
 
     // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
     // perfect as some special characters can't be escaped.
@@ -520,6 +529,10 @@ fn write_make_deps(world: &mut SystemWorld, config: &CompileConfig) -> StrResult
                 '\\' => slashes += 1,
                 '$' => {
                     res.push('$');
+                    slashes = 0;
+                }
+                ':' => {
+                    res.push('\\');
                     slashes = 0;
                 }
                 ' ' | '\t' => {
@@ -544,18 +557,29 @@ fn write_make_deps(world: &mut SystemWorld, config: &CompileConfig) -> StrResult
 
     fn write(
         make_deps_path: &Path,
-        output_path: &str,
+        output_paths: Vec<String>,
         root: PathBuf,
         dependencies: impl Iterator<Item = PathBuf>,
     ) -> io::Result<()> {
         let mut file = File::create(make_deps_path)?;
+        let current_dir = std::env::current_dir()?;
+        let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
 
-        file.write_all(munge(output_path).as_bytes())?;
+        for (i, output_path) in output_paths.into_iter().enumerate() {
+            if i != 0 {
+                file.write_all(b" ")?;
+            }
+            file.write_all(munge(&output_path).as_bytes())?;
+        }
         file.write_all(b":")?;
         for dependency in dependencies {
-            let Some(dependency) =
-                dependency.strip_prefix(&root).unwrap_or(&dependency).to_str()
-            else {
+            let relative_dependency = match dependency.strip_prefix(&root) {
+                Ok(root_relative_dependency) => {
+                    relative_root.join(root_relative_dependency)
+                }
+                Err(_) => dependency,
+            };
+            let Some(relative_dependency) = relative_dependency.to_str() else {
                 // Silently skip paths that aren't valid unicode so we still
                 // produce a rule that will work for the other paths that can be
                 // processed.
@@ -563,14 +587,14 @@ fn write_make_deps(world: &mut SystemWorld, config: &CompileConfig) -> StrResult
             };
 
             file.write_all(b" ")?;
-            file.write_all(munge(dependency).as_bytes())?;
+            file.write_all(munge(relative_dependency).as_bytes())?;
         }
         file.write_all(b"\n")?;
 
         Ok(())
     }
 
-    write(make_deps_path, output_path, world.root().to_owned(), world.dependencies())
+    write(make_deps_path, output_paths, world.root().to_owned(), world.dependencies())
         .map_err(|err| {
             eco_format!("failed to create make dependencies file due to IO error ({err})")
         })
@@ -672,7 +696,7 @@ fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
     type Name = String;
-    type Source = Source;
+    type Source = Lines<String>;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
         let vpath = id.vpath();
@@ -730,5 +754,25 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
                 CodespanError::IndexTooLarge { given, max }
             }
         })
+    }
+}
+
+impl From<PdfStandard> for typst_pdf::PdfStandard {
+    fn from(standard: PdfStandard) -> Self {
+        match standard {
+            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
+            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
+            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
+            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
+            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
+            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
+            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
+            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
+            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
+            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
+            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+        }
     }
 }

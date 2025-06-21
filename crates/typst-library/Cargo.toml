@@ -29,6 +29,7 @@ csv = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
+glidesort = { workspace = true }
 hayagriva = { workspace = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }
@@ -38,6 +39,7 @@ indexmap = { workspace = true }
 kamadak-exif = { workspace = true }
 kurbo = { workspace = true }
 lipsum = { workspace = true }
+memchr = { workspace = true }
 palette = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
@@ -60,9 +62,11 @@ ttf-parser = { workspace = true }
 two-face = { workspace = true }
 typed-arena = { workspace = true }
 unicode-math-class = { workspace = true }
+unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }
+utf8_iter = { workspace = true }
 wasmi = { workspace = true }
 xmlwriter = { workspace = true }
 

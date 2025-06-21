@@ -471,7 +471,8 @@ impl Debug for Recipe {
             selector.fmt(f)?;
             f.write_str(", ")?;
         }
-        self.transform.fmt(f)
+        self.transform.fmt(f)?;
+        f.write_str(")")
     }
 }
 

@@ -2,7 +2,10 @@ use ecow::EcoString;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, SequenceElem, Show, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, SequenceElem, Show, StyleChain, TargetElem,
+};
+use crate::html::{tag, HtmlElem};
 use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
@@ -51,6 +54,13 @@ impl Show for Packed<SubElem> {
     #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
+
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::sub)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
 
         if self.typographic(styles) {
             if let Some(text) = convert_script(&body, true) {
@@ -111,6 +121,13 @@ impl Show for Packed<SuperElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
 
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::sup)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
+
         if self.typographic(styles) {
             if let Some(text) = convert_script(&body, false) {
                 if is_shapable(engine, &text, styles) {
@@ -159,7 +176,7 @@ fn is_shapable(engine: &Engine, text: &str, styles: StyleChain) -> bool {
         {
             let covers = family.covers();
             return text.chars().all(|c| {
-                covers.map_or(true, |cov| cov.is_match(c.encode_utf8(&mut [0; 4])))
+                covers.is_none_or(|cov| cov.is_match(c.encode_utf8(&mut [0; 4])))
                     && font.ttf().glyph_index(c).is_some()
             });
         }

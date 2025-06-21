@@ -17,7 +17,7 @@ mod yaml_;
 
 use comemo::Tracked;
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{FileId, Spanned};
 
 pub use self::cbor_::*;
 pub use self::csv_::*;
@@ -29,19 +29,12 @@ pub use self::yaml_::*;
 
 use crate::diag::{At, SourceResult};
 use crate::foundations::OneOrMultiple;
-use crate::foundations::{cast, category, Bytes, Category, Scope, Str};
+use crate::foundations::{cast, Bytes, Scope, Str};
 use crate::World;
-
-/// Data loading from external files.
-///
-/// These functions help you with loading and embedding data, for example from
-/// the results of an experiment.
-#[category]
-pub static DATA_LOADING: Category;
 
 /// Hook up all `data-loading` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(DATA_LOADING);
+    global.start_category(crate::Category::DataLoading);
     global.define_func::<read>();
     global.define_func::<csv>();
     global.define_func::<json>();
@@ -49,6 +42,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<yaml>();
     global.define_func::<cbor>();
     global.define_func::<xml>();
+    global.reset_category();
 }
 
 /// Something we can retrieve byte data from.
@@ -80,45 +74,72 @@ pub trait Load {
 }
 
 impl Load for Spanned<DataSource> {
-    type Output = Bytes;
+    type Output = Loaded;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Bytes> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.as_ref().load(world)
     }
 }
 
 impl Load for Spanned<&DataSource> {
-    type Output = Bytes;
+    type Output = Loaded;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Bytes> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         match &self.v {
             DataSource::Path(path) => {
                 let file_id = self.span.resolve_path(path).at(self.span)?;
-                world.file(file_id).at(self.span)
+                let data = world.file(file_id).at(self.span)?;
+                let source = Spanned::new(LoadSource::Path(file_id), self.span);
+                Ok(Loaded::new(source, data))
             }
-            DataSource::Bytes(bytes) => Ok(bytes.clone()),
+            DataSource::Bytes(data) => {
+                let source = Spanned::new(LoadSource::Bytes, self.span);
+                Ok(Loaded::new(source, data.clone()))
+            }
         }
     }
 }
 
 impl Load for Spanned<OneOrMultiple<DataSource>> {
-    type Output = Vec<Bytes>;
+    type Output = Vec<Loaded>;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Vec<Bytes>> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.as_ref().load(world)
     }
 }
 
 impl Load for Spanned<&OneOrMultiple<DataSource>> {
-    type Output = Vec<Bytes>;
+    type Output = Vec<Loaded>;
 
-    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Vec<Bytes>> {
+    fn load(&self, world: Tracked<dyn World + '_>) -> SourceResult<Self::Output> {
         self.v
             .0
             .iter()
             .map(|source| Spanned::new(source, self.span).load(world))
             .collect()
     }
+}
+
+/// Data loaded from a [`DataSource`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Loaded {
+    /// Details about where `data` was loaded from.
+    pub source: Spanned<LoadSource>,
+    /// The loaded data.
+    pub data: Bytes,
+}
+
+impl Loaded {
+    pub fn new(source: Spanned<LoadSource>, bytes: Bytes) -> Self {
+        Self { source, data: bytes }
+    }
+}
+
+/// A loaded [`DataSource`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LoadSource {
+    Path(FileId),
+    Bytes,
 }
 
 /// A value that can be read from a file.

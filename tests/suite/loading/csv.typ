@@ -18,14 +18,18 @@
 #csv("nope.csv")
 
 --- csv-invalid ---
-// Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
+// Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv")
 
 --- csv-invalid-row-type-dict ---
 // Test error numbering with dictionary rows.
-// Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
+// Error: "/assets/data/bad.csv" 3:1 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/assets/data/bad.csv", row-type: dictionary)
 
 --- csv-invalid-delimiter ---
 // Error: 41-51 delimiter must be an ASCII character
 #csv("/assets/data/zoo.csv", delimiter: "\u{2008}")
+
+--- csv-decode-deprecated ---
+// Warning: 14-20 `csv.decode` is deprecated, directly pass bytes to `csv` instead
+#let _ = csv.decode

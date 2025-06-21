@@ -5,7 +5,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Show, Smart, StyleChain, Synthesize,
+    Repr, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -21,9 +21,10 @@ use crate::text::TextElem;
 ///
 /// The default, a `{"normal"}` reference, produces a textual reference to a
 /// label. For example, a reference to a heading will yield an appropriate
-/// string such as "Section 1" for a reference to the first heading. The
-/// references are also links to the respective element. Reference syntax can
-/// also be used to [cite] from a bibliography.
+/// string such as "Section 1" for a reference to the first heading. The word
+/// "Section" depends on the [`lang`]($text.lang) setting and is localized
+/// accordingly. The references are also links to the respective element.
+/// Reference syntax can also be used to [cite] from a bibliography.
 ///
 /// As the default form requires a supplement and numbering, the label must be
 /// attached to a _referenceable element_. Referenceable elements include
@@ -228,8 +229,15 @@ impl Show for Packed<RefElem> {
         // RefForm::Normal
 
         if BibliographyElem::has(engine, self.target) {
-            if elem.is_ok() {
-                bail!(span, "label occurs in the document and its bibliography");
+            if let Ok(elem) = elem {
+                bail!(
+                    span,
+                    "label `{}` occurs both in the document and its bibliography",
+                    self.target.repr();
+                    hint: "change either the {}'s label or the \
+                           bibliography key to resolve the ambiguity",
+                    elem.func().name(),
+                );
             }
 
             return Ok(to_citation(self, engine, styles)?.pack().spanned(span));

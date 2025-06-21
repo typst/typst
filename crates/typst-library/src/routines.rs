@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
-use typst_syntax::Span;
+use typst_syntax::{Span, SyntaxMode};
 use typst_utils::LazyHash;
 
 use crate::diag::SourceResult;
@@ -55,9 +55,10 @@ routines! {
     fn eval_string(
         routines: &Routines,
         world: Tracked<dyn World + '_>,
+        sink: TrackedMut<Sink>,
         string: &str,
         span: Span,
-        mode: EvalMode,
+        mode: SyntaxMode,
         scope: Scope,
     ) -> SourceResult<Value>
 
@@ -309,17 +310,6 @@ routines! {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment>
-}
-
-/// In which mode to evaluate a string.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum EvalMode {
-    /// Evaluate as code, as after a hash.
-    Code,
-    /// Evaluate as markup, like in a Typst file.
-    Markup,
-    /// Evaluate as math, as in an equation.
-    Math,
 }
 
 /// Defines what kind of realization we are performing.

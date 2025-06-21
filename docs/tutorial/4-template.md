@@ -44,7 +44,7 @@ I am #amazed(color: purple)[amazed]!
 Templates now work by wrapping our whole document in a custom function like
 `amazed`. But wrapping a whole document in a giant function call would be
 cumbersome! Instead, we can use an "everything" show rule to achieve the same
-with cleaner code. To write such a show rule, put a colon directly behind the
+with cleaner code. To write such a show rule, put a colon directly after the
 show keyword and then provide a function. This function is given the rest of the
 document as a parameter. The function can then do anything with this content.
 Since the `amazed` function can be called with a single content argument, we can

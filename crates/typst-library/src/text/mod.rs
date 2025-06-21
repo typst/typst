@@ -30,6 +30,7 @@ pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
+use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
@@ -42,28 +43,21 @@ use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult};
+use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, category, dict, elem, Args, Array, Cast, Category, Construct, Content, Dict,
-    Fold, IntoValue, NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr,
-    Resolve, Scope, Set, Smart, StyleChain,
+    cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
+    NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set,
+    Smart, StyleChain,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
-use crate::model::ParElem;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 use crate::World;
 
-/// Text styling.
-///
-/// The [text function]($text) is of particular interest.
-#[category]
-pub static TEXT: Category;
-
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.category(TEXT);
+    global.start_category(crate::Category::Text);
     global.define_elem::<TextElem>();
     global.define_elem::<LinebreakElem>();
     global.define_elem::<SmartQuoteElem>();
@@ -78,6 +72,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<lower>();
     global.define_func::<upper>();
     global.define_func::<lorem>();
+    global.reset_category();
 }
 
 /// Customizes the look and layout of text in a variety of ways.
@@ -354,15 +349,17 @@ pub struct TextElem {
     /// This can make justification visually more pleasing.
     ///
     /// ```example
+    /// #set page(width: 220pt)
+    ///
     /// #set par(justify: true)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     ///
     /// #set text(overhang: false)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
@@ -509,9 +506,8 @@ pub struct TextElem {
     /// enabling hyphenation can
     /// improve justification.
     /// ```
-    #[resolve]
     #[ghost]
-    pub hyphenate: Hyphenate,
+    pub hyphenate: Smart<bool>,
 
     /// The "cost" of various choices when laying out text. A higher cost means
     /// the layout engine will make the choice less often. Costs are specified
@@ -898,8 +894,20 @@ cast! {
 }
 
 /// Font family fallback list.
+///
+/// Must contain at least one font.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
+
+impl FontList {
+    pub fn new(fonts: Vec<FontFamily>) -> StrResult<Self> {
+        if fonts.is_empty() {
+            bail!("font fallback list must not be empty")
+        } else {
+            Ok(Self(fonts))
+        }
+    }
+}
 
 impl<'a> IntoIterator for &'a FontList {
     type IntoIter = std::slice::Iter<'a, FontFamily>;
@@ -918,7 +926,7 @@ cast! {
         self.0.into_value()
     },
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
+    values: Array => Self::new(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?)?,
 }
 
 /// Resolve a prioritized iterator over the font families.
@@ -1115,27 +1123,6 @@ impl Resolve for TextDir {
     }
 }
 
-/// Whether to hyphenate text.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Hyphenate(pub Smart<bool>);
-
-cast! {
-    Hyphenate,
-    self => self.0.into_value(),
-    v: Smart<bool> => Self(v),
-}
-
-impl Resolve for Hyphenate {
-    type Output = bool;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        match self.0 {
-            Smart::Auto => ParElem::justify_in(styles),
-            Smart::Custom(v) => v,
-        }
-    }
-}
-
 /// A set of stylistic sets to enable.
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
@@ -1297,11 +1284,28 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         feat(b"frac", 1);
     }
 
+    match EquationElem::size_in(styles) {
+        MathSize::Script => feat(b"ssty", 1),
+        MathSize::ScriptScript => feat(b"ssty", 2),
+        _ => {}
+    }
+
     for (tag, value) in TextElem::features_in(styles).0 {
         tags.push(Feature::new(tag, value, ..))
     }
 
     tags
+}
+
+/// Process the language and region of a style chain into a
+/// rustybuzz-compatible BCP 47 language.
+pub fn language(styles: StyleChain) -> rustybuzz::Language {
+    let mut bcp: EcoString = TextElem::lang_in(styles).as_str().into();
+    if let Some(region) = TextElem::region_in(styles) {
+        bcp.push('-');
+        bcp.push_str(region.as_str());
+    }
+    rustybuzz::Language::from_str(&bcp).unwrap()
 }
 
 /// A toggle that turns on and off alternatingly if folded.
@@ -1408,29 +1412,24 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        let found = book.contains_family(family.as_str());
-        if family.as_str() == "linux libertine" {
-            let mut warning = warning!(
-                list.span,
-                "Typst's default font has changed from Linux Libertine to its successor Libertinus Serif";
-                hint: "please set the font to `\"Libertinus Serif\"` instead"
-            );
-
-            if found {
-                warning.hint(
-                    "Linux Libertine is available on your system - \
-                     you can ignore this warning if you are sure you want to use it",
-                );
-                warning.hint("this warning will be removed in Typst 0.13");
+        match book.select_family(family.as_str()).next() {
+            Some(index) => {
+                if book
+                    .info(index)
+                    .is_some_and(|x| x.flags.contains(FontFlags::VARIABLE))
+                {
+                    engine.sink.warn(warning!(
+                        list.span,
+                        "variable fonts are not currently supported and may render incorrectly";
+                        hint: "try installing a static version of \"{}\" instead", family.as_str()
+                    ))
+                }
             }
-
-            engine.sink.warn(warning);
-        } else if !found {
-            engine.sink.warn(warning!(
+            None => engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
                 family.as_str(),
-            ));
+            )),
         }
     }
 }

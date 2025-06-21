@@ -26,7 +26,7 @@ pub use once_cell;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
@@ -66,10 +66,11 @@ pub trait NonZeroExt {
 }
 
 impl NonZeroExt for NonZeroUsize {
-    const ONE: Self = match Self::new(1) {
-        Some(v) => v,
-        None => unreachable!(),
-    };
+    const ONE: Self = Self::new(1).unwrap();
+}
+
+impl NonZeroExt for NonZeroU32 {
+    const ONE: Self = Self::new(1).unwrap();
 }
 
 /// Extra methods for [`Arc`].
@@ -359,6 +360,21 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
         // ⊥ UP TACK should not be a relation, contrary to ⟂ PERPENDICULAR.
         // https://github.com/typst/typst/pull/5714
         '\u{22A5}' => Some(MathClass::Normal),
+
+        // Used as a binary connector in linear logic, where it is referred to
+        // as "par".
+        // https://github.com/typst/typst/issues/5764
+        '⅋' => Some(MathClass::Binary),
+
+        // Those overrides should become the default in the next revision of
+        // MathClass.txt.
+        // https://github.com/typst/typst/issues/5764#issuecomment-2632435247
+        '⎰' | '⟅' => Some(MathClass::Opening),
+        '⎱' | '⟆' => Some(MathClass::Closing),
+
+        // Both ∨ and ⟑ are classified as Binary.
+        // https://github.com/typst/typst/issues/5764
+        '⟇' => Some(MathClass::Binary),
 
         c => unicode_math_class::class(c),
     }

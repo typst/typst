@@ -255,6 +255,10 @@
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum
 
+--- import-rename-necessary ---
+#import "module.typ" as module: a
+#test(module.a, a)
+
 --- import-rename-unnecessary-mixed ---
 // Warning: 17-21 unnecessary import rename to same name
 #import enum as enum: item
@@ -262,10 +266,6 @@
 // Warning: 17-21 unnecessary import rename to same name
 // Warning: 31-35 unnecessary import rename to same name
 #import enum as enum: item as item
-
---- import-item-rename-unnecessary-string ---
-// Warning: 25-31 unnecessary import rename to same name
-#import "module.typ" as module
 
 --- import-item-rename-unnecessary-but-ok ---
 #import "modul" + "e.typ" as module
@@ -334,6 +334,7 @@
 
 --- import-cyclic-in-other-file ---
 // Cyclic import in other file.
+// Error: "tests/suite/scripting/modules/cycle2.typ" 2:9-2:21 cyclic import
 #import "./modules/cycle1.typ": *
 
 This is never reached.

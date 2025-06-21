@@ -391,10 +391,12 @@ pub fn vline_stroke_at_row(
 ///
 /// This function assumes columns are sorted by increasing `x`, and rows are
 /// sorted by increasing `y`.
+#[allow(clippy::too_many_arguments)]
 pub fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
+    header_end_above: Option<usize>,
     in_last_region: bool,
     y: usize,
     x: usize,
@@ -463,7 +465,7 @@ pub fn hline_stroke_at_column(
     // region, we have the last index, and (as a failsafe) we don't have the
     // last row of cells above us.
     let use_bottom_border_stroke = !in_last_region
-        && local_top_y.map_or(true, |top_y| top_y + 1 != grid.rows.len())
+        && local_top_y.is_none_or(|top_y| top_y + 1 != grid.rows.len())
         && y == grid.rows.len();
     let bottom_y =
         if use_bottom_border_stroke { grid.rows.len().saturating_sub(1) } else { y };
@@ -499,17 +501,15 @@ pub fn hline_stroke_at_column(
     // Top border stroke and header stroke are generally prioritized, unless
     // they don't have explicit hline overrides and one or more user-provided
     // hlines would appear at the same position, which then are prioritized.
-    let top_stroke_comes_from_header = grid
-        .header
-        .as_ref()
-        .and_then(Repeatable::as_repeated)
-        .zip(local_top_y)
-        .is_some_and(|(header, local_top_y)| {
-            // Ensure the row above us is a repeated header.
-            // FIXME: Make this check more robust when headers at arbitrary
-            // positions are added.
-            local_top_y < header.end && y > header.end
-        });
+    let top_stroke_comes_from_header = header_end_above.zip(local_top_y).is_some_and(
+        |(last_repeated_header_end, local_top_y)| {
+            // Check if the last repeated header row is above this line.
+            //
+            // Note that `y == last_repeated_header_end` is impossible for a
+            // strictly repeated header (not in its original position).
+            local_top_y < last_repeated_header_end && y > last_repeated_header_end
+        },
+    );
 
     // Prioritize the footer's top stroke as well where applicable.
     let bottom_stroke_comes_from_footer = grid
@@ -637,7 +637,7 @@ mod test {
             },
             vec![],
             vec![],
-            None,
+            vec![],
             None,
             entries,
         )
@@ -1175,7 +1175,7 @@ mod test {
             },
             vec![],
             vec![],
-            None,
+            vec![],
             None,
             entries,
         )
@@ -1268,6 +1268,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        None,
                         true,
                         y,
                         x,
@@ -1461,6 +1462,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        None,
                         true,
                         y,
                         x,
@@ -1506,6 +1508,7 @@ mod test {
                     grid,
                     &rows,
                     if y == 4 { Some(2) } else { y.checked_sub(1) },
+                    None,
                     true,
                     y,
                     x,

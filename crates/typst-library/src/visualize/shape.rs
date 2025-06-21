@@ -106,7 +106,7 @@ pub struct RectElem {
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the rectangle's content.
-    /// See the [box's documentation]($box.outset) for more details.
+    /// See the [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
@@ -412,7 +412,7 @@ pub enum Geometry {
     Line(Point),
     /// A rectangle with its origin in the topleft corner.
     Rect(Size),
-    /// A curve consisting of movements, lines, and Bezier segments.
+    /// A curve consisting of movements, lines, and Bézier segments.
     Curve(Curve),
 }
 

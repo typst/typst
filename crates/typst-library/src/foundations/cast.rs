@@ -9,7 +9,7 @@ use std::ops::Add;
 
 use ecow::eco_format;
 use smallvec::SmallVec;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{Span, Spanned, SyntaxMode};
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
@@ -21,7 +21,7 @@ use crate::foundations::{
 ///
 /// Type casting works as follows:
 /// - [`Reflect for T`](Reflect) describes the possible Typst values for `T`
-///    (for documentation and autocomplete).
+///   (for documentation and autocomplete).
 /// - [`IntoValue for T`](IntoValue) is for conversion from `T -> Value`
 ///   (infallible)
 /// - [`FromValue for T`](FromValue) is for conversion from `Value -> T`
@@ -457,6 +457,21 @@ impl FromValue for Never {
     fn from_value(value: Value) -> HintedStrResult<Self> {
         Err(Self::error(&value))
     }
+}
+
+cast! {
+    SyntaxMode,
+    self => IntoValue::into_value(match self {
+        SyntaxMode::Markup => "markup",
+        SyntaxMode::Math => "math",
+        SyntaxMode::Code => "code",
+    }),
+    /// Evaluate as markup, as in a Typst file.
+    "markup" => SyntaxMode::Markup,
+    /// Evaluate as math, as in an equation.
+    "math" => SyntaxMode::Math,
+    /// Evaluate as code, as after a hash.
+    "code" => SyntaxMode::Code,
 }
 
 cast! {

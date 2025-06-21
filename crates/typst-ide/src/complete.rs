@@ -15,7 +15,7 @@ use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
     SyntaxKind,
 };
-use typst::text::RawElem;
+use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
 use unscanny::Scanner;
 
@@ -298,15 +298,25 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
-    // Start of an interpolated identifier: "#|".
+    // Start of an interpolated identifier: "$#|$".
     if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
         code_completions(ctx, true);
         return true;
     }
 
+    // Behind existing interpolated identifier: "$#pa|$".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
+        code_completions(ctx, true);
+        return true;
+    }
+
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathIdent) {
+    if matches!(
+        ctx.leaf.kind(),
+        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathIdent
+    ) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -358,7 +368,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
-            || (ctx.leaf.kind() == SyntaxKind::Text
+            || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
@@ -398,13 +408,31 @@ fn field_access_completions(
     value: &Value,
     styles: &Option<Styles>,
 ) {
-    for (name, value, _) in value.ty().scope().iter() {
-        ctx.call_completion(name.clone(), value);
+    let scopes = {
+        let ty = value.ty().scope();
+        let elem = match value {
+            Value::Content(content) => Some(content.elem().scope()),
+            _ => None,
+        };
+        elem.into_iter().chain(Some(ty))
+    };
+
+    // Autocomplete methods from the element's or type's scope. We only complete
+    // those which have a `self` parameter.
+    for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
+        let Ok(func) = binding.read().clone().cast::<Func>() else { continue };
+        if func
+            .params()
+            .and_then(|params| params.first())
+            .is_some_and(|param| param.name == "self")
+        {
+            ctx.call_completion(name.clone(), binding.read());
+        }
     }
 
     if let Some(scope) = value.scope() {
-        for (name, value, _) in scope.iter() {
-            ctx.call_completion(name.clone(), value);
+        for (name, binding) in scope.iter() {
+            ctx.call_completion(name.clone(), binding.read());
         }
     }
 
@@ -414,7 +442,7 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(field, &value.field(field).unwrap());
+        ctx.value_completion(field, &value.field(field, ()).unwrap());
     }
 
     match value {
@@ -496,7 +524,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // "#import "path.typ": a, b, |".
     if_chain! {
         if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::Import(import)) = prev.get().cast();
+        if let Some(ast::Expr::ModuleImport(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
         then {
@@ -515,7 +543,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(grand) = parent.parent();
         if grand.kind() == SyntaxKind::ImportItems;
         if let Some(great) = grand.parent();
-        if let Some(ast::Expr::Import(import)) = great.get().cast();
+        if let Some(ast::Expr::ModuleImport(import)) = great.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = great.children().find(|child| child.is::<ast::Expr>());
         then {
@@ -541,9 +569,9 @@ fn import_item_completions<'a>(
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value, _) in scope.iter() {
+    for (name, binding) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(name.clone(), value);
+            ctx.value_completion(name.clone(), binding.read());
         }
     }
 }
@@ -656,10 +684,10 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         if let Some(args) = parent.get().cast::<ast::Args>();
         if let Some(grand) = parent.parent();
         if let Some(expr) = grand.get().cast::<ast::Expr>();
-        let set = matches!(expr, ast::Expr::Set(_));
+        let set = matches!(expr, ast::Expr::SetRule(_));
         if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
-            ast::Expr::Set(set) => Some(set.target()),
+            ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
         };
         then {
@@ -673,7 +701,10 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     let mut deciding = ctx.leaf.clone();
     while !matches!(
         deciding.kind(),
-        SyntaxKind::LeftParen | SyntaxKind::Comma | SyntaxKind::Colon
+        SyntaxKind::LeftParen
+            | SyntaxKind::RightParen
+            | SyntaxKind::Comma
+            | SyntaxKind::Colon
     ) {
         let Some(prev) = deciding.prev_leaf() else { break };
         deciding = prev;
@@ -820,7 +851,9 @@ fn param_value_completions<'a>(
 /// Returns which file extensions to complete for the given parameter if any.
 fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
     Some(match (func.name(), param.name) {
-        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("image"), "source") => {
+            &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp"]
+        }
         (Some("csv"), "source") => &["csv"],
         (Some("plugin"), "source") => &["wasm"],
         (Some("cbor"), "source") => &["cbor"],
@@ -846,13 +879,11 @@ fn resolve_global_callee<'a>(
 ) -> Option<&'a Func> {
     let globals = globals(ctx.world, ctx.leaf);
     let value = match callee {
-        ast::Expr::Ident(ident) => globals.get(&ident)?,
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match globals.get(&target)? {
-                Value::Module(module) => module.field(&access.field()).ok()?,
-                Value::Func(func) => func.field(&access.field()).ok()?,
-                _ => return None,
-            },
+            ast::Expr::Ident(target) => {
+                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
+            }
             _ => return None,
         },
         _ => return None,
@@ -1062,6 +1093,24 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
     }
 }
 
+/// See if the AST node is somewhere within a show rule applying to equations
+fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
+    let mut node = leaf;
+    while let Some(parent) = node.parent() {
+        if_chain! {
+            if let Some(expr) = parent.get().cast::<ast::Expr>();
+            if let ast::Expr::ShowRule(show) = expr;
+            if let Some(ast::Expr::FieldAccess(field)) = show.selector();
+            if field.field().as_str() == "equation";
+            then {
+                return true;
+            }
+        }
+        node = parent;
+    }
+    false
+}
+
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
@@ -1133,10 +1182,12 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
-        let equation = self.before_window(25).contains("equation");
+        let equation = is_in_equation_show_rule(self.leaf);
         for (family, iter) in self.world.book().families() {
-            let detail = summarize_font_family(iter);
-            if !equation || family.contains("Math") {
+            let variants: Vec<_> = iter.collect();
+            let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
+            let detail = summarize_font_family(variants);
+            if !equation || is_math {
                 self.str_completion(
                     family,
                     Some(CompletionKind::Font),
@@ -1444,7 +1495,7 @@ impl<'a> CompletionContext<'a> {
         let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
         named_items(self.world, self.leaf.clone(), |item| {
             let name = item.name();
-            if !name.is_empty() && item.value().as_ref().map_or(true, filter) {
+            if !name.is_empty() && item.value().as_ref().is_none_or(filter) {
                 defined.insert(name.clone(), item.value());
             }
 
@@ -1464,7 +1515,8 @@ impl<'a> CompletionContext<'a> {
             }
         }
 
-        for (name, value, _) in globals(self.world, self.leaf).iter() {
+        for (name, binding) in globals(self.world, self.leaf).iter() {
+            let value = binding.read();
             if filter(value) && !defined.contains_key(name) {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
@@ -1624,6 +1676,13 @@ mod tests {
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
     }
 
+    /// Test that autocomplete in math uses the correct global scope.
+    #[test]
+    fn test_autocomplete_math_scope() {
+        test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
+        test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
@@ -1642,7 +1701,7 @@ mod tests {
 
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
-        let end = world.main.len_bytes();
+        let end = world.main.text().len();
         world.main.edit(end..end, " #cite()");
 
         test_with_doc(&world, -2, doc.as_ref())
@@ -1678,6 +1737,8 @@ mod tests {
         test("#numbering(\"foo\", 1, )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
+        // After argument list no completions.
+        test("#numbering()", -1).must_exclude(["string"]);
     }
 
     /// Test that autocompletion for values of known type picks up nested
@@ -1747,5 +1808,44 @@ mod tests {
         test(&world, ("second.typ", 23))
             .must_include(["this", "that"])
             .must_exclude(["*", "figure"]);
+    }
+
+    #[test]
+    fn test_autocomplete_type_methods() {
+        test("#\"hello\".", -1).must_include(["len", "contains"]);
+        test("#table().", -1).must_exclude(["cell"]);
+    }
+
+    #[test]
+    fn test_autocomplete_content_methods() {
+        test("#show outline.entry: it => it.\n#outline()\n= Hi", 30)
+            .must_include(["indented", "body", "page"]);
+    }
+
+    #[test]
+    fn test_autocomplete_symbol_variants() {
+        test("#sym.arrow.", -1)
+            .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
+        test("$ arrow. $", -3)
+            .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
+    }
+
+    #[test]
+    fn test_autocomplete_fonts() {
+        test("#text(font:)", -2)
+            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+
+        test("#show link: set text(font: )", -2)
+            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+
+        test("#show math.equation: set text(font: )", -2)
+            .must_include(["\"New Computer Modern Math\""])
+            .must_exclude(["\"Libertinus Serif\""]);
+
+        test("#show math.equation: it => { set text(font: )\nit }", -7)
+            .must_include(["\"New Computer Modern Math\""])
+            .must_exclude(["\"Libertinus Serif\""]);
     }
 }

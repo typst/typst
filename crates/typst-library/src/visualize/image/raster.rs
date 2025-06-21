@@ -3,16 +3,16 @@ use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::Arc;
 
+use crate::diag::{bail, StrResult};
+use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
 use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
+use image::codecs::webp::WebPDecoder;
 use image::{
     guess_format, DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel,
 };
-
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
 
 /// A decoded raster image.
 #[derive(Clone, Hash)]
@@ -22,7 +22,8 @@ pub struct RasterImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     format: RasterFormat,
-    dynamic: image::DynamicImage,
+    dynamic: Arc<DynamicImage>,
+    exif_rotation: Option<u32>,
     icc: Option<Bytes>,
     dpi: Option<f64>,
 }
@@ -50,6 +51,8 @@ impl RasterImage {
         format: RasterFormat,
         icc: Smart<Bytes>,
     ) -> StrResult<RasterImage> {
+        let mut exif_rot = None;
+
         let (dynamic, icc, dpi) = match format {
             RasterFormat::Exchange(format) => {
                 fn decode<T: ImageDecoder>(
@@ -75,6 +78,7 @@ impl RasterImage {
                     ExchangeFormat::Jpg => decode(JpegDecoder::new(cursor), icc),
                     ExchangeFormat::Png => decode(PngDecoder::new(cursor), icc),
                     ExchangeFormat::Gif => decode(GifDecoder::new(cursor), icc),
+                    ExchangeFormat::Webp => decode(WebPDecoder::new(cursor), icc),
                 }
                 .map_err(format_image_error)?;
 
@@ -85,6 +89,7 @@ impl RasterImage {
                 // Apply rotation from EXIF metadata.
                 if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
                     apply_rotation(&mut dynamic, rotation);
+                    exif_rot = Some(rotation);
                 }
 
                 // Extract pixel density.
@@ -136,7 +141,14 @@ impl RasterImage {
             }
         };
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
+        Ok(Self(Arc::new(Repr {
+            data,
+            format,
+            exif_rotation: exif_rot,
+            dynamic: Arc::new(dynamic),
+            icc,
+            dpi,
+        })))
     }
 
     /// The raw image data.
@@ -159,13 +171,20 @@ impl RasterImage {
         self.dynamic().height()
     }
 
+    /// TODO.
+    pub fn exif_rotation(&self) -> Option<u32> {
+        self.0.exif_rotation
+    }
+
     /// The image's pixel density in pixels per inch, if known.
+    ///
+    /// This is guaranteed to be positive.
     pub fn dpi(&self) -> Option<f64> {
         self.0.dpi
     }
 
     /// Access the underlying dynamic image.
-    pub fn dynamic(&self) -> &image::DynamicImage {
+    pub fn dynamic(&self) -> &Arc<DynamicImage> {
         &self.0.dynamic
     }
 
@@ -225,6 +244,8 @@ pub enum ExchangeFormat {
     /// Raster format that is typically used for short animated clips. Typst can
     /// load GIFs, but they will become static.
     Gif,
+    /// Raster format that supports both lossy and lossless compression.
+    Webp,
 }
 
 impl ExchangeFormat {
@@ -240,6 +261,7 @@ impl From<ExchangeFormat> for image::ImageFormat {
             ExchangeFormat::Png => image::ImageFormat::Png,
             ExchangeFormat::Jpg => image::ImageFormat::Jpeg,
             ExchangeFormat::Gif => image::ImageFormat::Gif,
+            ExchangeFormat::Webp => image::ImageFormat::WebP,
         }
     }
 }
@@ -252,6 +274,7 @@ impl TryFrom<image::ImageFormat> for ExchangeFormat {
             image::ImageFormat::Png => ExchangeFormat::Png,
             image::ImageFormat::Jpeg => ExchangeFormat::Jpg,
             image::ImageFormat::Gif => ExchangeFormat::Gif,
+            image::ImageFormat::WebP => ExchangeFormat::Webp,
             _ => bail!("format not yet supported"),
         })
     }
@@ -323,17 +346,20 @@ fn apply_rotation(image: &mut DynamicImage, rotation: u32) {
             ops::flip_horizontal_in_place(image);
             *image = image.rotate270();
         }
-        6 => *image = image.rotate90(),
+        6 => *image = image.rotate270(),
         7 => {
             ops::flip_horizontal_in_place(image);
             *image = image.rotate90();
         }
-        8 => *image = image.rotate270(),
+        8 => *image = image.rotate90(),
         _ => {}
     }
 }
 
 /// Try to determine the DPI (dots per inch) of the image.
+///
+/// This is guaranteed to be a positive value, or `None` if invalid or
+/// unspecified.
 fn determine_dpi(data: &[u8], exif: Option<&exif::Exif>) -> Option<f64> {
     // Try to extract the DPI from the EXIF metadata. If that doesn't yield
     // anything, fall back to specialized procedures for extracting JPEG or PNG
@@ -341,6 +367,7 @@ fn determine_dpi(data: &[u8], exif: Option<&exif::Exif>) -> Option<f64> {
     exif.and_then(exif_dpi)
         .or_else(|| jpeg_dpi(data))
         .or_else(|| png_dpi(data))
+        .filter(|&dpi| dpi > 0.0)
 }
 
 /// Try to get the DPI from the EXIF metadata.

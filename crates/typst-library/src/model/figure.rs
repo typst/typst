@@ -125,6 +125,9 @@ pub struct FigureElem {
     ///
     /// ```example
     /// #set page(height: 200pt)
+    /// #show figure: set place(
+    ///   clearance: 1em,
+    /// )
     ///
     /// = Introduction
     /// #figure(
@@ -457,7 +460,7 @@ impl Outlinable for Packed<FigureElem> {
 /// customize the appearance of captions for all figures or figures of a
 /// specific kind.
 ///
-/// In addition to its `pos` and `body`, the `caption` also provides the
+/// In addition to its `position` and `body`, the `caption` also provides the
 /// figure's `kind`, `supplement`, `counter`, and `numbering` as fields. These
 /// parts can be used in [`where`]($function.where) selectors and show rules to
 /// build a completely custom caption.

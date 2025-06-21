@@ -97,7 +97,7 @@ impl World for TestWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(self.base.fonts[index].clone())
+        self.base.fonts.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
@@ -202,7 +202,8 @@ impl WorldLike for &str {
     }
 }
 
-/// Specifies a position in a file for a test.
+/// Specifies a position in a file for a test. Negative numbers index from the
+/// back. `-1` is at the very back.
 pub trait FilePos {
     fn resolve(self, world: &TestWorld) -> (Source, usize);
 }
@@ -228,7 +229,7 @@ impl FilePos for (&str, isize) {
 #[track_caller]
 fn cursor(source: &Source, cursor: isize) -> usize {
     if cursor < 0 {
-        source.len_bytes().checked_add_signed(cursor + 1).unwrap()
+        source.text().len().checked_add_signed(cursor + 1).unwrap()
     } else {
         cursor as usize
     }

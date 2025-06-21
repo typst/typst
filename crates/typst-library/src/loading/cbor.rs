@@ -20,13 +20,11 @@ use crate::loading::{DataSource, Load};
 #[func(scope, title = "CBOR")]
 pub fn cbor(
     engine: &mut Engine,
-    /// A path to a CBOR file or raw CBOR bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a CBOR file or raw CBOR bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    ciborium::from_reader(data.as_slice())
+    let loaded = source.load(engine.world)?;
+    ciborium::from_reader(loaded.data.as_slice())
         .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
         .at(source.span)
 }
@@ -34,10 +32,8 @@ pub fn cbor(
 #[scope]
 impl cbor {
     /// Reads structured data from CBOR bytes.
-    ///
-    /// This function is deprecated. The [`cbor`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode CBOR")]
+    #[deprecated = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// CBOR data.

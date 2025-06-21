@@ -110,7 +110,7 @@ impl f64 {
         f64::signum(self)
     }
 
-    /// Converts bytes to a float.
+    /// Interprets bytes as a float.
     ///
     /// ```example
     /// #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))) \
@@ -120,8 +120,10 @@ impl f64 {
     pub fn from_bytes(
         /// The bytes that should be converted to a float.
         ///
-        /// Must be of length exactly 8 so that the result fits into a 64-bit
-        /// float.
+        /// Must have a length of either 4 or 8. The bytes are then
+        /// interpreted in [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)'s
+        /// binary32 (single-precision) or binary64 (double-precision) format
+        /// depending on the length of the bytes.
         bytes: Bytes,
         /// The endianness of the conversion.
         #[named]
@@ -158,6 +160,13 @@ impl f64 {
         #[named]
         #[default(Endianness::Little)]
         endian: Endianness,
+        /// The size of the resulting bytes.
+        ///
+        /// This must be either 4 or 8. The call will return the
+        /// representation of this float in either
+        /// [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)'s binary32
+        /// (single-precision) or binary64 (double-precision) format
+        /// depending on the provided size.
         #[named]
         #[default(8)]
         size: u32,

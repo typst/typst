@@ -1,16 +1,14 @@
-use std::borrow::Cow;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use comemo::Track;
 use typst_utils::{singleton, NonZeroExt, Scalar};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Cast, Construct, Content, Context, Dict, Fold, Func,
-    NativeElement, Set, Smart, StyleChain, Value,
+    cast, elem, Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement,
+    Set, Smart, Value,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -75,9 +73,10 @@ pub struct PageElem {
     /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
-    /// by inserting a [page break]($pagebreak). Most examples throughout this
-    /// documentation use `{auto}` for the height of the page to dynamically
-    /// grow and shrink to fit their content.
+    /// by inserting a [page break]($pagebreak) or by adding another non-empty
+    /// page set rule. Most examples throughout this documentation use `{auto}`
+    /// for the height of the page to dynamically grow and shrink to fit their
+    /// content.
     #[resolve]
     #[parse(
         args.named("height")?
@@ -270,7 +269,7 @@ pub struct PageElem {
     ///   margin: (top: 32pt, bottom: 20pt),
     ///   header: [
     ///     #set text(8pt)
-    ///     #smallcaps[Typst Academcy]
+    ///     #smallcaps[Typst Academy]
     ///     #h(1fr) _Exercise Sheet 3_
     ///   ],
     /// )
@@ -483,7 +482,7 @@ pub struct Page {
     pub supplement: Content,
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
-    pub number: usize,
+    pub number: u64,
 }
 
 impl Page {
@@ -646,43 +645,6 @@ cast! {
         Alignment::RIGHT => Self::Right,
         _ => bail!("must be `left` or `right`"),
     },
-}
-
-/// A header, footer, foreground or background definition.
-#[derive(Debug, Clone, Hash)]
-pub enum Marginal {
-    /// Bare content.
-    Content(Content),
-    /// A closure mapping from a page number to content.
-    Func(Func),
-}
-
-impl Marginal {
-    /// Resolve the marginal based on the page number.
-    pub fn resolve(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        page: usize,
-    ) -> SourceResult<Cow<'_, Content>> {
-        Ok(match self {
-            Self::Content(content) => Cow::Borrowed(content),
-            Self::Func(func) => Cow::Owned(
-                func.call(engine, Context::new(None, Some(styles)).track(), [page])?
-                    .display(),
-            ),
-        })
-    }
-}
-
-cast! {
-    Marginal,
-    self => match self {
-        Self::Content(v) => v.into_value(),
-        Self::Func(v) => v.into_value(),
-    },
-    v: Content => Self::Content(v),
-    v: Func => Self::Func(v),
 }
 
 /// A list of page ranges to be exported.

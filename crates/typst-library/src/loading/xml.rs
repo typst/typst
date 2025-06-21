@@ -1,8 +1,7 @@
-use ecow::EcoString;
 use roxmltree::ParsingOptions;
 use typst_syntax::Spanned;
 
-use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
+use crate::diag::{format_xml_like_error, LoadError, LoadedWithin, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
 use crate::loading::{DataSource, Load, Readable};
@@ -34,14 +33,14 @@ use crate::loading::{DataSource, Load, Readable};
 ///   let author = find-child(elem, "author")
 ///   let pars = find-child(elem, "content")
 ///
-///   heading(title.children.first())
+///   [= #title.children.first()]
 ///   text(10pt, weight: "medium")[
 ///     Published by
 ///     #author.children.first()
 ///   ]
 ///
 ///   for p in pars.children {
-///     if (type(p) == "dictionary") {
+///     if type(p) == dictionary {
 ///       parbreak()
 ///       p.children.first()
 ///     }
@@ -50,7 +49,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// #let data = xml("example.xml")
 /// #for elem in data.first().children {
-///   if (type(elem) == "dictionary") {
+///   if type(elem) == dictionary {
 ///     article(elem)
 ///   }
 /// }
@@ -58,29 +57,25 @@ use crate::loading::{DataSource, Load, Readable};
 #[func(scope, title = "XML")]
 pub fn xml(
     engine: &mut Engine,
-    /// A path to an XML file or raw XML bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to an XML file or raw XML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    let text = data.as_str().map_err(FileError::from).at(source.span)?;
+    let loaded = source.load(engine.world)?;
+    let text = loaded.data.as_str().within(&loaded)?;
     let document = roxmltree::Document::parse_with_options(
         text,
         ParsingOptions { allow_dtd: true, ..Default::default() },
     )
     .map_err(format_xml_error)
-    .at(source.span)?;
+    .within(&loaded)?;
     Ok(convert_xml(document.root()))
 }
 
 #[scope]
 impl xml {
     /// Reads structured data from an XML string/bytes.
-    ///
-    /// This function is deprecated. The [`xml`] function now accepts bytes
-    /// directly.
     #[func(title = "Decode XML")]
+    #[deprecated = "`xml.decode` is deprecated, directly pass bytes to `xml` instead"]
     pub fn decode(
         engine: &mut Engine,
         /// XML data.
@@ -115,6 +110,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(error: roxmltree::Error) -> EcoString {
+fn format_xml_error(error: roxmltree::Error) -> LoadError {
     format_xml_like_error("XML", error)
 }

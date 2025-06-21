@@ -24,5 +24,9 @@
 ),))
 
 --- xml-invalid ---
-// Error: 6-28 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
+// Error: "/assets/data/bad.xml" 3:0 failed to parse XML (found closing tag 'data' instead of 'hello')
 #xml("/assets/data/bad.xml")
+
+--- xml-decode-deprecated ---
+// Warning: 14-20 `xml.decode` is deprecated, directly pass bytes to `xml` instead
+#let _ = xml.decode

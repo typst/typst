@@ -8,7 +8,7 @@ use wasmi::Memory;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Bytes, Func, Module, Scope, Value};
+use crate::foundations::{cast, func, scope, Binding, Bytes, Func, Module, Scope, Value};
 use crate::loading::{DataSource, Load};
 
 /// Loads a WebAssembly module.
@@ -148,13 +148,11 @@ use crate::loading::{DataSource, Load};
 #[func(scope)]
 pub fn plugin(
     engine: &mut Engine,
-    /// A path to a WebAssembly file or raw WebAssembly bytes.
-    ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// A [path]($syntax/#paths) to a WebAssembly file or raw WebAssembly bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Module> {
-    let data = source.load(engine.world)?;
-    Plugin::module(data).at(source.span)
+    let loaded = source.load(engine.world)?;
+    Plugin::module(loaded.data).at(source.span)
 }
 
 #[scope]
@@ -369,7 +367,7 @@ impl Plugin {
             if matches!(export.ty(), wasmi::ExternType::Func(_)) {
                 let name = EcoString::from(export.name());
                 let func = PluginFunc { plugin: shared.clone(), name: name.clone() };
-                scope.define(name, Func::from(func));
+                scope.bind(name, Binding::detached(Func::from(func)));
             }
         }
 

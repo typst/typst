@@ -22,7 +22,7 @@ use crate::foundations::{
     Smart, StyleChain,
 };
 use crate::layout::{BlockElem, Length, Rel, Sizing};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::LocalName;
 
@@ -46,17 +46,29 @@ use crate::text::LocalName;
 /// ```
 #[elem(scope, Show, LocalName, Figurable)]
 pub struct ImageElem {
-    /// A path to an image file or raw bytes making up an image in one of the
-    /// supported [formats]($image.format).
+    /// A [path]($syntax/#paths) to an image file or raw bytes making up an
+    /// image in one of the supported [formats]($image.format).
     ///
-    /// For more details about paths, see the [Paths section]($syntax/#paths).
+    /// Bytes can be used to specify raw pixel data in a row-major,
+    /// left-to-right, top-to-bottom format.
+    ///
+    /// ```example
+    /// #let original = read("diagram.svg")
+    /// #let changed = original.replace(
+    ///   "#2B80FF", // blue
+    ///   green.to-hex(),
+    /// )
+    ///
+    /// #image(bytes(original))
+    /// #image(bytes(changed))
+    /// ```
     #[required]
     #[parse(
         let source = args.expect::<Spanned<DataSource>>("source")?;
-        let data = source.load(engine.world)?;
-        Derived::new(source.v, data)
+        let loaded = source.load(engine.world)?;
+        Derived::new(source.v, loaded)
     )]
-    pub source: Derived<DataSource, Bytes>,
+    pub source: Derived<DataSource, Loaded>,
 
     /// The image's format.
     ///
@@ -65,8 +77,8 @@ pub struct ImageElem {
     /// [`source`]($image.source) (even then, Typst will try to figure out the
     /// format automatically, but that's not always possible).
     ///
-    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}` as well
-    /// as raw pixel data. Embedding PDFs as images is
+    /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
+    /// `{"webp"}` as well as raw pixel data. Embedding PDFs as images is
     /// [not currently supported](https://github.com/typst/typst/issues/145).
     ///
     /// When providing raw pixel data as the `source`, you must specify a
@@ -142,45 +154,26 @@ pub struct ImageElem {
     /// to `{auto}`, Typst will try to extract an ICC profile from the image.
     #[parse(match args.named::<Spanned<Smart<DataSource>>>("icc")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom({
-            let data = Spanned::new(&source, span).load(engine.world)?;
-            Derived::new(source, data)
+            let loaded = Spanned::new(&source, span).load(engine.world)?;
+            Derived::new(source, loaded.data)
         })),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
     })]
     #[borrowed]
     pub icc: Smart<Derived<DataSource, Bytes>>,
-
-    /// Whether text in SVG images should be converted into curves before
-    /// embedding. This will result in the text becoming unselectable in the
-    /// output.
-    #[default(false)]
-    pub flatten_text: bool,
 }
 
 #[scope]
 #[allow(clippy::too_many_arguments)]
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
-    ///
-    /// This function is deprecated. The [`image`] function now accepts bytes
-    /// directly.
-    ///
-    /// ```example
-    /// #let original = read("diagram.svg")
-    /// #let changed = original.replace(
-    ///   "#2B80FF", // blue
-    ///   green.to-hex(),
-    /// )
-    ///
-    /// #image.decode(original)
-    /// #image.decode(changed)
-    /// ```
     #[func(title = "Decode Image")]
+    #[deprecated = "`image.decode` is deprecated, directly pass bytes to `image` instead"]
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
-        data: Readable,
+        data: Spanned<Readable>,
         /// The image's format. Detected automatically by default.
         #[named]
         format: Option<Smart<ImageFormat>>,
@@ -199,13 +192,11 @@ impl ImageElem {
         /// A hint to viewers how they should scale the image.
         #[named]
         scaling: Option<Smart<ImageScaling>>,
-        /// Whether text in SVG images should be converted into curves before
-        /// embedding.
-        #[named]
-        flatten_text: Option<bool>,
     ) -> StrResult<Content> {
-        let bytes = data.into_bytes();
-        let source = Derived::new(DataSource::Bytes(bytes.clone()), bytes);
+        let bytes = data.v.into_bytes();
+        let loaded =
+            Loaded::new(Spanned::new(LoadSource::Bytes, data.span), bytes.clone());
+        let source = Derived::new(DataSource::Bytes(bytes), loaded);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
             elem.push_format(format);
@@ -224,9 +215,6 @@ impl ImageElem {
         }
         if let Some(scaling) = scaling {
             elem.push_scaling(scaling);
-        }
-        if let Some(flatten_text) = flatten_text {
-            elem.push_flatten_text(flatten_text);
         }
         Ok(elem.pack().spanned(span))
     }
@@ -412,13 +400,27 @@ impl ImageFormat {
             return Some(Self::Raster(RasterFormat::Exchange(format)));
         }
 
-        // SVG or compressed SVG.
-        if data.starts_with(b"<svg") || data.starts_with(&[0x1f, 0x8b]) {
+        if is_svg(data) {
             return Some(Self::Vector(VectorFormat::Svg));
         }
 
         None
     }
+}
+
+/// Checks whether the data looks like an SVG or a compressed SVG.
+fn is_svg(data: &[u8]) -> bool {
+    // Check for the gzip magic bytes. This check is perhaps a bit too
+    // permissive as other formats than SVGZ could use gzip.
+    if data.starts_with(&[0x1f, 0x8b]) {
+        return true;
+    }
+
+    // If the first 2048 bytes contain the SVG namespace declaration, we assume
+    // that it's an SVG. Note that, if the SVG does not contain a namespace
+    // declaration, usvg will reject it.
+    let head = &data[..data.len().min(2048)];
+    memchr::memmem::find(head, b"http://www.w3.org/2000/svg").is_some()
 }
 
 /// A vector graphics format.

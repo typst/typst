@@ -7,12 +7,12 @@ use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
 use crate::set::{syntax_set, SyntaxSet};
-use crate::{ast, set, LexMode, Lexer, SyntaxError, SyntaxKind, SyntaxNode};
+use crate::{ast, set, Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
-    let mut p = Parser::new(text, 0, LexMode::Markup);
+    let mut p = Parser::new(text, 0, SyntaxMode::Markup);
     markup_exprs(&mut p, true, syntax_set!(End));
     p.finish_into(SyntaxKind::Markup)
 }
@@ -20,7 +20,7 @@ pub fn parse(text: &str) -> SyntaxNode {
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse code");
-    let mut p = Parser::new(text, 0, LexMode::Code);
+    let mut p = Parser::new(text, 0, SyntaxMode::Code);
     code_exprs(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Code)
 }
@@ -28,7 +28,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 /// Parses top-level math.
 pub fn parse_math(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse math");
-    let mut p = Parser::new(text, 0, LexMode::Math);
+    let mut p = Parser::new(text, 0, SyntaxMode::Math);
     math_exprs(&mut p, syntax_set!(End));
     p.finish_into(SyntaxKind::Math)
 }
@@ -63,7 +63,7 @@ pub(super) fn reparse_markup(
     nesting: &mut usize,
     top_level: bool,
 ) -> Option<Vec<SyntaxNode>> {
-    let mut p = Parser::new(text, range.start, LexMode::Markup);
+    let mut p = Parser::new(text, range.start, SyntaxMode::Markup);
     *at_start |= p.had_newline();
     while !p.end() && p.current_start() < range.end {
         // If not top-level and at a new RightBracket, stop the reparse.
@@ -205,7 +205,7 @@ fn reference(p: &mut Parser) {
 /// Parses a mathematical equation: `$x$`, `$ x^2 $`.
 fn equation(p: &mut Parser) {
     let m = p.marker();
-    p.enter_modes(LexMode::Math, AtNewline::Continue, |p| {
+    p.enter_modes(SyntaxMode::Math, AtNewline::Continue, |p| {
         p.assert(SyntaxKind::Dollar);
         math(p, syntax_set!(Dollar, End));
         p.expect_closing_delimiter(m, SyntaxKind::Dollar);
@@ -271,10 +271,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
-            continuable = matches!(
-                math_class(p.current_text()),
-                None | Some(MathClass::Alphabetic)
-            );
+            // `a(b)/c` parses as `(a(b))/c` if `a` is continuable.
+            continuable = math_class(p.current_text()) == Some(MathClass::Alphabetic)
+                || p.current_text().chars().all(char::is_alphabetic);
             if !maybe_delimited(p) {
                 p.eat();
             }
@@ -616,7 +615,7 @@ fn code_exprs(p: &mut Parser, stop_set: SyntaxSet) {
 
 /// Parses an atomic code expression embedded in markup or math.
 fn embedded_code_expr(p: &mut Parser) {
-    p.enter_modes(LexMode::Code, AtNewline::Stop, |p| {
+    p.enter_modes(SyntaxMode::Code, AtNewline::Stop, |p| {
         p.assert(SyntaxKind::Hash);
         if p.had_trivia() || p.end() {
             p.expected("expression");
@@ -778,7 +777,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
 /// Reparses a full content or code block.
 pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
-    let mut p = Parser::new(text, range.start, LexMode::Code);
+    let mut p = Parser::new(text, range.start, SyntaxMode::Code);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
     block(&mut p);
     (p.balanced && p.prev_end() == range.end)
@@ -797,7 +796,7 @@ fn block(p: &mut Parser) {
 /// Parses a code block: `{ let x = 1; x + 2 }`.
 fn code_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter_modes(LexMode::Code, AtNewline::Continue, |p| {
+    p.enter_modes(SyntaxMode::Code, AtNewline::Continue, |p| {
         p.assert(SyntaxKind::LeftBrace);
         code(p, syntax_set!(RightBrace, RightBracket, RightParen, End));
         p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
@@ -808,7 +807,7 @@ fn code_block(p: &mut Parser) {
 /// Parses a content block: `[*Hi* there!]`.
 fn content_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter_modes(LexMode::Markup, AtNewline::Continue, |p| {
+    p.enter_modes(SyntaxMode::Markup, AtNewline::Continue, |p| {
         p.assert(SyntaxKind::LeftBracket);
         markup(p, true, true, syntax_set!(RightBracket, End));
         p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
@@ -1517,10 +1516,10 @@ fn pattern_leaf<'s>(
 /// ### Modes
 ///
 /// The parser manages the transitions between the three modes of Typst through
-/// [lexer modes](`LexMode`) and [newline modes](`AtNewline`).
+/// [syntax modes](`SyntaxMode`) and [newline modes](`AtNewline`).
 ///
-/// The lexer modes map to the three Typst modes and are stored in the lexer,
-/// changing which`SyntaxKind`s it will generate.
+/// The syntax modes map to the three Typst modes and are stored in the lexer,
+/// changing which `SyntaxKind`s it will generate.
 ///
 /// The newline mode is used to determine whether a newline should end the
 /// current expression. If so, the parser temporarily changes `token`'s kind to
@@ -1530,7 +1529,7 @@ struct Parser<'s> {
     /// The source text shared with the lexer.
     text: &'s str,
     /// A lexer over the source text with multiple modes. Defines the boundaries
-    /// of tokens and determines their [`SyntaxKind`]. Contains the [`LexMode`]
+    /// of tokens and determines their [`SyntaxKind`]. Contains the [`SyntaxMode`]
     /// defining our current Typst mode.
     lexer: Lexer<'s>,
     /// The newline mode: whether to insert a temporary end at newlines.
@@ -1572,10 +1571,10 @@ struct Token {
     prev_end: usize,
 }
 
-/// Information about a newline if present (currently only relevant in Markup).
+/// Information about newlines in a group of trivia.
 #[derive(Debug, Clone, Copy)]
 struct Newline {
-    /// The column of the start of our token in its line.
+    /// The column of the start of the next token in its line.
     column: Option<usize>,
     /// Whether any of our newlines were paragraph breaks.
     parbreak: bool,
@@ -1588,7 +1587,7 @@ enum AtNewline {
     Continue,
     /// Stop at any newline.
     Stop,
-    /// Continue only if there is no continuation with `else` or `.` (Code only).
+    /// Continue only if there is a continuation with `else` or `.` (Code only).
     ContextualContinue,
     /// Stop only at a parbreak, not normal newlines (Markup only).
     StopParBreak,
@@ -1611,9 +1610,10 @@ impl AtNewline {
             },
             AtNewline::StopParBreak => parbreak,
             AtNewline::RequireColumn(min_col) => {
-                // Don't stop if this newline doesn't start a column (this may
-                // be checked on the boundary of lexer modes, since we only
-                // report a column in Markup).
+                // When the column is `None`, the newline doesn't start a
+                // column, and we continue parsing. This may happen on the
+                // boundary of syntax modes, since we only report a column in
+                // Markup.
                 column.is_some_and(|column| column <= min_col)
             }
         }
@@ -1643,8 +1643,8 @@ impl IndexMut<Marker> for Parser<'_> {
 
 /// Creating/Consuming the parser and getting info about the current token.
 impl<'s> Parser<'s> {
-    /// Create a new parser starting from the given text offset and lexer mode.
-    fn new(text: &'s str, offset: usize, mode: LexMode) -> Self {
+    /// Create a new parser starting from the given text offset and syntax mode.
+    fn new(text: &'s str, offset: usize, mode: SyntaxMode) -> Self {
         let mut lexer = Lexer::new(text, mode);
         lexer.jump(offset);
         let nl_mode = AtNewline::Continue;
@@ -1825,13 +1825,13 @@ impl<'s> Parser<'s> {
         self.nodes.insert(from, SyntaxNode::inner(kind, children));
     }
 
-    /// Parse within the [`LexMode`] for subsequent tokens (does not change the
+    /// Parse within the [`SyntaxMode`] for subsequent tokens (does not change the
     /// current token). This may re-lex the final token on exit.
     ///
     /// This function effectively repurposes the call stack as a stack of modes.
     fn enter_modes(
         &mut self,
-        mode: LexMode,
+        mode: SyntaxMode,
         stop: AtNewline,
         func: impl FnOnce(&mut Parser<'s>),
     ) {
@@ -1891,7 +1891,8 @@ impl<'s> Parser<'s> {
         }
 
         let newline = if had_newline {
-            let column = (lexer.mode() == LexMode::Markup).then(|| lexer.column(start));
+            let column =
+                (lexer.mode() == SyntaxMode::Markup).then(|| lexer.column(start));
             let newline = Newline { column, parbreak };
             if nl_mode.stop_at(newline, kind) {
                 // Insert a temporary `SyntaxKind::End` to halt the parser.
@@ -1938,7 +1939,7 @@ struct Checkpoint {
 #[derive(Clone)]
 struct PartialState {
     cursor: usize,
-    lex_mode: LexMode,
+    lex_mode: SyntaxMode,
     token: Token,
 }
 

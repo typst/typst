@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::{self, Sum};
 use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Deref, DerefMut};
+use std::ops::{Add, AddAssign, ControlFlow, Deref, DerefMut};
 use std::sync::Arc;
 
 use comemo::Tracked;
@@ -414,10 +414,11 @@ impl Content {
     /// Elements produced in `show` rules will not be included in the results.
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         let mut results = Vec::new();
-        self.traverse(&mut |element| {
+        let _ = self.traverse(&mut |element| -> ControlFlow<()> {
             if selector.matches(&element, None) {
                 results.push(element);
             }
+            ControlFlow::Continue(())
         });
         results
     }
@@ -427,54 +428,58 @@ impl Content {
     ///
     /// Elements produced in `show` rules will not be included in the results.
     pub fn query_first(&self, selector: &Selector) -> Option<Content> {
-        let mut result = None;
-        self.traverse(&mut |element| {
-            if result.is_none() && selector.matches(&element, None) {
-                result = Some(element);
+        self.traverse(&mut |element| -> ControlFlow<Content> {
+            if selector.matches(&element, None) {
+                ControlFlow::Break(element)
+            } else {
+                ControlFlow::Continue(())
             }
-        });
-        result
+        })
+        .break_value()
     }
 
     /// Extracts the plain text of this content.
     pub fn plain_text(&self) -> EcoString {
         let mut text = EcoString::new();
-        self.traverse(&mut |element| {
+        let _ = self.traverse(&mut |element| -> ControlFlow<()> {
             if let Some(textable) = element.with::<dyn PlainText>() {
                 textable.plain_text(&mut text);
             }
+            ControlFlow::Continue(())
         });
         text
     }
 
     /// Traverse this content.
-    fn traverse<F>(&self, f: &mut F)
+    fn traverse<F, B>(&self, f: &mut F) -> ControlFlow<B>
     where
-        F: FnMut(Content),
+        F: FnMut(Content) -> ControlFlow<B>,
     {
-        f(self.clone());
-
-        self.inner
-            .elem
-            .fields()
-            .into_iter()
-            .for_each(|(_, value)| walk_value(value, f));
-
         /// Walks a given value to find any content that matches the selector.
-        fn walk_value<F>(value: Value, f: &mut F)
+        ///
+        /// Returns early if the function gives `ControlFlow::Break`.
+        fn walk_value<F, B>(value: Value, f: &mut F) -> ControlFlow<B>
         where
-            F: FnMut(Content),
+            F: FnMut(Content) -> ControlFlow<B>,
         {
             match value {
                 Value::Content(content) => content.traverse(f),
                 Value::Array(array) => {
                     for value in array {
-                        walk_value(value, f);
+                        walk_value(value, f)?;
                     }
+                    ControlFlow::Continue(())
                 }
-                _ => {}
+                _ => ControlFlow::Continue(()),
             }
         }
+
+        // Call f on the element itself before recursively iterating its fields.
+        f(self.clone())?;
+        for (_, value) in self.inner.elem.fields() {
+            walk_value(value, f)?;
+        }
+        ControlFlow::Continue(())
     }
 }
 
