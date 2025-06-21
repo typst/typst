@@ -503,6 +503,10 @@ pub struct FigureCaption {
     #[default(OuterVAlignment::Bottom)]
     pub position: OuterVAlignment,
 
+    /// The figure's supplement.
+    #[synthesized]
+    pub supplement: Option<Content>,
+
     /// The separator which will appear between the number and body.
     ///
     /// If set to `{auto}`, the separator will be adapted to the current
@@ -541,10 +545,6 @@ pub struct FigureCaption {
     /// The figure's supplement.
     #[synthesized]
     pub kind: FigureKind,
-
-    /// The figure's supplement.
-    #[synthesized]
-    pub supplement: Option<Content>,
 
     /// How to number the figure.
     #[synthesized]
