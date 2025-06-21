@@ -1309,8 +1309,10 @@ impl ControlPoints {
 
     /// Draw the cap at the beginning of the segment.
     ///
-    /// If this corner has a radius, or has a stroke before it,
+    /// If this corner has a stroke before it,
     /// a default "butt" cap is used.
+    ///
+    /// NOTE: doesn't support the case where the corner has a radius.
     pub fn start_cap(&self, curve: &mut Curve, cap_type: LineCap) {
         if self.stroke_before != Abs::zero()
             || self.radius != Abs::zero()
@@ -1343,8 +1345,10 @@ impl ControlPoints {
 
     /// Draw the cap at the end of the segment.
     ///
-    /// If this corner has a radius, or has a stroke after it,
+    /// If this corner has a stroke before it,
     /// a default "butt" cap is used.
+    ///
+    /// NOTE: doesn't support the case where the corner has a radius.
     pub fn end_cap(&self, curve: &mut Curve, cap_type: LineCap) {
         if self.stroke_after != Abs::zero()
             || self.radius != Abs::zero()
