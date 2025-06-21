@@ -14,9 +14,14 @@ use crate::text::{Lang, Region, TextElem};
 /// Cite a work from the bibliography.
 ///
 /// Before you starting citing, you need to add a [bibliography] somewhere in
-/// your document.
+/// your document. Note that you can cite using BibLaTeX or Hayagriva
+/// bibliography file. For more information see [bibliography.summary].
 ///
 /// # Example
+/// Link to the BibLaTeX file from example:
+/// [`works.bib`](https://github.com/typst/typst-dev-assets/blob/main/files/bib/works.bib).
+/// For more Hayagriva examples see [this](https://github.com/typst/hayagriva/blob/main/tests/data/basic.yml).
+///
 /// ```example
 /// This was already noted by
 /// pirates long ago. @arrgh
