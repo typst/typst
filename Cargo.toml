@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "docs", "tests", "tests/fuzz", "tools/codegen"]
+members = ["crates/*", "docs", "tests", "tests/fuzz"]
 default-members = ["crates/typst-cli"]
 resolver = "2"
 
@@ -32,7 +32,7 @@ typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "c74e539" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "a70ec89" }
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
 arrayvec = "0.7.4"
 az = "1.2"
@@ -104,7 +104,6 @@ roxmltree = "0.20"
 rust_decimal = { version = "1.36.0", default-features = false, features = ["maths"] }
 rustybuzz = "0.20"
 same-file = "1"
-scraper = "0.23"
 self-replace = "1.3.7"
 semver = "1"
 serde = { version = "1.0.184", features = ["derive"] }

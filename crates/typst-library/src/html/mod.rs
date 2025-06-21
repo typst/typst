@@ -1,7 +1,6 @@
 //! HTML output.
 
 mod dom;
-mod generated;
 mod typed;
 
 pub use self::dom::*;
