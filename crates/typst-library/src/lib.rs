@@ -148,7 +148,7 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
-    /// The standard library as a value. Used to provide the `std` variable.
+    /// The standard library as a value. Used to provide the `std` module.
     pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
