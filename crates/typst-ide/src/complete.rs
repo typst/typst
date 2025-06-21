@@ -1848,4 +1848,13 @@ mod tests {
             .must_include(["\"New Computer Modern Math\""])
             .must_exclude(["\"Libertinus Serif\""]);
     }
+
+    #[test]
+    fn test_autocomplete_typed_html() {
+        test("#html.div(translate: )", -2)
+            .must_include(["true", "false"])
+            .must_exclude(["\"yes\"", "\"no\""]);
+        test("#html.input(value: )", -2).must_include(["float", "string", "red", "blue"]);
+        test("#html.div(role: )", -2).must_include(["\"alertdialog\""]);
+    }
 }

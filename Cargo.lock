@@ -2863,7 +2863,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-assets?rev=c74e539#c74e539b090070a0c66fd007c550f5b6d3b724bd"
+source = "git+https://github.com/typst/typst-assets?rev=a70ec89#a70ec8995e8ea59b66a6d3351ffaea2f16441872"
 
 [[package]]
 name = "typst-cli"
