@@ -235,6 +235,7 @@ fn hint_invalid_main_file(
 }
 
 /// HTML export will warn or error depending on whether the feature flag is enabled.
+#[cfg(feature = "html")]
 fn warn_or_error_for_html(
     world: Tracked<dyn World + '_>,
     sink: &mut Sink,
@@ -257,6 +258,18 @@ fn warn_or_error_for_html(
         );
     }
     Ok(())
+}
+
+#[cfg(not(feature = "html"))]
+fn warn_or_error_for_html(
+    _world: Tracked<dyn World + '_>,
+    _sink: &mut Sink,
+) -> SourceResult<()> {
+    bail!(
+        Span::detached(),
+        "html export is only available when compiled with the `html` feature flag enabled";
+        hint: "recompile with `--features html` to enable HTML export support"
+    );
 }
 
 /// A document is what results from compilation.
