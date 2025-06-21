@@ -1,7 +1,8 @@
 use ecow::{eco_format, EcoString};
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::foundations::{func, scope, ty, Repr, Str};
+use crate::diag::StrResult;
+use crate::foundations::{bail, func, scope, ty, Repr, Str};
 
 /// A label for an element.
 ///
@@ -27,7 +28,8 @@ use crate::foundations::{func, scope, ty, Repr, Str};
 /// # Syntax
 /// This function also has dedicated syntax: You can create a label by enclosing
 /// its name in angle brackets. This works both in markup and code. A label's
-/// name can contain letters, numbers, `_`, `-`, `:`, and `.`.
+/// name can contain letters, numbers, `_`, `-`, `:`, and `.`. Empty label names
+/// get rejected.
 ///
 /// Note that there is a syntactical difference when using the dedicated syntax
 /// for this function. In the code below, the `[<a>]` terminates the heading and
@@ -50,8 +52,12 @@ pub struct Label(PicoStr);
 
 impl Label {
     /// Creates a label from an interned string.
-    pub fn new(name: PicoStr) -> Self {
-        Self(name)
+    /// Callers need to ensure the given string is not empty.
+    pub fn new(name: PicoStr) -> Option<Self> {
+        match name {
+            PicoStr::EMPTY => None,
+            _ => Some(Self(name)),
+        }
     }
 
     /// Resolves the label to a string.
@@ -67,13 +73,17 @@ impl Label {
 
 #[scope]
 impl Label {
-    /// Creates a label from a string.
+    /// Creates a label from a string. Fails for empty strings.
     #[func(constructor)]
     pub fn construct(
         /// The name of the label.
         name: Str,
-    ) -> Label {
-        Self(PicoStr::intern(name.as_str()))
+    ) -> StrResult<Label> {
+        if name.is_empty() {
+            bail!("label name must not be empty");
+        }
+
+        Ok(Self(PicoStr::intern(name.as_str())))
     }
 }
 

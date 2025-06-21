@@ -205,7 +205,9 @@ impl Eval for ast::Label<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Label(Label::new(PicoStr::intern(self.get()))))
+        Ok(Value::Label(
+            Label::new(PicoStr::intern(self.get())).expect("unexpected empty label"),
+        ))
     }
 }
 
@@ -213,7 +215,8 @@ impl Eval for ast::Ref<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let target = Label::new(PicoStr::intern(self.target()));
+        let target = Label::new(PicoStr::intern(self.target()))
+            .expect("unexpected empty reference");
         let mut elem = RefElem::new(target);
         if let Some(supplement) = self.supplement() {
             elem.push_supplement(Smart::Custom(Some(Supplement::Content(

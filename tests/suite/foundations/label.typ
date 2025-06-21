@@ -92,3 +92,8 @@ _Visible_
 --- label-non-existent-error ---
 // Error: 5-10 sequence does not have field "label"
 #[].label
+
+--- label-not-named-error ---
+// Error: 23-32 label name must not be empty
+= Something to label #label("")
+
