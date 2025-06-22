@@ -127,6 +127,10 @@
           checks = self'.checks;
           inputsFrom = [ typst ];
 
+          buildInputs = with pkgs; [
+            rust-analyzer
+          ];
+
           packages = [
             # A script for quickly running tests.
             # See https://github.com/typst/typst/blob/main/tests/README.md#making-an-alias
