@@ -672,7 +672,7 @@ fn shape<'a>(
     region: Option<Region>,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
-    let script_settings = TextElem::shift_settings_in(styles);
+    let shift_settings = TextElem::shift_settings_in(styles);
     let mut ctx = ShapingContext {
         engine,
         size,
@@ -683,10 +683,11 @@ fn shape<'a>(
         features: features(styles),
         fallback: TextElem::fallback_in(styles),
         dir,
+        shift_settings,
     };
 
     if !text.is_empty() {
-        shape_segment(&mut ctx, base, text, families(styles), script_settings);
+        shape_segment(&mut ctx, base, text, families(styles));
     }
 
     track_and_space(&mut ctx);
@@ -728,6 +729,7 @@ struct ShapingContext<'a, 'v> {
     features: Vec<rustybuzz::Feature>,
     fallback: bool,
     dir: Dir,
+    shift_settings: Option<ShiftSettings>,
 }
 
 /// Shape text with font fallback using the `families` iterator.
@@ -736,7 +738,6 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
-    shift_settings: Option<ShiftSettings>,
 ) {
     // Don't try shaping newlines, tabs, or default ignorables.
     if text
@@ -804,7 +805,7 @@ fn shape_segment<'a>(
     buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
     let (script_shift, script_compensation, scale) =
-        compute_synthesized_shift(ctx, text, &font, shift_settings);
+        compute_synthesized_shift(ctx, text, &font);
 
     // Prepare the shape plan. This plan depends on direction, script, language,
     // and features, but is independent from the text and can thus be memoized.
@@ -941,13 +942,7 @@ fn shape_segment<'a>(
             }
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(
-                ctx,
-                base + start,
-                &text[start..end],
-                families.clone(),
-                shift_settings,
-            );
+            shape_segment(ctx, base + start, &text[start..end], families.clone());
         }
 
         i += 1;
@@ -969,9 +964,8 @@ fn compute_synthesized_shift(
     ctx: &mut ShapingContext,
     text: &str,
     font: &Font,
-    settings: Option<ShiftSettings>,
 ) -> (Em, Em, Em) {
-    match settings {
+    match ctx.shift_settings {
         None => (Em::zero(), Em::zero(), Em::one()),
         Some(settings) => settings
             .typographic
