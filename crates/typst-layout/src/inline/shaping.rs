@@ -736,7 +736,7 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
-    script_settings: Option<ShiftSettings>,
+    shift_settings: Option<ShiftSettings>,
 ) {
     // Don't try shaping newlines, tabs, or default ignorables.
     if text
@@ -803,51 +803,8 @@ fn shape_segment<'a>(
     // text extraction.
     buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
-    // Those values determine how the rendered text should be transformed to
-    // display sub-/super-scripts properly. If the text is not scripted, or if
-    // the OpenType feature can be used, the rendered text should not be
-    // transformed in any way, and so those values are neutral (`(0, 0, 1)`). If
-    // scripts should be synthesized, those values determine how to transform
-    // the rendered text to display scripts as expected.
-    let (script_shift, script_compensation, scale) = match script_settings {
-        None => (Em::zero(), Em::zero(), Em::one()),
-        Some(settings) => settings
-            .typographic
-            .then(|| {
-                // If typographic scripts are enabled (i.e., we want to use the
-                // OpenType feature instead of synthesizing if possible), we add
-                // "subs"/"sups" to the feature list if supported by the font.
-                // In case of a problem, we just early exit
-                let gsub = font.rusty().tables().gsub?;
-                let subtable_index =
-                    gsub.features.find(settings.kind.feature())?.lookup_indices.get(0)?;
-                let coverage = gsub
-                    .lookups
-                    .get(subtable_index)?
-                    .subtables
-                    .get::<SubstitutionSubtable>(0)?
-                    .coverage();
-                text.chars()
-                    .all(|c| {
-                        font.rusty().glyph_index(c).is_some_and(|i| coverage.contains(i))
-                    })
-                    .then(|| {
-                        ctx.features.push(Feature::new(settings.kind.feature(), 1, ..));
-                        (Em::zero(), Em::zero(), Em::one())
-                    })
-            })
-            // Reunite the cases where `typographic` is `false` or where using
-            // the OpenType feature would not work.
-            .flatten()
-            .unwrap_or_else(|| {
-                let script_metrics = settings.kind.read_metrics(font.metrics());
-                (
-                    settings.shift.unwrap_or(script_metrics.vertical_offset),
-                    script_metrics.horizontal_offset,
-                    settings.size.unwrap_or(script_metrics.height),
-                )
-            }),
-    };
+    let (script_shift, script_compensation, scale) =
+        compute_synthesized_shift(ctx, text, &font, shift_settings);
 
     // Prepare the shape plan. This plan depends on direction, script, language,
     // and features, but is independent from the text and can thus be memoized.
@@ -989,7 +946,7 @@ fn shape_segment<'a>(
                 base + start,
                 &text[start..end],
                 families.clone(),
-                script_settings,
+                shift_settings,
             );
         }
 
@@ -997,6 +954,62 @@ fn shape_segment<'a>(
     }
 
     ctx.used.pop();
+}
+
+/// Returns a `(script_shift, script_compensation, scale)` triplet describing
+/// how to synthesize scripts.
+///
+/// Those values determine how the rendered text should be transformed to
+/// display sub-/super-scripts. If the text is not scripted, or if the OpenType
+/// feature can be used, the rendered text should not be transformed in any way,
+/// and so those values are neutral (`(0, 0, 1)`). If scripts should be
+/// synthesized, those values determine how to transform the rendered text to
+/// display scripts as expected.
+fn compute_synthesized_shift(
+    ctx: &mut ShapingContext,
+    text: &str,
+    font: &Font,
+    settings: Option<ShiftSettings>,
+) -> (Em, Em, Em) {
+    match settings {
+        None => (Em::zero(), Em::zero(), Em::one()),
+        Some(settings) => settings
+            .typographic
+            .then(|| {
+                // If typographic scripts are enabled (i.e., we want to use the
+                // OpenType feature instead of synthesizing if possible), we add
+                // "subs"/"sups" to the feature list if supported by the font.
+                // In case of a problem, we just early exit
+                let gsub = font.rusty().tables().gsub?;
+                let subtable_index =
+                    gsub.features.find(settings.kind.feature())?.lookup_indices.get(0)?;
+                let coverage = gsub
+                    .lookups
+                    .get(subtable_index)?
+                    .subtables
+                    .get::<SubstitutionSubtable>(0)?
+                    .coverage();
+                text.chars()
+                    .all(|c| {
+                        font.rusty().glyph_index(c).is_some_and(|i| coverage.contains(i))
+                    })
+                    .then(|| {
+                        ctx.features.push(Feature::new(settings.kind.feature(), 1, ..));
+                        (Em::zero(), Em::zero(), Em::one())
+                    })
+            })
+            // Reunite the cases where `typographic` is `false` or where using
+            // the OpenType feature would not work.
+            .flatten()
+            .unwrap_or_else(|| {
+                let script_metrics = settings.kind.read_metrics(font.metrics());
+                (
+                    settings.shift.unwrap_or(script_metrics.vertical_offset),
+                    script_metrics.horizontal_offset,
+                    settings.size.unwrap_or(script_metrics.height),
+                )
+            }),
+    }
 }
 
 /// Create a shape plan.
