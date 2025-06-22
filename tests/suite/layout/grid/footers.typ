@@ -41,6 +41,20 @@
   )
 )
 
+--- grid-footer-gutter-short-lived ---
+// Gutter, no repetition, short-lived
+#set page(height: 6em)
+#set text(6pt)
+#set table(inset: 2pt, stroke: 0.5pt)
+#table(
+  gutter: 2pt,
+  align: center + horizon,
+  table.header([a]),
+  table.footer([b]),
+  table.footer([c]),
+  [d],
+)
+
 --- grid-cell-override-in-header-and-footer ---
 #table(
   table.header(table.cell(stroke: red)[Hello]),

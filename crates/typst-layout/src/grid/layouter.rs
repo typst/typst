@@ -232,7 +232,7 @@ pub(super) enum Row {
 
 impl Row {
     /// Returns the `y` index of this row.
-    fn index(&self) -> usize {
+    pub(super) fn index(&self) -> usize {
         match self {
             Self::Frame(_, y, _) => *y,
             Self::Fr(_, y, _) => *y,

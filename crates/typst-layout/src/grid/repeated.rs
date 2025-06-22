@@ -679,9 +679,23 @@ impl<'a> GridLayouter<'a> {
         let footer_len = footer.range.end - footer.range.start;
         self.unbreakable_rows_left += footer_len;
 
-        // TODO(subfooters): also consider omitted gutter before the footer
-        // when there is a header right before it taking it.
-        for y in footer.range.clone() {
+        let footer_start = if self.grid.is_gutter_track(footer.range.start)
+            && self
+                .current
+                .lrows
+                .last()
+                .is_none_or(|r| self.grid.is_gutter_track(r.index()))
+        {
+            // Skip gutter at the top of footer if there's already a gutter
+            // from a repeated header right before it in the current region.
+            // Normally, that shouldn't happen as it indicates we have a widow,
+            // but we can't fully prevent widows anyway.
+            footer.range.start + 1
+        } else {
+            footer.range.start
+        };
+
+        for y in footer_start..footer.range.end {
             self.layout_row_with_state(
                 y,
                 engine,
