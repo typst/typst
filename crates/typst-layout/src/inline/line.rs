@@ -429,8 +429,8 @@ pub fn apply_shift<'a>(
                     .select(family.as_str(), variant(styles))
                     .and_then(|id| world.font(id))
             })
-            .map_or(scripts.kind.default_metrics(), |f| {
-                scripts.kind.read_metrics(f.metrics())
+            .map_or(*scripts.kind.default_metrics(), |f| {
+                *scripts.kind.read_metrics(f.metrics())
             });
         baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).resolve(styles);
         compensation += font_metrics.horizontal_offset.resolve(styles);

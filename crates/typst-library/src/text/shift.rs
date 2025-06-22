@@ -195,28 +195,18 @@ impl ScriptKind {
     ///
     /// This can be used as a last resort if neither the user nor the font
     /// provided those metrics.
-    pub const fn default_metrics(self) -> ScriptMetrics {
+    pub fn default_metrics(self) -> &'static ScriptMetrics {
         match self {
-            Self::Sub => ScriptMetrics {
-                width: Em::new(0.6),
-                height: Em::new(0.6),
-                horizontal_offset: Em::zero(),
-                vertical_offset: Em::new(-0.2),
-            },
-            Self::Super => ScriptMetrics {
-                width: Em::new(0.6),
-                height: Em::new(0.6),
-                horizontal_offset: Em::zero(),
-                vertical_offset: Em::new(0.5),
-            },
+            Self::Sub => &DEFAULT_SUBSCRIPT_METRICS,
+            Self::Super => &DEFAULT_SUPERSCRIPT_METRICS,
         }
     }
 
     /// Reads the script metrics from the font table for to this script kind.
-    pub fn read_metrics(self, font_metrics: &FontMetrics) -> ScriptMetrics {
+    pub fn read_metrics(self, font_metrics: &FontMetrics) -> &ScriptMetrics {
         match self {
-            Self::Sub => font_metrics.subscript,
-            Self::Super => font_metrics.superscript,
+            Self::Sub => font_metrics.subscript.as_ref(),
+            Self::Super => font_metrics.superscript.as_ref(),
         }
         .unwrap_or(self.default_metrics())
     }
@@ -229,3 +219,16 @@ impl ScriptKind {
         }
     }
 }
+static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+    width: Em::new(0.6),
+    height: Em::new(0.6),
+    horizontal_offset: Em::zero(),
+    vertical_offset: Em::new(-0.2),
+};
+
+static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+    width: Em::new(0.6),
+    height: Em::new(0.6),
+    horizontal_offset: Em::zero(),
+    vertical_offset: Em::new(0.5),
+};
