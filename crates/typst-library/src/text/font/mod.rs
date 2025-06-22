@@ -215,10 +215,10 @@ pub struct FontMetrics {
     pub underline: LineMetrics,
     /// Recommended metrics for an overline.
     pub overline: LineMetrics,
-    /// Metrics for subscripts.
-    pub subscript: ScriptMetrics,
-    /// Metrics for superscripts.
-    pub superscript: ScriptMetrics,
+    /// Metrics for subscripts, if provided by the font.
+    pub subscript: Option<ScriptMetrics>,
+    /// Metrics for superscripts, if provided by the font.
+    pub superscript: Option<ScriptMetrics>,
 }
 
 impl FontMetrics {
@@ -254,25 +254,19 @@ impl FontMetrics {
             thickness: underline.thickness,
         };
 
-        let subscript = match ttf.subscript_metrics() {
-            None => ScriptMetrics::default_subscript(),
-            Some(metrics) => ScriptMetrics {
-                width: to_em(metrics.x_size),
-                height: to_em(metrics.y_size),
-                horizontal_offset: to_em(metrics.x_offset),
-                vertical_offset: -to_em(metrics.y_offset),
-            },
-        };
+        let subscript = ttf.subscript_metrics().map(|metrics| ScriptMetrics {
+            width: to_em(metrics.x_size),
+            height: to_em(metrics.y_size),
+            horizontal_offset: to_em(metrics.x_offset),
+            vertical_offset: -to_em(metrics.y_offset),
+        });
 
-        let superscript = match ttf.superscript_metrics() {
-            None => ScriptMetrics::default_superscript(),
-            Some(metrics) => ScriptMetrics {
-                width: to_em(metrics.x_size),
-                height: to_em(metrics.y_size),
-                horizontal_offset: to_em(metrics.x_offset),
-                vertical_offset: to_em(metrics.y_offset),
-            },
-        };
+        let superscript = ttf.superscript_metrics().map(|metrics| ScriptMetrics {
+            width: to_em(metrics.x_size),
+            height: to_em(metrics.y_size),
+            horizontal_offset: to_em(metrics.x_offset),
+            vertical_offset: to_em(metrics.y_offset),
+        });
 
         Self {
             units_per_em,
@@ -326,34 +320,6 @@ pub struct ScriptMetrics {
     ///
     /// For superscripts, this is positive. For subscripts, this is negative.
     pub vertical_offset: Em,
-}
-
-impl ScriptMetrics {
-    /// Creates default script metrics with the specified vertical offset.
-    pub const fn default_with_vertical_offset(offset: Em) -> Self {
-        Self {
-            width: Em::new(0.6),
-            height: Em::new(0.6),
-            horizontal_offset: Em::zero(),
-            vertical_offset: offset,
-        }
-    }
-
-    /// Returns the default metrics for subscripts.
-    ///
-    /// This can be used as a last resort if neither the user nor the font
-    /// provided those metrics.
-    pub const fn default_subscript() -> Self {
-        Self::default_with_vertical_offset(Em::new(-0.2))
-    }
-
-    /// Returns the default metrics for superscripts.
-    ///
-    /// This can be used as a last resort if neither the user nor the font
-    /// provided those metrics.
-    pub const fn default_superscript() -> Self {
-        Self::default_with_vertical_offset(Em::new(0.5))
-    }
 }
 
 /// Identifies a vertical metric of a font.

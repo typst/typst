@@ -197,17 +197,28 @@ impl ScriptKind {
     /// provided those metrics.
     pub const fn default_metrics(self) -> ScriptMetrics {
         match self {
-            Self::Sub => ScriptMetrics::default_subscript(),
-            Self::Super => ScriptMetrics::default_superscript(),
+            Self::Sub => ScriptMetrics {
+                width: Em::new(0.6),
+                height: Em::new(0.6),
+                horizontal_offset: Em::zero(),
+                vertical_offset: Em::new(-0.2),
+            },
+            Self::Super => ScriptMetrics {
+                width: Em::new(0.6),
+                height: Em::new(0.6),
+                horizontal_offset: Em::zero(),
+                vertical_offset: Em::new(0.5),
+            },
         }
     }
 
     /// Reads the script metrics from the font table for to this script kind.
-    pub const fn read_metrics(self, font_metrics: &FontMetrics) -> ScriptMetrics {
+    pub fn read_metrics(self, font_metrics: &FontMetrics) -> ScriptMetrics {
         match self {
             Self::Sub => font_metrics.subscript,
             Self::Super => font_metrics.superscript,
         }
+        .unwrap_or(self.default_metrics())
     }
 
     /// The corresponding OpenType feature.
