@@ -281,7 +281,7 @@ cast! {
     Delimiter,
     self => self.0.into_value(),
     _: NoneValue => Self::none(),
-    v: Symbol => Self::char(v.get())?,
+    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "symbol value is longer than one character")?)?,
     v: char => Self::char(v)?,
 }
 

@@ -39,7 +39,7 @@ impl From<codex::Module> for Scope {
 impl From<codex::Symbol> for Symbol {
     fn from(symbol: codex::Symbol) -> Self {
         match symbol {
-            codex::Symbol::Single(c) => Symbol::single(c),
+            codex::Symbol::Single(value) => Symbol::single(value),
             codex::Symbol::Multi(list) => Symbol::list(list),
         }
     }
