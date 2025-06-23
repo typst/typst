@@ -89,6 +89,9 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     w.buf.push('>');
 
     if tag::is_void(element.tag) {
+        if !element.children.is_empty() {
+            bail!(element.span, "HTML void elements must not have children");
+        }
         return Ok(());
     }
 
