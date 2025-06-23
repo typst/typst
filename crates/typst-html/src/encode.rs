@@ -28,7 +28,7 @@ struct Writer {
     pretty: bool,
 }
 
-/// Write a newline and indent, if pretty printing is enabled.
+/// Writes a newline and indent, if pretty printing is enabled.
 fn write_indent(w: &mut Writer) {
     if w.pretty {
         w.buf.push('\n');
@@ -38,7 +38,7 @@ fn write_indent(w: &mut Writer) {
     }
 }
 
-/// Encode an HTML node into the writer.
+/// Encodes an HTML node into the writer.
 fn write_node(w: &mut Writer, node: &HtmlNode) -> SourceResult<()> {
     match node {
         HtmlNode::Tag(_) => {}
@@ -49,7 +49,7 @@ fn write_node(w: &mut Writer, node: &HtmlNode) -> SourceResult<()> {
     Ok(())
 }
 
-/// Encode plain text into the writer.
+/// Encodes plain text into the writer.
 fn write_text(w: &mut Writer, text: &str, span: Span) -> SourceResult<()> {
     for c in text.chars() {
         if charsets::is_valid_in_normal_element_text(c) {
@@ -61,7 +61,7 @@ fn write_text(w: &mut Writer, text: &str, span: Span) -> SourceResult<()> {
     Ok(())
 }
 
-/// Encode one element into the write.
+/// Encodes one element into the writer.
 fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     w.buf.push('<');
     w.buf.push_str(&element.tag.resolve());
@@ -95,45 +95,52 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         return Ok(());
     }
 
-    let pretty = w.pretty;
     if !element.children.is_empty() {
-        // See HTML spec § 13.1.2.5.
-        if element.tag == tag::pre && starts_with_newline(element) {
-            w.buf.push('\n');
-        }
-
-        let pretty_inside = allows_pretty_inside(element.tag)
-            && element.children.iter().any(|node| match node {
-                HtmlNode::Element(child) => wants_pretty_around(child.tag),
-                _ => false,
-            });
-
-        w.pretty &= pretty_inside;
-        let mut indent = w.pretty;
-
-        w.level += 1;
-        for c in &element.children {
-            let pretty_around = match c {
-                HtmlNode::Tag(_) => continue,
-                HtmlNode::Element(child) => w.pretty && wants_pretty_around(child.tag),
-                HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
-            };
-
-            if core::mem::take(&mut indent) || pretty_around {
-                write_indent(w);
-            }
-            write_node(w, c)?;
-            indent = pretty_around;
-        }
-        w.level -= 1;
-
-        write_indent(w);
+        write_children(w, element)?;
     }
-    w.pretty = pretty;
 
     w.buf.push_str("</");
     w.buf.push_str(&element.tag.resolve());
     w.buf.push('>');
+
+    Ok(())
+}
+
+/// Encodes the children of an element.
+fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
+    // See HTML spec § 13.1.2.5.
+    if element.tag == tag::pre && starts_with_newline(element) {
+        w.buf.push('\n');
+    }
+
+    let pretty = w.pretty;
+    let pretty_inside = allows_pretty_inside(element.tag)
+        && element.children.iter().any(|node| match node {
+            HtmlNode::Element(child) => wants_pretty_around(child.tag),
+            _ => false,
+        });
+
+    w.pretty &= pretty_inside;
+    let mut indent = w.pretty;
+
+    w.level += 1;
+    for c in &element.children {
+        let pretty_around = match c {
+            HtmlNode::Tag(_) => continue,
+            HtmlNode::Element(child) => w.pretty && wants_pretty_around(child.tag),
+            HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
+        };
+
+        if core::mem::take(&mut indent) || pretty_around {
+            write_indent(w);
+        }
+        write_node(w, c)?;
+        indent = pretty_around;
+    }
+    w.level -= 1;
+
+    write_indent(w);
+    w.pretty = pretty;
 
     Ok(())
 }
