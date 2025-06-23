@@ -165,7 +165,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         c if charsets::is_w3c_text_char(c) && c != '\r' => {
             write!(w.buf, "&#x{:x};", c as u32).unwrap()
         }
-        _ => bail!("the character {} cannot be encoded in HTML", c.repr()),
+        _ => bail!("the character `{}` cannot be encoded in HTML", c.repr()),
     }
     Ok(())
 }
