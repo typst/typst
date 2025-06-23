@@ -2,7 +2,9 @@ use std::fmt::Write;
 
 use typst_library::diag::{bail, At, SourceResult, StrResult};
 use typst_library::foundations::Repr;
-use typst_library::html::{charsets, tag, HtmlDocument, HtmlElement, HtmlNode, HtmlTag};
+use typst_library::html::{
+    attr, charsets, tag, HtmlDocument, HtmlElement, HtmlNode, HtmlTag,
+};
 use typst_library::layout::Frame;
 use typst_syntax::Span;
 
@@ -95,7 +97,9 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         return Ok(());
     }
 
-    if !element.children.is_empty() {
+    if tag::is_raw(element.tag) {
+        write_raw(w, element)?;
+    } else if !element.children.is_empty() {
         write_children(w, element)?;
     }
 
@@ -155,6 +159,108 @@ fn starts_with_newline(element: &HtmlElement) -> bool {
         }
     }
     false
+}
+
+/// Encodes the contents of a raw text element.
+fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
+    let text = collect_raw_text(element)?;
+
+    if let Some(closing) = find_closing_tag(&text, element.tag) {
+        bail!(
+            element.span,
+            "HTML raw text element cannot contain its own closing tag";
+            hint: "the sequence `{closing}` appears in the raw text",
+        )
+    }
+
+    let mode = if w.pretty { RawMode::of(element, &text) } else { RawMode::Keep };
+    match mode {
+        RawMode::Keep => {
+            w.buf.push_str(&text);
+        }
+        RawMode::Wrap => {
+            w.buf.push('\n');
+            w.buf.push_str(&text);
+            write_indent(w);
+        }
+        RawMode::Indent => {
+            w.level += 1;
+            for line in text.lines() {
+                write_indent(w);
+                w.buf.push_str(line);
+            }
+            w.level -= 1;
+            write_indent(w);
+        }
+    }
+
+    Ok(())
+}
+
+/// Collects the textual contents of a raw text element.
+fn collect_raw_text(element: &HtmlElement) -> SourceResult<String> {
+    let mut output = String::new();
+    for c in &element.children {
+        match c {
+            HtmlNode::Tag(_) => continue,
+            HtmlNode::Text(text, _) => output.push_str(text),
+            HtmlNode::Element(_) | HtmlNode::Frame(_) => {
+                let span = match c {
+                    HtmlNode::Element(child) => child.span,
+                    _ => element.span,
+                };
+                bail!(span, "HTML raw text element cannot have non-text children")
+            }
+        };
+    }
+    Ok(output)
+}
+
+/// Finds a closing sequence for the given tag in the text, if it exists.
+///
+/// See HTML spec § 13.1.2.6.
+fn find_closing_tag(text: &str, tag: HtmlTag) -> Option<&str> {
+    let s = tag.resolve();
+    let len = s.len();
+    text.match_indices("</").find_map(|(i, _)| {
+        let rest = &text[i + 2..];
+        let disallowed = rest.len() >= len
+            && rest[..len].eq_ignore_ascii_case(&s)
+            && rest[len..].starts_with(['\t', '\n', '\u{c}', '\r', ' ', '>', '/']);
+        disallowed.then(|| &text[i..i + 2 + len])
+    })
+}
+
+/// How to format the contents of a raw text element.
+enum RawMode {
+    /// Just don't touch it.
+    Keep,
+    /// Newline after the opening and newline + indent before the closing tag.
+    Wrap,
+    /// Newlines after opening and before closing tag and each line indented.
+    Indent,
+}
+
+impl RawMode {
+    fn of(element: &HtmlElement, text: &str) -> Self {
+        match element.tag {
+            tag::script
+                if !element.attrs.0.iter().any(|(attr, value)| {
+                    *attr == attr::r#type && value != "text/javascript"
+                }) =>
+            {
+                // Template literals can be multi-line, so indent may change
+                // the semantics of the JavaScript.
+                if text.contains('`') {
+                    Self::Wrap
+                } else {
+                    Self::Indent
+                }
+            }
+            tag::style => Self::Indent,
+            _ => Self::Keep,
+        }
+    }
 }
 
 /// Whether we are allowed to add an extra newline at the start and end of the
