@@ -97,6 +97,11 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 
     let pretty = w.pretty;
     if !element.children.is_empty() {
+        // See HTML spec § 13.1.2.5.
+        if element.tag == tag::pre && starts_with_newline(element) {
+            w.buf.push('\n');
+        }
+
         let pretty_inside = allows_pretty_inside(element.tag)
             && element.children.iter().any(|node| match node {
                 HtmlNode::Element(child) => wants_pretty_around(child.tag),
@@ -131,6 +136,18 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     w.buf.push('>');
 
     Ok(())
+}
+
+/// Whether the first character in the element is a newline.
+fn starts_with_newline(element: &HtmlElement) -> bool {
+    for child in &element.children {
+        match child {
+            HtmlNode::Tag(_) => {}
+            HtmlNode::Text(text, _) => return text.starts_with(['\n', '\r']),
+            _ => return false,
+        }
+    }
+    false
 }
 
 /// Whether we are allowed to add an extra newline at the start and end of the

@@ -5,3 +5,8 @@
 --- html-void-element-with-children html ---
 // Error: 2-27 HTML void elements must not have children
 #html.elem("img", [Hello])
+
+--- html-pre-starting-with-newline html ---
+#html.pre("hello")
+#html.pre("\nhello")
+#html.pre("\n\nhello")
