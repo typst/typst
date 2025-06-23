@@ -292,8 +292,8 @@ impl UnionType {
 
 /// A list of items separated by a specific separator char.
 ///
-/// - https://html.spec.whatwg.org/#space-separated-tokens>
-/// - https://html.spec.whatwg.org/#comma-separated-tokens>
+/// - <https://html.spec.whatwg.org/#space-separated-tokens>
+/// - <https://html.spec.whatwg.org/#comma-separated-tokens>
 struct ListType {
     inner: &'static data::Type,
     separator: char,
