@@ -501,7 +501,7 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for item in line.items.indexed_iter() {
+    for &(idx, ref item) in line.items.indexed_iter() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
             let width = frame.width();
             top.set_max(frame.baseline());
@@ -510,7 +510,7 @@ pub fn commit(
             *offset += width;
         };
 
-        match &*item.item {
+        match &**item {
             Item::Absolute(v, _) => {
                 offset += *v;
             }
@@ -522,7 +522,7 @@ pub fn commit(
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
                     apply_baseline_shift(&mut frame, *styles);
-                    push(&mut offset, frame, item.idx);
+                    push(&mut offset, frame, idx);
                 } else {
                     offset += amount;
                 }
@@ -534,15 +534,15 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame, item.idx);
+                push(&mut offset, frame, idx);
             }
             Item::Frame(frame) => {
-                push(&mut offset, frame.clone(), item.idx);
+                push(&mut offset, frame.clone(), idx);
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame, item.idx));
+                frames.push((offset, frame, idx));
             }
             Item::Skip(_) => {}
         }
@@ -630,7 +630,7 @@ fn overhang(c: char) -> f64 {
 }
 
 /// A collection of owned or borrowed inline items.
-pub struct Items<'a>(Vec<IndexedItemEntry<'a>>);
+pub struct Items<'a>(Vec<(usize, ItemEntry<'a>)>);
 
 impl<'a> Items<'a> {
     /// Create empty items.
@@ -640,37 +640,37 @@ impl<'a> Items<'a> {
 
     /// Push a new item.
     pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: usize) {
-        self.0.push(IndexedItemEntry { item: entry.into(), idx });
+        self.0.push((idx, entry.into()));
     }
 
     /// Iterate over the items
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
-        self.0.iter().map(|item| &*item.item)
+        self.0.iter().map(|(_, item)| &**item)
     }
 
     /// Iterate over the items with indices
-    pub fn indexed_iter(&self) -> impl Iterator<Item = &IndexedItemEntry<'a>> {
+    pub fn indexed_iter(&self) -> impl Iterator<Item = &(usize, ItemEntry<'a>)> {
         self.0.iter()
     }
 
     /// Access the first item.
     pub fn first(&self) -> Option<&Item<'a>> {
-        self.0.first().map(|item| &*item.item)
+        self.0.first().map(|(_, item)| &**item)
     }
 
     /// Access the last item.
     pub fn last(&self) -> Option<&Item<'a>> {
-        self.0.last().map(|item| &*item.item)
+        self.0.last().map(|(_, item)| &**item)
     }
 
     /// Access the first item mutably, if it is text.
     pub fn first_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.first_mut()?.item.text_mut()
+        self.0.first_mut()?.1.text_mut()
     }
 
     /// Access the last item mutably, if it is text.
     pub fn last_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.last_mut()?.item.text_mut()
+        self.0.last_mut()?.1.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -681,17 +681,12 @@ impl<'a> Items<'a> {
 
 impl<'a> FromIterator<ItemEntry<'a>> for Items<'a> {
     fn from_iter<I: IntoIterator<Item = ItemEntry<'a>>>(iter: I) -> Self {
-        Self(
-            iter.into_iter()
-                .enumerate()
-                .map(|(idx, item)| IndexedItemEntry { item, idx })
-                .collect(),
-        )
+        Self(iter.into_iter().enumerate().collect())
     }
 }
 
 impl<'a> Deref for Items<'a> {
-    type Target = Vec<IndexedItemEntry<'a>>;
+    type Target = Vec<(usize, ItemEntry<'a>)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -708,13 +703,6 @@ impl Debug for Items<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(&self.0).finish()
     }
-}
-
-/// An item accompanied by its position within a line.
-#[derive(Debug)]
-pub struct IndexedItemEntry<'a> {
-    pub item: ItemEntry<'a>,
-    pub idx: usize,
 }
 
 /// A reference to or a boxed item.
