@@ -163,23 +163,25 @@
     can, for instance, be useful to use new or experimental functionality when
     it is available, while falling back to an alternative implementation if
     used on an older Typst version. In particular, this allows us to create
-    [polyfills](https://en.wikipedia.org/wiki/Polyfill_(programming)). It can
-    be as simple as creating an alias to prevent warning messages, for example,
-    conditionally using `pattern` in Typst version 0.12, but using `tiling` in
-    newer ones. Since function's [API](https://en.wikipedia.org/wiki/API)
-    hasn't changed, simply using the `tiling` name to refer to both will unify
-    function's usage for old and new versions.
+    [polyfills](https://en.wikipedia.org/wiki/Polyfill_(programming)).
 
-    ```example
-    #let tiling = dictionary(std).at("tiling", default: none)
-    #if tiling == none { tiling = pattern }
+    This can be as simple as creating an alias to prevent warning messages, for
+    example, conditionally using `pattern` in Typst version 0.12, but using
+    [`tiling`] in newer versions. Since the parameters accepted by the `tiling`
+    function match those of the older `pattern` function, using the `tiling`
+    function when available and falling back to `pattern` otherwise will unify
+    the usage across all versions. Note that, when creating a polyfill,
+    [`sys.version`]($category/foundations/sys) can also be very useful.
+
+    ```typ
+    #let tiling = if "tiling" in dictionary(std) {
+      tiling
+    } else {
+      pattern
+    }
 
     ...
     ```
-
-    Note that creating a polyfill means that you are responsible for checking
-    that it works on older Typst versions (that support `std`). That is, if it
-    is intended for public use.
 
 - name: sys
   title: System
