@@ -3,7 +3,6 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 
 use super::*;
 
-#[derive(Debug)]
 pub struct Run<'a> {
     pub item: Item<'a>,
     pub range: Range,
