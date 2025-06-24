@@ -88,15 +88,25 @@ use crate::text::TextElem;
 /// #set page(
 ///   numbering: "1",
 ///   supplement: "p.",
+/// >>> margin: (bottom: 3em),
+/// >>> footer-descent: 1.25em,
 /// )
 /// #set ref(form: "page")
 ///
 /// #figure(
-///   circle(),
-///   caption: [My circle],
-/// ) <circle>
-/// // Somewhere in the document:
-/// See @circle for a circle example.
+///   stack(
+///     dir: ltr,
+///     spacing: 1em,
+///     circle(),
+///     square(),
+///   ),
+///   caption: [Shapes],
+/// ) <shapes>
+///
+/// #pagebreak()
+///
+/// See @shapes for examples
+/// of different shapes.
 /// ```
 ///
 /// If you write a show rule for references, you can access the referenced
