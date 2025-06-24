@@ -640,7 +640,7 @@ impl<'a> Items<'a> {
         self.0.push(entry.into());
     }
 
-    /// Iterate over the items
+    /// Iterate over the items.
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
         self.0.iter().map(|item| &**item)
     }
