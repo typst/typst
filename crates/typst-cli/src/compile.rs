@@ -96,12 +96,9 @@ impl CompileConfig {
         let output_format = if let Some(specified) = args.format {
             specified
         } else if let Some(Output::Path(output)) = &args.output {
-            match output.extension() {
-                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
-                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
-                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
-                _ => bail!(
+            match output.extension().and_then(OutputFormat::from_file_ext) {
+                Some(format) => format,
+                None => bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
                     output.display()
@@ -116,12 +113,7 @@ impl CompileConfig {
                 let Input::Path(path) = &input else {
                     panic!("output must be specified when input is from stdin, as guarded by the CLI");
                 };
-                Output::Path(path.with_extension(match output_format {
-                    OutputFormat::Pdf => "pdf",
-                    OutputFormat::Png => "png",
-                    OutputFormat::Svg => "svg",
-                    OutputFormat::Html => "html",
-                }))
+                Output::Path(path.with_extension(output_format.as_file_ext()))
             }
             // Check if a [`Path`] has a trailing `/` (or on `windows` a `\`) character,
             // indicating that the output should be written to `{output}/{input_file_name}.{ext}`
@@ -146,12 +138,7 @@ impl CompileConfig {
                 })?;
 
                 path.push(file_name);
-                path.set_extension(match output_format {
-                    OutputFormat::Pdf => "pdf",
-                    OutputFormat::Png => "png",
-                    OutputFormat::Svg => "svg",
-                    OutputFormat::Html => "html",
-                });
+                path.set_extension(output_format.as_file_ext());
                 Output::Path(path)
             }
             Some(output) => output,
