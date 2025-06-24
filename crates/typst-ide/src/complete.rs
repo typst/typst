@@ -701,7 +701,10 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     let mut deciding = ctx.leaf.clone();
     while !matches!(
         deciding.kind(),
-        SyntaxKind::LeftParen | SyntaxKind::Comma | SyntaxKind::Colon
+        SyntaxKind::LeftParen
+            | SyntaxKind::RightParen
+            | SyntaxKind::Comma
+            | SyntaxKind::Colon
     ) {
         let Some(prev) = deciding.prev_leaf() else { break };
         deciding = prev;
@@ -1734,6 +1737,8 @@ mod tests {
         test("#numbering(\"foo\", 1, )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
+        // After argument list no completions.
+        test("#numbering()", -1).must_exclude(["string"]);
     }
 
     /// Test that autocompletion for values of known type picks up nested
@@ -1829,18 +1834,27 @@ mod tests {
 
     #[test]
     fn test_autocomplete_fonts() {
-        test("#text(font:)", -1)
+        test("#text(font:)", -2)
             .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
 
-        test("#show link: set text(font: )", -1)
+        test("#show link: set text(font: )", -2)
             .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
 
-        test("#show math.equation: set text(font: )", -1)
+        test("#show math.equation: set text(font: )", -2)
             .must_include(["\"New Computer Modern Math\""])
             .must_exclude(["\"Libertinus Serif\""]);
 
-        test("#show math.equation: it => { set text(font: )\nit }", -6)
+        test("#show math.equation: it => { set text(font: )\nit }", -7)
             .must_include(["\"New Computer Modern Math\""])
             .must_exclude(["\"Libertinus Serif\""]);
+    }
+
+    #[test]
+    fn test_autocomplete_typed_html() {
+        test("#html.div(translate: )", -2)
+            .must_include(["true", "false"])
+            .must_exclude(["\"yes\"", "\"no\""]);
+        test("#html.input(value: )", -2).must_include(["float", "string", "red", "blue"]);
+        test("#html.div(role: )", -2).must_include(["\"alertdialog\""]);
     }
 }

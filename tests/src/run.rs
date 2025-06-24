@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use ecow::eco_vec;
 use tiny_skia as sk;
-use typst::diag::{SourceDiagnostic, Warned};
+use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
@@ -82,17 +82,26 @@ impl<'a> Runner<'a> {
     /// Run test specific to document format.
     fn run_test<D: OutputType>(&mut self) {
         let Warned { output, warnings } = typst::compile(&self.world);
-        let (doc, errors) = match output {
+        let (doc, mut errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
         };
 
-        if doc.is_none() && errors.is_empty() {
+        D::check_custom(self, doc.as_ref());
+
+        let output = doc.and_then(|doc: D| match doc.make_live() {
+            Ok(live) => Some((doc, live)),
+            Err(list) => {
+                errors.extend(list);
+                None
+            }
+        });
+
+        if output.is_none() && errors.is_empty() {
             log!(self, "no document, but also no errors");
         }
 
-        D::check_custom(self, doc.as_ref());
-        self.check_output(doc.as_ref());
+        self.check_output(output);
 
         for error in &errors {
             self.check_diagnostic(NoteKind::Error, error);
@@ -128,12 +137,12 @@ impl<'a> Runner<'a> {
     }
 
     /// Check that the document output is correct.
-    fn check_output<D: OutputType>(&mut self, document: Option<&D>) {
+    fn check_output<D: OutputType>(&mut self, output: Option<(D, D::Live)>) {
         let live_path = D::live_path(&self.test.name);
         let ref_path = D::ref_path(&self.test.name);
         let ref_data = std::fs::read(&ref_path);
 
-        let Some(document) = document else {
+        let Some((document, live)) = output else {
             if ref_data.is_ok() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", ref_path.display());
@@ -141,7 +150,7 @@ impl<'a> Runner<'a> {
             return;
         };
 
-        let skippable = match D::is_skippable(document) {
+        let skippable = match D::is_skippable(&document) {
             Ok(skippable) => skippable,
             Err(()) => {
                 log!(self, "document has zero pages");
@@ -157,7 +166,6 @@ impl<'a> Runner<'a> {
         }
 
         // Render and save live version.
-        let live = document.make_live();
         document.save_live(&self.test.name, &live);
 
         // Compare against reference output if available.
@@ -214,9 +222,13 @@ impl<'a> Runner<'a> {
             return;
         }
 
-        let message = diag.message.replace("\\", "/");
+        let message = if diag.message.contains("\\u{") {
+            &diag.message
+        } else {
+            &diag.message.replace("\\", "/")
+        };
         let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range.clone(), &message);
+        self.validate_note(kind, diag.span.id(), range.clone(), message);
 
         // Check hints.
         for hint in &diag.hints {
@@ -359,7 +371,7 @@ trait OutputType: Document {
     }
 
     /// Produces the live output.
-    fn make_live(&self) -> Self::Live;
+    fn make_live(&self) -> SourceResult<Self::Live>;
 
     /// Saves the live output.
     fn save_live(&self, name: &str, live: &Self::Live);
@@ -406,8 +418,8 @@ impl OutputType for PagedDocument {
         }
     }
 
-    fn make_live(&self) -> Self::Live {
-        render(self, 1.0)
+    fn make_live(&self) -> SourceResult<Self::Live> {
+        Ok(render(self, 1.0))
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {
@@ -471,9 +483,8 @@ impl OutputType for HtmlDocument {
         format!("{}/html/{}.html", crate::REF_PATH, name).into()
     }
 
-    fn make_live(&self) -> Self::Live {
-        // TODO: Do this earlier to be able to process export errors.
-        typst_html::html(self).unwrap()
+    fn make_live(&self) -> SourceResult<Self::Live> {
+        typst_html::html(self)
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {
