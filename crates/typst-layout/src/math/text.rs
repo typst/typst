@@ -65,12 +65,21 @@ fn layout_inline_text(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<FrameFragment> {
+    let variant = styles.get(EquationElem::variant);
+    let bold = styles.get(EquationElem::bold);
+    // Disable auto-italic.
+    let italic = styles.get(EquationElem::italic).or(Some(false));
+
     if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
         // Small optimization for numbers. Note that this lays out slightly
         // differently to normal text and is worth re-evaluating in the future.
         let mut fragments = vec![];
         for unstyled_c in text.chars() {
-            let c = styled_char(styles, unstyled_c, false);
+            // This is fine as ascii digits and '.' can never end up as more
+            // than a single char after styling.
+            let style = MathStyle::select(unstyled_c, variant, bold, italic);
+            let c = to_style(unstyled_c, style).next().unwrap();
+
             let glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
             fragments.push(glyph.into());
         }
@@ -84,8 +93,10 @@ fn layout_inline_text(
         .map(|p| p.wrap());
 
         let styles = styles.chain(&local);
-        let styled_text: EcoString =
-            text.chars().map(|c| styled_char(styles, c, false)).collect();
+        let styled_text: EcoString = text
+            .chars()
+            .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
+            .collect();
 
         let spaced = styled_text.graphemes(true).nth(1).is_some();
         let elem = TextElem::packed(styled_text).spanned(span);
@@ -125,9 +136,16 @@ pub fn layout_symbol(
         Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
         _ => (elem.text, styles),
     };
-    let c = styled_char(styles, unstyled_c, true);
+
+    let variant = styles.get(EquationElem::variant);
+    let bold = styles.get(EquationElem::bold);
+    let italic = styles.get(EquationElem::italic);
+
+    let style = MathStyle::select(unstyled_c, variant, bold, italic);
+    let text: EcoString = to_style(unstyled_c, style).collect();
+
     let fragment: MathFragment =
-        match GlyphFragment::new_char(ctx.font, symbol_styles, c, elem.span()) {
+        match GlyphFragment::new(ctx.font, symbol_styles, &text, elem.span()) {
             Ok(mut glyph) => {
                 adjust_glyph_layout(&mut glyph, ctx, styles);
                 glyph.into()
@@ -135,8 +153,7 @@ pub fn layout_symbol(
             Err(_) => {
                 // Not in the math font, fallback to normal inline text layout.
                 // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
-                layout_inline_text(c.encode_utf8(&mut [0; 4]), elem.span(), ctx, styles)?
-                    .into()
+                layout_inline_text(&text, elem.span(), ctx, styles)?.into()
             }
         };
     ctx.push(fragment);
@@ -160,39 +177,6 @@ fn adjust_glyph_layout(
         // axis.
         glyph.center_on_axis();
     }
-}
-
-/// Style the character by selecting the Unicode codepoint for italic, bold,
-/// caligraphic, etc.
-fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
-    if let Some(c) = basic_exception(c) {
-        return c;
-    }
-
-    let variant = styles.get(EquationElem::variant);
-    let bold = styles.get(EquationElem::bold);
-    let italic = styles
-        .get(EquationElem::italic)
-        .or_else(|| (!auto_italic).then_some(false));
-    let style = MathStyle::select(c, variant, bold, italic);
-
-    // At the moment we are only using styles that output a single character,
-    // so we just grab the first character in the ToStyle iterator.
-    to_style(c, style).next().unwrap()
-}
-
-fn basic_exception(c: char) -> Option<char> {
-    Some(match c {
-        '〈' => '⟨',
-        '〉' => '⟩',
-        '《' => '⟪',
-        '》' => '⟫',
-        'א' => 'ℵ',
-        'ב' => 'ℶ',
-        'ג' => 'ℷ',
-        'ד' => 'ℸ',
-        _ => return None,
-    })
 }
 
 /// The non-dotless version of a dotless character that can be used with the

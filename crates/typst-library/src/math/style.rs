@@ -64,20 +64,34 @@ pub fn sans(
     body.set(EquationElem::variant, Some(MathVariant::SansSerif))
 }
 
-/// Calligraphic font style in math.
+/// Calligraphic (chancery) font style in math.
 ///
 /// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
 ///
-/// This corresponds both to LaTeX's `\mathcal` and `\mathscr` as both of these
-/// styles share the same Unicode codepoints. Switching between the styles is
-/// thus only possible if supported by the font via
+/// This is the default calligraphic/script style for most math fonts. See
+/// [`scr`]($math.scr) for more on how to get the other style (roundhand).
+#[func(title = "Calligraphic", keywords = ["mathcal", "chancery"])]
+pub fn cal(
+    /// The content to style.
+    body: Content,
+) -> Content {
+    body.set(EquationElem::variant, Some(MathVariant::Chancery))
+}
+
+/// Script (roundhand) font style in math.
+///
+/// ```example
+/// $ scr(S) $
+/// ```
+///
+/// Very few math fonts currently support differentiating `cal` and `scr`. Some
+/// fonts support switching between the styles via
 /// [font features]($text.features).
 ///
-/// For the default math font, the roundhand style is available through the
-/// `ss01` feature. Therefore, you could define your own version of `\mathscr`
-/// like this:
+/// Say, for example, the roundhand style is available through the `ss01`
+/// feature. Then, you could define your own version of `\mathscr` like this:
 ///
 /// ```example
 /// #let scr(it) = text(
@@ -90,12 +104,12 @@ pub fn sans(
 ///
 /// (The box is not conceptually necessary, but unfortunately currently needed
 /// due to limitations in Typst's text style handling in math.)
-#[func(title = "Calligraphic", keywords = ["mathcal", "mathscr"])]
-pub fn cal(
+#[func(title = "Script", keywords = ["mathscr", "roundhand"])]
+pub fn scr(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, Some(MathVariant::Script))
+    body.set(EquationElem::variant, Some(MathVariant::Roundhand))
 }
 
 /// Fraktur font style in math.

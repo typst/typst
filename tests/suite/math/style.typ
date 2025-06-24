@@ -47,7 +47,8 @@ $bb(Gamma) , bb(gamma), bb(Pi), bb(pi), bb(sum)$
 
 --- math-style-hebrew-exceptions ---
 // Test hebrew exceptions.
-$aleph, beth, gimel, daleth$
+$aleph, beth, gimel, daleth$ \
+$upright(aleph), upright(beth), upright(gimel), upright(daleth)$
 
 --- issue-3650-italic-equation ---
 _abc $sin(x) "abc"$_ \
