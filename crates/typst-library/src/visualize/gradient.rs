@@ -1287,13 +1287,19 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     assert!(!stops.is_empty(), "Cannot sample from gradient with no stops");
 
     let t = t.clamp(0.0, 1.0);
-    let j = stops.partition_point(|(_, ratio)| ratio.get() < t);
+    let mut j = stops.partition_point(|(_, ratio)| ratio.get() < t);
 
     if j == 0 {
-        return stops[0].0;
+        while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
+            j += 1;
+        }
+        return stops[j].0;
     }
     if j == stops.len() {
-        return stops.last().unwrap().0;
+        while j > 0 && stops[j].1.is_one() {
+            j -= 1;
+        }
+        return stops[j].0;
     }
 
     let (col_0, pos_0) = stops[j - 1];
