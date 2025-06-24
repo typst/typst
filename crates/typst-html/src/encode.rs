@@ -113,7 +113,7 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 /// Encodes the children of an element.
 fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     // See HTML spec § 13.1.2.5.
-    if element.tag == tag::pre && starts_with_newline(element) {
+    if matches!(element.tag, tag::pre | tag::textarea) && starts_with_newline(element) {
         w.buf.push('\n');
     }
 
