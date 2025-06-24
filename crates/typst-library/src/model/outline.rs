@@ -225,25 +225,21 @@ pub struct OutlineElem {
     ///   to just specifying `{2em}`.
     ///
     /// ```example
-    /// #set heading(numbering: "1.a.")
+    /// >>> #show heading: none
+    /// #set heading(numbering: "I-I.")
+    /// #set outline(title: none)
     ///
-    /// #outline(
-    ///   title: [Contents (Automatic)],
-    ///   indent: auto,
-    /// )
+    /// #outline()
+    /// #line(length: 100%)
+    /// #outline(indent: 3em)
     ///
-    /// #outline(
-    ///   title: [Contents (Length)],
-    ///   indent: 2em,
-    /// )
-    ///
-    /// = About ACME Corp.
-    /// == History
-    /// === Origins
-    /// #lorem(10)
-    ///
-    /// == Products
-    /// #lorem(10)
+    /// = Software engineering technologies
+    /// == Requirements
+    /// == Tools and technologies
+    /// === Code editors
+    /// == Analyzing alternatives
+    /// = Designing software components
+    /// = Testing and integration
     /// ```
     pub indent: Smart<OutlineIndent>,
 }
@@ -450,8 +446,9 @@ impl OutlineEntry {
     /// at the same level are aligned.
     ///
     /// If the outline's indent is a fixed value or a function, the prefixes are
-    /// indented, but the inner contents are simply inset from the prefix by the
-    /// specified `gap`, rather than aligning outline-wide.
+    /// indented, but the inner contents are simply offset from the prefix by
+    /// the specified `gap`, rather than aligning outline-wide. For a visual
+    /// explanation, see [`outline.indent`]($outline.indent).
     #[func(contextual)]
     pub fn indented(
         &self,

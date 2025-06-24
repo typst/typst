@@ -69,6 +69,7 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
+use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
@@ -83,7 +84,6 @@ use typst_syntax::Spanned;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -273,8 +273,8 @@ pub fn eval(
     /// #eval("1_2^3", mode: "math")
     /// ```
     #[named]
-    #[default(EvalMode::Code)]
-    mode: EvalMode,
+    #[default(SyntaxMode::Code)]
+    mode: SyntaxMode,
     /// A scope of definitions that are made available.
     ///
     /// ```example

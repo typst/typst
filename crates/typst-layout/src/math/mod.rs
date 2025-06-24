@@ -13,8 +13,6 @@ mod stretch;
 mod text;
 mod underover;
 
-use rustybuzz::Feature;
-use ttf_parser::Tag;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -30,7 +28,7 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    families, features, variant, Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem,
+    families, variant, Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem,
 };
 use typst_library::World;
 use typst_syntax::Span;
@@ -38,11 +36,11 @@ use typst_utils::Numeric;
 use unicode_math_class::MathClass;
 
 use self::fragment::{
-    FrameFragment, GlyphFragment, GlyphwiseSubsts, Limits, MathFragment, VariantFragment,
+    has_dtls_feat, stretch_axes, FrameFragment, GlyphFragment, Limits, MathFragment,
 };
 use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
 use self::shared::*;
-use self::stretch::{stretch_fragment, stretch_glyph};
+use self::stretch::stretch_fragment;
 
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
@@ -58,7 +56,7 @@ pub fn layout_equation_inline(
     let font = find_math_font(engine, styles, elem.span())?;
 
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, styles, region, &font);
+    let mut ctx = MathContext::new(engine, &mut locator, region, &font);
 
     let scale_style = style_for_script_scale(&ctx);
     let styles = styles.chain(&scale_style);
@@ -113,7 +111,7 @@ pub fn layout_equation_block(
     let font = find_math_font(engine, styles, span)?;
 
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, styles, regions.base(), &font);
+    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), &font);
 
     let scale_style = style_for_script_scale(&ctx);
     let styles = styles.chain(&scale_style);
@@ -374,14 +372,7 @@ struct MathContext<'a, 'v, 'e> {
     region: Region,
     // Font-related.
     font: &'a Font,
-    ttf: &'a ttf_parser::Face<'a>,
-    table: ttf_parser::math::Table<'a>,
     constants: ttf_parser::math::Constants<'a>,
-    dtls_table: Option<GlyphwiseSubsts<'a>>,
-    flac_table: Option<GlyphwiseSubsts<'a>>,
-    ssty_table: Option<GlyphwiseSubsts<'a>>,
-    glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
-    space_width: Em,
     // Mutable.
     fragments: Vec<MathFragment>,
 }
@@ -391,46 +382,20 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
     fn new(
         engine: &'v mut Engine<'e>,
         locator: &'v mut SplitLocator<'a>,
-        styles: StyleChain<'a>,
         base: Size,
         font: &'a Font,
     ) -> Self {
-        let math_table = font.ttf().tables().math.unwrap();
-        let gsub_table = font.ttf().tables().gsub;
-        let constants = math_table.constants.unwrap();
-
-        let feat = |tag: &[u8; 4]| {
-            GlyphwiseSubsts::new(gsub_table, Feature::new(Tag::from_bytes(tag), 0, ..))
-        };
-
-        let features = features(styles);
-        let glyphwise_tables = Some(
-            features
-                .into_iter()
-                .filter_map(|feature| GlyphwiseSubsts::new(gsub_table, feature))
-                .collect(),
-        );
-
-        let ttf = font.ttf();
-        let space_width = ttf
-            .glyph_index(' ')
-            .and_then(|id| ttf.glyph_hor_advance(id))
-            .map(|advance| font.to_em(advance))
-            .unwrap_or(THICK);
+        // These unwraps are safe as the font given is one returned by the
+        // find_math_font function, which only returns fonts that have a math
+        // constants table.
+        let constants = font.ttf().tables().math.unwrap().constants.unwrap();
 
         Self {
             engine,
             locator,
             region: Region::new(base, Axes::splat(false)),
             font,
-            ttf,
-            table: math_table,
             constants,
-            dtls_table: feat(b"dtls"),
-            flac_table: feat(b"flac"),
-            ssty_table: feat(b"ssty"),
-            glyphwise_tables,
-            space_width,
             fragments: vec![],
         }
     }
@@ -529,7 +494,8 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        ctx.push(MathFragment::Space(ctx.space_width.resolve(styles)));
+        let space_width = ctx.font.space_width().unwrap_or(THICK);
+        ctx.push(MathFragment::Space(space_width.resolve(styles)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
     } else if let Some(elem) = elem.to_packed::<HElem>() {

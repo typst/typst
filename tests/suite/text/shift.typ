@@ -84,3 +84,8 @@ A#super(highlight[4])
 #test("Libertinus Serif", ("regular", "semibold", "bold"), ("normal", "italic"))
 #test("New Computer Modern", ("regular", "bold"), ("normal", "italic"))
 #test("New Computer Modern Math", (400, 450, "bold"), ("normal",))
+
+--- basic-sup-sub html ---
+1#super[st], 2#super[nd], 3#super[rd].
+
+log#sub[2], log#sub[3], log#sub[variable].

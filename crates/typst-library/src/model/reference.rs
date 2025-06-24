@@ -5,7 +5,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Show, Smart, StyleChain, Synthesize,
+    Repr, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -79,6 +79,36 @@ use crate::text::TextElem;
 /// reference: `[@intro[Chapter]]`.
 ///
 /// # Customization
+/// When you only ever need to reference pages of a figure/table/heading/etc. in
+/// a document, the default `form` field value can be changed to `{"page"}` with
+/// a set rule. If you prefer a short "p." supplement over "page", the
+/// [`page.supplement`]($page.supplement) field can be used for changing this:
+///
+/// ```example
+/// #set page(
+///   numbering: "1",
+///   supplement: "p.",
+/// >>> margin: (bottom: 3em),
+/// >>> footer-descent: 1.25em,
+/// )
+/// #set ref(form: "page")
+///
+/// #figure(
+///   stack(
+///     dir: ltr,
+///     spacing: 1em,
+///     circle(),
+///     square(),
+///   ),
+///   caption: [Shapes],
+/// ) <shapes>
+///
+/// #pagebreak()
+///
+/// See @shapes for examples
+/// of different shapes.
+/// ```
+///
 /// If you write a show rule for references, you can access the referenced
 /// element through the `element` field of the reference. The `element` may
 /// be `{none}` even if it exists if Typst hasn't discovered it yet, so you
@@ -91,16 +121,13 @@ use crate::text::TextElem;
 /// #show ref: it => {
 ///   let eq = math.equation
 ///   let el = it.element
-///   if el != none and el.func() == eq {
-///     // Override equation references.
-///     link(el.location(),numbering(
-///       el.numbering,
-///       ..counter(eq).at(el.location())
-///     ))
-///   } else {
-///     // Other references as usual.
-///     it
-///   }
+///   // Skip all other references.
+///   if el == none or el.func() != eq { return it }
+///   // Override equation references.
+///   link(el.location(), numbering(
+///     el.numbering,
+///     ..counter(eq).at(el.location())
+///   ))
 /// }
 ///
 /// = Beginnings <beginning>
@@ -229,8 +256,15 @@ impl Show for Packed<RefElem> {
         // RefForm::Normal
 
         if BibliographyElem::has(engine, self.target) {
-            if elem.is_ok() {
-                bail!(span, "label occurs in the document and its bibliography");
+            if let Ok(elem) = elem {
+                bail!(
+                    span,
+                    "label `{}` occurs both in the document and its bibliography",
+                    self.target.repr();
+                    hint: "change either the {}'s label or the \
+                           bibliography key to resolve the ambiguity",
+                    elem.func().name(),
+                );
             }
 
             return Ok(to_citation(self, engine, styles)?.pack().spanned(span));

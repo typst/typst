@@ -51,7 +51,8 @@ $ A = 1 $ <eq2>
 // Test ambiguous reference.
 = Introduction <arrgh>
 
-// Error: 1-7 label occurs in the document and its bibliography
+// Error: 1-7 label `<arrgh>` occurs both in the document and its bibliography
+// Hint: 1-7 change either the heading's label or the bibliography key to resolve the ambiguity
 @arrgh
 #bibliography("/assets/bib/works.bib")
 

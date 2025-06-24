@@ -34,8 +34,7 @@ pub(crate) fn embed_files(
             },
         };
         let data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(embed.data.clone());
-        // TODO: update when new krilla version lands (https://github.com/LaurenzV/krilla/pull/203)
-        let compress = should_compress(&embed.data).unwrap_or(true);
+        let compress = should_compress(&embed.data);
 
         let file = EmbeddedFile {
             path,

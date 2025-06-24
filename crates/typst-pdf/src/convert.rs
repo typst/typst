@@ -13,7 +13,7 @@ use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
-use typst_library::foundations::NativeElement;
+use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
@@ -429,14 +429,18 @@ fn convert_error(
             display_font(gc.fonts_backward.get(f).unwrap());
             hint: "try using a different font"
         ),
-        ValidationError::InvalidCodepointMapping(_, _, cp, loc) => {
-            if let Some(c) = cp.map(|c| eco_format!("{:#06x}", c as u32)) {
+        ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
+            if let Some(c) = c {
                 let msg = if loc.is_some() {
                     "the PDF contains text with"
                 } else {
                     "the text contains"
                 };
-                error!(to_span(*loc), "{prefix} {msg} the disallowed codepoint {c}")
+                error!(
+                    to_span(*loc),
+                    "{prefix} {msg} the disallowed codepoint `{}`",
+                    c.repr()
+                )
             } else {
                 // I think this code path is in theory unreachable,
                 // but just to be safe.
@@ -454,13 +458,12 @@ fn convert_error(
             }
         }
         ValidationError::UnicodePrivateArea(_, _, c, loc) => {
-            let code_point = eco_format!("{:#06x}", *c as u32);
             let msg = if loc.is_some() { "the PDF" } else { "the text" };
             error!(
                 to_span(*loc),
-                "{prefix} {msg} contains the codepoint {code_point}";
+                "{prefix} {msg} contains the codepoint `{}`", c.repr();
                 hint: "codepoints from the Unicode private area are \
-                       forbidden in this export mode"
+                       forbidden in this export mode",
             )
         }
         ValidationError::Transparency(loc) => {

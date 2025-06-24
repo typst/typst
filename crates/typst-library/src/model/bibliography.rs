@@ -16,10 +16,13 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
 
-use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{
+    bail, error, At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    SourceResult, StrResult,
+};
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
     elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
@@ -31,12 +34,12 @@ use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
     Sides, Sizing, TrackSizings,
 };
-use crate::loading::{DataSource, Load};
+use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, Loaded};
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
     Url,
 };
-use crate::routines::{EvalMode, Routines};
+use crate::routines::Routines;
 use crate::text::{
     FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
     WeightDelta,
@@ -48,8 +51,8 @@ use crate::World;
 /// You can create a new bibliography by calling this function with a path
 /// to a bibliography file in either one of two formats:
 ///
-/// - A Hayagriva `.yml` file. Hayagriva is a new bibliography file format
-///   designed for use with Typst. Visit its
+/// - A Hayagriva `.yaml`/`.yml` file. Hayagriva is a new bibliography
+///   file format designed for use with Typst. Visit its
 ///   [documentation](https://github.com/typst/hayagriva/blob/main/docs/file-format.md)
 ///   for more details.
 /// - A BibLaTeX `.bib` file.
@@ -87,7 +90,7 @@ use crate::World;
 /// ```
 #[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
 pub struct BibliographyElem {
-    /// One or multiple paths to or raw bytes for Hayagriva `.yml` and/or
+    /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
@@ -224,7 +227,15 @@ impl Show for Packed<BibliographyElem> {
         let references = works
             .references
             .as_ref()
-            .ok_or("CSL style is not suitable for bibliographies")
+            .ok_or_else(|| match self.style(styles).source {
+                CslSource::Named(style) => eco_format!(
+                    "CSL style \"{}\" is not suitable for bibliographies",
+                    style.display_name()
+                ),
+                CslSource::Normal(..) => {
+                    "CSL style is not suitable for bibliographies".into()
+                }
+            })
             .at(span)?;
 
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
@@ -294,24 +305,21 @@ impl Bibliography {
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Self>> {
-        let data = sources.load(world)?;
-        let bibliography = Self::decode(&sources.v, &data).at(sources.span)?;
+        let loaded = sources.load(world)?;
+        let bibliography = Self::decode(&loaded)?;
         Ok(Derived::new(sources.v, bibliography))
     }
 
     /// Decode a bibliography from loaded data sources.
     #[comemo::memoize]
     #[typst_macros::time(name = "load bibliography")]
-    fn decode(
-        sources: &OneOrMultiple<DataSource>,
-        data: &[Bytes],
-    ) -> StrResult<Bibliography> {
+    fn decode(data: &[Loaded]) -> SourceResult<Bibliography> {
         let mut map = IndexMap::new();
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for (source, data) in sources.0.iter().zip(data) {
-            let library = decode_library(source, data)?;
+        for d in data.iter() {
+            let library = decode_library(d)?;
             for entry in library {
                 match map.entry(Label::new(PicoStr::intern(entry.key()))) {
                     indexmap::map::Entry::Vacant(vacant) => {
@@ -325,7 +333,11 @@ impl Bibliography {
         }
 
         if !duplicates.is_empty() {
-            bail!("duplicate bibliography keys: {}", duplicates.join(", "));
+            // TODO: Store spans of entries for duplicate key error messages.
+            // Requires hayagriva entries to store their location, which should
+            // be fine, since they are 1kb anyway.
+            let span = data.first().unwrap().source.span;
+            bail!(span, "duplicate bibliography keys: {}", duplicates.join(", "));
         }
 
         Ok(Bibliography(Arc::new(ManuallyHash::new(map, typst_utils::hash128(data)))))
@@ -351,36 +363,47 @@ impl Debug for Bibliography {
 }
 
 /// Decode on library from one data source.
-fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
-    let src = data.as_str().map_err(FileError::from)?;
+fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
+    let data = loaded.data.as_str().within(loaded)?;
 
-    if let DataSource::Path(path) = source {
+    if let LoadSource::Path(file_id) = loaded.source.v {
         // If we got a path, use the extension to determine whether it is
         // YAML or BibLaTeX.
-        let ext = Path::new(path.as_str())
+        let ext = file_id
+            .vpath()
+            .as_rooted_path()
             .extension()
             .and_then(OsStr::to_str)
             .unwrap_or_default();
 
         match ext.to_lowercase().as_str() {
-            "yml" | "yaml" => hayagriva::io::from_yaml_str(src)
-                .map_err(|err| eco_format!("failed to parse YAML ({err})")),
-            "bib" => hayagriva::io::from_biblatex_str(src)
-                .map_err(|errors| format_biblatex_error(src, Some(path), errors)),
-            _ => bail!("unknown bibliography format (must be .yml/.yaml or .bib)"),
+            "yml" | "yaml" => hayagriva::io::from_yaml_str(data)
+                .map_err(format_yaml_error)
+                .within(loaded),
+            "bib" => hayagriva::io::from_biblatex_str(data)
+                .map_err(format_biblatex_error)
+                .within(loaded),
+            _ => bail!(
+                loaded.source.span,
+                "unknown bibliography format (must be .yaml/.yml or .bib)"
+            ),
         }
     } else {
         // If we just got bytes, we need to guess. If it can be decoded as
         // hayagriva YAML, we'll use that.
-        let haya_err = match hayagriva::io::from_yaml_str(src) {
+        let haya_err = match hayagriva::io::from_yaml_str(data) {
             Ok(library) => return Ok(library),
             Err(err) => err,
         };
 
         // If it can be decoded as BibLaTeX, we use that isntead.
-        let bib_errs = match hayagriva::io::from_biblatex_str(src) {
-            Ok(library) => return Ok(library),
-            Err(err) => err,
+        let bib_errs = match hayagriva::io::from_biblatex_str(data) {
+            // If the file is almost valid yaml, but contains no `@` character
+            // it will be successfully parsed as an empty BibLaTeX library,
+            // since BibLaTeX does support arbitrary text outside of entries.
+            Ok(library) if !library.is_empty() => return Ok(library),
+            Ok(_) => None,
+            Err(err) => Some(err),
         };
 
         // If neither decoded correctly, check whether `:` or `{` appears
@@ -388,7 +411,7 @@ fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
         // and emit the more appropriate error.
         let mut yaml = 0;
         let mut biblatex = 0;
-        for c in src.chars() {
+        for c in data.chars() {
             match c {
                 ':' => yaml += 1,
                 '{' => biblatex += 1,
@@ -396,37 +419,33 @@ fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
             }
         }
 
-        if yaml > biblatex {
-            bail!("failed to parse YAML ({haya_err})")
-        } else {
-            Err(format_biblatex_error(src, None, bib_errs))
+        match bib_errs {
+            Some(bib_errs) if biblatex >= yaml => {
+                Err(format_biblatex_error(bib_errs)).within(loaded)
+            }
+            _ => Err(format_yaml_error(haya_err)).within(loaded),
         }
     }
 }
 
 /// Format a BibLaTeX loading error.
-fn format_biblatex_error(
-    src: &str,
-    path: Option<&str>,
-    errors: Vec<BibLaTeXError>,
-) -> EcoString {
-    let Some(error) = errors.first() else {
-        return match path {
-            Some(path) => eco_format!("failed to parse BibLaTeX file ({path})"),
-            None => eco_format!("failed to parse BibLaTeX"),
-        };
+fn format_biblatex_error(errors: Vec<BibLaTeXError>) -> LoadError {
+    // TODO: return multiple errors?
+    let Some(error) = errors.into_iter().next() else {
+        // TODO: can this even happen, should we just unwrap?
+        return LoadError::new(
+            ReportPos::None,
+            "failed to parse BibLaTeX",
+            "something went wrong",
+        );
     };
 
-    let (span, msg) = match error {
-        BibLaTeXError::Parse(error) => (&error.span, error.kind.to_string()),
-        BibLaTeXError::Type(error) => (&error.span, error.kind.to_string()),
+    let (range, msg) = match error {
+        BibLaTeXError::Parse(error) => (error.span, error.kind.to_string()),
+        BibLaTeXError::Type(error) => (error.span, error.kind.to_string()),
     };
 
-    let line = src.get(..span.start).unwrap_or_default().lines().count();
-    match path {
-        Some(path) => eco_format!("failed to parse BibLaTeX file ({path}:{line}: {msg})"),
-        None => eco_format!("failed to parse BibLaTeX ({line}: {msg})"),
-    }
+    LoadError::new(range, "failed to parse BibLaTeX", msg)
 }
 
 /// A loaded CSL style.
@@ -442,8 +461,8 @@ impl CslStyle {
         let style = match &source {
             CslSource::Named(style) => Self::from_archived(*style),
             CslSource::Normal(source) => {
-                let data = Spanned::new(source, span).load(world)?;
-                Self::from_data(data).at(span)?
+                let loaded = Spanned::new(source, span).load(world)?;
+                Self::from_data(&loaded.data).within(&loaded)?
             }
         };
         Ok(Derived::new(source, style))
@@ -464,16 +483,18 @@ impl CslStyle {
 
     /// Load a CSL style from file contents.
     #[comemo::memoize]
-    pub fn from_data(data: Bytes) -> StrResult<CslStyle> {
-        let text = data.as_str().map_err(FileError::from)?;
+    pub fn from_data(bytes: &Bytes) -> LoadResult<CslStyle> {
+        let text = bytes.as_str()?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| {
                 Self(Arc::new(ManuallyHash::new(
                     style,
-                    typst_utils::hash128(&(TypeId::of::<Bytes>(), data)),
+                    typst_utils::hash128(&(TypeId::of::<Bytes>(), bytes)),
                 )))
             })
-            .map_err(|err| eco_format!("failed to load CSL style ({err})"))
+            .map_err(|err| {
+                LoadError::new(ReportPos::None, "failed to load CSL style", err)
+            })
     }
 
     /// Get the underlying independent style.
@@ -1003,7 +1024,7 @@ impl ElemRenderer<'_> {
             Sink::new().track_mut(),
             math,
             self.span,
-            EvalMode::Math,
+            SyntaxMode::Math,
             Scope::new(),
         )
         .map(Value::display)

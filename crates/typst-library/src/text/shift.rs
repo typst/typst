@@ -1,6 +1,9 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Show, Smart, StyleChain, TargetElem,
+};
+use crate::html::{tag, HtmlElem};
 use crate::layout::{Em, Length};
 use crate::text::{FontMetrics, TextElem, TextSize};
 use ttf_parser::Tag;
@@ -64,9 +67,18 @@ pub struct SubElem {
 impl Show for Packed<SubElem> {
     #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let body = self.body.clone();
+
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::sub)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
+
         show_script(
             styles,
-            self.body.clone(),
+            body,
             self.typographic(styles),
             self.baseline(styles),
             self.size(styles),
@@ -137,9 +149,18 @@ pub struct SuperElem {
 impl Show for Packed<SuperElem> {
     #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let body = self.body.clone();
+
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::sup)
+                .with_body(Some(body))
+                .pack()
+                .spanned(self.span()));
+        }
+
         show_script(
             styles,
-            self.body.clone(),
+            body,
             self.typographic(styles),
             self.baseline(styles),
             self.size(styles),

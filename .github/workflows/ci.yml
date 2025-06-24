@@ -81,6 +81,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets --no-default-features
       - run: cargo fmt --check --all
       - run: cargo doc --workspace --no-deps
+      - run: git diff --exit-code
 
   min-version:
     name: Check minimum Rust version

@@ -106,11 +106,24 @@ impl Font {
     }
 
     /// Look up the horizontal advance width of a glyph.
-    pub fn advance(&self, glyph: u16) -> Option<Em> {
+    pub fn x_advance(&self, glyph: u16) -> Option<Em> {
         self.0
             .ttf
             .glyph_hor_advance(GlyphId(glyph))
             .map(|units| self.to_em(units))
+    }
+
+    /// Look up the vertical advance width of a glyph.
+    pub fn y_advance(&self, glyph: u16) -> Option<Em> {
+        self.0
+            .ttf
+            .glyph_ver_advance(GlyphId(glyph))
+            .map(|units| self.to_em(units))
+    }
+
+    /// Look up the width of a space.
+    pub fn space_width(&self) -> Option<Em> {
+        self.0.ttf.glyph_index(' ').and_then(|id| self.x_advance(id.0))
     }
 
     /// Lookup a name by id.
