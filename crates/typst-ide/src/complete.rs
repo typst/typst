@@ -298,9 +298,16 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
-    // Start of an interpolated identifier: "#|".
+    // Start of an interpolated identifier: "$#|$".
     if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind existing interpolated identifier: "$#pa|$".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
         return true;
     }
@@ -694,7 +701,10 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     let mut deciding = ctx.leaf.clone();
     while !matches!(
         deciding.kind(),
-        SyntaxKind::LeftParen | SyntaxKind::Comma | SyntaxKind::Colon
+        SyntaxKind::LeftParen
+            | SyntaxKind::RightParen
+            | SyntaxKind::Comma
+            | SyntaxKind::Colon
     ) {
         let Some(prev) = deciding.prev_leaf() else { break };
         deciding = prev;
@@ -1666,6 +1676,13 @@ mod tests {
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
     }
 
+    /// Test that autocomplete in math uses the correct global scope.
+    #[test]
+    fn test_autocomplete_math_scope() {
+        test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
+        test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
@@ -1684,7 +1701,7 @@ mod tests {
 
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
-        let end = world.main.len_bytes();
+        let end = world.main.text().len();
         world.main.edit(end..end, " #cite()");
 
         test_with_doc(&world, -2, doc.as_ref())
@@ -1720,6 +1737,8 @@ mod tests {
         test("#numbering(\"foo\", 1, )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
+        // After argument list no completions.
+        test("#numbering()", -1).must_exclude(["string"]);
     }
 
     /// Test that autocompletion for values of known type picks up nested
@@ -1815,18 +1834,27 @@ mod tests {
 
     #[test]
     fn test_autocomplete_fonts() {
-        test("#text(font:)", -1)
+        test("#text(font:)", -2)
             .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
 
-        test("#show link: set text(font: )", -1)
+        test("#show link: set text(font: )", -2)
             .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
 
-        test("#show math.equation: set text(font: )", -1)
+        test("#show math.equation: set text(font: )", -2)
             .must_include(["\"New Computer Modern Math\""])
             .must_exclude(["\"Libertinus Serif\""]);
 
-        test("#show math.equation: it => { set text(font: )\nit }", -6)
+        test("#show math.equation: it => { set text(font: )\nit }", -7)
             .must_include(["\"New Computer Modern Math\""])
             .must_exclude(["\"Libertinus Serif\""]);
+    }
+
+    #[test]
+    fn test_autocomplete_typed_html() {
+        test("#html.div(translate: )", -2)
+            .must_include(["true", "false"])
+            .must_exclude(["\"yes\"", "\"no\""]);
+        test("#html.input(value: )", -2).must_include(["float", "string", "red", "blue"]);
+        test("#html.div(role: )", -2).must_include(["\"alertdialog\""]);
     }
 }

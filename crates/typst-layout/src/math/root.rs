@@ -49,9 +49,9 @@ pub fn layout_root(
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let sqrt = GlyphFragment::new(ctx, styles, '√', span)
-        .stretch_vertical(ctx, target)
-        .frame;
+    let mut sqrt = GlyphFragment::new_char(ctx.font, styles, '√', span)?;
+    sqrt.stretch_vertical(ctx, target);
+    let sqrt = sqrt.into_frame();
 
     // Layout the index.
     let sscript = EquationElem::set_size(MathSize::ScriptScript).wrap();

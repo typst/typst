@@ -9,8 +9,8 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, delimiter_alignment, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
+    alignments, style_for_denominator, AlignmentResult, FrameFragment, GlyphFragment,
+    LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -183,8 +183,12 @@ fn layout_body(
     // We pad ascent and descent with the ascent and descent of the paren
     // to ensure that normal matrices are aligned with others unless they are
     // way too big.
-    let paren =
-        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+    let paren = GlyphFragment::new_char(
+        ctx.font,
+        styles.chain(&denom_style),
+        '(',
+        Span::detached(),
+    )?;
 
     for (column, col) in columns.iter().zip(&mut cols) {
         for (cell, (ascent, descent)) in column.iter().zip(&mut heights) {
@@ -202,8 +206,8 @@ fn layout_body(
                 ));
             }
 
-            ascent.set_max(cell.ascent().max(paren.ascent));
-            descent.set_max(cell.descent().max(paren.descent));
+            ascent.set_max(cell.ascent().max(paren.ascent()));
+            descent.set_max(cell.descent().max(paren.descent()));
 
             col.push(cell);
         }
@@ -312,19 +316,19 @@ fn layout_delimiters(
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
 
-    if let Some(left) = left {
-        let mut left = GlyphFragment::new(ctx, styles, left, span)
-            .stretch_vertical(ctx, target - short_fall);
-        left.align_on_axis(ctx, delimiter_alignment(left.c));
+    if let Some(left_c) = left {
+        let mut left = GlyphFragment::new_char(ctx.font, styles, left_c, span)?;
+        left.stretch_vertical(ctx, target - short_fall);
+        left.center_on_axis();
         ctx.push(left);
     }
 
     ctx.push(FrameFragment::new(styles, frame));
 
-    if let Some(right) = right {
-        let mut right = GlyphFragment::new(ctx, styles, right, span)
-            .stretch_vertical(ctx, target - short_fall);
-        right.align_on_axis(ctx, delimiter_alignment(right.c));
+    if let Some(right_c) = right {
+        let mut right = GlyphFragment::new_char(ctx.font, styles, right_c, span)?;
+        right.stretch_vertical(ctx, target - short_fall);
+        right.center_on_axis();
         ctx.push(right);
     }
 

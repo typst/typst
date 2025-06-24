@@ -6,9 +6,9 @@ use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::html::HtmlDocument;
 use typst::layout::PagedDocument;
-use typst::syntax::Span;
+use typst::syntax::{Span, SyntaxMode};
 use typst::{Document, World};
-use typst_eval::{eval_string, EvalMode};
+use typst_eval::eval_string;
 
 use crate::args::{QueryCommand, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
@@ -69,7 +69,7 @@ fn retrieve<D: Document>(
         Sink::new().track_mut(),
         &command.selector,
         Span::detached(),
-        EvalMode::Code,
+        SyntaxMode::Code,
         Scope::default(),
     )
     .map_err(|errors| {

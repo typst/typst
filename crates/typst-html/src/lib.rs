@@ -180,9 +180,6 @@ fn handle(
         if let Some(body) = elem.body(styles) {
             children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
         }
-        if tag::is_void(elem.tag) && !children.is_empty() {
-            bail!(elem.span(), "HTML void elements may not have children");
-        }
         let element = HtmlElement {
             tag: elem.tag,
             attrs: elem.attrs(styles).clone(),
