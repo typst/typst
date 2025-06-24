@@ -41,7 +41,8 @@ pub struct SubElem {
     /// subscript glyphs.
     ///
     /// If set to `{auto}`, the baseline is shifted according to the metrics
-    /// provided by the font.
+    /// provided by the font, with a fallback to `{0.2em}` in case the font does
+    /// not define the necessary metrics.
     pub baseline: Smart<Length>,
 
     /// The font size for synthesized subscripts.
@@ -51,7 +52,8 @@ pub struct SubElem {
     /// subscript glyphs.
     ///
     /// If set to `{auto}`, the size is scaled according to the metrics provided
-    /// by the font.
+    /// by the font, with a fallback to `{0.6em}` in case the font does not
+    /// define the necessary metrics.
     pub size: Smart<TextSize>,
 
     /// The text to display in subscript.
@@ -108,7 +110,8 @@ pub struct SuperElem {
     /// necessary superscript glyphs.
     ///
     /// If set to `{auto}`, the baseline is shifted according to the metrics
-    /// provided by the font.
+    /// provided by the font, with a fallback to `{-0.5em}` in case the font
+    /// does not define the necessary metrics.
     ///
     /// Note that, since the baseline shift is applied downward, you will need
     /// to provide a negative value for the content to appear as raised above
@@ -122,7 +125,8 @@ pub struct SuperElem {
     /// necessary superscript glyphs.
     ///
     /// If set to `{auto}`, the size is scaled according to the metrics provided
-    /// by the font.
+    /// by the font, with a fallback to `{0.6em}` in case the font does not
+    /// define the necessary metrics.
     pub size: Smart<TextSize>,
 
     /// The text to display in superscript.
