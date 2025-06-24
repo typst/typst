@@ -79,6 +79,36 @@ use crate::text::TextElem;
 /// reference: `[@intro[Chapter]]`.
 ///
 /// # Customization
+/// When you only ever need to reference pages of a figure/table/heading/etc. in
+/// a document, the default `form` field value can be changed to `{"page"}` with
+/// a set rule. If you prefer a short "p." supplement over "page", the
+/// [`page.supplement`]($page.supplement) field can be used for changing this:
+///
+/// ```example
+/// #set page(
+///   numbering: "1",
+///   supplement: "p.",
+/// >>> margin: (bottom: 3em),
+/// >>> footer-descent: 1.25em,
+/// )
+/// #set ref(form: "page")
+///
+/// #figure(
+///   stack(
+///     dir: ltr,
+///     spacing: 1em,
+///     circle(),
+///     square(),
+///   ),
+///   caption: [Shapes],
+/// ) <shapes>
+///
+/// #pagebreak()
+///
+/// See @shapes for examples
+/// of different shapes.
+/// ```
+///
 /// If you write a show rule for references, you can access the referenced
 /// element through the `element` field of the reference. The `element` may
 /// be `{none}` even if it exists if Typst hasn't discovered it yet, so you
