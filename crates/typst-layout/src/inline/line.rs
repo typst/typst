@@ -561,7 +561,7 @@ pub fn commit(
         add_par_line_marker(&mut output, marker, engine, locator, top);
     }
 
-    frames.sort_by_key(|(_, _, idx)| *idx);
+    frames.sort_unstable_by_key(|(_, _, idx)| *idx);
     // Construct the line's frame.
     for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
