@@ -11,6 +11,9 @@
 #html.pre("\nhello")
 #html.pre("\n\nhello")
 
+--- html-textarea-starting-with-newline html ---
+#html.textarea("\nenter")
+
 --- html-script html ---
 // This should be pretty and indented.
 #html.script(
