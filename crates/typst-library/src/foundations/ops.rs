@@ -558,6 +558,7 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
         (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
+        (Str(a), Module(b)) => Some(b.scope().get(a).is_some()),
         (a, Array(b)) => Some(b.contains(a.clone())),
 
         _ => Option::None,
