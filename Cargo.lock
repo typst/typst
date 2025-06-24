@@ -413,7 +413,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.1"
-source = "git+https://github.com/typst/codex?rev=a5428cb#a5428cb9c81a41354d44b44dbd5a16a710bbd928"
+source = "git+https://github.com/mkorje/codex?rev=f02fa4a#f02fa4a04f2a9937f043892ee865dd06628264ba"
 
 [[package]]
 name = "color-print"
@@ -3028,6 +3028,7 @@ version = "0.13.1"
 dependencies = [
  "az",
  "bumpalo",
+ "codex",
  "comemo",
  "ecow",
  "hypher",

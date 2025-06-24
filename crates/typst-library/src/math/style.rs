@@ -1,4 +1,6 @@
-use crate::foundations::{func, Cast, Content, Smart};
+use codex::styling::MathVariant;
+
+use crate::foundations::{func, Cast, Content};
 use crate::math::EquationElem;
 
 /// Bold font style in math.
@@ -24,7 +26,7 @@ pub fn upright(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::italic, Smart::Custom(false))
+    body.set(EquationElem::italic, Some(false))
 }
 
 /// Italic font style in math.
@@ -35,7 +37,7 @@ pub fn italic(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::italic, Smart::Custom(true))
+    body.set(EquationElem::italic, Some(true))
 }
 
 /// Serif (roman) font style in math.
@@ -46,7 +48,7 @@ pub fn serif(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, MathVariant::Serif)
+    body.set(EquationElem::variant, Some(MathVariant::Plain))
 }
 
 /// Sans-serif font style in math.
@@ -59,7 +61,7 @@ pub fn sans(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, MathVariant::Sans)
+    body.set(EquationElem::variant, Some(MathVariant::SansSerif))
 }
 
 /// Calligraphic font style in math.
@@ -93,7 +95,7 @@ pub fn cal(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, MathVariant::Cal)
+    body.set(EquationElem::variant, Some(MathVariant::Script))
 }
 
 /// Fraktur font style in math.
@@ -106,7 +108,7 @@ pub fn frak(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, MathVariant::Frak)
+    body.set(EquationElem::variant, Some(MathVariant::Fraktur))
 }
 
 /// Monospace font style in math.
@@ -119,7 +121,7 @@ pub fn mono(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, MathVariant::Mono)
+    body.set(EquationElem::variant, Some(MathVariant::Monospace))
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -137,7 +139,7 @@ pub fn bb(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.set(EquationElem::variant, MathVariant::Bb)
+    body.set(EquationElem::variant, Some(MathVariant::DoubleStruck))
 }
 
 /// Forced display style in math.
@@ -239,16 +241,4 @@ pub enum MathSize {
     Text,
     /// Math on its own line.
     Display,
-}
-
-/// A mathematical style variant, as defined by Unicode.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Cast, Hash)]
-pub enum MathVariant {
-    #[default]
-    Serif,
-    Sans,
-    Cal,
-    Frak,
-    Mono,
-    Bb,
 }

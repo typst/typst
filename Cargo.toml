@@ -47,7 +47,7 @@ clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = { git = "https://github.com/typst/codex", rev = "a5428cb" }
+codex = { git = "https://github.com/mkorje/codex", rev = "f02fa4a" }
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
