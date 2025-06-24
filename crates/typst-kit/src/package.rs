@@ -125,13 +125,13 @@ impl PackageStorage {
         // None of the strategies above found the package, so all code paths
         // from now on fail. The rest of the function is only to determine the
         // cause of the failure.
+        // We try `namespace/` then `namespace/name/` then `namespace/name/version/`
+        // and see where the first error occurs.
         let not_found = |msg| Err(PackageError::NotFound(spec.clone(), msg));
 
         let Some(packages_dir) = &self.package_path else {
             return not_found(eco_format!("cannot access local package storage"));
         };
-        // Fast path failed. Instead we try to diagnose the issue by going
-        // down the subdirectories of the expected path one at a time.
         let namespace_dir = packages_dir.join(format!("{}", spec.namespace));
         if !namespace_dir.exists() {
             return not_found(eco_format!(
