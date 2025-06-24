@@ -236,6 +236,7 @@ pub struct OutlineElem {
     /// = Software engineering technologies
     /// == Requirements
     /// == Tools and technologies
+    /// === Code editors
     /// == Analyzing alternatives
     /// = Designing software components
     /// = Testing and integration
