@@ -151,6 +151,8 @@ B #cite(<netwok>) #cite(<arrgh>).
 --- issue-5775-cite-order-rtl ---
 // Test citation order in RTL text.
 #set page(width: 300pt)
+@netwok
+aaa
 این است
 @tolkien54
 و این یکی هست
