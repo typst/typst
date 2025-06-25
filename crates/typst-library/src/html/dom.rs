@@ -7,7 +7,7 @@ use typst_utils::{PicoStr, ResolvedPicoStr};
 use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{cast, Dict, Repr, Str};
 use crate::introspection::{Introspector, Tag};
-use crate::layout::Frame;
+use crate::layout::{Abs, Frame};
 use crate::model::DocumentInfo;
 
 /// An HTML document.
@@ -30,8 +30,8 @@ pub enum HtmlNode {
     Text(EcoString, Span),
     /// Another element.
     Element(HtmlElement),
-    /// A frame that will be displayed as an embedded SVG.
-    Frame(Frame),
+    /// Layouted content that will be embedded into HTML as an SVG.
+    Frame(HtmlFrame),
 }
 
 impl HtmlNode {
@@ -261,6 +261,17 @@ cast! {
     HtmlAttr,
     self => self.0.resolve().as_str().into_value(),
     v: Str => Self::intern(&v)?,
+}
+
+/// Layouted content that will be embedded into HTML as an SVG.
+#[derive(Debug, Clone, Hash)]
+pub struct HtmlFrame {
+    /// The frame that will be displayed as an SVG.
+    pub inner: Frame,
+    /// The text size where the frame was defined. This is used to size the
+    /// frame with em units to make text in and outside of the frame sized
+    /// consistently.
+    pub text_size: Abs,
 }
 
 /// Defines syntactical properties of HTML tags, attributes, and text.
