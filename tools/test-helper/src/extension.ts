@@ -517,6 +517,12 @@ async function getWebviewContent(
           border: 1px solid rgb(189, 191, 204);
           border-radius: 6px;
         }
+        iframe {
+          background: white;
+        }
+        .vscode-dark iframe {
+          filter: invert(1) hue-rotate(180deg);
+        }
       </style>
       <script>
         const api = acquireVsCodeApi()
