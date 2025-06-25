@@ -640,7 +640,7 @@ impl<'a> Items<'a> {
         self.0.push(entry.into());
     }
 
-    /// Iterate over the items
+    /// Iterate over the items.
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
         self.0.iter().map(|item| &**item)
     }
@@ -698,6 +698,10 @@ impl Debug for Items<'_> {
 }
 
 /// A reference to or a boxed item.
+///
+/// This is conceptually similar to a [`Cow<'a, Item<'a>>`][std::borrow::Cow],
+/// but we box owned items since an [`Item`] is much bigger than
+/// a box.
 pub enum ItemEntry<'a> {
     Ref(&'a Item<'a>),
     Box(Box<Item<'a>>),
