@@ -452,10 +452,10 @@ display_possible_values!(OutputFormat);
 /// The target to compile for.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum Target {
-    /// The target that is used for paged, fully laid-out content.
+    /// PDF and image formats.
     #[default]
     Paged,
-    /// The target that is used for HTML export.
+    /// HTML.
     Html,
 }
 
