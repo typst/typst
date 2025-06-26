@@ -446,7 +446,7 @@ impl IntrospectorBuilder {
                 HtmlNode::Element(elem) => self.discover_in_html(sink, &elem.children),
                 HtmlNode::Frame(frame) => self.discover_in_frame(
                     sink,
-                    frame,
+                    &frame.inner,
                     NonZeroUsize::ONE,
                     Transform::identity(),
                 ),
