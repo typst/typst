@@ -86,3 +86,14 @@ Text seen on #ref(<text>, form: "page", supplement: "Page").
 // Test reference with non-whitespace before it.
 #figure[] <1>
 #test([(#ref(<1>))], [(@1)])
+
+--- ref-to-empty-label-not-possible ---
+// @ without any following label should just produce the symbol in the output
+// and not produce a reference to a label with an empty name.
+@
+
+--- ref-function-empty-label ---
+// using ref() should also not be possible
+// Error: 6-7 unexpected less-than operator
+// Error: 7-8 unexpected greater-than operator
+#ref(<>)

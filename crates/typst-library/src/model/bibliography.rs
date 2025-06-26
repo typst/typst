@@ -321,7 +321,11 @@ impl Bibliography {
         for d in data.iter() {
             let library = decode_library(d)?;
             for entry in library {
-                match map.entry(Label::new(PicoStr::intern(entry.key()))) {
+                let label = Label::new(PicoStr::intern(entry.key()))
+                    .ok_or("bibliography contains entry with empty key")
+                    .at(d.source.span)?;
+
+                match map.entry(label) {
                     indexmap::map::Entry::Vacant(vacant) => {
                         vacant.insert(entry);
                     }
