@@ -2,7 +2,10 @@ use smallvec::smallvec;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Show, Smart, StyleChain, TargetElem,
+};
+use crate::html::{attr, tag, HtmlElem};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
 use crate::text::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};
@@ -81,6 +84,16 @@ pub struct UnderlineElem {
 impl Show for Packed<UnderlineElem> {
     #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles).is_html() {
+            // Note: In modern HTML, `<u>` is not the underline element, but
+            // rather an "Unarticulated Annotation" element (see HTML spec
+            // 4.5.22). Using `text-decoration` instead is recommended by MDN.
+            return Ok(HtmlElem::new(tag::span)
+                .with_attr(attr::style, "text-decoration: underline")
+                .with_body(Some(self.body.clone()))
+                .pack());
+        }
+
         Ok(self.body.clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Underline {
                 stroke: self.stroke(styles).unwrap_or_default(),
@@ -173,6 +186,13 @@ pub struct OverlineElem {
 impl Show for Packed<OverlineElem> {
     #[typst_macros::time(name = "overline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::span)
+                .with_attr(attr::style, "text-decoration: overline")
+                .with_body(Some(self.body.clone()))
+                .pack());
+        }
+
         Ok(self.body.clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Overline {
                 stroke: self.stroke(styles).unwrap_or_default(),
@@ -250,6 +270,10 @@ pub struct StrikeElem {
 impl Show for Packed<StrikeElem> {
     #[typst_macros::time(name = "strike", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::s).with_body(Some(self.body.clone())).pack());
+        }
+
         Ok(self.body.clone().styled(TextElem::set_deco(smallvec![Decoration {
             // Note that we do not support evade option for strikethrough.
             line: DecoLine::Strikethrough {
@@ -345,6 +369,12 @@ pub struct HighlightElem {
 impl Show for Packed<HighlightElem> {
     #[typst_macros::time(name = "highlight", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        if TargetElem::target_in(styles).is_html() {
+            return Ok(HtmlElem::new(tag::mark)
+                .with_body(Some(self.body.clone()))
+                .pack());
+        }
+
         Ok(self.body.clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Highlight {
                 fill: self.fill(styles),
