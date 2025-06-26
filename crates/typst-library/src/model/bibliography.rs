@@ -321,24 +321,16 @@ impl Bibliography {
         for d in data.iter() {
             let library = decode_library(d)?;
             for entry in library {
-                let key = entry.key();
-                if key.is_empty() {
-                    bail!(Span::detached(), "bibliography key must not be empty");
-                }
-
-                let label = match Label::new(PicoStr::intern(key)) {
-                    Some(lbl) => lbl,
-                    None => {
-                        bail!(Span::detached(), "unexpected error while creating a label")
-                    }
-                };
+                let label = Label::new(PicoStr::intern(entry.key()))
+                    .ok_or("bibliography contains entry with empty key")
+                    .at(d.source.span)?;
 
                 match map.entry(label) {
                     indexmap::map::Entry::Vacant(vacant) => {
                         vacant.insert(entry);
                     }
                     indexmap::map::Entry::Occupied(_) => {
-                        duplicates.push(key.into());
+                        duplicates.push(entry.key().into());
                     }
                 }
             }

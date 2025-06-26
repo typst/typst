@@ -73,7 +73,7 @@ pub fn definition(
         // Try to jump to the referenced content.
         DerefTarget::Ref(node) => {
             let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()))
-                .expect("unexpected empty label");
+                .expect("unexpected empty reference");
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
             return Some(Definition::Span(elem.span()));

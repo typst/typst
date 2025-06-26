@@ -28,8 +28,8 @@ use crate::foundations::{bail, func, scope, ty, Repr, Str};
 /// # Syntax
 /// This function also has dedicated syntax: You can create a label by enclosing
 /// its name in angle brackets. This works both in markup and code. A label's
-/// name can contain letters, numbers, `_`, `-`, `:`, and `.`. Empty label names
-/// get rejected.
+/// name can contain letters, numbers, `_`, `-`, `:`, and `.`. A label cannot
+/// be empty.
 ///
 /// Note that there is a syntactical difference when using the dedicated syntax
 /// for this function. In the code below, the `[<a>]` terminates the heading and
@@ -52,12 +52,11 @@ pub struct Label(PicoStr);
 
 impl Label {
     /// Creates a label from an interned string.
-    /// Callers need to ensure the given string is not empty.
+    ///
+    /// Returns `None` if the given string is empty.
     pub fn new(name: PicoStr) -> Option<Self> {
-        match name {
-            PicoStr::EMPTY => None,
-            _ => Some(Self(name)),
-        }
+        const EMPTY: PicoStr = PicoStr::constant("");
+        (name != EMPTY).then_some(Self(name))
     }
 
     /// Resolves the label to a string.
@@ -73,10 +72,10 @@ impl Label {
 
 #[scope]
 impl Label {
-    /// Creates a label from a string. Fails for empty strings.
+    /// Creates a label from a string.
     #[func(constructor)]
     pub fn construct(
-        /// The name of the label.
+        /// The name of the label. Must not be empty.
         name: Str,
     ) -> StrResult<Label> {
         if name.is_empty() {
