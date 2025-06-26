@@ -152,7 +152,7 @@ pub struct QueryCommand {
     pub pretty: bool,
 
     /// The target to compile for.
-    #[clap(long)]
+    #[clap(long, default_value_t)]
     pub target: Target,
 
     /// World arguments.
