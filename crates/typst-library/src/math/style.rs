@@ -1,4 +1,6 @@
-use crate::foundations::{func, Cast, Content, Smart};
+use codex::styling::MathVariant;
+
+use crate::foundations::{func, Cast, Content};
 use crate::math::EquationElem;
 
 /// Bold font style in math.
@@ -24,7 +26,7 @@ pub fn upright(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_italic(Smart::Custom(false)))
+    body.styled(EquationElem::set_italic(Some(false)))
 }
 
 /// Italic font style in math.
@@ -35,7 +37,7 @@ pub fn italic(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_italic(Smart::Custom(true)))
+    body.styled(EquationElem::set_italic(Some(true)))
 }
 
 /// Serif (roman) font style in math.
@@ -46,7 +48,7 @@ pub fn serif(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Serif))
+    body.styled(EquationElem::set_variant(Some(MathVariant::Plain)))
 }
 
 /// Sans-serif font style in math.
@@ -59,23 +61,21 @@ pub fn sans(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Sans))
+    body.styled(EquationElem::set_variant(Some(MathVariant::SansSerif)))
 }
 
-/// Calligraphic font style in math.
+/// Script (roundhand) font style in math.
 ///
 /// ```example
-/// Let $cal(P)$ be the set of ...
+/// $ scr(S) $
 /// ```
 ///
-/// This corresponds both to LaTeX's `\mathcal` and `\mathscr` as both of these
-/// styles share the same Unicode codepoints. Switching between the styles is
-/// thus only possible if supported by the font via
-/// [font features]($text.features).
+/// This is the default calligraphic/script style for most math fonts. See
+/// [`cal`]($math.cal) for more on how to get the other style (chancery).
 ///
-/// For the default math font, the roundhand style is available through the
-/// `ss01` feature. Therefore, you could define your own version of `\mathscr`
-/// like this:
+/// For the default math font, the chancery style is the default. But the
+/// roundhand style is available through the `ss01` feature. Therefore, you
+/// could define your own version of `\mathscr` like this:
 ///
 /// ```example
 /// #let scr(it) = text(
@@ -88,12 +88,29 @@ pub fn sans(
 ///
 /// (The box is not conceptually necessary, but unfortunately currently needed
 /// due to limitations in Typst's text style handling in math.)
-#[func(title = "Calligraphic", keywords = ["mathcal", "mathscr"])]
+#[func(title = "Script", keywords = ["mathscr", "roundhand"])]
+pub fn scr(
+    /// The content to style.
+    body: Content,
+) -> Content {
+    body.styled(EquationElem::set_variant(Some(MathVariant::Roundhand)))
+}
+
+/// Calligraphic (chancery) font style in math.
+///
+/// ```example
+/// Let $cal(P)$ be the set of ...
+/// ```
+///
+/// Very few math fonts currently support differentiating `cal` and `scr`. Some
+/// fonts support switching between the styles via
+/// [font features]($text.features).
+#[func(title = "Calligraphic", keywords = ["mathcal", "chancery"])]
 pub fn cal(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Cal))
+    body.styled(EquationElem::set_variant(Some(MathVariant::Chancery)))
 }
 
 /// Fraktur font style in math.
@@ -106,7 +123,7 @@ pub fn frak(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Frak))
+    body.styled(EquationElem::set_variant(Some(MathVariant::Fraktur)))
 }
 
 /// Monospace font style in math.
@@ -119,7 +136,7 @@ pub fn mono(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Mono))
+    body.styled(EquationElem::set_variant(Some(MathVariant::Monospace)))
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -137,7 +154,7 @@ pub fn bb(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Bb))
+    body.styled(EquationElem::set_variant(Some(MathVariant::DoubleStruck)))
 }
 
 /// Forced display style in math.
@@ -239,16 +256,4 @@ pub enum MathSize {
     Text,
     /// Math on its own line.
     Display,
-}
-
-/// A mathematical style variant, as defined by Unicode.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Cast, Hash)]
-pub enum MathVariant {
-    #[default]
-    Serif,
-    Sans,
-    Cal,
-    Frak,
-    Mono,
-    Bb,
 }
