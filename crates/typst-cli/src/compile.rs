@@ -96,12 +96,9 @@ impl CompileConfig {
         let output_format = if let Some(specified) = args.format {
             specified
         } else if let Some(Output::Path(output)) = &args.output {
-            match output.extension() {
-                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
-                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
-                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
-                _ => bail!(
+            match output.extension().and_then(OutputFormat::from_file_ext) {
+                Some(format) => format,
+                None => bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
                     output.display()
@@ -111,19 +108,41 @@ impl CompileConfig {
             OutputFormat::Pdf
         };
 
-        let output = args.output.clone().unwrap_or_else(|| {
-            let Input::Path(path) = &input else {
-                panic!("output must be specified when input is from stdin, as guarded by the CLI");
-            };
-            Output::Path(path.with_extension(
-                match output_format {
-                    OutputFormat::Pdf => "pdf",
-                    OutputFormat::Png => "png",
-                    OutputFormat::Svg => "svg",
-                    OutputFormat::Html => "html",
-                },
-            ))
-        });
+        let output = match args.output.clone() {
+            None => {
+                let Input::Path(path) = &input else {
+                    panic!("output must be specified when input is from stdin, as guarded by the CLI");
+                };
+                Output::Path(path.with_extension(output_format.as_file_ext()))
+            }
+            // Check if a [`Path`] has a trailing `/` (or on `windows` a `\`) character,
+            // indicating that the output should be written to `{output}/{input_file_name}.{ext}`
+            Some(Output::Path(mut path)) if has_trailing_path_separator(&path) => {
+                let Input::Path(input) = &input else {
+                    bail!(
+                        "can't infer output file when input is from stdin\n\
+                         consider providing a full path to write to, or get input from file",
+                    );
+                };
+
+                let Some(file_name) = input.file_name() else {
+                    panic!("input path must be non-empty, as guarded by the CLI");
+                };
+
+                // create directory if doesn't exist yet
+                std::fs::create_dir_all(&path).map_err(|err| {
+                    eco_format!(
+                        "failed to create output directory at {path}: {err}",
+                        path = path.display()
+                    )
+                })?;
+
+                path.push(file_name);
+                path.set_extension(output_format.as_file_ext());
+                Output::Path(path)
+            }
+            Some(output) => output,
+        };
 
         let pages = args.pages.as_ref().map(|export_ranges| {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
@@ -160,6 +179,16 @@ impl CompileConfig {
             server,
         })
     }
+}
+
+fn has_trailing_path_separator(path: &Path) -> bool {
+    path.as_os_str()
+        .as_encoded_bytes()
+        .last()
+        .copied()
+        .map(Into::<char>::into)
+        .map(std::path::is_separator)
+        .unwrap_or(false)
 }
 
 /// Compile a single time.
