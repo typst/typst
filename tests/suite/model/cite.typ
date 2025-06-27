@@ -151,6 +151,7 @@ B #cite(<netwok>) #cite(<arrgh>).
 --- issue-5775-cite-order-rtl ---
 // Test citation order in RTL text.
 #set page(width: 300pt)
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 @netwok
 aaa
 این است
