@@ -559,7 +559,11 @@ pub fn commit(
         add_par_line_marker(&mut output, marker, engine, locator, top);
     }
 
+    // Ensure that the final frame's items are in logical order rather than in
+    // visual order. This is important because it affects the order of elements
+    // during introspection and thus things like counters.
     frames.sort_unstable_by_key(|(_, _, idx)| *idx);
+
     // Construct the line's frame.
     for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
