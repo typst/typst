@@ -1284,8 +1284,6 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
 
 /// Sample the stops at a given position.
 fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> Color {
-    assert!(!stops.is_empty(), "Cannot sample from gradient with no stops");
-
     let t = t.clamp(0.0, 1.0);
     let mut j = stops.partition_point(|(_, ratio)| ratio.get() < t);
 
@@ -1295,18 +1293,9 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
         }
         return stops[j].0;
     }
-    if j == stops.len() {
-        while j > 0 && stops[j].1.is_one() {
-            j -= 1;
-        }
-        return stops[j].0;
-    }
 
     let (col_0, pos_0) = stops[j - 1];
     let (col_1, pos_1) = stops[j];
-    debug_assert!(pos_0 < pos_1);
-    debug_assert!(pos_0.get() <= t);
-    debug_assert!(t <= pos_1.get());
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
     Color::mix_iter(
