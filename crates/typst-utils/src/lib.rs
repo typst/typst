@@ -395,6 +395,10 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
         // https://github.com/typst/typst/issues/5764
         '⟇' => Some(MathClass::Binary),
 
+        // Arabic comma.
+        // https://github.com/latex3/unicode-math/pull/633#issuecomment-2028936135
+        '،' => Some(MathClass::Punctuation),
+
         c => unicode_math_class::class(c),
     }
 }
