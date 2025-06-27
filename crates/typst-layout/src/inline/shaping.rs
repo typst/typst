@@ -17,7 +17,6 @@ use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::prepare::Run;
 use super::{decorate, Item, Range, SpanMapper};
 use crate::modifiers::FrameModifyText;
 
@@ -593,7 +592,7 @@ impl Debug for ShapedText<'_> {
 /// Group a range of text by BiDi level and script, shape the runs and generate
 /// items for them.
 pub fn shape_range<'a>(
-    items: &mut Vec<Run<'a>>,
+    items: &mut Vec<(Range, Item<'a>)>,
     engine: &Engine,
     text: &'a str,
     bidi: &BidiInfo<'a>,
@@ -607,7 +606,7 @@ pub fn shape_range<'a>(
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
         let shaped =
             shape(engine, range.start, &text[range.clone()], styles, dir, lang, region);
-        items.push(Run { range, item: Item::Text(shaped) });
+        items.push((range, Item::Text(shaped)));
     };
 
     let mut prev_level = BidiLevel::ltr();
