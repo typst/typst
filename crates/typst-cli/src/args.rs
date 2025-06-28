@@ -443,6 +443,27 @@ pub enum OutputFormat {
     Html,
 }
 
+impl OutputFormat {
+    pub fn from(path: &PathBuf) -> Option<Self> {
+        Some(match path.extension() {
+            Some(ext) if ext.eq_ignore_ascii_case("pdf") => Self::Pdf,
+            Some(ext) if ext.eq_ignore_ascii_case("png") => Self::Png,
+            Some(ext) if ext.eq_ignore_ascii_case("svg") => Self::Svg,
+            Some(ext) if ext.eq_ignore_ascii_case("html") => Self::Html,
+            _ => return None,
+        })
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Pdf => "pdf",
+            Self::Png => "png",
+            Self::Svg => "svg",
+            Self::Html => "html",
+        }
+    }
+}
+
 display_possible_values!(OutputFormat);
 
 /// Which format to use for diagnostics.

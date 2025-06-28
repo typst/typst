@@ -96,17 +96,14 @@ impl CompileConfig {
         let output_format = if let Some(specified) = args.format {
             specified
         } else if let Some(Output::Path(output)) = &args.output {
-            match output.extension() {
-                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
-                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
-                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
-                _ => bail!(
+            let Some(fmt) = OutputFormat::from(output) else {
+                bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
                     output.display()
-                ),
-            }
+                )
+            };
+            fmt
         } else {
             OutputFormat::Pdf
         };
@@ -116,12 +113,7 @@ impl CompileConfig {
                 panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
             Output::Path(path.with_extension(
-                match output_format {
-                    OutputFormat::Pdf => "pdf",
-                    OutputFormat::Png => "png",
-                    OutputFormat::Svg => "svg",
-                    OutputFormat::Html => "html",
-                },
+                output_format.as_str()
             ))
         });
 
