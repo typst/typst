@@ -96,17 +96,14 @@ impl CompileConfig {
         let output_format = if let Some(specified) = args.format {
             specified
         } else if let Some(Output::Path(output)) = &args.output {
-            match output.extension() {
-                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
-                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
-                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                Some(ext) if ext.eq_ignore_ascii_case("html") => OutputFormat::Html,
-                _ => bail!(
+            let Some(fmt) = OutputFormat::from(output) else {
+                bail!(
                     "could not infer output format for path {}.\n\
                      consider providing the format manually with `--format/-f`",
                     output.display()
-                ),
-            }
+                )
+            };
+            fmt
         } else {
             OutputFormat::Pdf
         };
@@ -116,12 +113,7 @@ impl CompileConfig {
                 panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
             Output::Path(path.with_extension(
-                match output_format {
-                    OutputFormat::Pdf => "pdf",
-                    OutputFormat::Png => "png",
-                    OutputFormat::Svg => "svg",
-                    OutputFormat::Html => "html",
-                },
+                output_format.as_str()
             ))
         });
 
@@ -456,8 +448,8 @@ fn export_image_page(
 impl Output {
     fn write(&self, buffer: &[u8]) -> StrResult<()> {
         match self {
-            Output::Stdout => std::io::stdout().write_all(buffer),
-            Output::Path(path) => fs::write(path, buffer),
+            Self::Stdout => std::io::stdout().write_all(buffer),
+            Self::Path(path) => fs::write(path, buffer),
         }
         .map_err(|err| eco_format!("{err}"))
     }
@@ -760,19 +752,19 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
 impl From<PdfStandard> for typst_pdf::PdfStandard {
     fn from(standard: PdfStandard) -> Self {
         match standard {
-            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
-            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
-            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
-            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
-            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
-            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
-            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
-            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
-            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
-            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
-            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+            PdfStandard::V_1_4 => Self::V_1_4,
+            PdfStandard::V_1_5 => Self::V_1_5,
+            PdfStandard::V_1_6 => Self::V_1_6,
+            PdfStandard::V_1_7 => Self::V_1_7,
+            PdfStandard::V_2_0 => Self::V_2_0,
+            PdfStandard::A_1b => Self::A_1b,
+            PdfStandard::A_2b => Self::A_2b,
+            PdfStandard::A_2u => Self::A_2u,
+            PdfStandard::A_3b => Self::A_3b,
+            PdfStandard::A_3u => Self::A_3u,
+            PdfStandard::A_4 => Self::A_4,
+            PdfStandard::A_4f => Self::A_4f,
+            PdfStandard::A_4e => Self::A_4e,
         }
     }
 }

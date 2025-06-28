@@ -34,9 +34,9 @@ pub(crate) trait LineCapExt {
 impl LineCapExt for LineCap {
     fn to_krilla(&self) -> kp::LineCap {
         match self {
-            LineCap::Butt => kp::LineCap::Butt,
-            LineCap::Round => kp::LineCap::Round,
-            LineCap::Square => kp::LineCap::Square,
+            Self::Butt => kp::LineCap::Butt,
+            Self::Round => kp::LineCap::Round,
+            Self::Square => kp::LineCap::Square,
         }
     }
 }
@@ -48,9 +48,9 @@ pub(crate) trait LineJoinExt {
 impl LineJoinExt for LineJoin {
     fn to_krilla(&self) -> kp::LineJoin {
         match self {
-            LineJoin::Miter => kp::LineJoin::Miter,
-            LineJoin::Round => kp::LineJoin::Round,
-            LineJoin::Bevel => kp::LineJoin::Bevel,
+            Self::Miter => kp::LineJoin::Miter,
+            Self::Round => kp::LineJoin::Round,
+            Self::Bevel => kp::LineJoin::Bevel,
         }
     }
 }
@@ -79,8 +79,8 @@ pub(crate) trait FillRuleExt {
 impl FillRuleExt for FillRule {
     fn to_krilla(&self) -> kp::FillRule {
         match self {
-            FillRule::NonZero => kp::FillRule::NonZero,
-            FillRule::EvenOdd => kp::FillRule::EvenOdd,
+            Self::NonZero => kp::FillRule::NonZero,
+            Self::EvenOdd => kp::FillRule::EvenOdd,
         }
     }
 }

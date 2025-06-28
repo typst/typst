@@ -385,7 +385,7 @@ pub enum LeftRightAlternator {
 }
 
 impl Iterator for LeftRightAlternator {
-    type Item = LeftRightAlternator;
+    type Item = Self;
 
     fn next(&mut self) -> Option<Self::Item> {
         let r = Some(*self);

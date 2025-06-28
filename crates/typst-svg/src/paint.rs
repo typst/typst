@@ -490,9 +490,9 @@ enum GradientKind {
 impl From<&Gradient> for GradientKind {
     fn from(value: &Gradient) -> Self {
         match value {
-            Gradient::Linear { .. } => GradientKind::Linear,
-            Gradient::Radial { .. } => GradientKind::Radial,
-            Gradient::Conic { .. } => GradientKind::Conic,
+            Gradient::Linear { .. } => Self::Linear,
+            Gradient::Radial { .. } => Self::Radial,
+            Gradient::Conic { .. } => Self::Conic,
         }
     }
 }
@@ -506,11 +506,11 @@ pub trait ColorEncode {
 impl ColorEncode for Color {
     fn encode(&self) -> EcoString {
         match *self {
-            c @ Color::Rgb(_)
-            | c @ Color::Luma(_)
-            | c @ Color::Cmyk(_)
-            | c @ Color::Hsv(_) => c.to_hex(),
-            Color::LinearRgb(rgb) => {
+            c @ Self::Rgb(_)
+            | c @ Self::Luma(_)
+            | c @ Self::Cmyk(_)
+            | c @ Self::Hsv(_) => c.to_hex(),
+            Self::LinearRgb(rgb) => {
                 if rgb.alpha != 1.0 {
                     eco_format!(
                         "color(srgb-linear {:.5} {:.5} {:.5} / {:.5})",
@@ -528,7 +528,7 @@ impl ColorEncode for Color {
                     )
                 }
             }
-            Color::Oklab(oklab) => {
+            Self::Oklab(oklab) => {
                 if oklab.alpha != 1.0 {
                     eco_format!(
                         "oklab({:.3}% {:.5} {:.5} / {:.5})",
@@ -546,7 +546,7 @@ impl ColorEncode for Color {
                     )
                 }
             }
-            Color::Oklch(oklch) => {
+            Self::Oklch(oklch) => {
                 if oklch.alpha != 1.0 {
                     eco_format!(
                         "oklch({:.3}% {:.5} {:.3}deg / {:.3})",
@@ -564,7 +564,7 @@ impl ColorEncode for Color {
                     )
                 }
             }
-            Color::Hsl(hsl) => {
+            Self::Hsl(hsl) => {
                 if hsl.alpha != 1.0 {
                     eco_format!(
                         "hsla({:.3}deg {:.3}% {:.3}% / {:.5})",

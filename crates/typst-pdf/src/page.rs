@@ -50,12 +50,12 @@ impl PageLabelExt for PageLabel {
             };
 
             let offset = style.and(number.try_into().ok().and_then(NonZeroUsize::new));
-            Some(PageLabel::new(style, prefix.map(|s| s.to_string()), offset))
+            Some(Self::new(style, prefix.map(|s| s.to_string()), offset))
         }
     }
 
     fn arabic(number: u64) -> PageLabel {
-        PageLabel::new(
+        Self::new(
             Some(NumberingStyle::Arabic),
             None,
             number.try_into().ok().and_then(NonZeroUsize::new),

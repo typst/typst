@@ -30,7 +30,7 @@ impl<T: AsRef<str>> Lines<T> {
     /// Create from the text buffer and compute the line metadata.
     pub fn new(text: T) -> Self {
         let lines = lines(text.as_ref());
-        Lines(Arc::new(Repr { lines, text }))
+        Self(Arc::new(Repr { lines, text }))
     }
 
     /// The text as a string slice.

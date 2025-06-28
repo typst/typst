@@ -57,7 +57,7 @@ impl<T> LazyHash<T> {
     /// enforced at compile time, so use with caution.
     #[inline]
     pub fn reuse<U: ?Sized>(value: T, existing: &LazyHash<U>) -> Self {
-        LazyHash { hash: AtomicU128::new(existing.load_hash()), value }
+        Self { hash: AtomicU128::new(existing.load_hash()), value }
     }
 
     /// Returns the wrapped value.

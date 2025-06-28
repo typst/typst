@@ -101,7 +101,7 @@ pub trait ArcExt<T> {
 
 impl<T: Clone> ArcExt<T> for Arc<T> {
     fn take(self) -> T {
-        match Arc::try_unwrap(self) {
+        match Self::try_unwrap(self) {
             Ok(v) => v,
             Err(rc) => (*rc).clone(),
         }

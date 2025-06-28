@@ -406,7 +406,7 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     ///
     /// The text `range` is relative to the whole inline layout.
-    pub fn reshape(&'a self, engine: &Engine, text_range: Range) -> ShapedText<'a> {
+    pub fn reshape(&'a self, engine: &Engine, text_range: Range) -> Self {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             #[cfg(debug_assertions)]

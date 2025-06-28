@@ -51,7 +51,7 @@ impl Tag {
     /// The list of all tags, in the same order as thy are defined.
     ///
     /// Can be used as the counter-part to `tag as usize`.
-    pub const LIST: &'static [Tag] = &[
+    pub const LIST: &'static [Self] = &[
         Self::Comment,
         Self::Punctuation,
         Self::Escape,

@@ -39,9 +39,9 @@ pub struct PicoStr(NonZeroU64);
 
 impl PicoStr {
     /// Intern a string at runtime.
-    pub fn intern(string: &str) -> PicoStr {
+    pub fn intern(string: &str) -> Self {
         // Try to use bitcode or exception representations.
-        if let Ok(value) = PicoStr::try_constant(string) {
+        if let Ok(value) = Self::try_constant(string) {
             return value;
         }
 
@@ -69,15 +69,15 @@ impl PicoStr {
     ///
     /// Should only be used in const contexts because it can panic.
     #[track_caller]
-    pub const fn constant(string: &'static str) -> PicoStr {
-        match PicoStr::try_constant(string) {
+    pub const fn constant(string: &'static str) -> Self {
+        match Self::try_constant(string) {
             Ok(value) => value,
             Err(err) => failed_to_compile_time_intern(err, string),
         }
     }
 
     /// Try to intern a string statically at compile-time.
-    pub const fn try_constant(string: &str) -> Result<PicoStr, bitcode::EncodingError> {
+    pub const fn try_constant(string: &str) -> Result<Self, bitcode::EncodingError> {
         // Try to encode with bitcode.
         let value = match bitcode::encode(string) {
             // Store representation marker in high bit. Bitcode doesn't use
