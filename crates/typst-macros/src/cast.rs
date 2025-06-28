@@ -167,12 +167,12 @@ impl Parse for Cast {
 impl Parse for Pattern {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(syn::LitStr) {
-            Ok(Pattern::Str(input.parse()?))
+            Ok(Self::Str(input.parse()?))
         } else {
             let pat = syn::Pat::parse_single(input)?;
             let _: syn::Token![:] = input.parse()?;
             let ty = input.parse()?;
-            Ok(Pattern::Ty(pat, ty))
+            Ok(Self::Ty(pat, ty))
         }
     }
 }

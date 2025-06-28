@@ -29,7 +29,7 @@ impl SyntaxNode {
     }
 
     /// Create a new inner node with children.
-    pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
+    pub fn inner(kind: SyntaxKind, children: Vec<Self>) -> Self {
         Self(Repr::Inner(Arc::new(InnerNode::new(kind, children))))
     }
 
@@ -111,7 +111,7 @@ impl SyntaxNode {
     }
 
     /// The node's children.
-    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
+    pub fn children(&self) -> std::slice::Iter<'_, Self> {
         match &self.0 {
             Repr::Leaf(_) | Repr::Error(_) => [].iter(),
             Repr::Inner(inner) => inner.children.iter(),
@@ -188,7 +188,7 @@ impl SyntaxNode {
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         if !self.kind().is_error() {
             let text = std::mem::take(self).into_text();
-            *self = SyntaxNode::error(SyntaxError::new(message), text);
+            *self = Self::error(SyntaxError::new(message), text);
         }
     }
 
@@ -244,7 +244,7 @@ impl SyntaxNode {
     }
 
     /// The node's children, mutably.
-    pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
+    pub(super) fn children_mut(&mut self) -> &mut [Self] {
         match &mut self.0 {
             Repr::Leaf(_) | Repr::Error(_) => &mut [],
             Repr::Inner(inner) => &mut Arc::make_mut(inner).children,
@@ -257,7 +257,7 @@ impl SyntaxNode {
     pub(super) fn replace_children(
         &mut self,
         range: Range<usize>,
-        replacement: Vec<SyntaxNode>,
+        replacement: Vec<Self>,
     ) -> NumberingResult {
         if let Repr::Inner(inner) = &mut self.0 {
             Arc::make_mut(inner).replace_children(range, replacement)?;
@@ -712,7 +712,7 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Find a descendant with the given span.
-    pub fn find(&self, span: Span) -> Option<LinkedNode<'a>> {
+    pub fn find(&self, span: Span) -> Option<Self> {
         if self.span() == span {
             return Some(self.clone());
         }

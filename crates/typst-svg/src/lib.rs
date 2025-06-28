@@ -156,7 +156,7 @@ impl State {
 impl SVGRenderer {
     /// Create a new SVG renderer with empty glyph and clip path.
     fn new() -> Self {
-        SVGRenderer {
+        Self {
             xml: XmlWriter::new(xmlwriter::Options::default()),
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),

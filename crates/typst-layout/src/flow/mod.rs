@@ -426,6 +426,6 @@ enum Stop {
 
 impl From<EcoVec<SourceDiagnostic>> for Stop {
     fn from(error: EcoVec<SourceDiagnostic>) -> Self {
-        Stop::Error(error)
+        Self::Error(error)
     }
 }

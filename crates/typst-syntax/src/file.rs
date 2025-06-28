@@ -53,7 +53,7 @@ impl FileId {
             .and_then(NonZeroU16::try_from)
             .expect("out of file ids");
 
-        let id = FileId(num);
+        let id = Self(num);
         let leaked = Box::leak(Box::new(pair));
         interner.to_id.insert(leaked, id);
         interner.from_id.push(leaked);
@@ -74,7 +74,7 @@ impl FileId {
             .and_then(NonZeroU16::try_from)
             .expect("out of file ids");
 
-        let id = FileId(num);
+        let id = Self(num);
         let leaked = Box::leak(Box::new((None, path)));
         interner.from_id.push(leaked);
         id

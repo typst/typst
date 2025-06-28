@@ -410,8 +410,8 @@ pub enum Input {
 impl Display for Input {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Input::Stdin => f.pad("stdin"),
-            Input::Path(path) => path.display().fmt(f),
+            Self::Stdin => f.pad("stdin"),
+            Self::Path(path) => path.display().fmt(f),
         }
     }
 }
@@ -428,8 +428,8 @@ pub enum Output {
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Output::Stdout => f.pad("stdout"),
-            Output::Path(path) => path.display().fmt(f),
+            Self::Stdout => f.pad("stdout"),
+            Self::Path(path) => path.display().fmt(f),
         }
     }
 }
@@ -536,18 +536,18 @@ impl FromStr for Pages {
             [] | [""] => Err("page export range must not be empty"),
             [single_page] => {
                 let page_number = parse_page_number(single_page)?;
-                Ok(Pages(Some(page_number)..=Some(page_number)))
+                Ok(Self(Some(page_number)..=Some(page_number)))
             }
             ["", ""] => Err("page export range must have start or end"),
-            [start, ""] => Ok(Pages(Some(parse_page_number(start)?)..=None)),
-            ["", end] => Ok(Pages(None..=Some(parse_page_number(end)?))),
+            [start, ""] => Ok(Self(Some(parse_page_number(start)?)..=None)),
+            ["", end] => Ok(Self(None..=Some(parse_page_number(end)?))),
             [start, end] => {
                 let start = parse_page_number(start)?;
                 let end = parse_page_number(end)?;
                 if start > end {
                     Err("page export range must end at a page after the start")
                 } else {
-                    Ok(Pages(Some(start)..=Some(end)))
+                    Ok(Self(Some(start)..=Some(end)))
                 }
             }
             [_, _, _, ..] => Err("page export range must have a single hyphen"),

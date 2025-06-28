@@ -139,7 +139,7 @@ impl MathFragment {
 
         matches!(
             self,
-            MathFragment::Frame(FrameFragment {
+            Self::Frame(FrameFragment {
                 spaced: true,
                 class: MathClass::Normal | MathClass::Alphabetic,
                 ..
@@ -150,7 +150,7 @@ impl MathFragment {
     pub fn is_text_like(&self) -> bool {
         match self {
             Self::Glyph(glyph) => !glyph.extended_shape,
-            MathFragment::Frame(frame) => frame.text_like,
+            Self::Frame(frame) => frame.text_like,
             _ => false,
         }
     }
@@ -186,8 +186,8 @@ impl MathFragment {
 
     pub fn limits(&self) -> Limits {
         match self {
-            MathFragment::Glyph(glyph) => glyph.limits,
-            MathFragment::Frame(fragment) => fragment.limits,
+            Self::Glyph(glyph) => glyph.limits,
+            Self::Frame(fragment) => fragment.limits,
             _ => Limits::Never,
         }
     }
@@ -841,13 +841,13 @@ impl Limits {
         match default_math_class(c) {
             Some(MathClass::Large) => {
                 if is_integral_char(c) {
-                    Limits::Never
+                    Self::Never
                 } else {
-                    Limits::Display
+                    Self::Display
                 }
             }
-            Some(MathClass::Relation) => Limits::Always,
-            _ => Limits::Never,
+            Some(MathClass::Relation) => Self::Always,
+            _ => Self::Never,
         }
     }
 

@@ -233,7 +233,7 @@ impl<'a> GlobalContext<'a> {
         options: &'a PdfOptions,
         loc_to_names: HashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
-    ) -> GlobalContext<'a> {
+    ) -> Self {
         Self {
             fonts_forward: HashMap::new(),
             fonts_backward: HashMap::new(),

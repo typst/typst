@@ -29,7 +29,7 @@ impl TermOutInner {
         };
 
         let stream = termcolor::StandardStream::stderr(color_choice);
-        TermOutInner { stream }
+        Self { stream }
     }
 }
 

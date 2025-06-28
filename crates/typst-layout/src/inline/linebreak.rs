@@ -796,13 +796,13 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
     impl Class {
         fn of(c: char) -> Self {
             if c.is_alphabetic() {
-                Class::Alphabetic
+                Self::Alphabetic
             } else if c.is_numeric() {
-                Class::Digit
+                Self::Digit
             } else if matches!(c, '(' | '[') {
-                Class::Open
+                Self::Open
             } else {
-                Class::Other
+                Self::Other
             }
         }
     }

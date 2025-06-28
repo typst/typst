@@ -20,7 +20,7 @@ pub struct Timer {
 impl Timer {
     /// Initializes the timing system and returns a timer that can be used to
     /// record timings for a specific function invocation.
-    pub fn new(args: &CliArguments) -> Timer {
+    pub fn new(args: &CliArguments) -> Self {
         let record = match &args.command {
             Command::Compile(command) => command.args.timings.clone(),
             Command::Watch(command) => command.args.timings.clone(),
@@ -35,7 +35,7 @@ impl Timer {
         let path =
             record.map(|path| path.unwrap_or_else(|| PathBuf::from("record-{n}.json")));
 
-        Timer { path, index: 0 }
+        Self { path, index: 0 }
     }
 
     /// Records all timings in `f` and writes them to disk.

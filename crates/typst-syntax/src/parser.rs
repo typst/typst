@@ -1602,14 +1602,14 @@ impl AtNewline {
     fn stop_at(self, Newline { column, parbreak }: Newline, kind: SyntaxKind) -> bool {
         #[allow(clippy::match_like_matches_macro)]
         match self {
-            AtNewline::Continue => false,
-            AtNewline::Stop => true,
-            AtNewline::ContextualContinue => match kind {
+            Self::Continue => false,
+            Self::Stop => true,
+            Self::ContextualContinue => match kind {
                 SyntaxKind::Else | SyntaxKind::Dot => false,
                 _ => true,
             },
-            AtNewline::StopParBreak => parbreak,
-            AtNewline::RequireColumn(min_col) => {
+            Self::StopParBreak => parbreak,
+            Self::RequireColumn(min_col) => {
                 // When the column is `None`, the newline doesn't start a
                 // column, and we continue parsing. This may happen on the
                 // boundary of syntax modes, since we only report a column in
@@ -1833,7 +1833,7 @@ impl<'s> Parser<'s> {
         &mut self,
         mode: SyntaxMode,
         stop: AtNewline,
-        func: impl FnOnce(&mut Parser<'s>),
+        func: impl FnOnce(&mut Self),
     ) {
         let previous = self.lexer.mode();
         self.lexer.set_mode(mode);
@@ -1850,7 +1850,7 @@ impl<'s> Parser<'s> {
     /// change the current token). This may re-lex the final token on exit.
     ///
     /// This function effectively repurposes the call stack as a stack of modes.
-    fn with_nl_mode(&mut self, mode: AtNewline, func: impl FnOnce(&mut Parser<'s>)) {
+    fn with_nl_mode(&mut self, mode: AtNewline, func: impl FnOnce(&mut Self)) {
         let previous = self.nl_mode;
         self.nl_mode = mode;
         func(self);

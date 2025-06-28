@@ -476,16 +476,16 @@ pub enum WorldCreationError {
 impl fmt::Display for WorldCreationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            WorldCreationError::InputNotFound(path) => {
+            Self::InputNotFound(path) => {
                 write!(f, "input file not found (searched at {})", path.display())
             }
-            WorldCreationError::InputOutsideRoot => {
+            Self::InputOutsideRoot => {
                 write!(f, "source file must be contained in project root")
             }
-            WorldCreationError::RootNotFound(path) => {
+            Self::RootNotFound(path) => {
                 write!(f, "root directory not found (searched at {})", path.display())
             }
-            WorldCreationError::Io(err) => write!(f, "{err}"),
+            Self::Io(err) => write!(f, "{err}"),
         }
     }
 }
