@@ -444,7 +444,7 @@ pub enum OutputFormat {
 }
 
 impl OutputFormat {
-    pub fn from(path: &PathBuf) -> Option<Self> {
+    pub fn from(path: &std::path::Path) -> Option<Self> {
         Some(match path.extension() {
             Some(ext) if ext.eq_ignore_ascii_case("pdf") => Self::Pdf,
             Some(ext) if ext.eq_ignore_ascii_case("png") => Self::Png,
