@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use bytemuck::TransparentWrapper;
 use krilla::surface::{Location, Surface};
+use krilla::tagging::SpanTag;
 use krilla::text::GlyphId;
 use typst_library::diag::{bail, SourceResult};
 use typst_library::layout::Size;
@@ -23,7 +24,8 @@ pub(crate) fn handle_text(
 ) -> SourceResult<()> {
     *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
 
-    let mut handle = tags::start_marked(gc, surface);
+    let mut handle =
+        tags::start_span(gc, surface, SpanTag::empty().with_actual_text(Some(&t.text)));
     let surface = handle.surface();
 
     let font = convert_font(gc, t.font.clone())?;
