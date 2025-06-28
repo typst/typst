@@ -2,6 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use ecow::EcoString;
+use typst_macros::Cast;
 use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
@@ -810,6 +811,12 @@ pub struct TableCell {
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
+    // TODO: feature gate
+    pub kind: Smart<TableCellKind>,
+
+    // TODO: feature gate
+    pub header_scope: Smart<TableHeaderScope>,
+
     /// Whether rows spanned by this cell can be placed in different pages.
     /// When equal to `{auto}`, a cell spanning only fixed-size rows is
     /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
@@ -846,4 +853,19 @@ impl From<Content> for TableCell {
         #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum TableHeaderScope {
+    Both,
+    Column,
+    Row,
+}
+
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum TableCellKind {
+    Header,
+    Footer,
+    #[default]
+    Data,
 }

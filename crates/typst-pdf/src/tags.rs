@@ -1,19 +1,19 @@
 use std::cell::OnceCell;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 
 use ecow::EcoString;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
     ArtifactType, ContentTag, Identifier, Node, SpanTag, TableCellSpan, TableDataCell,
-    TableHeaderCell, TableHeaderScope, Tag, TagBuilder, TagGroup, TagKind, TagTree,
+    TableHeaderCell, Tag, TagBuilder, TagGroup, TagKind, TagTree,
 };
-use typst_library::foundations::{Content, LinkMarker, Packed, StyleChain};
+use typst_library::foundations::{Content, LinkMarker, Packed, Smart, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
     Destination, FigureCaption, FigureElem, HeadingElem, Outlinable, OutlineBody,
-    OutlineEntry, TableCell, TableElem,
+    OutlineEntry, TableCell, TableCellKind, TableElem, TableHeaderScope,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfTagElem, PdfTagKind};
 use typst_library::visualize::ImageElem;
@@ -126,7 +126,42 @@ impl OutlineCtx {
 
 pub(crate) struct TableCtx {
     table: Packed<TableElem>,
-    rows: Vec<Vec<Option<(Packed<TableCell>, Tag, Vec<TagNode>)>>>,
+    rows: Vec<Vec<GridCell>>,
+}
+
+#[derive(Clone, Default)]
+enum GridCell {
+    Cell(TableCtxCell),
+    Spanned(usize, usize),
+    #[default]
+    Missing,
+}
+
+impl GridCell {
+    fn as_cell(&self) -> Option<&TableCtxCell> {
+        if let Self::Cell(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    fn into_cell(self) -> Option<TableCtxCell> {
+        if let Self::Cell(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TableCtxCell {
+    rowspan: NonZeroUsize,
+    colspan: NonZeroUsize,
+    kind: TableCellKind,
+    header_scope: Smart<TableHeaderScope>,
+    nodes: Vec<TagNode>,
 }
 
 impl TableCtx {
@@ -137,51 +172,134 @@ impl TableCtx {
     fn insert(&mut self, cell: Packed<TableCell>, nodes: Vec<TagNode>) {
         let x = cell.x(StyleChain::default()).unwrap_or_else(|| unreachable!());
         let y = cell.y(StyleChain::default()).unwrap_or_else(|| unreachable!());
-        let rowspan = cell.rowspan(StyleChain::default()).get();
-        let colspan = cell.colspan(StyleChain::default()).get();
+        let rowspan = cell.rowspan(StyleChain::default());
+        let colspan = cell.colspan(StyleChain::default());
+        let kind = cell.kind(StyleChain::default());
+        let header_scope = cell.header_scope(StyleChain::default());
 
-        // TODO: possibly set internal field on TableCell when resolving
-        // the cell grid.
-        let is_header = false;
-        let span = TableCellSpan { rows: rowspan as i32, cols: colspan as i32 };
-        let tag = if is_header {
-            let scope = TableHeaderScope::Column; // TODO
-            TagKind::TH(TableHeaderCell::new(scope).with_span(span))
-        } else {
-            TagKind::TD(TableDataCell::new().with_span(span))
+        // The explicit cell kind takes precedence, but if it is `auto` and a
+        // scope was specified, make this a header cell.
+        let kind = match (kind, header_scope) {
+            (Smart::Custom(kind), _) => kind,
+            (Smart::Auto, Smart::Custom(_)) => TableCellKind::Header,
+            (Smart::Auto, Smart::Auto) => TableCellKind::Data,
         };
 
-        let required_height = y + rowspan;
+        // Extend the table grid to fit this cell.
+        let required_height = y + rowspan.get();
+        let required_width = x + colspan.get();
         if self.rows.len() < required_height {
-            self.rows.resize_with(required_height, Vec::new);
+            self.rows
+                .resize(required_height, vec![GridCell::Missing; required_width]);
         }
-
-        let required_width = x + colspan;
         let row = &mut self.rows[y];
         if row.len() < required_width {
-            row.resize_with(required_width, || None);
+            row.resize_with(required_width, || GridCell::Missing);
         }
 
-        row[x] = Some((cell, tag.into(), nodes));
+        // Store references to the cell for all spanned cells.
+        for i in y..y + rowspan.get() {
+            for j in x..x + colspan.get() {
+                self.rows[i][j] = GridCell::Spanned(x, y);
+            }
+        }
+
+        self.rows[y][x] =
+            GridCell::Cell(TableCtxCell { rowspan, colspan, kind, header_scope, nodes });
     }
 
     fn build_table(self, mut nodes: Vec<TagNode>) -> Vec<TagNode> {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
-        for row in self.rows.into_iter() {
-            let mut row_nodes = Vec::new();
-            for (_, tag, nodes) in row.into_iter().flatten() {
-                row_nodes.push(TagNode::Group(tag, nodes));
+
+        // Only generate row groups such as `THead`, `TFoot`, and `TBody` if
+        // there are no rows with mixed cell kinds.
+        let mut mixed_row_kinds = false;
+        let row_kinds = (self.rows.iter())
+            .map(|row| {
+                row.iter()
+                    .filter_map(|cell| match cell {
+                        GridCell::Cell(cell) => Some(cell),
+                        &GridCell::Spanned(x, y) => self.rows[y][x].as_cell(),
+                        GridCell::Missing => None,
+                    })
+                    .map(|cell| cell.kind)
+                    .reduce(|a, b| {
+                        if a != b {
+                            mixed_row_kinds = true;
+                        }
+                        a
+                    })
+                    .expect("tables must have at least one column")
+            })
+            .collect::<Vec<_>>();
+
+        let Some(mut chunk_kind) = row_kinds.first().copied() else {
+            return nodes;
+        };
+        let mut row_chunk = Vec::new();
+        for (row, row_kind) in self.rows.into_iter().zip(row_kinds) {
+            let row_nodes = row
+                .into_iter()
+                .filter_map(|cell| {
+                    let cell = cell.into_cell()?;
+                    let span = TableCellSpan {
+                        rows: cell.rowspan.get() as i32,
+                        cols: cell.colspan.get() as i32,
+                    };
+                    let tag = match cell.kind {
+                        TableCellKind::Header => {
+                            let scope = match cell.header_scope {
+                                Smart::Custom(scope) => table_header_scope(scope),
+                                Smart::Auto => krilla::tagging::TableHeaderScope::Column,
+                            };
+                            TagKind::TH(TableHeaderCell::new(scope).with_span(span))
+                        }
+                        TableCellKind::Footer | TableCellKind::Data => {
+                            TagKind::TD(TableDataCell::new().with_span(span))
+                        }
+                    };
+
+                    Some(TagNode::Group(tag.into(), cell.nodes))
+                })
+                .collect();
+
+            let row = TagNode::Group(TagKind::TR.into(), row_nodes);
+
+            // Push the `TR` tags directly.
+            if mixed_row_kinds {
+                nodes.push(row);
+                continue;
             }
 
-            // TODO: generate `THead`, `TBody`, and `TFoot`
-            nodes.push(TagNode::Group(TagKind::TR.into(), row_nodes));
+            // Generate row groups.
+            if row_kind != chunk_kind {
+                let tag = match chunk_kind {
+                    TableCellKind::Header => TagKind::THead,
+                    TableCellKind::Footer => TagKind::TFoot,
+                    TableCellKind::Data => TagKind::TBody,
+                };
+                nodes.push(TagNode::Group(tag.into(), std::mem::take(&mut row_chunk)));
+
+                chunk_kind = row_kind;
+            }
+            row_chunk.push(row);
+        }
+
+        if !row_chunk.is_empty() {
+            let tag = match chunk_kind {
+                TableCellKind::Header => TagKind::THead,
+                TableCellKind::Footer => TagKind::TFoot,
+                TableCellKind::Data => TagKind::TBody,
+            };
+            nodes.push(TagNode::Group(tag.into(), row_chunk));
         }
 
         nodes
     }
 }
 
+#[derive(Clone)]
 pub(crate) enum TagNode {
     Group(Tag, Vec<TagNode>),
     Leaf(Identifier),
@@ -487,6 +605,14 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, loc: Location) {
 
 fn start_artifact(gc: &mut GlobalContext, loc: Location, kind: ArtifactKind) {
     gc.tags.in_artifact = Some((loc, kind));
+}
+
+fn table_header_scope(scope: TableHeaderScope) -> krilla::tagging::TableHeaderScope {
+    match scope {
+        TableHeaderScope::Both => krilla::tagging::TableHeaderScope::Both,
+        TableHeaderScope::Column => krilla::tagging::TableHeaderScope::Column,
+        TableHeaderScope::Row => krilla::tagging::TableHeaderScope::Row,
+    }
 }
 
 fn artifact_type(kind: ArtifactKind) -> ArtifactType {
