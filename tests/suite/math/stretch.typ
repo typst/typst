@@ -91,3 +91,9 @@ $ body^"text" $
   }
   $body^"long text"$
 }
+
+--- math-stretch-function ---
+// Test using a function as an argument to size.
+$stretch(<-, size: #(x => x - 0.5em))_"function"$
+#set math.stretch(size: x => x + 0.5em)
+$stretch(|) |$
