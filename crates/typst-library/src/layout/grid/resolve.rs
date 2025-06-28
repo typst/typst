@@ -20,6 +20,8 @@ use typst_library::visualize::{Paint, Stroke};
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, SmallBitSet};
 
+use crate::pdf::{TableCellKind, TableHeaderScope};
+
 /// Convert a grid to a cell grid.
 #[typst_macros::time(span = elem.span())]
 pub fn grid_to_cellgrid(
@@ -209,12 +211,15 @@ impl ResolvableCell for Packed<TableCell> {
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
         styles: StyleChain,
+        kind: Smart<TableCellKind>,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan.get(styles);
         let rowspan = cell.rowspan.get(styles);
         let breakable = cell.breakable.get(styles).unwrap_or(breakable);
         let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
+
+        let kind = cell.kind.get(styles).or(kind);
 
         let cell_stroke = cell.stroke.resolve(styles);
         let stroke_overridden =
@@ -259,6 +264,7 @@ impl ResolvableCell for Packed<TableCell> {
             }),
         );
         cell.breakable.set(Smart::Custom(breakable));
+        cell.kind.set(kind);
         Cell {
             body: self.pack(),
             fill,
@@ -302,6 +308,7 @@ impl ResolvableCell for Packed<GridCell> {
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
         styles: StyleChain,
+        _: Smart<TableCellKind>,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan.get(styles);
@@ -506,6 +513,7 @@ pub trait ResolvableCell {
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
         styles: StyleChain,
+        kind: Smart<TableCellKind>,
     ) -> Cell;
 
     /// Returns this cell's column override.
@@ -1179,8 +1187,14 @@ impl CellGridResolver<'_, '_> {
         // a non-empty row.
         let mut first_available_row = 0;
 
+        // The cell kind is currently only used for tagged PDF.
+        let cell_kind;
+
         let (header_footer_items, simple_item) = match child {
-            ResolvableGridChild::Header { repeat, level, span, items, .. } => {
+            ResolvableGridChild::Header { repeat, level, span, items } => {
+                cell_kind =
+                    Smart::Custom(TableCellKind::Header(level, TableHeaderScope::Column));
+
                 row_group_data = Some(RowGroupData {
                     range: None,
                     span,
@@ -1207,10 +1221,12 @@ impl CellGridResolver<'_, '_> {
 
                 (Some(items), None)
             }
-            ResolvableGridChild::Footer { repeat, span, items, .. } => {
+            ResolvableGridChild::Footer { repeat, span, items } => {
                 if footer.is_some() {
                     bail!(span, "cannot have more than one footer");
                 }
+
+                cell_kind = Smart::Custom(TableCellKind::Footer);
 
                 row_group_data = Some(RowGroupData {
                     range: None,
@@ -1230,6 +1246,8 @@ impl CellGridResolver<'_, '_> {
                 (Some(items), None)
             }
             ResolvableGridChild::Item(item) => {
+                cell_kind = Smart::Custom(TableCellKind::Data);
+
                 if matches!(item, ResolvableGridItem::Cell(_)) {
                     *at_least_one_cell = true;
                 }
@@ -1423,7 +1441,7 @@ impl CellGridResolver<'_, '_> {
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
-            let cell = self.resolve_cell(cell, x, y, rowspan)?;
+            let cell = self.resolve_cell(cell, x, y, rowspan, cell_kind)?;
 
             if largest_index >= resolved_cells.len() {
                 // Ensure the length of the vector of resolved cells is
@@ -1520,9 +1538,21 @@ impl CellGridResolver<'_, '_> {
                     // and footers without having to loop through them each time.
                     // Cells themselves, unfortunately, still have to.
                     assert!(resolved_cells[*local_auto_index].is_none());
-                    resolved_cells[*local_auto_index] = Some(Entry::Cell(
-                        self.resolve_cell(T::default(), 0, first_available_row, 1)?,
-                    ));
+                    let kind = match row_group.kind {
+                        RowGroupKind::Header => TableCellKind::Header(
+                            NonZeroU32::ONE,
+                            TableHeaderScope::default(),
+                        ),
+                        RowGroupKind::Footer => TableCellKind::Footer,
+                    };
+                    resolved_cells[*local_auto_index] =
+                        Some(Entry::Cell(self.resolve_cell(
+                            T::default(),
+                            0,
+                            first_available_row,
+                            1,
+                            Smart::Custom(kind),
+                        )?));
 
                     group_start..group_end
                 }
@@ -1634,7 +1664,13 @@ impl CellGridResolver<'_, '_> {
                     let x = i % columns;
                     let y = i / columns;
 
-                    Ok(Entry::Cell(self.resolve_cell(T::default(), x, y, 1)?))
+                    Ok(Entry::Cell(self.resolve_cell(
+                        T::default(),
+                        x,
+                        y,
+                        1,
+                        Smart::Auto,
+                    )?))
                 }
             })
             .collect::<SourceResult<Vec<Entry>>>()
@@ -1886,6 +1922,7 @@ impl CellGridResolver<'_, '_> {
         x: usize,
         y: usize,
         rowspan: usize,
+        kind: Smart<TableCellKind>,
     ) -> SourceResult<Cell>
     where
         T: ResolvableCell + Default,
@@ -1921,6 +1958,7 @@ impl CellGridResolver<'_, '_> {
             self.stroke.resolve(self.engine, self.styles, x, y)?,
             breakable,
             self.styles,
+            kind,
         ))
     }
 }

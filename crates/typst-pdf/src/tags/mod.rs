@@ -70,10 +70,29 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
     } else if let Some(table) = elem.to_packed::<TableElem>() {
-        push_stack(gc, loc, StackEntryKind::Table(TableCtx::new(table.clone())));
+        let table_id = gc.tags.next_table_id();
+        let summary = table
+            .summary
+            .get_ref(StyleChain::default())
+            .as_ref()
+            .map(EcoString::to_string);
+        let ctx = TableCtx::new(table_id, summary);
+        push_stack(gc, loc, StackEntryKind::Table(ctx));
         return;
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
-        push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
+        let table_ctx = gc.tags.parent_table();
+
+        // Only repeated table headers and footer cells are laid out multiple
+        // times. Mark duplicate headers as artifacts, since they have no
+        // semantic meaning in the tag tree, which doesn't use page breaks for
+        // it's semantic structure.
+        if cell.is_repeated.get(StyleChain::default())
+            || table_ctx.is_some_and(|ctx| ctx.contains(cell))
+        {
+            start_artifact(gc, loc, ArtifactKind::Other);
+        } else {
+            push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
+        }
         return;
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
@@ -104,10 +123,7 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
 
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => TagNode::group(tag, entry.nodes),
-        StackEntryKind::Outline(ctx) => {
-            let nodes = ctx.build_outline(entry.nodes);
-            TagNode::group(Tag::TOC, nodes)
-        }
+        StackEntryKind::Outline(ctx) => ctx.build_outline(entry.nodes),
         StackEntryKind::OutlineEntry(outline_entry) => {
             let parent = gc.tags.stack.last_mut().and_then(|parent| {
                 let ctx = parent.kind.as_outline_mut()?;
@@ -124,24 +140,17 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
             outline_ctx.insert(parent_nodes, outline_entry, entry.nodes);
             return;
         }
-        StackEntryKind::Table(ctx) => {
-            let summary = ctx
-                .table
-                .summary
-                .get_ref(StyleChain::default())
-                .as_ref()
-                .map(EcoString::to_string);
-            let nodes = ctx.build_table(entry.nodes);
-            TagNode::group(Tag::Table.with_summary(summary), nodes)
-        }
+        StackEntryKind::Table(ctx) => ctx.build_table(entry.nodes),
         StackEntryKind::TableCell(cell) => {
-            let parent = gc.tags.stack.last_mut().expect("table");
-            let StackEntryKind::Table(table_ctx) = &mut parent.kind else {
-                unreachable!("expected table")
+            let Some(table_ctx) = gc.tags.parent_table() else {
+                // PDF/UA compliance of the structure hierarchy is checked
+                // elsewhere. While this doesn't make a lot of sense, just
+                // avoid crashing here.
+                gc.tags.push(TagNode::group(Tag::TD, entry.nodes));
+                return;
             };
 
-            table_ctx.insert(cell, entry.nodes);
-
+            table_ctx.insert(&cell, entry.nodes);
             return;
         }
         StackEntryKind::Link(_, _) => {
@@ -165,6 +174,9 @@ pub struct Tags {
     pub in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
     pub link_id: LinkId,
+    /// Used to generate IDs referenced in table `Headers` attributes.
+    /// The IDs must be document wide unique.
+    pub table_id: TableId,
 
     /// The output.
     pub tree: Vec<TagNode>,
@@ -179,6 +191,7 @@ impl Tags {
 
             tree: Vec::new(),
             link_id: LinkId(0),
+            table_id: TableId(0),
         }
     }
 
@@ -203,6 +216,10 @@ impl Tags {
 
     pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
         self.stack.last_mut().map(|e| &mut e.kind)
+    }
+
+    pub fn parent_table(&mut self) -> Option<&mut TableCtx> {
+        self.parent()?.as_table_mut()
     }
 
     pub fn parent_outline_entry(&mut self) -> Option<&mut OutlineEntry> {
@@ -250,7 +267,15 @@ impl Tags {
         self.link_id.0 += 1;
         self.link_id
     }
+
+    fn next_table_id(&mut self) -> TableId {
+        self.table_id.0 += 1;
+        self.table_id
+    }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct TableId(u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct LinkId(u32);
@@ -281,12 +306,16 @@ impl StackEntryKind {
         if let Self::OutlineEntry(v) = self { Some(v) } else { None }
     }
 
+    pub fn as_table_mut(&mut self) -> Option<&mut TableCtx> {
+        if let Self::Table(v) = self { Some(v) } else { None }
+    }
+
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TagNode {
     Group(TagKind, Vec<TagNode>),
     Leaf(Identifier),
@@ -301,7 +330,7 @@ impl TagNode {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Placeholder(usize);
 
 /// Automatically calls [`Surface::end_tagged`] when dropped.

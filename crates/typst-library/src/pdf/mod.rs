@@ -20,5 +20,7 @@ pub fn module() -> Module {
             .with_until("0.15.0"),
     );
     pdf.define_elem::<ArtifactElem>();
+    pdf.define_func::<header_cell>();
+    pdf.define_func::<data_cell>();
     Module::new("pdf", pdf)
 }

@@ -45,14 +45,11 @@ impl OutlineCtx {
         }
     }
 
-    pub fn build_outline(
-        mut self,
-        mut outline_nodes: Vec<TagNode>,
-    ) -> Vec<TagNode> {
+    pub fn build_outline(mut self, mut outline_nodes: Vec<TagNode>) -> TagNode {
         while !self.stack.is_empty() {
             self.finish_section(&mut outline_nodes);
         }
-        outline_nodes
+        TagNode::group(Tag::TOC, outline_nodes)
     }
 }
 

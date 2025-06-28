@@ -19,6 +19,7 @@ typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
+az = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
@@ -28,6 +29,7 @@ krilla = { workspace = true }
 krilla-svg = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true }
+smallvec = { workspace = true }
 
 [lints]
 workspace = true

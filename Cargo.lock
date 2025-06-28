@@ -3249,6 +3249,7 @@ dependencies = [
 name = "typst-pdf"
 version = "0.13.1"
 dependencies = [
+ "az",
  "bytemuck",
  "comemo",
  "ecow",
@@ -3258,6 +3259,7 @@ dependencies = [
  "krilla-svg",
  "rustc-hash",
  "serde",
+ "smallvec",
  "typst-assets",
  "typst-library",
  "typst-macros",

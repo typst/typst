@@ -31,6 +31,7 @@ pub fn layout_cell(
     locator: Locator,
     styles: StyleChain,
     regions: Regions,
+    is_repeated: bool,
 ) -> SourceResult<Fragment> {
     // HACK: manually generate tags for table and grid cells. Ideally table and
     // grid cells could just be marked as locatable, but the tags are somehow
@@ -38,7 +39,9 @@ pub fn layout_cell(
     // the grid layouter makes the test suite pass.
     let mut locator = locator.split();
     let tags = if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
-        Some(generate_tags(table_cell.clone(), &mut locator, engine))
+        let mut table_cell = table_cell.clone();
+        table_cell.is_repeated.set(is_repeated);
+        Some(generate_tags(table_cell, &mut locator, engine))
     } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
         Some(generate_tags(grid_cell.clone(), &mut locator, engine))
     } else {
