@@ -171,6 +171,46 @@
 == Middle heading
 === Lower heading
 
+--- outline-entry-force-supplement ---
+#set page(width: 200pt)
+#set heading(numbering: "1.", supplement: [Chapter])
+
+#show outline.entry.where(level: 1): it => link(
+  it.element.location(),
+  it.indented(
+    it.prefix(add-supplement: true),
+    it.inner(),
+  )
+)
+
+#outline()
+
+= Top
+== Middle
+=== Lower
+== Middle Again
+= Top again
+#set heading(numbering: none)
+= Top again again
+
+--- outline-entry-no-supplement ---
+#set page(width: 200pt)
+#set math.equation(numbering: "(i)", supplement: [Eq])
+
+#show outline.entry.where(level: 1): it => link(
+  it.element.location(),
+  it.indented(
+    it.prefix(add-supplement: false),
+    it.inner(),
+  )
+)
+
+#outline(target: math.equation)
+
+$ 1 $
+#set math.equation(numbering: none)
+$ 2 $
+
 --- outline-entry-inner ---
 #set heading(numbering: "1.")
 #show outline.entry: it => block(it.inner())
