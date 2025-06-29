@@ -77,8 +77,8 @@ impl Length {
     }
 
     /// Expresses this length in em's of the provided outer text size.
-    pub fn to_em(&self, text_size: Abs) -> Em {
-        self.em + Em::new(self.abs / text_size)
+    pub fn to_em(&self, font_size: Abs) -> Em {
+        self.em + Em::from_length(self.abs, font_size)
     }
 
     /// Fails with an error if the length has a non-zero font-relative part.
