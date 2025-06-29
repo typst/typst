@@ -804,11 +804,17 @@ fn shape_segment<'a>(
     // text extraction.
     buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
-    let (script_shift, script_compensation, scale) = ctx
+    let (script_shift, script_compensation, scale, shift_feature) = ctx
         .shift_settings
-        .map_or((Em::zero(), Em::zero(), Em::one()), |settings| {
-            compute_synthesized_shift(ctx, text, &font, settings)
+        .map_or((Em::zero(), Em::zero(), Em::one(), None), |settings| {
+            compute_synthesized_shift(text, &font, settings)
         });
+
+    let has_shift_feature = shift_feature.is_some();
+    if let Some(feat) = shift_feature {
+        // Temporarily push the feature.
+        ctx.features.push(feat)
+    }
 
     // Prepare the shape plan. This plan depends on direction, script, language,
     // and features, but is independent from the text and can thus be memoized.
@@ -819,6 +825,10 @@ fn shape_segment<'a>(
         buffer.language().as_ref(),
         &ctx.features,
     );
+
+    if has_shift_feature {
+        ctx.features.pop();
+    }
 
     // Shape!
     let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
@@ -964,11 +974,10 @@ fn shape_segment<'a>(
 /// synthesized, those values determine how to transform the rendered text to
 /// display scripts as expected.
 fn compute_synthesized_shift(
-    ctx: &mut ShapingContext,
     text: &str,
     font: &Font,
     settings: ShiftSettings,
-) -> (Em, Em, Em) {
+) -> (Em, Em, Em, Option<Feature>) {
     settings
         .typographic
         .then(|| {
@@ -990,10 +999,14 @@ fn compute_synthesized_shift(
                     font.rusty().glyph_index(c).is_some_and(|i| coverage.contains(i))
                 })
                 .then(|| {
-                    ctx.features.push(Feature::new(settings.kind.feature(), 1, ..));
                     // If we can use the OpenType feature, we can keep the text
                     // as is.
-                    (Em::zero(), Em::zero(), Em::one())
+                    (
+                        Em::zero(),
+                        Em::zero(),
+                        Em::one(),
+                        Some(Feature::new(settings.kind.feature(), 1, ..)),
+                    )
                 })
         })
         // Reunite the cases where `typographic` is `false` or where using the
@@ -1005,6 +1018,7 @@ fn compute_synthesized_shift(
                 settings.shift.unwrap_or(script_metrics.vertical_offset),
                 script_metrics.horizontal_offset,
                 settings.size.unwrap_or(script_metrics.height),
+                None,
             )
         })
 }
