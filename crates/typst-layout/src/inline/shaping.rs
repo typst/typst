@@ -393,7 +393,7 @@ impl<'a> ShapedText<'a> {
     pub fn stretchability(&self) -> Abs {
         self.glyphs
             .iter()
-            .map(|g|( g.stretchability().0 + g.stretchability().1).at(g.size))
+            .map(|g| (g.stretchability().0 + g.stretchability().1).at(g.size))
             .sum()
     }
 
