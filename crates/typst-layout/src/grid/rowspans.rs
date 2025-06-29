@@ -234,24 +234,12 @@ impl GridLayouter<'_> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         if self.unbreakable_rows_left == 0 {
-            // By default, the amount of unbreakable rows starting at the
-            // current row is dynamic and depends on the amount of upcoming
-            // unbreakable cells (with or without a rowspan setting).
-            let mut amount_unbreakable_rows = None;
-            if let Some(footer) = &self.grid.footer {
-                if !footer.repeated && current_row >= footer.start {
-                    // Non-repeated footer, so keep it unbreakable.
-                    //
-                    // TODO(subfooters): This will become unnecessary
-                    // once non-repeated footers are treated differently and
-                    // have widow prevention.
-                    amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
-                }
-            }
-
             let row_group = self.simulate_unbreakable_row_group(
                 current_row,
-                amount_unbreakable_rows,
+                // By default, the amount of unbreakable rows starting at the
+                // current row is dynamic and depends on the amount of upcoming
+                // unbreakable cells (with or without a rowspan setting).
+                None,
                 &self.regions,
                 engine,
                 0,
@@ -400,7 +388,8 @@ impl GridLayouter<'_> {
             if breakable
                 && (!self.repeating_headers.is_empty()
                     || !self.pending_headers.is_empty()
-                    || matches!(&self.grid.footer, Some(footer) if footer.repeated))
+                    // TODO(subfooters): pending footers
+                    || !self.repeating_footers.is_empty())
             {
                 // Subtract header and footer height from all upcoming regions
                 // when measuring the cell, including the last repeated region.
@@ -1176,14 +1165,23 @@ impl<'a> RowspanSimulator<'a> {
             (None, Abs::zero())
         };
 
-        let footer_height = if let Some(footer) =
-            layouter.grid.footer.as_ref().and_then(Repeatable::as_repeated)
+        let (repeating_footers, footer_height) = if layouter.repeating_footers.is_empty()
         {
-            layouter
-                .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                .height
+            (None, Abs::zero())
         } else {
-            Abs::zero()
+            // Only repeating footers have survived after the first region
+            // break.
+            // TODO(subfooters): consider pending footers
+            let repeating_footers = layouter.repeating_footers.iter().copied();
+
+            let (footer_height, _) = layouter.simulate_footer_heights(
+                repeating_footers.clone(),
+                &self.regions,
+                engine,
+                disambiguator,
+            )?;
+
+            (Some(repeating_footers), footer_height)
         };
 
         let mut skipped_region = false;
@@ -1212,15 +1210,18 @@ impl<'a> RowspanSimulator<'a> {
             };
         }
 
-        if let Some(footer) =
-            layouter.grid.footer.as_ref().and_then(Repeatable::as_repeated)
-        {
+        if let Some(repeating_footers) = repeating_footers {
             self.footer_height = if skipped_region {
                 // Simulate footers again, at the new region, as
                 // the full region height may change.
                 layouter
-                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                    .height
+                    .simulate_footer_heights(
+                        repeating_footers,
+                        &self.regions,
+                        engine,
+                        disambiguator,
+                    )?
+                    .0
             } else {
                 footer_height
             };

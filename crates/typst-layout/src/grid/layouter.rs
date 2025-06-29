@@ -6,6 +6,7 @@ use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
 };
+use typst_library::layout::resolve::Footer;
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,
@@ -60,6 +61,16 @@ pub struct GridLayouter<'a> {
     pub(super) pending_headers: &'a [Repeatable<Header>],
     /// Next headers to be processed.
     pub(super) upcoming_headers: &'a [Repeatable<Header>],
+    /// Currently repeating footers, one per level. Sorted by increasing
+    /// levels.
+    ///
+    /// Note that some levels may be absent, in particular level 0, which does
+    /// not exist (so all levels are >= 1).
+    pub(super) repeating_footers: Vec<&'a Footer>,
+    /// Next footers to be processed.
+    pub(super) upcoming_footers: &'a [Repeatable<Footer>],
+    /// Next footers sorted by when they start repeating.
+    pub(super) upcoming_sorted_footers: &'a [Repeatable<Footer>],
     /// State of the row being currently laid out.
     ///
     /// This is kept as a field to avoid passing down too many parameters from
@@ -155,6 +166,12 @@ pub(super) struct Current {
     /// when finding a new header and causing existing repeating headers to
     /// stop.
     pub(super) repeating_header_heights: Vec<Abs>,
+    /// The height for each repeating footer that will be placed in this region.
+    ///
+    /// This is used to know how much to update `repeating_footer_height` by
+    /// when finding a footer and causing existing repeating footers to
+    /// stop (and new ones to start).
+    pub(super) repeating_footer_heights: Vec<Abs>,
     /// The simulated footer height for this region.
     ///
     /// The simulation occurs before any rows are laid out for a region.
@@ -215,7 +232,7 @@ pub(super) enum Row {
 
 impl Row {
     /// Returns the `y` index of this row.
-    fn index(&self) -> usize {
+    pub(super) fn index(&self) -> usize {
         match self {
             Self::Frame(_, y, _) => *y,
             Self::Fr(_, y, _) => *y,
@@ -253,6 +270,10 @@ impl<'a> GridLayouter<'a> {
             repeating_headers: vec![],
             upcoming_headers: &grid.headers,
             pending_headers: Default::default(),
+            // This is updated on layout
+            repeating_footers: vec![],
+            upcoming_footers: &grid.footers,
+            upcoming_sorted_footers: &grid.sorted_footers,
             row_state: RowState::default(),
             current: Current {
                 initial: regions.size,
@@ -264,6 +285,7 @@ impl<'a> GridLayouter<'a> {
                 lrows_orphan_snapshot: None,
                 repeating_header_height: Abs::zero(),
                 repeating_header_heights: vec![],
+                repeating_footer_heights: vec![],
                 footer_height: Abs::zero(),
             },
             span,
@@ -274,15 +296,7 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(footer) = &self.grid.footer {
-            if footer.repeated {
-                // Ensure rows in the first region will be aware of the
-                // possible presence of the footer.
-                self.prepare_footer(footer, engine, 0)?;
-                self.regions.size.y -= self.current.footer_height;
-                self.current.initial_after_repeats = self.regions.size.y;
-            }
-        }
+        self.prepare_next_repeating_footers(true, engine)?;
 
         let mut y = 0;
         let mut consecutive_header_count = 0;
@@ -298,13 +312,15 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            if let Some(footer) = &self.grid.footer {
-                if footer.repeated && y >= footer.start {
-                    if y == footer.start {
-                        self.layout_footer(footer, engine, self.finished.len())?;
-                        self.flush_orphans();
-                    }
-                    y = footer.end;
+            if let [next_footer, other_footers @ ..] = self.upcoming_footers {
+                // TODO(subfooters): effective range (consider gutter before
+                // if it was removed)
+                if next_footer.range.contains(&y) {
+                    self.upcoming_footers = other_footers;
+                    self.place_new_footer(engine, next_footer)?;
+                    self.flush_orphans();
+                    y = next_footer.range.end;
+
                     continue;
                 }
             }
@@ -1566,26 +1582,34 @@ impl<'a> GridLayouter<'a> {
         // TODO(subfooters): explicitly check for short-lived footers.
         // TODO(subfooters): widow prevention for non-repeated footers with a
         // similar mechanism / when implementing multiple footers.
-        let footer_would_be_widow = matches!(&self.grid.footer, Some(footer) if footer.repeated)
-            && self.current.lrows.is_empty()
-            && self.current.could_progress_at_top;
+        // TODO(subfooters): could progress check must be replaced to consider
+        // the presence of non-repeating footer (then always true).
+        let may_place_footers = !self.repeating_footers.is_empty()
+            && (!self.current.lrows.is_empty() || !self.current.could_progress_at_top);
 
-        let mut laid_out_footer_start = None;
-        if !footer_would_be_widow {
-            if let Some(footer) = &self.grid.footer {
-                // Don't layout the footer if it would be alone with the header
-                // in the page (hence the widow check), and don't layout it
-                // twice (check below).
-                //
-                // TODO(subfooters): this check can be replaced by a vector of
-                // repeating footers in the future, and/or some "pending
-                // footers" vector for footers we're about to place.
-                if footer.repeated
-                    && self.current.lrows.iter().all(|row| row.index() < footer.start)
-                {
-                    laid_out_footer_start = Some(footer.start);
-                    self.layout_footer(footer, engine, self.finished.len())?;
-                }
+        if may_place_footers {
+            // Don't layout the footer if it would be alone with the header
+            // in the page (hence the widow check), and don't layout it
+            // twice (it is removed from repeating_footers once it is
+            // reached).
+            //
+            // Use index for iteration to avoid borrow conflict.
+            //
+            // Note that repeating footers are in reverse order.
+            //
+            // TODO(subfooters): "pending footers" vector for footers we're
+            // about to place. Needed for widow prevention of non-repeated
+            // footers.
+            let mut i = 0;
+            while let Some(footer_index) = self.repeating_footers.len().checked_sub(1 + i)
+            {
+                self.layout_footer(
+                    self.repeating_footers[footer_index],
+                    false,
+                    engine,
+                    self.finished.len(),
+                )?;
+                i += 1;
             }
         }
 
@@ -1684,12 +1708,24 @@ impl<'a> GridLayouter<'a> {
                 // laid out at the first frame of the row).
                 // Any rowspans ending before this row are laid out even
                 // on this row's first frame.
-                if laid_out_footer_start.is_none_or(|footer_start| {
-                    // If this is a footer row, then only lay out this rowspan
-                    // if the rowspan is contained within the footer.
-                    y < footer_start || rowspan.y >= footer_start
-                }) && (rowspan.y + rowspan.rowspan < y + 1
-                    || rowspan.y + rowspan.rowspan == y + 1 && is_last)
+                if (!may_place_footers
+                    || self.repeating_footers.iter().all(|footer| {
+                        // If this is a footer row, then only lay out this rowspan
+                        // if the rowspan is contained within the footer.
+                        // Since the footer is a row from "the future", it
+                        // always has a larger Y than all active rowspans,
+                        // so we must not interpret a rowspan before it to have
+                        // already ended because we saw a repeated footer.
+                        //
+                        // Of course, not a concern for non-repeated or
+                        // short-lived footers as they only appear once.
+                        //
+                        // TODO(subfooters): use effective range
+                        // (what about the gutter?).
+                        !footer.range.contains(&y) || footer.range.contains(&rowspan.y)
+                    }))
+                    && (rowspan.y + rowspan.rowspan < y + 1
+                        || rowspan.y + rowspan.rowspan == y + 1 && is_last)
                 {
                     // Rowspan ends at this or an earlier row, so we take
                     // it from the rowspans vector and lay it out.
@@ -1732,24 +1768,17 @@ impl<'a> GridLayouter<'a> {
         );
 
         if !last {
-            self.current.repeated_header_rows = 0;
-            self.current.last_repeated_header_end = 0;
-            self.current.repeating_header_height = Abs::zero();
-            self.current.repeating_header_heights.clear();
-
             let disambiguator = self.finished.len();
-            if let Some(footer) =
-                self.grid.footer.as_ref().and_then(Repeatable::as_repeated)
-            {
-                self.prepare_footer(footer, engine, disambiguator)?;
+            if !self.repeating_footers.is_empty() {
+                // TODO(subfooters): let's not...
+                let footers = self.repeating_footers.clone();
+                self.prepare_repeating_footers(
+                    footers.iter().copied(),
+                    true,
+                    engine,
+                    disambiguator,
+                )?;
             }
-
-            // Ensure rows don't try to overrun the footer.
-            // Note that header layout will only subtract this again if it has
-            // to skip regions to fit headers, so there is no risk of
-            // subtracting this twice.
-            self.regions.size.y -= self.current.footer_height;
-            self.current.initial_after_repeats = self.regions.size.y;
 
             if !self.repeating_headers.is_empty() || !self.pending_headers.is_empty() {
                 // Add headers to the new region.
@@ -1779,6 +1808,13 @@ impl<'a> GridLayouter<'a> {
         self.current.initial_after_repeats = self.current.initial.y;
 
         self.current.could_progress_at_top = self.regions.may_progress();
+
+        self.current.repeated_header_rows = 0;
+        self.current.last_repeated_header_end = 0;
+        self.current.repeating_header_height = Abs::zero();
+        self.current.repeating_header_heights.clear();
+        self.current.footer_height = Abs::zero();
+        self.current.repeating_footer_heights.clear();
 
         if !self.grid.headers.is_empty() {
             self.finished_header_rows.push(header_row_info);

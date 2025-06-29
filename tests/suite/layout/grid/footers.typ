@@ -41,6 +41,20 @@
   )
 )
 
+--- grid-footer-gutter-short-lived ---
+// Gutter, no repetition, short-lived
+#set page(height: 6em)
+#set text(6pt)
+#set table(inset: 2pt, stroke: 0.5pt)
+#table(
+  gutter: 2pt,
+  align: center + horizon,
+  table.header([a]),
+  table.footer([b]),
+  table.footer([c]),
+  [d],
+)
+
 --- grid-cell-override-in-header-and-footer ---
 #table(
   table.header(table.cell(stroke: red)[Hello]),
@@ -89,7 +103,6 @@
   stroke: black,
   inset: 5pt,
   grid.cell(x: 1)[a],
-  // Error: 3-56 footer must end at the last row
   grid.footer(grid.cell(x: 0)[b1], grid.cell(x: 0)[b2]),
   // This should skip the footer
   grid.cell(x: 1)[c]
@@ -141,14 +154,12 @@
 )
 
 --- grid-footer-not-at-last-row ---
-// Error: 2:3-2:19 footer must end at the last row
 #grid(
   grid.footer([a]),
   [b],
 )
 
 --- grid-footer-not-at-last-row-two-columns ---
-// Error: 3:3-3:19 footer must end at the last row
 #grid(
   columns: 2,
   grid.footer([a]),
@@ -166,7 +177,6 @@
 )
 
 --- grid-footer-multiple ---
-// Error: 4:3-4:19 cannot have more than one footer
 #grid(
   [a],
   grid.footer([a]),
