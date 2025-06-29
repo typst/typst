@@ -413,7 +413,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.1"
-source = "git+https://github.com/typst/codex?rev=56eb217#56eb2172fc0670f4c1c8b79a63d11f9354e5babe"
+source = "git+https://github.com/typst/codex?rev=a5428cb#a5428cb9c81a41354d44b44dbd5a16a710bbd928"
 
 [[package]]
 name = "color-print"
@@ -2911,7 +2911,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-dev-assets?rev=fddbf8b#fddbf8b99506bc370ac0edcd4959add603a7fc92"
+source = "git+https://github.com/typst/typst-dev-assets?rev=bfa947f#bfa947f3433d7d13a995168c40ae788a2ebfe648"
 
 [[package]]
 name = "typst-docs"

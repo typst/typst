@@ -18,7 +18,7 @@ use typst_library::foundations::{
     SequenceElem, Show, ShowSet, Style, StyleChain, StyledElem, Styles, SymbolElem,
     Synthesize, Transformation,
 };
-use typst_library::html::{tag, HtmlElem};
+use typst_library::html::{tag, FrameElem, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -237,9 +237,9 @@ fn visit<'a>(
         return Ok(());
     }
 
-    // Transformations for math content based on the realization kind. Needs
+    // Transformations for content based on the realization kind. Needs
     // to happen before show rules.
-    if visit_math_rules(s, content, styles)? {
+    if visit_kind_rules(s, content, styles)? {
         return Ok(());
     }
 
@@ -280,9 +280,8 @@ fn visit<'a>(
     Ok(())
 }
 
-// Handles special cases for math in normal content and nested equations in
-// math.
-fn visit_math_rules<'a>(
+// Handles transformations based on the realization kind.
+fn visit_kind_rules<'a>(
     s: &mut State<'a, '_, '_, '_>,
     content: &'a Content,
     styles: StyleChain<'a>,
@@ -331,6 +330,13 @@ fn visit_math_rules<'a>(
                 text.set_label(label);
             }
             visit(s, s.store(text), styles)?;
+            return Ok(true);
+        }
+    }
+
+    if !s.kind.is_html() {
+        if let Some(elem) = content.to_packed::<FrameElem>() {
+            visit(s, &elem.body, styles)?;
             return Ok(true);
         }
     }

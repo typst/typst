@@ -448,7 +448,7 @@ fn field_access_completions(
     match value {
         Value::Symbol(symbol) => {
             for modifier in symbol.modifiers() {
-                if let Ok(modified) = symbol.clone().modified(modifier) {
+                if let Ok(modified) = symbol.clone().modified((), modifier) {
                     ctx.completions.push(Completion {
                         kind: CompletionKind::Symbol(modified.get()),
                         label: modifier.into(),
