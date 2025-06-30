@@ -491,7 +491,7 @@ pub enum PdfStandard {
     /// PDF/A-2u.
     #[value(name = "a-2u")]
     A_2u,
-    /// PDF/A-3u.
+    /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
     /// PDF/A-3u.
