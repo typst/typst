@@ -86,12 +86,14 @@ pub fn cal(
 /// $ scr(S) $
 /// ```
 ///
-/// Very few math fonts currently support differentiating `cal` and `scr`. Some
-/// fonts support switching between the styles via
-/// [font features]($text.features).
+/// There are two ways that fonts can support differentiating `cal` and `scr`.
+/// The first is using Unicode variation sequences. This works out of the box
+/// in Typst, however only a few math fonts currently support this.
 ///
-/// Say, for example, the roundhand style is available through the `ss01`
-/// feature. Then, you could define your own version of `\mathscr` like this:
+/// The other way is using [font features]($text.features). For example, the
+/// roundhand style might be available in a font through the `ss01` feature.
+/// To use it in Typst, you could then define your own version of `scr` like
+/// this:
 ///
 /// ```example
 /// #let scr(it) = text(
