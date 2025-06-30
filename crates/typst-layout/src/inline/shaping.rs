@@ -261,7 +261,7 @@ impl<'a> ShapedText<'a> {
                         adjustability_right * justification_ratio;
                     if shaped.is_justifiable() {
                         justification_right +=
-                            Em::from_length(extra_justification, glyph_size)
+                            Em::from_abs(extra_justification, glyph_size)
                     }
 
                     frame.size_mut().x += justification_left.at(glyph_size)
@@ -1074,9 +1074,8 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
 
 /// Apply tracking and spacing to the shaped glyphs.
 fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = Em::from_length(TextElem::tracking_in(ctx.styles), ctx.size);
-    let spacing =
-        TextElem::spacing_in(ctx.styles).map(|abs| Em::from_length(abs, ctx.size));
+    let tracking = Em::from_abs(TextElem::tracking_in(ctx.styles), ctx.size);
+    let spacing = TextElem::spacing_in(ctx.styles).map(|abs| Em::from_abs(abs, ctx.size));
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {

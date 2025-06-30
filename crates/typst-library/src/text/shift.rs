@@ -177,11 +177,11 @@ fn show_script(
     size: Smart<TextSize>,
     kind: ScriptKind,
 ) -> SourceResult<Content> {
-    let outer_text_size = TextElem::size_in(styles);
+    let font_size = TextElem::size_in(styles);
     Ok(body.styled(TextElem::set_shift_settings(Some(ShiftSettings {
         typographic,
-        shift: baseline.map(|l| -l.to_em(outer_text_size)),
-        size: size.map(|t| t.0.to_em(outer_text_size)),
+        shift: baseline.map(|l| -Em::from_length(l, font_size)),
+        size: size.map(|t| Em::from_length(t.0, font_size)),
         kind,
     }))))
 }
