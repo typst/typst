@@ -804,7 +804,7 @@ fn shape_segment<'a>(
     let (script_shift, script_compensation, scale, shift_feature) = ctx
         .shift_settings
         .map_or((Em::zero(), Em::zero(), Em::one(), None), |settings| {
-            compute_synthesized_shift(text, &font, settings)
+            determine_shift(text, &font, settings)
         });
 
     let has_shift_feature = shift_feature.is_some();
@@ -961,16 +961,15 @@ fn shape_segment<'a>(
     ctx.used.pop();
 }
 
-/// Returns a `(script_shift, script_compensation, scale)` triplet describing
-/// how to synthesize scripts.
+/// Returns a `(script_shift, script_compensation, scale, feature)` quadruplet
+/// describing how to produce scripts.
 ///
 /// Those values determine how the rendered text should be transformed to
-/// display sub-/super-scripts. If the text is not scripted, or if the OpenType
-/// feature can be used, the rendered text should not be transformed in any way,
-/// and so those values are neutral (`(0, 0, 1)`). If scripts should be
-/// synthesized, those values determine how to transform the rendered text to
-/// display scripts as expected.
-fn compute_synthesized_shift(
+/// display sub-/super-scripts. If the OpenType feature can be used, the
+/// rendered text should not be transformed in any way, and so those values are
+/// neutral (`(0, 0, 1, None)`). If scripts should be synthesized, those values
+/// determine how to transform the rendered text to display scripts as expected.
+fn determine_shift(
     text: &str,
     font: &Font,
     settings: ShiftSettings,
