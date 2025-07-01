@@ -682,7 +682,7 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell", Locatable)]
+#[elem(name = "cell", title = "Table Cell")]
 pub struct TableCell {
     /// The cell's body.
     #[required]

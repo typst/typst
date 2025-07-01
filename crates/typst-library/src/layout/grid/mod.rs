@@ -738,7 +738,7 @@ pub struct GridVLine {
 /// which allows you, for example, to apply styles based on a cell's position.
 /// Refer to the examples of the [`table.cell`] element to learn more about
 /// this.
-#[elem(name = "cell", title = "Grid Cell", Locatable)]
+#[elem(name = "cell", title = "Grid Cell")]
 pub struct GridCell {
     /// The cell's body.
     #[required]
