@@ -148,7 +148,9 @@ impl Selector {
 impl Selector {
     /// Turns a value into a selector. The following values are accepted:
     /// - An element function like a `heading` or `figure`.
+    /// - A [string]($str) or [regular expression]($regex).
     /// - A `{<label>}`.
+    /// - A [`location`].
     /// - A more complex selector like `{heading.where(level: 1)}`.
     #[func(constructor)]
     pub fn construct(
