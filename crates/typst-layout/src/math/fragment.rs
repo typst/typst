@@ -215,7 +215,7 @@ impl MathFragment {
                     &glyph.item.font,
                     GlyphId(glyph.item.glyphs[glyph_index].id),
                     corner,
-                    Em::from_length(height, glyph.item.size),
+                    Em::from_abs(height, glyph.item.size),
                 )
                 .unwrap_or_default()
                 .at(glyph.item.size)
@@ -767,8 +767,8 @@ fn assemble(
             advance += ratio * (max_overlap - min_overlap);
         }
         let (x, y) = match axis {
-            Axis::X => (Em::from_length(advance, base.item.size), Em::zero()),
-            Axis::Y => (Em::zero(), Em::from_length(advance, base.item.size)),
+            Axis::X => (Em::from_abs(advance, base.item.size), Em::zero()),
+            Axis::Y => (Em::zero(), Em::from_abs(advance, base.item.size)),
         };
         glyphs.push(Glyph {
             id: part.glyph_id.0,
