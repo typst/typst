@@ -908,6 +908,9 @@ impl<E: NativeElement, const I: u8> Field<E, I> {
     }
 
     /// Creates a dynamic property instance for this field.
+    ///
+    /// Prefer [`Content::set`] or [`Styles::set`] when working with existing
+    /// content or style value.
     pub fn set(self, value: E::Type) -> Property
     where
         E: SettableProperty<I>,

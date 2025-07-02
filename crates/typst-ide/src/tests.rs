@@ -171,13 +171,11 @@ fn library() -> Library {
     let mut lib = typst::Library::builder()
         .with_features([Feature::Html].into_iter().collect())
         .build();
+    lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
+    lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles
-        .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
-    lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
-        Abs::pt(10.0).into(),
-    )))));
-    lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
+        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
     lib
 }
 

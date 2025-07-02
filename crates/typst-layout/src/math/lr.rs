@@ -22,7 +22,7 @@ pub fn layout_lr(
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size(styles).is_one() {
+        if lr.size.get(styles).is_one() {
             body = &lr.body;
         }
     }
@@ -41,7 +41,7 @@ pub fn layout_lr(
         .unwrap_or_default();
 
     let relative_to = 2.0 * max_extent;
-    let height = elem.size(styles);
+    let height = elem.size.resolve(styles);
 
     // Scale up fragments at both ends.
     match inner_fragments {

@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
+use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
@@ -418,10 +419,11 @@ pub fn apply_shift<'a>(
     frame: &mut Frame,
     styles: StyleChain,
 ) {
-    let mut baseline = TextElem::baseline_in(styles);
+    let mut baseline = styles.resolve(TextElem::baseline);
     let mut compensation = Abs::zero();
-    if let Some(scripts) = TextElem::shift_settings_in(styles) {
-        let font_metrics = TextElem::font_in(styles)
+    if let Some(scripts) = styles.get_ref(TextElem::shift_settings) {
+        let font_metrics = styles
+            .get_ref(TextElem::font)
             .into_iter()
             .find_map(|family| {
                 world
@@ -462,7 +464,7 @@ pub fn commit(
     if let Some(Item::Text(text)) = line.items.first() {
         if let Some(glyph) = text.glyphs.first() {
             if !text.dir.is_positive()
-                && TextElem::overhang_in(text.styles)
+                && text.styles.get(TextElem::overhang)
                 && (line.items.len() > 1 || text.glyphs.len() > 1)
             {
                 let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
@@ -476,7 +478,7 @@ pub fn commit(
     if let Some(Item::Text(text)) = line.items.last() {
         if let Some(glyph) = text.glyphs.last() {
             if text.dir.is_positive()
-                && TextElem::overhang_in(text.styles)
+                && text.styles.get(TextElem::overhang)
                 && (line.items.len() > 1 || text.glyphs.len() > 1)
             {
                 let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);

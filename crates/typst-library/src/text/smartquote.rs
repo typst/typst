@@ -83,13 +83,12 @@ pub struct SmartQuoteElem {
     /// #set smartquote(quotes: (single: ("[[", "]]"),  double: auto))
     /// 'Das sind eigene Anführungszeichen.'
     /// ```
-    #[borrowed]
     pub quotes: Smart<SmartQuoteDict>,
 }
 
 impl PlainText for Packed<SmartQuoteElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        if self.double.unwrap_or(true) {
+        if self.double.as_option().unwrap_or(true) {
             text.push_str("\"");
         } else {
             text.push_str("'");

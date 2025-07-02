@@ -194,13 +194,13 @@ impl MathRun {
         let row_count = rows.len();
         let alignments = alignments(&rows);
 
-        let leading = if EquationElem::size_in(styles) >= MathSize::Text {
-            ParElem::leading_in(styles)
+        let leading = if styles.get(EquationElem::size) >= MathSize::Text {
+            styles.resolve(ParElem::leading)
         } else {
             TIGHT_LEADING.resolve(styles)
         };
 
-        let align = AlignElem::alignment_in(styles).resolve(styles).x;
+        let align = styles.resolve(AlignElem::alignment).x;
         let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
         for (i, row) in rows.into_iter().enumerate() {

@@ -123,7 +123,6 @@ pub struct QuoteElem {
     ///
     /// #bibliography("works.bib", style: "apa")
     /// ```
-    #[borrowed]
     attribution: Option<Attribution>,
 
     /// The quote.
@@ -158,19 +157,19 @@ impl Show for Packed<QuoteElem> {
     #[typst_macros::time(name = "quote", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body.clone();
-        let block = self.block(styles);
-        let html = TargetElem::target_in(styles).is_html();
+        let block = self.block.get(styles);
+        let html = styles.get(TargetElem::target).is_html();
 
-        if self.quotes(styles).unwrap_or(!block) {
+        if self.quotes.get(styles).unwrap_or(!block) {
             let quotes = SmartQuotes::get(
-                SmartQuoteElem::quotes_in(styles),
-                TextElem::lang_in(styles),
-                TextElem::region_in(styles),
-                SmartQuoteElem::alternative_in(styles),
+                styles.get_ref(SmartQuoteElem::quotes),
+                styles.get(TextElem::lang),
+                styles.get(TextElem::region),
+                styles.get(SmartQuoteElem::alternative),
             );
 
             // Alternate between single and double quotes.
-            let Depth(depth) = QuoteElem::depth_in(styles);
+            let Depth(depth) = styles.get(QuoteElem::depth);
             let double = depth % 2 == 0;
 
             if !html {
@@ -183,10 +182,10 @@ impl Show for Packed<QuoteElem> {
                 realized,
                 TextElem::packed(quotes.close(double)),
             ])
-            .styled(QuoteElem::set_depth(Depth(1)));
+            .set(QuoteElem::depth, Depth(1));
         }
 
-        let attribution = self.attribution(styles);
+        let attribution = self.attribution.get_ref(styles);
 
         if block {
             realized = if html {
@@ -204,7 +203,7 @@ impl Show for Packed<QuoteElem> {
             }
             .spanned(self.span());
 
-            if let Some(attribution) = attribution.as_ref() {
+            if let Some(attribution) = attribution {
                 let attribution = match attribution {
                     Attribution::Content(content) => content.clone(),
                     Attribution::Label(label) => CiteElem::new(*label)
@@ -247,11 +246,11 @@ impl Show for Packed<QuoteElem> {
 impl ShowSet for Packed<QuoteElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        if self.block(styles) {
-            out.set(PadElem::set_left(Em::new(1.0).into()));
-            out.set(PadElem::set_right(Em::new(1.0).into()));
-            out.set(BlockElem::set_above(Smart::Custom(Em::new(2.4).into())));
-            out.set(BlockElem::set_below(Smart::Custom(Em::new(1.8).into())));
+        if self.block.get(styles) {
+            out.set(PadElem::left, Em::new(1.0).into());
+            out.set(PadElem::right, Em::new(1.0).into());
+            out.set(BlockElem::above, Smart::Custom(Em::new(2.4).into()));
+            out.set(BlockElem::below, Smart::Custom(Em::new(1.8).into()));
         }
         out
     }

@@ -338,7 +338,7 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = select_where!(CounterUpdateElem, Key => self.0.clone());
+        let mut selector = select_where!(CounterUpdateElem, key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -367,16 +367,16 @@ impl Counter {
             .or_else(|| {
                 let styles = styles?;
                 match self.0 {
-                    CounterKey::Page => PageElem::numbering_in(styles).clone(),
+                    CounterKey::Page => styles.get(PageElem::numbering).clone(),
                     CounterKey::Selector(Selector::Elem(func, _)) => {
                         if func == HeadingElem::elem() {
-                            HeadingElem::numbering_in(styles).clone()
+                            styles.get(HeadingElem::numbering).clone()
                         } else if func == FigureElem::elem() {
-                            FigureElem::numbering_in(styles).clone()
+                            styles.get(FigureElem::numbering).clone()
                         } else if func == EquationElem::elem() {
-                            EquationElem::numbering_in(styles).clone()
+                            styles.get(EquationElem::numbering).clone()
                         } else if func == FootnoteElem::elem() {
-                            Some(FootnoteElem::numbering_in(styles).clone())
+                            Some(styles.get(FootnoteElem::numbering).clone())
                         } else {
                             None
                         }

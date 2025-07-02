@@ -18,13 +18,10 @@ pub(crate) fn embed_files(
         let span = embed.span();
         let derived_path = &embed.path.derived;
         let path = derived_path.to_string();
-        let mime_type =
-            embed.mime_type(StyleChain::default()).clone().map(|s| s.to_string());
-        let description = embed
-            .description(StyleChain::default())
-            .clone()
-            .map(|s| s.to_string());
-        let association_kind = match embed.relationship(StyleChain::default()) {
+        let mime_type = embed.mime_type.get(StyleChain::default()).map(|s| s.to_string());
+        let description =
+            embed.description.get(StyleChain::default()).map(|s| s.to_string());
+        let association_kind = match embed.relationship.get(StyleChain::default()) {
             None => AssociationKind::Unspecified,
             Some(e) => match e {
                 EmbeddedFileRelationship::Source => AssociationKind::Source,

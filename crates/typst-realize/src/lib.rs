@@ -722,7 +722,9 @@ fn visit_filter_rules<'a>(
         s.saw_parbreak = true;
         return Ok(true);
     } else if !s.may_attach
-        && content.to_packed::<VElem>().is_some_and(|elem| elem.attach(styles))
+        && content
+            .to_packed::<VElem>()
+            .is_some_and(|elem| elem.attach.get(styles))
     {
         // Attach spacing collapses if not immediately following a paragraph.
         return Ok(true);
@@ -1118,7 +1120,7 @@ fn find_regex_match_in_elems<'a>(
             buf.push('\n');
             SpaceState::Destructive
         } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
-            buf.push(if elem.double(styles) { '"' } else { '\'' });
+            buf.push(if elem.double.get(styles) { '"' } else { '\'' });
             SpaceState::Supportive
         } else if let Some(elem) = content.to_packed::<TextElem>() {
             buf.push_str(&elem.text);
@@ -1310,7 +1312,7 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         } else if content.is::<LinebreakElem>() {
             destruct_space(buf, &mut k, &mut state);
         } else if let Some(elem) = content.to_packed::<HElem>() {
-            if elem.amount.is_fractional() || elem.weak(styles) {
+            if elem.amount.is_fractional() || elem.weak.get(styles) {
                 destruct_space(buf, &mut k, &mut state);
             }
         } else {

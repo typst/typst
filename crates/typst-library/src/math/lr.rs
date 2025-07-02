@@ -9,7 +9,6 @@ use crate::math::Mathy;
 #[elem(title = "Left/Right", Mathy)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
-    #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
 
@@ -130,7 +129,7 @@ fn delimited(
     ]));
     // Push size only if size is provided
     if let Some(size) = size {
-        elem.push_size(size);
+        elem.size.set(size);
     }
     elem.pack().spanned(span)
 }

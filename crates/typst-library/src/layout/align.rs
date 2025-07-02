@@ -100,7 +100,7 @@ pub struct AlignElem {
 impl Show for Packed<AlignElem> {
     #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().aligned(self.alignment(styles)))
+        Ok(self.body.clone().aligned(self.alignment.get(styles)))
     }
 }
 
@@ -277,7 +277,7 @@ impl Resolve for Alignment {
     type Output = Axes<FixedAlignment>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 
@@ -378,7 +378,7 @@ impl Resolve for HAlignment {
     type Output = FixedAlignment;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 
@@ -414,7 +414,7 @@ impl Resolve for OuterHAlignment {
     type Output = FixedAlignment;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 
@@ -636,7 +636,7 @@ where
     type Output = Axes<FixedAlignment>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 

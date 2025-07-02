@@ -125,12 +125,10 @@ use crate::visualize::{Paint, Stroke};
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
-    #[borrowed]
     pub columns: TrackSizings,
 
     /// The row sizes. See the [grid documentation]($grid) for more information
     /// on track sizing.
-    #[borrowed]
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand for setting
@@ -141,7 +139,6 @@ pub struct TableElem {
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
-    #[borrowed]
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -151,7 +148,6 @@ pub struct TableElem {
     /// The gaps between rows. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
@@ -176,7 +172,6 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    #[borrowed]
     pub fill: Celled<Option<Paint>>,
 
     /// How to align the cells' content.
@@ -194,7 +189,6 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
-    #[borrowed]
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke] the cells.
@@ -209,7 +203,6 @@ pub struct TableElem {
     ///
     /// See the [grid documentation]($grid.stroke) for more information on
     /// strokes.
-    #[resolve]
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
@@ -267,10 +260,10 @@ fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
     let Some(cell) = cell.to_packed::<TableCell>() else { return cell };
     let mut attrs = HtmlAttrs::default();
     let span = |n: NonZeroUsize| (n != NonZeroUsize::MIN).then(|| n.to_string());
-    if let Some(colspan) = span(cell.colspan(styles)) {
+    if let Some(colspan) = span(cell.colspan.get(styles)) {
         attrs.push(attr::colspan, colspan);
     }
-    if let Some(rowspan) = span(cell.rowspan(styles)) {
+    if let Some(rowspan) = span(cell.rowspan.get(styles)) {
         attrs.push(attr::rowspan, rowspan);
     }
     HtmlElem::new(tag)
@@ -357,7 +350,7 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
 
 impl Show for Packed<TableElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(if TargetElem::target_in(styles).is_html() {
+        Ok(if styles.get(TargetElem::target).is_html() {
             // TODO: This is a hack, it is not clear whether the locator is actually used by HTML.
             // How can we find out whether locator is actually used?
             let locator = Locator::root();
@@ -621,7 +614,6 @@ pub struct TableHLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including hlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -666,7 +658,6 @@ pub struct TableVLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including vlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -802,7 +793,6 @@ pub struct TableCell {
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [stroke]($table.stroke) override.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
@@ -820,7 +810,7 @@ cast! {
 
 impl Show for Packed<TableCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
+        show_grid_cell(self.body.clone(), self.inset.get(styles), self.align.get(styles))
     }
 }
 

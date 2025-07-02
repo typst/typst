@@ -117,7 +117,6 @@ pub struct EnumElem {
     /// + Numbering!
     /// ```
     #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
-    #[borrowed]
     pub numbering: Numbering,
 
     /// Which number to start the enumeration with.
@@ -157,11 +156,9 @@ pub struct EnumElem {
     pub reversed: bool,
 
     /// The indentation of each item.
-    #[resolve]
     pub indent: Length,
 
     /// The space between the numbering and the body of each item.
-    #[resolve]
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
 
@@ -228,19 +225,19 @@ impl EnumElem {
 
 impl Show for Packed<EnumElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let tight = self.tight(styles);
+        let tight = self.tight.get(styles);
 
-        if TargetElem::target_in(styles).is_html() {
+        if styles.get(TargetElem::target).is_html() {
             let mut elem = HtmlElem::new(tag::ol);
-            if self.reversed(styles) {
+            if self.reversed.get(styles) {
                 elem = elem.with_attr(attr::reversed, "reversed");
             }
-            if let Some(n) = self.start(styles).custom() {
+            if let Some(n) = self.start.get(styles).custom() {
                 elem = elem.with_attr(attr::start, eco_format!("{n}"));
             }
             let body = Content::sequence(self.children.iter().map(|item| {
                 let mut li = HtmlElem::new(tag::li);
-                if let Some(nr) = item.number(styles) {
+                if let Some(nr) = item.number.get(styles) {
                     li = li.with_attr(attr::value, eco_format!("{nr}"));
                 }
                 // Text in wide enums shall always turn into paragraphs.
@@ -260,8 +257,9 @@ impl Show for Packed<EnumElem> {
 
         if tight {
             let spacing = self
-                .spacing(styles)
-                .unwrap_or_else(|| ParElem::leading_in(styles).into());
+                .spacing
+                .get(styles)
+                .unwrap_or_else(|| styles.get(ParElem::leading));
             let v = VElem::new(spacing.into()).with_weak(true).with_attach(true).pack();
             realized = v + realized;
         }

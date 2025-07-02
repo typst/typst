@@ -121,11 +121,14 @@ impl Styles {
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
     pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(TextElem::set_font(FontList(
-            std::iter::once(preferred)
-                .chain(TextElem::font_in(existing).into_iter().cloned())
-                .collect(),
-        )));
+        self.set(
+            TextElem::font,
+            FontList(
+                std::iter::once(preferred)
+                    .chain(existing.get_ref(TextElem::font).into_iter().cloned())
+                    .collect(),
+            ),
+        );
     }
 }
 
