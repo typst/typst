@@ -12,8 +12,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, ty, Content, Context, Element, Func, NativeElement, OneOrMultiple, Repr,
-    Selector,
+    cast, ty, Content, Context, Element, Field, Func, NativeElement, OneOrMultiple,
+    RefableProperty, Repr, Selector, SettableProperty,
 };
 use crate::text::{FontFamily, FontList, TextElem};
 
@@ -48,7 +48,16 @@ impl Styles {
     /// If the property needs folding and the value is already contained in the
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
-    pub fn set(&mut self, style: impl Into<Style>) {
+    pub fn set<E, const I: u8>(&mut self, field: Field<E, I>, value: E::Type)
+    where
+        E: SettableProperty<I>,
+        E::Type: Debug + Clone + Hash + Send + Sync + 'static,
+    {
+        self.push(Property::new(field, value));
+    }
+
+    /// Add a new style to the list.
+    pub fn push(&mut self, style: impl Into<Style>) {
         self.0.push(LazyHash::new(style.into()));
     }
 
@@ -101,12 +110,12 @@ impl Styles {
     }
 
     /// Whether there is a style for the given field of the given element.
-    pub fn has<T: NativeElement>(&self, field: u8) -> bool {
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
         let elem = E::ELEM;
         self.0
             .iter()
             .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == field)
+            .any(|property| property.is_of(elem) && property.id == I)
     }
 
     /// Set a font family composed of a preferred family and existing families
@@ -284,14 +293,14 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<E, T>(id: u8, value: T) -> Self
+    pub fn new<E, const I: u8>(_: Field<E, I>, value: E::Type) -> Self
     where
-        E: NativeElement,
-        T: Debug + Clone + Hash + Send + Sync + 'static,
+        E: SettableProperty<I>,
+        E::Type: Debug + Clone + Hash + Send + Sync + 'static,
     {
         Self {
             elem: E::ELEM,
-            id,
+            id: I,
             value: Block::new(value),
             span: Span::detached(),
             liftable: false,
@@ -543,53 +552,79 @@ impl<'a> StyleChain<'a> {
         Chainable::chain(local, self)
     }
 
-    /// Cast the first value for the given property in the chain.
-    pub fn get<T: Clone + 'static>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: impl Fn() -> T,
-    ) -> T {
-        self.properties::<T>(func, id, inherent)
-            .next()
-            .cloned()
-            .unwrap_or_else(default)
+    /// Retrieves the value of the given field from the style chain.
+    ///
+    /// A `Field` value is a zero-sized value that specifies which field of an
+    /// element you want to retrieve on the type-system level. It also ensures
+    /// that Rust can infer the correct return type.
+    pub fn get<E, const I: u8>(self, field: Field<E, I>) -> E::Type
+    where
+        E: SettableProperty<I>,
+    {
+        self.get_with(field, None)
     }
 
-    /// Cast the first value for the given property in the chain,
-    /// returning a borrowed value.
-    pub fn get_ref<T: 'static>(
+    /// Retrieves the value and then immediately [resolves](Resolve) it.
+    pub fn resolve<E, const I: u8>(
         self,
-        func: Element,
-        id: u8,
-        inherent: Option<&'a T>,
-        default: impl Fn() -> &'a T,
-    ) -> &'a T {
-        self.properties::<T>(func, id, inherent)
-            .next()
-            .unwrap_or_else(default)
+        field: Field<E, I>,
+    ) -> <E::Type as Resolve>::Output
+    where
+        E: SettableProperty<I>,
+        E::Type: Resolve,
+    {
+        self.get(field).resolve(self)
     }
 
-    /// Cast the first value for the given property in the chain, taking
-    /// `Fold` implementations into account.
-    pub fn get_folded<T: Fold + Clone + 'static>(
+    /// Retrieves a reference to the value of the given field from the style
+    /// chain.
+    pub fn get_ref<E, const I: u8>(self, field: Field<E, I>) -> &'a E::Type
+    where
+        E: RefableProperty<I>,
+    {
+        self.get_ref_with(field, None)
+    }
+
+    /// Retrieves a field, also taking into account the instance's value if any.
+    pub(crate) fn get_with<E, const I: u8>(
         self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: impl Fn() -> T,
-    ) -> T {
-        fn next<T: Fold>(
-            mut values: impl Iterator<Item = T>,
-            default: &impl Fn() -> T,
-        ) -> T {
-            values
-                .next()
-                .map(|value| value.fold(next(values, default)))
-                .unwrap_or_else(default)
+        _: Field<E, I>,
+        inherent: Option<&'a E::Type>,
+    ) -> E::Type
+    where
+        E: SettableProperty<I>,
+    {
+        let mut properties = self.properties::<E::Type>(E::elem(), I, inherent);
+        if let Some(fold) = E::PROPERTY.fold {
+            fn next<T>(
+                mut values: impl Iterator<Item = T>,
+                default: fn() -> T,
+                fold: fn(T, T) -> T,
+            ) -> T {
+                values
+                    .next()
+                    .map(|value| fold(value, next(values, default, fold)))
+                    .unwrap_or_else(default)
+            }
+            next(properties.cloned(), || E::PROPERTY.default(), fold)
+        } else {
+            properties.next().cloned().unwrap_or_else(|| E::PROPERTY.default())
         }
-        next(self.properties::<T>(func, id, inherent).cloned(), &default)
+    }
+
+    /// Retrieves a reference to a field, also taking into account the
+    /// instance's value if any.
+    pub(crate) fn get_ref_with<E, const I: u8>(
+        self,
+        _: Field<E, I>,
+        inherent: Option<&'a E::Type>,
+    ) -> &'a E::Type
+    where
+        E: RefableProperty<I>,
+    {
+        self.properties::<E::Type>(E::elem(), I, inherent)
+            .next()
+            .unwrap_or_else(|| E::PROPERTY.default_ref())
     }
 
     /// Iterate over all values for the given property in the chain.
