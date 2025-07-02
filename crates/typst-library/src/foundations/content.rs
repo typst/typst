@@ -15,9 +15,9 @@ use typst_utils::{fat, singleton, LazyHash, SmallBitSet};
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Context, Dict, Element, Fields, IntoValue, Label,
-    NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
-    Value,
+    elem, func, repr, scope, ty, Context, Dict, Element, Field, IntoValue, Label,
+    NativeElement, Property, Recipe, RecipeIndex, Repr, Selector, SettableProperty, Str,
+    Style, StyleChain, Styles, Value,
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
@@ -372,6 +372,15 @@ impl Content {
         Self::sequence(std::iter::repeat_with(|| self.clone()).take(count))
     }
 
+    /// Sets a style property on the content.
+    pub fn set<E, const I: u8>(self, field: Field<E, I>, value: E::Type) -> Self
+    where
+        E: SettableProperty<I>,
+        E::Type: Debug + Clone + Hash + Send + Sync + 'static,
+    {
+        self.styled(Property::new(field, value))
+    }
+
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if let Some(style_elem) = self.to_packed_mut::<StyledElem>() {
@@ -636,7 +645,18 @@ impl PartialEq for Content {
 
 impl Repr for Content {
     fn repr(&self) -> EcoString {
-        self.inner.elem.repr()
+        self.inner.elem.repr().unwrap_or_else(|| {
+            let fields = self
+                .fields()
+                .into_iter()
+                .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
+                .collect::<Vec<_>>();
+            eco_format!(
+                "{}{}",
+                self.elem().name(),
+                repr::pretty_array_like(&fields, false),
+            )
+        })
     }
 }
 
@@ -718,15 +738,29 @@ impl Serialize for Content {
 }
 
 /// The trait that combines all the other traits into a trait object.
-trait Bounds: Debug + Repr + Fields + Send + Sync + 'static {
+trait Bounds: Debug + Send + Sync + 'static {
     fn dyn_type_id(&self) -> TypeId;
     fn dyn_elem(&self) -> Element;
     fn dyn_clone(&self, inner: &Inner<dyn Bounds>, span: Span) -> Content;
     fn dyn_hash(&self, hasher: &mut dyn Hasher);
     fn dyn_eq(&self, other: &Content) -> bool;
+
+    fn has(&self, id: u8) -> bool;
+    fn field(&self, id: u8) -> Result<Value, FieldAccessError>;
+    fn field_with_styles(
+        &self,
+        id: u8,
+        styles: StyleChain,
+    ) -> Result<Value, FieldAccessError>;
+    fn materialize(&mut self, styles: StyleChain);
+    fn fields(&self) -> Dict;
+    fn repr(&self) -> Option<EcoString>;
 }
 
-impl<T: NativeElement> Bounds for T {
+impl<T> Bounds for T
+where
+    T: NativeElement,
+{
     fn dyn_type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
@@ -756,7 +790,60 @@ impl<T: NativeElement> Bounds for T {
         let Some(other) = other.to_packed::<Self>() else {
             return false;
         };
-        *self == **other
+        if let Some(f) = T::ELEMENT.eq {
+            f(self, other)
+        } else {
+            T::ELEMENT.fields.iter().all(|field| (field.eq)(self, other))
+        }
+    }
+
+    fn has(&self, id: u8) -> bool {
+        match T::ELEMENT.get(id) {
+            Some(data) => (data.has)(self),
+            None => false,
+        }
+    }
+
+    fn field(&self, id: u8) -> Result<Value, FieldAccessError> {
+        match T::ELEMENT.get(id) {
+            Some(data) => (data.get)(self).ok_or(FieldAccessError::Unset),
+            None => Err(FieldAccessError::Unknown),
+        }
+    }
+
+    fn field_with_styles(
+        &self,
+        id: u8,
+        styles: StyleChain,
+    ) -> Result<Value, FieldAccessError> {
+        match T::ELEMENT.get(id) {
+            Some(data) => {
+                (data.get_with_styles)(self, styles).ok_or(FieldAccessError::Unset)
+            }
+            None => Err(FieldAccessError::Unknown),
+        }
+    }
+
+    fn materialize(&mut self, styles: StyleChain) {
+        for field in T::ELEMENT.fields {
+            (field.materialize)(self, styles);
+        }
+    }
+
+    fn fields(&self) -> Dict {
+        let mut dict = Dict::new();
+        for field in T::ELEMENT.fields {
+            if let Some(value) = (field.get)(self) {
+                dict.insert(field.name.into(), value);
+            }
+        }
+        dict
+    }
+
+    fn repr(&self) -> Option<EcoString> {
+        // Returns None if the element doesn't have a special `Repr` impl.
+        // Then, we use a generic one based on `Self::fields`.
+        T::ELEMENT.repr.map(|f| f(self))
     }
 }
 
@@ -767,7 +854,7 @@ impl Hash for dyn Bounds {
 }
 
 /// A packed element of a static type.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct Packed<T: NativeElement>(
     /// Invariant: Must be of type `T`.
@@ -899,8 +986,20 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
     }
 }
 
+impl<T: NativeElement> PartialEq for Packed<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T: NativeElement> Hash for Packed<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
 /// A sequence of content.
-#[elem(Debug, Repr, PartialEq)]
+#[elem(Debug, Repr)]
 pub struct SequenceElem {
     /// The elements.
     #[required]
@@ -922,19 +1021,13 @@ impl Default for SequenceElem {
     }
 }
 
-impl PartialEq for SequenceElem {
-    fn eq(&self, other: &Self) -> bool {
-        self.children.iter().eq(other.children.iter())
-    }
-}
-
 impl Repr for SequenceElem {
     fn repr(&self) -> EcoString {
         if self.children.is_empty() {
             "[]".into()
         } else {
             let elements = crate::foundations::repr::pretty_array_like(
-                &self.children.iter().map(|c| c.inner.elem.repr()).collect::<Vec<_>>(),
+                &self.children.iter().map(|c| c.repr()).collect::<Vec<_>>(),
                 false,
             );
             eco_format!("sequence{}", elements)
@@ -985,7 +1078,6 @@ pub trait PlainText {
 pub enum FieldAccessError {
     Unknown,
     Unset,
-    Internal,
 }
 
 impl FieldAccessError {
@@ -1000,12 +1092,6 @@ impl FieldAccessError {
             FieldAccessError::Unset => {
                 eco_format!(
                     "field {} in {elem_name} is not known at this point",
-                    field.repr()
-                )
-            }
-            FieldAccessError::Internal => {
-                eco_format!(
-                    "internal error when accessing field {} in {elem_name} – this is a bug",
                     field.repr()
                 )
             }
