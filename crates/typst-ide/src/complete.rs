@@ -1709,6 +1709,27 @@ mod tests {
             .must_exclude(["bib"]);
     }
 
+    #[test]
+    fn test_autocomplete_ref_function() {
+        let mut world = TestWorld::new("x<test>");
+        let doc = typst::compile(&world).output.ok();
+
+        let end = world.main.text().len();
+        world.main.edit(end..end, " #ref(<)");
+
+        test_with_doc(&world, -2, doc.as_ref()).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand() {
+        let mut world = TestWorld::new("x<test>");
+        let doc = typst::compile(&world).output.ok();
+
+        let end = world.main.text().len();
+        world.main.edit(end..end, " @");
+
+        test_with_doc(&world, -1, doc.as_ref()).must_include(["test"]);
+    }
     /// Test what kind of brackets we autocomplete for function calls depending
     /// on the function and existing parens.
     #[test]
