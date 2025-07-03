@@ -1,12 +1,11 @@
 use std::cell::OnceCell;
-use std::num::{NonZeroU16, NonZeroU32};
+use std::num::NonZeroU16;
 
 use ecow::EcoString;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, Node, SpanTag, TableHeaderScope, Tag, TagGroup,
-    TagKind, TagTree,
+    ArtifactType, ContentTag, Identifier, Node, SpanTag, Tag, TagGroup, TagKind, TagTree,
 };
 use typst_library::foundations::{Content, Packed, StyleChain};
 use typst_library::introspection::Location;
@@ -20,361 +19,11 @@ use typst_library::visualize::ImageElem;
 
 use crate::convert::GlobalContext;
 use crate::link::LinkAnnotation;
+use crate::tags::outline::OutlineCtx;
+use crate::tags::table::TableCtx;
 
-pub struct Tags {
-    /// The intermediary stack of nested tag groups.
-    pub stack: Vec<StackEntry>,
-    /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
-    pub placeholders: Vec<OnceCell<Node>>,
-    pub in_artifact: Option<(Location, ArtifactKind)>,
-    pub link_id: LinkId,
-
-    /// The output.
-    pub tree: Vec<TagNode>,
-}
-
-#[derive(Debug)]
-pub struct StackEntry {
-    pub loc: Location,
-    pub kind: StackEntryKind,
-    pub nodes: Vec<TagNode>,
-}
-
-#[derive(Debug)]
-pub enum StackEntryKind {
-    Standard(TagKind),
-    Outline(OutlineCtx),
-    OutlineEntry(Packed<OutlineEntry>),
-    Table(TableCtx),
-    TableCell(Packed<TableCell>),
-    Link(LinkId, Packed<LinkMarker>),
-}
-
-impl StackEntryKind {
-    pub fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
-        if let Self::Outline(v) = self { Some(v) } else { None }
-    }
-
-    pub fn as_outline_entry_mut(&mut self) -> Option<&mut OutlineEntry> {
-        if let Self::OutlineEntry(v) = self { Some(v) } else { None }
-    }
-
-    pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
-        if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
-    }
-}
-
-#[derive(Debug)]
-pub struct OutlineCtx {
-    stack: Vec<OutlineSection>,
-}
-
-#[derive(Debug)]
-pub struct OutlineSection {
-    entries: Vec<TagNode>,
-}
-
-impl OutlineSection {
-    const fn new() -> Self {
-        OutlineSection { entries: Vec::new() }
-    }
-
-    fn push(&mut self, entry: TagNode) {
-        self.entries.push(entry);
-    }
-
-    fn into_tag(self) -> TagNode {
-        TagNode::Group(Tag::TOC.into(), self.entries)
-    }
-}
-
-impl OutlineCtx {
-    fn new() -> Self {
-        Self { stack: Vec::new() }
-    }
-
-    fn insert(
-        &mut self,
-        outline_nodes: &mut Vec<TagNode>,
-        entry: Packed<OutlineEntry>,
-        nodes: Vec<TagNode>,
-    ) {
-        let expected_len = entry.level.get() - 1;
-        if self.stack.len() < expected_len {
-            self.stack.resize_with(expected_len, || OutlineSection::new());
-        } else {
-            while self.stack.len() > expected_len {
-                self.finish_section(outline_nodes);
-            }
-        }
-
-        let section_entry = TagNode::group(Tag::TOCI, nodes);
-        self.push(outline_nodes, section_entry);
-    }
-
-    fn finish_section(&mut self, outline_nodes: &mut Vec<TagNode>) {
-        let sub_section = self.stack.pop().unwrap().into_tag();
-        self.push(outline_nodes, sub_section);
-    }
-
-    fn push(&mut self, outline_nodes: &mut Vec<TagNode>, entry: TagNode) {
-        match self.stack.last_mut() {
-            Some(section) => section.push(entry),
-            None => outline_nodes.push(entry),
-        }
-    }
-
-    fn build_outline(mut self, mut outline_nodes: Vec<TagNode>) -> Vec<TagNode> {
-        while self.stack.len() > 0 {
-            self.finish_section(&mut outline_nodes);
-        }
-        outline_nodes
-    }
-}
-
-#[derive(Debug)]
-pub struct TableCtx {
-    table: Packed<TableElem>,
-    rows: Vec<Vec<Option<(Packed<TableCell>, TagKind, Vec<TagNode>)>>>,
-}
-
-impl TableCtx {
-    fn new(table: Packed<TableElem>) -> Self {
-        Self { table: table.clone(), rows: Vec::new() }
-    }
-
-    fn insert(&mut self, cell: Packed<TableCell>, nodes: Vec<TagNode>) {
-        let x = cell.x.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
-        let y = cell.y.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
-        let rowspan = cell.rowspan.get(StyleChain::default()).get();
-        let colspan = cell.colspan.get(StyleChain::default()).get();
-
-        let tag = {
-            // TODO: possibly set internal field on TableCell when resolving
-            // the cell grid.
-            let is_header = false;
-            let rowspan =
-                (rowspan != 1).then_some(NonZeroU32::new(rowspan as u32).unwrap());
-            let colspan =
-                (colspan != 1).then_some(NonZeroU32::new(colspan as u32).unwrap());
-            if is_header {
-                let scope = TableHeaderScope::Column; // TODO
-                Tag::TH(scope).with_row_span(rowspan).with_col_span(colspan).into()
-            } else {
-                Tag::TD.with_row_span(rowspan).with_col_span(colspan).into()
-            }
-        };
-
-        let required_height = y + rowspan;
-        if self.rows.len() < required_height {
-            self.rows.resize_with(required_height, Vec::new);
-        }
-
-        let required_width = x + colspan;
-        let row = &mut self.rows[y];
-        if row.len() < required_width {
-            row.resize_with(required_width, || None);
-        }
-
-        row[x] = Some((cell, tag, nodes));
-    }
-
-    fn build_table(self, mut nodes: Vec<TagNode>) -> Vec<TagNode> {
-        // Table layouting ensures that there are no overlapping cells, and that
-        // any gaps left by the user are filled with empty cells.
-        for row in self.rows.into_iter() {
-            let mut row_nodes = Vec::new();
-            for (_, tag, nodes) in row.into_iter().flatten() {
-                row_nodes.push(TagNode::group(tag, nodes));
-            }
-
-            // TODO: generate `THead`, `TBody`, and `TFoot`
-            nodes.push(TagNode::group(Tag::TR, row_nodes));
-        }
-
-        nodes
-    }
-}
-
-#[derive(Debug)]
-pub enum TagNode {
-    Group(TagKind, Vec<TagNode>),
-    Leaf(Identifier),
-    /// Allows inserting a placeholder into the tag tree.
-    /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
-    Placeholder(Placeholder),
-}
-
-impl TagNode {
-    pub fn group(tag: impl Into<TagKind>, children: Vec<TagNode>) -> Self {
-        TagNode::Group(tag.into(), children)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct LinkId(u32);
-
-#[derive(Clone, Copy, Debug)]
-pub struct Placeholder(usize);
-
-impl Tags {
-    pub fn new() -> Self {
-        Self {
-            stack: Vec::new(),
-            placeholders: Vec::new(),
-            in_artifact: None,
-
-            tree: Vec::new(),
-            link_id: LinkId(0),
-        }
-    }
-
-    pub fn reserve_placeholder(&mut self) -> Placeholder {
-        let idx = self.placeholders.len();
-        self.placeholders.push(OnceCell::new());
-        Placeholder(idx)
-    }
-
-    pub fn init_placeholder(&mut self, placeholder: Placeholder, node: Node) {
-        self.placeholders[placeholder.0]
-            .set(node)
-            .map_err(|_| ())
-            .expect("placeholder to be uninitialized");
-    }
-
-    pub fn take_placeholder(&mut self, placeholder: Placeholder) -> Node {
-        self.placeholders[placeholder.0]
-            .take()
-            .expect("initialized placeholder node")
-    }
-
-    /// Returns the current parent's list of children and the structure type ([Tag]).
-    /// In case of the document root the structure type will be `None`.
-    pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
-        self.stack.last_mut().map(|e| &mut e.kind)
-    }
-
-    pub fn parent_outline_entry(&mut self) -> Option<&mut OutlineEntry> {
-        self.parent()?.as_outline_entry_mut()
-    }
-
-    pub fn find_parent_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
-        self.stack.iter().rev().find_map(|entry| entry.kind.as_link())
-    }
-
-    pub fn push(&mut self, node: TagNode) {
-        if let Some(entry) = self.stack.last_mut() {
-            entry.nodes.push(node);
-        } else {
-            self.tree.push(node);
-        }
-    }
-
-    pub fn build_tree(&mut self) -> TagTree {
-        assert!(self.stack.is_empty(), "tags weren't properly closed");
-
-        let children = std::mem::take(&mut self.tree)
-            .into_iter()
-            .map(|node| self.resolve_node(node))
-            .collect::<Vec<_>>();
-        TagTree::from(children)
-    }
-
-    /// Resolves [`Placeholder`] nodes.
-    fn resolve_node(&mut self, node: TagNode) -> Node {
-        match node {
-            TagNode::Group(tag, nodes) => {
-                let children = nodes
-                    .into_iter()
-                    .map(|node| self.resolve_node(node))
-                    .collect::<Vec<_>>();
-                Node::Group(TagGroup::with_children(tag, children))
-            }
-            TagNode::Leaf(identifier) => Node::Leaf(identifier),
-            TagNode::Placeholder(placeholder) => self.take_placeholder(placeholder),
-        }
-    }
-
-    fn next_link_id(&mut self) -> LinkId {
-        self.link_id.0 += 1;
-        self.link_id
-    }
-}
-
-/// Automatically calls [`Surface::end_tagged`] when dropped.
-pub struct TagHandle<'a, 'b> {
-    surface: &'b mut Surface<'a>,
-}
-
-impl Drop for TagHandle<'_, '_> {
-    fn drop(&mut self) {
-        self.surface.end_tagged();
-    }
-}
-
-impl<'a> TagHandle<'a, '_> {
-    pub fn surface<'c>(&'c mut self) -> &'c mut Surface<'a> {
-        self.surface
-    }
-}
-
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_marked<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-) -> TagHandle<'a, 'b> {
-    start_content(gc, surface, ContentTag::Other)
-}
-
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_span<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-    span: SpanTag,
-) -> TagHandle<'a, 'b> {
-    start_content(gc, surface, ContentTag::Span(span))
-}
-
-fn start_content<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-    content: ContentTag,
-) -> TagHandle<'a, 'b> {
-    let content = if let Some((_, kind)) = gc.tags.in_artifact {
-        let ty = artifact_type(kind);
-        ContentTag::Artifact(ty)
-    } else if let Some(StackEntryKind::Table(_)) = gc.tags.stack.last().map(|e| &e.kind) {
-        // Mark any direct child of a table as an aritfact. Any real content
-        // will be wrapped inside a `TableCell`.
-        ContentTag::Artifact(ArtifactType::Other)
-    } else {
-        content
-    };
-    let id = surface.start_tagged(content);
-    gc.tags.push(TagNode::Leaf(id));
-    TagHandle { surface }
-}
-
-/// Add all annotations that were found in the page frame.
-pub fn add_link_annotations(
-    gc: &mut GlobalContext,
-    page: &mut Page,
-    annotations: Vec<LinkAnnotation>,
-) {
-    for a in annotations.into_iter() {
-        let annotation = krilla::annotation::Annotation::new_link(
-            krilla::annotation::LinkAnnotation::new_with_quad_points(
-                a.quad_points,
-                a.target,
-            ),
-            a.alt,
-        );
-        let annot_id = page.add_tagged_annotation(annotation);
-        gc.tags.init_placeholder(a.placeholder, Node::Leaf(annot_id));
-    }
-}
+mod outline;
+mod table;
 
 pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
     if gc.tags.in_artifact.is_some() {
@@ -506,6 +155,228 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
     };
 
     gc.tags.push(node);
+}
+
+pub struct Tags {
+    /// The intermediary stack of nested tag groups.
+    pub stack: Vec<StackEntry>,
+    /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
+    pub placeholders: Vec<OnceCell<Node>>,
+    pub in_artifact: Option<(Location, ArtifactKind)>,
+    /// Used to group multiple link annotations using quad points.
+    pub link_id: LinkId,
+
+    /// The output.
+    pub tree: Vec<TagNode>,
+}
+
+impl Tags {
+    pub fn new() -> Self {
+        Self {
+            stack: Vec::new(),
+            placeholders: Vec::new(),
+            in_artifact: None,
+
+            tree: Vec::new(),
+            link_id: LinkId(0),
+        }
+    }
+
+    pub fn reserve_placeholder(&mut self) -> Placeholder {
+        let idx = self.placeholders.len();
+        self.placeholders.push(OnceCell::new());
+        Placeholder(idx)
+    }
+
+    pub fn init_placeholder(&mut self, placeholder: Placeholder, node: Node) {
+        self.placeholders[placeholder.0]
+            .set(node)
+            .map_err(|_| ())
+            .expect("placeholder to be uninitialized");
+    }
+
+    pub fn take_placeholder(&mut self, placeholder: Placeholder) -> Node {
+        self.placeholders[placeholder.0]
+            .take()
+            .expect("initialized placeholder node")
+    }
+
+    pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
+        self.stack.last_mut().map(|e| &mut e.kind)
+    }
+
+    pub fn parent_outline_entry(&mut self) -> Option<&mut OutlineEntry> {
+        self.parent()?.as_outline_entry_mut()
+    }
+
+    pub fn find_parent_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
+        self.stack.iter().rev().find_map(|entry| entry.kind.as_link())
+    }
+
+    pub fn push(&mut self, node: TagNode) {
+        if let Some(entry) = self.stack.last_mut() {
+            entry.nodes.push(node);
+        } else {
+            self.tree.push(node);
+        }
+    }
+
+    pub fn build_tree(&mut self) -> TagTree {
+        assert!(self.stack.is_empty(), "tags weren't properly closed");
+
+        let children = std::mem::take(&mut self.tree)
+            .into_iter()
+            .map(|node| self.resolve_node(node))
+            .collect::<Vec<_>>();
+        TagTree::from(children)
+    }
+
+    /// Resolves [`Placeholder`] nodes.
+    fn resolve_node(&mut self, node: TagNode) -> Node {
+        match node {
+            TagNode::Group(tag, nodes) => {
+                let children = nodes
+                    .into_iter()
+                    .map(|node| self.resolve_node(node))
+                    .collect::<Vec<_>>();
+                Node::Group(TagGroup::with_children(tag, children))
+            }
+            TagNode::Leaf(identifier) => Node::Leaf(identifier),
+            TagNode::Placeholder(placeholder) => self.take_placeholder(placeholder),
+        }
+    }
+
+    fn next_link_id(&mut self) -> LinkId {
+        self.link_id.0 += 1;
+        self.link_id
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct LinkId(u32);
+
+#[derive(Debug)]
+pub struct StackEntry {
+    pub loc: Location,
+    pub kind: StackEntryKind,
+    pub nodes: Vec<TagNode>,
+}
+
+#[derive(Debug)]
+pub enum StackEntryKind {
+    Standard(TagKind),
+    Outline(OutlineCtx),
+    OutlineEntry(Packed<OutlineEntry>),
+    Table(TableCtx),
+    TableCell(Packed<TableCell>),
+    Link(LinkId, Packed<LinkMarker>),
+}
+
+impl StackEntryKind {
+    pub fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
+        if let Self::Outline(v) = self { Some(v) } else { None }
+    }
+
+    pub fn as_outline_entry_mut(&mut self) -> Option<&mut OutlineEntry> {
+        if let Self::OutlineEntry(v) = self { Some(v) } else { None }
+    }
+
+    pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
+        if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum TagNode {
+    Group(TagKind, Vec<TagNode>),
+    Leaf(Identifier),
+    /// Allows inserting a placeholder into the tag tree.
+    /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
+    Placeholder(Placeholder),
+}
+
+impl TagNode {
+    pub fn group(tag: impl Into<TagKind>, children: Vec<TagNode>) -> Self {
+        TagNode::Group(tag.into(), children)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Placeholder(usize);
+
+/// Automatically calls [`Surface::end_tagged`] when dropped.
+pub struct TagHandle<'a, 'b> {
+    surface: &'b mut Surface<'a>,
+}
+
+impl Drop for TagHandle<'_, '_> {
+    fn drop(&mut self) {
+        self.surface.end_tagged();
+    }
+}
+
+impl<'a> TagHandle<'a, '_> {
+    pub fn surface<'c>(&'c mut self) -> &'c mut Surface<'a> {
+        self.surface
+    }
+}
+
+/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
+/// when dropped.
+pub fn start_marked<'a, 'b>(
+    gc: &mut GlobalContext,
+    surface: &'b mut Surface<'a>,
+) -> TagHandle<'a, 'b> {
+    start_content(gc, surface, ContentTag::Other)
+}
+
+/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
+/// when dropped.
+pub fn start_span<'a, 'b>(
+    gc: &mut GlobalContext,
+    surface: &'b mut Surface<'a>,
+    span: SpanTag,
+) -> TagHandle<'a, 'b> {
+    start_content(gc, surface, ContentTag::Span(span))
+}
+
+fn start_content<'a, 'b>(
+    gc: &mut GlobalContext,
+    surface: &'b mut Surface<'a>,
+    content: ContentTag,
+) -> TagHandle<'a, 'b> {
+    let content = if let Some((_, kind)) = gc.tags.in_artifact {
+        let ty = artifact_type(kind);
+        ContentTag::Artifact(ty)
+    } else if let Some(StackEntryKind::Table(_)) = gc.tags.stack.last().map(|e| &e.kind) {
+        // Mark any direct child of a table as an aritfact. Any real content
+        // will be wrapped inside a `TableCell`.
+        ContentTag::Artifact(ArtifactType::Other)
+    } else {
+        content
+    };
+    let id = surface.start_tagged(content);
+    gc.tags.push(TagNode::Leaf(id));
+    TagHandle { surface }
+}
+
+/// Add all annotations that were found in the page frame.
+pub fn add_link_annotations(
+    gc: &mut GlobalContext,
+    page: &mut Page,
+    annotations: Vec<LinkAnnotation>,
+) {
+    for a in annotations.into_iter() {
+        let annotation = krilla::annotation::Annotation::new_link(
+            krilla::annotation::LinkAnnotation::new_with_quad_points(
+                a.quad_points,
+                a.target,
+            ),
+            a.alt,
+        );
+        let annot_id = page.add_tagged_annotation(annotation);
+        gc.tags.init_placeholder(a.placeholder, Node::Leaf(annot_id));
+    }
 }
 
 fn start_artifact(gc: &mut GlobalContext, loc: Location, kind: ArtifactKind) {
