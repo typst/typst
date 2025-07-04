@@ -5,7 +5,7 @@ use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem};
+use typst_library::text::{variant, Lang, TextElem};
 use typst_utils::Numeric;
 
 use super::*;
@@ -330,7 +330,7 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().first_mut().unwrap();
         let shrink = glyph.shrinkability().0;
         glyph.shrink_left(shrink);
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(glyph.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && glyph.x_offset > Em::zero()
@@ -342,7 +342,7 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         glyph.x_advance -= shrink;
         glyph.x_offset = Em::zero();
         glyph.adjustability.shrinkability.0 = Em::zero();
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(glyph.size);
     }
 }
 
@@ -360,7 +360,7 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let shrink = glyph.shrinkability().1;
         let punct = shaped.glyphs.to_mut().last_mut().unwrap();
         punct.shrink_right(shrink);
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(punct.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && (glyph.x_advance - glyph.x_offset) > Em::one()
@@ -371,7 +371,7 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
         glyph.x_advance -= shrink;
         glyph.adjustability.shrinkability.1 = Em::zero();
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(glyph.size);
     }
 }
 
@@ -412,9 +412,30 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
     }
 }
 
-/// Apply the current baseline shift to a frame.
-pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
-    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+/// Apply the current baseline shift and italic compensation to a frame.
+pub fn apply_shift<'a>(
+    world: &Tracked<'a, dyn World + 'a>,
+    frame: &mut Frame,
+    styles: StyleChain,
+) {
+    let mut baseline = TextElem::baseline_in(styles);
+    let mut compensation = Abs::zero();
+    if let Some(scripts) = TextElem::shift_settings_in(styles) {
+        let font_metrics = TextElem::font_in(styles)
+            .into_iter()
+            .find_map(|family| {
+                world
+                    .book()
+                    .select(family.as_str(), variant(styles))
+                    .and_then(|id| world.font(id))
+            })
+            .map_or(*scripts.kind.default_metrics(), |f| {
+                *scripts.kind.read_metrics(f.metrics())
+            });
+        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).resolve(styles);
+        compensation += font_metrics.horizontal_offset.resolve(styles);
+    }
+    frame.translate(Point::new(compensation, baseline));
 }
 
 /// Commit to a line and build its frame.
@@ -444,7 +465,7 @@ pub fn commit(
                 && TextElem::overhang_in(text.styles)
                 && (line.items.len() > 1 || text.glyphs.len() > 1)
             {
-                let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
+                let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
                 offset -= amount;
                 remaining += amount;
             }
@@ -458,7 +479,7 @@ pub fn commit(
                 && TextElem::overhang_in(text.styles)
                 && (line.items.len() > 1 || text.glyphs.len() > 1)
             {
-                let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
+                let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
                 remaining += amount;
             }
         }
@@ -519,7 +540,7 @@ pub fn commit(
                     let mut frame = layout_and_modify(*styles, |styles| {
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
-                    apply_baseline_shift(&mut frame, *styles);
+                    apply_shift(&engine.world, &mut frame, *styles);
                     push(&mut offset, frame, idx);
                 } else {
                     offset += amount;
