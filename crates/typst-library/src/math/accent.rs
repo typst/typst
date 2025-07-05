@@ -189,7 +189,7 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => match v.to_packed::<SymbolElem>() {
-        Some(elem) => Self::new(elem.text),
-        None => bail!("expected a symbol"),
+        Some(elem) if elem.text.chars().count() == 1 => Self::new(elem.text.chars().next().unwrap()),
+        _ => bail!("expected a single-character symbol"),
     },
 }

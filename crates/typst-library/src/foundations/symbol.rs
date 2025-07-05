@@ -1,5 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::Arc;
 
 use codex::ModifierSet;
@@ -52,7 +52,7 @@ pub struct Symbol(Repr);
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
     /// A native symbol that has no named variant.
-    Single(char),
+    Single(&'static str),
     /// A native symbol with multiple named variants.
     Complex(&'static [Variant<&'static str>]),
     /// A symbol with multiple named variants, where some modifiers may have
@@ -61,9 +61,9 @@ enum Repr {
     Modified(Arc<(List, ModifierSet<EcoString>)>),
 }
 
-/// A symbol variant, consisting of a set of modifiers, a character, and an
+/// A symbol variant, consisting of a set of modifiers, the variant's value, and an
 /// optional deprecation message.
-type Variant<S> = (ModifierSet<S>, char, Option<S>);
+type Variant<S> = (ModifierSet<S>, S, Option<S>);
 
 /// A collection of symbols.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -73,9 +73,9 @@ enum List {
 }
 
 impl Symbol {
-    /// Create a new symbol from a single character.
-    pub const fn single(c: char) -> Self {
-        Self(Repr::Single(c))
+    /// Create a new symbol from a single value.
+    pub const fn single(value: &'static str) -> Self {
+        Self(Repr::Single(value))
     }
 
     /// Create a symbol with a static variant list.
@@ -85,6 +85,11 @@ impl Symbol {
         Self(Repr::Complex(list))
     }
 
+    /// Create a symbol from a runtime char.
+    pub fn runtime_char(c: char) -> Self {
+        Self::runtime(Box::new([(ModifierSet::default(), c.into(), None)]))
+    }
+
     /// Create a symbol with a runtime variant list.
     #[track_caller]
     pub fn runtime(list: Box<[Variant<EcoString>]>) -> Self {
@@ -92,10 +97,10 @@ impl Symbol {
         Self(Repr::Modified(Arc::new((List::Runtime(list), ModifierSet::default()))))
     }
 
-    /// Get the symbol's character.
-    pub fn get(&self) -> char {
+    /// Get the symbol's value.
+    pub fn get(&self) -> &str {
         match &self.0 {
-            Repr::Single(c) => *c,
+            Repr::Single(value) => value,
             Repr::Complex(_) => ModifierSet::<&'static str>::default()
                 .best_match_in(self.variants().map(|(m, c, _)| (m, c)))
                 .unwrap(),
@@ -108,27 +113,27 @@ impl Symbol {
     /// Try to get the function associated with the symbol, if any.
     pub fn func(&self) -> StrResult<Func> {
         match self.get() {
-            '⌈' => Ok(crate::math::ceil::func()),
-            '⌊' => Ok(crate::math::floor::func()),
-            '–' => Ok(crate::math::accent::dash::func()),
-            '⋅' | '\u{0307}' => Ok(crate::math::accent::dot::func()),
-            '¨' => Ok(crate::math::accent::dot_double::func()),
-            '\u{20db}' => Ok(crate::math::accent::dot_triple::func()),
-            '\u{20dc}' => Ok(crate::math::accent::dot_quad::func()),
-            '∼' => Ok(crate::math::accent::tilde::func()),
-            '´' => Ok(crate::math::accent::acute::func()),
-            '˝' => Ok(crate::math::accent::acute_double::func()),
-            '˘' => Ok(crate::math::accent::breve::func()),
-            'ˇ' => Ok(crate::math::accent::caron::func()),
-            '^' => Ok(crate::math::accent::hat::func()),
-            '`' => Ok(crate::math::accent::grave::func()),
-            '¯' => Ok(crate::math::accent::macron::func()),
-            '○' => Ok(crate::math::accent::circle::func()),
-            '→' => Ok(crate::math::accent::arrow::func()),
-            '←' => Ok(crate::math::accent::arrow_l::func()),
-            '↔' => Ok(crate::math::accent::arrow_l_r::func()),
-            '⇀' => Ok(crate::math::accent::harpoon::func()),
-            '↼' => Ok(crate::math::accent::harpoon_lt::func()),
+            "⌈" => Ok(crate::math::ceil::func()),
+            "⌊" => Ok(crate::math::floor::func()),
+            "–" => Ok(crate::math::accent::dash::func()),
+            "⋅" | "\u{0307}" => Ok(crate::math::accent::dot::func()),
+            "¨" => Ok(crate::math::accent::dot_double::func()),
+            "\u{20db}" => Ok(crate::math::accent::dot_triple::func()),
+            "\u{20dc}" => Ok(crate::math::accent::dot_quad::func()),
+            "∼" => Ok(crate::math::accent::tilde::func()),
+            "´" => Ok(crate::math::accent::acute::func()),
+            "˝" => Ok(crate::math::accent::acute_double::func()),
+            "˘" => Ok(crate::math::accent::breve::func()),
+            "ˇ" => Ok(crate::math::accent::caron::func()),
+            "^" => Ok(crate::math::accent::hat::func()),
+            "`" => Ok(crate::math::accent::grave::func()),
+            "¯" => Ok(crate::math::accent::macron::func()),
+            "○" => Ok(crate::math::accent::circle::func()),
+            "→" => Ok(crate::math::accent::arrow::func()),
+            "←" => Ok(crate::math::accent::arrow_l::func()),
+            "↔" => Ok(crate::math::accent::arrow_l_r::func()),
+            "⇀" => Ok(crate::math::accent::harpoon::func()),
+            "↼" => Ok(crate::math::accent::harpoon_lt::func()),
             _ => bail!("symbol {self} is not callable"),
         }
     }
@@ -163,7 +168,7 @@ impl Symbol {
     /// The characters that are covered by this symbol.
     pub fn variants(&self) -> impl Iterator<Item = Variant<&str>> {
         match &self.0 {
-            Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
+            Repr::Single(value) => Variants::Single(Some(*value).into_iter()),
             Repr::Complex(list) => Variants::Static(list.iter()),
             Repr::Modified(arc) => arc.0.variants(),
         }
@@ -279,7 +284,7 @@ impl Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char(self.get())
+        f.write_str(self.get())
     }
 }
 
@@ -362,7 +367,7 @@ impl Serialize for Symbol {
     where
         S: Serializer,
     {
-        serializer.serialize_char(self.get())
+        serializer.serialize_str(self.get())
     }
 }
 
@@ -377,11 +382,12 @@ impl List {
 }
 
 /// A value that can be cast to a symbol.
-pub struct SymbolVariant(EcoString, char);
+pub struct SymbolVariant(EcoString, EcoString);
 
 cast! {
     SymbolVariant,
-    c: char => Self(EcoString::new(), c),
+    c: char => Self(EcoString::new(), c.into()),
+    s: EcoString => Self(EcoString::new(), s),
     array: Array => {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next()) {
@@ -393,7 +399,7 @@ cast! {
 
 /// Iterator over variants.
 enum Variants<'a> {
-    Single(std::option::IntoIter<char>),
+    Single(std::option::IntoIter<&'static str>),
     Static(std::slice::Iter<'static, Variant<&'static str>>),
     Runtime(std::slice::Iter<'a, Variant<EcoString>>),
 }
@@ -406,7 +412,7 @@ impl<'a> Iterator for Variants<'a> {
             Self::Single(iter) => Some((ModifierSet::default(), iter.next()?, None)),
             Self::Static(list) => list.next().copied(),
             Self::Runtime(list) => {
-                list.next().map(|(m, c, d)| (m.as_deref(), *c, d.as_deref()))
+                list.next().map(|(m, s, d)| (m.as_deref(), s.as_str(), d.as_deref()))
             }
         }
     }
@@ -415,21 +421,21 @@ impl<'a> Iterator for Variants<'a> {
 /// A single character.
 #[elem(Repr, PlainText)]
 pub struct SymbolElem {
-    /// The symbol's character.
+    /// The symbol's value.
     #[required]
-    pub text: char, // This is called `text` for consistency with `TextElem`.
+    pub text: EcoString, // This is called `text` for consistency with `TextElem`.
 }
 
 impl SymbolElem {
     /// Create a new packed symbol element.
-    pub fn packed(text: impl Into<char>) -> Content {
+    pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
     }
 }
 
 impl PlainText for Packed<SymbolElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push(self.text);
+        text.push_str(&self.text);
     }
 }
 

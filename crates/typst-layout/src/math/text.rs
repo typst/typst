@@ -120,25 +120,32 @@ pub fn layout_symbol(
     // Switch dotless char to normal when we have the dtls OpenType feature.
     // This should happen before the main styling pass.
     let dtls = style_dtls();
-    let (unstyled_c, symbol_styles) = match try_dotless(elem.text) {
-        Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
-        _ => (elem.text, styles),
-    };
-    let c = styled_char(styles, unstyled_c, true);
-    let fragment: MathFragment =
-        match GlyphFragment::new_char(ctx.font, symbol_styles, c, elem.span()) {
-            Ok(mut glyph) => {
-                adjust_glyph_layout(&mut glyph, ctx, styles);
-                glyph.into()
-            }
-            Err(_) => {
-                // Not in the math font, fallback to normal inline text layout.
-                // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
-                layout_inline_text(c.encode_utf8(&mut [0; 4]), elem.span(), ctx, styles)?
-                    .into()
-            }
+    for c in elem.text.chars() {
+        let (unstyled_c, symbol_styles) = match try_dotless(c) {
+            Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
+            _ => (c, styles),
         };
-    ctx.push(fragment);
+        let c = styled_char(styles, unstyled_c, true);
+        let fragment: MathFragment =
+            match GlyphFragment::new_char(ctx.font, symbol_styles, c, elem.span()) {
+                Ok(mut glyph) => {
+                    adjust_glyph_layout(&mut glyph, ctx, styles);
+                    glyph.into()
+                }
+                Err(_) => {
+                    // Not in the math font, fallback to normal inline text layout.
+                    // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
+                    layout_inline_text(
+                        c.encode_utf8(&mut [0; 4]),
+                        elem.span(),
+                        ctx,
+                        styles,
+                    )?
+                    .into()
+                }
+            };
+        ctx.push(fragment);
+    }
     Ok(())
 }
 
