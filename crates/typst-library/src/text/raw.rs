@@ -500,7 +500,11 @@ impl PlainText for Packed<RawElem> {
 }
 
 /// The content of the raw text.
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash)]
+#[allow(
+    clippy::derived_hash_with_manual_eq,
+    reason = "https://github.com/typst/typst/pull/6560#issuecomment-3045393640"
+)]
 pub enum RawContent {
     /// From a string.
     Text(EcoString),
@@ -521,6 +525,22 @@ impl RawContent {
                     lines.collect::<Vec<_>>().join("\n").into()
                 }
             }
+        }
+    }
+}
+
+impl PartialEq for RawContent {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (RawContent::Text(a), RawContent::Text(b)) => a == b,
+            (lines @ RawContent::Lines(_), RawContent::Text(text))
+            | (RawContent::Text(text), lines @ RawContent::Lines(_)) => {
+                *text == lines.get()
+            }
+            (RawContent::Lines(a), RawContent::Lines(b)) => Iterator::eq(
+                a.iter().map(|(line, _)| line),
+                b.iter().map(|(line, _)| line),
+            ),
         }
     }
 }
