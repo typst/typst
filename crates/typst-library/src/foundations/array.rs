@@ -94,7 +94,7 @@ impl Array {
     }
 
     /// Iterate over references to the contained values.
-    pub fn iter(&self) -> std::slice::Iter<Value> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Value> {
         self.0.iter()
     }
 
