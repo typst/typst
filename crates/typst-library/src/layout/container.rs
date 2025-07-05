@@ -497,7 +497,8 @@ mod callbacks {
 
     macro_rules! callback {
         ($name:ident = ($($param:ident: $param_ty:ty),* $(,)?) -> $ret:ty) => {
-            #[derive(Debug, Clone, PartialEq, Hash)]
+            #[derive(Debug, Clone, Hash)]
+            #[allow(clippy::derived_hash_with_manual_eq)]
             pub struct $name {
                 captured: Content,
                 f: fn(&Content, $($param_ty),*) -> $ret,
@@ -533,6 +534,19 @@ mod callbacks {
 
                 pub fn call(&self, $($param: $param_ty),*) -> $ret {
                     (self.f)(&self.captured, $($param),*)
+                }
+            }
+
+            impl PartialEq for $name {
+                fn eq(&self, other: &Self) -> bool {
+                    // Comparing function pointers is problematic. Since for
+                    // each type of content, there is typically just one
+                    // callback, we skip it. It barely matters anyway since
+                    // getting into a comparison codepath for inline & block
+                    // elements containing callback bodies is close to
+                    // impossible (as these are generally generated in show
+                    // rules).
+                    self.captured.eq(&other.captured)
                 }
             }
         };
