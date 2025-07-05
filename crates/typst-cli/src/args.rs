@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
@@ -441,6 +442,27 @@ pub enum OutputFormat {
     Png,
     Svg,
     Html,
+}
+
+impl OutputFormat {
+    pub fn from_file_ext(ext: &OsStr) -> Option<Self> {
+        match ext {
+            ext if ext.eq_ignore_ascii_case("pdf") => Some(OutputFormat::Pdf),
+            ext if ext.eq_ignore_ascii_case("png") => Some(OutputFormat::Png),
+            ext if ext.eq_ignore_ascii_case("svg") => Some(OutputFormat::Svg),
+            ext if ext.eq_ignore_ascii_case("html") => Some(OutputFormat::Html),
+            _ => None,
+        }
+    }
+
+    pub fn as_file_ext(&self) -> &'static str {
+        match self {
+            Self::Pdf => "pdf",
+            Self::Png => "png",
+            Self::Svg => "svg",
+            Self::Html => "html",
+        }
+    }
 }
 
 display_possible_values!(OutputFormat);
