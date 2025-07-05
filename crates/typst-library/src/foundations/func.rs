@@ -20,7 +20,7 @@ use crate::foundations::{
 ///
 /// You can call a function by writing a comma-separated list of function
 /// _arguments_ enclosed in parentheses directly after the function name.
-/// Additionally, you can pass any number of trailing content blocks arguments
+/// Additionally, you can pass any number of trailing content block arguments
 /// to a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
 /// arguments. The former are identified by position and type, while the latter
