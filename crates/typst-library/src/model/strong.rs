@@ -44,13 +44,13 @@ impl Show for Packed<StrongElem> {
     #[typst_macros::time(name = "strong", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
-        Ok(if TargetElem::target_in(styles).is_html() {
+        Ok(if styles.get(TargetElem::target).is_html() {
             HtmlElem::new(tag::strong)
                 .with_body(Some(body))
                 .pack()
                 .spanned(self.span())
         } else {
-            body.styled(TextElem::set_delta(WeightDelta(self.delta(styles))))
+            body.set(TextElem::delta, WeightDelta(self.delta.get(styles)))
         })
     }
 }

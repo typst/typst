@@ -46,7 +46,6 @@ pub struct VecElem {
     /// #set math.vec(align: right)
     /// $ vec(-1, 1, -1) $
     /// ```
-    #[resolve]
     #[default(HAlignment::Center)]
     pub align: HAlignment,
 
@@ -56,7 +55,6 @@ pub struct VecElem {
     /// #set math.vec(gap: 1em)
     /// $ vec(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
@@ -107,7 +105,6 @@ pub struct MatElem {
     /// #set math.mat(align: right)
     /// $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
     /// ```
-    #[resolve]
     #[default(HAlignment::Center)]
     pub align: HAlignment,
 
@@ -141,7 +138,6 @@ pub struct MatElem {
     /// ```example
     /// $ mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
     /// ```
-    #[resolve]
     #[fold]
     pub augment: Option<Augment>,
 
@@ -162,7 +158,6 @@ pub struct MatElem {
     /// #set math.mat(row-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(
         let gap = args.named("gap")?;
         args.named("row-gap")?.or(gap)
@@ -176,7 +171,6 @@ pub struct MatElem {
     /// #set math.mat(column-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
     #[parse(args.named("column-gap")?.or(gap))]
     #[default(DEFAULT_COL_GAP.into())]
     pub column_gap: Rel<Length>,
@@ -259,7 +253,6 @@ pub struct CasesElem {
     /// #set math.cases(gap: 1em)
     /// $ x = cases(1, 2) $
     /// ```
-    #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 

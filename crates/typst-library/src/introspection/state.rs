@@ -259,7 +259,7 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        select_where!(StateUpdateElem, Key => self.key.clone())
+        select_where!(StateUpdateElem, key => self.key.clone())
     }
 
     /// Selects all state updates.

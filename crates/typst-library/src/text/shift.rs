@@ -69,7 +69,7 @@ impl Show for Packed<SubElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
 
-        if TargetElem::target_in(styles).is_html() {
+        if styles.get(TargetElem::target).is_html() {
             return Ok(HtmlElem::new(tag::sub)
                 .with_body(Some(body))
                 .pack()
@@ -79,9 +79,9 @@ impl Show for Packed<SubElem> {
         show_script(
             styles,
             body,
-            self.typographic(styles),
-            self.baseline(styles),
-            self.size(styles),
+            self.typographic.get(styles),
+            self.baseline.get(styles),
+            self.size.get(styles),
             ScriptKind::Sub,
         )
     }
@@ -151,7 +151,7 @@ impl Show for Packed<SuperElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
 
-        if TargetElem::target_in(styles).is_html() {
+        if styles.get(TargetElem::target).is_html() {
             return Ok(HtmlElem::new(tag::sup)
                 .with_body(Some(body))
                 .pack()
@@ -161,9 +161,9 @@ impl Show for Packed<SuperElem> {
         show_script(
             styles,
             body,
-            self.typographic(styles),
-            self.baseline(styles),
-            self.size(styles),
+            self.typographic.get(styles),
+            self.baseline.get(styles),
+            self.size.get(styles),
             ScriptKind::Super,
         )
     }
@@ -177,13 +177,16 @@ fn show_script(
     size: Smart<TextSize>,
     kind: ScriptKind,
 ) -> SourceResult<Content> {
-    let font_size = TextElem::size_in(styles);
-    Ok(body.styled(TextElem::set_shift_settings(Some(ShiftSettings {
-        typographic,
-        shift: baseline.map(|l| -Em::from_length(l, font_size)),
-        size: size.map(|t| Em::from_length(t.0, font_size)),
-        kind,
-    }))))
+    let font_size = styles.resolve(TextElem::size);
+    Ok(body.set(
+        TextElem::shift_settings,
+        Some(ShiftSettings {
+            typographic,
+            shift: baseline.map(|l| -Em::from_length(l, font_size)),
+            size: size.map(|t| Em::from_length(t.0, font_size)),
+            kind,
+        }),
+    ))
 }
 
 /// Configuration values for sub- or superscript text.

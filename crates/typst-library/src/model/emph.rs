@@ -40,13 +40,13 @@ impl Show for Packed<EmphElem> {
     #[typst_macros::time(name = "emph", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body.clone();
-        Ok(if TargetElem::target_in(styles).is_html() {
+        Ok(if styles.get(TargetElem::target).is_html() {
             HtmlElem::new(tag::em)
                 .with_body(Some(body))
                 .pack()
                 .spanned(self.span())
         } else {
-            body.styled(TextElem::set_emph(ItalicToggle(true)))
+            body.set(TextElem::emph, ItalicToggle(true))
         })
     }
 }

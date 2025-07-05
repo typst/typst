@@ -127,12 +127,12 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
     let tag = HtmlTag::constant(element.name);
     let mut elem = HtmlElem::new(tag);
     if !attrs.0.is_empty() {
-        elem.push_attrs(attrs);
+        elem.attrs.set(attrs);
     }
 
     if !tag::is_void(tag) {
         let body = args.eat::<Content>()?;
-        elem.push_body(body);
+        elem.body.set(body);
     }
 
     Ok(elem.into_value())

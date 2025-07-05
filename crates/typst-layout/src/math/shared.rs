@@ -10,7 +10,7 @@ use super::{LeftRightAlternator, MathContext, MathFragment, MathRun};
 
 macro_rules! scaled {
     ($ctx:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
-        match typst_library::math::EquationElem::size_in($styles) {
+        match $styles.get(typst_library::math::EquationElem::size) {
             typst_library::math::MathSize::Display => scaled!($ctx, $styles, $display),
             _ => scaled!($ctx, $styles, $text),
         }
@@ -19,7 +19,7 @@ macro_rules! scaled {
         $crate::math::Scaled::scaled(
             $ctx.constants.$name(),
             $ctx,
-            typst_library::text::TextElem::size_in($styles),
+            $styles.resolve(typst_library::text::TextElem::size),
         )
     };
 }
@@ -58,55 +58,62 @@ impl Scaled for MathValue<'_> {
 
 /// Styles something as cramped.
 pub fn style_cramped() -> LazyHash<Style> {
-    EquationElem::set_cramped(true).wrap()
+    EquationElem::cramped.set(true).wrap()
 }
 
 /// Sets flac OpenType feature.
 pub fn style_flac() -> LazyHash<Style> {
-    TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)])).wrap()
+    TextElem::features
+        .set(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)]))
+        .wrap()
 }
 
 /// Sets dtls OpenType feature.
 pub fn style_dtls() -> LazyHash<Style> {
-    TextElem::set_features(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)])).wrap()
+    TextElem::features
+        .set(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)]))
+        .wrap()
 }
 
 /// The style for subscripts in the current style.
 pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
-    [style_for_superscript(styles), EquationElem::set_cramped(true).wrap()]
+    [style_for_superscript(styles), EquationElem::cramped.set(true).wrap()]
 }
 
 /// The style for superscripts in the current style.
 pub fn style_for_superscript(styles: StyleChain) -> LazyHash<Style> {
-    EquationElem::set_size(match EquationElem::size_in(styles) {
-        MathSize::Display | MathSize::Text => MathSize::Script,
-        MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-    })
-    .wrap()
+    EquationElem::size
+        .set(match styles.get(EquationElem::size) {
+            MathSize::Display | MathSize::Text => MathSize::Script,
+            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+        })
+        .wrap()
 }
 
 /// The style for numerators in the current style.
 pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
-    EquationElem::set_size(match EquationElem::size_in(styles) {
-        MathSize::Display => MathSize::Text,
-        MathSize::Text => MathSize::Script,
-        MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-    })
-    .wrap()
+    EquationElem::size
+        .set(match styles.get(EquationElem::size) {
+            MathSize::Display => MathSize::Text,
+            MathSize::Text => MathSize::Script,
+            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+        })
+        .wrap()
 }
 
 /// The style for denominators in the current style.
 pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
-    [style_for_numerator(styles), EquationElem::set_cramped(true).wrap()]
+    [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
 }
 
 /// Styles to add font constants to the style chain.
 pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
-    EquationElem::set_script_scale((
-        ctx.constants.script_percent_scale_down(),
-        ctx.constants.script_script_percent_scale_down(),
-    ))
-    .wrap()
+    EquationElem::script_scale
+        .set((
+            ctx.constants.script_percent_scale_down(),
+            ctx.constants.script_script_percent_scale_down(),
+        ))
+        .wrap()
 }
 
 /// Stack rows on top of each other.

@@ -106,7 +106,6 @@ pub struct CiteElem {
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
     })]
-    #[borrowed]
     pub style: Smart<Derived<CslSource, CslStyle>>,
 
     /// The text language setting where the citation is.
@@ -123,8 +122,8 @@ pub struct CiteElem {
 impl Synthesize for Packed<CiteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_lang(TextElem::lang_in(styles));
-        elem.push_region(TextElem::region_in(styles));
+        elem.lang = Some(styles.get(TextElem::lang));
+        elem.region = Some(styles.get(TextElem::region));
         Ok(())
     }
 }

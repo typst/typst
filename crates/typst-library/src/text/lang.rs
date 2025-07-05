@@ -250,7 +250,7 @@ pub trait LocalName {
     where
         Self: Sized,
     {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+        Self::local_name(styles.get(TextElem::lang), styles.get(TextElem::region))
     }
 }
 

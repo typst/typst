@@ -115,8 +115,9 @@ impl<'a> HeadingNode<'a> {
             level: element.resolve_level(StyleChain::default()),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
-                .bookmarked(StyleChain::default())
-                .unwrap_or_else(|| element.outlined(StyleChain::default())),
+                .bookmarked
+                .get(StyleChain::default())
+                .unwrap_or_else(|| element.outlined.get(StyleChain::default())),
             element,
             children: Vec::new(),
         }

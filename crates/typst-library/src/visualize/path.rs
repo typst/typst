@@ -55,7 +55,6 @@ pub struct PathElem {
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
-    #[resolve]
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
