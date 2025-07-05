@@ -1,11 +1,11 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain};
-use typst_library::layout::{Abs, Axis, Rel};
-use typst_library::math::{EquationElem, LrElem, MidElem};
+use typst_library::layout::{Abs, Axis};
+use typst_library::math::{EquationElem, LrElem, MidElem, StretchSize};
 use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
-use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
+use super::{stretch_fragment, MathContext, MathFragment};
 
 /// Lays out an [`LrElem`].
 #[typst_macros::time(name = "math.lr", span = elem.span())]
@@ -22,7 +22,7 @@ pub fn layout_lr(
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size(styles).is_one() {
+        if lr.size(styles).is_lr_default() {
             body = &lr.body;
         }
     }
@@ -45,10 +45,24 @@ pub fn layout_lr(
 
     // Scale up fragments at both ends.
     match inner_fragments {
-        [one] => scale_if_delimiter(ctx, one, relative_to, height, None),
+        [one] => scale_if_delimiter(ctx, styles, one, relative_to, &height, None)?,
         [first, .., last] => {
-            scale_if_delimiter(ctx, first, relative_to, height, Some(MathClass::Opening));
-            scale_if_delimiter(ctx, last, relative_to, height, Some(MathClass::Closing));
+            scale_if_delimiter(
+                ctx,
+                styles,
+                first,
+                relative_to,
+                &height,
+                Some(MathClass::Opening),
+            )?;
+            scale_if_delimiter(
+                ctx,
+                styles,
+                last,
+                relative_to,
+                &height,
+                Some(MathClass::Closing),
+            )?;
         }
         [] => {}
     }
@@ -58,7 +72,7 @@ pub fn layout_lr(
         if let MathFragment::Glyph(ref mut glyph) = fragment {
             if glyph.mid_stretched == Some(false) {
                 glyph.mid_stretched = Some(true);
-                scale(ctx, fragment, relative_to, height);
+                scale(ctx, styles, fragment, relative_to, &height)?;
             }
         }
     }
@@ -112,32 +126,32 @@ pub fn layout_mid(
 /// it is a delimiter, in a way that cannot be overridden by the user.
 fn scale_if_delimiter(
     ctx: &mut MathContext,
+    styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
-    height: Rel<Abs>,
+    height: &StretchSize,
     apply: Option<MathClass>,
-) {
+) -> SourceResult<()> {
     if matches!(
         fragment.class(),
         MathClass::Opening | MathClass::Closing | MathClass::Fence
     ) {
-        scale(ctx, fragment, relative_to, height);
+        scale(ctx, styles, fragment, relative_to, height)?;
 
         if let Some(class) = apply {
             fragment.set_class(class);
         }
     }
+    Ok(())
 }
 
 /// Scales a math fragment to a height.
 fn scale(
     ctx: &mut MathContext,
+    styles: StyleChain,
     fragment: &mut MathFragment,
     relative_to: Abs,
-    height: Rel<Abs>,
-) {
-    // This unwrap doesn't really matter. If it is None, then the fragment
-    // won't be stretchable anyways.
-    let short_fall = DELIM_SHORT_FALL.at(fragment.font_size().unwrap_or_default());
-    stretch_fragment(ctx, fragment, Some(Axis::Y), Some(relative_to), height, short_fall);
+    height: &StretchSize,
+) -> SourceResult<()> {
+    stretch_fragment(ctx, styles, fragment, Some(Axis::Y), Some(relative_to), height)
 }
