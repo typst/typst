@@ -240,16 +240,18 @@ impl<'a> GridLayouter<'a> {
             self.current.initial_after_repeats = self.regions.size.y;
         }
 
-        if let Some(footer) = &self.grid.footer {
-            if footer.repeated && skipped_region {
-                // Simulate the footer again; the region's 'full' might have
-                // changed.
-                self.regions.size.y += self.current.footer_height;
-                self.current.footer_height = self
-                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                    .height;
-                self.regions.size.y -= self.current.footer_height;
-            }
+        if !self.repeating_footers.is_empty() && skipped_region {
+            // Simulate the footer again; the region's 'full' might have
+            // changed.
+            let (footer_height, footer_heights) = self.simulate_footer_heights(
+                self.repeating_footers.iter().copied(),
+                &self.regions,
+                engine,
+                disambiguator,
+            )?;
+
+            self.current.footer_height = footer_height;
+            self.current.repeating_footer_heights.extend(footer_heights);
         }
 
         let repeating_header_rows =
@@ -463,48 +465,206 @@ impl<'a> GridLayouter<'a> {
         )
     }
 
-    /// Updates `self.footer_height` by simulating the footer, and skips to fitting region.
-    pub fn prepare_footer(
+    /// Place a footer we have reached through normal row layout.
+    pub fn place_new_footer(
         &mut self,
-        footer: &Footer,
+        engine: &mut Engine,
+        footer: &Repeatable<Footer>,
+    ) -> SourceResult<()> {
+        // TODO(subfooters): short-lived check
+        if !footer.repeated {
+            // TODO(subfooters): widow prevention for this.
+            // Will need some lookahead. For now, act as short-lived.
+            let footer_height =
+                self.simulate_footer(footer, &self.regions, engine, 0)?.height;
+
+            // Skip to fitting region where only this footer fits.
+            while self.unbreakable_rows_left == 0
+                && !self.regions.size.y.fits(footer_height)
+                && self.may_progress_with_repeats()
+            {
+                // Advance regions until we can place the footer.
+                // Treat as a normal row group.
+                self.finish_region(engine, false)?;
+            }
+
+            self.layout_footer(footer, true, engine, 0)?;
+        } else {
+            // Placing a non-short-lived repeating footer, so it must be
+            // the latest one in the repeating footers vector.
+            let latest_repeating_footer = self.repeating_footers.pop().unwrap();
+            assert_eq!(latest_repeating_footer.range.start, footer.range.start);
+
+            let expected_footer_height =
+                self.current.repeating_footer_heights.pop().unwrap();
+
+            // Ensure upcoming rows won't see that this footer will occupy
+            // any space in future regions anymore.
+            self.current.footer_height -= expected_footer_height;
+
+            // Ensure footer rows have their own expected height
+            // available. While not that relevant for them, as they will be
+            // laid out as an unbreakable row group, it's relevant for any
+            // further rows in the same region.
+            self.regions.size.y += expected_footer_height;
+
+            self.layout_footer(footer, false, engine, self.finished.len())?;
+        }
+
+        // If the next group of footers would conflict with other repeating
+        // footers, wait for them to finish repeating before adding more to
+        // repeat.
+        if self.repeating_footers.is_empty()
+            || self
+                .upcoming_sorted_footers
+                .first()
+                .is_some_and(|f| f.level >= footer.level)
+        {
+            self.prepare_next_repeating_footers(false, engine)?;
+        }
+
+        Ok(())
+    }
+
+    /// Takes all non-conflicting consecutive footers which are about to start
+    /// repeating, skips to the first region where they all fit, and pushes
+    /// them to `repeating_footers`, sorted by ascending levels.
+    pub fn prepare_next_repeating_footers(
+        &mut self,
+        first_footers: bool,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        let [next_footer, other_footers @ ..] = self.upcoming_sorted_footers else {
+            // No footers to take.
+            return Ok(());
+        };
+
+        // TODO(subfooters): also ignore short-lived footers.
+        if !next_footer.repeated {
+            // Skip this footer and don't do anything until we get to it.
+            //
+            // TODO(subfooters): grouping and laying out non-repeated with
+            // repeated, with widow prevention.
+            self.upcoming_sorted_footers = other_footers;
+            return Ok(());
+        }
+
+        // Collect upcoming consecutive footers, they will start repeating with
+        // this one if compatible
+        let mut min_level = next_footer.level;
+        let first_conflicting_index = other_footers
+            .iter()
+            .take_while(|f| {
+                // TODO(subfooters): check for short-lived
+                let compatible = f.repeated && f.level > min_level;
+                min_level = f.level;
+                compatible
+            })
+            .count()
+            + 1;
+
+        let (next_repeating_footers, new_upcoming_footers) =
+            self.upcoming_sorted_footers.split_at(first_conflicting_index);
+
+        self.upcoming_sorted_footers = new_upcoming_footers;
+        self.prepare_repeating_footers(
+            next_repeating_footers.iter().map(Repeatable::deref),
+            first_footers,
+            engine,
+            0,
+        )?;
+
+        self.repeating_footers
+            .extend(next_repeating_footers.iter().filter_map(Repeatable::as_repeated));
+
+        Ok(())
+    }
+
+    /// Updates `self.current.repeating_footer_height` by simulating repeating
+    /// footers, and skips to fitting region.
+    pub fn prepare_repeating_footers(
+        &mut self,
+        footers: impl ExactSizeIterator<Item = &'a Footer> + Clone,
+        at_region_top: bool,
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
-        let footer_height = self
-            .simulate_footer(footer, &self.regions, engine, disambiguator)?
-            .height;
+        let (mut expected_footer_height, mut expected_footer_heights) = self
+            .simulate_footer_heights(
+                footers.clone(),
+                &self.regions,
+                engine,
+                disambiguator,
+            )?;
+
+        // Skip to fitting region where all of them fit at once.
+        //
+        // Can't be widows: they are assumed to not be short-lived, so
+        // there is at least one non-footer before them, and this
+        // function is called right after placing a new footer, but
+        // before the next non-footer, or at the top of the region,
+        // at which point we haven't reached the row before the highest
+        // level footer yet since the footer itself won't cause a
+        // region break.
         let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
-            && !self.regions.size.y.fits(footer_height)
+            && !self.regions.size.y.fits(expected_footer_height)
             && self.regions.may_progress()
         {
             // Advance regions without any output until we can place the
             // footer.
-            self.finish_region_internal(
-                Frame::soft(Axes::splat(Abs::zero())),
-                vec![],
-                Default::default(),
-            );
+            if at_region_top {
+                self.finish_region_internal(
+                    Frame::soft(Axes::splat(Abs::zero())),
+                    vec![],
+                    Default::default(),
+                );
+            } else {
+                self.finish_region(engine, false)?;
+            }
             skipped_region = true;
         }
 
-        // TODO(subfooters): Consider resetting header height etc. if we skip
-        // region. (Maybe move that step to `finish_region_internal`.)
-        //
-        // That is unnecessary at the moment as 'prepare_footers' is only
-        // called at the start of the region, so header height is always zero
-        // and no headers were placed so far, but what about when we can have
-        // footers in the middle of the region? Let's think about this then.
-        self.current.footer_height = if skipped_region {
+        if skipped_region {
             // Simulate the footer again; the region's 'full' might have
-            // changed.
-            self.simulate_footer(footer, &self.regions, engine, disambiguator)?
-                .height
-        } else {
-            footer_height
-        };
+            // changed, and the vector of heights was cleared.
+            (expected_footer_height, expected_footer_heights) = self
+                .simulate_footer_heights(footers, &self.regions, engine, disambiguator)?;
+        }
+
+        // Ensure rows don't try to overrun the new footers.
+        // Note that header layout will only subtract this again if it has
+        // to skip regions to fit headers, so there is no risk of
+        // subtracting this twice.
+        self.regions.size.y -= expected_footer_height;
+        self.current.footer_height += expected_footer_height;
+        self.current.repeating_footer_heights.extend(expected_footer_heights);
+
+        if at_region_top {
+            self.current.initial_after_repeats = self.regions.size.y;
+        }
 
         Ok(())
+    }
+
+    pub fn simulate_footer_heights(
+        &self,
+        footers: impl ExactSizeIterator<Item = &'a Footer>,
+        regions: &Regions<'_>,
+        engine: &mut Engine,
+        disambiguator: usize,
+    ) -> SourceResult<(Abs, Vec<Abs>)> {
+        let mut total_footer_height = Abs::zero();
+        let mut footer_heights = Vec::with_capacity(footers.len());
+        for footer in footers {
+            let footer_height =
+                self.simulate_footer(footer, regions, engine, disambiguator)?.height;
+
+            total_footer_height += footer_height;
+            footer_heights.push(footer_height);
+        }
+
+        Ok((total_footer_height, footer_heights))
     }
 
     /// Lays out all rows in the footer.
@@ -512,25 +672,36 @@ impl<'a> GridLayouter<'a> {
     pub fn layout_footer(
         &mut self,
         footer: &Footer,
+        as_short_lived: bool,
         engine: &mut Engine,
         disambiguator: usize,
     ) -> SourceResult<()> {
-        // Ensure footer rows have their own height available.
-        // Won't change much as we're creating an unbreakable row group
-        // anyway, so this is mostly for correctness.
-        self.regions.size.y += self.current.footer_height;
-
-        let repeats = self.grid.footer.as_ref().is_some_and(|f| f.repeated);
-        let footer_len = self.grid.rows.len() - footer.start;
+        let footer_len = footer.range.end - footer.range.start;
         self.unbreakable_rows_left += footer_len;
 
-        for y in footer.start..self.grid.rows.len() {
+        let footer_start = if self.grid.is_gutter_track(footer.range.start)
+            && self
+                .current
+                .lrows
+                .last()
+                .is_none_or(|r| self.grid.is_gutter_track(r.index()))
+        {
+            // Skip gutter at the top of footer if there's already a gutter
+            // from a repeated header right before it in the current region.
+            // Normally, that shouldn't happen as it indicates we have a widow,
+            // but we can't fully prevent widows anyway.
+            footer.range.start + 1
+        } else {
+            footer.range.start
+        };
+
+        for y in footer_start..footer.range.end {
             self.layout_row_with_state(
                 y,
                 engine,
                 disambiguator,
                 RowState {
-                    in_active_repeatable: repeats,
+                    in_active_repeatable: !as_short_lived,
                     ..Default::default()
                 },
             )?;
@@ -553,8 +724,8 @@ impl<'a> GridLayouter<'a> {
         // assume that the amount of unbreakable rows following the first row
         // in the footer will be precisely the rows in the footer.
         self.simulate_unbreakable_row_group(
-            footer.start,
-            Some(footer.end - footer.start),
+            footer.range.start,
+            Some(footer.range.end - footer.range.start),
             regions,
             engine,
             disambiguator,

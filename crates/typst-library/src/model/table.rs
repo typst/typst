@@ -292,12 +292,35 @@ fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
         elem(tag::tr, Content::sequence(row))
     };
 
-    // TODO(subfooters): similarly to headers, take consecutive footers from
-    // the end for 'tfoot'.
-    let footer = grid.footer.map(|ft| {
-        let rows = rows.drain(ft.start..);
-        elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
-    });
+    // Store all consecutive headers at the start in 'tfoot'. All remaining
+    // headers are just normal rows across the table body. (There doesn't
+    // appear to be an equivalent of 'th' for footers in HTML.)
+    // TODO: test
+    let footer = {
+        let mut consecutive_footer_start = grid.rows.len();
+        let footers_at_end = grid
+            .footers
+            .iter()
+            .rev()
+            .take_while(|ft| {
+                let is_consecutive = ft.range.end == consecutive_footer_start;
+                consecutive_footer_start = ft.range.start;
+
+                is_consecutive
+            })
+            .count();
+
+        if footers_at_end > 0 {
+            let last_mid_table_footer = grid.footers.len() - footers_at_end;
+            let removed_footer_rows =
+                grid.footers.get(last_mid_table_footer).unwrap().range.start;
+            let rows = rows.drain(removed_footer_rows..);
+
+            Some(elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row)))))
+        } else {
+            None
+        }
+    };
 
     // Store all consecutive headers at the start in 'thead'. All remaining
     // headers are just 'th' rows across the table body.
@@ -566,6 +589,16 @@ pub struct TableFooter {
     /// Whether this footer should be repeated across pages.
     #[default(true)]
     pub repeat: bool,
+
+    /// The level of the footer. Must not be zero.
+    ///
+    /// This allows repeating multiple footers at once. Footers with different
+    /// levels can repeat together, as long as they have descending levels.
+    ///
+    /// Notably, when a footer with a lower level stops repeating, all higher
+    /// or equal level headers start repeating, replacing the previous footer.
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
 
     /// The cells and lines within the footer.
     #[variadic]
