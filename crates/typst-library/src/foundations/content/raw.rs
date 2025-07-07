@@ -385,3 +385,42 @@ fn ref_count_overflow(ptr: NonNull<Header>, elem: Element, span: Span) -> ! {
     drop(RawContent { ptr, elem, span });
     panic!("reference count overflow");
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::foundations::{NativeElement, Repr, StyleChain, Value};
+    use crate::introspection::Location;
+    use crate::model::HeadingElem;
+    use crate::text::TextElem;
+
+    #[test]
+    fn test_miri() {
+        let styles = StyleChain::default();
+
+        let mut first = HeadingElem::new(TextElem::packed("Hi!")).with_offset(2).pack();
+        let hash1 = typst_utils::hash128(&first);
+        first.set_location(Location::new(10));
+        let _ = format!("{first:?}");
+        let _ = first.repr();
+
+        assert!(first.is::<HeadingElem>());
+        assert!(!first.is::<TextElem>());
+        assert_eq!(first.to_packed::<TextElem>(), None);
+        assert_eq!(first.location(), Some(Location::new(10)));
+        assert_eq!(first.field_by_name("offset"), Ok(Value::Int(2)));
+        assert!(!first.has("depth".into()));
+
+        let second = first.clone();
+        first.materialize(styles);
+
+        let first_packed = first.to_packed::<HeadingElem>().unwrap();
+        let second_packed = second.to_packed::<HeadingElem>().unwrap();
+
+        assert!(first.has("depth".into()));
+        assert!(!second.has("depth".into()));
+        assert!(first_packed.depth.is_set());
+        assert!(!second_packed.depth.is_set());
+        assert_ne!(first, second);
+        assert_ne!(hash1, typst_utils::hash128(&first));
+    }
+}
