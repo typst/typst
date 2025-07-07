@@ -124,7 +124,7 @@ fn layout_frac_like(
             FrameItem::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(
                     FixedStroke::from_pair(
-                        TextElem::fill_in(styles).as_decoration(),
+                        styles.get_ref(TextElem::fill).as_decoration(),
                         thickness,
                     ),
                 ),

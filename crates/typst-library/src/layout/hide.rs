@@ -29,6 +29,6 @@ pub struct HideElem {
 impl Show for Packed<HideElem> {
     #[typst_macros::time(name = "hide", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().styled(HideElem::set_hidden(true)))
+        Ok(self.body.clone().set(HideElem::hidden, true))
     }
 }

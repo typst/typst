@@ -31,14 +31,14 @@ pub fn grid_to_cellgrid<'a>(
     locator: Locator<'a>,
     styles: StyleChain,
 ) -> SourceResult<CellGrid<'a>> {
-    let inset = elem.inset(styles);
-    let align = elem.align(styles);
-    let columns = elem.columns(styles);
-    let rows = elem.rows(styles);
-    let column_gutter = elem.column_gutter(styles);
-    let row_gutter = elem.row_gutter(styles);
-    let fill = elem.fill(styles);
-    let stroke = elem.stroke(styles);
+    let inset = elem.inset.get_cloned(styles);
+    let align = elem.align.get_ref(styles);
+    let columns = elem.columns.get_ref(styles);
+    let rows = elem.rows.get_ref(styles);
+    let column_gutter = elem.column_gutter.get_ref(styles);
+    let row_gutter = elem.row_gutter.get_ref(styles);
+    let fill = elem.fill.get_ref(styles);
+    let stroke = elem.stroke.resolve(styles);
 
     let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
     let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
@@ -47,13 +47,13 @@ pub fn grid_to_cellgrid<'a>(
     let resolve_item = |item: &GridItem| grid_item_to_resolvable(item, styles);
     let children = elem.children.iter().map(|child| match child {
         GridChild::Header(header) => ResolvableGridChild::Header {
-            repeat: header.repeat(styles),
-            level: header.level(styles),
+            repeat: header.repeat.get(styles),
+            level: header.level.get(styles),
             span: header.span(),
             items: header.children.iter().map(resolve_item),
         },
         GridChild::Footer(footer) => ResolvableGridChild::Footer {
-            repeat: footer.repeat(styles),
+            repeat: footer.repeat.get(styles),
             span: footer.span(),
             items: footer.children.iter().map(resolve_item),
         },
@@ -85,14 +85,14 @@ pub fn table_to_cellgrid<'a>(
     locator: Locator<'a>,
     styles: StyleChain,
 ) -> SourceResult<CellGrid<'a>> {
-    let inset = elem.inset(styles);
-    let align = elem.align(styles);
-    let columns = elem.columns(styles);
-    let rows = elem.rows(styles);
-    let column_gutter = elem.column_gutter(styles);
-    let row_gutter = elem.row_gutter(styles);
-    let fill = elem.fill(styles);
-    let stroke = elem.stroke(styles);
+    let inset = elem.inset.get_cloned(styles);
+    let align = elem.align.get_ref(styles);
+    let columns = elem.columns.get_ref(styles);
+    let rows = elem.rows.get_ref(styles);
+    let column_gutter = elem.column_gutter.get_ref(styles);
+    let row_gutter = elem.row_gutter.get_ref(styles);
+    let fill = elem.fill.get_ref(styles);
+    let stroke = elem.stroke.resolve(styles);
 
     let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
     let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
@@ -101,13 +101,13 @@ pub fn table_to_cellgrid<'a>(
     let resolve_item = |item: &TableItem| table_item_to_resolvable(item, styles);
     let children = elem.children.iter().map(|child| match child {
         TableChild::Header(header) => ResolvableGridChild::Header {
-            repeat: header.repeat(styles),
-            level: header.level(styles),
+            repeat: header.repeat.get(styles),
+            level: header.level.get(styles),
             span: header.span(),
             items: header.children.iter().map(resolve_item),
         },
         TableChild::Footer(footer) => ResolvableGridChild::Footer {
-            repeat: footer.repeat(styles),
+            repeat: footer.repeat.get(styles),
             span: footer.span(),
             items: footer.children.iter().map(resolve_item),
         },
@@ -137,27 +137,27 @@ fn grid_item_to_resolvable(
 ) -> ResolvableGridItem<Packed<GridCell>> {
     match item {
         GridItem::HLine(hline) => ResolvableGridItem::HLine {
-            y: hline.y(styles),
-            start: hline.start(styles),
-            end: hline.end(styles),
-            stroke: hline.stroke(styles),
+            y: hline.y.get(styles),
+            start: hline.start.get(styles),
+            end: hline.end.get(styles),
+            stroke: hline.stroke.resolve(styles),
             span: hline.span(),
-            position: match hline.position(styles) {
+            position: match hline.position.get(styles) {
                 OuterVAlignment::Top => LinePosition::Before,
                 OuterVAlignment::Bottom => LinePosition::After,
             },
         },
         GridItem::VLine(vline) => ResolvableGridItem::VLine {
-            x: vline.x(styles),
-            start: vline.start(styles),
-            end: vline.end(styles),
-            stroke: vline.stroke(styles),
+            x: vline.x.get(styles),
+            start: vline.start.get(styles),
+            end: vline.end.get(styles),
+            stroke: vline.stroke.resolve(styles),
             span: vline.span(),
-            position: match vline.position(styles) {
-                OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+            position: match vline.position.get(styles) {
+                OuterHAlignment::Left if styles.resolve(TextElem::dir) == Dir::RTL => {
                     LinePosition::After
                 }
-                OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                OuterHAlignment::Right if styles.resolve(TextElem::dir) == Dir::RTL => {
                     LinePosition::Before
                 }
                 OuterHAlignment::Start | OuterHAlignment::Left => LinePosition::Before,
@@ -174,27 +174,27 @@ fn table_item_to_resolvable(
 ) -> ResolvableGridItem<Packed<TableCell>> {
     match item {
         TableItem::HLine(hline) => ResolvableGridItem::HLine {
-            y: hline.y(styles),
-            start: hline.start(styles),
-            end: hline.end(styles),
-            stroke: hline.stroke(styles),
+            y: hline.y.get(styles),
+            start: hline.start.get(styles),
+            end: hline.end.get(styles),
+            stroke: hline.stroke.resolve(styles),
             span: hline.span(),
-            position: match hline.position(styles) {
+            position: match hline.position.get(styles) {
                 OuterVAlignment::Top => LinePosition::Before,
                 OuterVAlignment::Bottom => LinePosition::After,
             },
         },
         TableItem::VLine(vline) => ResolvableGridItem::VLine {
-            x: vline.x(styles),
-            start: vline.start(styles),
-            end: vline.end(styles),
-            stroke: vline.stroke(styles),
+            x: vline.x.get(styles),
+            start: vline.start.get(styles),
+            end: vline.end.get(styles),
+            stroke: vline.stroke.resolve(styles),
             span: vline.span(),
-            position: match vline.position(styles) {
-                OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+            position: match vline.position.get(styles) {
+                OuterHAlignment::Left if styles.resolve(TextElem::dir) == Dir::RTL => {
                     LinePosition::After
                 }
-                OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                OuterHAlignment::Right if styles.resolve(TextElem::dir) == Dir::RTL => {
                     LinePosition::Before
                 }
                 OuterHAlignment::Start | OuterHAlignment::Left => LinePosition::Before,
@@ -219,12 +219,12 @@ impl ResolvableCell for Packed<TableCell> {
         styles: StyleChain,
     ) -> Cell<'a> {
         let cell = &mut *self;
-        let colspan = cell.colspan(styles);
-        let rowspan = cell.rowspan(styles);
-        let breakable = cell.breakable(styles).unwrap_or(breakable);
-        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        let colspan = cell.colspan.get(styles);
+        let rowspan = cell.rowspan.get(styles);
+        let breakable = cell.breakable.get(styles).unwrap_or(breakable);
+        let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
 
-        let cell_stroke = cell.stroke(styles);
+        let cell_stroke = cell.stroke.resolve(styles);
         let stroke_overridden =
             cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
 
@@ -238,22 +238,22 @@ impl ResolvableCell for Packed<TableCell> {
         // cell stroke is the same as specifying 'none', so we equate the two
         // concepts.
         let stroke = cell_stroke.fold(stroke).map(Option::flatten);
-        cell.push_x(Smart::Custom(x));
-        cell.push_y(Smart::Custom(y));
-        cell.push_fill(Smart::Custom(fill.clone()));
-        cell.push_align(match align {
-            Smart::Custom(align) => {
-                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
-            }
+        cell.x.set(Smart::Custom(x));
+        cell.y.set(Smart::Custom(y));
+        cell.fill.set(Smart::Custom(fill.clone()));
+        cell.align.set(match align {
+            Smart::Custom(align) => Smart::Custom(
+                cell.align.get(styles).map_or(align, |inner| inner.fold(align)),
+            ),
             // Don't fold if the table is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => cell.align(styles),
+            Smart::Auto => cell.align.get(styles),
         });
-        cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
+        cell.inset.set(Smart::Custom(
+            cell.inset.get(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-        cell.push_stroke(
+        cell.stroke.set(
             // Here we convert the resolved stroke to a regular stroke, however
             // with resolved units (that is, 'em' converted to absolute units).
             // We also convert any stroke unspecified by both the cell and the
@@ -266,7 +266,7 @@ impl ResolvableCell for Packed<TableCell> {
                 }))
             }),
         );
-        cell.push_breakable(Smart::Custom(breakable));
+        cell.breakable.set(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
             locator,
@@ -280,19 +280,19 @@ impl ResolvableCell for Packed<TableCell> {
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
-        (**self).x(styles)
+        self.x.get(styles)
     }
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
-        (**self).y(styles)
+        self.y.get(styles)
     }
 
     fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
-        (**self).colspan(styles)
+        self.colspan.get(styles)
     }
 
     fn rowspan(&self, styles: StyleChain) -> NonZeroUsize {
-        (**self).rowspan(styles)
+        self.rowspan.get(styles)
     }
 
     fn span(&self) -> Span {
@@ -314,12 +314,12 @@ impl ResolvableCell for Packed<GridCell> {
         styles: StyleChain,
     ) -> Cell<'a> {
         let cell = &mut *self;
-        let colspan = cell.colspan(styles);
-        let rowspan = cell.rowspan(styles);
-        let breakable = cell.breakable(styles).unwrap_or(breakable);
-        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        let colspan = cell.colspan.get(styles);
+        let rowspan = cell.rowspan.get(styles);
+        let breakable = cell.breakable.get(styles).unwrap_or(breakable);
+        let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
 
-        let cell_stroke = cell.stroke(styles);
+        let cell_stroke = cell.stroke.resolve(styles);
         let stroke_overridden =
             cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
 
@@ -333,22 +333,22 @@ impl ResolvableCell for Packed<GridCell> {
         // cell stroke is the same as specifying 'none', so we equate the two
         // concepts.
         let stroke = cell_stroke.fold(stroke).map(Option::flatten);
-        cell.push_x(Smart::Custom(x));
-        cell.push_y(Smart::Custom(y));
-        cell.push_fill(Smart::Custom(fill.clone()));
-        cell.push_align(match align {
-            Smart::Custom(align) => {
-                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
-            }
+        cell.x.set(Smart::Custom(x));
+        cell.y.set(Smart::Custom(y));
+        cell.fill.set(Smart::Custom(fill.clone()));
+        cell.align.set(match align {
+            Smart::Custom(align) => Smart::Custom(
+                cell.align.get(styles).map_or(align, |inner| inner.fold(align)),
+            ),
             // Don't fold if the grid is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => cell.align(styles),
+            Smart::Auto => cell.align.get(styles),
         });
-        cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
+        cell.inset.set(Smart::Custom(
+            cell.inset.get(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-        cell.push_stroke(
+        cell.stroke.set(
             // Here we convert the resolved stroke to a regular stroke, however
             // with resolved units (that is, 'em' converted to absolute units).
             // We also convert any stroke unspecified by both the cell and the
@@ -361,7 +361,7 @@ impl ResolvableCell for Packed<GridCell> {
                 }))
             }),
         );
-        cell.push_breakable(Smart::Custom(breakable));
+        cell.breakable.set(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
             locator,
@@ -375,19 +375,19 @@ impl ResolvableCell for Packed<GridCell> {
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
-        (**self).x(styles)
+        self.x.get(styles)
     }
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
-        (**self).y(styles)
+        self.y.get(styles)
     }
 
     fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
-        (**self).colspan(styles)
+        self.colspan.get(styles)
     }
 
     fn rowspan(&self, styles: StyleChain) -> NonZeroUsize {
-        (**self).rowspan(styles)
+        self.rowspan.get(styles)
     }
 
     fn span(&self) -> Span {

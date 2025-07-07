@@ -590,7 +590,7 @@ fn visit_styled<'a>(
     let mut pagebreak = false;
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
-        if elem == DocumentElem::elem() {
+        if elem == DocumentElem::ELEM {
             if let Some(info) = s.kind.as_document_mut() {
                 info.populate(&local)
             } else {
@@ -599,7 +599,7 @@ fn visit_styled<'a>(
                     "document set rules are not allowed inside of containers"
                 );
             }
-        } else if elem == PageElem::elem() {
+        } else if elem == PageElem::ELEM {
             if !matches!(s.kind, RealizationKind::LayoutDocument(_)) {
                 bail!(
                     style.span(),
@@ -633,7 +633,7 @@ fn visit_styled<'a>(
     if pagebreak {
         let relevant = local
             .as_slice()
-            .trim_end_matches(|style| style.element() != Some(PageElem::elem()));
+            .trim_end_matches(|style| style.element() != Some(PageElem::ELEM));
         visit(s, PagebreakElem::shared_weak(), outer.chain(relevant))?;
     }
 
@@ -722,7 +722,9 @@ fn visit_filter_rules<'a>(
         s.saw_parbreak = true;
         return Ok(true);
     } else if !s.may_attach
-        && content.to_packed::<VElem>().is_some_and(|elem| elem.attach(styles))
+        && content
+            .to_packed::<VElem>()
+            .is_some_and(|elem| elem.attach.get(styles))
     {
         // Attach spacing collapses if not immediately following a paragraph.
         return Ok(true);
@@ -867,11 +869,11 @@ static TEXTUAL: GroupingRule = GroupingRule {
         // Note that `SymbolElem` converts into `TextElem` before textual show
         // rules run, and we apply textual rules to elements manually during
         // math realization, so we don't check for it here.
-        elem == TextElem::elem()
-            || elem == LinebreakElem::elem()
-            || elem == SmartQuoteElem::elem()
+        elem == TextElem::ELEM
+            || elem == LinebreakElem::ELEM
+            || elem == SmartQuoteElem::ELEM
     },
-    inner: |content| content.elem() == SpaceElem::elem(),
+    inner: |content| content.elem() == SpaceElem::ELEM,
     // Any kind of style interrupts this kind of grouping since regex show
     // rules cannot match over style changes anyway.
     interrupt: |_| true,
@@ -884,19 +886,19 @@ static PAR: GroupingRule = GroupingRule {
     tags: true,
     trigger: |content, kind| {
         let elem = content.elem();
-        elem == TextElem::elem()
-            || elem == HElem::elem()
-            || elem == LinebreakElem::elem()
-            || elem == SmartQuoteElem::elem()
-            || elem == InlineElem::elem()
-            || elem == BoxElem::elem()
+        elem == TextElem::ELEM
+            || elem == HElem::ELEM
+            || elem == LinebreakElem::ELEM
+            || elem == SmartQuoteElem::ELEM
+            || elem == InlineElem::ELEM
+            || elem == BoxElem::ELEM
             || (kind.is_html()
                 && content
                     .to_packed::<HtmlElem>()
                     .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
     },
-    inner: |content| content.elem() == SpaceElem::elem(),
-    interrupt: |elem| elem == ParElem::elem() || elem == AlignElem::elem(),
+    inner: |content| content.elem() == SpaceElem::ELEM,
+    interrupt: |elem| elem == ParElem::ELEM || elem == AlignElem::ELEM,
     finish: finish_par,
 };
 
@@ -904,10 +906,10 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == CiteElem::elem(),
-    inner: |content| content.elem() == SpaceElem::elem(),
+    trigger: |content, _| content.elem() == CiteElem::ELEM,
+    inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
-        elem == CiteGroup::elem() || elem == ParElem::elem() || elem == AlignElem::elem()
+        elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
     },
     finish: finish_cites,
 };
@@ -926,12 +928,12 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |content, _| content.elem() == T::Item::elem(),
+        trigger: |content, _| content.elem() == T::Item::ELEM,
         inner: |content| {
             let elem = content.elem();
-            elem == SpaceElem::elem() || elem == ParbreakElem::elem()
+            elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM
         },
-        interrupt: |elem| elem == T::elem() || elem == AlignElem::elem(),
+        interrupt: |elem| elem == T::ELEM || elem == AlignElem::ELEM,
         finish: finish_list_like::<T>,
     }
 }
@@ -1118,7 +1120,7 @@ fn find_regex_match_in_elems<'a>(
             buf.push('\n');
             SpaceState::Destructive
         } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
-            buf.push(if elem.double(styles) { '"' } else { '\'' });
+            buf.push(if elem.double.get(styles) { '"' } else { '\'' });
             SpaceState::Supportive
         } else if let Some(elem) = content.to_packed::<TextElem>() {
             buf.push_str(&elem.text);
@@ -1310,7 +1312,7 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         } else if content.is::<LinebreakElem>() {
             destruct_space(buf, &mut k, &mut state);
         } else if let Some(elem) = content.to_packed::<HElem>() {
-            if elem.amount.is_fractional() || elem.weak(styles) {
+            if elem.amount.is_fractional() || elem.weak.get(styles) {
                 destruct_space(buf, &mut k, &mut state);
             }
         } else {

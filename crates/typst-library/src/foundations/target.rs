@@ -73,5 +73,5 @@ pub struct TargetElem {
 /// ```
 #[func(contextual)]
 pub fn target(context: Tracked<Context>) -> HintedStrResult<Target> {
-    Ok(TargetElem::target_in(context.styles()?))
+    Ok(context.styles()?.get(TargetElem::target))
 }

@@ -1,6 +1,6 @@
 use typst_library::diag::{warning, At, SourceResult};
 use typst_library::foundations::{
-    Element, Fields, Func, Recipe, Selector, ShowableSelector, Styles, Transformation,
+    Element, Func, Recipe, Selector, ShowableSelector, Styles, Transformation,
 };
 use typst_library::layout::BlockElem;
 use typst_library::model::ParElem;
@@ -62,8 +62,7 @@ fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
         if let Some(Selector::Elem(elem, _)) = recipe.selector();
         if *elem == Element::of::<ParElem>();
         if let Transformation::Style(styles) = recipe.transform();
-        if styles.has::<BlockElem>(<BlockElem as Fields>::Enum::Above as _) ||
-           styles.has::<BlockElem>(<BlockElem as Fields>::Enum::Below as _);
+        if styles.has(BlockElem::above) || styles.has(BlockElem::below);
         then {
             vm.engine.sink.warn(warning!(
                 recipe.span(),

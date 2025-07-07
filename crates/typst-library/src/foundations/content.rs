@@ -504,12 +504,12 @@ impl Content {
 
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination) -> Self {
-        self.styled(LinkElem::set_current(Some(dest)))
+        self.set(LinkElem::current, Some(dest))
     }
 
     /// Set alignments for this content.
     pub fn aligned(self, align: Alignment) -> Self {
-        self.styled(AlignElem::set_alignment(align))
+        self.set(AlignElem::alignment, align)
     }
 
     /// Pad this content at the sides.

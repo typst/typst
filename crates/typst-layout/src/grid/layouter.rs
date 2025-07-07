@@ -249,7 +249,7 @@ impl<'a> GridLayouter<'a> {
             rowspans: vec![],
             finished: vec![],
             finished_header_rows: vec![],
-            is_rtl: TextElem::dir_in(styles) == Dir::RTL,
+            is_rtl: styles.resolve(TextElem::dir) == Dir::RTL,
             repeating_headers: vec![],
             upcoming_headers: &grid.headers,
             pending_headers: Default::default(),

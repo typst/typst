@@ -160,7 +160,6 @@ pub struct ImageElem {
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
     })]
-    #[borrowed]
     pub icc: Smart<Derived<DataSource, Bytes>>,
 }
 
@@ -199,22 +198,22 @@ impl ImageElem {
         let source = Derived::new(DataSource::Bytes(bytes), loaded);
         let mut elem = ImageElem::new(source);
         if let Some(format) = format {
-            elem.push_format(format);
+            elem.format.set(format);
         }
         if let Some(width) = width {
-            elem.push_width(width);
+            elem.width.set(width);
         }
         if let Some(height) = height {
-            elem.push_height(height);
+            elem.height.set(height);
         }
         if let Some(alt) = alt {
-            elem.push_alt(alt);
+            elem.alt.set(alt);
         }
         if let Some(fit) = fit {
-            elem.push_fit(fit);
+            elem.fit.set(fit);
         }
         if let Some(scaling) = scaling {
-            elem.push_scaling(scaling);
+            elem.scaling.set(scaling);
         }
         Ok(elem.pack().spanned(span))
     }
@@ -223,8 +222,8 @@ impl ImageElem {
 impl Show for Packed<ImageElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_image)
-            .with_width(self.width(styles))
-            .with_height(self.height(styles))
+            .with_width(self.width.get(styles))
+            .with_height(self.height.get(styles))
             .pack()
             .spanned(self.span()))
     }

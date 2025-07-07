@@ -86,7 +86,6 @@ pub struct CurveElem {
     ///   down, up, down, up, down,
     /// )
     /// ```
-    #[resolve]
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 

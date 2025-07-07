@@ -60,7 +60,6 @@ pub struct PageElem {
     ///   box(square(width: 1cm))
     /// }
     /// ```
-    #[resolve]
     #[parse(
         let paper = args.named_or_find::<Paper>("paper")?;
         args.named("width")?
@@ -77,7 +76,6 @@ pub struct PageElem {
     /// page set rule. Most examples throughout this documentation use `{auto}`
     /// for the height of the page to dynamically grow and shrink to fit their
     /// content.
-    #[resolve]
     #[parse(
         args.named("height")?
             .or_else(|| paper.map(|paper| Smart::Custom(paper.height().into())))
@@ -201,7 +199,6 @@ pub struct PageElem {
     /// #set text(fill: rgb("fdfdfd"))
     /// *Dark mode enabled.*
     /// ```
-    #[borrowed]
     #[ghost]
     pub fill: Smart<Option<Paint>>,
 
@@ -219,7 +216,6 @@ pub struct PageElem {
     ///
     /// #lorem(48)
     /// ```
-    #[borrowed]
     #[ghost]
     pub numbering: Option<Numbering>,
 
@@ -276,12 +272,10 @@ pub struct PageElem {
     ///
     /// #lorem(19)
     /// ```
-    #[borrowed]
     #[ghost]
     pub header: Smart<Option<Content>>,
 
     /// The amount the header is raised into the top margin.
-    #[resolve]
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub header_ascent: Rel<Length>,
@@ -314,12 +308,10 @@ pub struct PageElem {
     ///
     /// #lorem(48)
     /// ```
-    #[borrowed]
     #[ghost]
     pub footer: Smart<Option<Content>>,
 
     /// The amount the footer is lowered into the bottom margin.
-    #[resolve]
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub footer_descent: Rel<Length>,
@@ -340,7 +332,6 @@ pub struct PageElem {
     /// In the year 2023, we plan to take
     /// over the world (of typesetting).
     /// ```
-    #[borrowed]
     #[ghost]
     pub background: Option<Content>,
 
@@ -355,7 +346,6 @@ pub struct PageElem {
     /// "Weak Reject" because they did
     /// not understand our approach...
     /// ```
-    #[borrowed]
     #[ghost]
     pub foreground: Option<Content>,
 

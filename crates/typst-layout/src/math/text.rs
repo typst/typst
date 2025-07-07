@@ -77,8 +77,8 @@ fn layout_inline_text(
         Ok(FrameFragment::new(styles, frame).with_text_like(true))
     } else {
         let local = [
-            TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
-            TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
+            TextElem::top_edge.set(TopEdge::Metric(TopEdgeMetric::Bounds)),
+            TextElem::bottom_edge.set(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
         ]
         .map(|p| p.wrap());
 
@@ -150,7 +150,7 @@ fn adjust_glyph_layout(
     styles: StyleChain,
 ) {
     if glyph.class == MathClass::Large {
-        if EquationElem::size_in(styles) == MathSize::Display {
+        if styles.get(EquationElem::size) == MathSize::Display {
             let height = scaled!(ctx, styles, display_operator_min_height)
                 .max(SQRT_2 * glyph.size.y);
             glyph.stretch_vertical(ctx, height);
@@ -169,9 +169,9 @@ fn adjust_glyph_layout(
 fn styled_char(styles: StyleChain, c: char, auto_italic: bool) -> char {
     use MathVariant::*;
 
-    let variant = EquationElem::variant_in(styles);
-    let bold = EquationElem::bold_in(styles);
-    let italic = EquationElem::italic_in(styles).unwrap_or(
+    let variant = styles.get(EquationElem::variant);
+    let bold = styles.get(EquationElem::bold);
+    let italic = styles.get(EquationElem::italic).unwrap_or(
         auto_italic
             && matches!(
                 c,

@@ -98,7 +98,7 @@ fn compile_impl<D: Document>(
 
     let library = world.library();
     let base = StyleChain::new(&library.styles);
-    let target = TargetElem::set_target(D::TARGET).wrap();
+    let target = TargetElem::target.set(D::TARGET).wrap();
     let styles = base.chain(&target);
     let empty_introspector = Introspector::default();
 

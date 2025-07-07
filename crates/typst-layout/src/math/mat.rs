@@ -30,15 +30,15 @@ pub fn layout_vec(
         ctx,
         styles,
         &[column],
-        elem.align(styles),
+        elem.align.resolve(styles),
         LeftRightAlternator::Right,
         None,
-        Axes::with_y(elem.gap(styles)),
+        Axes::with_y(elem.gap.resolve(styles)),
         span,
         "elements",
     )?;
 
-    let delim = elem.delim(styles);
+    let delim = elem.delim.get(styles);
     layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
 }
 
@@ -59,14 +59,17 @@ pub fn layout_cases(
         FixedAlignment::Start,
         LeftRightAlternator::None,
         None,
-        Axes::with_y(elem.gap(styles)),
+        Axes::with_y(elem.gap.resolve(styles)),
         span,
         "branches",
     )?;
 
-    let delim = elem.delim(styles);
-    let (open, close) =
-        if elem.reverse(styles) { (None, delim.close()) } else { (delim.open(), None) };
+    let delim = elem.delim.get(styles);
+    let (open, close) = if elem.reverse.get(styles) {
+        (None, delim.close())
+    } else {
+        (delim.open(), None)
+    };
     layout_delimiters(ctx, styles, frame, open, close, span)
 }
 
@@ -81,7 +84,7 @@ pub fn layout_mat(
     let rows = &elem.rows;
     let ncols = rows.first().map_or(0, |row| row.len());
 
-    let augment = elem.augment(styles);
+    let augment = elem.augment.resolve(styles);
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
             if offset == 0 || offset.unsigned_abs() >= rows.len() {
@@ -116,15 +119,15 @@ pub fn layout_mat(
         ctx,
         styles,
         &columns,
-        elem.align(styles),
+        elem.align.resolve(styles),
         LeftRightAlternator::Right,
         augment,
-        Axes::new(elem.column_gap(styles), elem.row_gap(styles)),
+        Axes::new(elem.column_gap.resolve(styles), elem.row_gap.resolve(styles)),
         span,
         "cells",
     )?;
 
-    let delim = elem.delim(styles);
+    let delim = elem.delim.get(styles);
     layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
 }
 
@@ -157,7 +160,7 @@ fn layout_body(
     let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.resolve(styles);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
-        paint: TextElem::fill_in(styles).as_decoration(),
+        paint: styles.get_ref(TextElem::fill).as_decoration(),
         cap: LineCap::Square,
         ..Default::default()
     };

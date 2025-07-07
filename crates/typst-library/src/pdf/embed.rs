@@ -48,7 +48,6 @@ pub struct EmbedElem {
         let resolved = id.vpath().as_rootless_path().to_string_lossy().replace("\\", "/").into();
         Derived::new(path.clone(), resolved)
     )]
-    #[borrowed]
     pub path: Derived<EcoString, EcoString>,
 
     /// Raw file data, optionally.
@@ -72,17 +71,15 @@ pub struct EmbedElem {
     pub relationship: Option<EmbeddedFileRelationship>,
 
     /// The MIME type of the embedded file.
-    #[borrowed]
     pub mime_type: Option<EcoString>,
 
     /// A description for the embedded file.
-    #[borrowed]
     pub description: Option<EcoString>,
 }
 
 impl Show for Packed<EmbedElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if TargetElem::target_in(styles) == Target::Html {
+        if styles.get(TargetElem::target) == Target::Html {
             engine
                 .sink
                 .warn(warning!(self.span(), "embed was ignored during HTML export"));

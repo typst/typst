@@ -43,7 +43,6 @@ pub struct PolygonElem {
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
-    #[resolve]
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
@@ -117,10 +116,10 @@ impl PolygonElem {
 
         let mut elem = PolygonElem::new(vertices);
         if let Some(fill) = fill {
-            elem.push_fill(fill);
+            elem.fill.set(fill);
         }
         if let Some(stroke) = stroke {
-            elem.push_stroke(stroke);
+            elem.stroke.set(stroke);
         }
         elem.pack().spanned(span)
     }

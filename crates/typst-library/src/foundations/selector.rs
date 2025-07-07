@@ -26,7 +26,7 @@ macro_rules! __select_where {
             ));
         )*
         $crate::foundations::Selector::Elem(
-            <$ty as $crate::foundations::NativeElement>::elem(),
+            <$ty as $crate::foundations::NativeElement>::ELEM,
             Some(fields),
         )
     }};

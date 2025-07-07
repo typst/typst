@@ -51,7 +51,6 @@ pub struct BoxElem {
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    #[resolve]
     pub baseline: Rel<Length>,
 
     /// The box's background color. See the
@@ -60,13 +59,11 @@ pub struct BoxElem {
 
     /// The box's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the box's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
-    #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
@@ -78,7 +75,6 @@ pub struct BoxElem {
     /// ```example
     /// #rect(inset: 0pt)[Tight]
     /// ```
-    #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
@@ -97,7 +93,6 @@ pub struct BoxElem {
     ///   radius: 2pt,
     /// )[rectangle].
     /// ```
-    #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -119,7 +114,6 @@ pub struct BoxElem {
 
     /// The contents of the box.
     #[positional]
-    #[borrowed]
     pub body: Option<Content>,
 }
 
@@ -262,25 +256,21 @@ pub struct BlockElem {
 
     /// The block's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the block's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
-    #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the block's content. See the
     /// [box's documentation]($box.inset) for more details.
-    #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
     /// the [box's documentation]($box.outset) for more details.
-    #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
@@ -358,7 +348,6 @@ pub struct BlockElem {
 
     /// The contents of the block.
     #[positional]
-    #[borrowed]
     pub body: Option<BlockBody>,
 }
 

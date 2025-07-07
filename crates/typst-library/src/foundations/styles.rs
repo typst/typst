@@ -102,7 +102,7 @@ impl Styles {
 
     /// Whether there is a style for the given field of the given element.
     pub fn has<T: NativeElement>(&self, field: u8) -> bool {
-        let elem = T::elem();
+        let elem = E::ELEM;
         self.0
             .iter()
             .filter_map(|style| style.property())
@@ -112,11 +112,14 @@ impl Styles {
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
     pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(TextElem::set_font(FontList(
-            std::iter::once(preferred)
-                .chain(TextElem::font_in(existing).into_iter().cloned())
-                .collect(),
-        )));
+        self.set(
+            TextElem::font,
+            FontList(
+                std::iter::once(preferred)
+                    .chain(existing.get_ref(TextElem::font).into_iter().cloned())
+                    .collect(),
+            ),
+        );
     }
 }
 
@@ -287,7 +290,7 @@ impl Property {
         T: Debug + Clone + Hash + Send + Sync + 'static,
     {
         Self {
-            elem: E::elem(),
+            elem: E::ELEM,
             id,
             value: Block::new(value),
             span: Span::detached(),

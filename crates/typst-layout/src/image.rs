@@ -28,7 +28,7 @@ pub fn layout_image(
     // Take the format that was explicitly defined, or parse the extension,
     // or try to detect the format.
     let Derived { source, derived: loaded } = &elem.source;
-    let format = match elem.format(styles) {
+    let format = match elem.format.get(styles) {
         Smart::Custom(v) => v,
         Smart::Auto => determine_format(source, &loaded.data).at(span)?,
     };
@@ -55,7 +55,7 @@ pub fn layout_image(
             RasterImage::new(
                 loaded.data.clone(),
                 format,
-                elem.icc(styles).as_ref().map(|icc| icc.derived.clone()),
+                elem.icc.get_ref(styles).as_ref().map(|icc| icc.derived.clone()),
             )
             .at(span)?,
         ),
@@ -69,7 +69,7 @@ pub fn layout_image(
         ),
     };
 
-    let image = Image::new(kind, elem.alt(styles), elem.scaling(styles));
+    let image = Image::new(kind, elem.alt.get_cloned(styles), elem.scaling.get(styles));
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();
@@ -106,7 +106,7 @@ pub fn layout_image(
     };
 
     // Compute the actual size of the fitted image.
-    let fit = elem.fit(styles);
+    let fit = elem.fit.get(styles);
     let fitted = match fit {
         ImageFit::Cover | ImageFit::Contain => {
             if wide == (fit == ImageFit::Contain) {

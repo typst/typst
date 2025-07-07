@@ -49,7 +49,6 @@ pub struct ColumnsElem {
     pub count: NonZeroUsize,
 
     /// The size of the gutter space between each column.
-    #[resolve]
     #[default(Ratio::new(0.04).into())]
     pub gutter: Rel<Length>,
 
