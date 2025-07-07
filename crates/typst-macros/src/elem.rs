@@ -249,7 +249,6 @@ fn create(element: &Elem) -> Result<TokenStream> {
     let native_element_impl = create_native_elem_impl(element);
     let field_impls =
         element.fields.iter().map(|field| create_field_impl(element, field));
-    let capable_impl = create_capable_impl(element);
     let construct_impl =
         element.cannot("Construct").then(|| create_construct_impl(element));
     let set_impl = element.cannot("Set").then(|| create_set_impl(element));
@@ -265,7 +264,6 @@ fn create(element: &Elem) -> Result<TokenStream> {
             #inherent_impl
             #native_element_impl
             #(#field_impls)*
-            #capable_impl
             #construct_impl
             #set_impl
             #locatable_impl
@@ -365,9 +363,9 @@ fn create_with_field_method(field: &Field) -> TokenStream {
     let expr = if field.required {
         quote! { self.#ident = #ident }
     } else if field.synthesized {
-        quote! { self.#ident = Some(#ident); }
+        quote! { self.#ident = Some(#ident) }
     } else {
-        quote! { self.#ident.set(#ident); }
+        quote! { self.#ident.set(#ident) }
     };
 
     quote! {
@@ -384,21 +382,20 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let Elem { name, ident, title, scope, keywords, docs, .. } = element;
 
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
-        let method = if field.external {
-            quote! { external }
-        } else if field.variadic {
-            quote! { variadic }
-        } else if field.required {
-            quote! { required }
-        } else if field.synthesized {
-            quote! { synthesized }
-        } else if field.ghost {
-            quote! { ghost }
-        } else {
-            quote! { settable }
-        };
         let i = field.i;
-        quote! { #foundations::TypedFieldData::<Self>::#method::<#i>() }
+        if field.external {
+            quote! { #foundations::ExternalFieldData::<#ident, #i>::vtable() }
+        } else if field.variadic {
+            quote! { #foundations::RequiredFieldData::<#ident, #i>::vtable_variadic() }
+        } else if field.required {
+            quote! { #foundations::RequiredFieldData::<#ident, #i>::vtable() }
+        } else if field.synthesized {
+            quote! { #foundations::SynthesizedFieldData::<#ident, #i>::vtable() }
+        } else if field.ghost {
+            quote! { #foundations::SettablePropertyData::<#ident, #i>::vtable() }
+        } else {
+            quote! { #foundations::SettableFieldData::<#ident, #i>::vtable() }
+        }
     });
 
     let field_arms = element
@@ -416,6 +413,8 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         }
     };
 
+    let capable_func = create_capable_func(element);
+
     let with_keywords =
         (!keywords.is_empty()).then(|| quote! { .with_keywords(&[#(#keywords),*]) });
     let with_repr = element.can("Repr").then(|| quote! { .with_repr() });
@@ -424,25 +423,27 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let with_scope = scope.then(|| quote! { .with_scope() });
 
     quote! {
-        impl #foundations::NativeElement for #ident {
-            const ELEMENT: #foundations::TypedElementData<Self> =
-                #foundations::TypedElementData::new(
-                    #name,
-                    #title,
-                    #docs,
-                    &[#(#fields),*],
-                    #field_id,
-                ) #with_keywords
-                  #with_repr
-                  #with_partial_eq
-                  #with_local_name
-                  #with_scope;
-
-            fn data() -> &'static #foundations::NativeElementData {
-                static DATA: #foundations::NativeElementData =
-                    #foundations::NativeElementData::new::<#ident>();
-                &DATA
-            }
+        unsafe impl #foundations::NativeElement for #ident {
+            const ELEM: #foundations::Element = #foundations::Element::from_vtable({
+                static STORE: #foundations::LazyElementStore
+                    = #foundations::LazyElementStore::new();
+                static VTABLE: #foundations::ContentVtable =
+                    #foundations::ContentVtable::new::<#ident>(
+                        #name,
+                        #title,
+                        #docs,
+                        &[#(#fields),*],
+                        #field_id,
+                        #capable_func,
+                        || &STORE,
+                    ) #with_keywords
+                    #with_repr
+                    #with_partial_eq
+                    #with_local_name
+                    #with_scope
+                    .erase();
+                &VTABLE
+            });
         }
     }
 }
@@ -455,11 +456,6 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
     let default = match default {
         Some(default) => quote! { || #default },
         None => quote! { std::default::Default::default },
-    };
-
-    let getters = quote! {
-        |elem| &elem.#ident,
-        |elem| &mut elem.#ident
     };
 
     if field.external {
@@ -482,7 +478,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                     #foundations::RequiredFieldData::<Self, #i>::new(
                         #name,
                         #docs,
-                        #getters,
+                        |elem| &elem.#ident,
                     );
             }
         }
@@ -494,7 +490,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                     #foundations::SynthesizedFieldData::<Self, #i>::new(
                         #name,
                         #docs,
-                        #getters,
+                        |elem| &elem.#ident,
                     );
             }
         }
@@ -517,7 +513,7 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
             quote! {
                 impl #foundations::SettableProperty<#i> for #elem_ident {
                     type Type = #ty;
-                    const PROPERTY: #foundations::SettablePropertyData<Self, #i> =
+                    const FIELD: #foundations::SettablePropertyData<Self, #i> =
                         #foundations::SettablePropertyData::<Self, #i>::new(
                             #name,
                             #docs,
@@ -537,7 +533,8 @@ fn create_field_impl(element: &Elem, field: &Field) -> TokenStream {
                             #name,
                             #docs,
                             #positional,
-                            #getters,
+                            |elem| &elem.#ident,
+                            |elem| &mut elem.#ident,
                             #default,
                             #slot,
                         ) #with_fold;
@@ -633,7 +630,7 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
 }
 
 /// Creates the element's casting vtable.
-fn create_capable_impl(element: &Elem) -> TokenStream {
+fn create_capable_func(element: &Elem) -> TokenStream {
     // Forbidden capabilities (i.e capabilities that are not object safe).
     const FORBIDDEN: &[&str] =
         &["Debug", "PartialEq", "Hash", "Construct", "Set", "Repr", "LocalName"];
@@ -657,12 +654,10 @@ fn create_capable_impl(element: &Elem) -> TokenStream {
     });
 
     quote! {
-        unsafe impl #foundations::Capable for #ident {
-            fn vtable(capability: ::std::any::TypeId) -> ::std::option::Option<::std::ptr::NonNull<()>> {
-                let dangling = ::std::ptr::NonNull::<#foundations::Packed<#ident>>::dangling().as_ptr();
-                #(#checks)*
-                None
-            }
+        |capability| {
+            let dangling = ::std::ptr::NonNull::<#foundations::Packed<#ident>>::dangling().as_ptr();
+            #(#checks)*
+            None
         }
     }
 }

@@ -352,8 +352,11 @@ impl Block {
     }
 
     /// Downcasts the block to the specified type.
-    fn downcast<T: 'static>(&self) -> Option<&T> {
-        self.0.as_any().downcast_ref()
+    fn downcast<T: 'static>(&self, func: Element, id: u8) -> &T {
+        self.0
+            .as_any()
+            .downcast_ref()
+            .unwrap_or_else(|| block_wrong_type(func, id, self))
     }
 }
 
@@ -540,28 +543,50 @@ impl<'a> StyleChain<'a> {
         Self { head: &root.0, tail: None }
     }
 
-    /// Make the given chainable the first link of this chain.
-    ///
-    /// The resulting style chain contains styles from `local` as well as
-    /// `self`. The ones from `local` take precedence over the ones from
-    /// `self`. For folded properties `local` contributes the inner value.
-    pub fn chain<'b, C>(&'b self, local: &'b C) -> StyleChain<'b>
-    where
-        C: Chainable + ?Sized,
-    {
-        Chainable::chain(local, self)
-    }
-
     /// Retrieves the value of the given field from the style chain.
     ///
     /// A `Field` value is a zero-sized value that specifies which field of an
     /// element you want to retrieve on the type-system level. It also ensures
     /// that Rust can infer the correct return type.
+    ///
+    /// Should be preferred over [`get_cloned`](Self::get_cloned) or
+    /// [`get_ref`](Self::get_ref), but is only available for [`Copy`] types.
+    /// For other types an explicit decision needs to be made whether cloning is
+    /// necessary.
     pub fn get<E, const I: u8>(self, field: Field<E, I>) -> E::Type
     where
         E: SettableProperty<I>,
+        E::Type: Copy,
     {
-        self.get_with(field, None)
+        self.get_cloned(field)
+    }
+
+    /// Retrieves and clones the value from the style chain.
+    ///
+    /// Prefer [`get`](Self::get) if the type is `Copy` and
+    /// [`get_ref`](Self::get_ref) if a reference suffices.
+    pub fn get_cloned<E, const I: u8>(self, _: Field<E, I>) -> E::Type
+    where
+        E: SettableProperty<I>,
+    {
+        if let Some(fold) = E::FOLD {
+            self.get_folded::<E::Type>(E::ELEM, I, fold, E::default())
+        } else {
+            self.get_unfolded::<E::Type>(E::ELEM, I)
+                .cloned()
+                .unwrap_or_else(E::default)
+        }
+    }
+
+    /// Retrieves a reference to the value of the given field from the style
+    /// chain.
+    ///
+    /// Not possible if the value needs folding.
+    pub fn get_ref<E, const I: u8>(self, _: Field<E, I>) -> &'a E::Type
+    where
+        E: RefableProperty<I>,
+    {
+        self.get_unfolded(E::ELEM, I).unwrap_or_else(|| E::default_ref())
     }
 
     /// Retrieves the value and then immediately [resolves](Resolve) it.
@@ -573,83 +598,58 @@ impl<'a> StyleChain<'a> {
         E: SettableProperty<I>,
         E::Type: Resolve,
     {
-        self.get(field).resolve(self)
-    }
-
-    /// Retrieves a reference to the value of the given field from the style
-    /// chain.
-    pub fn get_ref<E, const I: u8>(self, field: Field<E, I>) -> &'a E::Type
-    where
-        E: RefableProperty<I>,
-    {
-        self.get_ref_with(field, None)
-    }
-
-    /// Retrieves a field, also taking into account the instance's value if any.
-    pub(crate) fn get_with<E, const I: u8>(
-        self,
-        _: Field<E, I>,
-        inherent: Option<&'a E::Type>,
-    ) -> E::Type
-    where
-        E: SettableProperty<I>,
-    {
-        let mut properties = self.properties::<E::Type>(E::elem(), I, inherent);
-        if let Some(fold) = E::PROPERTY.fold {
-            fn next<T>(
-                mut values: impl Iterator<Item = T>,
-                default: fn() -> T,
-                fold: fn(T, T) -> T,
-            ) -> T {
-                values
-                    .next()
-                    .map(|value| fold(value, next(values, default, fold)))
-                    .unwrap_or_else(default)
-            }
-            next(properties.cloned(), || E::PROPERTY.default(), fold)
-        } else {
-            properties.next().cloned().unwrap_or_else(|| E::PROPERTY.default())
-        }
+        self.get_cloned(field).resolve(self)
     }
 
     /// Retrieves a reference to a field, also taking into account the
     /// instance's value if any.
-    pub(crate) fn get_ref_with<E, const I: u8>(
-        self,
-        _: Field<E, I>,
-        inherent: Option<&'a E::Type>,
-    ) -> &'a E::Type
-    where
-        E: RefableProperty<I>,
-    {
-        self.properties::<E::Type>(E::elem(), I, inherent)
-            .next()
-            .unwrap_or_else(|| E::PROPERTY.default_ref())
+    fn get_unfolded<T: 'static>(self, func: Element, id: u8) -> Option<&'a T> {
+        self.find(func, id).map(|block| block.downcast(func, id))
     }
 
-    /// Iterate over all values for the given property in the chain.
-    fn properties<T: 'static>(
+    /// Retrieves a reference to a field, also taking into account the
+    /// instance's value if any.
+    fn get_folded<T: 'static + Clone>(
         self,
         func: Element,
         id: u8,
-        inherent: Option<&'a T>,
-    ) -> impl Iterator<Item = &'a T> {
-        inherent.into_iter().chain(
-            self.entries()
-                .filter_map(|style| style.property())
-                .filter(move |property| property.is(func, id))
-                .map(|property| &property.value)
-                .map(move |value| {
-                    value.downcast().unwrap_or_else(|| {
-                        panic!(
-                            "attempted to read a value of a different type than was written {}.{}: {:?}",
-                            func.name(),
-                            func.field_name(id).unwrap(),
-                            value
-                        )
-                    })
-                }),
-        )
+        fold: fn(T, T) -> T,
+        default: T,
+    ) -> T {
+        let iter = self
+            .properties(func, id)
+            .map(|block| block.downcast::<T>(func, id).clone());
+
+        if let Some(folded) = iter.reduce(fold) {
+            fold(folded, default)
+        } else {
+            default
+        }
+    }
+
+    /// Iterate over all values for the given property in the chain.
+    fn find(self, func: Element, id: u8) -> Option<&'a Block> {
+        self.properties(func, id).next()
+    }
+
+    /// Iterate over all values for the given property in the chain.
+    fn properties(self, func: Element, id: u8) -> impl Iterator<Item = &'a Block> {
+        self.entries()
+            .filter_map(|style| style.property())
+            .filter(move |property| property.is(func, id))
+            .map(|property| &property.value)
+    }
+
+    /// Make the given chainable the first link of this chain.
+    ///
+    /// The resulting style chain contains styles from `local` as well as
+    /// `self`. The ones from `local` take precedence over the ones from
+    /// `self`. For folded properties `local` contributes the inner value.
+    pub fn chain<'b, C>(&'b self, local: &'b C) -> StyleChain<'b>
+    where
+        C: Chainable + ?Sized,
+    {
+        Chainable::chain(local, self)
     }
 
     /// Iterate over the entries of the chain.
@@ -842,6 +842,9 @@ impl<T: Resolve> Resolve for Option<T> {
 /// #set rect(stroke: 4pt)
 /// #rect()
 /// ```
+///
+/// Note: Folding must be associative, i.e. any implementation must satisfy
+/// `fold(fold(a, b), c) == fold(a, fold(b, c))`.
 pub trait Fold {
     /// Fold this inner value with an outer folded value.
     fn fold(self, outer: Self) -> Self;
@@ -885,6 +888,9 @@ impl<T> Fold for OneOrMultiple<T> {
     }
 }
 
+/// A [folding](Fold) function.
+pub type FoldFn<T> = fn(T, T) -> T;
+
 /// A variant of fold for foldable optional (`Option<T>`) values where an inner
 /// `None` value isn't respected (contrary to `Option`'s usual `Fold`
 /// implementation, with which folding with an inner `None` always returns
@@ -921,4 +927,14 @@ impl Fold for Depth {
     fn fold(self, outer: Self) -> Self {
         Self(outer.0 + self.0)
     }
+}
+
+#[cold]
+fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
+    panic!(
+        "attempted to read a value of a different type than was written {}.{}: {:?}",
+        func.name(),
+        func.field_name(id).unwrap(),
+        value
+    )
 }
