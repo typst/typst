@@ -10,7 +10,7 @@ Supercalifragilisticexpialidocious Expialigoricmetrioxidation.
 
 --- linebreak-hyphen-nbsp ---
 // Test for non-breaking space and hyphen.
-There are non\u{2011}breaking~characters.
+There are non-!breaking~characters.
 
 --- linebreak-narrow-nbsp ---
 // Test for narrow non-breaking space.
