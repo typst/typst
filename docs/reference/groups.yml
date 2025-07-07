@@ -205,7 +205,7 @@
       single or double quotes.
 
       The value is always of type [string]($str). More complex data
-      may be parsed manually using functions like [`json.decode`]($json.decode).
+      may be parsed manually using functions like [`json`]($json).
 
 - name: sym
   title: General
