@@ -497,6 +497,35 @@ pub struct FigureCaption {
 }
 
 impl FigureCaption {
+    /// Realizes the textual caption content.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
+        let mut realized = self.body.clone();
+
+        if let (
+            Some(Some(mut supplement)),
+            Some(Some(numbering)),
+            Some(Some(counter)),
+            Some(Some(location)),
+        ) = (
+            self.supplement.clone(),
+            &self.numbering,
+            &self.counter,
+            &self.figure_location,
+        ) {
+            let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
+            if !supplement.is_empty() {
+                supplement += TextElem::packed('\u{a0}');
+            }
+            realized = supplement + numbers + self.get_separator(styles) + realized;
+        }
+
+        Ok(realized)
+    }
+
     /// Gets the default separator in the given language and (optionally)
     /// region.
     fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {

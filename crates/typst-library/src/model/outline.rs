@@ -591,7 +591,8 @@ impl OutlineEntry {
             .ok_or_else(|| error!("cannot outline {}", self.element.func().name()))
     }
 
-    fn element_location(&self) -> HintedStrResult<Location> {
+    /// Returns the location of the outlined element.
+    pub fn element_location(&self) -> HintedStrResult<Location> {
         let elem = &self.element;
         elem.location().ok_or_else(|| {
             if elem.can::<dyn Locatable>() && elem.can::<dyn Outlinable>() {

@@ -133,11 +133,47 @@ pub struct QuoteElem {
     pub depth: Depth,
 }
 
+impl QuoteElem {
+    /// Quotes the body content with the appropriate quotes based on the current
+    /// styles and surroundings.
+    pub fn quoted(body: Content, styles: StyleChain<'_>) -> Content {
+        let quotes = SmartQuotes::get_in(styles);
+
+        // Alternate between single and double quotes.
+        let Depth(depth) = styles.get(QuoteElem::depth);
+        let double = depth % 2 == 0;
+
+        Content::sequence([
+            TextElem::packed(quotes.open(double)),
+            body,
+            TextElem::packed(quotes.close(double)),
+        ])
+        .set(QuoteElem::depth, Depth(1))
+    }
+}
+
 /// Attribution for a [quote](QuoteElem).
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Attribution {
     Content(Content),
     Label(Label),
+}
+
+impl Attribution {
+    /// Realize as an em dash followed by text or a citation.
+    pub fn realize(&self, span: Span) -> Content {
+        Content::sequence([
+            TextElem::packed('—'),
+            SpaceElem::shared().clone(),
+            match self {
+                Attribution::Content(content) => content.clone(),
+                Attribution::Label(label) => CiteElem::new(*label)
+                    .with_form(Some(CitationForm::Prose))
+                    .pack()
+                    .spanned(span),
+            },
+        ])
+    }
 }
 
 cast! {
