@@ -5,7 +5,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Repr, Show, Smart, StyleChain, Synthesize,
+    Repr, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -134,7 +134,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[elem(title = "Reference", Synthesize, Locatable, Show)]
+#[elem(title = "Reference", Synthesize, Locatable)]
 pub struct RefElem {
     /// The target label that should be referenced.
     ///

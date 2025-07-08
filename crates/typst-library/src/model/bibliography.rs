@@ -2,7 +2,6 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
-use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
@@ -17,7 +16,7 @@ use hayagriva::{
 use indexmap::IndexMap;
 use smallvec::{smallvec, SmallVec};
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{ManuallyHash, PicoStr};
 
 use crate::diag::{
     bail, error, At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
@@ -26,18 +25,17 @@ use crate::diag::{
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
     elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
+    OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain, Styles,
     Synthesize, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
-    Sides, Sizing, TrackSizings,
+    Sizing, TrackSizings,
 };
 use crate::loading::{format_yaml_error, DataSource, Load, LoadSource, Loaded};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
-    Url,
+    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, Url,
 };
 use crate::routines::Routines;
 use crate::text::{
@@ -88,7 +86,7 @@ use crate::World;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
+#[elem(Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.
@@ -200,84 +198,6 @@ impl Synthesize for Packed<BibliographyElem> {
         elem.lang = Some(styles.get(TextElem::lang));
         elem.region = Some(styles.get(TextElem::region));
         Ok(())
-    }
-}
-
-impl Show for Packed<BibliographyElem> {
-    #[typst_macros::time(name = "bibliography", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        const COLUMN_GUTTER: Em = Em::new(0.65);
-        const INDENT: Em = Em::new(1.5);
-
-        let span = self.span();
-
-        let mut seq = vec![];
-        if let Some(title) = self.title.get_ref(styles).clone().unwrap_or_else(|| {
-            Some(TextElem::packed(Self::local_name_in(styles)).spanned(span))
-        }) {
-            seq.push(
-                HeadingElem::new(title)
-                    .with_depth(NonZeroUsize::ONE)
-                    .pack()
-                    .spanned(span),
-            );
-        }
-
-        let works = Works::generate(engine).at(span)?;
-        let references = works
-            .references
-            .as_ref()
-            .ok_or_else(|| match self.style.get_ref(styles).source {
-                CslSource::Named(style) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
-            })
-            .at(span)?;
-
-        if references.iter().any(|(prefix, _)| prefix.is_some()) {
-            let row_gutter = styles.get(ParElem::spacing);
-
-            let mut cells = vec![];
-            for (prefix, reference) in references {
-                cells.push(GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                        .spanned(span),
-                )));
-                cells.push(GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(reference.clone())).spanned(span),
-                )));
-            }
-            seq.push(
-                GridElem::new(cells)
-                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                    .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                    .pack()
-                    .spanned(span),
-            );
-        } else {
-            for (_, reference) in references {
-                let realized = reference.clone();
-                let block = if works.hanging_indent {
-                    let body = HElem::new((-INDENT).into()).pack() + realized;
-                    let inset = Sides::default()
-                        .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
-                    BlockElem::new()
-                        .with_body(Some(BlockBody::Content(body)))
-                        .with_inset(inset)
-                } else {
-                    BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-                };
-
-                seq.push(block.pack().spanned(span));
-            }
-        }
-
-        Ok(Content::sequence(seq))
     }
 }
 
@@ -564,7 +484,7 @@ impl IntoValue for CslSource {
 /// memoization) for the whole document. This setup is necessary because
 /// citation formatting is inherently stateful and we need access to all
 /// citations to do it.
-pub(super) struct Works {
+pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: HashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
