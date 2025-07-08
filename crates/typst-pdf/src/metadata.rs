@@ -22,8 +22,6 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
         .keywords(gc.document.info.keywords.iter().map(EcoString::to_string).collect())
         .authors(gc.document.info.author.iter().map(EcoString::to_string).collect());
 
-    let lang = gc.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
-
     if let Some(lang) = lang {
         metadata = metadata.language(lang.as_str().to_string());
     }
