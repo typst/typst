@@ -51,7 +51,7 @@ pub fn layout_equation_inline(
     styles: StyleChain,
     region: Size,
 ) -> SourceResult<Vec<InlineItem>> {
-    assert!(!elem.block(styles));
+    assert!(!elem.block.get(styles));
 
     let font = find_math_font(engine, styles, elem.span())?;
 
@@ -78,12 +78,12 @@ pub fn layout_equation_inline(
     for item in &mut items {
         let InlineItem::Frame(frame) = item else { continue };
 
-        let slack = ParElem::leading_in(styles) * 0.7;
+        let slack = styles.resolve(ParElem::leading) * 0.7;
 
         let (t, b) = font.edges(
-            TextElem::top_edge_in(styles),
-            TextElem::bottom_edge_in(styles),
-            TextElem::size_in(styles),
+            styles.get(TextElem::top_edge),
+            styles.get(TextElem::bottom_edge),
+            styles.resolve(TextElem::size),
             TextEdgeBounds::Frame(frame),
         );
 
@@ -105,7 +105,7 @@ pub fn layout_equation_block(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    assert!(elem.block(styles));
+    assert!(elem.block.get(styles));
 
     let span = elem.span();
     let font = find_math_font(engine, styles, span)?;
@@ -121,7 +121,7 @@ pub fn layout_equation_block(
         .multiline_frame_builder(styles);
     let width = full_equation_builder.size.x;
 
-    let equation_builders = if BlockElem::breakable_in(styles) {
+    let equation_builders = if styles.get(BlockElem::breakable) {
         let mut rows = full_equation_builder.frames.into_iter().peekable();
         let mut equation_builders = vec![];
         let mut last_first_pos = Point::zero();
@@ -188,7 +188,7 @@ pub fn layout_equation_block(
         vec![full_equation_builder]
     };
 
-    let Some(numbering) = (**elem).numbering(styles) else {
+    let Some(numbering) = elem.numbering.get_ref(styles) else {
         let frames = equation_builders
             .into_iter()
             .map(MathRunFrameBuilder::build)
@@ -197,7 +197,7 @@ pub fn layout_equation_block(
     };
 
     let pod = Region::new(regions.base(), Axes::splat(false));
-    let counter = Counter::of(EquationElem::elem())
+    let counter = Counter::of(EquationElem::ELEM)
         .display_at_loc(engine, elem.location().unwrap(), styles, numbering)?
         .spanned(span);
     let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
@@ -205,7 +205,7 @@ pub fn layout_equation_block(
     static NUMBER_GUTTER: Em = Em::new(0.5);
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
-    let number_align = match elem.number_align(styles) {
+    let number_align = match elem.number_align.get(styles) {
         SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
         SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
         SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
@@ -224,7 +224,7 @@ pub fn layout_equation_block(
                 builder,
                 number.clone(),
                 number_align.resolve(styles),
-                AlignElem::alignment_in(styles).resolve(styles).x,
+                styles.get(AlignElem::alignment).resolve(styles).x,
                 regions.size.x,
                 full_number_width,
             )
@@ -472,7 +472,9 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         let outer = styles;
         for (elem, styles) in pairs {
             // Hack because the font is fixed in math.
-            if styles != outer && TextElem::font_in(styles) != TextElem::font_in(outer) {
+            if styles != outer
+                && styles.get_ref(TextElem::font) != outer.get_ref(TextElem::font)
+            {
                 let frame = layout_external(elem, self, styles)?;
                 self.push(FrameFragment::new(styles, frame).with_spaced(true));
                 continue;
@@ -603,7 +605,10 @@ fn layout_h(
 ) -> SourceResult<()> {
     if let Spacing::Rel(rel) = elem.amount {
         if rel.rel.is_zero() {
-            ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak(styles)));
+            ctx.push(MathFragment::Spacing(
+                rel.abs.resolve(styles),
+                elem.weak.get(styles),
+            ));
         }
     }
     Ok(())
@@ -616,7 +621,7 @@ fn layout_class(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let style = EquationElem::set_class(Some(elem.class)).wrap();
+    let style = EquationElem::class.set(Some(elem.class)).wrap();
     let mut fragment = ctx.layout_into_fragment(&elem.body, styles.chain(&style))?;
     fragment.set_class(elem.class);
     fragment.set_limits(Limits::for_class(elem.class));
@@ -642,7 +647,7 @@ fn layout_op(
             .with_italics_correction(italics)
             .with_accent_attach(accent_attach)
             .with_text_like(text_like)
-            .with_limits(if elem.limits(styles) {
+            .with_limits(if elem.limits.get(styles) {
                 Limits::Display
             } else {
                 Limits::Never

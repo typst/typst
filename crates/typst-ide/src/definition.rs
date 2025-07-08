@@ -187,6 +187,6 @@ mod tests {
 
     #[test]
     fn test_definition_std() {
-        test("#table", 1, Side::After).must_be_value(typst::model::TableElem::elem());
+        test("#table", 1, Side::After).must_be_value(typst::model::TableElem::ELEM);
     }
 }

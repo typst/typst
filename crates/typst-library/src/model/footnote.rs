@@ -67,7 +67,6 @@ pub struct FootnoteElem {
     /// #footnote[Star],
     /// #footnote[Dagger]
     /// ```
-    #[borrowed]
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
@@ -141,8 +140,8 @@ impl Show for Packed<FootnoteElem> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
         let loc = self.declaration_location(engine).at(span)?;
-        let numbering = self.numbering(styles);
-        let counter = Counter::of(FootnoteElem::elem());
+        let numbering = self.numbering.get_ref(styles);
+        let counter = Counter::of(FootnoteElem::ELEM);
         let num = counter.display_at_loc(engine, loc, styles, numbering)?;
         let sup = SuperElem::new(num).pack().spanned(span);
         let loc = loc.variant(1);
@@ -248,7 +247,6 @@ pub struct FootnoteEntry {
     /// ]
     /// ```
     #[default(Em::new(1.0).into())]
-    #[resolve]
     pub clearance: Length,
 
     /// The gap between footnote entries.
@@ -261,7 +259,6 @@ pub struct FootnoteEntry {
     /// #footnote[Apart]
     /// ```
     #[default(Em::new(0.5).into())]
-    #[resolve]
     pub gap: Length,
 
     /// The indent of each footnote entry.
@@ -283,8 +280,8 @@ impl Show for Packed<FootnoteEntry> {
         let span = self.span();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
-        let numbering = self.note.numbering(default);
-        let counter = Counter::of(FootnoteElem::elem());
+        let numbering = self.note.numbering.get_ref(default);
+        let counter = Counter::of(FootnoteElem::ELEM);
         let Some(loc) = self.note.location() else {
             bail!(
                 span, "footnote entry must have a location";
@@ -300,7 +297,7 @@ impl Show for Packed<FootnoteEntry> {
             .located(loc.variant(1));
 
         Ok(Content::sequence([
-            HElem::new(self.indent(styles).into()).pack(),
+            HElem::new(self.indent.get(styles).into()).pack(),
             sup,
             HElem::new(number_gap.into()).with_weak(true).pack(),
             self.note.body_content().unwrap().clone(),
@@ -311,8 +308,8 @@ impl Show for Packed<FootnoteEntry> {
 impl ShowSet for Packed<FootnoteEntry> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(ParElem::set_leading(Em::new(0.5).into()));
-        out.set(TextElem::set_size(TextSize(Em::new(0.85).into())));
+        out.set(ParElem::leading, Em::new(0.5).into());
+        out.set(TextElem::size, TextSize(Em::new(0.85).into()));
         out
     }
 }

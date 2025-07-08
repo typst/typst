@@ -11,7 +11,7 @@ pub fn bold(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_bold(true))
+    body.set(EquationElem::bold, true)
 }
 
 /// Upright (non-italic) font style in math.
@@ -24,7 +24,7 @@ pub fn upright(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_italic(Smart::Custom(false)))
+    body.set(EquationElem::italic, Smart::Custom(false))
 }
 
 /// Italic font style in math.
@@ -35,7 +35,7 @@ pub fn italic(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_italic(Smart::Custom(true)))
+    body.set(EquationElem::italic, Smart::Custom(true))
 }
 
 /// Serif (roman) font style in math.
@@ -46,7 +46,7 @@ pub fn serif(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Serif))
+    body.set(EquationElem::variant, MathVariant::Serif)
 }
 
 /// Sans-serif font style in math.
@@ -59,7 +59,7 @@ pub fn sans(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Sans))
+    body.set(EquationElem::variant, MathVariant::Sans)
 }
 
 /// Calligraphic font style in math.
@@ -93,7 +93,7 @@ pub fn cal(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Cal))
+    body.set(EquationElem::variant, MathVariant::Cal)
 }
 
 /// Fraktur font style in math.
@@ -106,7 +106,7 @@ pub fn frak(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Frak))
+    body.set(EquationElem::variant, MathVariant::Frak)
 }
 
 /// Monospace font style in math.
@@ -119,7 +119,7 @@ pub fn mono(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Mono))
+    body.set(EquationElem::variant, MathVariant::Mono)
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -137,7 +137,7 @@ pub fn bb(
     /// The content to style.
     body: Content,
 ) -> Content {
-    body.styled(EquationElem::set_variant(MathVariant::Bb))
+    body.set(EquationElem::variant, MathVariant::Bb)
 }
 
 /// Forced display style in math.
@@ -157,8 +157,8 @@ pub fn display(
     #[default(false)]
     cramped: bool,
 ) -> Content {
-    body.styled(EquationElem::set_size(MathSize::Display))
-        .styled(EquationElem::set_cramped(cramped))
+    body.set(EquationElem::size, MathSize::Display)
+        .set(EquationElem::cramped, cramped)
 }
 
 /// Forced inline (text) style in math.
@@ -179,8 +179,8 @@ pub fn inline(
     #[default(false)]
     cramped: bool,
 ) -> Content {
-    body.styled(EquationElem::set_size(MathSize::Text))
-        .styled(EquationElem::set_cramped(cramped))
+    body.set(EquationElem::size, MathSize::Text)
+        .set(EquationElem::cramped, cramped)
 }
 
 /// Forced script style in math.
@@ -200,8 +200,8 @@ pub fn script(
     #[default(true)]
     cramped: bool,
 ) -> Content {
-    body.styled(EquationElem::set_size(MathSize::Script))
-        .styled(EquationElem::set_cramped(cramped))
+    body.set(EquationElem::size, MathSize::Script)
+        .set(EquationElem::cramped, cramped)
 }
 
 /// Forced second script style in math.
@@ -222,8 +222,8 @@ pub fn sscript(
     #[default(true)]
     cramped: bool,
 ) -> Content {
-    body.styled(EquationElem::set_size(MathSize::ScriptScript))
-        .styled(EquationElem::set_cramped(cramped))
+    body.set(EquationElem::size, MathSize::ScriptScript)
+        .set(EquationElem::cramped, cramped)
 }
 
 /// The size of elements in an equation.

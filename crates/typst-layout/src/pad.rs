@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Resolve, StyleChain};
+use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Fragment, Frame, PadElem, Point, Regions, Rel, Sides, Size,
@@ -16,10 +16,10 @@ pub fn layout_pad(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let padding = Sides::new(
-        elem.left(styles).resolve(styles),
-        elem.top(styles).resolve(styles),
-        elem.right(styles).resolve(styles),
-        elem.bottom(styles).resolve(styles),
+        elem.left.resolve(styles),
+        elem.top.resolve(styles),
+        elem.right.resolve(styles),
+        elem.bottom.resolve(styles),
     );
 
     let mut backlog = vec![];

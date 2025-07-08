@@ -851,7 +851,7 @@ fn layout_line_number_reset(
     config: &Config,
     locator: &mut SplitLocator,
 ) -> SourceResult<Frame> {
-    let counter = Counter::of(ParLineMarker::elem());
+    let counter = Counter::of(ParLineMarker::ELEM);
     let update = CounterUpdate::Set(CounterState::init(false));
     let content = counter.update(Span::detached(), update);
     crate::layout_frame(
@@ -879,7 +879,7 @@ fn layout_line_number(
     locator: &mut SplitLocator,
     numbering: &Numbering,
 ) -> SourceResult<Frame> {
-    let counter = Counter::of(ParLineMarker::elem());
+    let counter = Counter::of(ParLineMarker::ELEM);
     let update = CounterUpdate::Step(NonZeroUsize::ONE);
     let numbering = Smart::Custom(numbering.clone());
 

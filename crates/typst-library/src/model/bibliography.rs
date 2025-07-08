@@ -158,7 +158,7 @@ pub struct BibliographyElem {
 impl BibliographyElem {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Packed<Self>> {
-        let query = introspector.query(&Self::elem().select());
+        let query = introspector.query(&Self::ELEM.select());
         let mut iter = query.iter();
         let Some(elem) = iter.next() else {
             bail!("the document does not contain a bibliography");
@@ -175,7 +175,7 @@ impl BibliographyElem {
     pub fn has(engine: &Engine, key: Label) -> bool {
         engine
             .introspector
-            .query(&Self::elem().select())
+            .query(&Self::ELEM.select())
             .iter()
             .any(|elem| elem.to_packed::<Self>().unwrap().sources.derived.has(key))
     }
@@ -183,7 +183,7 @@ impl BibliographyElem {
     /// Find all bibliography keys.
     pub fn keys(introspector: Tracked<Introspector>) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
-        for elem in introspector.query(&Self::elem().select()).iter() {
+        for elem in introspector.query(&Self::ELEM.select()).iter() {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
@@ -197,8 +197,8 @@ impl BibliographyElem {
 impl Synthesize for Packed<BibliographyElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_lang(TextElem::lang_in(styles));
-        elem.push_region(TextElem::region_in(styles));
+        elem.lang = Some(styles.get(TextElem::lang));
+        elem.region = Some(styles.get(TextElem::region));
         Ok(())
     }
 }
@@ -212,7 +212,7 @@ impl Show for Packed<BibliographyElem> {
         let span = self.span();
 
         let mut seq = vec![];
-        if let Some(title) = self.title(styles).unwrap_or_else(|| {
+        if let Some(title) = self.title.get_ref(styles).clone().unwrap_or_else(|| {
             Some(TextElem::packed(Self::local_name_in(styles)).spanned(span))
         }) {
             seq.push(
@@ -227,7 +227,7 @@ impl Show for Packed<BibliographyElem> {
         let references = works
             .references
             .as_ref()
-            .ok_or_else(|| match self.style(styles).source {
+            .ok_or_else(|| match self.style.get_ref(styles).source {
                 CslSource::Named(style) => eco_format!(
                     "CSL style \"{}\" is not suitable for bibliographies",
                     style.display_name()
@@ -239,7 +239,7 @@ impl Show for Packed<BibliographyElem> {
             .at(span)?;
 
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
-            let row_gutter = ParElem::spacing_in(styles);
+            let row_gutter = styles.get(ParElem::spacing);
 
             let mut cells = vec![];
             for (prefix, reference) in references {
@@ -265,7 +265,7 @@ impl Show for Packed<BibliographyElem> {
                 let block = if works.hanging_indent {
                     let body = HElem::new((-INDENT).into()).pack() + realized;
                     let inset = Sides::default()
-                        .with(TextElem::dir_in(styles).start(), Some(INDENT.into()));
+                        .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
                     BlockElem::new()
                         .with_body(Some(BlockBody::Content(body)))
                         .with_inset(inset)
@@ -285,8 +285,8 @@ impl ShowSet for Packed<BibliographyElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         const INDENT: Em = Em::new(1.0);
         let mut out = Styles::new();
-        out.set(HeadingElem::set_numbering(None));
-        out.set(PadElem::set_left(INDENT.into()));
+        out.set(HeadingElem::numbering, None);
+        out.set(PadElem::left, INDENT.into());
         out
     }
 }
@@ -643,7 +643,7 @@ impl<'a> Generator<'a> {
         introspector: Tracked<Introspector>,
     ) -> StrResult<Self> {
         let bibliography = BibliographyElem::find(introspector)?;
-        let groups = introspector.query(&CiteGroup::elem().select());
+        let groups = introspector.query(&CiteGroup::ELEM.select());
         let infos = Vec::with_capacity(groups.len());
         Ok(Self {
             routines,
@@ -661,7 +661,8 @@ impl<'a> Generator<'a> {
             LazyLock::new(hayagriva::archive::locales);
 
         let database = &self.bibliography.sources.derived;
-        let bibliography_style = &self.bibliography.style(StyleChain::default()).derived;
+        let bibliography_style =
+            &self.bibliography.style.get_ref(StyleChain::default()).derived;
 
         // Process all citation groups.
         let mut driver = BibliographyDriver::new();
@@ -689,7 +690,7 @@ impl<'a> Generator<'a> {
                     continue;
                 };
 
-                let supplement = child.supplement(StyleChain::default());
+                let supplement = child.supplement.get_cloned(StyleChain::default());
                 let locator = supplement.as_ref().map(|_| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
@@ -698,7 +699,7 @@ impl<'a> Generator<'a> {
                 });
 
                 let mut hidden = false;
-                let special_form = match child.form(StyleChain::default()) {
+                let special_form = match child.form.get(StyleChain::default()) {
                     None => {
                         hidden = true;
                         None
@@ -720,7 +721,7 @@ impl<'a> Generator<'a> {
                 continue;
             }
 
-            let style = match first.style(StyleChain::default()) {
+            let style = match first.style.get_ref(StyleChain::default()) {
                 Smart::Auto => bibliography_style.get(),
                 Smart::Custom(style) => style.derived.get(),
             };
@@ -736,23 +737,20 @@ impl<'a> Generator<'a> {
             driver.citation(CitationRequest::new(
                 items,
                 style,
-                Some(locale(
-                    first.lang().copied().unwrap_or(Lang::ENGLISH),
-                    first.region().copied().flatten(),
-                )),
+                Some(locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten())),
                 &LOCALES,
                 None,
             ));
         }
 
         let locale = locale(
-            self.bibliography.lang().copied().unwrap_or(Lang::ENGLISH),
-            self.bibliography.region().copied().flatten(),
+            self.bibliography.lang.unwrap_or(Lang::ENGLISH),
+            self.bibliography.region.flatten(),
         );
 
         // Add hidden items for everything if we should print the whole
         // bibliography.
-        if self.bibliography.full(StyleChain::default()) {
+        if self.bibliography.full.get(StyleChain::default()) {
             for (_, entry) in database.iter() {
                 driver.citation(CitationRequest::new(
                     vec![CitationItem::new(entry, None, None, true, None)],
@@ -1071,25 +1069,24 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
-            content = content.styled(TextElem::set_style(FontStyle::Italic));
+            content = content.set(TextElem::style, FontStyle::Italic);
         }
     }
 
     match format.font_variant {
         citationberg::FontVariant::Normal => {}
         citationberg::FontVariant::SmallCaps => {
-            content =
-                content.styled(TextElem::set_smallcaps(Some(Smallcaps::Minuscules)));
+            content = content.set(TextElem::smallcaps, Some(Smallcaps::Minuscules));
         }
     }
 
     match format.font_weight {
         citationberg::FontWeight::Normal => {}
         citationberg::FontWeight::Bold => {
-            content = content.styled(TextElem::set_delta(WeightDelta(300)));
+            content = content.set(TextElem::delta, WeightDelta(300));
         }
         citationberg::FontWeight::Light => {
-            content = content.styled(TextElem::set_delta(WeightDelta(-100)));
+            content = content.set(TextElem::delta, WeightDelta(-100));
         }
     }
 

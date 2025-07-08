@@ -24,7 +24,7 @@ pub fn layout_accent(
     // Try to replace the base glyph with its dotless variant.
     let dtls = style_dtls();
     let base_styles =
-        if top_accent && elem.dotless(styles) { styles.chain(&dtls) } else { styles };
+        if top_accent && elem.dotless.get(styles) { styles.chain(&dtls) } else { styles };
 
     let cramped = style_cramped();
     let base = ctx.layout_into_fragment(&elem.base, base_styles.chain(&cramped))?;
@@ -47,7 +47,7 @@ pub fn layout_accent(
 
     // Forcing the accent to be at least as large as the base makes it too wide
     // in many cases.
-    let width = elem.size(styles).relative_to(base.width());
+    let width = elem.size.resolve(styles).relative_to(base.width());
     let short_fall = ACCENT_SHORT_FALL.at(glyph.item.size);
     glyph.stretch_horizontal(ctx, width - short_fall);
     let accent_attach = glyph.accent_attach.0;

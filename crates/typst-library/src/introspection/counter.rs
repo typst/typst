@@ -338,7 +338,7 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = select_where!(CounterUpdateElem, Key => self.0.clone());
+        let mut selector = select_where!(CounterUpdateElem, key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -367,16 +367,16 @@ impl Counter {
             .or_else(|| {
                 let styles = styles?;
                 match self.0 {
-                    CounterKey::Page => PageElem::numbering_in(styles).clone(),
+                    CounterKey::Page => styles.get_cloned(PageElem::numbering),
                     CounterKey::Selector(Selector::Elem(func, _)) => {
-                        if func == HeadingElem::elem() {
-                            HeadingElem::numbering_in(styles).clone()
-                        } else if func == FigureElem::elem() {
-                            FigureElem::numbering_in(styles).clone()
-                        } else if func == EquationElem::elem() {
-                            EquationElem::numbering_in(styles).clone()
-                        } else if func == FootnoteElem::elem() {
-                            Some(FootnoteElem::numbering_in(styles).clone())
+                        if func == HeadingElem::ELEM {
+                            styles.get_cloned(HeadingElem::numbering)
+                        } else if func == FigureElem::ELEM {
+                            styles.get_cloned(FigureElem::numbering)
+                        } else if func == EquationElem::ELEM {
+                            styles.get_cloned(EquationElem::numbering)
+                        } else if func == FootnoteElem::ELEM {
+                            Some(styles.get_cloned(FootnoteElem::numbering))
                         } else {
                             None
                         }
@@ -398,7 +398,7 @@ impl Counter {
 
     /// Selects all state updates.
     pub fn select_any() -> Selector {
-        CounterUpdateElem::elem().select()
+        CounterUpdateElem::ELEM.select()
     }
 }
 
@@ -565,14 +565,14 @@ pub enum CounterKey {
 cast! {
     CounterKey,
     self => match self {
-        Self::Page => PageElem::elem().into_value(),
+        Self::Page => PageElem::ELEM.into_value(),
         Self::Selector(v) => v.into_value(),
         Self::Str(v) => v.into_value(),
     },
     v: Str => Self::Str(v),
     v: Label => Self::Selector(Selector::Label(v)),
     v: Element => {
-        if v == PageElem::elem() {
+        if v == PageElem::ELEM {
             Self::Page
         } else {
             Self::Selector(LocatableSelector::from_value(v.into_value())?.0)

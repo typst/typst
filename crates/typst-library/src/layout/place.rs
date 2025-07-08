@@ -134,7 +134,6 @@ pub struct PlaceElem {
     ///
     /// Has no effect if `float` is `{false}`.
     #[default(Em::new(1.5).into())]
-    #[resolve]
     pub clearance: Length,
 
     /// The horizontal displacement of the placed content.

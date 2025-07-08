@@ -223,12 +223,12 @@ impl<'a> ShapedText<'a> {
         let mut frame = Frame::soft(size);
         frame.set_baseline(top);
 
-        let size = TextElem::size_in(self.styles);
-        let shift = TextElem::baseline_in(self.styles);
-        let decos = TextElem::deco_in(self.styles);
-        let fill = TextElem::fill_in(self.styles);
-        let stroke = TextElem::stroke_in(self.styles);
-        let span_offset = TextElem::span_offset_in(self.styles);
+        let size = self.styles.resolve(TextElem::size);
+        let shift = self.styles.resolve(TextElem::baseline);
+        let decos = self.styles.get_cloned(TextElem::deco);
+        let fill = self.styles.get_ref(TextElem::fill);
+        let stroke = self.styles.resolve(TextElem::stroke);
+        let span_offset = self.styles.get(TextElem::span_offset);
 
         for ((font, y_offset, glyph_size), group) in self
             .glyphs
@@ -340,9 +340,9 @@ impl<'a> ShapedText<'a> {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
-        let size = TextElem::size_in(self.styles);
-        let top_edge = TextElem::top_edge_in(self.styles);
-        let bottom_edge = TextElem::bottom_edge_in(self.styles);
+        let size = self.styles.resolve(TextElem::size);
+        let top_edge = self.styles.get(TextElem::top_edge);
+        let bottom_edge = self.styles.get(TextElem::bottom_edge);
 
         // Expand top and bottom by reading the font's vertical metrics.
         let mut expand = |font: &Font, bounds: TextEdgeBounds| {
@@ -486,7 +486,7 @@ impl<'a> ShapedText<'a> {
             // that subtracting either of the endpoints by self.base doesn't
             // underflow. See <https://github.com/typst/typst/issues/2283>.
             .unwrap_or_else(|| self.base..self.base);
-            let size = TextElem::size_in(self.styles);
+            let size = self.styles.resolve(TextElem::size);
             self.width += x_advance.at(size);
             let glyph = ShapedGlyph {
                 font,
@@ -603,9 +603,9 @@ pub fn shape_range<'a>(
     range: Range,
     styles: StyleChain<'a>,
 ) {
-    let script = TextElem::script_in(styles);
-    let lang = TextElem::lang_in(styles);
-    let region = TextElem::region_in(styles);
+    let script = styles.get(TextElem::script);
+    let lang = styles.get(TextElem::lang);
+    let region = styles.get(TextElem::region);
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
         let shaped =
@@ -669,8 +669,8 @@ fn shape<'a>(
     lang: Lang,
     region: Option<Region>,
 ) -> ShapedText<'a> {
-    let size = TextElem::size_in(styles);
-    let shift_settings = TextElem::shift_settings_in(styles);
+    let size = styles.resolve(TextElem::size);
+    let shift_settings = styles.get(TextElem::shift_settings);
     let mut ctx = ShapingContext {
         engine,
         size,
@@ -679,7 +679,7 @@ fn shape<'a>(
         styles,
         variant: variant(styles),
         features: features(styles),
-        fallback: TextElem::fallback_in(styles),
+        fallback: styles.get(TextElem::fallback),
         dir,
         shift_settings,
     };
@@ -783,7 +783,7 @@ fn shape_segment<'a>(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(language(ctx.styles));
-    if let Some(script) = TextElem::script_in(ctx.styles).custom().and_then(|script| {
+    if let Some(script) = ctx.styles.get(TextElem::script).custom().and_then(|script| {
         rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
     }) {
         buffer.set_script(script)
@@ -1073,8 +1073,11 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
 
 /// Apply tracking and spacing to the shaped glyphs.
 fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = Em::from_abs(TextElem::tracking_in(ctx.styles), ctx.size);
-    let spacing = TextElem::spacing_in(ctx.styles).map(|abs| Em::from_abs(abs, ctx.size));
+    let tracking = Em::from_abs(ctx.styles.resolve(TextElem::tracking), ctx.size);
+    let spacing = ctx
+        .styles
+        .resolve(TextElem::spacing)
+        .map(|abs| Em::from_abs(abs, ctx.size));
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {

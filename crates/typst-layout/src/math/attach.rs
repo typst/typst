@@ -31,16 +31,16 @@ pub fn layout_attach(
     let mut base = ctx.layout_into_fragment(&elem.base, styles)?;
     let sup_style = style_for_superscript(styles);
     let sup_style_chain = styles.chain(&sup_style);
-    let tl = elem.tl(sup_style_chain);
-    let tr = elem.tr(sup_style_chain);
+    let tl = elem.tl.get_cloned(sup_style_chain);
+    let tr = elem.tr.get_cloned(sup_style_chain);
     let primed = tr.as_ref().is_some_and(|content| content.is::<PrimesElem>());
-    let t = elem.t(sup_style_chain);
+    let t = elem.t.get_cloned(sup_style_chain);
 
     let sub_style = style_for_subscript(styles);
     let sub_style_chain = styles.chain(&sub_style);
-    let bl = elem.bl(sub_style_chain);
-    let br = elem.br(sub_style_chain);
-    let b = elem.b(sub_style_chain);
+    let bl = elem.bl.get_cloned(sub_style_chain);
+    let br = elem.br.get_cloned(sub_style_chain);
+    let b = elem.b.get_cloned(sub_style_chain);
 
     let limits = base.limits().active(styles);
     let (t, tr) = match (t, tr) {
@@ -146,7 +146,7 @@ pub fn layout_limits(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let limits = if elem.inline(styles) { Limits::Always } else { Limits::Display };
+    let limits = if elem.inline.get(styles) { Limits::Always } else { Limits::Display };
     let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
     fragment.set_limits(limits);
     ctx.push(fragment);
@@ -161,7 +161,8 @@ fn stretch_size(styles: StyleChain, elem: &Packed<AttachElem>) -> Option<Rel<Abs
         base = &equation.body;
     }
 
-    base.to_packed::<StretchElem>().map(|stretch| stretch.size(styles))
+    base.to_packed::<StretchElem>()
+        .map(|stretch| stretch.size.resolve(styles))
 }
 
 /// Lay out the attachments.
@@ -397,7 +398,7 @@ fn compute_script_shifts(
     base: &MathFragment,
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
-    let sup_shift_up = if EquationElem::cramped_in(styles) {
+    let sup_shift_up = if styles.get(EquationElem::cramped) {
         scaled!(ctx, styles, superscript_shift_up_cramped)
     } else {
         scaled!(ctx, styles, superscript_shift_up)

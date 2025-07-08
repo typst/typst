@@ -144,14 +144,12 @@ pub struct GridElem {
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
-    #[borrowed]
     pub columns: TrackSizings,
 
     /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
-    #[borrowed]
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns.
@@ -169,12 +167,10 @@ pub struct GridElem {
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
-    #[borrowed]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
@@ -197,7 +193,6 @@ pub struct GridElem {
     ///   [O], [X], [O], [X],
     /// )
     /// ```
-    #[borrowed]
     pub fill: Celled<Option<Paint>>,
 
     /// How to align the cells' content.
@@ -209,7 +204,6 @@ pub struct GridElem {
     ///
     /// You can find an example for this argument at the
     /// [`table.align`]($table.align) parameter.
-    #[borrowed]
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
@@ -289,7 +283,6 @@ pub struct GridElem {
     ///   ),
     /// )
     /// ```
-    #[resolve]
     #[fold]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
@@ -541,7 +534,6 @@ pub struct GridHLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including hlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -596,7 +588,6 @@ pub struct GridVLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including vlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -742,7 +733,6 @@ pub struct GridCell {
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [stroke]($grid.stroke) override.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
@@ -760,7 +750,7 @@ cast! {
 
 impl Show for Packed<GridCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
+        show_grid_cell(self.body.clone(), self.inset.get(styles), self.align.get(styles))
     }
 }
 

@@ -846,7 +846,9 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.config.hyphenate.unwrap_or_else(|| {
         let (_, item) = p.get(offset);
         match item.text() {
-            Some(text) => TextElem::hyphenate_in(text.styles).unwrap_or(p.config.justify),
+            Some(text) => {
+                text.styles.get(TextElem::hyphenate).unwrap_or(p.config.justify)
+            }
             None => false,
         }
     })
@@ -857,7 +859,7 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);
         let styles = item.text()?.styles;
-        Some(TextElem::lang_in(styles))
+        Some(styles.get(TextElem::lang))
     })?;
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;

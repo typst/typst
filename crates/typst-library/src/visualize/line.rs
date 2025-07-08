@@ -22,15 +22,12 @@ pub struct LineElem {
     /// The start point of the line.
     ///
     /// Must be an array of exactly two relative lengths.
-    #[resolve]
     pub start: Axes<Rel<Length>>,
 
     /// The point where the line ends.
-    #[resolve]
     pub end: Option<Axes<Rel<Length>>>,
 
     /// The line's length. This is only respected if `end` is `{none}`.
-    #[resolve]
     #[default(Abs::pt(30.0).into())]
     pub length: Rel<Length>,
 
@@ -50,7 +47,6 @@ pub struct LineElem {
     ///   line(stroke: (paint: blue, thickness: 1pt, dash: ("dot", 2pt, 4pt, 2pt))),
     /// )
     /// ```
-    #[resolve]
     #[fold]
     pub stroke: Stroke,
 }

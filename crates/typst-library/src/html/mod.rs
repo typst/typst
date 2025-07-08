@@ -47,21 +47,22 @@ pub struct HtmlElem {
     pub tag: HtmlTag,
 
     /// The element's HTML attributes.
-    #[borrowed]
     pub attrs: HtmlAttrs,
 
     /// The contents of the HTML element.
     ///
     /// The body can be arbitrary Typst content.
     #[positional]
-    #[borrowed]
     pub body: Option<Content>,
 }
 
 impl HtmlElem {
     /// Add an attribute to the element.
     pub fn with_attr(mut self, attr: HtmlAttr, value: impl Into<EcoString>) -> Self {
-        self.attrs.get_or_insert_with(Default::default).push(attr, value);
+        self.attrs
+            .as_option_mut()
+            .get_or_insert_with(Default::default)
+            .push(attr, value);
         self
     }
 }
