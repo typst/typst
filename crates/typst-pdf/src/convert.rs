@@ -108,6 +108,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             let mut surface = page.surface();
             let mut fc = FrameContext::new(typst_page.frame.size());
 
+            tags::page_start(gc, &mut surface);
+
             handle_frame(
                 &mut fc,
                 &typst_page.frame,
@@ -115,6 +117,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                 &mut surface,
                 gc,
             )?;
+
+            tags::page_end(gc, &mut surface);
 
             surface.finish();
 
@@ -291,8 +295,8 @@ pub(crate) fn handle_frame(
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size),
-            FrameItem::Tag(Tag::Start(elem)) => tags::handle_start(gc, elem),
-            FrameItem::Tag(Tag::End(loc, _)) => tags::handle_end(gc, *loc),
+            FrameItem::Tag(Tag::Start(elem)) => tags::handle_start(gc, surface, elem),
+            FrameItem::Tag(Tag::End(loc, _)) => tags::handle_end(gc, surface, *loc),
         }
 
         fc.pop();

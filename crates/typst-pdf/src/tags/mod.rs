@@ -25,7 +25,7 @@ use crate::tags::table::TableCtx;
 mod outline;
 mod table;
 
-pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
+pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Content) {
     if gc.tags.in_artifact.is_some() {
         // Don't nest artifacts
         return;
@@ -35,10 +35,10 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
 
     if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         let kind = artifact.kind.get(StyleChain::default());
-        start_artifact(gc, loc, kind);
+        push_artifact(gc, surface, loc, kind);
         return;
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        start_artifact(gc, loc, ArtifactKind::Other);
+        push_artifact(gc, surface, loc, ArtifactKind::Other);
         return;
     }
 
@@ -89,7 +89,7 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
         if cell.is_repeated.get(StyleChain::default())
             || table_ctx.is_some_and(|ctx| ctx.contains(cell))
         {
-            start_artifact(gc, loc, ArtifactKind::Other);
+            push_artifact(gc, surface, loc, ArtifactKind::Other);
         } else {
             push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
         }
@@ -105,14 +105,10 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
     push_stack(gc, loc, StackEntryKind::Standard(tag));
 }
 
-fn push_stack(gc: &mut GlobalContext, loc: Location, kind: StackEntryKind) {
-    gc.tags.stack.push(StackEntry { loc, kind, nodes: Vec::new() });
-}
-
-pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
+pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) {
     if let Some((l, _)) = gc.tags.in_artifact {
         if l == loc {
-            gc.tags.in_artifact = None;
+            pop_artifact(gc, surface);
         }
         return;
     }
@@ -164,6 +160,60 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
     };
 
     gc.tags.push(node);
+}
+
+fn push_stack(gc: &mut GlobalContext, loc: Location, kind: StackEntryKind) {
+    gc.tags.stack.push(StackEntry { loc, kind, nodes: Vec::new() });
+}
+
+fn push_artifact(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    loc: Location,
+    kind: ArtifactKind,
+) {
+    let ty = artifact_type(kind);
+    let id = surface.start_tagged(ContentTag::Artifact(ty));
+    gc.tags.push(TagNode::Leaf(id));
+    gc.tags.in_artifact = Some((loc, kind));
+}
+
+fn pop_artifact(gc: &mut GlobalContext, surface: &mut Surface) {
+    surface.end_tagged();
+    gc.tags.in_artifact = None;
+}
+
+pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
+    if let Some((_, kind)) = gc.tags.in_artifact {
+        let ty = artifact_type(kind);
+        let id = surface.start_tagged(ContentTag::Artifact(ty));
+        gc.tags.push(TagNode::Leaf(id));
+    }
+}
+
+pub fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
+    if gc.tags.in_artifact.is_some() {
+        surface.end_tagged();
+    }
+}
+
+/// Add all annotations that were found in the page frame.
+pub fn add_link_annotations(
+    gc: &mut GlobalContext,
+    page: &mut Page,
+    annotations: Vec<LinkAnnotation>,
+) {
+    for a in annotations.into_iter() {
+        let annotation = krilla::annotation::Annotation::new_link(
+            krilla::annotation::LinkAnnotation::new_with_quad_points(
+                a.quad_points,
+                a.target,
+            ),
+            a.alt,
+        );
+        let annot_id = page.add_tagged_annotation(annotation);
+        gc.tags.init_placeholder(a.placeholder, Node::Leaf(annot_id));
+    }
 }
 
 pub struct Tags {
@@ -336,11 +386,16 @@ pub struct Placeholder(usize);
 /// Automatically calls [`Surface::end_tagged`] when dropped.
 pub struct TagHandle<'a, 'b> {
     surface: &'b mut Surface<'a>,
+    /// Whether this tag handle started the marked content sequence, and should
+    /// thus end it when it is dropped.
+    started: bool,
 }
 
 impl Drop for TagHandle<'_, '_> {
     fn drop(&mut self) {
-        self.surface.end_tagged();
+        if self.started {
+            self.surface.end_tagged();
+        }
     }
 }
 
@@ -348,15 +403,6 @@ impl<'a> TagHandle<'a, '_> {
     pub fn surface<'c>(&'c mut self) -> &'c mut Surface<'a> {
         self.surface
     }
-}
-
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_marked<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-) -> TagHandle<'a, 'b> {
-    start_content(gc, surface, ContentTag::Other)
 }
 
 /// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
@@ -369,47 +415,30 @@ pub fn start_span<'a, 'b>(
     start_content(gc, surface, ContentTag::Span(span))
 }
 
+/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
+/// when dropped.
+pub fn start_artifact<'a, 'b>(
+    gc: &mut GlobalContext,
+    surface: &'b mut Surface<'a>,
+    kind: ArtifactKind,
+) -> TagHandle<'a, 'b> {
+    let ty = artifact_type(kind);
+    start_content(gc, surface, ContentTag::Artifact(ty))
+}
+
 fn start_content<'a, 'b>(
     gc: &mut GlobalContext,
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
-    let content = if let Some((_, kind)) = gc.tags.in_artifact {
-        let ty = artifact_type(kind);
-        ContentTag::Artifact(ty)
-    } else if let Some(StackEntryKind::Table(_)) = gc.tags.stack.last().map(|e| &e.kind) {
-        // Mark any direct child of a table as an aritfact. Any real content
-        // will be wrapped inside a `TableCell`.
-        ContentTag::Artifact(ArtifactType::Other)
+    let content = if gc.tags.in_artifact.is_some() {
+        return TagHandle { surface, started: false };
     } else {
         content
     };
     let id = surface.start_tagged(content);
     gc.tags.push(TagNode::Leaf(id));
-    TagHandle { surface }
-}
-
-/// Add all annotations that were found in the page frame.
-pub fn add_link_annotations(
-    gc: &mut GlobalContext,
-    page: &mut Page,
-    annotations: Vec<LinkAnnotation>,
-) {
-    for a in annotations.into_iter() {
-        let annotation = krilla::annotation::Annotation::new_link(
-            krilla::annotation::LinkAnnotation::new_with_quad_points(
-                a.quad_points,
-                a.target,
-            ),
-            a.alt,
-        );
-        let annot_id = page.add_tagged_annotation(annotation);
-        gc.tags.init_placeholder(a.placeholder, Node::Leaf(annot_id));
-    }
-}
-
-fn start_artifact(gc: &mut GlobalContext, loc: Location, kind: ArtifactKind) {
-    gc.tags.in_artifact = Some((loc, kind));
+    TagHandle { surface, started: true }
 }
 
 fn artifact_type(kind: ArtifactKind) -> ArtifactType {
