@@ -106,7 +106,7 @@ pub fn cal(
 ///
 /// (The box is not conceptually necessary, but unfortunately currently needed
 /// due to limitations in Typst's text style handling in math.)
-#[func(title = "Script", keywords = ["mathscr", "roundhand"])]
+#[func(title = "Script Style", keywords = ["mathscr", "roundhand"])]
 pub fn scr(
     /// The content to style.
     body: Content,
