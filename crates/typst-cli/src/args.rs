@@ -83,7 +83,7 @@ pub enum Command {
     #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
 
-    // Generate shell completion scripts.
+    /// Generates shell completion scripts.
     Completions(CompletionsCommand),
 }
 
@@ -202,9 +202,10 @@ pub struct UpdateCommand {
     pub backup_path: Option<PathBuf>,
 }
 
-// Generates shell completion scripts.
+/// Generates shell completion scripts.
 #[derive(Debug, Clone, Parser)]
 pub struct CompletionsCommand {
+    /// The shell to generate completions for.
     #[arg(value_enum)]
     pub shell: Shell,
 }
