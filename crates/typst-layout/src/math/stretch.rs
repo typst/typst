@@ -14,7 +14,14 @@ pub fn layout_stretch(
     styles: StyleChain,
 ) -> SourceResult<()> {
     let mut fragment = ctx.layout_into_fragment(&elem.body, styles)?;
-    stretch_fragment(ctx, &mut fragment, None, None, elem.size(styles), Abs::zero());
+    stretch_fragment(
+        ctx,
+        &mut fragment,
+        None,
+        None,
+        elem.size.resolve(styles),
+        Abs::zero(),
+    );
     ctx.push(fragment);
     Ok(())
 }

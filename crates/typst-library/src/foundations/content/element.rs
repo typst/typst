@@ -2,52 +2,54 @@ use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hash;
-use std::ptr::NonNull;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
 use ecow::EcoString;
 use smallvec::SmallVec;
-#[doc(inline)]
-pub use typst_macros::elem;
 use typst_utils::Static;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, Args, Content, Dict, FieldAccessError, Func, ParamInfo, Repr, Scope, Selector,
-    StyleChain, Styles, Value,
+    cast, Args, Content, ContentVtable, FieldAccessError, Func, ParamInfo, Repr, Scope,
+    Selector, StyleChain, Styles, Value,
 };
 use crate::text::{Lang, Region};
 
 /// A document element.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Element(Static<NativeElementData>);
+pub struct Element(Static<ContentVtable>);
 
 impl Element {
     /// Get the element for `T`.
-    pub fn of<T: NativeElement>() -> Self {
-        T::elem()
+    pub const fn of<T: NativeElement>() -> Self {
+        T::ELEM
+    }
+
+    /// Get the element for `T`.
+    pub const fn from_vtable(vtable: &'static ContentVtable) -> Self {
+        Self(Static(vtable))
     }
 
     /// The element's normal name (e.g. `enum`).
     pub fn name(self) -> &'static str {
-        self.0.name
+        self.vtable().name
     }
 
     /// The element's title case name, for use in documentation
     /// (e.g. `Numbered List`).
     pub fn title(&self) -> &'static str {
-        self.0.title
+        self.vtable().title
     }
 
     /// Documentation for the element (as Markdown).
     pub fn docs(&self) -> &'static str {
-        self.0.docs
+        self.vtable().docs
     }
 
     /// Search keywords for the element.
     pub fn keywords(&self) -> &'static [&'static str] {
-        self.0.keywords
+        self.vtable().keywords
     }
 
     /// Construct an instance of this element.
@@ -56,12 +58,12 @@ impl Element {
         engine: &mut Engine,
         args: &mut Args,
     ) -> SourceResult<Content> {
-        (self.0.construct)(engine, args)
+        (self.vtable().construct)(engine, args)
     }
 
     /// Execute the set rule for the element and return the resulting style map.
     pub fn set(self, engine: &mut Engine, mut args: Args) -> SourceResult<Styles> {
-        let styles = (self.0.set)(engine, &mut args)?;
+        let styles = (self.vtable().set)(engine, &mut args)?;
         args.finish()?;
         Ok(styles)
     }
@@ -77,12 +79,7 @@ impl Element {
     /// Whether the element has the given capability where the capability is
     /// given by a `TypeId`.
     pub fn can_type_id(self, type_id: TypeId) -> bool {
-        (self.0.vtable)(type_id).is_some()
-    }
-
-    /// The VTable for capabilities dispatch.
-    pub fn vtable(self) -> fn(of: TypeId) -> Option<NonNull<()>> {
-        self.0.vtable
+        (self.vtable().capability)(type_id).is_some()
     }
 
     /// Create a selector for this element.
@@ -98,12 +95,29 @@ impl Element {
 
     /// The element's associated scope of sub-definition.
     pub fn scope(&self) -> &'static Scope {
-        &(self.0).0.scope
+        (self.vtable().store)().scope.get_or_init(|| (self.vtable().scope)())
     }
 
     /// Details about the element's fields.
     pub fn params(&self) -> &'static [ParamInfo] {
-        &(self.0).0.params
+        (self.vtable().store)().params.get_or_init(|| {
+            self.vtable()
+                .fields
+                .iter()
+                .filter(|field| !field.synthesized)
+                .map(|field| ParamInfo {
+                    name: field.name,
+                    docs: field.docs,
+                    input: (field.input)(),
+                    default: field.default,
+                    positional: field.positional,
+                    named: !field.positional,
+                    variadic: field.variadic,
+                    required: field.required,
+                    settable: field.settable,
+                })
+                .collect()
+        })
     }
 
     /// Extract the field ID for the given field name.
@@ -111,7 +125,7 @@ impl Element {
         if name == "label" {
             return Some(255);
         }
-        (self.0.field_id)(name)
+        (self.vtable().field_id)(name)
     }
 
     /// Extract the field name for the given field ID.
@@ -119,7 +133,7 @@ impl Element {
         if id == 255 {
             return Some("label");
         }
-        (self.0.field_name)(id)
+        self.vtable().field(id).map(|data| data.name)
     }
 
     /// Extract the value of the field for the given field ID and style chain.
@@ -128,12 +142,20 @@ impl Element {
         id: u8,
         styles: StyleChain,
     ) -> Result<Value, FieldAccessError> {
-        (self.0.field_from_styles)(id, styles)
+        self.vtable()
+            .field(id)
+            .and_then(|field| (field.get_from_styles)(styles))
+            .ok_or(FieldAccessError::Unknown)
     }
 
     /// The element's local name, if any.
     pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
-        (self.0).0.local_name.map(|f| f(lang, region))
+        self.vtable().local_name.map(|f| f(lang, region))
+    }
+
+    /// Retrieves the element's vtable for dynamic dispatch.
+    pub(super) fn vtable(&self) -> &'static ContentVtable {
+        (self.0).0
     }
 }
 
@@ -167,84 +189,34 @@ cast! {
     v: Func => v.element().ok_or("expected element")?,
 }
 
-/// A Typst element that is defined by a native Rust type.
-pub trait NativeElement:
-    Debug
-    + Clone
-    + PartialEq
-    + Hash
-    + Construct
-    + Set
-    + Capable
-    + Fields
-    + Repr
-    + Send
-    + Sync
-    + 'static
-{
-    /// Get the element for the native Rust element.
-    fn elem() -> Element
-    where
-        Self: Sized,
-    {
-        Element::from(Self::data())
-    }
-
-    /// Pack the element into type-erased content.
-    fn pack(self) -> Content
-    where
-        Self: Sized,
-    {
-        Content::new(self)
-    }
-
-    /// Get the element data for the native Rust element.
-    fn data() -> &'static NativeElementData
-    where
-        Self: Sized;
+/// Lazily initialized data for an element.
+#[derive(Default)]
+pub struct LazyElementStore {
+    pub scope: OnceLock<Scope>,
+    pub params: OnceLock<Vec<ParamInfo>>,
 }
 
-/// Used to cast an element to a trait object for a trait it implements.
+impl LazyElementStore {
+    /// Create an empty store.
+    pub const fn new() -> Self {
+        Self { scope: OnceLock::new(), params: OnceLock::new() }
+    }
+}
+
+/// A Typst element that is defined by a native Rust type.
 ///
 /// # Safety
-/// If the `vtable` function returns `Some(p)`, then `p` must be a valid pointer
-/// to a vtable of `Packed<Self>` w.r.t to the trait `C` where `capability` is
-/// `TypeId::of::<dyn C>()`.
-pub unsafe trait Capable {
-    /// Get the pointer to the vtable for the given capability / trait.
-    fn vtable(capability: TypeId) -> Option<NonNull<()>>;
-}
+/// `ELEM` must hold the correct `Element` for `Self`.
+pub unsafe trait NativeElement:
+    Debug + Clone + Hash + Construct + Set + Send + Sync + 'static
+{
+    /// The associated element.
+    const ELEM: Element;
 
-/// Defines how fields of an element are accessed.
-pub trait Fields {
-    /// An enum with the fields of the element.
-    type Enum
-    where
-        Self: Sized;
-
-    /// Whether the element has the given field set.
-    fn has(&self, id: u8) -> bool;
-
-    /// Get the field with the given field ID.
-    fn field(&self, id: u8) -> Result<Value, FieldAccessError>;
-
-    /// Get the field with the given ID in the presence of styles.
-    fn field_with_styles(
-        &self,
-        id: u8,
-        styles: StyleChain,
-    ) -> Result<Value, FieldAccessError>;
-
-    /// Get the field with the given ID from the styles.
-    fn field_from_styles(id: u8, styles: StyleChain) -> Result<Value, FieldAccessError>
-    where
-        Self: Sized;
-
-    /// Resolve all fields with the styles and save them in-place.
-    fn materialize(&mut self, styles: StyleChain);
-
-    /// Get the fields of the element.
-    fn fields(&self) -> Dict;
+    /// Pack the element into type-erased content.
+    fn pack(self) -> Content {
+        Content::new(self)
+    }
 }
 
 /// An element's constructor function.
@@ -264,48 +236,6 @@ pub trait Set {
     fn set(engine: &mut Engine, args: &mut Args) -> SourceResult<Styles>
     where
         Self: Sized;
-}
-
-/// Defines a native element.
-#[derive(Debug)]
-pub struct NativeElementData {
-    /// The element's normal name (e.g. `align`), as exposed to Typst.
-    pub name: &'static str,
-    /// The element's title case name (e.g. `Align`).
-    pub title: &'static str,
-    /// The documentation for this element as a string.
-    pub docs: &'static str,
-    /// A list of alternate search terms for this element.
-    pub keywords: &'static [&'static str],
-    /// The constructor for this element (see [`Construct`]).
-    pub construct: fn(&mut Engine, &mut Args) -> SourceResult<Content>,
-    /// Executes this element's set rule (see [`Set`]).
-    pub set: fn(&mut Engine, &mut Args) -> SourceResult<Styles>,
-    /// Gets the vtable for one of this element's capabilities
-    /// (see [`Capable`]).
-    pub vtable: fn(capability: TypeId) -> Option<NonNull<()>>,
-    /// Gets the numeric index of this field by its name.
-    pub field_id: fn(name: &str) -> Option<u8>,
-    /// Gets the name of a field by its numeric index.
-    pub field_name: fn(u8) -> Option<&'static str>,
-    /// Get the field with the given ID in the presence of styles (see [`Fields`]).
-    pub field_from_styles: fn(u8, StyleChain) -> Result<Value, FieldAccessError>,
-    /// Gets the localized name for this element (see [`LocalName`][crate::text::LocalName]).
-    pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
-    pub scope: LazyLock<Scope>,
-    /// A list of parameter information for each field.
-    pub params: LazyLock<Vec<ParamInfo>>,
-}
-
-impl From<&'static NativeElementData> for Element {
-    fn from(data: &'static NativeElementData) -> Self {
-        Self(Static(data))
-    }
-}
-
-cast! {
-    &'static NativeElementData,
-    self => Element::from(self).into_value(),
 }
 
 /// Synthesize fields on an element. This happens before execution of any show
@@ -330,4 +260,10 @@ pub trait ShowSet {
     /// Finalize the fully realized form of the element. Use this for effects
     /// that should work even in the face of a user-defined show rule.
     fn show_set(&self, styles: StyleChain) -> Styles;
+}
+
+/// Tries to extract the plain-text representation of the element.
+pub trait PlainText {
+    /// Write this element's plain text into the given buffer.
+    fn plain_text(&self, text: &mut EcoString);
 }

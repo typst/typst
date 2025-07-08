@@ -66,7 +66,6 @@ pub struct TermsElem {
     /// / Colon: A nice separator symbol.
     /// ```
     #[default(HElem::new(Em::new(0.6).into()).with_weak(true).pack())]
-    #[borrowed]
     pub separator: Content,
 
     /// The indentation of each item.
@@ -121,9 +120,9 @@ impl TermsElem {
 impl Show for Packed<TermsElem> {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let span = self.span();
-        let tight = self.tight(styles);
+        let tight = self.tight.get(styles);
 
-        if TargetElem::target_in(styles).is_html() {
+        if styles.get(TargetElem::target).is_html() {
             return Ok(HtmlElem::new(tag::dl)
                 .with_body(Some(Content::sequence(self.children.iter().flat_map(
                     |item| {
@@ -148,14 +147,14 @@ impl Show for Packed<TermsElem> {
                 .pack());
         }
 
-        let separator = self.separator(styles);
-        let indent = self.indent(styles);
-        let hanging_indent = self.hanging_indent(styles);
-        let gutter = self.spacing(styles).unwrap_or_else(|| {
+        let separator = self.separator.get_ref(styles);
+        let indent = self.indent.get(styles);
+        let hanging_indent = self.hanging_indent.get(styles);
+        let gutter = self.spacing.get(styles).unwrap_or_else(|| {
             if tight {
-                ParElem::leading_in(styles).into()
+                styles.get(ParElem::leading)
             } else {
-                ParElem::spacing_in(styles).into()
+                styles.get(ParElem::spacing)
             }
         });
 
@@ -179,19 +178,21 @@ impl Show for Packed<TermsElem> {
             children.push(StackChild::Block(Content::sequence(seq)));
         }
 
-        let padding = Sides::default().with(TextElem::dir_in(styles).start(), pad.into());
+        let padding =
+            Sides::default().with(styles.resolve(TextElem::dir).start(), pad.into());
 
         let mut realized = StackElem::new(children)
             .with_spacing(Some(gutter.into()))
             .pack()
             .spanned(span)
             .padded(padding)
-            .styled(TermsElem::set_within(true));
+            .set(TermsElem::within, true);
 
         if tight {
             let spacing = self
-                .spacing(styles)
-                .unwrap_or_else(|| ParElem::leading_in(styles).into());
+                .spacing
+                .get(styles)
+                .unwrap_or_else(|| styles.get(ParElem::leading));
             let v = VElem::new(spacing.into())
                 .with_weak(true)
                 .with_attach(true)

@@ -177,12 +177,12 @@ fn handle(
         output.push(HtmlNode::Tag(elem.tag.clone()));
     } else if let Some(elem) = child.to_packed::<HtmlElem>() {
         let mut children = vec![];
-        if let Some(body) = elem.body(styles) {
+        if let Some(body) = elem.body.get_ref(styles) {
             children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
         }
         let element = HtmlElement {
             tag: elem.tag,
-            attrs: elem.attrs(styles).clone(),
+            attrs: elem.attrs.get_cloned(styles),
             children,
             span: elem.span(),
         };
@@ -198,7 +198,7 @@ fn handle(
         );
     } else if let Some(elem) = child.to_packed::<BoxElem>() {
         // TODO: This is rather incomplete.
-        if let Some(body) = elem.body(styles) {
+        if let Some(body) = elem.body.get_ref(styles) {
             let children =
                 html_fragment(engine, body, locator.next(&elem.span()), styles)?;
             output.push(
@@ -212,7 +212,7 @@ fn handle(
     } else if let Some((elem, body)) =
         child
             .to_packed::<BlockElem>()
-            .and_then(|elem| match elem.body(styles) {
+            .and_then(|elem| match elem.body.get_ref(styles) {
                 Some(BlockBody::Content(body)) => Some((elem, body)),
                 _ => None,
             })
@@ -233,12 +233,12 @@ fn handle(
         output.push(HtmlElement::new(tag::br).spanned(elem.span()).into());
     } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
         output.push(HtmlNode::text(
-            if elem.double(styles) { '"' } else { '\'' },
+            if elem.double.get(styles) { '"' } else { '\'' },
             child.span(),
         ));
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = locator.next(&elem.span());
-        let style = TargetElem::set_target(Target::Paged).wrap();
+        let style = TargetElem::target.set(Target::Paged).wrap();
         let frame = (engine.routines.layout_frame)(
             engine,
             &elem.body,
@@ -248,7 +248,7 @@ fn handle(
         )?;
         output.push(HtmlNode::Frame(HtmlFrame {
             inner: frame,
-            text_size: TextElem::size_in(styles),
+            text_size: styles.resolve(TextElem::size),
         }));
     } else {
         engine.sink.warn(warning!(

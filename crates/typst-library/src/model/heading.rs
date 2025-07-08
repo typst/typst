@@ -106,7 +106,6 @@ pub struct HeadingElem {
     /// == A subsection
     /// === A sub-subsection
     /// ```
-    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the heading.
@@ -187,8 +186,8 @@ pub struct HeadingElem {
 
 impl HeadingElem {
     pub fn resolve_level(&self, styles: StyleChain) -> NonZeroUsize {
-        self.level(styles).unwrap_or_else(|| {
-            NonZeroUsize::new(self.offset(styles) + self.depth(styles).get())
+        self.level.get(styles).unwrap_or_else(|| {
+            NonZeroUsize::new(self.offset.get(styles) + self.depth.get(styles).get())
                 .expect("overflow to 0 on NoneZeroUsize + usize")
         })
     }
@@ -200,7 +199,7 @@ impl Synthesize for Packed<HeadingElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let supplement = match (**self).supplement(styles) {
+        let supplement = match self.supplement.get_ref(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
@@ -209,8 +208,9 @@ impl Synthesize for Packed<HeadingElem> {
         };
 
         let elem = self.as_mut();
-        elem.push_level(Smart::Custom(elem.resolve_level(styles)));
-        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        elem.level.set(Smart::Custom(elem.resolve_level(styles)));
+        elem.supplement
+            .set(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
     }
 }
@@ -218,22 +218,22 @@ impl Synthesize for Packed<HeadingElem> {
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let html = TargetElem::target_in(styles).is_html();
+        let html = styles.get(TargetElem::target).is_html();
 
         const SPACING_TO_NUMBERING: Em = Em::new(0.3);
 
         let span = self.span();
         let mut realized = self.body.clone();
 
-        let hanging_indent = self.hanging_indent(styles);
+        let hanging_indent = self.hanging_indent.get(styles);
         let mut indent = match hanging_indent {
             Smart::Custom(length) => length.resolve(styles),
             Smart::Auto => Abs::zero(),
         };
 
-        if let Some(numbering) = (**self).numbering(styles).as_ref() {
+        if let Some(numbering) = self.numbering.get_ref(styles).as_ref() {
             let location = self.location().unwrap();
-            let numbering = Counter::of(HeadingElem::elem())
+            let numbering = Counter::of(HeadingElem::ELEM)
                 .display_at_loc(engine, location, styles, numbering)?
                 .spanned(span);
 
@@ -293,7 +293,7 @@ impl Show for Packed<HeadingElem> {
             let block = if indent != Abs::zero() {
                 let body = HElem::new((-indent).into()).pack() + realized;
                 let inset = Sides::default()
-                    .with(TextElem::dir_in(styles).start(), Some(indent.into()));
+                    .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
                 BlockElem::new()
                     .with_body(Some(BlockBody::Content(body)))
                     .with_inset(inset)
@@ -307,7 +307,7 @@ impl Show for Packed<HeadingElem> {
 
 impl ShowSet for Packed<HeadingElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
-        let level = (**self).resolve_level(styles).get();
+        let level = self.resolve_level(styles).get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -319,49 +319,49 @@ impl ShowSet for Packed<HeadingElem> {
         let below = Em::new(0.75) / scale;
 
         let mut out = Styles::new();
-        out.set(TextElem::set_size(TextSize(size.into())));
-        out.set(TextElem::set_weight(FontWeight::BOLD));
-        out.set(BlockElem::set_above(Smart::Custom(above.into())));
-        out.set(BlockElem::set_below(Smart::Custom(below.into())));
-        out.set(BlockElem::set_sticky(true));
+        out.set(TextElem::size, TextSize(size.into()));
+        out.set(TextElem::weight, FontWeight::BOLD);
+        out.set(BlockElem::above, Smart::Custom(above.into()));
+        out.set(BlockElem::below, Smart::Custom(below.into()));
+        out.set(BlockElem::sticky, true);
         out
     }
 }
 
 impl Count for Packed<HeadingElem> {
     fn update(&self) -> Option<CounterUpdate> {
-        (**self)
-            .numbering(StyleChain::default())
+        self.numbering
+            .get_ref(StyleChain::default())
             .is_some()
-            .then(|| CounterUpdate::Step((**self).resolve_level(StyleChain::default())))
+            .then(|| CounterUpdate::Step(self.resolve_level(StyleChain::default())))
     }
 }
 
 impl Refable for Packed<HeadingElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match (**self).supplement(StyleChain::default()) {
+        match self.supplement.get_cloned(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(HeadingElem::elem())
+        Counter::of(HeadingElem::ELEM)
     }
 
     fn numbering(&self) -> Option<&Numbering> {
-        (**self).numbering(StyleChain::default()).as_ref()
+        self.numbering.get_ref(StyleChain::default()).as_ref()
     }
 }
 
 impl Outlinable for Packed<HeadingElem> {
     fn outlined(&self) -> bool {
-        (**self).outlined(StyleChain::default())
+        self.outlined.get(StyleChain::default())
     }
 
     fn level(&self) -> NonZeroUsize {
-        (**self).resolve_level(StyleChain::default())
+        self.resolve_level(StyleChain::default())
     }
 
     fn prefix(&self, numbers: Content) -> Content {

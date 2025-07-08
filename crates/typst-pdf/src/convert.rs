@@ -597,7 +597,7 @@ fn collect_named_destinations(
         let mut seen = HashSet::new();
         document
             .introspector
-            .query(&HeadingElem::elem().select())
+            .query(&HeadingElem::ELEM.select())
             .iter()
             .filter_map(|elem| elem.location().zip(elem.label()))
             .filter(|&(_, label)| seen.insert(label))

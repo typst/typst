@@ -158,7 +158,6 @@ pub struct RawElem {
     ///
     /// This is ```typ also *Typst*```, but inline!
     /// ````
-    #[borrowed]
     pub lang: Option<EcoString>,
 
     /// The horizontal alignment that each line in a raw block should have.
@@ -250,7 +249,6 @@ pub struct RawElem {
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
     })]
-    #[borrowed]
     pub theme: Smart<Option<Derived<DataSource, RawTheme>>>,
 
     /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
@@ -306,7 +304,7 @@ impl RawElem {
 impl Synthesize for Packed<RawElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let seq = self.highlight(styles);
-        self.push_lines(seq);
+        self.lines = Some(seq);
         Ok(())
     }
 }
@@ -319,8 +317,8 @@ impl Packed<RawElem> {
 
         let count = lines.len() as i64;
         let lang = elem
-            .lang(styles)
-            .as_ref()
+            .lang
+            .get_ref(styles)
             .as_ref()
             .map(|s| s.to_lowercase())
             .or(Some("txt".into()));
@@ -337,8 +335,8 @@ impl Packed<RawElem> {
             })
         };
 
-        let syntaxes = LazyCell::new(|| elem.syntaxes(styles));
-        let theme: &synt::Theme = match elem.theme(styles) {
+        let syntaxes = LazyCell::new(|| elem.syntaxes.get_cloned(styles));
+        let theme: &synt::Theme = match elem.theme.get_ref(styles) {
             Smart::Auto => &RAW_THEME,
             Smart::Custom(Some(theme)) => theme.derived.get(),
             Smart::Custom(None) => return non_highlighted_result(lines).collect(),
@@ -434,7 +432,7 @@ impl Packed<RawElem> {
 impl Show for Packed<RawElem> {
     #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let lines = self.lines().map(|v| v.as_slice()).unwrap_or_default();
+        let lines = self.lines.as_deref().unwrap_or_default();
 
         let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
         for (i, line) in lines.iter().enumerate() {
@@ -447,8 +445,8 @@ impl Show for Packed<RawElem> {
 
         let mut realized = Content::sequence(seq);
 
-        if TargetElem::target_in(styles).is_html() {
-            return Ok(HtmlElem::new(if self.block(styles) {
+        if styles.get(TargetElem::target).is_html() {
+            return Ok(HtmlElem::new(if self.block.get(styles) {
                 tag::pre
             } else {
                 tag::code
@@ -458,9 +456,9 @@ impl Show for Packed<RawElem> {
             .spanned(self.span()));
         }
 
-        if self.block(styles) {
+        if self.block.get(styles) {
             // Align the text before inserting it into the block.
-            realized = realized.aligned(self.align(styles).into());
+            realized = realized.aligned(self.align.get(styles).into());
             realized = BlockElem::new()
                 .with_body(Some(BlockBody::Content(realized)))
                 .pack()
@@ -474,14 +472,14 @@ impl Show for Packed<RawElem> {
 impl ShowSet for Packed<RawElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(TextElem::set_overhang(false));
-        out.set(TextElem::set_lang(Lang::ENGLISH));
-        out.set(TextElem::set_hyphenate(Smart::Custom(false)));
-        out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
-        out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
-        out.set(TextElem::set_cjk_latin_spacing(Smart::Custom(None)));
-        if self.block(styles) {
-            out.set(ParElem::set_justify(false));
+        out.set(TextElem::overhang, false);
+        out.set(TextElem::lang, Lang::ENGLISH);
+        out.set(TextElem::hyphenate, Smart::Custom(false));
+        out.set(TextElem::size, TextSize(Em::new(0.8).into()));
+        out.set(TextElem::font, FontList(vec![FontFamily::new("DejaVu Sans Mono")]));
+        out.set(TextElem::cjk_latin_spacing, Smart::Custom(None));
+        if self.block.get(styles) {
+            out.set(ParElem::justify, false);
         }
         out
     }
@@ -789,7 +787,7 @@ fn preprocess(
 
     let mut text = text.get();
     if text.contains('\t') {
-        let tab_size = RawElem::tab_size_in(styles);
+        let tab_size = styles.get(RawElem::tab_size);
         text = align_tabs(&text, tab_size);
     }
     split_newlines(&text)
@@ -809,11 +807,11 @@ fn styled(
     let mut body = TextElem::packed(piece).spanned(span);
 
     if span_offset > 0 {
-        body = body.styled(TextElem::set_span_offset(span_offset));
+        body = body.set(TextElem::span_offset, span_offset);
     }
 
     if style.foreground != foreground {
-        body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
+        body = body.set(TextElem::fill, to_typst(style.foreground).into());
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {

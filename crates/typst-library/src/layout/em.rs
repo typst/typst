@@ -167,7 +167,7 @@ impl Resolve for Em {
         if self.is_zero() {
             Abs::zero()
         } else {
-            self.at(TextElem::size_in(styles))
+            self.at(styles.resolve(TextElem::size))
         }
     }
 }
