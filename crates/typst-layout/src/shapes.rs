@@ -714,17 +714,11 @@ pub fn clip_rect(
     let outset = outset.relative_to(size);
     let size = size + outset.sum_by_axis();
 
-    let stroke_widths = stroke
-        .as_ref()
-        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
+    let stroke_widths = stroke.as_ref().map(|s| s.as_ref().map(|s| s.thickness / 2.0));
 
     let base_radius = size.x.min(size.y) / 2.0;
-    let corner_max = Corners::new(
-        base_radius + stroke_widths.left.min(stroke_widths.top),
-        base_radius + stroke_widths.top.min(stroke_widths.right),
-        base_radius + stroke_widths.right.min(stroke_widths.bottom),
-        base_radius + stroke_widths.bottom.min(stroke_widths.left),
-    );
+    let corner_max =
+        stroke_widths.map_corners(|a, b| base_radius + a.min(b).unwrap_or(Abs::zero()));
 
     let radius = radius
         .zip(corner_max)
@@ -811,7 +805,7 @@ fn corners_control_points(
     size: Size,
     radius: &Corners<Abs>,
     strokes: &Sides<Option<FixedStroke>>,
-    stroke_widths: &Sides<Abs>,
+    stroke_widths: &Sides<Option<Abs>>,
 ) -> Corners<ControlPoints> {
     Corners {
         top_left: Corner::TopLeft,
@@ -844,17 +838,11 @@ fn segmented_rect(
     strokes: &Sides<Option<FixedStroke>>,
 ) -> Vec<Shape> {
     let mut res = vec![];
-    let stroke_widths = strokes
-        .as_ref()
-        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
+    let stroke_widths = strokes.as_ref().map(|s| s.as_ref().map(|s| s.thickness / 2.0));
 
     let base_radius = size.x.min(size.y) / 2.0;
-    let corner_max = Corners::new(
-        base_radius + stroke_widths.left.min(stroke_widths.top),
-        base_radius + stroke_widths.top.min(stroke_widths.right),
-        base_radius + stroke_widths.right.min(stroke_widths.bottom),
-        base_radius + stroke_widths.bottom.min(stroke_widths.left),
-    );
+    let corner_max =
+        stroke_widths.map_corners(|a, b| base_radius + a.min(b).unwrap_or(Abs::zero()));
 
     let radius = radius
         .zip(corner_max)
@@ -984,7 +972,7 @@ fn segment(
 ) -> (Shape, bool) {
     fn fill_corner(corner: &ControlPoints) -> bool {
         corner.stroke_before != corner.stroke_after
-            || corner.radius() < corner.stroke_before
+            || corner.radius() < corner.stroke_width_before()
     }
 
     fn fill_corners(
@@ -1067,10 +1055,9 @@ fn fill_segment(
             curve.move_(c.end_inner());
         }
 
+        c.start_cap(&mut curve, start_cap);
         if c.arc_outer() {
             curve.arc_line(c.mid_outer(), c.center_outer(), c.end_outer());
-        } else {
-            c.start_cap(&mut curve, start_cap);
         }
     }
 
@@ -1110,10 +1097,9 @@ fn fill_segment(
         } else {
             curve.line(c.outer());
         }
+        c.end_cap(&mut curve, end_cap);
         if c.arc_inner() {
             curve.arc_line(c.mid_inner(), c.center_inner(), c.start_inner());
-        } else {
-            c.end_cap(&mut curve, end_cap);
         }
     }
 
@@ -1160,24 +1146,14 @@ fn fill_segment(
 /// ```
 struct ControlPoints {
     radius: Abs,
-    stroke_after: Abs,
-    stroke_before: Abs,
+    stroke_after: Option<Abs>,
+    stroke_before: Option<Abs>,
     corner: Corner,
     size: Size,
     same: bool,
 }
 
 impl ControlPoints {
-    /// Rotate point around the origin, relative to the top-left.
-    fn rotate_centered(&self, point: Point) -> Point {
-        match self.corner {
-            Corner::TopLeft => point,
-            Corner::TopRight => Point { x: -point.y, y: point.x },
-            Corner::BottomRight => Point { x: -point.x, y: -point.y },
-            Corner::BottomLeft => Point { x: point.y, y: -point.x },
-        }
-    }
-
     /// Move and rotate the point from top-left to the required corner.
     fn rotate(&self, point: Point) -> Point {
         match self.corner {
@@ -1190,17 +1166,36 @@ impl ControlPoints {
         }
     }
 
+    /// If no stroke is specified before and there is a radius, use the same
+    /// width as on the side after. Otherwise default to zero.
+    fn stroke_width_before(&self) -> Abs {
+        self.stroke_before
+            .or(self.stroke_after.filter(|_| self.radius != Abs::zero()))
+            .unwrap_or(Abs::zero())
+    }
+
+    /// If no stroke is specified after and there is a radius, use the same
+    /// width as on the side before. Otherwise default to zero.
+    fn stroke_width_after(&self) -> Abs {
+        self.stroke_after
+            .or(self.stroke_before.filter(|_| self.radius != Abs::zero()))
+            .unwrap_or(Abs::zero())
+    }
+
     /// Outside intersection of the sides.
     pub fn outer(&self) -> Point {
-        self.rotate(Point { x: -self.stroke_before, y: -self.stroke_after })
+        self.rotate(Point {
+            x: -self.stroke_width_before(),
+            y: -self.stroke_width_after(),
+        })
     }
 
     /// Center for the outer arc.
     pub fn center_outer(&self) -> Point {
         let r = self.radius_outer();
         self.rotate(Point {
-            x: r - self.stroke_before,
-            y: r - self.stroke_after,
+            x: r - self.stroke_width_before(),
+            y: r - self.stroke_width_after(),
         })
     }
 
@@ -1215,8 +1210,8 @@ impl ControlPoints {
         let r = self.radius_inner();
 
         self.rotate(Point {
-            x: self.stroke_before + r,
-            y: self.stroke_after + r,
+            x: self.stroke_width_before() + r,
+            y: self.stroke_width_after() + r,
         })
     }
 
@@ -1227,12 +1222,14 @@ impl ControlPoints {
 
     /// Radius of the middle arc.
     pub fn radius(&self) -> Abs {
-        (self.radius - self.stroke_before.min(self.stroke_after)).max(Abs::zero())
+        (self.radius - self.stroke_width_before().min(self.stroke_width_after()))
+            .max(Abs::zero())
     }
 
     /// Radius of the inner arc.
     pub fn radius_inner(&self) -> Abs {
-        (self.radius - 2.0 * self.stroke_before.max(self.stroke_after)).max(Abs::zero())
+        (self.radius - 2.0 * self.stroke_width_before().max(self.stroke_width_after()))
+            .max(Abs::zero())
     }
 
     /// Middle of the corner on the outside of the stroke.
@@ -1286,8 +1283,8 @@ impl ControlPoints {
     /// Start of the corner on the outside of the stroke.
     pub fn start_outer(&self) -> Point {
         self.rotate(Point {
-            x: -self.stroke_before,
-            y: self.radius_outer() - self.stroke_after,
+            x: -self.stroke_width_before(),
+            y: self.radius_outer() - self.stroke_width_after(),
         })
     }
 
@@ -1299,16 +1296,16 @@ impl ControlPoints {
     /// Start of the corner on the inside of the stroke.
     pub fn start_inner(&self) -> Point {
         self.rotate(Point {
-            x: self.stroke_before,
-            y: self.stroke_after + self.radius_inner(),
+            x: self.stroke_width_before(),
+            y: self.stroke_width_after() + self.radius_inner(),
         })
     }
 
     /// End of the corner on the outside of the stroke.
     pub fn end_outer(&self) -> Point {
         self.rotate(Point {
-            x: self.radius_outer() - self.stroke_before,
-            y: -self.stroke_after,
+            x: self.radius_outer() - self.stroke_width_before(),
+            y: -self.stroke_width_after(),
         })
     }
 
@@ -1320,8 +1317,8 @@ impl ControlPoints {
     /// End of the corner on the inside of the stroke.
     pub fn end_inner(&self) -> Point {
         self.rotate(Point {
-            x: self.stroke_before + self.radius_inner(),
-            y: self.stroke_after,
+            x: self.stroke_width_before() + self.radius_inner(),
+            y: self.stroke_width_after(),
         })
     }
 
@@ -1329,72 +1326,76 @@ impl ControlPoints {
     ///
     /// If this corner has a stroke before it,
     /// a default "butt" cap is used.
-    ///
-    /// NOTE: doesn't support the case where the corner has a radius.
     pub fn start_cap(&self, curve: &mut Curve, cap_type: LineCap) {
-        if self.stroke_before != Abs::zero()
-            || self.radius != Abs::zero()
+        // Avoid misshaped caps on small radii.
+        let small_radius = self.radius < 2.0 * self.stroke_width_after();
+        if self.stroke_before.is_some()
             || cap_type == LineCap::Butt
+            || self.radius != Abs::zero() && small_radius
         {
             // Just the default cap.
-            curve.line(self.outer());
+            curve.line(self.mid_outer());
         } else if cap_type == LineCap::Square {
+            let butt_start = self.mid_inner();
+            let butt_end = self.mid_outer();
             // Extend by the stroke width.
-            let offset =
-                self.rotate_centered(Point { x: -self.stroke_after, y: Abs::zero() });
-            curve.line(self.end_inner() + offset);
-            curve.line(self.outer() + offset);
+            let offset_dir = line_normal(butt_start, butt_end);
+            let offset = self.stroke_width_after().to_raw() * offset_dir;
+            curve.line(butt_start + offset);
+            curve.line(butt_end + offset);
+            curve.line(butt_end);
         } else if cap_type == LineCap::Round {
+            let arc_start = self.mid_inner();
+            let arc_end = self.mid_outer();
             // We push the center by a little bit to ensure the correct
             // half of the circle gets drawn. If it is perfectly centered
             // the `arc` function just degenerates into a line, which we
             // do not want in this case.
-            curve.arc(
-                self.end_inner(),
-                (self.end_inner()
-                    + self.rotate_centered(Point { x: Abs::raw(1.0), y: Abs::zero() })
-                    + self.outer())
-                    / 2.,
-                self.outer(),
-            );
+            let offset_dir = -line_normal(arc_start, arc_end);
+            let arc_center = (arc_start + arc_end) / 2.0 + offset_dir;
+            curve.arc(arc_start, arc_center, arc_end);
         }
-        curve.line(self.end_outer());
     }
 
     /// Draw the cap at the end of the segment.
     ///
     /// If this corner has a stroke before it,
     /// a default "butt" cap is used.
-    ///
-    /// NOTE: doesn't support the case where the corner has a radius.
     pub fn end_cap(&self, curve: &mut Curve, cap_type: LineCap) {
-        if self.stroke_after != Abs::zero()
-            || self.radius != Abs::zero()
+        // Avoid misshaped caps on small radii.
+        let small_radius = self.radius < 2.0 * self.stroke_width_before();
+        if self.stroke_after.is_some()
             || cap_type == LineCap::Butt
+            || self.radius != Abs::zero() && small_radius
         {
             // Just the default cap.
-            curve.line(self.center_inner());
+            curve.line(self.mid_inner());
         } else if cap_type == LineCap::Square {
+            let butt_start = self.mid_outer();
+            let butt_end = self.mid_inner();
             // Extend by the stroke width.
-            let offset =
-                self.rotate_centered(Point { x: Abs::zero(), y: -self.stroke_before });
-            curve.line(self.outer() + offset);
-            curve.line(self.center_inner() + offset);
+            let offset_dir = line_normal(butt_start, butt_end);
+            let offset = self.stroke_width_before().to_raw() * offset_dir;
+            curve.line(butt_start + offset);
+            curve.line(butt_end + offset);
+            curve.line(butt_end);
         } else if cap_type == LineCap::Round {
+            let arc_start = self.mid_outer();
+            let arc_end = self.mid_inner();
             // We push the center by a little bit to ensure the correct
             // half of the circle gets drawn. If it is perfectly centered
             // the `arc` function just degenerates into a line, which we
             // do not want in this case.
-            curve.arc(
-                self.outer(),
-                (self.outer()
-                    + self.rotate_centered(Point { x: Abs::zero(), y: Abs::raw(1.0) })
-                    + self.center_inner())
-                    / 2.,
-                self.center_inner(),
-            );
+            let arc_center_offset = -line_normal(arc_start, arc_end);
+            let arc_center = (arc_start + arc_end) / 2.0 + arc_center_offset;
+            curve.arc(arc_start, arc_center, arc_end);
         }
     }
+}
+
+/// Computes the normal vector towards the left of the line.
+fn line_normal(start: Point, end: Point) -> Point {
+    (end - start).rot90ccw().normalized()
 }
 
 /// Helper to draw arcs with Bézier curves.
