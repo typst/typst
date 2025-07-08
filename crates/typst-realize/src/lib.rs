@@ -14,9 +14,9 @@ use ecow::EcoString;
 use typst_library::diag::{bail, At, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, ContextElem, Element, NativeElement, Recipe, RecipeIndex, Selector,
-    SequenceElem, Show, ShowSet, Style, StyleChain, StyledElem, Styles, SymbolElem,
-    Synthesize, Transformation,
+    Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Recipe,
+    RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
+    SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::html::{tag, FrameElem, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
@@ -28,7 +28,7 @@ use typst_library::model::{
     CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
     ParElem, ParbreakElem, TermsElem,
 };
-use typst_library::routines::{Arenas, DynShowFn, FragmentKind, Pair, RealizationKind};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
 use typst_utils::{SliceExt, SmallBitSet};
@@ -160,7 +160,7 @@ enum ShowStep<'a> {
     /// A user-defined transformational show rule.
     Recipe(&'a Recipe, RecipeIndex),
     /// The built-in show rule.
-    Builtin(DynShowFn),
+    Builtin(NativeShowRule),
 }
 
 /// A match of a regex show rule.
@@ -382,9 +382,7 @@ fn visit_show_rules<'a>(
             }
 
             // Apply a built-in show rule.
-            ShowStep::Builtin => {
-                output.with::<dyn Show>().unwrap().show(s.engine, chained)
-            }
+            ShowStep::Builtin(rule) => rule.apply(&output, s.engine, chained),
         };
 
         // Errors in show rules don't terminate compilation immediately. We just
@@ -498,8 +496,11 @@ fn verdict<'a>(
     }
 
     // If we found no user-defined rule, also consider the built-in show rule.
-    if step.is_none() && elem.can::<dyn Show>() {
-        step = Some(ShowStep::Builtin);
+    if step.is_none() {
+        let target = styles.get(TargetElem::target);
+        if let Some(rule) = engine.routines.rules.get(target, elem) {
+            step = Some(ShowStep::Builtin(rule));
+        }
     }
 
     // If there's no nothing to do, there is also no verdict.

@@ -39,6 +39,7 @@ pub use typst_syntax as syntax;
 pub use typst_utils as utils;
 
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 use comemo::{Track, Tracked, Validate};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
@@ -46,7 +47,7 @@ use typst_library::diag::{
     bail, warning, FileError, SourceDiagnostic, SourceResult, Warned,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{StyleChain, Styles, Value};
+use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
 use typst_library::html::HtmlDocument;
 use typst_library::introspection::Introspector;
 use typst_library::layout::PagedDocument;
@@ -326,8 +327,15 @@ mod sealed {
 /// function pointers.
 ///
 /// This is essentially dynamic linking and done to allow for crate splitting.
-pub static ROUTINES: Routines = Routines {
+pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
+    rules: {
+        let mut rules = NativeRuleMap::new();
+        typst_layout::register(&mut rules);
+        typst_html::register(&mut rules);
+        rules
+    },
     eval_string: typst_eval::eval_string,
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
+});

@@ -246,12 +246,6 @@ pub trait Synthesize {
         -> SourceResult<()>;
 }
 
-/// Defines a built-in show rule for an element.
-pub trait Show {
-    /// Execute the base recipe for this element.
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content>;
-}
-
 /// Defines built-in show set rules for an element.
 ///
 /// This is a bit more powerful than a user-defined show-set because it can

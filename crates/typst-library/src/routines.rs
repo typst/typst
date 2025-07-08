@@ -7,7 +7,8 @@ use typst_utils::LazyHash;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Cast, Closure, Content, Context, Func, Packed, Scope, StyleChain, Styles, Value,
+    Args, Closure, Content, Context, Func, NativeRuleMap, Scope, StyleChain, Styles,
+    Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
@@ -26,6 +27,8 @@ macro_rules! routines {
         /// This is essentially dynamic linking and done to allow for crate
         /// splitting.
         pub struct Routines {
+            /// Native show rules.
+            pub rules: NativeRuleMap,
             $(
                 $(#[$attr])*
                 pub $name: $(for<$($time),*>)? fn ($($args)*) -> $ret
