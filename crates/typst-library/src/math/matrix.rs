@@ -274,7 +274,7 @@ cast! {
     Delimiter,
     self => self.0.into_value(),
     _: NoneValue => Self::none(),
-    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "symbol value is longer than one character")?)?,
+    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "expected a single-codepoint symbol")?)?,
     v: char => Self::char(v)?,
 }
 
