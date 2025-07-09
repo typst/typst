@@ -1166,19 +1166,31 @@ impl ControlPoints {
         }
     }
 
-    /// If no stroke is specified before and there is a radius, use the same
-    /// width as on the side after. Otherwise default to zero.
+    /// Whether to use the [`Self::stroke_after`] if [`Self::stroke_before`] is
+    /// missing to compute the control points. If the radius is too small, caps
+    /// other than the [`LineCap::Butt`] might be misshaped.
+    fn reuse_stroke_after_for_cap(&self) -> Option<Abs> {
+        self.stroke_after.filter(|s| 2.0 * *s < self.radius)
+    }
+
+    /// Either fall back to [`Self::reuse_stroke_after_for_cap`] or zero.
     fn stroke_width_before(&self) -> Abs {
         self.stroke_before
-            .or(self.stroke_after.filter(|_| self.radius != Abs::zero()))
+            .or(self.reuse_stroke_after_for_cap())
             .unwrap_or(Abs::zero())
     }
 
-    /// If no stroke is specified after and there is a radius, use the same
-    /// width as on the side before. Otherwise default to zero.
+    /// Whether to use the [`Self::stroke_before`] if [`Self::stroke_after`] is
+    /// missing to compute the control points. If the radius is too small, caps
+    /// other than the [`LineCap::Butt`] might be misshaped.
+    fn reuse_stroke_before_for_cap(&self) -> Option<Abs> {
+        self.stroke_before.filter(|s| 2.0 * *s < self.radius)
+    }
+
+    /// Either fall back to [`Self::reuse_stroke_before_for_cap`] or zero.
     fn stroke_width_after(&self) -> Abs {
         self.stroke_after
-            .or(self.stroke_before.filter(|_| self.radius != Abs::zero()))
+            .or(self.reuse_stroke_before_for_cap())
             .unwrap_or(Abs::zero())
     }
 
@@ -1328,9 +1340,9 @@ impl ControlPoints {
     /// a default "butt" cap is used.
     pub fn start_cap(&self, curve: &mut Curve, cap_type: LineCap) {
         // Avoid misshaped caps on small radii.
-        let small_radius = self.radius < 2.0 * self.stroke_width_after();
-        if self.stroke_before.is_some()
-            || cap_type == LineCap::Butt
+        let small_radius = self.reuse_stroke_after_for_cap().is_none();
+        if cap_type == LineCap::Butt
+            || self.stroke_before.is_some()
             || self.radius != Abs::zero() && small_radius
         {
             // Just the default cap.
@@ -1363,9 +1375,9 @@ impl ControlPoints {
     /// a default "butt" cap is used.
     pub fn end_cap(&self, curve: &mut Curve, cap_type: LineCap) {
         // Avoid misshaped caps on small radii.
-        let small_radius = self.radius < 2.0 * self.stroke_width_before();
-        if self.stroke_after.is_some()
-            || cap_type == LineCap::Butt
+        let small_radius = self.reuse_stroke_before_for_cap().is_none();
+        if cap_type == LineCap::Butt
+            || self.stroke_after.is_some()
             || self.radius != Abs::zero() && small_radius
         {
             // Just the default cap.
