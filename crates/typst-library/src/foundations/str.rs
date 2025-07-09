@@ -178,9 +178,10 @@ impl Str {
         self.0.len()
     }
 
-    /// Extracts the first grapheme cluster of the string. Fails with an error
-    /// if the string is empty. Returns the default value if the string is empty
-    /// or fails with an error is no default value was specified.
+    /// Extracts the first grapheme cluster of the string.
+    ///
+    /// Returns the provided default value if the string is empty or fails with
+    /// an error if no default value was specified.
     #[func]
     pub fn first(
         &self,
@@ -196,9 +197,10 @@ impl Str {
             .ok_or_else(string_is_empty)
     }
 
-    /// Extracts the last grapheme cluster of the string. Fails with an error if
-    /// the string is empty. Returns the default value if the string is empty or
-    /// fails with an error is no default value was specified.
+    /// Extracts the last grapheme cluster of the string.
+    ///
+    /// Returns the provided default value if the string is empty or fails with
+    /// an error if no default value was specified.
     #[func]
     pub fn last(
         &self,
