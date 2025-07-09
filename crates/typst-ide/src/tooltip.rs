@@ -378,4 +378,9 @@ mod tests {
             .with_source("other.typ", "#let f = (x) => 1");
         test(&world, -4, Side::After).must_be_code("(..) => ..");
     }
+
+    #[test]
+    fn test_tooltip_reference() {
+        test("#figure(caption: [Hi])[]<f> @f", -1, Side::Before).must_be_text("Hi");
+    }
 }
