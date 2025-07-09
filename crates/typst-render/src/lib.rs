@@ -202,7 +202,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
                 mask.intersect_path(
                     &path,
                     sk::FillRule::default(),
-                    false,
+                    true,
                     sk::Transform::default(),
                 );
                 storage = mask;
@@ -218,7 +218,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
                 mask.fill_path(
                     &path,
                     sk::FillRule::default(),
-                    false,
+                    true,
                     sk::Transform::default(),
                 );
                 storage = mask;
