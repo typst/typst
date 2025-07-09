@@ -323,6 +323,25 @@ mod sealed {
     }
 }
 
+/// Provides ways to construct a [`Library`].
+pub trait LibraryExt {
+    /// Creates the default library.
+    fn default() -> Library;
+
+    /// Creates a builder for configuring a library.
+    fn builder() -> LibraryBuilder;
+}
+
+impl LibraryExt for Library {
+    fn default() -> Library {
+        Self::builder().build()
+    }
+
+    fn builder() -> LibraryBuilder {
+        LibraryBuilder::from_routines(&ROUTINES)
+    }
+}
+
 /// Defines implementation of various Typst compiler routines as a table of
 /// function pointers.
 ///

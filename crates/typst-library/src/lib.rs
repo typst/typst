@@ -36,6 +36,7 @@ use typst_utils::{LazyHash, SmallBitSet};
 use crate::diag::FileResult;
 use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
 use crate::layout::{Alignment, Dir};
+use crate::routines::Routines;
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
 
@@ -139,6 +140,11 @@ impl<T: World + ?Sized> WorldExt for T {
 }
 
 /// Definition of Typst's standard library.
+///
+/// To create and configure the standard library, use the `LibraryExt` trait
+/// and call
+/// - `Library::default()` for a standard configuration
+/// - `Library::builder().build()` if you want to customize the library
 #[derive(Debug, Clone, Hash)]
 pub struct Library {
     /// The module that contains the definitions that are available everywhere.
@@ -154,30 +160,28 @@ pub struct Library {
     pub features: Features,
 }
 
-impl Library {
-    /// Create a new builder for a library.
-    pub fn builder() -> LibraryBuilder {
-        LibraryBuilder::default()
-    }
-}
-
-impl Default for Library {
-    /// Constructs the standard library with the default configuration.
-    fn default() -> Self {
-        Self::builder().build()
-    }
-}
-
 /// Configurable builder for the standard library.
 ///
-/// This struct is created by [`Library::builder`].
-#[derive(Debug, Clone, Default)]
+/// Constructed via the `LibraryExt` trait.
+#[derive(Debug, Clone)]
 pub struct LibraryBuilder {
+    #[expect(unused, reason = "will be used in the future")]
+    routines: &'static Routines,
     inputs: Option<Dict>,
     features: Features,
 }
 
 impl LibraryBuilder {
+    /// Creates a new builder.
+    #[doc(hidden)]
+    pub fn from_routines(routines: &'static Routines) -> Self {
+        Self {
+            routines,
+            inputs: None,
+            features: Features::default(),
+        }
+    }
+
     /// Configure the inputs visible through `sys.inputs`.
     pub fn with_inputs(mut self, inputs: Dict) -> Self {
         self.inputs = Some(inputs);

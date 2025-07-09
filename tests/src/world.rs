@@ -19,7 +19,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
 use typst::visualize::Color;
-use typst::{Feature, Library, World};
+use typst::{Feature, Library, LibraryExt, World};
 use typst_syntax::Lines;
 
 /// A world that provides access to the tests environment.
