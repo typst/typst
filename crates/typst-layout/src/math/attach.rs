@@ -4,6 +4,8 @@ use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
 use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
 };
+use typst_library::text::Font;
+use typst_syntax::Span;
 use typst_utils::OptionExt;
 
 use super::{
@@ -83,7 +85,7 @@ pub fn layout_attach(
         layout!(br, sub_style_chain)?,
     ];
 
-    layout_attachments(ctx, styles, base, fragments)
+    layout_attachments(ctx, styles, base, elem.base.span(), fragments)
 }
 
 /// Lays out a [`PrimeElem`].
@@ -102,13 +104,19 @@ pub fn layout_primes(
                 4 => '⁗',
                 _ => unreachable!(),
             };
-            let f = ctx.layout_into_fragment(&SymbolElem::packed(c), styles)?;
+            let f = ctx.layout_into_fragment(
+                &SymbolElem::packed(c).spanned(elem.span()),
+                styles,
+            )?;
             ctx.push(f);
         }
         count => {
             // Custom amount of primes
             let prime = ctx
-                .layout_into_fragment(&SymbolElem::packed('′'), styles)?
+                .layout_into_fragment(
+                    &SymbolElem::packed('′').spanned(elem.span()),
+                    styles,
+                )?
                 .into_frame();
             let width = prime.width() * (count + 1) as f64 / 2.0;
             let mut frame = Frame::soft(Size::new(width, prime.height()));
@@ -170,22 +178,25 @@ fn layout_attachments(
     ctx: &mut MathContext,
     styles: StyleChain,
     base: MathFragment,
+    span: Span,
     [tl, t, tr, bl, b, br]: [Option<MathFragment>; 6],
 ) -> SourceResult<()> {
-    let base_class = base.class();
+    let class = base.class();
+    let (font, size) = base.font(ctx, styles, span)?;
+    let cramped = styles.get(EquationElem::cramped);
 
     // Calculate the distance from the base's baseline to the superscripts' and
     // subscripts' baseline.
     let (tx_shift, bx_shift) = if [&tl, &tr, &bl, &br].iter().all(|e| e.is_none()) {
         (Abs::zero(), Abs::zero())
     } else {
-        compute_script_shifts(ctx, styles, &base, [&tl, &tr, &bl, &br])
+        compute_script_shifts(&font, size, cramped, &base, [&tl, &tr, &bl, &br])
     };
 
     // Calculate the distance from the base's baseline to the top attachment's
     // and bottom attachment's baseline.
     let (t_shift, b_shift) =
-        compute_limit_shifts(ctx, styles, &base, [t.as_ref(), b.as_ref()]);
+        compute_limit_shifts(&font, size, &base, [t.as_ref(), b.as_ref()]);
 
     // Calculate the final frame height.
     let ascent = base
@@ -215,7 +226,7 @@ fn layout_attachments(
     // `space_after_script` is extra spacing that is at the start before each
     // pre-script, and at the end after each post-script (see the MathConstants
     // table in the OpenType MATH spec).
-    let space_after_script = scaled!(ctx, styles, space_after_script);
+    let space_after_script = value!(font, space_after_script).at(size);
 
     // Calculate the distance each pre-script extends to the left of the base's
     // width.
@@ -272,7 +283,7 @@ fn layout_attachments(
     layout!(b, b_x, b_y); // lower-limit
 
     // Done! Note that we retain the class of the base.
-    ctx.push(FrameFragment::new(styles, frame).with_class(base_class));
+    ctx.push(FrameFragment::new(styles, frame).with_class(class));
 
     Ok(())
 }
@@ -364,8 +375,8 @@ fn compute_limit_widths(
 /// Returns two lengths, the first being the distance to the upper-limit's
 /// baseline and the second being the distance to the lower-limit's baseline.
 fn compute_limit_shifts(
-    ctx: &MathContext,
-    styles: StyleChain,
+    font: &Font,
+    font_size: Abs,
     base: &MathFragment,
     [t, b]: [Option<&MathFragment>; 2],
 ) -> (Abs, Abs) {
@@ -373,16 +384,15 @@ fn compute_limit_shifts(
     // ascender of the limits respectively, whereas `upper_rise_min` and
     // `lower_drop_min` give gaps to each limit's baseline (see the
     // MathConstants table in the OpenType MATH spec).
-
     let t_shift = t.map_or_default(|t| {
-        let upper_gap_min = scaled!(ctx, styles, upper_limit_gap_min);
-        let upper_rise_min = scaled!(ctx, styles, upper_limit_baseline_rise_min);
+        let upper_gap_min = value!(font, upper_limit_gap_min).at(font_size);
+        let upper_rise_min = value!(font, upper_limit_baseline_rise_min).at(font_size);
         base.ascent() + upper_rise_min.max(upper_gap_min + t.descent())
     });
 
     let b_shift = b.map_or_default(|b| {
-        let lower_gap_min = scaled!(ctx, styles, lower_limit_gap_min);
-        let lower_drop_min = scaled!(ctx, styles, lower_limit_baseline_drop_min);
+        let lower_gap_min = value!(font, lower_limit_gap_min).at(font_size);
+        let lower_drop_min = value!(font, lower_limit_baseline_drop_min).at(font_size);
         base.descent() + lower_drop_min.max(lower_gap_min + b.ascent())
     });
 
@@ -393,25 +403,27 @@ fn compute_limit_shifts(
 /// Returns two lengths, the first being the distance to the superscripts'
 /// baseline and the second being the distance to the subscripts' baseline.
 fn compute_script_shifts(
-    ctx: &MathContext,
-    styles: StyleChain,
+    font: &Font,
+    font_size: Abs,
+    cramped: bool,
     base: &MathFragment,
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
-    let sup_shift_up = if styles.get(EquationElem::cramped) {
-        scaled!(ctx, styles, superscript_shift_up_cramped)
+    let sup_shift_up = (if cramped {
+        value!(font, superscript_shift_up_cramped)
     } else {
-        scaled!(ctx, styles, superscript_shift_up)
-    };
+        value!(font, superscript_shift_up)
+    })
+    .at(font_size);
 
-    let sup_bottom_min = scaled!(ctx, styles, superscript_bottom_min);
+    let sup_bottom_min = value!(font, superscript_bottom_min).at(font_size);
     let sup_bottom_max_with_sub =
-        scaled!(ctx, styles, superscript_bottom_max_with_subscript);
-    let sup_drop_max = scaled!(ctx, styles, superscript_baseline_drop_max);
-    let gap_min = scaled!(ctx, styles, sub_superscript_gap_min);
-    let sub_shift_down = scaled!(ctx, styles, subscript_shift_down);
-    let sub_top_max = scaled!(ctx, styles, subscript_top_max);
-    let sub_drop_min = scaled!(ctx, styles, subscript_baseline_drop_min);
+        value!(font, superscript_bottom_max_with_subscript).at(font_size);
+    let sup_drop_max = value!(font, superscript_baseline_drop_max).at(font_size);
+    let gap_min = value!(font, sub_superscript_gap_min).at(font_size);
+    let sub_shift_down = value!(font, subscript_shift_down).at(font_size);
+    let sub_top_max = value!(font, subscript_top_max).at(font_size);
+    let sub_drop_min = value!(font, subscript_baseline_drop_min).at(font_size);
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();

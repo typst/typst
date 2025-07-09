@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use typst_library::math::{
     OverbraceElem, OverbracketElem, OverlineElem, OverparenElem, OvershellElem,
@@ -10,8 +10,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, MathRun, stack,
-    style_cramped, style_for_subscript, style_for_superscript,
+    FrameFragment, LeftRightAlternator, MathContext, MathRun, stack, style_cramped,
+    style_for_subscript, style_for_superscript,
 };
 
 const BRACE_GAP: Em = Em::new(0.25);
@@ -208,12 +208,13 @@ fn layout_underoverline(
     let (extra_height, content, line_pos, content_pos, baseline, bar_height, line_adjust);
     match position {
         Position::Under => {
-            let sep = scaled!(ctx, styles, underbar_extra_descender);
-            bar_height = scaled!(ctx, styles, underbar_rule_thickness);
-            let gap = scaled!(ctx, styles, underbar_vertical_gap);
-            extra_height = sep + bar_height + gap;
-
             content = ctx.layout_into_fragment(body, styles)?;
+
+            let (font, size) = content.font(ctx, styles, span)?;
+            let sep = value!(font, underbar_extra_descender).at(size);
+            bar_height = value!(font, underbar_rule_thickness).at(size);
+            let gap = value!(font, underbar_vertical_gap).at(size);
+            extra_height = sep + bar_height + gap;
 
             line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
             content_pos = Point::zero();
@@ -221,13 +222,15 @@ fn layout_underoverline(
             line_adjust = -content.italics_correction();
         }
         Position::Over => {
-            let sep = scaled!(ctx, styles, overbar_extra_ascender);
-            bar_height = scaled!(ctx, styles, overbar_rule_thickness);
-            let gap = scaled!(ctx, styles, overbar_vertical_gap);
-            extra_height = sep + bar_height + gap;
-
             let cramped = style_cramped();
-            content = ctx.layout_into_fragment(body, styles.chain(&cramped))?;
+            let styles = styles.chain(&cramped);
+            content = ctx.layout_into_fragment(body, styles)?;
+
+            let (font, size) = content.font(ctx, styles, span)?;
+            let sep = value!(font, overbar_extra_ascender).at(size);
+            bar_height = value!(font, overbar_rule_thickness).at(size);
+            let gap = value!(font, overbar_vertical_gap).at(size);
+            extra_height = sep + bar_height + gap;
 
             line_pos = Point::with_y(sep + bar_height / 2.0);
             content_pos = Point::with_y(extra_height);
@@ -285,7 +288,8 @@ fn layout_underoverspreader(
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(styles);
-    let mut glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
+    let mut glyph =
+        ctx.layout_into_fragment(&SymbolElem::packed(c).spanned(span), styles)?;
     glyph.stretch_horizontal(ctx, body.width());
 
     let mut rows = vec![];

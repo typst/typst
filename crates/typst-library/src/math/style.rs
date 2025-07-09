@@ -98,14 +98,11 @@ pub fn cal(
 /// ```example
 /// #let scr(it) = text(
 ///   features: ("ss01",),
-///   box($cal(it)$),
+///   $cal(it)$,
 /// )
 ///
 /// We establish $cal(P) != scr(P)$.
 /// ```
-///
-/// (The box is not conceptually necessary, but unfortunately currently needed
-/// due to limitations in Typst's text style handling in math.)
 #[func(title = "Script Style", keywords = ["mathscr", "roundhand"])]
 pub fn scr(
     /// The content to style.
