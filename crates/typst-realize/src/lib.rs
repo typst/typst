@@ -29,7 +29,7 @@ use typst_library::model::{
     ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
-use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use typst_library::text::{LinebreakElem, RawElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
 use typst_utils::{SliceExt, SmallBitSet};
 
@@ -287,6 +287,13 @@ fn visit_kind_rules<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
     if let RealizationKind::Math = s.kind {
+        // Deal with Raw later when it gets laid out externally, so that it
+        // renders correctly in math.
+        if content.is::<RawElem>() {
+            s.sink.push((content, styles));
+            return Ok(true);
+        }
+
         // Transparently recurse into equations nested in math, so that things
         // like this work:
         // ```
