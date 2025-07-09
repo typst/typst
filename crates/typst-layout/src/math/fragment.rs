@@ -4,6 +4,7 @@ use az::SaturatingAs;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
+use typst_library::World;
 use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
@@ -11,12 +12,15 @@ use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language};
+use typst_library::text::{
+    Font, Glyph, TextElem, TextItem, families, features, language, variant,
+};
+use typst_library::visualize::Paint;
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 
-use super::MathContext;
+use super::{MathContext, find_math_font};
 use crate::inline::create_shape_plan;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
@@ -108,6 +112,21 @@ impl MathFragment {
         }
     }
 
+    pub fn font(
+        &self,
+        ctx: &MathContext,
+        styles: StyleChain,
+        span: Span,
+    ) -> SourceResult<(Font, Abs)> {
+        Ok((
+            match self {
+                Self::Glyph(glyph) => glyph.item.font.clone(),
+                _ => find_math_font(ctx.engine.world, styles, span)?,
+            },
+            self.font_size().unwrap_or_else(|| styles.resolve(TextElem::size)),
+        ))
+    }
+
     pub fn font_size(&self) -> Option<Abs> {
         match self {
             Self::Glyph(glyph) => Some(glyph.item.size),
@@ -192,6 +211,31 @@ impl MathFragment {
         }
     }
 
+    pub fn fill(&self) -> Option<Paint> {
+        match self {
+            Self::Glyph(glyph) => Some(glyph.item.fill.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn stretch_vertical(&mut self, ctx: &mut MathContext, height: Abs) {
+        if let Self::Glyph(glyph) = self {
+            glyph.stretch_vertical(ctx, height)
+        }
+    }
+
+    pub fn stretch_horizontal(&mut self, ctx: &mut MathContext, width: Abs) {
+        if let Self::Glyph(glyph) = self {
+            glyph.stretch_horizontal(ctx, width)
+        }
+    }
+
+    pub fn center_on_axis(&mut self) {
+        if let Self::Glyph(glyph) = self {
+            glyph.center_on_axis()
+        }
+    }
+
     /// If no kern table is provided for a corner, a kerning amount of zero is
     /// assumed.
     pub fn kern_at_height(&self, corner: Corner, height: Abs) -> Abs {
@@ -261,23 +305,70 @@ pub struct GlyphFragment {
 impl GlyphFragment {
     /// Calls `new` with the given character.
     pub fn new_char(
-        font: &Font,
+        ctx: &MathContext,
         styles: StyleChain,
         c: char,
         span: Span,
-    ) -> SourceResult<Self> {
-        Self::new(font, styles, c.encode_utf8(&mut [0; 4]), span)
+    ) -> SourceResult<Option<Self>> {
+        Self::new(ctx, styles, c.encode_utf8(&mut [0; 4]), span)
+    }
+
+    /// Selects a font to use and then shapes text.
+    pub fn new(
+        ctx: &MathContext,
+        styles: StyleChain,
+        text: &str,
+        span: Span,
+    ) -> SourceResult<Option<Self>> {
+        let families = families(styles);
+        let variant = variant(styles);
+        let fallback = styles.get(TextElem::fallback);
+        let end = text.char_indices().nth(1).map(|(i, _)| i).unwrap_or(text.len());
+
+        // Find the next available family.
+        let world = ctx.engine.world;
+        let book = world.book();
+        let mut selection = None;
+        for family in families {
+            selection = book
+                .select(family.as_str(), variant)
+                .and_then(|id| world.font(id))
+                .filter(|font| {
+                    font.ttf().tables().math.and_then(|math| math.constants).is_some()
+                })
+                .filter(|_| family.covers().is_none_or(|cov| cov.is_match(&text[..end])));
+            if selection.is_some() {
+                break;
+            }
+        }
+
+        // Do font fallback if the families are exhausted and fallback is enabled.
+        if selection.is_none() && fallback {
+            selection = book
+                .select_fallback(None, variant, text)
+                .and_then(|id| world.font(id))
+                .filter(|font| {
+                    font.ttf().tables().math.and_then(|math| math.constants).is_some()
+                });
+        }
+
+        // Error out if no math font could be found at all.
+        let Some(font) = selection else {
+            bail!(span, "current font does not support math");
+        };
+
+        Self::shape(&font, styles, text, span)
     }
 
     /// Try to create a new glyph out of the given string. Will bail if the
-    /// result from shaping the string is not a single glyph or is a tofu.
+    /// result from shaping the string is more than a single glyph.
     #[comemo::memoize]
-    pub fn new(
+    pub fn shape(
         font: &Font,
         styles: StyleChain,
         text: &str,
         span: Span,
-    ) -> SourceResult<GlyphFragment> {
+    ) -> SourceResult<Option<GlyphFragment>> {
         let mut buffer = UnicodeBuffer::new();
         buffer.push_str(text);
         buffer.set_language(language(styles));
@@ -300,17 +391,14 @@ impl GlyphFragment {
         );
 
         let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
-        if buffer.len() != 1 {
-            bail!(span, "did not get a single glyph after shaping {}", text);
+        match buffer.len() {
+            0 => return Ok(None),
+            1 => {}
+            _ => bail!(span, "did not get a single glyph after shaping {}", text),
         }
 
         let info = buffer.glyph_infos()[0];
         let pos = buffer.glyph_positions()[0];
-
-        // TODO: add support for coverage and fallback, like in normal text shaping.
-        if info.glyph_id == 0 {
-            bail!(span, "current font is missing a glyph for {}", text);
-        }
 
         let cluster = info.cluster as usize;
         let c = text[cluster..].chars().next().unwrap();
@@ -361,7 +449,7 @@ impl GlyphFragment {
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
-        Ok(fragment)
+        Ok(Some(fragment))
     }
 
     /// Sets element id and boxes in appropriate way without changing other
