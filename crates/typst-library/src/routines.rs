@@ -1,3 +1,4 @@
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use comemo::{Tracked, TrackedMut};
@@ -37,6 +38,12 @@ macro_rules! routines {
 
         impl Hash for Routines {
             fn hash<H: Hasher>(&self, _: &mut H) {}
+        }
+
+        impl Debug for Routines {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                f.pad("Routines(..)")
+            }
         }
     };
 }
