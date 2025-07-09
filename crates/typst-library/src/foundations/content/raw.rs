@@ -141,7 +141,7 @@ impl RawContent {
 
     /// Clones a packed element into new raw content.
     pub(super) fn clone_impl<E: NativeElement>(elem: &Packed<E>) -> Self {
-        let raw = &elem.as_content().0;
+        let raw = &elem.pack_ref().0;
         let header = raw.header();
         RawContent::create(
             elem.as_ref().clone(),
