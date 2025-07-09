@@ -1,23 +1,12 @@
 //! HTML output.
 
 mod dom;
-mod typed;
 
 pub use self::dom::*;
 
 use ecow::EcoString;
 
-use crate::foundations::{elem, Content, Module, Scope};
-
-/// Create a module with all HTML definitions.
-pub fn module() -> Module {
-    let mut html = Scope::deduplicating();
-    html.start_category(crate::Category::Html);
-    html.define_elem::<HtmlElem>();
-    html.define_elem::<FrameElem>();
-    self::typed::define(&mut html);
-    Module::new("html", html)
-}
+use crate::foundations::{elem, Content};
 
 /// An HTML element that can contain Typst content.
 ///

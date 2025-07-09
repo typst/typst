@@ -357,4 +357,5 @@ pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
+    html_module: typst_html::module,
 });
