@@ -102,7 +102,7 @@ pub struct QuoteElem {
     /// }
     ///
     /// #quote(
-    ///   attribution: link("https://typst.app/home")[typst.com]
+    ///   attribution: link("https://typst.app/home")[typst.app]
     /// )[
     ///   Compose papers faster
     /// ]
