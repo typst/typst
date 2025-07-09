@@ -2971,8 +2971,12 @@ dependencies = [
 name = "typst-html"
 version = "0.13.1"
 dependencies = [
+ "bumpalo",
  "comemo",
  "ecow",
+ "palette",
+ "time",
+ "typst-assets",
  "typst-library",
  "typst-macros",
  "typst-svg",

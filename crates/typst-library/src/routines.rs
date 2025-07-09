@@ -8,8 +8,8 @@ use typst_utils::LazyHash;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Closure, Content, Context, Func, NativeRuleMap, Scope, StyleChain, Styles,
-    Value,
+    Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
+    Styles, Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
@@ -92,6 +92,9 @@ routines! {
         styles: StyleChain,
         region: Region,
     ) -> SourceResult<Frame>
+
+    /// Constructs the `html` module.
+    fn html_module() -> Module
 }
 
 /// Defines what kind of realization we are performing.

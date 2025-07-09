@@ -165,7 +165,6 @@ pub struct Library {
 /// Constructed via the `LibraryExt` trait.
 #[derive(Debug, Clone)]
 pub struct LibraryBuilder {
-    #[expect(unused, reason = "will be used in the future")]
     routines: &'static Routines,
     inputs: Option<Dict>,
     features: Features,
@@ -200,7 +199,7 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(math.clone(), inputs, &self.features);
+        let global = global(self.routines, math.clone(), inputs, &self.features);
         Library {
             global: global.clone(),
             math,
@@ -282,7 +281,12 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module, inputs: Dict, features: &Features) -> Module {
+fn global(
+    routines: &Routines,
+    math: Module,
+    inputs: Dict,
+    features: &Features,
+) -> Module {
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs, features);
@@ -297,7 +301,7 @@ fn global(math: Module, inputs: Dict, features: &Features) -> Module {
     global.define("math", math);
     global.define("pdf", self::pdf::module());
     if features.is_enabled(Feature::Html) {
-        global.define("html", self::html::module());
+        global.define("html", (routines.html_module)());
     }
 
     prelude(&mut global);

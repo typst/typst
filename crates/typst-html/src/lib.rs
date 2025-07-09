@@ -1,7 +1,9 @@
 //! Typst's HTML exporter.
 
+mod css;
 mod encode;
 mod rules;
+mod typed;
 
 pub use self::encode::html;
 pub use self::rules::register;
@@ -9,7 +11,9 @@ pub use self::rules::register;
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::{bail, warning, At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
+use typst_library::foundations::{
+    Content, Module, Scope, StyleChain, Target, TargetElem,
+};
 use typst_library::html::{
     attr, tag, FrameElem, HtmlDocument, HtmlElem, HtmlElement, HtmlFrame, HtmlNode,
 };
@@ -20,8 +24,18 @@ use typst_library::layout::{Abs, Axes, BlockBody, BlockElem, BoxElem, Region, Si
 use typst_library::model::{DocumentInfo, ParElem};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use typst_library::World;
+use typst_library::{Category, World};
 use typst_syntax::Span;
+
+/// Create a module with all HTML definitions.
+pub fn module() -> Module {
+    let mut html = Scope::deduplicating();
+    html.start_category(Category::Html);
+    html.define_elem::<HtmlElem>();
+    html.define_elem::<FrameElem>();
+    crate::typed::define(&mut html);
+    Module::new("html", html)
+}
 
 /// Produce an HTML document from content.
 ///
