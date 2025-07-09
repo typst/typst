@@ -80,6 +80,7 @@ pub fn module() -> Module {
     math.define_func::<italic>();
     math.define_func::<serif>();
     math.define_func::<sans>();
+    math.define_func::<scr>();
     math.define_func::<cal>();
     math.define_func::<frak>();
     math.define_func::<mono>();

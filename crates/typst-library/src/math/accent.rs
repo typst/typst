@@ -62,7 +62,6 @@ pub struct AccentElem {
     /// ```example
     /// $dash(A, size: #150%)$
     /// ```
-    #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
 

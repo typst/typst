@@ -186,7 +186,7 @@ impl Eval for ast::Raw<'_> {
         let lines = self.lines().map(|line| (line.get().clone(), line.span())).collect();
         let mut elem = RawElem::new(RawContent::Lines(lines)).with_block(self.block());
         if let Some(lang) = self.lang() {
-            elem.push_lang(Some(lang.get().clone()));
+            elem.lang.set(Some(lang.get().clone()));
         }
         Ok(elem.pack())
     }
@@ -219,9 +219,8 @@ impl Eval for ast::Ref<'_> {
             .expect("unexpected empty reference");
         let mut elem = RefElem::new(target);
         if let Some(supplement) = self.supplement() {
-            elem.push_supplement(Smart::Custom(Some(Supplement::Content(
-                supplement.eval(vm)?,
-            ))));
+            elem.supplement
+                .set(Smart::Custom(Some(Supplement::Content(supplement.eval(vm)?))));
         }
         Ok(elem.pack())
     }
@@ -252,7 +251,7 @@ impl Eval for ast::EnumItem<'_> {
         let body = self.body().eval(vm)?;
         let mut elem = EnumItem::new(body);
         if let Some(number) = self.number() {
-            elem.push_number(Some(number));
+            elem.number.set(Some(number));
         }
         Ok(elem.pack())
     }

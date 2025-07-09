@@ -1,13 +1,19 @@
 //! Typst's HTML exporter.
 
+mod css;
 mod encode;
+mod rules;
+mod typed;
 
 pub use self::encode::html;
+pub use self::rules::register;
 
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::{bail, warning, At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
+use typst_library::foundations::{
+    Content, Module, Scope, StyleChain, Target, TargetElem,
+};
 use typst_library::html::{
     attr, tag, FrameElem, HtmlDocument, HtmlElem, HtmlElement, HtmlFrame, HtmlNode,
 };
@@ -18,8 +24,18 @@ use typst_library::layout::{Abs, Axes, BlockBody, BlockElem, BoxElem, Region, Si
 use typst_library::model::{DocumentInfo, ParElem};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use typst_library::World;
+use typst_library::{Category, World};
 use typst_syntax::Span;
+
+/// Create a module with all HTML definitions.
+pub fn module() -> Module {
+    let mut html = Scope::deduplicating();
+    html.start_category(Category::Html);
+    html.define_elem::<HtmlElem>();
+    html.define_elem::<FrameElem>();
+    crate::typed::define(&mut html);
+    Module::new("html", html)
+}
 
 /// Produce an HTML document from content.
 ///
@@ -177,12 +193,12 @@ fn handle(
         output.push(HtmlNode::Tag(elem.tag.clone()));
     } else if let Some(elem) = child.to_packed::<HtmlElem>() {
         let mut children = vec![];
-        if let Some(body) = elem.body(styles) {
+        if let Some(body) = elem.body.get_ref(styles) {
             children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
         }
         let element = HtmlElement {
             tag: elem.tag,
-            attrs: elem.attrs(styles).clone(),
+            attrs: elem.attrs.get_cloned(styles),
             children,
             span: elem.span(),
         };
@@ -198,7 +214,7 @@ fn handle(
         );
     } else if let Some(elem) = child.to_packed::<BoxElem>() {
         // TODO: This is rather incomplete.
-        if let Some(body) = elem.body(styles) {
+        if let Some(body) = elem.body.get_ref(styles) {
             let children =
                 html_fragment(engine, body, locator.next(&elem.span()), styles)?;
             output.push(
@@ -212,7 +228,7 @@ fn handle(
     } else if let Some((elem, body)) =
         child
             .to_packed::<BlockElem>()
-            .and_then(|elem| match elem.body(styles) {
+            .and_then(|elem| match elem.body.get_ref(styles) {
                 Some(BlockBody::Content(body)) => Some((elem, body)),
                 _ => None,
             })
@@ -233,12 +249,12 @@ fn handle(
         output.push(HtmlElement::new(tag::br).spanned(elem.span()).into());
     } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
         output.push(HtmlNode::text(
-            if elem.double(styles) { '"' } else { '\'' },
+            if elem.double.get(styles) { '"' } else { '\'' },
             child.span(),
         ));
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = locator.next(&elem.span());
-        let style = TargetElem::set_target(Target::Paged).wrap();
+        let style = TargetElem::target.set(Target::Paged).wrap();
         let frame = (engine.routines.layout_frame)(
             engine,
             &elem.body,
@@ -248,7 +264,7 @@ fn handle(
         )?;
         output.push(HtmlNode::Frame(HtmlFrame {
             inner: frame,
-            text_size: TextElem::size_in(styles),
+            text_size: styles.resolve(TextElem::size),
         }));
     } else {
         engine.sink.warn(warning!(

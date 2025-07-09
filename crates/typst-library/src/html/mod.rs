@@ -1,23 +1,12 @@
 //! HTML output.
 
 mod dom;
-mod typed;
 
 pub use self::dom::*;
 
 use ecow::EcoString;
 
-use crate::foundations::{elem, Content, Module, Scope};
-
-/// Create a module with all HTML definitions.
-pub fn module() -> Module {
-    let mut html = Scope::deduplicating();
-    html.start_category(crate::Category::Html);
-    html.define_elem::<HtmlElem>();
-    html.define_elem::<FrameElem>();
-    self::typed::define(&mut html);
-    Module::new("html", html)
-}
+use crate::foundations::{elem, Content};
 
 /// An HTML element that can contain Typst content.
 ///
@@ -47,21 +36,22 @@ pub struct HtmlElem {
     pub tag: HtmlTag,
 
     /// The element's HTML attributes.
-    #[borrowed]
     pub attrs: HtmlAttrs,
 
     /// The contents of the HTML element.
     ///
     /// The body can be arbitrary Typst content.
     #[positional]
-    #[borrowed]
     pub body: Option<Content>,
 }
 
 impl HtmlElem {
     /// Add an attribute to the element.
     pub fn with_attr(mut self, attr: HtmlAttr, value: impl Into<EcoString>) -> Self {
-        self.attrs.get_or_insert_with(Default::default).push(attr, value);
+        self.attrs
+            .as_option_mut()
+            .get_or_insert_with(Default::default)
+            .push(attr, value);
         self
     }
 }

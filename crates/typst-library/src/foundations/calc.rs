@@ -207,9 +207,9 @@ pub fn sqrt(
 /// ```
 #[func]
 pub fn root(
-    /// The expression to take the root of
+    /// The expression to take the root of.
     radicand: f64,
-    /// Which root of the radicand to take
+    /// Which root of the radicand to take.
     index: Spanned<i64>,
 ) -> SourceResult<f64> {
     if index.v == 0 {
@@ -317,7 +317,7 @@ pub fn asin(
 /// ```
 #[func(title = "Arccosine")]
 pub fn acos(
-    /// The number whose arcsine to calculate. Must be between -1 and 1.
+    /// The number whose arccosine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
 ) -> SourceResult<Angle> {
     let val = value.v.float();
@@ -387,7 +387,7 @@ pub fn cosh(
     value.cosh()
 }
 
-/// Calculates the hyperbolic tangent of an hyperbolic angle.
+/// Calculates the hyperbolic tangent of a hyperbolic angle.
 ///
 /// ```example
 /// #calc.tanh(0) \

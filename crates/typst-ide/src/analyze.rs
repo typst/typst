@@ -2,7 +2,7 @@ use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::foundations::{Label, Styles, Value};
 use typst::layout::PagedDocument;
-use typst::model::BibliographyElem;
+use typst::model::{BibliographyElem, FigureElem};
 use typst::syntax::{ast, LinkedNode, SyntaxKind};
 
 use crate::IdeWorld;
@@ -75,8 +75,13 @@ pub fn analyze_labels(
     for elem in document.introspector.all() {
         let Some(label) = elem.label() else { continue };
         let details = elem
-            .get_by_name("caption")
-            .or_else(|_| elem.get_by_name("body"))
+            .to_packed::<FigureElem>()
+            .and_then(|figure| match figure.caption.as_option() {
+                Some(Some(caption)) => Some(caption.pack_ref()),
+                _ => None,
+            })
+            .unwrap_or(elem)
+            .get_by_name("body")
             .ok()
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),

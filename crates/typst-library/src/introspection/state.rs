@@ -6,8 +6,7 @@ use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
-    LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str, StyleChain,
-    Value,
+    LocatableSelector, NativeElement, Repr, Selector, Str, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::routines::Routines;
@@ -259,12 +258,12 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        select_where!(StateUpdateElem, Key => self.key.clone())
+        select_where!(StateUpdateElem, key => self.key.clone())
     }
 
     /// Selects all state updates.
     pub fn select_any() -> Selector {
-        StateUpdateElem::elem().select()
+        StateUpdateElem::ELEM.select()
     }
 }
 
@@ -372,8 +371,8 @@ cast! {
 }
 
 /// Executes a display of a state.
-#[elem(Construct, Locatable, Show)]
-struct StateUpdateElem {
+#[elem(Construct, Locatable)]
+pub struct StateUpdateElem {
     /// The key that identifies the state.
     #[required]
     key: Str,
@@ -387,11 +386,5 @@ struct StateUpdateElem {
 impl Construct for StateUpdateElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
-    }
-}
-
-impl Show for Packed<StateUpdateElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
     }
 }

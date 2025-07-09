@@ -413,7 +413,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.1"
-source = "git+https://github.com/typst/codex?rev=2f7efc3#2f7efc3b824632bcc917cebf4ae91caeca224fbc"
+source = "git+https://github.com/typst/codex?rev=775d828#775d82873c3f74ce95ec2621f8541de1b48778a7"
 
 [[package]]
 name = "color-print"
@@ -2861,7 +2861,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-assets?rev=c1089b4#c1089b46c461bdde579c55caa941a3cc7dec3e8a"
+source = "git+https://github.com/typst/typst-assets?rev=edf0d64#edf0d648376e29738a05a933af9ea99bb81557b1"
 
 [[package]]
 name = "typst-cli"
@@ -2971,8 +2971,12 @@ dependencies = [
 name = "typst-html"
 version = "0.13.1"
 dependencies = [
+ "bumpalo",
  "comemo",
  "ecow",
+ "palette",
+ "time",
+ "typst-assets",
  "typst-library",
  "typst-macros",
  "typst-svg",
@@ -3028,6 +3032,7 @@ version = "0.13.1"
 dependencies = [
  "az",
  "bumpalo",
+ "codex",
  "comemo",
  "ecow",
  "hypher",

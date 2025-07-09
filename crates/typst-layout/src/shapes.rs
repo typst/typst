@@ -27,16 +27,20 @@ pub fn layout_line(
     region: Region,
 ) -> SourceResult<Frame> {
     let resolve = |axes: Axes<Rel<Abs>>| axes.zip_map(region.size, Rel::relative_to);
-    let start = resolve(elem.start(styles));
-    let delta = elem.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
-        let length = elem.length(styles);
-        let angle = elem.angle(styles);
-        let x = angle.cos() * length;
-        let y = angle.sin() * length;
-        resolve(Axes::new(x, y))
-    });
+    let start = resolve(elem.start.resolve(styles));
+    let delta = elem
+        .end
+        .resolve(styles)
+        .map(|end| resolve(end) - start)
+        .unwrap_or_else(|| {
+            let length = elem.length.resolve(styles);
+            let angle = elem.angle.get(styles);
+            let x = angle.cos() * length;
+            let y = angle.sin() * length;
+            resolve(Axes::new(x, y))
+        });
 
-    let stroke = elem.stroke(styles).unwrap_or_default();
+    let stroke = elem.stroke.resolve(styles).unwrap_or_default();
     let size = start.max(start + delta).max(Size::zero());
 
     if !size.is_finite() {
@@ -105,7 +109,7 @@ pub fn layout_path(
         add_cubic(from_point, to_point, from, to);
     }
 
-    if elem.closed(styles) {
+    if elem.closed.get(styles) {
         let from = *vertices.last().unwrap(); // We checked that we have at least one element.
         let to = vertices[0];
         let from_point = *points.last().unwrap();
@@ -120,9 +124,9 @@ pub fn layout_path(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule(styles);
-    let stroke = match elem.stroke(styles) {
+    let fill = elem.fill.get_cloned(styles);
+    let fill_rule = elem.fill_rule.get(styles);
+    let stroke = match elem.stroke.resolve(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
@@ -153,19 +157,19 @@ pub fn layout_curve(
     for item in &elem.components {
         match item {
             CurveComponent::Move(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let point = builder.resolve_point(element.start, relative);
                 builder.move_(point);
             }
 
             CurveComponent::Line(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let point = builder.resolve_point(element.end, relative);
                 builder.line(point);
             }
 
             CurveComponent::Quad(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let end = builder.resolve_point(element.end, relative);
                 let control = match element.control {
                     Smart::Auto => {
@@ -178,7 +182,7 @@ pub fn layout_curve(
             }
 
             CurveComponent::Cubic(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let end = builder.resolve_point(element.end, relative);
                 let c1 = match element.control_start {
                     Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
@@ -193,7 +197,7 @@ pub fn layout_curve(
             }
 
             CurveComponent::Close(element) => {
-                builder.close(element.mode(styles));
+                builder.close(element.mode.get(styles));
             }
         }
     }
@@ -208,9 +212,9 @@ pub fn layout_curve(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule(styles);
-    let stroke = match elem.stroke(styles) {
+    let fill = elem.fill.get_cloned(styles);
+    let fill_rule = elem.fill_rule.get(styles);
+    let stroke = match elem.stroke.resolve(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
@@ -418,9 +422,9 @@ pub fn layout_polygon(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule(styles);
-    let stroke = match elem.stroke(styles) {
+    let fill = elem.fill.get_cloned(styles);
+    let fill_rule = elem.fill_rule.get(styles);
+    let stroke = match elem.stroke.resolve(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
@@ -459,12 +463,12 @@ pub fn layout_rect(
         styles,
         region,
         ShapeKind::Rect,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles),
-        elem.inset(styles),
-        elem.outset(styles),
-        elem.radius(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
+        elem.radius.resolve(styles),
         elem.span(),
     )
 }
@@ -484,12 +488,12 @@ pub fn layout_square(
         styles,
         region,
         ShapeKind::Square,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles),
-        elem.inset(styles),
-        elem.outset(styles),
-        elem.radius(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
+        elem.radius.resolve(styles),
         elem.span(),
     )
 }
@@ -509,11 +513,11 @@ pub fn layout_ellipse(
         styles,
         region,
         ShapeKind::Ellipse,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles).map(|s| Sides::splat(Some(s))),
-        elem.inset(styles),
-        elem.outset(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles).map(|s| Sides::splat(Some(s))),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
         Corners::splat(None),
         elem.span(),
     )
@@ -534,11 +538,11 @@ pub fn layout_circle(
         styles,
         region,
         ShapeKind::Circle,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles).map(|s| Sides::splat(Some(s))),
-        elem.inset(styles),
-        elem.outset(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles).map(|s| Sides::splat(Some(s))),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
         Corners::splat(None),
         elem.span(),
     )

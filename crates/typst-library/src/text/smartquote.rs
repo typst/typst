@@ -5,9 +5,10 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
+    StyleChain,
 };
 use crate::layout::Dir;
-use crate::text::{Lang, Region};
+use crate::text::{Lang, Region, TextElem};
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -83,13 +84,12 @@ pub struct SmartQuoteElem {
     /// #set smartquote(quotes: (single: ("[[", "]]"),  double: auto))
     /// 'Das sind eigene Anführungszeichen.'
     /// ```
-    #[borrowed]
     pub quotes: Smart<SmartQuoteDict>,
 }
 
 impl PlainText for Packed<SmartQuoteElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        if self.double.unwrap_or(true) {
+        if self.double.as_option().unwrap_or(true) {
             text.push_str("\"");
         } else {
             text.push_str("'");
@@ -201,6 +201,16 @@ pub struct SmartQuotes<'s> {
 }
 
 impl<'s> SmartQuotes<'s> {
+    /// Retrieve the smart quotes as configured by the current styles.
+    pub fn get_in(styles: StyleChain<'s>) -> Self {
+        Self::get(
+            styles.get_ref(SmartQuoteElem::quotes),
+            styles.get(TextElem::lang),
+            styles.get(TextElem::region),
+            styles.get(SmartQuoteElem::alternative),
+        )
+    }
+
     /// Create a new `Quotes` struct with the given quotes, optionally falling
     /// back to the defaults for a language and region.
     ///

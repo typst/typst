@@ -24,7 +24,7 @@ use typst::foundations::{
 use typst::layout::{Abs, Margin, PageElem, PagedDocument};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Category, Feature, Library, LibraryBuilder};
+use typst::{Category, Feature, Library, LibraryExt};
 use unicode_math_class::MathClass;
 
 macro_rules! load {
@@ -51,7 +51,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = LibraryBuilder::default()
+    let mut lib = Library::builder()
         .with_features([Feature::Html].into_iter().collect())
         .build();
     let scope = lib.global.scope_mut();
@@ -63,12 +63,10 @@ static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     scope.reset_category();
 
     // Adjust the default look.
+    lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(240.0).into()));
+    lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles
-        .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
-    lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
-        Abs::pt(15.0).into(),
-    )))));
+        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(15.0).into()))));
 
     LazyHash::new(lib)
 });

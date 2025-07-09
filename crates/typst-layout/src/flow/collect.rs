@@ -89,7 +89,7 @@ impl<'a> Collector<'a, '_, '_> {
             } else if child.is::<FlushElem>() {
                 self.output.push(Child::Flush);
             } else if let Some(elem) = child.to_packed::<ColbreakElem>() {
-                self.output.push(Child::Break(elem.weak(styles)));
+                self.output.push(Child::Break(elem.weak.get(styles)));
             } else if child.is::<PagebreakElem>() {
                 bail!(
                     child.span(), "pagebreaks are not allowed inside of containers";
@@ -132,7 +132,7 @@ impl<'a> Collector<'a, '_, '_> {
             self.output.push(Child::Tag(&elem.tag));
         }
 
-        let leading = ParElem::leading_in(styles);
+        let leading = styles.resolve(ParElem::leading);
         self.lines(lines, leading, styles);
 
         for (c, _) in &self.children[end..] {
@@ -146,7 +146,9 @@ impl<'a> Collector<'a, '_, '_> {
     /// Collect vertical spacing into a relative or fractional child.
     fn v(&mut self, elem: &'a Packed<VElem>, styles: StyleChain<'a>) {
         self.output.push(match elem.amount {
-            Spacing::Rel(rel) => Child::Rel(rel.resolve(styles), elem.weak(styles) as u8),
+            Spacing::Rel(rel) => {
+                Child::Rel(rel.resolve(styles), elem.weak.get(styles) as u8)
+            }
             Spacing::Fr(fr) => Child::Fr(fr),
         });
     }
@@ -169,8 +171,8 @@ impl<'a> Collector<'a, '_, '_> {
         )?
         .into_frames();
 
-        let spacing = elem.spacing(styles);
-        let leading = elem.leading(styles);
+        let spacing = elem.spacing.resolve(styles);
+        let leading = elem.leading.resolve(styles);
 
         self.output.push(Child::Rel(spacing.into(), 4));
 
@@ -184,8 +186,8 @@ impl<'a> Collector<'a, '_, '_> {
 
     /// Collect laid-out lines.
     fn lines(&mut self, lines: Vec<Frame>, leading: Abs, styles: StyleChain<'a>) {
-        let align = AlignElem::alignment_in(styles).resolve(styles);
-        let costs = TextElem::costs_in(styles);
+        let align = styles.resolve(AlignElem::alignment);
+        let costs = styles.get(TextElem::costs);
 
         // Determine whether to prevent widow and orphans.
         let len = lines.len();
@@ -231,23 +233,23 @@ impl<'a> Collector<'a, '_, '_> {
     /// whether it is breakable.
     fn block(&mut self, elem: &'a Packed<BlockElem>, styles: StyleChain<'a>) {
         let locator = self.locator.next(&elem.span());
-        let align = AlignElem::alignment_in(styles).resolve(styles);
+        let align = styles.resolve(AlignElem::alignment);
         let alone = self.children.len() == 1;
-        let sticky = elem.sticky(styles);
-        let breakable = elem.breakable(styles);
-        let fr = match elem.height(styles) {
+        let sticky = elem.sticky.get(styles);
+        let breakable = elem.breakable.get(styles);
+        let fr = match elem.height.get(styles) {
             Sizing::Fr(fr) => Some(fr),
             _ => None,
         };
 
-        let fallback = LazyCell::new(|| ParElem::spacing_in(styles));
+        let fallback = LazyCell::new(|| styles.resolve(ParElem::spacing));
         let spacing = |amount| match amount {
             Smart::Auto => Child::Rel((*fallback).into(), 4),
             Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
             Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr),
         };
 
-        self.output.push(spacing(elem.above(styles)));
+        self.output.push(spacing(elem.above.get(styles)));
 
         if !breakable || fr.is_some() {
             self.output.push(Child::Single(self.boxed(SingleChild {
@@ -272,7 +274,7 @@ impl<'a> Collector<'a, '_, '_> {
             })));
         };
 
-        self.output.push(spacing(elem.below(styles)));
+        self.output.push(spacing(elem.below.get(styles)));
         self.par_situation = ParSituation::Other;
     }
 
@@ -282,13 +284,13 @@ impl<'a> Collector<'a, '_, '_> {
         elem: &'a Packed<PlaceElem>,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let alignment = elem.alignment(styles);
+        let alignment = elem.alignment.get(styles);
         let align_x = alignment.map_or(FixedAlignment::Center, |align| {
             align.x().unwrap_or_default().resolve(styles)
         });
         let align_y = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
-        let scope = elem.scope(styles);
-        let float = elem.float(styles);
+        let scope = elem.scope.get(styles);
+        let float = elem.float.get(styles);
 
         match (float, align_y) {
             (true, Smart::Custom(None | Some(FixedAlignment::Center))) => bail!(
@@ -312,8 +314,8 @@ impl<'a> Collector<'a, '_, '_> {
         }
 
         let locator = self.locator.next(&elem.span());
-        let clearance = elem.clearance(styles);
-        let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
+        let clearance = elem.clearance.resolve(styles);
+        let delta = Axes::new(elem.dx.get(styles), elem.dy.get(styles)).resolve(styles);
         self.output.push(Child::Placed(self.boxed(PlacedChild {
             align_x,
             align_y,
@@ -631,7 +633,7 @@ impl PlacedChild<'_> {
     pub fn layout(&self, engine: &mut Engine, base: Size) -> SourceResult<Frame> {
         self.cell.get_or_init(base, |base| {
             let align = self.alignment.unwrap_or_else(|| Alignment::CENTER);
-            let aligned = AlignElem::set_alignment(align).wrap();
+            let aligned = AlignElem::alignment.set(align).wrap();
             let styles = self.styles.chain(&aligned);
 
             let mut frame = layout_and_modify(styles, |styles| {

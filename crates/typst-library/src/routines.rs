@@ -1,7 +1,5 @@
-#![allow(unused)]
-
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
 use typst_syntax::{Span, SyntaxMode};
@@ -10,20 +8,12 @@ use typst_utils::LazyHash;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Cast, Closure, Content, Context, Func, Packed, Scope, StyleChain, Styles, Value,
+    Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
+    Styles, Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
-use crate::layout::{
-    Abs, BoxElem, ColumnsElem, Fragment, Frame, GridElem, InlineItem, MoveElem, PadElem,
-    PagedDocument, Region, Regions, Rel, RepeatElem, RotateElem, ScaleElem, Size,
-    SkewElem, StackElem,
-};
-use crate::math::EquationElem;
-use crate::model::{DocumentInfo, EnumElem, ListElem, TableElem};
-use crate::visualize::{
-    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
-    RectElem, SquareElem,
-};
+use crate::layout::{Frame, Region};
+use crate::model::DocumentInfo;
 use crate::World;
 
 /// Defines the `Routines` struct.
@@ -38,6 +28,8 @@ macro_rules! routines {
         /// This is essentially dynamic linking and done to allow for crate
         /// splitting.
         pub struct Routines {
+            /// Native show rules.
+            pub rules: NativeRuleMap,
             $(
                 $(#[$attr])*
                 pub $name: $(for<$($time),*>)? fn ($($args)*) -> $ret
@@ -46,6 +38,12 @@ macro_rules! routines {
 
         impl Hash for Routines {
             fn hash<H: Hasher>(&self, _: &mut H) {}
+        }
+
+        impl Debug for Routines {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                f.pad("Routines(..)")
+            }
         }
     };
 }
@@ -86,15 +84,6 @@ routines! {
         styles: StyleChain<'a>,
     ) -> SourceResult<Vec<Pair<'a>>>
 
-    /// Lays out content into multiple regions.
-    fn layout_fragment(
-        engine: &mut Engine,
-        content: &Content,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
     /// Lays out content into a single region, producing a single frame.
     fn layout_frame(
         engine: &mut Engine,
@@ -104,212 +93,8 @@ routines! {
         region: Region,
     ) -> SourceResult<Frame>
 
-    /// Lays out a [`ListElem`].
-    fn layout_list(
-        elem: &Packed<ListElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out an [`EnumElem`].
-    fn layout_enum(
-        elem: &Packed<EnumElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out a [`GridElem`].
-    fn layout_grid(
-        elem: &Packed<GridElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out a [`TableElem`].
-    fn layout_table(
-        elem: &Packed<TableElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out a [`StackElem`].
-    fn layout_stack(
-        elem: &Packed<StackElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out a [`ColumnsElem`].
-    fn layout_columns(
-        elem: &Packed<ColumnsElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out a [`MoveElem`].
-    fn layout_move(
-        elem: &Packed<MoveElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`RotateElem`].
-    fn layout_rotate(
-        elem: &Packed<RotateElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`ScaleElem`].
-    fn layout_scale(
-        elem: &Packed<ScaleElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`SkewElem`].
-    fn layout_skew(
-        elem: &Packed<SkewElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`RepeatElem`].
-    fn layout_repeat(
-        elem: &Packed<RepeatElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`PadElem`].
-    fn layout_pad(
-        elem: &Packed<PadElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
-
-    /// Lays out a [`LineElem`].
-    fn layout_line(
-        elem: &Packed<LineElem>,
-        _: &mut Engine,
-        _: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`CurveElem`].
-    fn layout_curve(
-        elem: &Packed<CurveElem>,
-        _: &mut Engine,
-        _: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`PathElem`].
-    fn layout_path(
-        elem: &Packed<PathElem>,
-        _: &mut Engine,
-        _: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`PolygonElem`].
-    fn layout_polygon(
-        elem: &Packed<PolygonElem>,
-        _: &mut Engine,
-        _: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`RectElem`].
-    fn layout_rect(
-        elem: &Packed<RectElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`SquareElem`].
-    fn layout_square(
-        elem: &Packed<SquareElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`EllipseElem`].
-    fn layout_ellipse(
-        elem: &Packed<EllipseElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out a [`CircleElem`].
-    fn layout_circle(
-        elem: &Packed<CircleElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out an [`ImageElem`].
-    fn layout_image(
-        elem: &Packed<ImageElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Region,
-    ) -> SourceResult<Frame>
-
-    /// Lays out an [`EquationElem`] in a paragraph.
-    fn layout_equation_inline(
-        elem: &Packed<EquationElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        region: Size,
-    ) -> SourceResult<Vec<InlineItem>>
-
-    /// Lays out an [`EquationElem`] in a flow.
-    fn layout_equation_block(
-        elem: &Packed<EquationElem>,
-        engine: &mut Engine,
-        locator: Locator,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment>
+    /// Constructs the `html` module.
+    fn html_module() -> Module
 }
 
 /// Defines what kind of realization we are performing.

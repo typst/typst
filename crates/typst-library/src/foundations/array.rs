@@ -94,7 +94,7 @@ impl Array {
     }
 
     /// Iterate over references to the contained values.
-    pub fn iter(&self) -> std::slice::Iter<Value> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Value> {
         self.0.iter()
     }
 
@@ -604,7 +604,7 @@ impl Array {
         Ok(acc)
     }
 
-    /// Calculates the product all items (works for all types that can be
+    /// Calculates the product of all items (works for all types that can be
     /// multiplied).
     #[func]
     pub fn product(

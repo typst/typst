@@ -29,7 +29,6 @@ pub struct CancelElem {
     /// $ a + cancel(x, length: #200%)
     ///     - cancel(x, length: #200%) $
     /// ```
-    #[resolve]
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
 
@@ -89,7 +88,6 @@ pub struct CancelElem {
     ///   ),
     /// ) $
     /// ```
-    #[resolve]
     #[fold]
     #[default(Stroke {
         // Default stroke has 0.5pt for better visuals.

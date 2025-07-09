@@ -165,6 +165,11 @@ cast! {
 pub struct HtmlAttrs(pub EcoVec<(HtmlAttr, EcoString)>);
 
 impl HtmlAttrs {
+    /// Creates an empty attribute list.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Add an attribute.
     pub fn push(&mut self, attr: HtmlAttr, value: impl Into<EcoString>) {
         self.0.push((attr, value.into()));

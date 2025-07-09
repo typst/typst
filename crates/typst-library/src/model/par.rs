@@ -108,7 +108,6 @@ pub struct ParElem {
     /// to `{-0.2em}` to get a baseline gap of exactly `{2em}`. The exact
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
-    #[resolve]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 
@@ -122,7 +121,6 @@ pub struct ParElem {
     /// that block's [`above`]($block.above) or [`below`]($block.below) property
     /// takes precedence over the paragraph spacing. Headings, for instance,
     /// reduce the spacing below them by default for a better look.
-    #[resolve]
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
@@ -213,7 +211,6 @@ pub struct ParElem {
     ///
     /// #lorem(15)
     /// ```
-    #[resolve]
     pub hanging_indent: Length,
 
     /// The contents of the paragraph.

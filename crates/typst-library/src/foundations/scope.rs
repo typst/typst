@@ -8,8 +8,7 @@ use typst_syntax::Span;
 
 use crate::diag::{bail, DeprecationSink, HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
-    Element, Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType,
-    Type, Value,
+    Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
 };
 use crate::{Category, Library};
 
@@ -149,15 +148,15 @@ impl Scope {
     /// Define a native type.
     #[track_caller]
     pub fn define_type<T: NativeType>(&mut self) -> &mut Binding {
-        let data = T::data();
-        self.define(data.name, Type::from(data))
+        let ty = T::ty();
+        self.define(ty.short_name(), ty)
     }
 
     /// Define a native element.
     #[track_caller]
     pub fn define_elem<T: NativeElement>(&mut self) -> &mut Binding {
-        let data = T::data();
-        self.define(data.name, Element::from(data))
+        let elem = T::ELEM;
+        self.define(elem.name(), elem)
     }
 
     /// Define a built-in with compile-time known name and returns a mutable

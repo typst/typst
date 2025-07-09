@@ -14,9 +14,9 @@ use ecow::EcoString;
 use typst_library::diag::{bail, At, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, ContextElem, Element, NativeElement, Recipe, RecipeIndex, Selector,
-    SequenceElem, Show, ShowSet, Style, StyleChain, StyledElem, Styles, SymbolElem,
-    Synthesize, Transformation,
+    Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Recipe,
+    RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
+    SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::html::{tag, FrameElem, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
@@ -160,7 +160,7 @@ enum ShowStep<'a> {
     /// A user-defined transformational show rule.
     Recipe(&'a Recipe, RecipeIndex),
     /// The built-in show rule.
-    Builtin,
+    Builtin(NativeShowRule),
 }
 
 /// A match of a regex show rule.
@@ -380,9 +380,7 @@ fn visit_show_rules<'a>(
             }
 
             // Apply a built-in show rule.
-            ShowStep::Builtin => {
-                output.with::<dyn Show>().unwrap().show(s.engine, chained)
-            }
+            ShowStep::Builtin(rule) => rule.apply(&output, s.engine, chained),
         };
 
         // Errors in show rules don't terminate compilation immediately. We just
@@ -424,14 +422,14 @@ fn visit_show_rules<'a>(
     Ok(true)
 }
 
-/// Inspects a target element and the current styles and determines how to
-/// proceed with the styling.
+/// Inspects an element and the current styles and determines how to proceed
+/// with the styling.
 fn verdict<'a>(
     engine: &mut Engine,
-    target: &'a Content,
+    elem: &'a Content,
     styles: StyleChain<'a>,
 ) -> Option<Verdict<'a>> {
-    let prepared = target.is_prepared();
+    let prepared = elem.is_prepared();
     let mut map = Styles::new();
     let mut step = None;
 
@@ -439,20 +437,20 @@ fn verdict<'a>(
     // fields before real synthesis runs (during preparation). It's really
     // unfortunate that we have to do this, but otherwise
     // `show figure.where(kind: table)` won't work :(
-    let mut target = target;
+    let mut elem = elem;
     let mut slot;
-    if !prepared && target.can::<dyn Synthesize>() {
-        slot = target.clone();
+    if !prepared && elem.can::<dyn Synthesize>() {
+        slot = elem.clone();
         slot.with_mut::<dyn Synthesize>()
             .unwrap()
             .synthesize(engine, styles)
             .ok();
-        target = &slot;
+        elem = &slot;
     }
 
     // Lazily computes the total number of recipes in the style chain. We need
     // it to determine whether a particular show rule was already applied to the
-    // `target` previously. For this purpose, show rules are indexed from the
+    // `elem` previously. For this purpose, show rules are indexed from the
     // top of the chain as the chain might grow to the bottom.
     let depth = LazyCell::new(|| styles.recipes().count());
 
@@ -460,7 +458,7 @@ fn verdict<'a>(
         // We're not interested in recipes that don't match.
         if !recipe
             .selector()
-            .is_some_and(|selector| selector.matches(target, Some(styles)))
+            .is_some_and(|selector| selector.matches(elem, Some(styles)))
         {
             continue;
         }
@@ -478,9 +476,9 @@ fn verdict<'a>(
             continue;
         }
 
-        // Check whether this show rule was already applied to the target.
+        // Check whether this show rule was already applied to the element.
         let index = RecipeIndex(*depth - r);
-        if target.is_guarded(index) {
+        if elem.is_guarded(index) {
             continue;
         }
 
@@ -496,19 +494,22 @@ fn verdict<'a>(
     }
 
     // If we found no user-defined rule, also consider the built-in show rule.
-    if step.is_none() && target.can::<dyn Show>() {
-        step = Some(ShowStep::Builtin);
+    if step.is_none() {
+        let target = styles.get(TargetElem::target);
+        if let Some(rule) = engine.routines.rules.get(target, elem) {
+            step = Some(ShowStep::Builtin(rule));
+        }
     }
 
     // If there's no nothing to do, there is also no verdict.
     if step.is_none()
         && map.is_empty()
         && (prepared || {
-            target.label().is_none()
-                && target.location().is_none()
-                && !target.can::<dyn ShowSet>()
-                && !target.can::<dyn Locatable>()
-                && !target.can::<dyn Synthesize>()
+            elem.label().is_none()
+                && elem.location().is_none()
+                && !elem.can::<dyn ShowSet>()
+                && !elem.can::<dyn Locatable>()
+                && !elem.can::<dyn Synthesize>()
         })
     {
         return None;
@@ -521,7 +522,7 @@ fn verdict<'a>(
 fn prepare(
     engine: &mut Engine,
     locator: &mut SplitLocator,
-    target: &mut Content,
+    elem: &mut Content,
     map: &mut Styles,
     styles: StyleChain,
 ) -> SourceResult<Option<(Tag, Tag)>> {
@@ -531,43 +532,43 @@ fn prepare(
     //
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
-    let key = typst_utils::hash128(&target);
-    if target.location().is_none()
-        && (target.can::<dyn Locatable>() || target.label().is_some())
+    let key = typst_utils::hash128(&elem);
+    if elem.location().is_none()
+        && (elem.can::<dyn Locatable>() || elem.label().is_some())
     {
         let loc = locator.next_location(engine.introspector, key);
-        target.set_location(loc);
+        elem.set_location(loc);
     }
 
     // Apply built-in show-set rules. User-defined show-set rules are already
     // considered in the map built while determining the verdict.
-    if let Some(show_settable) = target.with::<dyn ShowSet>() {
+    if let Some(show_settable) = elem.with::<dyn ShowSet>() {
         map.apply(show_settable.show_set(styles));
     }
 
     // If necessary, generated "synthesized" fields (which are derived from
     // other fields or queries). Do this after show-set so that show-set styles
     // are respected.
-    if let Some(synthesizable) = target.with_mut::<dyn Synthesize>() {
+    if let Some(synthesizable) = elem.with_mut::<dyn Synthesize>() {
         synthesizable.synthesize(engine, styles.chain(map))?;
     }
 
     // Copy style chain fields into the element itself, so that they are
     // available in rules.
-    target.materialize(styles.chain(map));
+    elem.materialize(styles.chain(map));
 
     // If the element is locatable, create start and end tags to be able to find
     // the element in the frames after layout. Do this after synthesis and
     // materialization, so that it includes the synthesized fields. Do it before
     // marking as prepared so that show-set rules will apply to this element
     // when queried.
-    let tags = target
+    let tags = elem
         .location()
-        .map(|loc| (Tag::Start(target.clone()), Tag::End(loc, key)));
+        .map(|loc| (Tag::Start(elem.clone()), Tag::End(loc, key)));
 
     // Ensure that this preparation only runs once by marking the element as
     // prepared.
-    target.mark_prepared();
+    elem.mark_prepared();
 
     Ok(tags)
 }
@@ -588,7 +589,7 @@ fn visit_styled<'a>(
     let mut pagebreak = false;
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
-        if elem == DocumentElem::elem() {
+        if elem == DocumentElem::ELEM {
             if let Some(info) = s.kind.as_document_mut() {
                 info.populate(&local)
             } else {
@@ -597,7 +598,7 @@ fn visit_styled<'a>(
                     "document set rules are not allowed inside of containers"
                 );
             }
-        } else if elem == PageElem::elem() {
+        } else if elem == PageElem::ELEM {
             if !matches!(s.kind, RealizationKind::LayoutDocument(_)) {
                 bail!(
                     style.span(),
@@ -631,7 +632,7 @@ fn visit_styled<'a>(
     if pagebreak {
         let relevant = local
             .as_slice()
-            .trim_end_matches(|style| style.element() != Some(PageElem::elem()));
+            .trim_end_matches(|style| style.element() != Some(PageElem::ELEM));
         visit(s, PagebreakElem::shared_weak(), outer.chain(relevant))?;
     }
 
@@ -720,7 +721,9 @@ fn visit_filter_rules<'a>(
         s.saw_parbreak = true;
         return Ok(true);
     } else if !s.may_attach
-        && content.to_packed::<VElem>().is_some_and(|elem| elem.attach(styles))
+        && content
+            .to_packed::<VElem>()
+            .is_some_and(|elem| elem.attach.get(styles))
     {
         // Attach spacing collapses if not immediately following a paragraph.
         return Ok(true);
@@ -865,11 +868,11 @@ static TEXTUAL: GroupingRule = GroupingRule {
         // Note that `SymbolElem` converts into `TextElem` before textual show
         // rules run, and we apply textual rules to elements manually during
         // math realization, so we don't check for it here.
-        elem == TextElem::elem()
-            || elem == LinebreakElem::elem()
-            || elem == SmartQuoteElem::elem()
+        elem == TextElem::ELEM
+            || elem == LinebreakElem::ELEM
+            || elem == SmartQuoteElem::ELEM
     },
-    inner: |content| content.elem() == SpaceElem::elem(),
+    inner: |content| content.elem() == SpaceElem::ELEM,
     // Any kind of style interrupts this kind of grouping since regex show
     // rules cannot match over style changes anyway.
     interrupt: |_| true,
@@ -882,19 +885,19 @@ static PAR: GroupingRule = GroupingRule {
     tags: true,
     trigger: |content, kind| {
         let elem = content.elem();
-        elem == TextElem::elem()
-            || elem == HElem::elem()
-            || elem == LinebreakElem::elem()
-            || elem == SmartQuoteElem::elem()
-            || elem == InlineElem::elem()
-            || elem == BoxElem::elem()
+        elem == TextElem::ELEM
+            || elem == HElem::ELEM
+            || elem == LinebreakElem::ELEM
+            || elem == SmartQuoteElem::ELEM
+            || elem == InlineElem::ELEM
+            || elem == BoxElem::ELEM
             || (kind.is_html()
                 && content
                     .to_packed::<HtmlElem>()
                     .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
     },
-    inner: |content| content.elem() == SpaceElem::elem(),
-    interrupt: |elem| elem == ParElem::elem() || elem == AlignElem::elem(),
+    inner: |content| content.elem() == SpaceElem::ELEM,
+    interrupt: |elem| elem == ParElem::ELEM || elem == AlignElem::ELEM,
     finish: finish_par,
 };
 
@@ -902,10 +905,10 @@ static PAR: GroupingRule = GroupingRule {
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == CiteElem::elem(),
-    inner: |content| content.elem() == SpaceElem::elem(),
+    trigger: |content, _| content.elem() == CiteElem::ELEM,
+    inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| {
-        elem == CiteGroup::elem() || elem == ParElem::elem() || elem == AlignElem::elem()
+        elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
     },
     finish: finish_cites,
 };
@@ -924,12 +927,12 @@ const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
         tags: false,
-        trigger: |content, _| content.elem() == T::Item::elem(),
+        trigger: |content, _| content.elem() == T::Item::ELEM,
         inner: |content| {
             let elem = content.elem();
-            elem == SpaceElem::elem() || elem == ParbreakElem::elem()
+            elem == SpaceElem::ELEM || elem == ParbreakElem::ELEM
         },
-        interrupt: |elem| elem == T::elem() || elem == AlignElem::elem(),
+        interrupt: |elem| elem == T::ELEM || elem == AlignElem::ELEM,
         finish: finish_list_like::<T>,
     }
 }
@@ -1116,7 +1119,7 @@ fn find_regex_match_in_elems<'a>(
             buf.push('\n');
             SpaceState::Destructive
         } else if let Some(elem) = content.to_packed::<SmartQuoteElem>() {
-            buf.push(if elem.double(styles) { '"' } else { '\'' });
+            buf.push(if elem.double.get(styles) { '"' } else { '\'' });
             SpaceState::Supportive
         } else if let Some(elem) = content.to_packed::<TextElem>() {
             buf.push_str(&elem.text);
@@ -1308,7 +1311,7 @@ fn collapse_spaces(buf: &mut Vec<Pair>, start: usize) {
         } else if content.is::<LinebreakElem>() {
             destruct_space(buf, &mut k, &mut state);
         } else if let Some(elem) = content.to_packed::<HElem>() {
-            if elem.amount.is_fractional() || elem.weak(styles) {
+            if elem.amount.is_fractional() || elem.weak.get(styles) {
                 destruct_space(buf, &mut k, &mut state);
             }
         } else {

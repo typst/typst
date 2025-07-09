@@ -9,6 +9,9 @@
 #set page(height: 60pt)
 #image("/assets/images/tiger.jpg")
 
+--- image-jpg-html-base64 html ---
+#image("/assets/images/f2t.jpg", alt: "The letter F")
+
 --- image-sizing ---
 // Test configuring the size and fitting behaviour of images.
 
@@ -128,7 +131,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   width: 1cm,
 )
 
---- image-scaling-methods ---
+--- image-scaling-methods render html ---
 #let img(scaling) = image(
   bytes((
     0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
@@ -144,13 +147,25 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   scaling: scaling,
 )
 
-#stack(
-  dir: ltr,
-  spacing: 4pt,
+#let images = (
   img(auto),
   img("smooth"),
   img("pixelated"),
 )
+
+#context if target() == "html" {
+  // TODO: Remove this once `stack` is supported in HTML export.
+  html.div(
+    style: "display: flex; flex-direction: row; gap: 4pt",
+    images.join(),
+  )
+} else {
+  stack(
+    dir: ltr,
+    spacing: 4pt,
+    ..images,
+  )
+}
 
 --- image-natural-dpi-sizing ---
 // Test that images aren't upscaled.

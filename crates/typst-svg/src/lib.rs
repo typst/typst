@@ -5,6 +5,8 @@ mod paint;
 mod shape;
 mod text;
 
+pub use image::{convert_image_scaling, convert_image_to_base64_url};
+
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter, Write};
 

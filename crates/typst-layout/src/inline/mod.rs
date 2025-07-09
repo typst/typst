@@ -14,7 +14,7 @@ pub use self::shaping::create_shape_plan;
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
@@ -29,7 +29,7 @@ use typst_utils::{Numeric, SliceExt};
 use self::collect::{collect, Item, Segment, SpanMapper};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{apply_baseline_shift, commit, line, Line};
+use self::line::{apply_shift, commit, line, Line};
 use self::linebreak::{linebreak, Breakpoint};
 use self::prepare::{prepare, Preparation};
 use self::shaping::{
@@ -113,10 +113,10 @@ fn layout_par_impl(
         expand,
         Some(situation),
         &ConfigBase {
-            justify: elem.justify(styles),
-            linebreaks: elem.linebreaks(styles),
-            first_line_indent: elem.first_line_indent(styles),
-            hanging_indent: elem.hanging_indent(styles),
+            justify: elem.justify.get(styles),
+            linebreaks: elem.linebreaks.get(styles),
+            first_line_indent: elem.first_line_indent.get(styles),
+            hanging_indent: elem.hanging_indent.resolve(styles),
         },
     )
 }
@@ -139,10 +139,10 @@ pub fn layout_inline<'a>(
         expand,
         None,
         &ConfigBase {
-            justify: ParElem::justify_in(shared),
-            linebreaks: ParElem::linebreaks_in(shared),
-            first_line_indent: ParElem::first_line_indent_in(shared),
-            hanging_indent: ParElem::hanging_indent_in(shared),
+            justify: shared.get(ParElem::justify),
+            linebreaks: shared.get(ParElem::linebreaks),
+            first_line_indent: shared.get(ParElem::first_line_indent),
+            hanging_indent: shared.resolve(ParElem::hanging_indent),
         },
     )
 }
@@ -184,8 +184,8 @@ fn configuration(
     situation: Option<ParSituation>,
 ) -> Config {
     let justify = base.justify;
-    let font_size = TextElem::size_in(shared);
-    let dir = TextElem::dir_in(shared);
+    let font_size = shared.resolve(TextElem::size);
+    let dir = shared.resolve(TextElem::dir);
 
     Config {
         justify,
@@ -207,7 +207,7 @@ fn configuration(
                     Some(ParSituation::Other) => all,
                     None => false,
                 }
-                && AlignElem::alignment_in(shared).resolve(shared).x == dir.start().into()
+                && shared.resolve(AlignElem::alignment).x == dir.start().into()
             {
                 amount.at(font_size)
             } else {
@@ -219,26 +219,26 @@ fn configuration(
         } else {
             Abs::zero()
         },
-        numbering_marker: ParLine::numbering_in(shared).map(|numbering| {
+        numbering_marker: shared.get_cloned(ParLine::numbering).map(|numbering| {
             Packed::new(ParLineMarker::new(
                 numbering,
-                ParLine::number_align_in(shared),
-                ParLine::number_margin_in(shared),
+                shared.get(ParLine::number_align),
+                shared.get(ParLine::number_margin),
                 // Delay resolving the number clearance until line numbers are
                 // laid out to avoid inconsistent spacing depending on varying
                 // font size.
-                ParLine::number_clearance_in(shared),
+                shared.get(ParLine::number_clearance),
             ))
         }),
-        align: AlignElem::alignment_in(shared).fix(dir).x,
+        align: shared.get(AlignElem::alignment).fix(dir).x,
         font_size,
         dir,
-        hyphenate: shared_get(children, shared, TextElem::hyphenate_in)
+        hyphenate: shared_get(children, shared, |s| s.get(TextElem::hyphenate))
             .map(|uniform| uniform.unwrap_or(justify)),
-        lang: shared_get(children, shared, TextElem::lang_in),
-        fallback: TextElem::fallback_in(shared),
-        cjk_latin_spacing: TextElem::cjk_latin_spacing_in(shared).is_auto(),
-        costs: TextElem::costs_in(shared),
+        lang: shared_get(children, shared, |s| s.get(TextElem::lang)),
+        fallback: shared.get(TextElem::fallback),
+        cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
+        costs: shared.get(TextElem::costs),
     }
 }
 
@@ -314,7 +314,7 @@ fn shared_get<T: PartialEq>(
 /// When we support some kind of more general ancestry mechanism, this can
 /// become more elegant.
 fn in_list(styles: StyleChain) -> bool {
-    ListElem::depth_in(styles).0 > 0
-        || !EnumElem::parents_in(styles).is_empty()
-        || TermsElem::within_in(styles)
+    styles.get(ListElem::depth).0 > 0
+        || !styles.get_cloned(EnumElem::parents).is_empty()
+        || styles.get(TermsElem::within)
 }
