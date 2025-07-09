@@ -9,19 +9,16 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
-    Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    ShowSet, Smart, StyleChain, Styles, Synthesize,
 };
-use crate::html::{tag, HtmlElem};
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    AlignElem, Alignment, BlockBody, BlockElem, Em, HAlignment, Length, OuterVAlignment,
-    PlaceElem, PlacementScope, VAlignment, VElem,
+    AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
+    VAlignment,
 };
-use crate::model::{
-    Numbering, NumberingPattern, Outlinable, ParbreakElem, Refable, Supplement,
-};
+use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::text::{Lang, Region, TextElem};
 use crate::visualize::ImageElem;
 
@@ -104,7 +101,7 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, Show, ShowSet, Refable, Outlinable)]
+#[elem(scope, Locatable, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image].
     #[required]
@@ -328,65 +325,6 @@ impl Synthesize for Packed<FigureElem> {
     }
 }
 
-impl Show for Packed<FigureElem> {
-    #[typst_macros::time(name = "figure", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let span = self.span();
-        let target = styles.get(TargetElem::target);
-        let mut realized = self.body.clone();
-
-        // Build the caption, if any.
-        if let Some(caption) = self.caption.get_cloned(styles) {
-            let (first, second) = match caption.position.get(styles) {
-                OuterVAlignment::Top => (caption.pack(), realized),
-                OuterVAlignment::Bottom => (realized, caption.pack()),
-            };
-            let mut seq = Vec::with_capacity(3);
-            seq.push(first);
-            if !target.is_html() {
-                let v = VElem::new(self.gap.get(styles).into()).with_weak(true);
-                seq.push(v.pack().spanned(span))
-            }
-            seq.push(second);
-            realized = Content::sequence(seq)
-        }
-
-        // Ensure that the body is considered a paragraph.
-        realized += ParbreakElem::shared().clone().spanned(span);
-
-        if target.is_html() {
-            return Ok(HtmlElem::new(tag::figure)
-                .with_body(Some(realized))
-                .pack()
-                .spanned(span));
-        }
-
-        // Wrap the contents in a block.
-        realized = BlockElem::new()
-            .with_body(Some(BlockBody::Content(realized)))
-            .pack()
-            .spanned(span);
-
-        // Wrap in a float.
-        if let Some(align) = self.placement.get(styles) {
-            realized = PlaceElem::new(realized)
-                .with_alignment(align.map(|align| HAlignment::Center + align))
-                .with_scope(self.scope.get(styles))
-                .with_float(true)
-                .pack()
-                .spanned(span);
-        } else if self.scope.get(styles) == PlacementScope::Parent {
-            bail!(
-                span,
-                "parent-scoped placement is only available for floating figures";
-                hint: "you can enable floating placement with `figure(placement: auto, ..)`"
-            );
-        }
-
-        Ok(realized)
-    }
-}
-
 impl ShowSet for Packed<FigureElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         // Still allows breakable figures with
@@ -471,7 +409,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[elem(name = "caption", Synthesize)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -559,6 +497,35 @@ pub struct FigureCaption {
 }
 
 impl FigureCaption {
+    /// Realizes the textual caption content.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
+        let mut realized = self.body.clone();
+
+        if let (
+            Some(Some(mut supplement)),
+            Some(Some(numbering)),
+            Some(Some(counter)),
+            Some(Some(location)),
+        ) = (
+            self.supplement.clone(),
+            &self.numbering,
+            &self.counter,
+            &self.figure_location,
+        ) {
+            let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
+            if !supplement.is_empty() {
+                supplement += TextElem::packed('\u{a0}');
+            }
+            realized = supplement + numbers + self.get_separator(styles) + realized;
+        }
+
+        Ok(realized)
+    }
+
     /// Gets the default separator in the given language and (optionally)
     /// region.
     fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
@@ -585,43 +552,6 @@ impl Synthesize for Packed<FigureCaption> {
         let elem = self.as_mut();
         elem.separator.set(Smart::Custom(elem.get_separator(styles)));
         Ok(())
-    }
-}
-
-impl Show for Packed<FigureCaption> {
-    #[typst_macros::time(name = "figure.caption", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body.clone();
-
-        if let (
-            Some(Some(mut supplement)),
-            Some(Some(numbering)),
-            Some(Some(counter)),
-            Some(Some(location)),
-        ) = (
-            self.supplement.clone(),
-            &self.numbering,
-            &self.counter,
-            &self.figure_location,
-        ) {
-            let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
-            if !supplement.is_empty() {
-                supplement += TextElem::packed('\u{a0}');
-            }
-            realized = supplement + numbers + self.get_separator(styles) + realized;
-        }
-
-        Ok(if styles.get(TargetElem::target).is_html() {
-            HtmlElem::new(tag::figcaption)
-                .with_body(Some(realized))
-                .pack()
-                .spanned(self.span())
-        } else {
-            BlockElem::new()
-                .with_body(Some(BlockBody::Content(realized)))
-                .pack()
-                .spanned(self.span())
-        })
     }
 }
 

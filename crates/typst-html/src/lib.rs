@@ -1,8 +1,10 @@
 //! Typst's HTML exporter.
 
 mod encode;
+mod rules;
 
 pub use self::encode::html;
+pub use self::rules::register;
 
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::{bail, warning, At, SourceResult};

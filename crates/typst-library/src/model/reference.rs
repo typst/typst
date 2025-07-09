@@ -5,7 +5,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Repr, Show, Smart, StyleChain, Synthesize,
+    Repr, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -134,7 +134,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[elem(title = "Reference", Synthesize, Locatable, Show)]
+#[elem(title = "Reference", Synthesize, Locatable)]
 pub struct RefElem {
     /// The target label that should be referenced.
     ///
@@ -220,9 +220,13 @@ impl Synthesize for Packed<RefElem> {
     }
 }
 
-impl Show for Packed<RefElem> {
-    #[typst_macros::time(name = "ref", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+impl Packed<RefElem> {
+    /// Realize as a linked, textual reference.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let elem = engine.introspector.query_label(self.target);
         let span = self.span();
 
@@ -242,7 +246,7 @@ impl Show for Packed<RefElem> {
                 .at(span)?;
             let supplement = engine.introspector.page_supplement(loc);
 
-            return show_reference(
+            return realize_reference(
                 self,
                 engine,
                 styles,
@@ -306,7 +310,7 @@ impl Show for Packed<RefElem> {
             ))
             .at(span)?;
 
-        show_reference(
+        realize_reference(
             self,
             engine,
             styles,
@@ -319,7 +323,7 @@ impl Show for Packed<RefElem> {
 }
 
 /// Show a reference.
-fn show_reference(
+fn realize_reference(
     reference: &Packed<RefElem>,
     engine: &mut Engine,
     styles: StyleChain,

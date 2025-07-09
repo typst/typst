@@ -5,9 +5,10 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
     array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
+    StyleChain,
 };
 use crate::layout::Dir;
-use crate::text::{Lang, Region};
+use crate::text::{Lang, Region, TextElem};
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -200,6 +201,16 @@ pub struct SmartQuotes<'s> {
 }
 
 impl<'s> SmartQuotes<'s> {
+    /// Retrieve the smart quotes as configured by the current styles.
+    pub fn get_in(styles: StyleChain<'s>) -> Self {
+        Self::get(
+            styles.get_ref(SmartQuoteElem::quotes),
+            styles.get(TextElem::lang),
+            styles.get(TextElem::region),
+            styles.get(SmartQuoteElem::alternative),
+        )
+    }
+
     /// Create a new `Quotes` struct with the given quotes, optionally falling
     /// back to the defaults for a language and region.
     ///

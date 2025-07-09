@@ -6,13 +6,11 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    elem, Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    AlignElem, Alignment, BlockElem, InlineElem, OuterHAlignment, SpecificAlignment,
-    VAlignment,
+    AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
 use crate::math::{MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
@@ -46,7 +44,7 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(Locatable, Synthesize, Show, ShowSet, Count, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -162,23 +160,6 @@ impl Synthesize for Packed<EquationElem> {
         self.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
-    }
-}
-
-impl Show for Packed<EquationElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if self.block.get(styles) {
-            Ok(BlockElem::multi_layouter(
-                self.clone(),
-                engine.routines.layout_equation_block,
-            )
-            .pack()
-            .spanned(self.span()))
-        } else {
-            Ok(InlineElem::layouter(self.clone(), engine.routines.layout_equation_inline)
-                .pack()
-                .spanned(self.span()))
-        }
     }
 }
 

@@ -2,12 +2,8 @@ use std::f64::consts::PI;
 
 use typst_syntax::Span;
 
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, func, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
-};
-use crate::layout::{Axes, BlockElem, Em, Length, Rel};
+use crate::foundations::{elem, func, scope, Content, NativeElement, Smart};
+use crate::layout::{Axes, Em, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 
 /// A closed polygon.
@@ -25,7 +21,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope, Show)]
+#[elem(scope)]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
@@ -122,13 +118,5 @@ impl PolygonElem {
             elem.stroke.set(stroke);
         }
         elem.pack().spanned(span)
-    }
-}
-
-impl Show for Packed<PolygonElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_polygon)
-            .pack()
-            .spanned(self.span()))
     }
 }

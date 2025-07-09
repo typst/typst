@@ -12,7 +12,7 @@ use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
     Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
-    Selector, Show, Smart, Str, StyleChain, Value,
+    Selector, ShowFn, Smart, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
@@ -683,8 +683,8 @@ cast! {
 }
 
 /// Executes an update of a counter.
-#[elem(Construct, Locatable, Show, Count)]
-struct CounterUpdateElem {
+#[elem(Construct, Locatable, Count)]
+pub struct CounterUpdateElem {
     /// The key that identifies the counter.
     #[required]
     key: CounterKey,
@@ -701,12 +701,6 @@ impl Construct for CounterUpdateElem {
     }
 }
 
-impl Show for Packed<CounterUpdateElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
-    }
-}
-
 impl Count for Packed<CounterUpdateElem> {
     fn update(&self) -> Option<CounterUpdate> {
         Some(self.update.clone())
@@ -714,7 +708,7 @@ impl Count for Packed<CounterUpdateElem> {
 }
 
 /// Executes a display of a counter.
-#[elem(Construct, Locatable, Show)]
+#[elem(Construct, Locatable)]
 pub struct CounterDisplayElem {
     /// The counter.
     #[required]
@@ -738,20 +732,18 @@ impl Construct for CounterDisplayElem {
     }
 }
 
-impl Show for Packed<CounterDisplayElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self
-            .counter
-            .display_impl(
-                engine,
-                self.location().unwrap(),
-                self.numbering.clone(),
-                self.both,
-                Some(styles),
-            )?
-            .display())
-    }
-}
+pub const COUNTER_DISPLAY_RULE: ShowFn<CounterDisplayElem> = |elem, engine, styles| {
+    Ok(elem
+        .counter
+        .display_impl(
+            engine,
+            elem.location().unwrap(),
+            elem.numbering.clone(),
+            elem.both,
+            Some(styles),
+        )?
+        .display())
+};
 
 /// An specialized handler of the page counter that tracks both the physical
 /// and the logical page counter.

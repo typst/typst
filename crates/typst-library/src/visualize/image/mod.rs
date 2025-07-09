@@ -15,13 +15,11 @@ use ecow::EcoString;
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::diag::StrResult;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Show,
-    Smart, StyleChain,
+    cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Smart,
 };
-use crate::layout::{BlockElem, Length, Rel, Sizing};
+use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::LocalName;
@@ -44,7 +42,7 @@ use crate::text::LocalName;
 ///   ],
 /// )
 /// ```
-#[elem(scope, Show, LocalName, Figurable)]
+#[elem(scope, LocalName, Figurable)]
 pub struct ImageElem {
     /// A [path]($syntax/#paths) to an image file or raw bytes making up an
     /// image in one of the supported [formats]($image.format).
@@ -216,16 +214,6 @@ impl ImageElem {
             elem.scaling.set(scaling);
         }
         Ok(elem.pack().spanned(span))
-    }
-}
-
-impl Show for Packed<ImageElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_image)
-            .with_width(self.width.get(styles))
-            .with_height(self.height.get(styles))
-            .pack()
-            .spanned(self.span()))
     }
 }
 

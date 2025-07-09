@@ -1,19 +1,11 @@
 use std::str::FromStr;
 
-use ecow::eco_format;
 use smallvec::SmallVec;
 
-use crate::diag::{bail, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles, TargetElem,
-};
-use crate::html::{attr, tag, HtmlElem};
-use crate::layout::{Alignment, BlockElem, Em, HAlignment, Length, VAlignment, VElem};
-use crate::model::{
-    ListItemLike, ListLike, Numbering, NumberingPattern, ParElem, ParbreakElem,
-};
+use crate::diag::bail;
+use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, Styles};
+use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
+use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
 /// A numbered list.
 ///
@@ -71,7 +63,7 @@ use crate::model::{
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Show)]
+#[elem(scope, title = "Numbered List")]
 pub struct EnumElem {
     /// Defines the default [spacing]($enum.spacing) of the enumeration. If it
     /// is `{false}`, the items are spaced apart with
@@ -221,51 +213,6 @@ pub struct EnumElem {
 impl EnumElem {
     #[elem]
     type EnumItem;
-}
-
-impl Show for Packed<EnumElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let tight = self.tight.get(styles);
-
-        if styles.get(TargetElem::target).is_html() {
-            let mut elem = HtmlElem::new(tag::ol);
-            if self.reversed.get(styles) {
-                elem = elem.with_attr(attr::reversed, "reversed");
-            }
-            if let Some(n) = self.start.get(styles).custom() {
-                elem = elem.with_attr(attr::start, eco_format!("{n}"));
-            }
-            let body = Content::sequence(self.children.iter().map(|item| {
-                let mut li = HtmlElem::new(tag::li);
-                if let Some(nr) = item.number.get(styles) {
-                    li = li.with_attr(attr::value, eco_format!("{nr}"));
-                }
-                // Text in wide enums shall always turn into paragraphs.
-                let mut body = item.body.clone();
-                if !tight {
-                    body += ParbreakElem::shared();
-                }
-                li.with_body(Some(body)).pack().spanned(item.span())
-            }));
-            return Ok(elem.with_body(Some(body)).pack().spanned(self.span()));
-        }
-
-        let mut realized =
-            BlockElem::multi_layouter(self.clone(), engine.routines.layout_enum)
-                .pack()
-                .spanned(self.span());
-
-        if tight {
-            let spacing = self
-                .spacing
-                .get(styles)
-                .unwrap_or_else(|| styles.get(ParElem::leading));
-            let v = VElem::new(spacing.into()).with_weak(true).with_attach(true).pack();
-            realized = v + realized;
-        }
-
-        Ok(realized)
-    }
 }
 
 /// An enumeration item.
