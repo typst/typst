@@ -3,12 +3,12 @@ use std::num::NonZeroUsize;
 use ecow::{eco_format, EcoVec};
 use typst_library::diag::warning;
 use typst_library::foundations::{
-    Content, NativeElement, NativeRuleMap, ShowFn, StyleChain, Target,
+    Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::html::{attr, tag, HtmlAttrs, HtmlElem, HtmlTag};
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
-use typst_library::layout::OuterVAlignment;
+use typst_library::layout::{OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
     FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParbreakElem, QuoteElem,
@@ -18,6 +18,9 @@ use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SpaceElem, StrikeElem,
     SubElem, SuperElem, UnderlineElem,
 };
+use typst_library::visualize::ImageElem;
+
+use crate::css::{self, HtmlElemExt};
 
 /// Register show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -47,6 +50,9 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, HIGHLIGHT_RULE);
     rules.register(Html, RAW_RULE);
     rules.register(Html, RAW_LINE_RULE);
+
+    // Visualize.
+    rules.register(Html, IMAGE_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, _| {
@@ -338,7 +344,7 @@ fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
 fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
     let cell = cell.body.clone();
     let Some(cell) = cell.to_packed::<TableCell>() else { return cell };
-    let mut attrs = HtmlAttrs::default();
+    let mut attrs = HtmlAttrs::new();
     let span = |n: NonZeroUsize| (n != NonZeroUsize::MIN).then(|| n.to_string());
     if let Some(colspan) = span(cell.colspan.get(styles)) {
         attrs.push(attr::colspan, colspan);
@@ -409,3 +415,36 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 };
 
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());
+
+const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
+    let image = elem.decode(engine, styles)?;
+
+    let mut attrs = HtmlAttrs::new();
+    attrs.push(attr::src, typst_svg::convert_image_to_base64_url(&image));
+
+    if let Some(alt) = elem.alt.get_cloned(styles) {
+        attrs.push(attr::alt, alt);
+    }
+
+    let mut inline = css::Properties::new();
+
+    // TODO: Exclude in semantic profile.
+    if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
+        inline.push("image-rendering", value);
+    }
+
+    // TODO: Exclude in semantic profile?
+    match elem.width.get(styles) {
+        Smart::Auto => {}
+        Smart::Custom(rel) => inline.push("width", css::rel(rel)),
+    }
+
+    // TODO: Exclude in semantic profile?
+    match elem.height.get(styles) {
+        Sizing::Auto => {}
+        Sizing::Rel(rel) => inline.push("height", css::rel(rel)),
+        Sizing::Fr(_) => {}
+    }
+
+    Ok(HtmlElem::new(tag::img).with_attrs(attrs).with_styles(inline).pack())
+};

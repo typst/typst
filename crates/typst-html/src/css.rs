@@ -1,10 +1,71 @@
 //! Conversion from Typst data types into CSS data types.
 
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, Write};
 
-use typst_library::layout::Length;
+use ecow::EcoString;
+use typst_library::html::{attr, HtmlElem};
+use typst_library::layout::{Length, Rel};
 use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Rgb};
 use typst_utils::Numeric;
+
+/// Additional methods for [`HtmlElem`].
+pub trait HtmlElemExt {
+    /// Adds the styles to an element if the property list is non-empty.
+    fn with_styles(self, properties: Properties) -> Self;
+}
+
+impl HtmlElemExt for HtmlElem {
+    /// Adds CSS styles to an element.
+    fn with_styles(self, properties: Properties) -> Self {
+        if let Some(value) = properties.into_inline_styles() {
+            self.with_attr(attr::style, value)
+        } else {
+            self
+        }
+    }
+}
+
+/// A list of CSS properties with values.
+#[derive(Debug, Default)]
+pub struct Properties(EcoString);
+
+impl Properties {
+    /// Creates an empty list.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds a new property to the list.
+    pub fn push(&mut self, property: &str, value: impl Display) {
+        if !self.0.is_empty() {
+            self.0.push_str("; ");
+        }
+        write!(&mut self.0, "{property}: {value}").unwrap();
+    }
+
+    /// Adds a new property in builder-style.
+    #[expect(unused)]
+    pub fn with(mut self, property: &str, value: impl Display) -> Self {
+        self.push(property, value);
+        self
+    }
+
+    /// Turns this into a string suitable for use as an inline `style`
+    /// attribute.
+    pub fn into_inline_styles(self) -> Option<EcoString> {
+        (!self.0.is_empty()).then_some(self.0)
+    }
+}
+
+pub fn rel(rel: Rel) -> impl Display {
+    typst_utils::display(move |f| match (rel.abs.is_zero(), rel.rel.is_zero()) {
+        (false, false) => {
+            write!(f, "calc({}% + {})", rel.rel.get(), length(rel.abs))
+        }
+        (true, false) => write!(f, "{}%", rel.rel.get()),
+        (_, true) => write!(f, "{}", length(rel.abs)),
+    })
+}
 
 pub fn length(length: Length) -> impl Display {
     typst_utils::display(move |f| match (length.abs.is_zero(), length.em.is_zero()) {
