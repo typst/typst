@@ -28,3 +28,19 @@ $ bold(op("bold", limits: #true))_x y $
 --- math-non-math-content ---
 // With non-text content
 $ op(#underline[ul]) a $
+
+--- math-op-font ---
+// Test with different font.
+#let colim = math.op(
+  text(font: "IBM Plex Sans", weight: "regular", size: 0.8em)[colim],
+  limits: true,
+)
+$ colim_(x -> 0) inline(colim_(x -> 0)) $
+
+--- math-op-set-font ---
+// Test setting font.
+#let lig = math.op("fi")
+#let test = $sin(x) lim_(x -> oo) lig_1(X)$
+#test
+#show math.op: set text(font: "Libertinus Serif")
+#test
