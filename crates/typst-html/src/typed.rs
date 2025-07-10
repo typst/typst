@@ -18,13 +18,11 @@ use typst_library::foundations::{
     FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NoneValue, ParamInfo,
     PositiveF64, Reflect, Scope, Str, Type, Value,
 };
-use typst_library::html::tag;
-use typst_library::html::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag};
 use typst_library::layout::{Axes, Axis, Dir, Length};
 use typst_library::visualize::Color;
 use typst_macros::cast;
 
-use crate::css;
+use crate::{css, tag, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag};
 
 /// Hook up all typed HTML definitions.
 pub(super) fn define(html: &mut Scope) {

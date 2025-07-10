@@ -18,7 +18,6 @@ use typst_library::foundations::{
     RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
     SymbolElem, Synthesize, TargetElem, Transformation,
 };
-use typst_library::html::{tag, FrameElem, HtmlElem};
 use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
@@ -48,16 +47,16 @@ pub fn realize<'a>(
         locator,
         arenas,
         rules: match kind {
-            RealizationKind::LayoutDocument(_) => LAYOUT_RULES,
-            RealizationKind::LayoutFragment(_) => LAYOUT_RULES,
+            RealizationKind::LayoutDocument { .. } => LAYOUT_RULES,
+            RealizationKind::LayoutFragment { .. } => LAYOUT_RULES,
             RealizationKind::LayoutPar => LAYOUT_PAR_RULES,
-            RealizationKind::HtmlDocument(_) => HTML_DOCUMENT_RULES,
-            RealizationKind::HtmlFragment(_) => HTML_FRAGMENT_RULES,
+            RealizationKind::HtmlDocument { .. } => HTML_DOCUMENT_RULES,
+            RealizationKind::HtmlFragment { .. } => HTML_FRAGMENT_RULES,
             RealizationKind::Math => MATH_RULES,
         },
         sink: vec![],
         groupings: ArrayVec::new(),
-        outside: matches!(kind, RealizationKind::LayoutDocument(_)),
+        outside: matches!(kind, RealizationKind::LayoutDocument { .. }),
         may_attach: false,
         saw_parbreak: false,
         kind,
@@ -113,7 +112,7 @@ struct GroupingRule {
     /// be visible to `finish`.
     tags: bool,
     /// Defines which kinds of elements start and make up this kind of grouping.
-    trigger: fn(&Content, &RealizationKind) -> bool,
+    trigger: fn(&Content, &State) -> bool,
     /// Defines elements that may appear in the interior of the grouping, but
     /// not at the edges.
     inner: fn(&Content) -> bool,
@@ -330,13 +329,6 @@ fn visit_kind_rules<'a>(
                 text.set_label(label);
             }
             visit(s, s.store(text), styles)?;
-            return Ok(true);
-        }
-    }
-
-    if !s.kind.is_html() {
-        if let Some(elem) = content.to_packed::<FrameElem>() {
-            visit(s, &elem.body, styles)?;
             return Ok(true);
         }
     }
@@ -601,7 +593,7 @@ fn visit_styled<'a>(
                 );
             }
         } else if elem == PageElem::ELEM {
-            if !matches!(s.kind, RealizationKind::LayoutDocument(_)) {
+            if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
                 bail!(
                     style.span(),
                     "page configuration is not allowed inside of containers"
@@ -659,7 +651,7 @@ fn visit_grouping_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, &s.kind));
+    let matching = s.rules.iter().find(|&rule| (rule.trigger)(content, s));
 
     // Try to continue or finish an existing grouping.
     let mut i = 0;
@@ -671,7 +663,7 @@ fn visit_grouping_rules<'a>(
 
         // If the element can be added to the active grouping, do it.
         if !active.interrupted
-            && ((active.rule.trigger)(content, &s.kind) || (active.rule.inner)(content))
+            && ((active.rule.trigger)(content, s) || (active.rule.inner)(content))
         {
             s.sink.push((content, styles));
             return Ok(true);
@@ -806,7 +798,7 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     let Grouping { start, rule, .. } = s.groupings.pop().unwrap();
 
     // Trim trailing non-trigger elements.
-    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, &s.kind));
+    let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
     let end = start + trimmed.len();
     let tail = s.store_slice(&s.sink[end..]);
     s.sink.truncate(end);
@@ -885,7 +877,7 @@ static TEXTUAL: GroupingRule = GroupingRule {
 static PAR: GroupingRule = GroupingRule {
     priority: 1,
     tags: true,
-    trigger: |content, kind| {
+    trigger: |content, state| {
         let elem = content.elem();
         elem == TextElem::ELEM
             || elem == HElem::ELEM
@@ -893,10 +885,11 @@ static PAR: GroupingRule = GroupingRule {
             || elem == SmartQuoteElem::ELEM
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
-            || (kind.is_html()
-                && content
-                    .to_packed::<HtmlElem>()
-                    .is_some_and(|elem| tag::is_inline_by_default(elem.tag)))
+            || match state.kind {
+                RealizationKind::HtmlDocument { is_inline, .. }
+                | RealizationKind::HtmlFragment { is_inline, .. } => is_inline(content),
+                _ => false,
+            }
     },
     inner: |content| content.elem() == SpaceElem::ELEM,
     interrupt: |elem| elem == ParElem::ELEM || elem == AlignElem::ELEM,

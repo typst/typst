@@ -101,20 +101,25 @@ routines! {
 pub enum RealizationKind<'a> {
     /// This the root realization for layout. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
-    LayoutDocument(&'a mut DocumentInfo),
+    LayoutDocument { info: &'a mut DocumentInfo },
     /// A nested realization in a container (e.g. a `block`). Requires a mutable
     /// reference to an enum that will be set to `FragmentKind::Inline` if the
     /// fragment's content was fully inline.
-    LayoutFragment(&'a mut FragmentKind),
+    LayoutFragment { kind: &'a mut FragmentKind },
     /// A nested realization in a paragraph (i.e. a `par`)
     LayoutPar,
-    /// This the root realization for HTML. Requires a mutable reference
-    /// to document metadata that will be filled from `set document` rules.
-    HtmlDocument(&'a mut DocumentInfo),
+    /// This the root realization for HTML. Requires a mutable reference to
+    /// document metadata that will be filled from `set document` rules.
+    ///
+    /// The `is_inline` function checks whether content consists of an inline
+    /// HTML element. It's used by the `PAR` grouping rules. This is slightly
+    /// hacky and might be replaced by a mechanism to supply the grouping rules
+    /// as a realization user.
+    HtmlDocument { info: &'a mut DocumentInfo, is_inline: fn(&Content) -> bool },
     /// A nested realization in a container (e.g. a `block`). Requires a mutable
     /// reference to an enum that will be set to `FragmentKind::Inline` if the
     /// fragment's content was fully inline.
-    HtmlFragment(&'a mut FragmentKind),
+    HtmlFragment { kind: &'a mut FragmentKind, is_inline: fn(&Content) -> bool },
     /// A realization within math.
     Math,
 }
@@ -122,18 +127,20 @@ pub enum RealizationKind<'a> {
 impl RealizationKind<'_> {
     /// It this a realization for HTML export?
     pub fn is_html(&self) -> bool {
-        matches!(self, Self::HtmlDocument(_) | Self::HtmlFragment(_))
+        matches!(self, Self::HtmlDocument { .. } | Self::HtmlFragment { .. })
     }
 
     /// It this a realization for a container?
     pub fn is_fragment(&self) -> bool {
-        matches!(self, Self::LayoutFragment(_) | Self::HtmlFragment(_))
+        matches!(self, Self::LayoutFragment { .. } | Self::HtmlFragment { .. })
     }
 
     /// If this is a document-level realization, accesses the document info.
     pub fn as_document_mut(&mut self) -> Option<&mut DocumentInfo> {
         match self {
-            Self::LayoutDocument(info) | Self::HtmlDocument(info) => Some(*info),
+            Self::LayoutDocument { info } | Self::HtmlDocument { info, .. } => {
+                Some(*info)
+            }
             _ => None,
         }
     }
@@ -141,7 +148,9 @@ impl RealizationKind<'_> {
     /// If this is a container-level realization, accesses the fragment kind.
     pub fn as_fragment_mut(&mut self) -> Option<&mut FragmentKind> {
         match self {
-            Self::LayoutFragment(kind) | Self::HtmlFragment(kind) => Some(*kind),
+            Self::LayoutFragment { kind } | Self::HtmlFragment { kind, .. } => {
+                Some(*kind)
+            }
             _ => None,
         }
     }

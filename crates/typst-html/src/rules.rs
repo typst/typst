@@ -5,7 +5,6 @@ use typst_library::diag::warning;
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
-use typst_library::html::{attr, tag, HtmlAttrs, HtmlElem, HtmlTag};
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
 use typst_library::layout::{OuterVAlignment, Sizing};
@@ -20,11 +19,11 @@ use typst_library::text::{
 };
 use typst_library::visualize::ImageElem;
 
-use crate::css::{self, HtmlElemExt};
+use crate::{attr, css, tag, FrameElem, HtmlAttrs, HtmlElem, HtmlTag};
 
-/// Register show rules for the [HTML target](Target::Html).
+/// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
-    use Target::Html;
+    use Target::{Html, Paged};
 
     // Model.
     rules.register(Html, STRONG_RULE);
@@ -53,6 +52,11 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // Visualize.
     rules.register(Html, IMAGE_RULE);
+
+    // For the HTML target, `html.frame` is a primitive. In the laid-out target,
+    // it should be a no-op so that nested frames don't break (things like `show
+    // math.equation: html.frame` can result in nested ones).
+    rules.register::<FrameElem>(Paged, |elem, _, _| Ok(elem.body.clone()));
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, _| {
