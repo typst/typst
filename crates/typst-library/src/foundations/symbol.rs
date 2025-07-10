@@ -310,7 +310,7 @@ impl Debug for List {
 impl crate::foundations::Repr for Symbol {
     fn repr(&self) -> EcoString {
         match &self.0 {
-            Repr::Single(c) => eco_format!("symbol(\"{}\")", *c),
+            Repr::Single(value) => eco_format!("symbol({})", value.repr()),
             Repr::Complex(variants) => {
                 eco_format!(
                     "symbol{}",
@@ -346,15 +346,15 @@ fn repr_variants<'a>(
                 // that contain all applied modifiers.
                 applied_modifiers.iter().all(|am| modifiers.contains(am))
             })
-            .map(|(modifiers, c, _)| {
+            .map(|(modifiers, value, _)| {
                 let trimmed_modifiers =
                     modifiers.into_iter().filter(|&m| !applied_modifiers.contains(m));
                 if trimmed_modifiers.clone().all(|m| m.is_empty()) {
-                    eco_format!("\"{c}\"")
+                    value.repr()
                 } else {
                     let trimmed_modifiers =
                         trimmed_modifiers.collect::<Vec<_>>().join(".");
-                    eco_format!("(\"{}\", \"{}\")", trimmed_modifiers, c)
+                    eco_format!("({}, {})", trimmed_modifiers.repr(), value.repr())
                 }
             })
             .collect::<Vec<_>>(),
