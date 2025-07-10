@@ -76,7 +76,7 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
@@ -1564,7 +1564,7 @@ mod tests {
 
     use typst::layout::PagedDocument;
 
-    use super::{autocomplete, Completion};
+    use super::{autocomplete, Completion, CompletionKind};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     /// Quote a string.
@@ -1707,6 +1707,21 @@ mod tests {
         test_with_doc(&world, -2, doc.as_ref())
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_identical_labels_returns_single_completion() {
+        let mut world = TestWorld::new("x<test> y<test>");
+        let doc = typst::compile(&world).output.ok();
+
+        let end = world.main.text().len();
+        world.main.edit(end..end, " @t");
+
+        let result = test_with_doc(&world, -1, doc.as_ref());
+        let completions = result.completions();
+        let label_count =
+            completions.iter().filter(|c| c.kind == CompletionKind::Label).count();
+        assert_eq!(label_count, 1);
     }
 
     /// Test what kind of brackets we autocomplete for function calls depending

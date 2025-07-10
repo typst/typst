@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::foundations::{Label, Styles, Value};
@@ -66,14 +68,22 @@ pub fn analyze_import(world: &dyn IdeWorld, source: &LinkedNode) -> Option<Value
 /// - All labels and descriptions for them, if available
 /// - A split offset: All labels before this offset belong to nodes, all after
 ///   belong to a bibliography.
+///
+/// Note: When multiple labels in the document have the same identifier,
+/// this only returns the first one.
 pub fn analyze_labels(
     document: &PagedDocument,
 ) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];
+    let mut seen_labels = HashSet::new();
 
     // Labels in the document.
     for elem in document.introspector.all() {
         let Some(label) = elem.label() else { continue };
+        if !seen_labels.insert(label) {
+            continue;
+        }
+
         let details = elem
             .to_packed::<FigureElem>()
             .and_then(|figure| match figure.caption.as_option() {
