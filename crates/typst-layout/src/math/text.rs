@@ -129,12 +129,22 @@ pub fn layout_symbol(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
+    assert!(
+        elem.text.len() <= 4 && elem.text.chars().count() == 1,
+        "TODO: layout multi-char symbol"
+    );
+    let elem_char = elem
+        .text
+        .chars()
+        .next()
+        .expect("TODO: should an empty symbol value forbidden?");
+
     // Switch dotless char to normal when we have the dtls OpenType feature.
     // This should happen before the main styling pass.
     let dtls = style_dtls();
-    let (unstyled_c, symbol_styles) = match try_dotless(elem.text) {
+    let (unstyled_c, symbol_styles) = match try_dotless(elem_char) {
         Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
-        _ => (elem.text, styles),
+        _ => (elem_char, styles),
     };
 
     let variant = styles.get(EquationElem::variant);
