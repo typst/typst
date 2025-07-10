@@ -14,10 +14,10 @@ use typst::diag::{
     bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::html::HtmlDocument;
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Lines, Span};
 use typst::WorldExt;
+use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{

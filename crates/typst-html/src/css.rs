@@ -3,27 +3,9 @@
 use std::fmt::{self, Display, Write};
 
 use ecow::EcoString;
-use typst_library::html::{attr, HtmlElem};
 use typst_library::layout::{Length, Rel};
 use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Rgb};
 use typst_utils::Numeric;
-
-/// Additional methods for [`HtmlElem`].
-pub trait HtmlElemExt {
-    /// Adds the styles to an element if the property list is non-empty.
-    fn with_styles(self, properties: Properties) -> Self;
-}
-
-impl HtmlElemExt for HtmlElem {
-    /// Adds CSS styles to an element.
-    fn with_styles(self, properties: Properties) -> Self {
-        if let Some(value) = properties.into_inline_styles() {
-            self.with_attr(attr::style, value)
-        } else {
-            self
-        }
-    }
-}
 
 /// A list of CSS properties with values.
 #[derive(Debug, Default)]

@@ -2,10 +2,11 @@ use std::fmt::Write;
 
 use typst_library::diag::{bail, At, SourceResult, StrResult};
 use typst_library::foundations::Repr;
-use typst_library::html::{
+use typst_syntax::Span;
+
+use crate::{
     attr, charsets, tag, HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag,
 };
-use typst_syntax::Span;
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
