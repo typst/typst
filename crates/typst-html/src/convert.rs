@@ -86,7 +86,12 @@ fn handle(
     } else if child.is::<SpaceElem>() {
         output.push(HtmlNode::text(' ', child.span()));
     } else if let Some(elem) = child.to_packed::<TextElem>() {
-        output.push(HtmlNode::text(elem.text.clone(), elem.span()));
+        let text = if let Some(case) = styles.get(TextElem::case) {
+            case.apply(&elem.text).into()
+        } else {
+            elem.text.clone()
+        };
+        output.push(HtmlNode::text(text, elem.span()));
     } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
         output.push(HtmlElement::new(tag::br).spanned(elem.span()).into());
     } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
