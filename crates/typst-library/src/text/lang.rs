@@ -37,6 +37,7 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     translation!("it"),
     translation!("ja"),
     translation!("la"),
+    translation!("lt"),
     translation!("lv"),
     translation!("nb"),
     translation!("nl"),
