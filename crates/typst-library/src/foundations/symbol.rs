@@ -102,10 +102,10 @@ impl Symbol {
         match &self.0 {
             Repr::Single(value) => value,
             Repr::Complex(_) => ModifierSet::<&'static str>::default()
-                .best_match_in(self.variants().map(|(m, c, _)| (m, c)))
+                .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
                 .unwrap(),
             Repr::Modified(arc) => {
-                arc.1.best_match_in(self.variants().map(|(m, c, _)| (m, c))).unwrap()
+                arc.1.best_match_in(self.variants().map(|(m, v, _)| (m, v))).unwrap()
             }
         }
     }
@@ -168,7 +168,7 @@ impl Symbol {
     /// The characters that are covered by this symbol.
     pub fn variants(&self) -> impl Iterator<Item = Variant<&str>> {
         match &self.0 {
-            Repr::Single(value) => Variants::Single(Some(*value).into_iter()),
+            Repr::Single(value) => Variants::Single(std::iter::once(*value)),
             Repr::Complex(list) => Variants::Static(list.iter()),
             Repr::Modified(arc) => arc.0.variants(),
         }
@@ -291,7 +291,7 @@ impl Display for Symbol {
 impl Debug for Repr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Single(c) => Debug::fmt(c, f),
+            Self::Single(value) => Debug::fmt(value, f),
             Self::Complex(list) => list.fmt(f),
             Self::Modified(lists) => lists.fmt(f),
         }
@@ -399,7 +399,7 @@ cast! {
 
 /// Iterator over variants.
 enum Variants<'a> {
-    Single(std::option::IntoIter<&'static str>),
+    Single(std::iter::Once<&'static str>),
     Static(std::slice::Iter<'static, Variant<&'static str>>),
     Runtime(std::slice::Iter<'a, Variant<EcoString>>),
 }
