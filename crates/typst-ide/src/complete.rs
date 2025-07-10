@@ -130,7 +130,14 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Start of a reference: "@|" or "@he|".
+    // Start of a reference: "@|".
+    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
+        return true;
+    }
+
+    // An existing reference: "@he|".
     if ctx.leaf.kind() == SyntaxKind::RefMarker {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
@@ -1645,6 +1652,19 @@ mod tests {
     }
 
     #[track_caller]
+    fn test_with_addition(
+        initial_text: &str,
+        addition: &str,
+        pos: impl FilePos,
+    ) -> Response {
+        let mut world = TestWorld::new(initial_text);
+        let doc = typst::compile(&world).output.ok();
+        let end = world.main.text().len();
+        world.main.edit(end..end, addition);
+        test_with_doc(&world, pos, doc.as_ref())
+    }
+
+    #[track_caller]
     fn test_with_doc(
         world: impl WorldLike,
         pos: impl FilePos,
@@ -1710,14 +1730,23 @@ mod tests {
     }
 
     #[test]
+    fn test_autocomplete_ref_function() {
+        test_with_addition("x<test>", " #ref(<)", -2).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand() {
+        test_with_addition("x<test>", " @", -1).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand_with_partial_identifier() {
+        test_with_addition("x<test>", " @te", -1).must_include(["test"]);
+    }
+
+    #[test]
     fn test_autocomplete_ref_identical_labels_returns_single_completion() {
-        let mut world = TestWorld::new("x<test> y<test>");
-        let doc = typst::compile(&world).output.ok();
-
-        let end = world.main.text().len();
-        world.main.edit(end..end, " @t");
-
-        let result = test_with_doc(&world, -1, doc.as_ref());
+        let result = test_with_addition("x<test> y<test>", " @t", -1);
         let completions = result.completions();
         let label_count =
             completions.iter().filter(|c| c.kind == CompletionKind::Label).count();
