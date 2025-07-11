@@ -91,6 +91,7 @@ impl Lang {
     pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const LATIN: Self = Self(*b"la ", 2);
     pub const LATVIAN: Self = Self(*b"lv ", 2);
+    pub const LITHUANIAN: Self = Self(*b"lt ", 2);
     pub const LOWER_SORBIAN: Self = Self(*b"dsb", 3);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
