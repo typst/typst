@@ -1,0 +1,8 @@
+figure = Pav.
+table = Lent.
+equation = Lygt.
+bibliography = Literatūra
+heading = Antraštė
+outline = Turinys
+raw = Kodo fragmentas
+page = Psl.
