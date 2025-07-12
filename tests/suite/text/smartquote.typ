@@ -172,3 +172,8 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 
 --- issue-5146-smartquotes-after-equations ---
 $i$'s $i$ 's
+
+--- smartquotes-html html ---
+When you said that "he surely meant that 'she intended to say "I'm sorry"'", I was quite confused.
+
+'#box[box]'
