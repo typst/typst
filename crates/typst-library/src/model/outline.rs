@@ -409,13 +409,6 @@ impl LocalName for Packed<OutlineElem> {
     const KEY: &'static str = "outline";
 }
 
-/// Only used to delimit the outline in tagged PDF.
-#[elem(Locatable)]
-pub struct OutlineBody {
-    #[required]
-    pub body: Content,
-}
-
 /// Defines how an outline is indented.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OutlineIndent {

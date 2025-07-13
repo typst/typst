@@ -19,10 +19,10 @@ use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
     FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineBody, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
-use typst_library::pdf::{ArtifactElem, AttachElem};
+use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
@@ -56,7 +56,6 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, FOOTNOTE_RULE);
     rules.register(Paged, FOOTNOTE_ENTRY_RULE);
     rules.register(Paged, OUTLINE_RULE);
-    rules.register(Paged, OUTLINE_BODY_RULE);
     rules.register(Paged, OUTLINE_ENTRY_RULE);
     rules.register(Paged, REF_RULE);
     rules.register(Paged, CITE_GROUP_RULE);
@@ -109,6 +108,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     // PDF.
     rules.register(Paged, ATTACH_RULE);
     rules.register(Paged, ARTIFACT_RULE);
+    rules.register(Paged, PDF_MARKER_TAG_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -178,9 +178,9 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     for child in elem.children.iter() {
         let mut seq = vec![];
         seq.extend(unpad.clone());
-        seq.push(child.term.clone().strong());
-        seq.push(separator.clone());
-        seq.push(child.description.clone());
+        seq.push(PdfMarkerTag::ListItemLabel(child.term.clone().strong()));
+        seq.push(separator.clone().artifact(ArtifactKind::Other));
+        seq.push(PdfMarkerTag::ListItemBody(child.description.clone()));
 
         // Text in wide term lists shall always turn into paragraphs.
         if !tight {
@@ -410,11 +410,9 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     let title = elem.realize_title(styles);
     let entries = elem.realize_flat(engine, styles)?;
     let entries = entries.into_iter().map(|entry| entry.pack());
-    let body = OutlineBody::new(Content::sequence(entries)).pack();
+    let body = PdfMarkerTag::OutlineBody(Content::sequence(entries));
     Ok(Content::sequence(title.into_iter().chain(Some(body))))
 };
-
-const OUTLINE_BODY_RULE: ShowFn<OutlineBody> = |elem, _, _| Ok(elem.body.clone());
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let span = elem.span();
@@ -819,3 +817,5 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
 const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());
 
 const ARTIFACT_RULE: ShowFn<ArtifactElem> = |elem, _, _| Ok(elem.body.clone());
+
+const PDF_MARKER_TAG_RULE: ShowFn<PdfMarkerTag> = |elem, _, _| Ok(elem.body.clone());
