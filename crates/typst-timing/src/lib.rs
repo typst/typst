@@ -1,9 +1,14 @@
 //! Performance timing for Typst.
 
+use std::borrow::Cow;
+use std::fmt::Display;
 use std::io::Write;
 use std::num::NonZeroU64;
+use std::ops::Not;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 
+use indexmap::IndexMap;
 use parking_lot::Mutex;
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
@@ -100,19 +105,8 @@ pub fn export_json<W: Write>(
         ts: f64,
         pid: u64,
         tid: u64,
-        args: Option<Args<'a>>,
-    }
-
-    #[derive(Serialize)]
-    struct Args<'a> {
-        file: String,
-        line: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
-        function_name: Option<&'a str>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        callsite_file: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        callsite_line: Option<u32>,
+        args: Option<IndexMap<Cow<'a, str>, Cow<'a, serde_json::Value>>>,
     }
 
     let lock = EVENTS.lock();
@@ -124,6 +118,16 @@ pub fn export_json<W: Write>(
         .map_err(|e| format!("failed to serialize events: {e}"))?;
 
     for event in events.iter() {
+        let mut args = IndexMap::new();
+        if let Some(func) = event.func.as_ref() {
+            args.insert("func".into(), Cow::Owned(serde_json::json!(func)));
+        }
+
+        for (key, arg) in event.arguments.iter() {
+            arg.to_json(&mut source, key, &mut args)
+                .map_err(|e| format!("failed to serialize event argument: {e}"))?;
+        }
+
         seq.serialize_element(&Entry {
             name: event.name,
             cat: "typst",
@@ -134,21 +138,7 @@ pub fn export_json<W: Write>(
             ts: event.timestamp.micros_since(events[0].timestamp),
             pid: 1,
             tid: event.thread_id,
-            args: event.span.map(&mut source).map(|(file, line)| {
-                let (callsite_file, callsite_line) = match event.callsite.map(&mut source)
-                {
-                    Some((a, b)) => (Some(a), Some(b)),
-                    None => (None, None),
-                };
-
-                Args {
-                    file,
-                    line,
-                    callsite_file,
-                    callsite_line,
-                    function_name: event.func.as_deref(),
-                }
-            }),
+            args: args.is_empty().not().then_some(args),
         })
         .map_err(|e| format!("failed to serialize event: {e}"))?;
     }
@@ -159,87 +149,155 @@ pub fn export_json<W: Write>(
 }
 
 /// A scope that records an event when it is dropped.
+#[must_use]
 pub struct TimingScope {
     name: &'static str,
-    span: Option<NonZeroU64>,
-    callsite: Option<NonZeroU64>,
     func: Option<String>,
-    thread_id: u64,
+    args: IndexMap<&'static str, EventArgument>,
 }
 
 impl TimingScope {
     /// Create a new scope if timing is enabled.
     #[inline]
     pub fn new(name: &'static str) -> Option<Self> {
-        Self::with_span(name, None)
-    }
-
-    /// Create a new scope with a span if timing is enabled.
-    ///
-    /// The span is a raw number because `typst-timing` can't depend on
-    /// `typst-syntax` (or else `typst-syntax` couldn't depend on
-    /// `typst-timing`).
-    #[inline]
-    pub fn with_span(name: &'static str, span: Option<NonZeroU64>) -> Option<Self> {
-        Self::with_callsite(name, span, None, None)
-    }
-
-    /// Create a new scope with a span if timing is enabled.
-    ///
-    /// The span is a raw number because `typst-timing` can't depend on
-    /// `typst-syntax` (or else `typst-syntax` couldn't depend on
-    /// `typst-timing`).
-    #[inline]
-    pub fn with_callsite(
-        name: &'static str,
-        span: Option<NonZeroU64>,
-        callsite: Option<NonZeroU64>,
-        func: Option<String>,
-    ) -> Option<Self> {
         if is_enabled() {
-            return Some(Self::new_impl(name, span, callsite, func));
+            Some(Self { name, func: None, args: IndexMap::new() })
+        } else {
+            None
         }
-        None
+    }
+
+    pub fn with_func(mut self, func: impl ToString) -> Self {
+        self.func = Some(func.to_string());
+        self
+    }
+
+    pub fn with_span(mut self, span: NonZeroU64) -> Self {
+        self.args.insert("span", EventArgument::Span(span));
+        self
+    }
+
+    pub fn with_callsite(mut self, callsite: NonZeroU64) -> Self {
+        self.args.insert("callsite", EventArgument::Span(callsite));
+        self
+    }
+
+    pub fn with_named_span(mut self, name: &'static str, span: NonZeroU64) -> Self {
+        self.args.insert(name, EventArgument::Span(span));
+        self
+    }
+
+    pub fn with_display(self, name: &'static str, value: impl Display) -> Self {
+        self.with_arg(name, value.to_string())
+            .expect("failed to serialize display value")
+    }
+
+    pub fn with_debug(self, name: &'static str, value: impl std::fmt::Debug) -> Self {
+        self.with_arg(name, format!("{value:?}"))
+            .expect("failed to serialize debug value")
+    }
+
+    pub fn with_arg(
+        mut self,
+        arg: &'static str,
+        value: impl Serialize,
+    ) -> Result<Self, serde_json::Error> {
+        let value = serde_json::to_value(value)?;
+        self.args.insert(arg, EventArgument::Value(value));
+        Ok(self)
     }
 
     /// Create a new scope without checking if timing is enabled.
-    fn new_impl(
-        name: &'static str,
-        span: Option<NonZeroU64>,
-        callsite: Option<NonZeroU64>,
-        func: Option<String>,
-    ) -> Self {
+    pub fn build(self) -> TimingScopeGuard {
         let (thread_id, timestamp) =
             THREAD_DATA.with(|data| (data.id, Timestamp::now_with(data)));
-        EVENTS.lock().push(Event {
+        let event = Event {
             kind: EventKind::Start,
             timestamp,
-            name,
-            span,
-            callsite,
-            func: func.clone(),
+            name: self.name,
+            func: self.func.clone(),
             thread_id,
-        });
-        Self { name, span, callsite: None, thread_id, func }
+            arguments: Arc::new(self.args),
+        };
+        EVENTS.lock().push(event.clone());
+        TimingScopeGuard { scope: Some(event) }
     }
 }
 
-impl Drop for TimingScope {
+pub struct TimingScopeGuard {
+    scope: Option<Event>,
+}
+
+impl Drop for TimingScopeGuard {
     fn drop(&mut self) {
         let timestamp = Timestamp::now();
-        EVENTS.lock().push(Event {
-            kind: EventKind::End,
-            timestamp,
-            name: self.name,
-            span: self.span,
-            callsite: self.callsite,
-            thread_id: self.thread_id,
-            func: std::mem::take(&mut self.func),
-        });
+
+        let mut scope = self.scope.take().expect("scope already dropped");
+        scope.timestamp = timestamp;
+        scope.kind = EventKind::End;
+
+        EVENTS.lock().push(scope);
+    }
+}
+
+enum EventArgument {
+    Span(NonZeroU64),
+    Value(serde_json::Value),
+}
+
+impl EventArgument {
+    fn to_json<'a>(
+        &'a self,
+        mut source: impl FnMut(NonZeroU64) -> (String, u32),
+        key: &'static str,
+        out: &mut IndexMap<Cow<'static, str>, Cow<'a, serde_json::Value>>,
+    ) -> Result<(), serde_json::Error> {
+        match self {
+            EventArgument::Span(span) => {
+                let (file, line) = source(*span);
+                // Insert file and line information for the span
+                if key == "span" {
+                    out.insert("file".into(), Cow::Owned(serde_json::json!(file)));
+                    out.insert("line".into(), Cow::Owned(serde_json::json!(line)));
+
+                    return Ok(());
+                }
+
+                // Small optimization for callsite
+                if key == "callsite" {
+                    out.insert(
+                        "callsite_file".into(),
+                        Cow::Owned(serde_json::json!(file)),
+                    );
+                    out.insert(
+                        "callsite_line".into(),
+                        Cow::Owned(serde_json::json!(line)),
+                    );
+
+                    return Ok(());
+                }
+
+                out.insert(
+                    format!("{key}_file").into(),
+                    Cow::Owned(serde_json::json!(file)),
+                );
+
+                out.insert(
+                    format!("{key}_line").into(),
+                    Cow::Owned(serde_json::json!(line)),
+                );
+            }
+            EventArgument::Value(value) => {
+                out.insert(key.into(), Cow::Borrowed(value));
+            }
+        }
+
+        Ok(())
     }
 }
 
 /// An event that has been recorded.
+#[derive(Clone)]
 struct Event {
     /// Whether this is a start or end event.
     kind: EventKind,
@@ -247,10 +305,8 @@ struct Event {
     timestamp: Timestamp,
     /// The name of this event.
     name: &'static str,
-    /// The raw value of the span of code that this event was recorded in.
-    span: Option<NonZeroU64>,
-    /// The raw value of the callsite span of the code that this event was recorded in.
-    callsite: Option<NonZeroU64>,
+    /// The additional arguments of this event.
+    arguments: Arc<IndexMap<&'static str, EventArgument>>,
     /// The function being called (if any).
     func: Option<String>,
     /// The thread ID of this event.
