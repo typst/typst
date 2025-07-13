@@ -1,18 +1,15 @@
 use std::num::NonZeroUsize;
 
-use pdf_writer::{Finish, Pdf, Ref, TextStr};
+use krilla::destination::XyzDestination;
+use krilla::outline::{Outline, OutlineNode};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::layout::Abs;
 use typst_library::model::HeadingElem;
 
-use crate::{AbsExt, TextStrExt, WithEverything};
+use crate::convert::GlobalContext;
+use crate::util::AbsExt;
 
-/// Construct the outline for the document.
-pub(crate) fn write_outline(
-    chunk: &mut Pdf,
-    alloc: &mut Ref,
-    ctx: &WithEverything,
-) -> Option<Ref> {
+pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
     let mut tree: Vec<HeadingNode> = vec![];
 
     // Stores the level of the topmost skipped ancestor of the next bookmarked
@@ -21,14 +18,14 @@ pub(crate) fn write_outline(
     // Therefore, its next descendant must be added at its level, which is
     // enforced in the manner shown below.
     let mut last_skipped_level = None;
-    let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
+    let elements = &gc.document.introspector.query(&HeadingElem::ELEM.select());
 
     for elem in elements.iter() {
-        if let Some(page_ranges) = &ctx.options.page_ranges {
+        if let Some(page_ranges) = &gc.options.page_ranges {
             if !page_ranges
-                .includes_page(ctx.document.introspector.page(elem.location().unwrap()))
+                .includes_page(gc.document.introspector.page(elem.location().unwrap()))
             {
-                // Don't bookmark headings in non-exported pages
+                // Don't bookmark headings in non-exported pages.
                 continue;
             }
         }
@@ -95,39 +92,15 @@ pub(crate) fn write_outline(
         }
     }
 
-    if tree.is_empty() {
-        return None;
+    let mut outline = Outline::new();
+
+    for child in convert_nodes(&tree, gc) {
+        outline.push_child(child);
     }
 
-    let root_id = alloc.bump();
-    let start_ref = *alloc;
-    let len = tree.len();
-
-    let mut prev_ref = None;
-    for (i, node) in tree.iter().enumerate() {
-        prev_ref = Some(write_outline_item(
-            ctx,
-            chunk,
-            alloc,
-            node,
-            root_id,
-            prev_ref,
-            i + 1 == len,
-        ));
-    }
-
-    chunk
-        .outline(root_id)
-        .first(start_ref)
-        .last(Ref::new(
-            alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
-        ))
-        .count(tree.len() as i32);
-
-    Some(root_id)
+    outline
 }
 
-/// A heading in the outline panel.
 #[derive(Debug)]
 struct HeadingNode<'a> {
     element: &'a Packed<HeadingElem>,
@@ -142,80 +115,39 @@ impl<'a> HeadingNode<'a> {
             level: element.resolve_level(StyleChain::default()),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
-                .bookmarked(StyleChain::default())
-                .unwrap_or_else(|| element.outlined(StyleChain::default())),
+                .bookmarked
+                .get(StyleChain::default())
+                .unwrap_or_else(|| element.outlined.get(StyleChain::default())),
             element,
             children: Vec::new(),
         }
     }
 
-    fn len(&self) -> usize {
-        1 + self.children.iter().map(Self::len).sum::<usize>()
+    fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
+        let loc = self.element.location().unwrap();
+        let title = self.element.body.plain_text().to_string();
+        let pos = gc.document.introspector.position(loc);
+        let page_index = pos.page.get() - 1;
+
+        if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
+            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+            let dest = XyzDestination::new(
+                index,
+                krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
+            );
+
+            let mut outline_node = OutlineNode::new(title, dest);
+            for child in convert_nodes(&self.children, gc) {
+                outline_node.push_child(child);
+            }
+
+            return Some(outline_node);
+        }
+
+        None
     }
 }
 
-/// Write an outline item and all its children.
-fn write_outline_item(
-    ctx: &WithEverything,
-    chunk: &mut Pdf,
-    alloc: &mut Ref,
-    node: &HeadingNode,
-    parent_ref: Ref,
-    prev_ref: Option<Ref>,
-    is_last: bool,
-) -> Ref {
-    let id = alloc.bump();
-    let next_ref = Ref::new(id.get() + node.len() as i32);
-
-    let mut outline = chunk.outline_item(id);
-    outline.parent(parent_ref);
-
-    if !is_last {
-        outline.next(next_ref);
-    }
-
-    if let Some(prev_rev) = prev_ref {
-        outline.prev(prev_rev);
-    }
-
-    if let Some(last_immediate_child) = node.children.last() {
-        outline.first(Ref::new(id.get() + 1));
-        outline.last(Ref::new(next_ref.get() - last_immediate_child.len() as i32));
-        outline.count(-(node.children.len() as i32));
-    }
-
-    outline.title(TextStr::trimmed(node.element.body.plain_text().trim()));
-
-    let loc = node.element.location().unwrap();
-    let pos = ctx.document.introspector.position(loc);
-    let index = pos.page.get() - 1;
-
-    // Don't link to non-exported pages.
-    if let Some((Some(page), Some(page_ref))) =
-        ctx.pages.get(index).zip(ctx.globals.pages.get(index))
-    {
-        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        outline.dest().page(*page_ref).xyz(
-            pos.point.x.to_f32(),
-            (page.content.size.y - y).to_f32(),
-            None,
-        );
-    }
-
-    outline.finish();
-
-    let mut prev_ref = None;
-    for (i, child) in node.children.iter().enumerate() {
-        prev_ref = Some(write_outline_item(
-            ctx,
-            chunk,
-            alloc,
-            child,
-            id,
-            prev_ref,
-            i + 1 == node.children.len(),
-        ));
-    }
-
-    id
+fn convert_nodes(nodes: &[HeadingNode], gc: &GlobalContext) -> Vec<OutlineNode> {
+    nodes.iter().flat_map(|node| node.to_krilla(gc)).collect()
 }

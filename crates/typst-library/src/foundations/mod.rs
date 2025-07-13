@@ -17,7 +17,6 @@ mod datetime;
 mod decimal;
 mod dict;
 mod duration;
-mod element;
 mod fields;
 mod float;
 mod func;
@@ -49,7 +48,6 @@ pub use self::datetime::*;
 pub use self::decimal::*;
 pub use self::dict::*;
 pub use self::duration::*;
-pub use self::element::*;
 pub use self::fields::*;
 pub use self::float::*;
 pub use self::func::*;
@@ -69,6 +67,7 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 pub use typst_macros::{scope, ty};
+use typst_syntax::SyntaxMode;
 
 #[rustfmt::skip]
 #[doc(hidden)]
@@ -77,12 +76,12 @@ pub use {
     indexmap::IndexMap,
 };
 
+use comemo::TrackedMut;
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::routines::EvalMode;
 use crate::{Feature, Features};
 
 /// Hook up all `foundations` definitions.
@@ -272,8 +271,8 @@ pub fn eval(
     /// #eval("1_2^3", mode: "math")
     /// ```
     #[named]
-    #[default(EvalMode::Code)]
-    mode: EvalMode,
+    #[default(SyntaxMode::Code)]
+    mode: SyntaxMode,
     /// A scope of definitions that are made available.
     ///
     /// ```example
@@ -297,5 +296,14 @@ pub fn eval(
     for (key, value) in dict {
         scope.bind(key.into(), Binding::new(value, span));
     }
-    (engine.routines.eval_string)(engine.routines, engine.world, &text, span, mode, scope)
+
+    (engine.routines.eval_string)(
+        engine.routines,
+        engine.world,
+        TrackedMut::reborrow_mut(&mut engine.sink),
+        &text,
+        span,
+        mode,
+        scope,
+    )
 }

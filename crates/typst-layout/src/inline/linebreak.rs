@@ -690,13 +690,34 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         let breakpoint = if point == text.len() {
             Breakpoint::Mandatory
         } else {
+            const OBJ_REPLACE: char = '\u{FFFC}';
             match lb.get(c) {
-                // Fix for: https://github.com/unicode-org/icu4x/issues/4146
-                LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
                 | LineBreak::LineFeed
                 | LineBreak::NextLine => Breakpoint::Mandatory,
+
+                // https://github.com/typst/typst/issues/5489
+                //
+                // OBJECT-REPLACEMENT-CHARACTERs provide Contingent Break
+                // opportunities before and after by default. This behaviour
+                // is however tailorable, see:
+                // https://www.unicode.org/reports/tr14/#CB
+                // https://www.unicode.org/reports/tr14/#TailorableBreakingRules
+                // https://www.unicode.org/reports/tr14/#LB20
+                //
+                // Don't provide a line breaking opportunity between a LTR-
+                // ISOLATE (or any other Combining Mark) and an OBJECT-
+                // REPLACEMENT-CHARACTER representing an inline item, if the
+                // LTR-ISOLATE could end up as the only character on the
+                // previous line.
+                LineBreak::CombiningMark
+                    if text[point..].starts_with(OBJ_REPLACE)
+                        && last + c.len_utf8() == point =>
+                {
+                    continue;
+                }
+
                 _ => Breakpoint::Normal,
             }
         };
@@ -825,7 +846,9 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.config.hyphenate.unwrap_or_else(|| {
         let (_, item) = p.get(offset);
         match item.text() {
-            Some(text) => TextElem::hyphenate_in(text.styles).unwrap_or(p.config.justify),
+            Some(text) => {
+                text.styles.get(TextElem::hyphenate).unwrap_or(p.config.justify)
+            }
             None => false,
         }
     })
@@ -836,7 +859,7 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);
         let styles = item.text()?.styles;
-        Some(TextElem::lang_in(styles))
+        Some(styles.get(TextElem::lang))
     })?;
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;
@@ -906,9 +929,9 @@ impl Estimates {
                     let byte_len = g.range.len();
                     let stretch = g.stretchability().0 + g.stretchability().1;
                     let shrink = g.shrinkability().0 + g.shrinkability().1;
-                    widths.push(byte_len, g.x_advance.at(shaped.size));
-                    stretchability.push(byte_len, stretch.at(shaped.size));
-                    shrinkability.push(byte_len, shrink.at(shaped.size));
+                    widths.push(byte_len, g.x_advance.at(g.size));
+                    stretchability.push(byte_len, stretch.at(g.size));
+                    shrinkability.push(byte_len, shrink.at(g.size));
                     justifiables.push(byte_len, g.is_justifiable() as usize);
                 }
             } else {

@@ -1,14 +1,14 @@
-use std::cmp::Reverse;
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
+use codex::ModifierSet;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 use typst_syntax::{is_ident, Span, Spanned};
 use typst_utils::hash128;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, DeprecationSink, SourceResult, StrResult};
 use crate::foundations::{
     cast, elem, func, scope, ty, Array, Content, Func, NativeElement, NativeFunc, Packed,
     PlainText, Repr as _,
@@ -54,18 +54,22 @@ enum Repr {
     /// A native symbol that has no named variant.
     Single(char),
     /// A native symbol with multiple named variants.
-    Complex(&'static [(&'static str, char)]),
+    Complex(&'static [Variant<&'static str>]),
     /// A symbol with multiple named variants, where some modifiers may have
     /// been applied. Also used for symbols defined at runtime by the user with
     /// no modifier applied.
-    Modified(Arc<(List, EcoString)>),
+    Modified(Arc<(List, ModifierSet<EcoString>)>),
 }
+
+/// A symbol variant, consisting of a set of modifiers, a character, and an
+/// optional deprecation message.
+type Variant<S> = (ModifierSet<S>, char, Option<S>);
 
 /// A collection of symbols.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum List {
-    Static(&'static [(&'static str, char)]),
-    Runtime(Box<[(EcoString, char)]>),
+    Static(&'static [Variant<&'static str>]),
+    Runtime(Box<[Variant<EcoString>]>),
 }
 
 impl Symbol {
@@ -76,24 +80,28 @@ impl Symbol {
 
     /// Create a symbol with a static variant list.
     #[track_caller]
-    pub const fn list(list: &'static [(&'static str, char)]) -> Self {
+    pub const fn list(list: &'static [Variant<&'static str>]) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Complex(list))
     }
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
-    pub fn runtime(list: Box<[(EcoString, char)]>) -> Self {
+    pub fn runtime(list: Box<[Variant<EcoString>]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Modified(Arc::new((List::Runtime(list), EcoString::new()))))
+        Self(Repr::Modified(Arc::new((List::Runtime(list), ModifierSet::default()))))
     }
 
     /// Get the symbol's character.
     pub fn get(&self) -> char {
         match &self.0 {
             Repr::Single(c) => *c,
-            Repr::Complex(_) => find(self.variants(), "").unwrap(),
-            Repr::Modified(arc) => find(self.variants(), &arc.1).unwrap(),
+            Repr::Complex(_) => ModifierSet::<&'static str>::default()
+                .best_match_in(self.variants().map(|(m, c, _)| (m, c)))
+                .unwrap(),
+            Repr::Modified(arc) => {
+                arc.1.best_match_in(self.variants().map(|(m, c, _)| (m, c))).unwrap()
+            }
         }
     }
 
@@ -126,18 +134,25 @@ impl Symbol {
     }
 
     /// Apply a modifier to the symbol.
-    pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
+    pub fn modified(
+        mut self,
+        sink: impl DeprecationSink,
+        modifier: &str,
+    ) -> StrResult<Self> {
         if let Repr::Complex(list) = self.0 {
-            self.0 = Repr::Modified(Arc::new((List::Static(list), EcoString::new())));
+            self.0 =
+                Repr::Modified(Arc::new((List::Static(list), ModifierSet::default())));
         }
 
         if let Repr::Modified(arc) = &mut self.0 {
             let (list, modifiers) = Arc::make_mut(arc);
-            if !modifiers.is_empty() {
-                modifiers.push('.');
-            }
-            modifiers.push_str(modifier);
-            if find(list.variants(), modifiers).is_some() {
+            modifiers.insert_raw(modifier);
+            if let Some(deprecation) =
+                modifiers.best_match_in(list.variants().map(|(m, _, d)| (m, d)))
+            {
+                if let Some(message) = deprecation {
+                    sink.emit(message)
+                }
                 return Ok(self);
             }
         }
@@ -146,7 +161,7 @@ impl Symbol {
     }
 
     /// The characters that are covered by this symbol.
-    pub fn variants(&self) -> impl Iterator<Item = (&str, char)> {
+    pub fn variants(&self) -> impl Iterator<Item = Variant<&str>> {
         match &self.0 {
             Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
             Repr::Complex(list) => Variants::Static(list.iter()),
@@ -156,17 +171,15 @@ impl Symbol {
 
     /// Possible modifiers.
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
-        let mut set = BTreeSet::new();
         let modifiers = match &self.0 {
-            Repr::Modified(arc) => arc.1.as_str(),
-            _ => "",
+            Repr::Modified(arc) => arc.1.as_deref(),
+            _ => ModifierSet::default(),
         };
-        for modifier in self.variants().flat_map(|(name, _)| name.split('.')) {
-            if !modifier.is_empty() && !contained(modifiers, modifier) {
-                set.insert(modifier);
-            }
-        }
-        set.into_iter()
+        self.variants()
+            .flat_map(|(m, _, _)| m)
+            .filter(|modifier| !modifier.is_empty() && !modifiers.contains(modifier))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
     }
 }
 
@@ -256,7 +269,10 @@ impl Symbol {
             seen.insert(hash, i);
         }
 
-        let list = variants.into_iter().map(|s| (s.v.0, s.v.1)).collect();
+        let list = variants
+            .into_iter()
+            .map(|s| (ModifierSet::from_raw_dotted(s.v.0), s.v.1, None))
+            .collect();
         Ok(Symbol::runtime(list))
     }
 }
@@ -291,14 +307,23 @@ impl crate::foundations::Repr for Symbol {
         match &self.0 {
             Repr::Single(c) => eco_format!("symbol(\"{}\")", *c),
             Repr::Complex(variants) => {
-                eco_format!("symbol{}", repr_variants(variants.iter().copied(), ""))
+                eco_format!(
+                    "symbol{}",
+                    repr_variants(variants.iter().copied(), ModifierSet::default())
+                )
             }
             Repr::Modified(arc) => {
                 let (list, modifiers) = arc.as_ref();
                 if modifiers.is_empty() {
-                    eco_format!("symbol{}", repr_variants(list.variants(), ""))
+                    eco_format!(
+                        "symbol{}",
+                        repr_variants(list.variants(), ModifierSet::default())
+                    )
                 } else {
-                    eco_format!("symbol{}", repr_variants(list.variants(), modifiers))
+                    eco_format!(
+                        "symbol{}",
+                        repr_variants(list.variants(), modifiers.as_deref())
+                    )
                 }
             }
         }
@@ -306,24 +331,24 @@ impl crate::foundations::Repr for Symbol {
 }
 
 fn repr_variants<'a>(
-    variants: impl Iterator<Item = (&'a str, char)>,
-    applied_modifiers: &str,
+    variants: impl Iterator<Item = Variant<&'a str>>,
+    applied_modifiers: ModifierSet<&str>,
 ) -> String {
     crate::foundations::repr::pretty_array_like(
         &variants
-            .filter(|(variant, _)| {
+            .filter(|(modifiers, _, _)| {
                 // Only keep variants that can still be accessed, i.e., variants
                 // that contain all applied modifiers.
-                parts(applied_modifiers).all(|am| variant.split('.').any(|m| m == am))
+                applied_modifiers.iter().all(|am| modifiers.contains(am))
             })
-            .map(|(variant, c)| {
-                let trimmed_variant = variant
-                    .split('.')
-                    .filter(|&m| parts(applied_modifiers).all(|am| m != am));
-                if trimmed_variant.clone().all(|m| m.is_empty()) {
+            .map(|(modifiers, c, _)| {
+                let trimmed_modifiers =
+                    modifiers.into_iter().filter(|&m| !applied_modifiers.contains(m));
+                if trimmed_modifiers.clone().all(|m| m.is_empty()) {
                     eco_format!("\"{c}\"")
                 } else {
-                    let trimmed_modifiers = trimmed_variant.collect::<Vec<_>>().join(".");
+                    let trimmed_modifiers =
+                        trimmed_modifiers.collect::<Vec<_>>().join(".");
                     eco_format!("(\"{}\", \"{}\")", trimmed_modifiers, c)
                 }
             })
@@ -369,65 +394,22 @@ cast! {
 /// Iterator over variants.
 enum Variants<'a> {
     Single(std::option::IntoIter<char>),
-    Static(std::slice::Iter<'static, (&'static str, char)>),
-    Runtime(std::slice::Iter<'a, (EcoString, char)>),
+    Static(std::slice::Iter<'static, Variant<&'static str>>),
+    Runtime(std::slice::Iter<'a, Variant<EcoString>>),
 }
 
 impl<'a> Iterator for Variants<'a> {
-    type Item = (&'a str, char);
+    type Item = Variant<&'a str>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Single(iter) => Some(("", iter.next()?)),
+            Self::Single(iter) => Some((ModifierSet::default(), iter.next()?, None)),
             Self::Static(list) => list.next().copied(),
-            Self::Runtime(list) => list.next().map(|(s, c)| (s.as_str(), *c)),
-        }
-    }
-}
-
-/// Find the best symbol from the list.
-fn find<'a>(
-    variants: impl Iterator<Item = (&'a str, char)>,
-    modifiers: &str,
-) -> Option<char> {
-    let mut best = None;
-    let mut best_score = None;
-
-    // Find the best table entry with this name.
-    'outer: for candidate in variants {
-        for modifier in parts(modifiers) {
-            if !contained(candidate.0, modifier) {
-                continue 'outer;
+            Self::Runtime(list) => {
+                list.next().map(|(m, c, d)| (m.as_deref(), *c, d.as_deref()))
             }
         }
-
-        let mut matching = 0;
-        let mut total = 0;
-        for modifier in parts(candidate.0) {
-            if contained(modifiers, modifier) {
-                matching += 1;
-            }
-            total += 1;
-        }
-
-        let score = (matching, Reverse(total));
-        if best_score.is_none_or(|b| score > b) {
-            best = Some(candidate.1);
-            best_score = Some(score);
-        }
     }
-
-    best
-}
-
-/// Split a modifier list into its parts.
-fn parts(modifiers: &str) -> impl Iterator<Item = &str> {
-    modifiers.split('.').filter(|s| !s.is_empty())
-}
-
-/// Whether the modifier string contains the modifier `m`.
-fn contained(modifiers: &str, m: &str) -> bool {
-    parts(modifiers).any(|part| part == m)
 }
 
 /// A single character.

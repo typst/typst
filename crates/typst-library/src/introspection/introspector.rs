@@ -10,9 +10,8 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::html::HtmlNode;
 use crate::introspection::{Location, Tag};
-use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
+use crate::layout::{Frame, FrameItem, Point, Position, Transform};
 use crate::model::Numbering;
 
 /// Can be queried for elements and their positions.
@@ -47,18 +46,6 @@ pub struct Introspector {
 type Pair = (Content, Position);
 
 impl Introspector {
-    /// Creates an introspector for a page list.
-    #[typst_macros::time(name = "introspect pages")]
-    pub fn paged(pages: &[Page]) -> Self {
-        IntrospectorBuilder::new().build_paged(pages)
-    }
-
-    /// Creates an introspector for HTML.
-    #[typst_macros::time(name = "introspect html")]
-    pub fn html(output: &[HtmlNode]) -> Self {
-        IntrospectorBuilder::new().build_html(output)
-    }
-
     /// Iterates over all locatable elements.
     pub fn all(&self) -> impl Iterator<Item = &Content> + '_ {
         self.elems.iter().map(|(c, _)| c)
@@ -352,10 +339,10 @@ impl Clone for QueryCache {
 
 /// Builds the introspector.
 #[derive(Default)]
-struct IntrospectorBuilder {
-    pages: usize,
-    page_numberings: Vec<Option<Numbering>>,
-    page_supplements: Vec<Content>,
+pub struct IntrospectorBuilder {
+    pub pages: usize,
+    pub page_numberings: Vec<Option<Numbering>>,
+    pub page_supplements: Vec<Content>,
     seen: HashSet<Location>,
     insertions: MultiMap<Location, Vec<Pair>>,
     keys: MultiMap<u128, Location>,
@@ -365,41 +352,12 @@ struct IntrospectorBuilder {
 
 impl IntrospectorBuilder {
     /// Create an empty builder.
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
-    /// Build an introspector for a page list.
-    fn build_paged(mut self, pages: &[Page]) -> Introspector {
-        self.pages = pages.len();
-        self.page_numberings.reserve(pages.len());
-        self.page_supplements.reserve(pages.len());
-
-        // Discover all elements.
-        let mut elems = Vec::new();
-        for (i, page) in pages.iter().enumerate() {
-            self.page_numberings.push(page.numbering.clone());
-            self.page_supplements.push(page.supplement.clone());
-            self.discover_in_frame(
-                &mut elems,
-                &page.frame,
-                NonZeroUsize::new(1 + i).unwrap(),
-                Transform::identity(),
-            );
-        }
-
-        self.finalize(elems)
-    }
-
-    /// Build an introspector for an HTML document.
-    fn build_html(mut self, output: &[HtmlNode]) -> Introspector {
-        let mut elems = Vec::new();
-        self.discover_in_html(&mut elems, output);
-        self.finalize(elems)
-    }
-
     /// Processes the tags in the frame.
-    fn discover_in_frame(
+    pub fn discover_in_frame(
         &mut self,
         sink: &mut Vec<Pair>,
         frame: &Frame,
@@ -433,29 +391,13 @@ impl IntrospectorBuilder {
         }
     }
 
-    /// Processes the tags in the HTML element.
-    fn discover_in_html(&mut self, sink: &mut Vec<Pair>, nodes: &[HtmlNode]) {
-        for node in nodes {
-            match node {
-                HtmlNode::Tag(tag) => self.discover_in_tag(
-                    sink,
-                    tag,
-                    Position { page: NonZeroUsize::ONE, point: Point::zero() },
-                ),
-                HtmlNode::Text(_, _) => {}
-                HtmlNode::Element(elem) => self.discover_in_html(sink, &elem.children),
-                HtmlNode::Frame(frame) => self.discover_in_frame(
-                    sink,
-                    frame,
-                    NonZeroUsize::ONE,
-                    Transform::identity(),
-                ),
-            }
-        }
-    }
-
     /// Handle a tag.
-    fn discover_in_tag(&mut self, sink: &mut Vec<Pair>, tag: &Tag, position: Position) {
+    pub fn discover_in_tag(
+        &mut self,
+        sink: &mut Vec<Pair>,
+        tag: &Tag,
+        position: Position,
+    ) {
         match tag {
             Tag::Start(elem) => {
                 let loc = elem.location().unwrap();
@@ -471,7 +413,7 @@ impl IntrospectorBuilder {
 
     /// Build a complete introspector with all acceleration structures from a
     /// list of top-level pairs.
-    fn finalize(mut self, root: Vec<Pair>) -> Introspector {
+    pub fn finalize(mut self, root: Vec<Pair>) -> Introspector {
         self.locations.reserve(self.seen.len());
 
         // Save all pairs and their descendants in the correct order.

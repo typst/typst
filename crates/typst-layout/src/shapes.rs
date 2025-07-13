@@ -11,8 +11,8 @@ use typst_library::layout::{
 };
 use typst_library::visualize::{
     CircleElem, CloseMode, Curve, CurveComponent, CurveElem, EllipseElem, FillRule,
-    FixedStroke, Geometry, LineElem, Paint, PathElem, PathVertex, PolygonElem, RectElem,
-    Shape, SquareElem, Stroke,
+    FixedStroke, Geometry, LineCap, LineElem, Paint, PathElem, PathVertex, PolygonElem,
+    RectElem, Shape, SquareElem, Stroke,
 };
 use typst_syntax::Span;
 use typst_utils::{Get, Numeric};
@@ -27,16 +27,20 @@ pub fn layout_line(
     region: Region,
 ) -> SourceResult<Frame> {
     let resolve = |axes: Axes<Rel<Abs>>| axes.zip_map(region.size, Rel::relative_to);
-    let start = resolve(elem.start(styles));
-    let delta = elem.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
-        let length = elem.length(styles);
-        let angle = elem.angle(styles);
-        let x = angle.cos() * length;
-        let y = angle.sin() * length;
-        resolve(Axes::new(x, y))
-    });
+    let start = resolve(elem.start.resolve(styles));
+    let delta = elem
+        .end
+        .resolve(styles)
+        .map(|end| resolve(end) - start)
+        .unwrap_or_else(|| {
+            let length = elem.length.resolve(styles);
+            let angle = elem.angle.get(styles);
+            let x = angle.cos() * length;
+            let y = angle.sin() * length;
+            resolve(Axes::new(x, y))
+        });
 
-    let stroke = elem.stroke(styles).unwrap_or_default();
+    let stroke = elem.stroke.resolve(styles).unwrap_or_default();
     let size = start.max(start + delta).max(Size::zero());
 
     if !size.is_finite() {
@@ -105,7 +109,7 @@ pub fn layout_path(
         add_cubic(from_point, to_point, from, to);
     }
 
-    if elem.closed(styles) {
+    if elem.closed.get(styles) {
         let from = *vertices.last().unwrap(); // We checked that we have at least one element.
         let to = vertices[0];
         let from_point = *points.last().unwrap();
@@ -120,9 +124,9 @@ pub fn layout_path(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule(styles);
-    let stroke = match elem.stroke(styles) {
+    let fill = elem.fill.get_cloned(styles);
+    let fill_rule = elem.fill_rule.get(styles);
+    let stroke = match elem.stroke.resolve(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
@@ -153,19 +157,19 @@ pub fn layout_curve(
     for item in &elem.components {
         match item {
             CurveComponent::Move(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let point = builder.resolve_point(element.start, relative);
                 builder.move_(point);
             }
 
             CurveComponent::Line(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let point = builder.resolve_point(element.end, relative);
                 builder.line(point);
             }
 
             CurveComponent::Quad(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let end = builder.resolve_point(element.end, relative);
                 let control = match element.control {
                     Smart::Auto => {
@@ -178,7 +182,7 @@ pub fn layout_curve(
             }
 
             CurveComponent::Cubic(element) => {
-                let relative = element.relative(styles);
+                let relative = element.relative.get(styles);
                 let end = builder.resolve_point(element.end, relative);
                 let c1 = match element.control_start {
                     Some(Smart::Custom(p)) => builder.resolve_point(p, relative),
@@ -193,7 +197,7 @@ pub fn layout_curve(
             }
 
             CurveComponent::Close(element) => {
-                builder.close(element.mode(styles));
+                builder.close(element.mode.get(styles));
             }
         }
     }
@@ -208,9 +212,9 @@ pub fn layout_curve(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule(styles);
-    let stroke = match elem.stroke(styles) {
+    let fill = elem.fill.get_cloned(styles);
+    let fill_rule = elem.fill_rule.get(styles);
+    let stroke = match elem.stroke.resolve(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
@@ -418,9 +422,9 @@ pub fn layout_polygon(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
-    let fill_rule = elem.fill_rule(styles);
-    let stroke = match elem.stroke(styles) {
+    let fill = elem.fill.get_cloned(styles);
+    let fill_rule = elem.fill_rule.get(styles);
+    let stroke = match elem.stroke.resolve(styles) {
         Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
         Smart::Auto => None,
         Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
@@ -459,12 +463,12 @@ pub fn layout_rect(
         styles,
         region,
         ShapeKind::Rect,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles),
-        elem.inset(styles),
-        elem.outset(styles),
-        elem.radius(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
+        elem.radius.resolve(styles),
         elem.span(),
     )
 }
@@ -484,12 +488,12 @@ pub fn layout_square(
         styles,
         region,
         ShapeKind::Square,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles),
-        elem.inset(styles),
-        elem.outset(styles),
-        elem.radius(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
+        elem.radius.resolve(styles),
         elem.span(),
     )
 }
@@ -509,11 +513,11 @@ pub fn layout_ellipse(
         styles,
         region,
         ShapeKind::Ellipse,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles).map(|s| Sides::splat(Some(s))),
-        elem.inset(styles),
-        elem.outset(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles).map(|s| Sides::splat(Some(s))),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
         Corners::splat(None),
         elem.span(),
     )
@@ -534,11 +538,11 @@ pub fn layout_circle(
         styles,
         region,
         ShapeKind::Circle,
-        elem.body(styles),
-        elem.fill(styles),
-        elem.stroke(styles).map(|s| Sides::splat(Some(s))),
-        elem.inset(styles),
-        elem.outset(styles),
+        elem.body.get_ref(styles),
+        elem.fill.get_cloned(styles),
+        elem.stroke.resolve(styles).map(|s| Sides::splat(Some(s))),
+        elem.inset.resolve(styles),
+        elem.outset.resolve(styles),
         Corners::splat(None),
         elem.span(),
     )
@@ -889,7 +893,13 @@ fn segmented_rect(
             let end = current;
             last = current;
             let Some(stroke) = strokes.get_ref(start.side_cw()) else { continue };
-            let (shape, ontop) = segment(start, end, &corners, stroke);
+            let start_cap = stroke.cap;
+            let end_cap = match strokes.get_ref(end.side_ccw()) {
+                Some(stroke) => stroke.cap,
+                None => start_cap,
+            };
+            let (shape, ontop) =
+                segment(start, end, start_cap, end_cap, &corners, stroke);
             if ontop {
                 res.push(shape);
             } else {
@@ -899,7 +909,14 @@ fn segmented_rect(
         }
     } else if let Some(stroke) = &strokes.top {
         // single segment
-        let (shape, _) = segment(Corner::TopLeft, Corner::TopLeft, &corners, stroke);
+        let (shape, _) = segment(
+            Corner::TopLeft,
+            Corner::TopLeft,
+            stroke.cap,
+            stroke.cap,
+            &corners,
+            stroke,
+        );
         res.push(shape);
     }
     res
@@ -946,6 +963,8 @@ fn curve_segment(
 fn segment(
     start: Corner,
     end: Corner,
+    start_cap: LineCap,
+    end_cap: LineCap,
     corners: &Corners<ControlPoints>,
     stroke: &FixedStroke,
 ) -> (Shape, bool) {
@@ -979,7 +998,7 @@ fn segment(
 
     let use_fill = solid && fill_corners(start, end, corners);
     let shape = if use_fill {
-        fill_segment(start, end, corners, stroke)
+        fill_segment(start, end, start_cap, end_cap, corners, stroke)
     } else {
         stroke_segment(start, end, corners, stroke.clone())
     };
@@ -1010,6 +1029,8 @@ fn stroke_segment(
 fn fill_segment(
     start: Corner,
     end: Corner,
+    start_cap: LineCap,
+    end_cap: LineCap,
     corners: &Corners<ControlPoints>,
     stroke: &FixedStroke,
 ) -> Shape {
@@ -1035,8 +1056,7 @@ fn fill_segment(
         if c.arc_outer() {
             curve.arc_line(c.mid_outer(), c.center_outer(), c.end_outer());
         } else {
-            curve.line(c.outer());
-            curve.line(c.end_outer());
+            c.start_cap(&mut curve, start_cap);
         }
     }
 
@@ -1079,7 +1099,7 @@ fn fill_segment(
         if c.arc_inner() {
             curve.arc_line(c.mid_inner(), c.center_inner(), c.start_inner());
         } else {
-            curve.line(c.center_inner());
+            c.end_cap(&mut curve, end_cap);
         }
     }
 
@@ -1134,6 +1154,16 @@ struct ControlPoints {
 }
 
 impl ControlPoints {
+    /// Rotate point around the origin, relative to the top-left.
+    fn rotate_centered(&self, point: Point) -> Point {
+        match self.corner {
+            Corner::TopLeft => point,
+            Corner::TopRight => Point { x: -point.y, y: point.x },
+            Corner::BottomRight => Point { x: -point.x, y: -point.y },
+            Corner::BottomLeft => Point { x: point.y, y: -point.x },
+        }
+    }
+
     /// Move and rotate the point from top-left to the required corner.
     fn rotate(&self, point: Point) -> Point {
         match self.corner {
@@ -1279,6 +1309,77 @@ impl ControlPoints {
             x: self.stroke_before + self.radius_inner(),
             y: self.stroke_after,
         })
+    }
+
+    /// Draw the cap at the beginning of the segment.
+    ///
+    /// If this corner has a stroke before it,
+    /// a default "butt" cap is used.
+    ///
+    /// NOTE: doesn't support the case where the corner has a radius.
+    pub fn start_cap(&self, curve: &mut Curve, cap_type: LineCap) {
+        if self.stroke_before != Abs::zero()
+            || self.radius != Abs::zero()
+            || cap_type == LineCap::Butt
+        {
+            // Just the default cap.
+            curve.line(self.outer());
+        } else if cap_type == LineCap::Square {
+            // Extend by the stroke width.
+            let offset =
+                self.rotate_centered(Point { x: -self.stroke_after, y: Abs::zero() });
+            curve.line(self.end_inner() + offset);
+            curve.line(self.outer() + offset);
+        } else if cap_type == LineCap::Round {
+            // We push the center by a little bit to ensure the correct
+            // half of the circle gets drawn. If it is perfectly centered
+            // the `arc` function just degenerates into a line, which we
+            // do not want in this case.
+            curve.arc(
+                self.end_inner(),
+                (self.end_inner()
+                    + self.rotate_centered(Point { x: Abs::raw(1.0), y: Abs::zero() })
+                    + self.outer())
+                    / 2.,
+                self.outer(),
+            );
+        }
+        curve.line(self.end_outer());
+    }
+
+    /// Draw the cap at the end of the segment.
+    ///
+    /// If this corner has a stroke before it,
+    /// a default "butt" cap is used.
+    ///
+    /// NOTE: doesn't support the case where the corner has a radius.
+    pub fn end_cap(&self, curve: &mut Curve, cap_type: LineCap) {
+        if self.stroke_after != Abs::zero()
+            || self.radius != Abs::zero()
+            || cap_type == LineCap::Butt
+        {
+            // Just the default cap.
+            curve.line(self.center_inner());
+        } else if cap_type == LineCap::Square {
+            // Extend by the stroke width.
+            let offset =
+                self.rotate_centered(Point { x: Abs::zero(), y: -self.stroke_before });
+            curve.line(self.outer() + offset);
+            curve.line(self.center_inner() + offset);
+        } else if cap_type == LineCap::Round {
+            // We push the center by a little bit to ensure the correct
+            // half of the circle gets drawn. If it is perfectly centered
+            // the `arc` function just degenerates into a line, which we
+            // do not want in this case.
+            curve.arc(
+                self.outer(),
+                (self.outer()
+                    + self.rotate_centered(Point { x: Abs::zero(), y: Abs::raw(1.0) })
+                    + self.center_inner())
+                    / 2.,
+                self.center_inner(),
+            );
+        }
     }
 }
 

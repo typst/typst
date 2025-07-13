@@ -2,12 +2,8 @@ use std::f64::consts::PI;
 
 use typst_syntax::Span;
 
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, func, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
-};
-use crate::layout::{Axes, BlockElem, Em, Length, Rel};
+use crate::foundations::{elem, func, scope, Content, NativeElement, Smart};
+use crate::layout::{Axes, Em, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 
 /// A closed polygon.
@@ -25,7 +21,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope, Show)]
+#[elem(scope)]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
@@ -43,7 +39,6 @@ pub struct PolygonElem {
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
-    #[resolve]
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
@@ -117,19 +112,11 @@ impl PolygonElem {
 
         let mut elem = PolygonElem::new(vertices);
         if let Some(fill) = fill {
-            elem.push_fill(fill);
+            elem.fill.set(fill);
         }
         if let Some(stroke) = stroke {
-            elem.push_stroke(stroke);
+            elem.stroke.set(stroke);
         }
         elem.pack().spanned(span)
-    }
-}
-
-impl Show for Packed<PolygonElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_polygon)
-            .pack()
-            .spanned(self.span()))
     }
 }

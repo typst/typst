@@ -9,6 +9,9 @@
 #set page(height: 60pt)
 #image("/assets/images/tiger.jpg")
 
+--- image-jpg-html-base64 html ---
+#image("/assets/images/f2t.jpg", alt: "The letter F")
+
 --- image-sizing ---
 // Test configuring the size and fitting behaviour of images.
 
@@ -128,7 +131,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   width: 1cm,
 )
 
---- image-scaling-methods ---
+--- image-scaling-methods render html ---
 #let img(scaling) = image(
   bytes((
     0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
@@ -144,13 +147,25 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   scaling: scaling,
 )
 
-#stack(
-  dir: ltr,
-  spacing: 4pt,
+#let images = (
   img(auto),
   img("smooth"),
   img("pixelated"),
 )
+
+#context if target() == "html" {
+  // TODO: Remove this once `stack` is supported in HTML export.
+  html.div(
+    style: "display: flex; flex-direction: row; gap: 4pt",
+    images.join(),
+  )
+} else {
+  stack(
+    dir: ltr,
+    spacing: 4pt,
+    ..images,
+  )
+}
 
 --- image-natural-dpi-sizing ---
 // Test that images aren't upscaled.
@@ -167,7 +182,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/plugins/hello.wasm")
 
 --- image-bad-svg ---
-// Error: 2-33 failed to parse SVG (found closing tag 'g' instead of 'style' in line 4)
+// Error: "/assets/images/bad.svg" 4:3 failed to parse SVG (found closing tag 'g' instead of 'style')
 #image("/assets/images/bad.svg")
 
 --- image-decode-svg ---
@@ -176,7 +191,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image.decode(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-bad-svg ---
-// Error: 2-168 failed to parse SVG (missing root node)
+// Error: 15-152 failed to parse SVG (missing root node at 1:1)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
 #image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
@@ -243,7 +258,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-png-but-pixmap-format ---
 #image(
   read("/assets/images/tiger.jpg", encoding: none),
-  // Error: 11-18 expected "png", "jpg", "gif", dictionary, "svg", or auto
+  // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", or auto
   format: "rgba8",
 )
 

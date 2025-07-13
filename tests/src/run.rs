@@ -4,16 +4,17 @@ use std::path::PathBuf;
 
 use ecow::eco_vec;
 use tiny_skia as sk;
-use typst::diag::{SourceDiagnostic, Warned};
-use typst::html::HtmlDocument;
+use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst::{Document, WorldExt};
+use typst_html::HtmlDocument;
 use typst_pdf::PdfOptions;
+use typst_syntax::{FileId, Lines};
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
-use crate::world::TestWorld;
+use crate::world::{system_path, TestWorld};
 
 /// Runs a single test.
 ///
@@ -81,17 +82,26 @@ impl<'a> Runner<'a> {
     /// Run test specific to document format.
     fn run_test<D: OutputType>(&mut self) {
         let Warned { output, warnings } = typst::compile(&self.world);
-        let (doc, errors) = match output {
+        let (doc, mut errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
         };
 
-        if doc.is_none() && errors.is_empty() {
+        D::check_custom(self, doc.as_ref());
+
+        let output = doc.and_then(|doc: D| match doc.make_live() {
+            Ok(live) => Some((doc, live)),
+            Err(list) => {
+                errors.extend(list);
+                None
+            }
+        });
+
+        if output.is_none() && errors.is_empty() {
             log!(self, "no document, but also no errors");
         }
 
-        D::check_custom(self, doc.as_ref());
-        self.check_output(doc.as_ref());
+        self.check_output(output);
 
         for error in &errors {
             self.check_diagnostic(NoteKind::Error, error);
@@ -117,7 +127,7 @@ impl<'a> Runner<'a> {
             if seen {
                 continue;
             }
-            let note_range = self.format_range(&note.range);
+            let note_range = self.format_range(note.file, &note.range);
             if first {
                 log!(self, "not emitted");
                 first = false;
@@ -127,12 +137,12 @@ impl<'a> Runner<'a> {
     }
 
     /// Check that the document output is correct.
-    fn check_output<D: OutputType>(&mut self, document: Option<&D>) {
+    fn check_output<D: OutputType>(&mut self, output: Option<(D, D::Live)>) {
         let live_path = D::live_path(&self.test.name);
         let ref_path = D::ref_path(&self.test.name);
         let ref_data = std::fs::read(&ref_path);
 
-        let Some(document) = document else {
+        let Some((document, live)) = output else {
             if ref_data.is_ok() {
                 log!(self, "missing document");
                 log!(self, "  ref       | {}", ref_path.display());
@@ -140,7 +150,7 @@ impl<'a> Runner<'a> {
             return;
         };
 
-        let skippable = match D::is_skippable(document) {
+        let skippable = match D::is_skippable(&document) {
             Ok(skippable) => skippable,
             Err(()) => {
                 log!(self, "document has zero pages");
@@ -156,7 +166,6 @@ impl<'a> Runner<'a> {
         }
 
         // Render and save live version.
-        let live = document.make_live();
         document.save_live(&self.test.name, &live);
 
         // Compare against reference output if available.
@@ -208,22 +217,22 @@ impl<'a> Runner<'a> {
     /// Compare a subset of notes with a given kind against diagnostics of
     /// that same kind.
     fn check_diagnostic(&mut self, kind: NoteKind, diag: &SourceDiagnostic) {
-        // Ignore diagnostics from other sources than the test file itself.
-        if diag.span.id().is_some_and(|id| id != self.test.source.id()) {
-            return;
-        }
         // TODO: remove this once HTML export is stable
         if diag.message == "html export is under active development and incomplete" {
             return;
         }
 
-        let message = diag.message.replace("\\", "/");
+        let message = if diag.message.contains("\\u{") {
+            &diag.message
+        } else {
+            &diag.message.replace("\\", "/")
+        };
         let range = self.world.range(diag.span);
-        self.validate_note(kind, range.clone(), &message);
+        self.validate_note(kind, diag.span.id(), range.clone(), message);
 
         // Check hints.
         for hint in &diag.hints {
-            self.validate_note(NoteKind::Hint, range.clone(), hint);
+            self.validate_note(NoteKind::Hint, diag.span.id(), range.clone(), hint);
         }
     }
 
@@ -235,15 +244,18 @@ impl<'a> Runner<'a> {
     fn validate_note(
         &mut self,
         kind: NoteKind,
+        file: Option<FileId>,
         range: Option<Range<usize>>,
         message: &str,
     ) {
         // Try to find perfect match.
+        let file = file.unwrap_or(self.test.source.id());
         if let Some((i, _)) = self.test.notes.iter().enumerate().find(|&(i, note)| {
             !self.seen[i]
                 && note.kind == kind
                 && note.range == range
                 && note.message == message
+                && note.file == file
         }) {
             self.seen[i] = true;
             return;
@@ -257,7 +269,7 @@ impl<'a> Runner<'a> {
                 && (note.range == range || note.message == message)
         }) else {
             // Not even a close match, diagnostic is not annotated.
-            let diag_range = self.format_range(&range);
+            let diag_range = self.format_range(file, &range);
             log!(into: self.not_annotated, "  {kind}: {diag_range} {}", message);
             return;
         };
@@ -267,10 +279,10 @@ impl<'a> Runner<'a> {
 
         // Range is wrong.
         if range != note.range {
-            let note_range = self.format_range(&note.range);
-            let note_text = self.text_for_range(&note.range);
-            let diag_range = self.format_range(&range);
-            let diag_text = self.text_for_range(&range);
+            let note_range = self.format_range(note.file, &note.range);
+            let note_text = self.text_for_range(note.file, &note.range);
+            let diag_range = self.format_range(file, &range);
+            let diag_text = self.text_for_range(file, &range);
             log!(self, "mismatched range ({}):", note.pos);
             log!(self, "  message   | {}", note.message);
             log!(self, "  annotated | {note_range:<9} | {note_text}");
@@ -286,39 +298,58 @@ impl<'a> Runner<'a> {
     }
 
     /// Display the text for a range.
-    fn text_for_range(&self, range: &Option<Range<usize>>) -> String {
+    fn text_for_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No text".into() };
         if range.is_empty() {
-            "(empty)".into()
-        } else {
-            format!("`{}`", self.test.source.text()[range.clone()].replace('\n', "\\n"))
+            return "(empty)".into();
         }
+
+        let lines = self.lookup(file);
+        lines.text()[range.clone()].replace('\n', "\\n").replace('\r', "\\r")
     }
 
     /// Display a byte range as a line:column range.
-    fn format_range(&self, range: &Option<Range<usize>>) -> String {
+    fn format_range(&self, file: FileId, range: &Option<Range<usize>>) -> String {
         let Some(range) = range else { return "No range".into() };
+
+        let mut preamble = String::new();
+        if file != self.test.source.id() {
+            preamble = format!("\"{}\" ", system_path(file).unwrap().display());
+        }
+
         if range.start == range.end {
-            self.format_pos(range.start)
+            format!("{preamble}{}", self.format_pos(file, range.start))
         } else {
-            format!("{}-{}", self.format_pos(range.start,), self.format_pos(range.end,))
+            format!(
+                "{preamble}{}-{}",
+                self.format_pos(file, range.start),
+                self.format_pos(file, range.end)
+            )
         }
     }
 
     /// Display a position as a line:column pair.
-    fn format_pos(&self, pos: usize) -> String {
-        if let (Some(line_idx), Some(column_idx)) =
-            (self.test.source.byte_to_line(pos), self.test.source.byte_to_column(pos))
-        {
-            let line = self.test.pos.line + line_idx;
-            let column = column_idx + 1;
-            if line == 1 {
-                format!("{column}")
-            } else {
-                format!("{line}:{column}")
-            }
+    fn format_pos(&self, file: FileId, pos: usize) -> String {
+        let lines = self.lookup(file);
+
+        let res = lines.byte_to_line_column(pos).map(|(line, col)| (line + 1, col + 1));
+        let Some((line, col)) = res else {
+            return "oob".into();
+        };
+
+        if line == 1 {
+            format!("{col}")
         } else {
-            "oob".into()
+            format!("{line}:{col}")
+        }
+    }
+
+    #[track_caller]
+    fn lookup(&self, file: FileId) -> Lines<String> {
+        if self.test.source.id() == file {
+            self.test.source.lines().clone()
+        } else {
+            self.world.lookup(file)
         }
     }
 }
@@ -340,7 +371,7 @@ trait OutputType: Document {
     }
 
     /// Produces the live output.
-    fn make_live(&self) -> Self::Live;
+    fn make_live(&self) -> SourceResult<Self::Live>;
 
     /// Saves the live output.
     fn save_live(&self, name: &str, live: &Self::Live);
@@ -387,8 +418,8 @@ impl OutputType for PagedDocument {
         }
     }
 
-    fn make_live(&self) -> Self::Live {
-        render(self, 1.0)
+    fn make_live(&self) -> SourceResult<Self::Live> {
+        Ok(render(self, 1.0))
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {
@@ -452,9 +483,8 @@ impl OutputType for HtmlDocument {
         format!("{}/html/{}.html", crate::REF_PATH, name).into()
     }
 
-    fn make_live(&self) -> Self::Live {
-        // TODO: Do this earlier to be able to process export errors.
-        typst_html::html(self).unwrap()
+    fn make_live(&self) -> SourceResult<Self::Live> {
+        typst_html::html(self)
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {

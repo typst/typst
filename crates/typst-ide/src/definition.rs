@@ -72,7 +72,8 @@ pub fn definition(
 
         // Try to jump to the referenced content.
         DerefTarget::Ref(node) => {
-            let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()));
+            let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()))
+                .expect("unexpected empty reference");
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
             return Some(Definition::Span(elem.span()));
@@ -186,6 +187,6 @@ mod tests {
 
     #[test]
     fn test_definition_std() {
-        test("#table", 1, Side::After).must_be_value(typst::model::TableElem::elem());
+        test("#table", 1, Side::After).must_be_value(typst::model::TableElem::ELEM);
     }
 }

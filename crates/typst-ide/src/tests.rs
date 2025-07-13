@@ -10,7 +10,7 @@ use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{singleton, LazyHash};
-use typst::{Library, World};
+use typst::{Feature, Library, LibraryExt, World};
 
 use crate::IdeWorld;
 
@@ -97,7 +97,7 @@ impl World for TestWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(self.base.fonts[index].clone())
+        self.base.fonts.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
@@ -168,14 +168,14 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = typst::Library::default();
+    let mut lib = typst::Library::builder()
+        .with_features([Feature::Html].into_iter().collect())
+        .build();
+    lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
+    lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles
-        .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
-    lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
-        Abs::pt(10.0).into(),
-    )))));
-    lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
+        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
     lib
 }
 
@@ -202,7 +202,8 @@ impl WorldLike for &str {
     }
 }
 
-/// Specifies a position in a file for a test.
+/// Specifies a position in a file for a test. Negative numbers index from the
+/// back. `-1` is at the very back.
 pub trait FilePos {
     fn resolve(self, world: &TestWorld) -> (Source, usize);
 }
@@ -228,7 +229,7 @@ impl FilePos for (&str, isize) {
 #[track_caller]
 fn cursor(source: &Source, cursor: isize) -> usize {
     if cursor < 0 {
-        source.len_bytes().checked_add_signed(cursor + 1).unwrap()
+        source.text().len().checked_add_signed(cursor + 1).unwrap()
     } else {
         cursor as usize
     }

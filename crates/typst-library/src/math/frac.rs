@@ -15,7 +15,7 @@ use crate::math::Mathy;
 /// # Syntax
 /// This function also has dedicated syntax: Use a slash to turn neighbouring
 /// expressions into a fraction. Multiple atoms can be grouped into a single
-/// expression using round grouping parenthesis. Such parentheses are removed
+/// expression using round grouping parentheses. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
 #[elem(title = "Fraction", Mathy)]
 pub struct FracElem {

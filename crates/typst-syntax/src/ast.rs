@@ -724,6 +724,8 @@ node! {
 
 impl<'a> Ref<'a> {
     /// Get the target.
+    ///
+    /// Will not be empty.
     pub fn target(self) -> &'a str {
         self.0
             .children()

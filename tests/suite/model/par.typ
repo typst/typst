@@ -231,7 +231,7 @@ Welcome \ here. Does this work well?
 
 --- par-hanging-indent-rtl ---
 #set par(hanging-indent: 2em)
-#set text(dir: rtl)
+#set text(dir: rtl, font: ("Libertinus Serif", "Noto Sans Arabic"))
 لآن وقد أظلم الليل وبدأت النجوم
 تنضخ وجه الطبيعة التي أعْيَتْ من طول ما انبعثت في النهار
 

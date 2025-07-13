@@ -7,9 +7,10 @@ use typst_syntax::FileId;
 use crate::diag::{bail, DeprecationSink, StrResult};
 use crate::foundations::{repr, ty, Content, Scope, Value};
 
-/// An module of definitions.
+/// A collection of variables and functions that are commonly related to
+/// a single theme.
 ///
-/// A module
+/// A module can
 /// - be built-in
 /// - stem from a [file import]($scripting/#modules)
 /// - stem from a [package import]($scripting/#packages) (and thus indirectly
@@ -18,11 +19,8 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 ///
 /// You can access definitions from the module using [field access
 /// notation]($scripting/#fields) and interact with it using the [import and
-/// include syntaxes]($scripting/#modules). Alternatively, it is possible to
-/// convert a module to a dictionary, and therefore access its contents
-/// dynamically, using the [dictionary constructor]($dictionary/#constructor).
+/// include syntaxes]($scripting/#modules).
 ///
-/// # Example
 /// ```example
 /// <<< #import "utils.typ"
 /// <<< #utils.add(2, 5)
@@ -33,6 +31,20 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 /// >>>
 /// >>> #(-3)
 /// ```
+///
+/// You can check whether a definition is present in a module using the `{in}`
+/// operator, with a string on the left-hand side. This can be useful to
+/// [conditionally access]($category/foundations/std/#conditional-access)
+/// definitions in a module.
+///
+/// ```example
+/// #("table" in std) \
+/// #("nope" in std)
+/// ```
+///
+/// Alternatively, it is possible to convert a module to a dictionary, and
+/// therefore access its contents dynamically, using the [dictionary
+/// constructor]($dictionary/#constructor).
 #[ty(cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]

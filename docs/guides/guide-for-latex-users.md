@@ -256,8 +256,8 @@ In Typst, the same function can be used both to affect the appearance for the
 remainder of the document, a block (or scope), or just its arguments. For
 example, `[#text(weight: "bold")[bold text]]` will only embolden its argument,
 while `[#set text(weight: "bold")]` will embolden any text until the end of the
-current block, or, if there is none, document. The effects of a function are
-immediately obvious based on whether it is used in a call or a
+current block, or the end of the document, if there is none. The effects of a
+function are immediately obvious based on whether it is used in a call or a
 [set rule.]($styling/#set-rules)
 
 ```example

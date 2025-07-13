@@ -2,11 +2,10 @@ use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
-    cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
-    Reflect, Repr, Resolve, Show, StyleChain, Value,
+    cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Reflect,
+    Repr, Resolve, StyleChain, Value,
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
@@ -73,7 +72,7 @@ use crate::text::TextElem;
 /// ```example
 /// Start #h(1fr) End
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct AlignElem {
     /// The [alignment] along both axes.
     ///
@@ -97,14 +96,7 @@ pub struct AlignElem {
     pub body: Content,
 }
 
-impl Show for Packed<AlignElem> {
-    #[typst_macros::time(name = "align", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().aligned(self.alignment(styles)))
-    }
-}
-
-/// Where to [align] something along an axis.
+/// Where to align something along an axis.
 ///
 /// Possible values are:
 /// - `start`: Aligns at the [start]($direction.start) of the [text
@@ -277,7 +269,7 @@ impl Resolve for Alignment {
     type Output = Axes<FixedAlignment>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 
@@ -378,7 +370,7 @@ impl Resolve for HAlignment {
     type Output = FixedAlignment;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 
@@ -414,7 +406,7 @@ impl Resolve for OuterHAlignment {
     type Output = FixedAlignment;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 
@@ -636,7 +628,7 @@ where
     type Output = Axes<FixedAlignment>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+        self.fix(styles.resolve(TextElem::dir))
     }
 }
 

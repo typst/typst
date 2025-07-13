@@ -83,3 +83,11 @@ We can also specify a customized value
 #highlight(stroke: 2pt + blue)[abc]
 #highlight(stroke: (top: blue, left: red, bottom: green, right: orange))[abc]
 #highlight(stroke: 1pt, radius: 3pt)[#lorem(5)]
+
+--- html-deco html ---
+#strike[Struck]
+#highlight[Highlighted]
+#underline[Underlined]
+#overline[Overlined]
+
+#(strike, highlight, underline, overline).fold([Mixed], (it, f) => f(it))

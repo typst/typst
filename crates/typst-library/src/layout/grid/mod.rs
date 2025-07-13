@@ -1,6 +1,6 @@
 pub mod resolve;
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use comemo::Track;
@@ -11,10 +11,10 @@ use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, CastInfo, Content, Context, Fold, FromValue, Func,
-    IntoValue, NativeElement, Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
+    IntoValue, Packed, Reflect, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Alignment, BlockElem, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
+    Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::visualize::{Paint, Stroke};
@@ -136,7 +136,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope, Show)]
+#[elem(scope)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -144,14 +144,12 @@ pub struct GridElem {
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
-    #[borrowed]
     pub columns: TrackSizings,
 
     /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
-    #[borrowed]
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns.
@@ -169,12 +167,10 @@ pub struct GridElem {
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
-    #[borrowed]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
@@ -197,7 +193,6 @@ pub struct GridElem {
     ///   [O], [X], [O], [X],
     /// )
     /// ```
-    #[borrowed]
     pub fill: Celled<Option<Paint>>,
 
     /// How to align the cells' content.
@@ -209,7 +204,6 @@ pub struct GridElem {
     ///
     /// You can find an example for this argument at the
     /// [`table.align`]($table.align) parameter.
-    #[borrowed]
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
@@ -289,7 +283,6 @@ pub struct GridElem {
     ///   ),
     /// )
     /// ```
-    #[resolve]
     #[fold]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
@@ -325,14 +318,6 @@ impl GridElem {
 
     #[elem]
     type GridFooter;
-}
-
-impl Show for Packed<GridElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_grid)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// Track sizing definitions.
@@ -468,6 +453,17 @@ pub struct GridHeader {
     #[default(true)]
     pub repeat: bool,
 
+    /// The level of the header. Must not be zero.
+    ///
+    /// This allows repeating multiple headers at once. Headers with different
+    /// levels can repeat together, as long as they have ascending levels.
+    ///
+    /// Notably, when a header with a lower level starts repeating, all higher
+    /// or equal level headers stop repeating (they are "replaced" by the new
+    /// header).
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
+
     /// The cells and lines within the header.
     #[variadic]
     pub children: Vec<GridItem>,
@@ -530,7 +526,6 @@ pub struct GridHLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including hlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -585,7 +580,6 @@ pub struct GridVLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including vlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -646,7 +640,7 @@ pub struct GridVLine {
 /// which allows you, for example, to apply styles based on a cell's position.
 /// Refer to the examples of the [`table.cell`]($table.cell) element to learn
 /// more about this.
-#[elem(name = "cell", title = "Grid Cell", Show)]
+#[elem(name = "cell", title = "Grid Cell")]
 pub struct GridCell {
     /// The cell's body.
     #[required]
@@ -731,7 +725,6 @@ pub struct GridCell {
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [stroke]($grid.stroke) override.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
@@ -747,15 +740,16 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Show for Packed<GridCell> {
-    fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
-    }
-}
-
 impl Default for Packed<GridCell> {
     fn default() -> Self {
-        Packed::new(GridCell::new(Content::default()))
+        Packed::new(
+            // Explicitly set colspan and rowspan to ensure they won't be
+            // overridden by set rules (default cells are created after
+            // colspans and rowspans are processed in the resolver)
+            GridCell::new(Content::default())
+                .with_colspan(NonZeroUsize::ONE)
+                .with_rowspan(NonZeroUsize::ONE),
+        )
     }
 }
 
@@ -764,28 +758,6 @@ impl From<Content> for GridCell {
         #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
-}
-
-/// Function with common code to display a grid cell or table cell.
-pub(crate) fn show_grid_cell(
-    mut body: Content,
-    inset: Smart<Sides<Option<Rel<Length>>>>,
-    align: Smart<Alignment>,
-) -> SourceResult<Content> {
-    let inset = inset.unwrap_or_default().map(Option::unwrap_or_default);
-
-    if inset != Sides::default() {
-        // Only pad if some inset is not 0pt.
-        // Avoids a bug where using .padded() in any way inside Show causes
-        // alignment in align(...) to break.
-        body = body.padded(inset);
-    }
-
-    if let Smart::Custom(alignment) = align {
-        body = body.aligned(alignment);
-    }
-
-    Ok(body)
 }
 
 /// A value that can be configured per cell.

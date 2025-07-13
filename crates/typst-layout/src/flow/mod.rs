@@ -98,8 +98,8 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count(styles),
-        elem.gutter(styles),
+        elem.count.get(styles),
+        elem.gutter.resolve(styles),
     )
 }
 
@@ -143,7 +143,7 @@ fn layout_fragment_impl(
     let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
     let children = (engine.routines.realize)(
-        RealizationKind::LayoutFragment(&mut kind),
+        RealizationKind::LayoutFragment { kind: &mut kind },
         &mut engine,
         &mut locator,
         &arenas,
@@ -251,22 +251,22 @@ fn configuration<'x>(
 
             let gutter = column_gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
-            let dir = TextElem::dir_in(shared);
+            let dir = shared.resolve(TextElem::dir);
             ColumnConfig { count, width, gutter, dir }
         },
         footnote: FootnoteConfig {
-            separator: FootnoteEntry::separator_in(shared),
-            clearance: FootnoteEntry::clearance_in(shared),
-            gap: FootnoteEntry::gap_in(shared),
+            separator: shared.get_cloned(FootnoteEntry::separator),
+            clearance: shared.resolve(FootnoteEntry::clearance),
+            gap: shared.resolve(FootnoteEntry::gap),
             expand: regions.expand.x,
         },
         line_numbers: (mode == FlowMode::Root).then(|| LineNumberConfig {
-            scope: ParLine::numbering_scope_in(shared),
+            scope: shared.get(ParLine::numbering_scope),
             default_clearance: {
-                let width = if PageElem::flipped_in(shared) {
-                    PageElem::height_in(shared)
+                let width = if shared.get(PageElem::flipped) {
+                    shared.resolve(PageElem::height)
                 } else {
-                    PageElem::width_in(shared)
+                    shared.resolve(PageElem::width)
                 };
 
                 // Clamp below is safe (min <= max): if the font size is

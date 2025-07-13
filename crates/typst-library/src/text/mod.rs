@@ -30,6 +30,7 @@ pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
+use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{eco_format, EcoString};
@@ -42,7 +43,7 @@ use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult};
+use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
@@ -164,7 +165,6 @@ pub struct TextElem {
         font_list.map(|font_list| font_list.v)
     })]
     #[default(FontList(vec![FontFamily::new("Libertinus Serif")]))]
-    #[borrowed]
     #[ghost]
     pub font: FontList,
 
@@ -259,7 +259,6 @@ pub struct TextElem {
     #[parse(args.named_or_find("size")?)]
     #[fold]
     #[default(TextSize(Abs::pt(11.0).into()))]
-    #[resolve]
     #[ghost]
     pub size: TextSize,
 
@@ -291,7 +290,6 @@ pub struct TextElem {
     /// ```example
     /// #text(stroke: 0.5pt + red)[Stroked]
     /// ```
-    #[resolve]
     #[ghost]
     pub stroke: Option<Stroke>,
 
@@ -301,7 +299,6 @@ pub struct TextElem {
     /// #set text(tracking: 1.5pt)
     /// Distant text.
     /// ```
-    #[resolve]
     #[ghost]
     pub tracking: Length,
 
@@ -317,7 +314,6 @@ pub struct TextElem {
     /// #set text(spacing: 200%)
     /// Text with distant words.
     /// ```
-    #[resolve]
     #[default(Rel::one())]
     #[ghost]
     pub spacing: Rel<Length>,
@@ -340,7 +336,6 @@ pub struct TextElem {
     /// A #text(baseline: 3pt)[lowered]
     /// word.
     /// ```
-    #[resolve]
     #[ghost]
     pub baseline: Length,
 
@@ -348,15 +343,17 @@ pub struct TextElem {
     /// This can make justification visually more pleasing.
     ///
     /// ```example
+    /// #set page(width: 220pt)
+    ///
     /// #set par(justify: true)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     ///
     /// #set text(overhang: false)
     /// This justified text has a hyphen in
-    /// the paragraph's first line. Hanging
+    /// the paragraph's second line. Hanging
     /// the hyphen slightly into the margin
     /// results in a clearer paragraph edge.
     /// ```
@@ -480,7 +477,6 @@ pub struct TextElem {
     /// #set text(dir: rtl)
     /// هذا عربي.
     /// ```
-    #[resolve]
     #[ghost]
     pub dir: TextDir,
 
@@ -752,6 +748,12 @@ pub struct TextElem {
     #[internal]
     #[ghost]
     pub smallcaps: Option<Smallcaps>,
+
+    /// The configuration for superscripts or subscripts, if one of them is
+    /// enabled.
+    #[internal]
+    #[ghost]
+    pub shift_settings: Option<ShiftSettings>,
 }
 
 impl TextElem {
@@ -891,8 +893,20 @@ cast! {
 }
 
 /// Font family fallback list.
+///
+/// Must contain at least one font.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
+
+impl FontList {
+    pub fn new(fonts: Vec<FontFamily>) -> StrResult<Self> {
+        if fonts.is_empty() {
+            bail!("font fallback list must not be empty")
+        } else {
+            Ok(Self(fonts))
+        }
+    }
+}
 
 impl<'a> IntoIterator for &'a FontList {
     type IntoIter = std::slice::Iter<'a, FontFamily>;
@@ -911,11 +925,11 @@ cast! {
         self.0.into_value()
     },
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?),
+    values: Array => Self::new(values.into_iter().map(|v| v.cast()).collect::<HintedStrResult<_>>()?)?,
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone {
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> + Clone {
     let fallbacks = singleton!(Vec<FontFamily>, {
         [
             "libertinus serif",
@@ -929,24 +943,24 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = &FontFamily> + Clone
         .collect()
     });
 
-    let tail = if TextElem::fallback_in(styles) { fallbacks.as_slice() } else { &[] };
-    TextElem::font_in(styles).into_iter().chain(tail.iter())
+    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
+    styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
 }
 
 /// Resolve the font variant.
 pub fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
-        TextElem::style_in(styles),
-        TextElem::weight_in(styles),
-        TextElem::stretch_in(styles),
+        styles.get(TextElem::style),
+        styles.get(TextElem::weight),
+        styles.get(TextElem::stretch),
     );
 
-    let WeightDelta(delta) = TextElem::delta_in(styles);
+    let WeightDelta(delta) = styles.get(TextElem::delta);
     variant.weight = variant
         .weight
         .thicken(delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16);
 
-    if TextElem::emph_in(styles).0 {
+    if styles.get(TextElem::emph).0 {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
             FontStyle::Italic => FontStyle::Normal,
@@ -975,11 +989,11 @@ impl Resolve for TextSize {
     type Output = Abs;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        let factor = match EquationElem::size_in(styles) {
+        let factor = match styles.get(EquationElem::size) {
             MathSize::Display | MathSize::Text => 1.0,
-            MathSize::Script => EquationElem::script_scale_in(styles).0 as f64 / 100.0,
+            MathSize::Script => styles.get(EquationElem::script_scale).0 as f64 / 100.0,
             MathSize::ScriptScript => {
-                EquationElem::script_scale_in(styles).1 as f64 / 100.0
+                styles.get(EquationElem::script_scale).1 as f64 / 100.0
             }
         };
         factor * self.0.resolve(styles)
@@ -1102,7 +1116,7 @@ impl Resolve for TextDir {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
-            Smart::Auto => TextElem::lang_in(styles).dir(),
+            Smart::Auto => styles.get(TextElem::lang).dir(),
             Smart::Custom(dir) => dir,
         }
     }
@@ -1215,65 +1229,82 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     };
 
     // Features that are on by default in Harfbuzz are only added if disabled.
-    if !TextElem::kerning_in(styles) {
+    if !styles.get(TextElem::kerning) {
         feat(b"kern", 0);
     }
 
     // Features that are off by default in Harfbuzz are only added if enabled.
-    if let Some(sc) = TextElem::smallcaps_in(styles) {
+    if let Some(sc) = styles.get(TextElem::smallcaps) {
         feat(b"smcp", 1);
         if sc == Smallcaps::All {
             feat(b"c2sc", 1);
         }
     }
 
-    if TextElem::alternates_in(styles) {
+    if styles.get(TextElem::alternates) {
         feat(b"salt", 1);
     }
 
-    for set in TextElem::stylistic_set_in(styles).sets() {
+    for set in styles.get(TextElem::stylistic_set).sets() {
         let storage = [b's', b's', b'0' + set / 10, b'0' + set % 10];
         feat(&storage, 1);
     }
 
-    if !TextElem::ligatures_in(styles) {
+    if !styles.get(TextElem::ligatures) {
         feat(b"liga", 0);
         feat(b"clig", 0);
     }
 
-    if TextElem::discretionary_ligatures_in(styles) {
+    if styles.get(TextElem::discretionary_ligatures) {
         feat(b"dlig", 1);
     }
 
-    if TextElem::historical_ligatures_in(styles) {
+    if styles.get(TextElem::historical_ligatures) {
         feat(b"hlig", 1);
     }
 
-    match TextElem::number_type_in(styles) {
+    match styles.get(TextElem::number_type) {
         Smart::Auto => {}
         Smart::Custom(NumberType::Lining) => feat(b"lnum", 1),
         Smart::Custom(NumberType::OldStyle) => feat(b"onum", 1),
     }
 
-    match TextElem::number_width_in(styles) {
+    match styles.get(TextElem::number_width) {
         Smart::Auto => {}
         Smart::Custom(NumberWidth::Proportional) => feat(b"pnum", 1),
         Smart::Custom(NumberWidth::Tabular) => feat(b"tnum", 1),
     }
 
-    if TextElem::slashed_zero_in(styles) {
+    if styles.get(TextElem::slashed_zero) {
         feat(b"zero", 1);
     }
 
-    if TextElem::fractions_in(styles) {
+    if styles.get(TextElem::fractions) {
         feat(b"frac", 1);
     }
 
-    for (tag, value) in TextElem::features_in(styles).0 {
+    match styles.get(EquationElem::size) {
+        MathSize::Script => feat(b"ssty", 1),
+        MathSize::ScriptScript => feat(b"ssty", 2),
+        _ => {}
+    }
+
+    for (tag, value) in styles.get_cloned(TextElem::features).0 {
         tags.push(Feature::new(tag, value, ..))
     }
 
     tags
+}
+
+/// Process the language and region of a style chain into a
+/// rustybuzz-compatible BCP 47 language.
+pub fn language(styles: StyleChain) -> rustybuzz::Language {
+    let mut bcp: EcoString = styles.get(TextElem::lang).as_str().into();
+    if let Some(region) = styles.get(TextElem::region) {
+        bcp.push('-');
+        bcp.push_str(region.as_str());
+    }
+    rustybuzz::Language::from_str(&bcp).unwrap()
 }
 
 /// A toggle that turns on and off alternatingly if folded.
@@ -1380,12 +1411,24 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        if !book.contains_family(family.as_str()) {
-            engine.sink.warn(warning!(
+        match book.select_family(family.as_str()).next() {
+            Some(index) => {
+                if book
+                    .info(index)
+                    .is_some_and(|x| x.flags.contains(FontFlags::VARIABLE))
+                {
+                    engine.sink.warn(warning!(
+                        list.span,
+                        "variable fonts are not currently supported and may render incorrectly";
+                        hint: "try installing a static version of \"{}\" instead", family.as_str()
+                    ))
+                }
+            }
+            None => engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
                 family.as_str(),
-            ));
+            )),
         }
     }
 }
