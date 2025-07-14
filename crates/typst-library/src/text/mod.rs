@@ -92,7 +92,7 @@ pub(super) fn define(global: &mut Scope) {
 /// ```
 #[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
-    /// A font family descriptor or priority list of font family descriptor.
+    /// A font family descriptor or priority list of font family descriptors.
     ///
     /// A font family descriptor can be a plain string representing the family
     /// name or a dictionary with the following keys:
