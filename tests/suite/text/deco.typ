@@ -91,3 +91,6 @@ We can also specify a customized value
 #overline[Overlined]
 
 #(strike, highlight, underline, overline).fold([Mixed], (it, f) => f(it))
+
+#smallcaps[Small Caps]
+#smallcaps(all: true)[All Small Caps]
