@@ -3247,7 +3247,7 @@ dependencies = [
 name = "typst-timing"
 version = "0.13.1"
 dependencies = [
- "indexmap 2.7.1",
+ "ecow",
  "parking_lot",
  "serde",
  "serde_json",

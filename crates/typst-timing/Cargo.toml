@@ -13,7 +13,7 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-indexmap = { workspace = true }
+ecow = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -6,9 +6,8 @@ use std::io::Write;
 use std::num::NonZeroU64;
 use std::ops::Not;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
 
-use indexmap::IndexMap;
+use ecow::EcoVec;
 use parking_lot::Mutex;
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
@@ -106,7 +105,7 @@ pub fn export_json<W: Write>(
         pid: u64,
         tid: u64,
         #[serde(skip_serializing_if = "Option::is_none")]
-        args: Option<IndexMap<Cow<'a, str>, Cow<'a, serde_json::Value>>>,
+        args: Option<EcoVec<(Cow<'a, str>, Cow<'a, serde_json::Value>)>>,
     }
 
     let lock = EVENTS.lock();
@@ -118,9 +117,9 @@ pub fn export_json<W: Write>(
         .map_err(|e| format!("failed to serialize events: {e}"))?;
 
     for event in events.iter() {
-        let mut args = IndexMap::new();
+        let mut args = EcoVec::with_capacity(event.arguments.len() * 2 + 1);
         if let Some(func) = event.func.as_ref() {
-            args.insert("func".into(), Cow::Owned(serde_json::json!(func)));
+            args.push(("func".into(), Cow::Owned(serde_json::json!(func))));
         }
 
         for (key, arg) in event.arguments.iter() {
@@ -153,7 +152,7 @@ pub fn export_json<W: Write>(
 pub struct TimingScope {
     name: &'static str,
     func: Option<String>,
-    args: IndexMap<&'static str, EventArgument>,
+    args: EcoVec<(&'static str, EventArgument)>,
 }
 
 impl TimingScope {
@@ -161,7 +160,7 @@ impl TimingScope {
     #[inline]
     pub fn new(name: &'static str) -> Option<Self> {
         if is_enabled() {
-            Some(Self { name, func: None, args: IndexMap::new() })
+            Some(Self { name, func: None, args: EcoVec::new() })
         } else {
             None
         }
@@ -173,17 +172,17 @@ impl TimingScope {
     }
 
     pub fn with_span(mut self, span: NonZeroU64) -> Self {
-        self.args.insert("span", EventArgument::Span(span));
+        self.args.push(("span", EventArgument::Span(span)));
         self
     }
 
     pub fn with_callsite(mut self, callsite: NonZeroU64) -> Self {
-        self.args.insert("callsite", EventArgument::Span(callsite));
+        self.args.push(("callsite", EventArgument::Span(callsite)));
         self
     }
 
     pub fn with_named_span(mut self, name: &'static str, span: NonZeroU64) -> Self {
-        self.args.insert(name, EventArgument::Span(span));
+        self.args.push((name, EventArgument::Span(span)));
         self
     }
 
@@ -203,7 +202,7 @@ impl TimingScope {
         value: impl Serialize,
     ) -> Result<Self, serde_json::Error> {
         let value = serde_json::to_value(value)?;
-        self.args.insert(arg, EventArgument::Value(value));
+        self.args.push((arg, EventArgument::Value(value)));
         Ok(self)
     }
 
@@ -217,7 +216,7 @@ impl TimingScope {
             name: self.name,
             func: self.func.clone(),
             thread_id,
-            arguments: Arc::new(self.args),
+            arguments: self.args.clone(),
         };
         EVENTS.lock().push(event.clone());
         TimingScopeGuard { scope: Some(event) }
@@ -240,6 +239,7 @@ impl Drop for TimingScopeGuard {
     }
 }
 
+#[derive(Clone)]
 enum EventArgument {
     Span(NonZeroU64),
     Value(serde_json::Value),
@@ -250,45 +250,45 @@ impl EventArgument {
         &'a self,
         mut source: impl FnMut(NonZeroU64) -> (String, u32),
         key: &'static str,
-        out: &mut IndexMap<Cow<'static, str>, Cow<'a, serde_json::Value>>,
+        out: &mut EcoVec<(Cow<'static, str>, Cow<'a, serde_json::Value>)>,
     ) -> Result<(), serde_json::Error> {
         match self {
             EventArgument::Span(span) => {
                 let (file, line) = source(*span);
                 // Insert file and line information for the span
                 if key == "span" {
-                    out.insert("file".into(), Cow::Owned(serde_json::json!(file)));
-                    out.insert("line".into(), Cow::Owned(serde_json::json!(line)));
+                    out.push(("file".into(), Cow::Owned(serde_json::json!(file))));
+                    out.push(("line".into(), Cow::Owned(serde_json::json!(line))));
 
                     return Ok(());
                 }
 
                 // Small optimization for callsite
                 if key == "callsite" {
-                    out.insert(
+                    out.push((
                         "callsite_file".into(),
                         Cow::Owned(serde_json::json!(file)),
-                    );
-                    out.insert(
+                    ));
+                    out.push((
                         "callsite_line".into(),
                         Cow::Owned(serde_json::json!(line)),
-                    );
+                    ));
 
                     return Ok(());
                 }
 
-                out.insert(
+                out.push((
                     format!("{key}_file").into(),
                     Cow::Owned(serde_json::json!(file)),
-                );
+                ));
 
-                out.insert(
+                out.push((
                     format!("{key}_line").into(),
                     Cow::Owned(serde_json::json!(line)),
-                );
+                ));
             }
             EventArgument::Value(value) => {
-                out.insert(key.into(), Cow::Borrowed(value));
+                out.push((key.into(), Cow::Borrowed(value)));
             }
         }
 
@@ -306,7 +306,7 @@ struct Event {
     /// The name of this event.
     name: &'static str,
     /// The additional arguments of this event.
-    arguments: Arc<IndexMap<&'static str, EventArgument>>,
+    arguments: EcoVec<(&'static str, EventArgument)>,
     /// The function being called (if any).
     func: Option<String>,
     /// The thread ID of this event.
