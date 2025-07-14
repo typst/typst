@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
@@ -17,12 +19,12 @@ pub struct Meta {
     pub span: Option<syn::Expr>,
     pub callsite: Option<syn::Expr>,
     pub func: Option<syn::Expr>,
-    pub extras: Vec<(String, Mode, syn::Expr)>,
+    pub extras: Vec<(syn::Ident, Mode, syn::Expr)>,
 }
 
 impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self {
+        let out = Self {
             name: parse_string::<kw::name>(input)?,
             span: parse_key_value::<kw::span, syn::Expr>(input)?,
             callsite: parse_key_value::<kw::callsite, syn::Expr>(input)?,
@@ -39,11 +41,26 @@ impl Parse for Meta {
                     let value = input.parse()?;
                     eat_comma(input);
 
-                    pairs.push((key.to_string(), mode, value));
+                    pairs.push((key, mode, value));
                 }
                 pairs
             },
-        })
+        };
+
+        let mut keys = HashSet::new();
+        keys.insert("name".to_string());
+        keys.insert("span".to_string());
+        keys.insert("callsite".to_string());
+        keys.insert("func".to_string());
+
+        // Check that the keys are unique.
+        for (key, _, _) in &out.extras {
+            if !keys.insert(key.to_string()) {
+                bail!(key, "Duplicate key in #[time(..)]: `{}`", key);
+            }
+        }
+
+        Ok(out)
     }
 }
 
@@ -98,6 +115,7 @@ fn create(meta: Meta, mut item: syn::ItemFn) -> Result<TokenStream> {
             Mode::Serialize => (format_ident!("with_arg"), None),
         };
 
+        let key = key.to_string();
         extras.push(quote! { .#method(#key, (#value) #transform) });
         if matches!(mode, Mode::Serialize) {
             let error_msg = format!("failed to serialize {key}");
