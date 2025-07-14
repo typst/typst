@@ -63,6 +63,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
                 push_stack(gc, loc, StackEntryKind::ListItemBody);
                 return;
             }
+            PdfMarkerTagKind::Label => Tag::Lbl.into(),
         }
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
         push_stack(gc, loc, StackEntryKind::OutlineEntry(entry.clone()));

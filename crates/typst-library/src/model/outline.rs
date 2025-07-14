@@ -20,6 +20,7 @@ use crate::layout::{
     RepeatElem, Sides,
 };
 use crate::model::{HeadingElem, NumberingPattern, ParElem, Refable};
+use crate::pdf::PdfMarkerTag;
 use crate::text::{LocalName, SpaceElem, TextElem};
 
 /// A table of contents, figures, or other elements.
@@ -597,7 +598,7 @@ impl OutlineEntry {
             // ahead so that the inner contents are aligned.
             seq.extend([
                 HElem::new((-hanging_indent).into()).pack(),
-                prefix,
+                PdfMarkerTag::Label(prefix),
                 HElem::new((hanging_indent - prefix_width).into()).pack(),
                 inner,
             ]);

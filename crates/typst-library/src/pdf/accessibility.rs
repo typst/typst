@@ -154,4 +154,6 @@ pdf_marker_tag! {
     ListItemLabel,
     /// `LBody` of the enum item
     ListItemBody,
+    /// A generic `Lbl`
+    Label,
 }
