@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use ecow::EcoVec;
 use parking_lot::Mutex;
-use serde::ser::SerializeSeq;
+use serde::ser::{SerializeMap, SerializeSeq};
 use serde::{Serialize, Serializer};
 
 /// Creates a timing scope around an expression.
@@ -104,7 +104,10 @@ pub fn export_json<W: Write>(
         ts: f64,
         pid: u64,
         tid: u64,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            serialize_with = "serialize_vec_as_map"
+        )]
         args: Option<EcoVec<(Cow<'a, str>, Cow<'a, serde_json::Value>)>>,
     }
 
@@ -142,7 +145,7 @@ pub fn export_json<W: Write>(
         .map_err(|e| format!("failed to serialize event: {e}"))?;
     }
 
-    seq.end().map_err(|e| format!("failed to serialize events: {e}"))?;
+    SerializeSeq::end(seq).map_err(|e| format!("failed to serialize events: {e}"))?;
 
     Ok(())
 }
@@ -412,4 +415,25 @@ impl WasmTimer {
     fn now(&self) -> f64 {
         self.time_origin + self.perf.now()
     }
+}
+
+// Custom serialization function for handling `EcoVec` as a map in JSON.
+fn serialize_vec_as_map<S>(
+    data: &Option<EcoVec<(Cow<str>, Cow<serde_json::Value>)>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let Some(data) = data.as_deref() else {
+        // Should not happen, but if it does, we turn it into a `null` value.
+        return serializer.serialize_none();
+    };
+
+    let mut map = serializer.serialize_map(Some(data.len()))?;
+    for (key, value) in data {
+        map.serialize_entry(key, value)?;
+    }
+
+    map.end()
 }
