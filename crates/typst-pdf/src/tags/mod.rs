@@ -46,10 +46,14 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     }
 
     let tag = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
-        match tag.kind {
+        match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
                 push_stack(gc, loc, StackEntryKind::Outline(OutlineCtx::new()));
                 return;
+            }
+            PdfMarkerTagKind::FigureBody(alt) => {
+                let alt = alt.as_ref().map(|s| s.to_string());
+                Tag::Figure(alt).into()
             }
             PdfMarkerTagKind::ListItemLabel => {
                 push_stack(gc, loc, StackEntryKind::ListItemLabel);
@@ -71,13 +75,17 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         let numbering = ListNumbering::Decimal; // TODO: infer numbering from `enum.numbering`
         push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
         return;
-    } else if let Some(figure) = elem.to_packed::<FigureElem>() {
-        let alt = figure.alt.get_cloned(StyleChain::default()).map(|s| s.to_string());
-        Tag::Figure(alt).into()
     } else if let Some(_terms) = elem.to_packed::<TermsElem>() {
         let numbering = ListNumbering::None;
         push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
         return;
+    } else if let Some(_) = elem.to_packed::<FigureElem>() {
+        // Wrap the figure tag and the sibling caption in a container, if the
+        // caption is contained within the figure like recommended for tables
+        // screen readers might ignore it.
+        Tag::NonStruct.into()
+    } else if let Some(_) = elem.to_packed::<FigureCaption>() {
+        Tag::Caption.into()
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
         let alt = image.alt.get_cloned(StyleChain::default()).map(|s| s.to_string());
 
@@ -90,8 +98,6 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         } else {
             Tag::Figure(alt).into()
         }
-    } else if let Some(_) = elem.to_packed::<FigureCaption>() {
-        Tag::Caption.into()
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table

@@ -1,9 +1,13 @@
 use std::num::NonZeroU32;
 
+use ecow::EcoString;
 use typst_macros::{Cast, elem, func};
 use typst_utils::NonZeroExt;
 
-use crate::foundations::{Content, NativeElement, Smart};
+use crate::diag::bail;
+use crate::diag::SourceResult;
+use crate::engine::Engine;
+use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
 use crate::introspection::Locatable;
 use crate::model::TableCell;
 
@@ -100,21 +104,28 @@ impl TableHeaderScope {
 }
 
 /// Used to delimit content for tagged PDF.
-#[elem(Locatable)]
+#[elem(Locatable, Construct)]
 pub struct PdfMarkerTag {
+    #[internal]
     #[required]
     pub kind: PdfMarkerTagKind,
     #[required]
     pub body: Content,
 }
 
+impl Construct for PdfMarkerTag {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
 macro_rules! pdf_marker_tag {
-    ($(#[doc = $doc:expr] $variant:ident,)+) => {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Cast)]
+    ($(#[doc = $doc:expr] $variant:ident$(($($name:ident: $ty:ty)+))?,)+) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub enum PdfMarkerTagKind {
             $(
                 #[doc = $doc]
-                $variant
+                $variant $(($($ty),+))?
             ),+
         }
 
@@ -122,9 +133,12 @@ macro_rules! pdf_marker_tag {
             $(
                 #[doc = $doc]
                 #[allow(non_snake_case)]
-                pub fn $variant(body: Content) -> Content {
+                pub fn $variant($($($name: $ty,)+)? body: Content) -> Content {
                     let span = body.span();
-                    Self::new(PdfMarkerTagKind::$variant, body).pack().spanned(span)
+                    Self {
+                        kind: PdfMarkerTagKind::$variant $(($($name),+))?,
+                        body,
+                    }.pack().spanned(span)
                 }
             )+
         }
@@ -134,6 +148,8 @@ macro_rules! pdf_marker_tag {
 pdf_marker_tag! {
     /// `TOC`
     OutlineBody,
+    /// `Figure`
+    FigureBody(alt: Option<EcoString>),
     /// `Lbl` (marker) of the list item
     ListItemLabel,
     /// `LBody` of the enum item
