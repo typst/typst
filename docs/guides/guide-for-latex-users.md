@@ -459,7 +459,7 @@ and their corresponding Typst functions.
 | LaTeX Package                   | Typst Alternative                          |
 |:--------------------------------|:-------------------------------------------|
 | graphicx, svg                   | [`image`] function                         |
-| tabularx                        | [`table`], [`grid`] functions              |
+| tabularx, tabularray            | [`table`], [`grid`] functions              |
 | fontenc, inputenc, unicode-math | Just start writing!                        |
 | babel, polyglossia              | [`text`]($text.lang) function: `[#set text(lang: "zh")]` |
 | amsmath                         | [Math mode]($category/math)                |
