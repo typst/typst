@@ -174,7 +174,12 @@ typst help watch
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant
-preview, you can also check out [Typst's free web app][app].
+preview, you can try using a third-party LSP server such as 
+[Tinymist](https://myriad-dreamin.github.io/tinymist/) which can be used with 
+all major code editors. Note however that Typst GmbH did not create this tool 
+and cannot guarantee its correct functionality or compatibility with any version 
+of the Typst compiler. 
+Alternatively, you can also check out [Typst's free web app][app].
 
 ## Community
 The main places where the community gathers are our [Forum][forum] and our
