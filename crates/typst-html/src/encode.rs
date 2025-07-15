@@ -121,6 +121,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     let pretty_inside = allows_pretty_inside(element.tag)
         && element.children.iter().any(|node| match node {
             HtmlNode::Element(child) => wants_pretty_around(child.tag),
+            HtmlNode::Frame(_) => true,
             _ => false,
         });
 
@@ -305,14 +306,6 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
 
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
-    // FIXME: This string replacement is obviously a hack.
-    let svg = typst_svg::svg_frame(&frame.inner).replace(
-        "<svg class",
-        &format!(
-            "<svg style=\"overflow: visible; width: {}em; height: {}em;\" class",
-            frame.inner.width() / frame.text_size,
-            frame.inner.height() / frame.text_size,
-        ),
-    );
+    let svg = typst_svg::svg_html_frame(&frame.inner, frame.text_size);
     w.buf.push_str(&svg);
 }

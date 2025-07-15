@@ -2,10 +2,11 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use ecow::{EcoString, EcoVec};
 use typst_library::diag::{bail, HintedStrResult, StrResult};
-use typst_library::foundations::{cast, Dict, Repr, Str};
+use typst_library::foundations::{cast, Dict, Repr, Str, StyleChain};
 use typst_library::introspection::{Introspector, Tag};
 use typst_library::layout::{Abs, Frame};
 use typst_library::model::DocumentInfo;
+use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
@@ -278,4 +279,11 @@ pub struct HtmlFrame {
     /// frame with em units to make text in and outside of the frame sized
     /// consistently.
     pub text_size: Abs,
+}
+
+impl HtmlFrame {
+    /// Wraps a laid-out frame.
+    pub fn new(inner: Frame, styles: StyleChain) -> Self {
+        Self { inner, text_size: styles.resolve(TextElem::size) }
+    }
 }
