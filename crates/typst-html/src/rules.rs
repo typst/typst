@@ -1,17 +1,18 @@
 use std::num::NonZeroUsize;
 
+use comemo::Track;
 use ecow::{eco_format, EcoVec};
 use typst_library::diag::{warning, At};
 use typst_library::foundations::{
-    Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
 use typst_library::layout::{OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry,
+    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SpaceElem, StrikeElem,
@@ -36,6 +37,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
+    rules.register(Html, OUTLINE_RULE);
+    rules.register(Html, OUTLINE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
     rules.register(Html, TABLE_RULE);
@@ -272,6 +275,56 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     }
 
     Ok(realized)
+};
+
+const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
+    let (title, entries) = elem.realize(engine, styles)?;
+    let list = HtmlElem::new(tag::ol)
+        .with_attr(attr::class, "outline")
+        .with_styles(css::Properties::new().with("list-style", "none"))
+        .with_body(Some(Content::sequence(entries)))
+        .pack()
+        .spanned(elem.span());
+    Ok(title.unwrap_or_default() + list)
+};
+
+const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
+    let span = elem.span();
+    let context = Context::new(None, Some(styles));
+    let context = context.track();
+
+    let prefix = elem.prefix(engine, context, span)?;
+    let body = elem.body().at(elem.span())?;
+
+    let inner = if let Some(prefix) = prefix {
+        let separator = if let Some(elem) = elem.element.to_packed::<FigureElem>() {
+            match elem.caption.get_ref(styles) {
+                Some(caption) => caption.get_separator(styles),
+                None => FigureCaption::local_separator_in(styles),
+            }
+        } else {
+            SpaceElem::shared().clone()
+        };
+        Content::sequence([
+            HtmlElem::new(tag::span)
+                .with_attr(attr::class, "prefix")
+                .with_body(Some(prefix))
+                .pack()
+                .spanned(elem.span()),
+            separator,
+            body,
+        ])
+    } else {
+        body
+    };
+
+    let loc = elem.element_location().at(span)?;
+    let dest = Destination::Location(loc);
+
+    Ok(HtmlElem::new(tag::li)
+        .with_body(Some(LinkElem::new(dest.into(), inner).pack()))
+        .pack()
+        .spanned(elem.span()))
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);

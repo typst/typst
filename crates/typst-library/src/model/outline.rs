@@ -248,6 +248,53 @@ impl OutlineElem {
     type OutlineEntry;
 }
 
+impl Packed<OutlineElem> {
+    /// Realizes the title and entries.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<(Option<Content>, Vec<Content>)> {
+        let span = self.span();
+
+        // Build the outline title.
+        let title = self
+            .title
+            .get_cloned(styles)
+            .unwrap_or_else(|| {
+                Some(
+                    TextElem::packed(Packed::<OutlineElem>::local_name_in(styles))
+                        .spanned(span),
+                )
+            })
+            .map(|title| {
+                HeadingElem::new(title)
+                    .with_depth(NonZeroUsize::ONE)
+                    .pack()
+                    .spanned(span)
+            });
+
+        let elems = engine.introspector.query(&self.target.get_ref(styles).0);
+        let depth = self.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
+
+        // Build the outline entries.
+        let mut entries = vec![];
+        for elem in elems {
+            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+                bail!(span, "cannot outline {}", elem.func().name());
+            };
+
+            let level = outlinable.level();
+            if outlinable.outlined() && level <= depth {
+                let entry = OutlineEntry::new(level, elem);
+                entries.push(entry.pack().spanned(span));
+            }
+        }
+
+        Ok((title, entries))
+    }
+}
+
 impl ShowSet for Packed<OutlineElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();

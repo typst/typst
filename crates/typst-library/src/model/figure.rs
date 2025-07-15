@@ -19,7 +19,7 @@ use crate::layout::{
     VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{Lang, TextElem};
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -526,23 +526,23 @@ impl FigureCaption {
         Ok(realized)
     }
 
-    /// Gets the default separator in the given language and (optionally)
-    /// region.
-    fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::CHINESE => "\u{2003}",
-            Lang::FRENCH => ".\u{a0}– ",
-            Lang::RUSSIAN => ". ",
-            Lang::ENGLISH | _ => ": ",
-        }
+    /// Retrieves the locale separator.
+    pub fn get_separator(&self, styles: StyleChain) -> Content {
+        self.separator
+            .get_cloned(styles)
+            .unwrap_or_else(|| Self::local_separator_in(styles))
     }
 
-    fn get_separator(&self, styles: StyleChain) -> Content {
-        self.separator.get_cloned(styles).unwrap_or_else(|| {
-            TextElem::packed(Self::local_separator(
-                styles.get(TextElem::lang),
-                styles.get(TextElem::region),
-            ))
+    /// Gets the default separator in the given language and (optionally)
+    /// region.
+    pub fn local_separator_in(styles: StyleChain) -> Content {
+        styles.get_cloned(Self::separator).unwrap_or_else(|| {
+            TextElem::packed(match styles.get(TextElem::lang) {
+                Lang::CHINESE => "\u{2003}",
+                Lang::FRENCH => ".\u{a0}– ",
+                Lang::RUSSIAN => ". ",
+                Lang::ENGLISH | _ => ": ",
+            })
         })
     }
 }
