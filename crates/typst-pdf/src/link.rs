@@ -48,7 +48,7 @@ pub(crate) fn handle_link(
         }
     };
 
-    let Some((link_id, link)) = gc.tags.find_parent_link() else {
+    let Some((link_id, link, link_nodes)) = gc.tags.stack.find_parent_link() else {
         unreachable!("expected a link parent")
     };
     let alt = link.alt.as_ref().map(EcoString::to_string);
@@ -69,8 +69,8 @@ pub(crate) fn handle_link(
     match fc.get_link_annotation(link_id) {
         Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
-            let placeholder = gc.tags.reserve_placeholder();
-            gc.tags.push(TagNode::Placeholder(placeholder));
+            let placeholder = gc.tags.placeholders.reserve();
+            link_nodes.push(TagNode::Placeholder(placeholder));
             fc.push_link_annotation(LinkAnnotation {
                 id: link_id,
                 placeholder,
