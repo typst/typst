@@ -172,9 +172,19 @@ impl HtmlAttrs {
         Self::default()
     }
 
-    /// Add an attribute.
+    /// Adds an attribute.
     pub fn push(&mut self, attr: HtmlAttr, value: impl Into<EcoString>) {
         self.0.push((attr, value.into()));
+    }
+
+    /// Adds an attribute to the start of the list.
+    pub fn push_front(&mut self, attr: HtmlAttr, value: impl Into<EcoString>) {
+        self.0.insert(0, (attr, value.into()));
+    }
+
+    /// Finds an attribute value.
+    pub fn get(&self, attr: HtmlAttr) -> Option<&EcoString> {
+        self.0.iter().find(|&&(k, _)| k == attr).map(|(_, v)| v)
     }
 }
 
