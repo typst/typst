@@ -8,6 +8,7 @@ mod document;
 mod dom;
 mod encode;
 mod fragment;
+mod link;
 mod rules;
 mod tag;
 mod typed;

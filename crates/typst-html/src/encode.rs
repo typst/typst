@@ -306,6 +306,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
 
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
-    let svg = typst_svg::svg_html_frame(&frame.inner, frame.text_size);
+    let svg =
+        typst_svg::svg_html_frame(&frame.inner, frame.text_size, frame.id.as_deref());
     w.buf.push_str(&svg);
 }

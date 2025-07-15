@@ -36,7 +36,7 @@ use crate::text::TextElem;
 /// # Syntax
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
-#[elem]
+#[elem(Locatable)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///

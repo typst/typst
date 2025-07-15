@@ -289,11 +289,17 @@ pub struct HtmlFrame {
     /// frame with em units to make text in and outside of the frame sized
     /// consistently.
     pub text_size: Abs,
+    /// An ID to assign to the SVG.
+    pub id: Option<EcoString>,
 }
 
 impl HtmlFrame {
     /// Wraps a laid-out frame.
     pub fn new(inner: Frame, styles: StyleChain) -> Self {
-        Self { inner, text_size: styles.resolve(TextElem::size) }
+        Self {
+            inner,
+            text_size: styles.resolve(TextElem::size),
+            id: None,
+        }
     }
 }

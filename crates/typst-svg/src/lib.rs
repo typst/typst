@@ -47,12 +47,15 @@ pub fn svg_frame(frame: &Frame) -> String {
 
 /// Export a frame into an SVG suitable for embedding into HTML.
 #[typst_macros::time(name = "svg html frame")]
-pub fn svg_html_frame(frame: &Frame, text_size: Abs) -> String {
+pub fn svg_html_frame(frame: &Frame, text_size: Abs, id: Option<&str>) -> String {
     let mut renderer = SVGRenderer::with_options(xmlwriter::Options {
         indent: xmlwriter::Indent::None,
         ..Default::default()
     });
     renderer.write_header_with_custom_attrs(frame.size(), |xml| {
+        if let Some(id) = id {
+            xml.write_attribute("id", id);
+        }
         xml.write_attribute("class", "typst-frame");
         xml.write_attribute_fmt(
             "style",

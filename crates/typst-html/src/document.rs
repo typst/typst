@@ -83,8 +83,10 @@ fn html_document_impl(
         &mut locator,
         children.iter().copied(),
     )?;
-    let introspector = introspect_html(&output);
-    let root = root_element(output, &info)?;
+
+    let mut introspector = introspect_html(&output);
+    let mut root = root_element(output, &info)?;
+    crate::link::identify_link_targets(&mut root, &mut introspector);
 
     Ok(HtmlDocument { info, root, introspector })
 }
