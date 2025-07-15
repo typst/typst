@@ -33,7 +33,7 @@ collaborative editor and run Typst in your browser, no installation required.
 
 If you choose to use Typst on your computer instead, you can download the
 compiler as a single, small binary which any user can run, no root privileges
-required. Unlike LaTeX, packages are downloaded  when you first use them and
+required. Packages are downloaded  when you first use them and
 then cached locally, keeping your Typst installation lean. You can use your own
 editor and decide where to store your files with the local compiler.
 
