@@ -1,5 +1,6 @@
 use std::cell::OnceCell;
 use std::num::NonZeroU32;
+use std::ops::{Deref, DerefMut};
 
 use ecow::EcoString;
 use krilla::configure::Validator;
@@ -97,7 +98,7 @@ pub(crate) fn handle_start(
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
         let alt = image.alt.get_as_ref().map(|s| s.to_string());
 
-        let figure_tag = (gc.tags.parent())
+        let figure_tag = (gc.tags.stack.parent())
             .and_then(StackEntryKind::as_standard_mut)
             .filter(|tag| tag.kind == TagKind::Figure);
         if let Some(figure_tag) = figure_tag {
@@ -116,7 +117,7 @@ pub(crate) fn handle_start(
         push_stack(gc, loc, StackEntryKind::Table(ctx))?;
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
-        let table_ctx = gc.tags.parent_table();
+        let table_ctx = gc.tags.stack.parent_table();
 
         // Only repeated table headers and footer cells are layed out multiple
         // times. Mark duplicate headers as artifacts, since they have no
@@ -168,11 +169,8 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
         StackEntryKind::Standard(tag) => TagNode::Group(tag, entry.nodes),
         StackEntryKind::Outline(ctx) => ctx.build_outline(entry.nodes),
         StackEntryKind::OutlineEntry(outline_entry) => {
-            let parent = gc.tags.stack.last_mut().and_then(|parent| {
-                let ctx = parent.kind.as_outline_mut()?;
-                Some((&mut parent.nodes, ctx))
-            });
-            let Some((parent_nodes, outline_ctx)) = parent else {
+            let Some((outline_ctx, outline_nodes)) = gc.tags.stack.parent_outline()
+            else {
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
@@ -181,12 +179,12 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
                 return;
             };
 
-            outline_ctx.insert(parent_nodes, outline_entry, entry.nodes);
+            outline_ctx.insert(outline_nodes, outline_entry, entry.nodes);
             return;
         }
         StackEntryKind::Table(ctx) => ctx.build_table(entry.nodes),
         StackEntryKind::TableCell(cell) => {
-            let Some(table_ctx) = gc.tags.parent_table() else {
+            let Some(table_ctx) = gc.tags.stack.parent_table() else {
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
@@ -200,12 +198,12 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
         }
         StackEntryKind::List(list) => list.build_list(entry.nodes),
         StackEntryKind::ListItemLabel => {
-            let list_ctx = gc.tags.parent_list().expect("parent list");
+            let list_ctx = gc.tags.stack.parent_list().expect("parent list");
             list_ctx.push_label(entry.nodes);
             return;
         }
         StackEntryKind::ListItemBody => {
-            let list_ctx = gc.tags.parent_list().expect("parent list");
+            let list_ctx = gc.tags.stack.parent_list().expect("parent list");
             list_ctx.push_body(entry.nodes);
             return;
         }
@@ -287,15 +285,15 @@ pub(crate) fn add_annotations(
             alt,
         );
         let annot_id = page.add_tagged_annotation(annot);
-        gc.tags.init_placeholder(placeholder, Node::Leaf(annot_id));
+        gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
     }
 }
 
 pub(crate) struct Tags {
     /// The intermediary stack of nested tag groups.
-    pub(crate) stack: Vec<StackEntry>,
+    pub(crate) stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
-    pub(crate) placeholders: Vec<OnceCell<Node>>,
+    pub(crate) placeholders: Placeholders,
     pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
     pub(crate) link_id: LinkId,
@@ -310,49 +308,14 @@ pub(crate) struct Tags {
 impl Tags {
     pub(crate) fn new() -> Self {
         Self {
-            stack: Vec::new(),
-            placeholders: Vec::new(),
+            stack: TagStack(Vec::new()),
+            placeholders: Placeholders(Vec::new()),
             in_artifact: None,
 
             tree: Vec::new(),
             link_id: LinkId(0),
             table_id: TableId(0),
         }
-    }
-
-    pub(crate) fn reserve_placeholder(&mut self) -> Placeholder {
-        let idx = self.placeholders.len();
-        self.placeholders.push(OnceCell::new());
-        Placeholder(idx)
-    }
-
-    pub(crate) fn init_placeholder(&mut self, placeholder: Placeholder, node: Node) {
-        self.placeholders[placeholder.0]
-            .set(node)
-            .map_err(|_| ())
-            .expect("placeholder to be uninitialized");
-    }
-
-    pub(crate) fn take_placeholder(&mut self, placeholder: Placeholder) -> Node {
-        self.placeholders[placeholder.0]
-            .take()
-            .expect("initialized placeholder node")
-    }
-
-    pub(crate) fn parent(&mut self) -> Option<&mut StackEntryKind> {
-        self.stack.last_mut().map(|e| &mut e.kind)
-    }
-
-    pub(crate) fn parent_table(&mut self) -> Option<&mut TableCtx> {
-        self.parent()?.as_table_mut()
-    }
-
-    pub(crate) fn parent_list(&mut self) -> Option<&mut ListCtx> {
-        self.parent()?.as_list_mut()
-    }
-
-    pub(crate) fn find_parent_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
-        self.stack.iter().rev().find_map(|entry| entry.kind.as_link())
     }
 
     pub(crate) fn push(&mut self, node: TagNode) {
@@ -382,7 +345,7 @@ impl Tags {
                 Node::Group(TagGroup::with_children(tag, children))
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
-            TagNode::Placeholder(placeholder) => self.take_placeholder(placeholder),
+            TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
         }
     }
 
@@ -399,6 +362,75 @@ impl Tags {
     fn next_table_id(&mut self) -> TableId {
         self.table_id.0 += 1;
         self.table_id
+    }
+}
+
+pub(crate) struct TagStack(Vec<StackEntry>);
+
+impl Deref for TagStack {
+    type Target = Vec<StackEntry>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TagStack {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TagStack {
+    pub(crate) fn parent(&mut self) -> Option<&mut StackEntryKind> {
+        self.0.last_mut().map(|e| &mut e.kind)
+    }
+
+    pub(crate) fn parent_table(&mut self) -> Option<&mut TableCtx> {
+        self.parent()?.as_table_mut()
+    }
+
+    pub(crate) fn parent_list(&mut self) -> Option<&mut ListCtx> {
+        self.parent()?.as_list_mut()
+    }
+
+    pub(crate) fn parent_outline(
+        &mut self,
+    ) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
+        self.0.last_mut().and_then(|e| {
+            let ctx = e.kind.as_outline_mut()?;
+            Some((ctx, &mut e.nodes))
+        })
+    }
+
+    pub(crate) fn find_parent_link(
+        &mut self,
+    ) -> Option<(LinkId, &LinkMarker, &mut Vec<TagNode>)> {
+        self.0.iter_mut().rev().find_map(|e| {
+            let (link_id, link) = e.kind.as_link()?;
+            Some((link_id, link.as_ref(), &mut e.nodes))
+        })
+    }
+}
+
+pub(crate) struct Placeholders(Vec<OnceCell<Node>>);
+
+impl Placeholders {
+    pub(crate) fn reserve(&mut self) -> Placeholder {
+        let idx = self.0.len();
+        self.0.push(OnceCell::new());
+        Placeholder(idx)
+    }
+
+    pub(crate) fn init(&mut self, placeholder: Placeholder, node: Node) {
+        self.0[placeholder.0]
+            .set(node)
+            .map_err(|_| ())
+            .expect("placeholder to be uninitialized");
+    }
+
+    pub(crate) fn take(&mut self, placeholder: Placeholder) -> Node {
+        self.0[placeholder.0].take().expect("initialized placeholder node")
     }
 }
 
