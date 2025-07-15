@@ -17,8 +17,8 @@ use typst_library::foundations::{
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
-    Destination, EnumElem, FigureCaption, FigureElem, HeadingElem, ListElem, Outlinable,
-    OutlineEntry, TableCell, TableElem, TermsElem,
+    Destination, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
+    ListElem, Outlinable, OutlineEntry, TableCell, TableElem, TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::visualize::ImageElem;
@@ -141,6 +141,8 @@ pub(crate) fn handle_start(
         let link_id = gc.tags.next_link_id();
         push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()))?;
         return Ok(());
+    } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
+        TagKind::Note.into()
     } else {
         return Ok(());
     };

@@ -394,11 +394,11 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let numbering = elem.numbering.get_ref(styles);
     let counter = Counter::of(FootnoteElem::ELEM);
     let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let sup = SuperElem::new(num).pack().spanned(span);
+    let alt = num.plain_text();
+    let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span));
     let loc = loc.variant(1);
     // Add zero-width weak spacing to make the footnote "sticky".
-    // TODO(accessibility): generate alt text
-    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc), None))
+    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc), Some(alt)))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -415,11 +415,9 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     };
 
     let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let sup = SuperElem::new(num)
-        .pack()
-        .spanned(span)
-        // TODO(accessibility): generate alt text
-        .linked(Destination::Location(loc), None)
+    let alt = num.plain_text();
+    let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span))
+        .linked(Destination::Location(loc), Some(alt))
         .located(loc.variant(1));
 
     Ok(Content::sequence([
