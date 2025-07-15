@@ -1,12 +1,13 @@
 use std::ops::Deref;
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{
     cast, elem, Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles,
 };
-use crate::introspection::Location;
+use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::Position;
 use crate::text::TextElem;
 
@@ -122,6 +123,19 @@ fn body_from_url(url: &Url) -> Content {
 pub enum LinkTarget {
     Dest(Destination),
     Label(Label),
+}
+
+impl LinkTarget {
+    /// Resolves the destination.
+    pub fn resolve(&self, introspector: Tracked<Introspector>) -> StrResult<Destination> {
+        Ok(match self {
+            LinkTarget::Dest(dest) => dest.clone(),
+            LinkTarget::Label(label) => {
+                let elem = introspector.query_label(*label)?;
+                Destination::Location(elem.location().unwrap())
+            }
+        })
+    }
 }
 
 cast! {
