@@ -252,6 +252,23 @@ A
 = B
 = C
 
+--- outline-html html ---
+#set heading(numbering: "1.1")
+
+#outline()
+
+= A <a>
+= B <b>
+= C <c>
+= D <d>
+== E <e>
+== F <f>
+
+--- outline-figure-html html ---
+#outline(target: figure)
+#figure([An A], caption: [A])
+#figure([An B], caption: [B])
+
 --- issue-2048-outline-multiline ---
 // Without the word joiner between the dots and the page number,
 // the page number would be alone in its line.
