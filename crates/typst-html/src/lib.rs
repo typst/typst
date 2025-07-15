@@ -79,6 +79,19 @@ impl HtmlElem {
         self
     }
 
+    /// Adds the attribute to the element if value is not `None`.
+    pub fn with_optional_attr(
+        self,
+        attr: HtmlAttr,
+        value: Option<impl Into<EcoString>>,
+    ) -> Self {
+        if let Some(value) = value {
+            self.with_attr(attr, value)
+        } else {
+            self
+        }
+    }
+
     /// Adds CSS styles to an element.
     fn with_styles(self, properties: css::Properties) -> Self {
         if let Some(value) = properties.into_inline_styles() {
