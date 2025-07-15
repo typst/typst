@@ -392,8 +392,10 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num) = elem.realize(engine, styles)?;
     let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = SuperElem::new(num).pack().spanned(span);
-    Ok(HElem::hole().clone() + sup.linked(dest, Some(alt)))
+    let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span));
+    let note = HElem::hole().clone() + sup.linked(dest, Some(alt));
+    let decl_loc = elem.declaration_location(engine).unwrap();
+    Ok(PdfMarkerTag::FootnoteRef(decl_loc, note))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -401,7 +403,7 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let (prefix, body) = elem.realize(engine, styles)?;
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        prefix,
+        PdfMarkerTag::Label(prefix),
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))
@@ -475,27 +477,31 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
         let mut cells = vec![];
         for (prefix, reference, loc) in references {
+            let prefix = PdfMarkerTag::ListItemLabel(
+                prefix.clone().unwrap_or_default().located(*loc),
+            );
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(
-                    prefix.clone().unwrap_or_default().located(*loc),
-                ))
-                .spanned(span),
+                Packed::new(GridCell::new(prefix)).spanned(span),
             )));
+
+            let reference = PdfMarkerTag::BibEntry(reference.clone());
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(reference.clone())).spanned(span),
+                Packed::new(GridCell::new(reference)).spanned(span),
             )));
         }
-        seq.push(
-            GridElem::new(cells)
-                .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                .pack()
-                .spanned(span),
-        );
+
+        let grid = GridElem::new(cells)
+            .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+            .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+            .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
+            .pack()
+            .spanned(span);
+        // TODO(accessibility): infer list numbering from style?
+        seq.push(PdfMarkerTag::Bibliography(true, grid));
     } else {
+        let mut body = vec![];
         for (_, reference, loc) in references {
-            let realized = reference.clone().located(*loc);
+            let realized = PdfMarkerTag::BibEntry(reference.clone().located(*loc));
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
@@ -507,8 +513,9 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 BlockElem::new().with_body(Some(BlockBody::Content(realized)))
             };
 
-            seq.push(block.pack().spanned(span));
+            body.push(block.pack().spanned(span));
         }
+        seq.push(PdfMarkerTag::Bibliography(false, Content::sequence(body)));
     }
 
     Ok(Content::sequence(seq))

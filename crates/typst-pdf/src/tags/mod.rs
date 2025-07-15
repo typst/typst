@@ -4,18 +4,22 @@ use std::ops::{Deref, DerefMut};
 
 use krilla::page::Page;
 use krilla::surface::Surface;
+use krilla::tagging as kt;
 use krilla::tagging::{
     ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagGroup,
     TagKind, TagTree,
 };
+use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
+use typst_library::math::EquationElem;
 use typst_library::model::{
-    EnumElem, FigureCaption, FigureElem, HeadingElem, LinkMarker, ListElem, Outlinable,
-    OutlineEntry, TableCell, TableElem, TermsElem,
+    EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, LinkMarker,
+    ListElem, Outlinable, OutlineEntry, QuoteElem, TableCell, TableElem, TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
+use typst_library::text::{RawElem, RawLine};
 use typst_library::visualize::ImageElem;
 
 use crate::convert::GlobalContext;
@@ -56,6 +60,20 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
                 Tag::Figure(alt).into()
+            }
+            PdfMarkerTagKind::FootnoteRef(decl_loc) => {
+                push_stack(gc, loc, StackEntryKind::FootnoteRef(*decl_loc));
+                return;
+            }
+            PdfMarkerTagKind::Bibliography(numbered) => {
+                let numbering =
+                    if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
+                push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
+                return;
+            }
+            PdfMarkerTagKind::BibEntry => {
+                push_stack(gc, loc, StackEntryKind::BibEntry);
+                return;
             }
             PdfMarkerTagKind::ListItemLabel => {
                 push_stack(gc, loc, StackEntryKind::ListItemLabel);
@@ -103,6 +121,17 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         } else {
             Tag::Figure(alt).into()
         }
+    } else if let Some(equation) = elem.to_packed::<EquationElem>() {
+        let alt = equation.alt.opt_ref().map(|s| s.to_string());
+        if let Some(StackEntryKind::Standard(TagKind::Figure(tag))) =
+            gc.tags.stack.parent()
+        {
+            // Set alt text of outer figure tag, if not present.
+            if tag.alt_text().is_none() {
+                tag.set_alt_text(alt.clone());
+            }
+        }
+        Tag::Formula(alt).into()
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
@@ -129,6 +158,26 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
         push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()));
+        return;
+    } else if let Some(entry) = elem.to_packed::<FootnoteEntry>() {
+        let footnote_loc = entry.note.location().unwrap();
+        push_stack(gc, loc, StackEntryKind::FootnoteEntry(footnote_loc));
+        return;
+    } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
+        // TODO: should the attribution be handled somehow?
+        if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
+    } else if let Some(raw) = elem.to_packed::<RawElem>() {
+        if raw.block.val() {
+            push_stack(gc, loc, StackEntryKind::CodeBlock);
+            return;
+        } else {
+            Tag::Code.into()
+        }
+    } else if let Some(_) = elem.to_packed::<RawLine>() {
+        // If the raw element is inline, the content can be inserted directly.
+        if gc.tags.stack.parent().is_some_and(|p| p.is_code_block()) {
+            push_stack(gc, loc, StackEntryKind::CodeBlockLine);
+        }
         return;
     } else {
         return;
@@ -189,6 +238,11 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) 
             list_ctx.push_body(entry.nodes);
             return;
         }
+        StackEntryKind::BibEntry => {
+            let list_ctx = gc.tags.stack.parent_list().expect("parent list");
+            list_ctx.push_bib_entry(entry.nodes);
+            return;
+        }
         StackEntryKind::Link(_, _) => {
             let mut node = TagNode::group(Tag::Link, entry.nodes);
             // Wrap link in reference tag if inside an outline entry.
@@ -196,6 +250,36 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) 
                 node = TagNode::group(Tag::Reference, vec![node]);
             }
             node
+        }
+        StackEntryKind::FootnoteRef(decl_loc) => {
+            // transparently insert all children.
+            gc.tags.extend(entry.nodes);
+
+            let ctx = gc.tags.footnotes.entry(decl_loc).or_insert(FootnoteCtx::new());
+
+            // Only insert the footnote entry once after the first reference.
+            if !ctx.is_referenced {
+                ctx.is_referenced = true;
+                gc.tags.push(TagNode::FootnoteEntry(decl_loc));
+            }
+            return;
+        }
+        StackEntryKind::FootnoteEntry(footnote_loc) => {
+            // Store footnotes separately so they can be inserted directly after
+            // the footnote reference in the reading order.
+            let tag = TagNode::group(Tag::Note, entry.nodes);
+            let ctx = gc.tags.footnotes.entry(footnote_loc).or_insert(FootnoteCtx::new());
+            ctx.entry = Some(tag);
+            return;
+        }
+        StackEntryKind::CodeBlock => TagNode::group(
+            Tag::Code.with_placement(Some(kt::Placement::Block)),
+            entry.nodes,
+        ),
+        StackEntryKind::CodeBlockLine => {
+            // If the raw element is a block, wrap each line in a BLSE, so the
+            // individual lines are properly wrapped and indented when reflowed.
+            TagNode::group(Tag::P, entry.nodes)
         }
     };
 
@@ -261,6 +345,11 @@ pub struct Tags {
     pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
+    /// Footnotes are inserted directly after the footenote reference in the
+    /// reading order. Because of some layouting bugs, the entry might appear
+    /// before the reference in the text, so we only resolve them once tags
+    /// for the whole document are generated.
+    pub footnotes: FxHashMap<Location, FootnoteCtx>,
     pub in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
     pub link_id: LinkId,
@@ -277,11 +366,13 @@ impl Tags {
         Self {
             stack: TagStack(Vec::new()),
             placeholders: Placeholders(Vec::new()),
+            footnotes: FxHashMap::default(),
             in_artifact: None,
 
-            tree: Vec::new(),
             link_id: LinkId(0),
             table_id: TableId(0),
+
+            tree: Vec::new(),
         }
     }
 
@@ -290,6 +381,14 @@ impl Tags {
             entry.nodes.push(node);
         } else {
             self.tree.push(node);
+        }
+    }
+
+    pub fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
+        if let Some(entry) = self.stack.last_mut() {
+            entry.nodes.extend(nodes);
+        } else {
+            self.tree.extend(nodes);
         }
     }
 
@@ -315,6 +414,12 @@ impl Tags {
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
+            TagNode::FootnoteEntry(loc) => {
+                let node = (self.footnotes.remove(&loc))
+                    .and_then(|ctx| ctx.entry)
+                    .expect("footnote");
+                self.resolve_node(node)
+            }
         }
     }
 
@@ -423,7 +528,15 @@ pub enum StackEntryKind {
     List(ListCtx),
     ListItemLabel,
     ListItemBody,
+    BibEntry,
     Link(LinkId, Packed<LinkMarker>),
+    /// The footnote reference in the text, contains the declaration location.
+    FootnoteRef(Location),
+    /// The footnote entry at the end of the page. Contains the [`Location`] of
+    /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
+    FootnoteEntry(Location),
+    CodeBlock,
+    CodeBlockLine,
 }
 
 impl StackEntryKind {
@@ -446,6 +559,26 @@ impl StackEntryKind {
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
     }
+
+    pub fn is_code_block(&self) -> bool {
+        matches!(self, Self::CodeBlock)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FootnoteCtx {
+    /// Whether this footenote has been referenced inside the document. The
+    /// entry will be inserted inside the reading order after the first
+    /// reference. All other references will still have links to the footnote.
+    is_referenced: bool,
+    /// The nodes that make up the footnote entry.
+    entry: Option<TagNode>,
+}
+
+impl FootnoteCtx {
+    pub const fn new() -> Self {
+        Self { is_referenced: false, entry: None }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -455,6 +588,7 @@ pub enum TagNode {
     /// Allows inserting a placeholder into the tag tree.
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
     Placeholder(Placeholder),
+    FootnoteEntry(Location),
 }
 
 impl TagNode {

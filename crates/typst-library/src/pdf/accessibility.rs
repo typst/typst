@@ -4,11 +4,11 @@ use ecow::EcoString;
 use typst_macros::{Cast, elem, func};
 use typst_utils::NonZeroExt;
 
-use crate::diag::bail;
 use crate::diag::SourceResult;
+use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
-use crate::introspection::Locatable;
+use crate::introspection::{Locatable, Location};
 use crate::model::TableCell;
 
 /// Mark content as a PDF artifact.
@@ -150,6 +150,12 @@ pdf_marker_tag! {
     OutlineBody,
     /// `Figure`
     FigureBody(alt: Option<EcoString>),
+    /// `Note` footnote reference
+    FootnoteRef(decl_loc: Location),
+    /// `L` bibliography list
+    Bibliography(numbered: bool),
+    /// `LBody` wrapping `BibEntry`
+    BibEntry,
     /// `Lbl` (marker) of the list item
     ListItemLabel,
     /// `LBody` of the enum item

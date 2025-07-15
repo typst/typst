@@ -67,6 +67,20 @@ impl ListCtx {
         item.body = Some(nodes);
     }
 
+    pub fn push_bib_entry(&mut self, nodes: Vec<TagNode>) {
+        let nodes = vec![TagNode::group(Tag::BibEntry, nodes)];
+        // Bibliography lists cannot be nested, but may be missing labels.
+        if let Some(item) = self.items.last_mut().filter(|item| item.body.is_none()) {
+            item.body = Some(nodes);
+        } else {
+            self.items.push(ListItem {
+                label: Vec::new(),
+                body: Some(nodes),
+                sub_list: None,
+            });
+        }
+    }
+
     pub fn build_list(self, mut nodes: Vec<TagNode>) -> TagNode {
         for item in self.items.into_iter() {
             nodes.push(TagNode::group(

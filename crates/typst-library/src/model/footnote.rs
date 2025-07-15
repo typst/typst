@@ -142,7 +142,7 @@ impl Packed<FootnoteElem> {
     }
 
     /// Returns the location of the definition of this footnote.
-    fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
+    pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
         match self.body {
             FootnoteBody::Reference(label) => {
                 let element = engine.introspector.query_label(label)?;
