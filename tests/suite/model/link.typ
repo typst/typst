@@ -134,6 +134,49 @@ See #metadata(none) <t8>
 #link(<b>)[B] // creates second empty span
 #link(<c>)[C] // links to #a because the generated span is contained in it
 
+--- link-html-frame html ---
+= Frame 1
+#html.frame(block(
+  stroke: 1pt,
+  width: 200pt,
+  height: 500pt,
+)[
+  #place(center, dy: 100pt, stack(
+    dir: ltr,
+    spacing: 10pt,
+    link(<f1>, square(size: 10pt, fill: teal)),
+    link(<text>, square(size: 10pt, fill: black)),
+    link(<f2>, square(size: 10pt, fill: yellow)),
+  ))
+  #place(center, dy: 200pt)[
+    #square(size: 10pt, fill: teal) <f1>
+  ]
+])
+
+= Text <text>
+#link(<f1>)[Go to teal square]
+
+= Frame 2
+#html.frame(block(
+  stroke: 1pt,
+  width: 200pt,
+  height: 500pt,
+)[
+  #place(center, dy: 100pt)[
+    #square(size: 10pt, fill: yellow) <f2>
+  ]
+])
+
+--- link-html-frame-ref html ---
+// Test that reference links work in `html.frame`. Currently, references (and a
+// few other elements) do not internally use `LinkElem`s, so they trigger a
+// slightly different code path; see `typst-html/src/link.rs`. The text show
+// rule is only there to keep the output small.
+#set heading(numbering: "1")
+#show "Section" + sym.space.nobreak + "1": rect()
+#html.frame[@intro]
+= Introduction <intro>
+
 --- link-to-label-missing ---
 // Error: 2-20 label `<hey>` does not exist in the document
 #link(<hey>)[Nope.]

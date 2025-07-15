@@ -1,10 +1,13 @@
+use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
-use typst_library::introspection::{Introspector, IntrospectorBuilder, Locator};
+use typst_library::introspection::{
+    Introspector, IntrospectorBuilder, Location, Locator,
+};
 use typst_library::layout::{Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
@@ -84,43 +87,55 @@ fn html_document_impl(
         children.iter().copied(),
     )?;
 
-    let mut introspector = introspect_html(&output);
+    let mut link_targets = HashSet::new();
+    let mut introspector = introspect_html(&output, &mut link_targets);
     let mut root = root_element(output, &info)?;
-    crate::link::identify_link_targets(&mut root, &mut introspector);
+    crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
 
     Ok(HtmlDocument { info, root, introspector })
 }
 
 /// Introspects HTML nodes.
 #[typst_macros::time(name = "introspect html")]
-fn introspect_html(output: &[HtmlNode]) -> Introspector {
+fn introspect_html(
+    output: &[HtmlNode],
+    link_targets: &mut HashSet<Location>,
+) -> Introspector {
     fn discover(
         builder: &mut IntrospectorBuilder,
         sink: &mut Vec<(Content, Position)>,
+        link_targets: &mut HashSet<Location>,
         nodes: &[HtmlNode],
     ) {
         for node in nodes {
             match node {
-                HtmlNode::Tag(tag) => builder.discover_in_tag(
-                    sink,
-                    tag,
-                    Position { page: NonZeroUsize::ONE, point: Point::zero() },
-                ),
+                HtmlNode::Tag(tag) => {
+                    builder.discover_in_tag(
+                        sink,
+                        tag,
+                        Position { page: NonZeroUsize::ONE, point: Point::zero() },
+                    );
+                }
                 HtmlNode::Text(_, _) => {}
-                HtmlNode::Element(elem) => discover(builder, sink, &elem.children),
-                HtmlNode::Frame(frame) => builder.discover_in_frame(
-                    sink,
-                    &frame.inner,
-                    NonZeroUsize::ONE,
-                    Transform::identity(),
-                ),
+                HtmlNode::Element(elem) => {
+                    discover(builder, sink, link_targets, &elem.children)
+                }
+                HtmlNode::Frame(frame) => {
+                    builder.discover_in_frame(
+                        sink,
+                        &frame.inner,
+                        NonZeroUsize::ONE,
+                        Transform::identity(),
+                    );
+                    crate::link::introspect_frame_links(&frame.inner, link_targets);
+                }
             }
         }
     }
 
     let mut elems = Vec::new();
     let mut builder = IntrospectorBuilder::new();
-    discover(&mut builder, &mut elems, output);
+    discover(&mut builder, &mut elems, link_targets, output);
     builder.finalize(elems)
 }
 

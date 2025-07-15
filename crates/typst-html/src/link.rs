@@ -4,27 +4,51 @@ use comemo::Track;
 use ecow::{eco_format, EcoString};
 use typst_library::foundations::{Label, NativeElement};
 use typst_library::introspection::{Introspector, Location, Tag};
+use typst_library::layout::{Frame, FrameItem, Point};
 use typst_library::model::{Destination, LinkElem};
 use typst_utils::PicoStr;
 
 use crate::{attr, tag, HtmlElement, HtmlNode};
 
+/// Searches for links within a frame.
+///
+/// If all links are created via `LinkElem` in the future, this can be removed
+/// in favor of the query in `identify_link_targets`. For the time being, some
+/// links are created without existence of a `LinkElem`, so this is
+/// unfortunately necessary.
+pub fn introspect_frame_links(frame: &Frame, targets: &mut HashSet<Location>) {
+    for (_, item) in frame.items() {
+        match item {
+            FrameItem::Link(Destination::Location(loc), _) => {
+                targets.insert(*loc);
+            }
+            FrameItem::Group(group) => introspect_frame_links(&group.frame, targets),
+            _ => {}
+        }
+    }
+}
+
 /// Attaches IDs to nodes produced by link targets to make them linkable.
 ///
 /// May produce `<span>`s for link targets that turned into text nodes or no
 /// nodes at all. See the [`LinkElem`] documentation for more details.
-pub fn identify_link_targets(root: &mut HtmlElement, introspector: &mut Introspector) {
+pub fn identify_link_targets(
+    root: &mut HtmlElement,
+    introspector: &mut Introspector,
+    mut targets: HashSet<Location>,
+) {
     // Query for all links with an intra-doc (i.e. `Location`) destination to
     // know what needs IDs.
-    let targets = introspector
-        .query(&LinkElem::ELEM.select())
-        .iter()
-        .map(|elem| elem.to_packed::<LinkElem>().unwrap())
-        .filter_map(|elem| match elem.dest.resolve(introspector.track()) {
-            Ok(Destination::Location(loc)) => Some(loc),
-            _ => None,
-        })
-        .collect::<HashSet<_>>();
+    targets.extend(
+        introspector
+            .query(&LinkElem::ELEM.select())
+            .iter()
+            .map(|elem| elem.to_packed::<LinkElem>().unwrap())
+            .filter_map(|elem| match elem.dest.resolve(introspector.track()) {
+                Ok(Destination::Location(loc)) => Some(loc),
+                _ => None,
+            }),
+    );
 
     if targets.is_empty() {
         // Nothing to do.
@@ -103,10 +127,44 @@ fn traverse(
                 work.drain(|label| {
                     frame.id.get_or_insert_with(|| identificator.identify(label)).clone()
                 });
+                traverse_frame(
+                    work,
+                    targets,
+                    identificator,
+                    &frame.inner,
+                    &mut frame.link_points,
+                );
             }
         }
 
         i += 1;
+    }
+}
+
+/// Traverses a frame embedded in HTML.
+fn traverse_frame(
+    work: &mut Work,
+    targets: &HashSet<Location>,
+    identificator: &mut Identificator<'_>,
+    frame: &Frame,
+    link_points: &mut Vec<(Point, EcoString)>,
+) {
+    for (_, item) in frame.items() {
+        match item {
+            FrameItem::Tag(Tag::Start(elem)) => {
+                let loc = elem.location().unwrap();
+                if targets.contains(&loc) {
+                    let pos = identificator.introspector.position(loc).point;
+                    let id = identificator.identify(elem.label());
+                    work.ids.insert(loc, id.clone());
+                    link_points.push((pos, id));
+                }
+            }
+            FrameItem::Group(group) => {
+                traverse_frame(work, targets, identificator, &group.frame, link_points);
+            }
+            _ => {}
+        }
     }
 }
 

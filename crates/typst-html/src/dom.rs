@@ -4,7 +4,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{bail, HintedStrResult, StrResult};
 use typst_library::foundations::{cast, Dict, Repr, Str, StyleChain};
 use typst_library::introspection::{Introspector, Tag};
-use typst_library::layout::{Abs, Frame};
+use typst_library::layout::{Abs, Frame, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::text::TextElem;
 use typst_syntax::Span;
@@ -289,8 +289,10 @@ pub struct HtmlFrame {
     /// frame with em units to make text in and outside of the frame sized
     /// consistently.
     pub text_size: Abs,
-    /// An ID to assign to the SVG.
+    /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
+    /// IDs to assign to destination jump points within the SVG.
+    pub link_points: Vec<(Point, EcoString)>,
 }
 
 impl HtmlFrame {
@@ -300,6 +302,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
+            link_points: vec![],
         }
     }
 }
