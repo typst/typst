@@ -66,6 +66,74 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 Text <hey>
 #link(<hey>)[Go to text.]
 
+--- link-html-id-attach html ---
+// Tests how IDs and, if necessary, spans, are added to the DOM to support
+// links.
+
+#for i in range(1, 9) {
+  list.item(link(label("t" + str(i)), [Go]))
+}
+
+// Text at start of paragraph
+Hi <t1>
+
+// Text at start of paragraph + more text
+Hi <t2> there
+
+// Text in the middle of paragraph
+See #[it <t4>]
+
+// Text in the middle of paragraph + more text
+See #[it <t5>] here
+
+// Text + more elements
+See #[a *b*] <t6>
+
+// Element
+See *a _b_* <t3>
+
+// Nothing
+See #[] <t7>
+
+// Nothing 2
+See #metadata(none) <t8>
+
+--- link-html-label-disambiguation html ---
+// Tests automatic ID generation for labelled elements.
+
+#[= A] #label("%") // not reusable => loc-1
+= B <1>            // not reusable => loc-3 (loc-2 exists)
+= C <loc>          // reusable, unique => loc
+= D <loc-2>        // reusable, unique => loc-2
+= E <lib>          // reusable, not unique => lib-1
+= F <lib>          // reusable, not unique => lib-3 (lib-2 exists)
+= G <lib-2>        // reusable, unique => lib-2
+= H <hi>           // reusable, unique => hi
+= I <hi-2>         // reusable, not unique => hi-2-1
+= J <hi-2>         // reusable, not unique => hi-2-2
+
+#context for it in query(heading) {
+  list.item(link(it.location(), it.body))
+}
+
+--- link-html-id-existing html ---
+// Test that linking reuses the existing ID, if any.
+#html.div[
+  #html.span(id: "this")[This] <other>
+]
+
+#link(<other>)[Go]
+
+--- link-html-here html ---
+#context link(here())[Go]
+
+--- link-html-nested-empty html ---
+#[#metadata(none) <a> #metadata(none) <b> Hi] <c>
+
+#link(<a>)[A] // creates empty span
+#link(<b>)[B] // creates second empty span
+#link(<c>)[C] // links to #a because the generated span is contained in it
+
 --- link-to-label-missing ---
 // Error: 2-20 label `<hey>` does not exist in the document
 #link(<hey>)[Nope.]
