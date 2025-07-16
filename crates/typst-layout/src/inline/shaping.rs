@@ -719,6 +719,10 @@ fn glyphs_width(glyphs: &[ShapedGlyph]) -> Abs {
 struct ShapingContext<'a, 'v> {
     engine: &'a Engine<'v>,
     glyphs: Vec<ShapedGlyph>,
+    /// Font families that have been used with unlimited coverage.
+    ///
+    /// These font families are considered exhausted and will not be used again,
+    /// even if they are declared again (e.g., during fallback after normal selection).
     used: Vec<Font>,
     styles: StyleChain<'a>,
     size: Abs,
@@ -777,7 +781,10 @@ fn shape_segment<'a>(
         return;
     };
 
-    ctx.used.push(font.clone());
+    // This font has been exhausted and will not be used again.
+    if covers.is_none() {
+        ctx.used.push(font.clone());
+    }
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
