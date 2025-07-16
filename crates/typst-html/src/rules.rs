@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::{eco_format, EcoVec};
-use typst_library::diag::warning;
+use typst_library::diag::{warning, At};
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
@@ -141,20 +141,33 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 };
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
-    let body = elem.body.clone();
-    Ok(if let LinkTarget::Dest(Destination::Url(url)) = &elem.dest {
-        HtmlElem::new(tag::a)
-            .with_attr(attr::href, url.clone().into_inner())
-            .with_body(Some(body))
-            .pack()
-            .spanned(elem.span())
-    } else {
-        engine.sink.warn(warning!(
-            elem.span(),
-            "non-URL links are not yet supported by HTML export"
-        ));
-        body
-    })
+    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
+
+    let href = match dest {
+        Destination::Url(url) => Some(url.clone().into_inner()),
+        Destination::Location(location) => {
+            let id = engine
+                .introspector
+                .html_id(location)
+                .cloned()
+                .ok_or("failed to determine link anchor")
+                .at(elem.span())?;
+            Some(eco_format!("#{id}"))
+        }
+        Destination::Position(_) => {
+            engine.sink.warn(warning!(
+                elem.span(),
+                "positional link was ignored during HTML export"
+            ));
+            None
+        }
+    };
+
+    Ok(HtmlElem::new(tag::a)
+        .with_optional_attr(attr::href, href)
+        .with_body(Some(elem.body.clone()))
+        .pack()
+        .spanned(elem.span()))
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {

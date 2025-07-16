@@ -20,8 +20,8 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, LinkTarget, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem,
-    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
+    LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
 };
 use typst_library::pdf::EmbedElem;
 use typst_library::text::{
@@ -216,14 +216,8 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let body = elem.body.clone();
-    Ok(match &elem.dest {
-        LinkTarget::Dest(dest) => body.linked(dest.clone()),
-        LinkTarget::Label(label) => {
-            let elem = engine.introspector.query_label(*label).at(elem.span())?;
-            let dest = Destination::Location(elem.location().unwrap());
-            body.linked(dest)
-        }
-    })
+    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
+    Ok(body.linked(dest))
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {

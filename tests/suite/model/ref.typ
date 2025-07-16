@@ -1,6 +1,6 @@
 // Test references.
 
---- ref-basic ---
+--- ref-basic render html ---
 #set heading(numbering: "1.")
 
 = Introduction <intro>
