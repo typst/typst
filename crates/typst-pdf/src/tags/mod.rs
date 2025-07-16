@@ -18,6 +18,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
+use typst_library::math::EquationElem;
 use typst_library::model::{
     Destination, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
     HeadingElem, ListElem, Outlinable, OutlineEntry, QuoteElem, TableCell, TableElem,
@@ -112,6 +113,9 @@ pub(crate) fn handle_start(
         } else {
             TagKind::Figure.with_alt_text(alt)
         }
+    } else if let Some(_) = elem.to_packed::<EquationElem>() {
+        // TODO: alt text
+        TagKind::Formula.into()
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.get_as_ref().map(|s| s.to_string());
