@@ -103,7 +103,7 @@ const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
 
     let body = Content::sequence(elem.children.iter().map(|item| {
         let mut li = HtmlElem::new(tag::li);
-        if let Some(nr) = item.number.get(styles) {
+        if let Smart::Custom(nr) = item.number.get(styles) {
             li = li.with_attr(attr::value, eco_format!("{nr}"));
         }
         // Text in wide enums shall always turn into paragraphs.

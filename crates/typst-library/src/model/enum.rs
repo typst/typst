@@ -220,7 +220,7 @@ impl EnumElem {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<u64>,
+    pub number: Smart<u64>,
 
     /// The item's body.
     #[required]
