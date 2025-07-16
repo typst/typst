@@ -50,6 +50,7 @@ use crate::foundations::{
     NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set,
     Smart, StyleChain,
 };
+use crate::introspection::Unlocatable;
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
@@ -90,7 +91,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Debug, Construct, PlainText, Repr)]
+#[elem(Debug, Construct, PlainText, Repr, Unlocatable)]
 pub struct TextElem {
     /// A font family descriptor or priority list of font family descriptors.
     ///
@@ -791,6 +792,8 @@ impl PlainText for Packed<TextElem> {
         text.push_str(&self.text);
     }
 }
+
+impl Unlocatable for Packed<TextElem> {}
 
 /// A lowercased font family like "arial".
 #[derive(Debug, Clone, PartialEq, Hash)]

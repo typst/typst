@@ -108,6 +108,9 @@ impl Repr for Location {
 /// Makes this element as locatable through the introspector.
 pub trait Locatable {}
 
+/// Makes this element as not locatable through the introspector.
+pub trait Unlocatable {}
+
 /// Marks this element as not being queryable even though it is locatable for
 /// internal reasons.
 pub trait Unqueriable {}

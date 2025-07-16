@@ -18,7 +18,7 @@ use typst_library::foundations::{
     RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
     SymbolElem, Synthesize, TargetElem, Transformation,
 };
-use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
+use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem, Unlocatable};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -506,7 +506,7 @@ fn verdict<'a>(
             elem.label().is_none()
                 && elem.location().is_none()
                 && !elem.can::<dyn ShowSet>()
-                && !elem.can::<dyn Locatable>()
+                && !locatable(elem)
                 && !elem.can::<dyn Synthesize>()
         })
     {
@@ -514,6 +514,10 @@ fn verdict<'a>(
     }
 
     Some(Verdict { prepared, map, step })
+}
+
+fn locatable(elem: &Content) -> bool {
+    !elem.can::<dyn Unlocatable>()
 }
 
 /// This is only executed the first time an element is visited.
@@ -531,9 +535,7 @@ fn prepare(
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
-    if elem.location().is_none()
-        && (elem.can::<dyn Locatable>() || elem.label().is_some())
-    {
+    if elem.location().is_none() && (locatable(elem) || elem.label().is_some()) {
         let loc = locator.next_location(engine.introspector, key);
         elem.set_location(loc);
     }

@@ -7,8 +7,11 @@ use crate::foundations::{
     array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
     StyleChain,
 };
+use crate::introspection::Unlocatable;
 use crate::layout::Dir;
 use crate::text::{Lang, Region, TextElem};
+
+impl Unlocatable for Packed<SmartQuoteElem> {}
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -29,7 +32,7 @@ use crate::text::{Lang, Region, TextElem};
 /// # Syntax
 /// This function also has dedicated syntax: The normal quote characters
 /// (`'` and `"`). Typst automatically makes your quotes smart.
-#[elem(name = "smartquote", PlainText)]
+#[elem(name = "smartquote", PlainText, Unlocatable)]
 pub struct SmartQuoteElem {
     /// Whether this should be a double quote.
     #[default(true)]
