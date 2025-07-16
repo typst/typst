@@ -4,11 +4,11 @@ use serde::Serialize;
 use typst::diag::{bail, HintedStrResult, StrResult, Warned};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
-use typst::html::HtmlDocument;
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
 use typst::{Document, World};
 use typst_eval::eval_string;
+use typst_html::HtmlDocument;
 
 use crate::args::{QueryCommand, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
