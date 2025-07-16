@@ -6,3 +6,4 @@ heading = Section
 outline = Contents
 raw = Listing
 page = page
+footnote = Footnote

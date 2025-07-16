@@ -6,3 +6,4 @@ heading = Avsnitt
 outline = Innehåll
 raw = Kodlistning
 page = sida
+# footnote =

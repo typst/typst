@@ -384,7 +384,7 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let numbering = elem.numbering.get_ref(styles);
     let counter = Counter::of(FootnoteElem::ELEM);
     let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let alt = num.plain_text();
+    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
     let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span));
     let loc = loc.variant(1);
     // Add zero-width weak spacing to make the footnote "sticky".

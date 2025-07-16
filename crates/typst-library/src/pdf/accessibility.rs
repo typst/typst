@@ -122,7 +122,8 @@ macro_rules! pdf_marker_tag {
                 #[doc = $doc]
                 #[allow(non_snake_case)]
                 pub fn $variant(body: Content) -> Content {
-                    Self::new(PdfMarkerTagKind::$variant, body).pack()
+                    let span = body.span();
+                    Self::new(PdfMarkerTagKind::$variant, body).pack().spanned(span)
                 }
             )+
         }

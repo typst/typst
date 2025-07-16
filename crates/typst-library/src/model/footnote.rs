@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
+use ecow::{eco_format, EcoString};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, StrResult};
@@ -12,7 +13,7 @@ use crate::foundations::{
 use crate::introspection::{Count, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, Length, Ratio};
 use crate::model::{Numbering, NumberingPattern, ParElem};
-use crate::text::{TextElem, TextSize};
+use crate::text::{LocalName, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -82,7 +83,16 @@ impl FootnoteElem {
     type FootnoteEntry;
 }
 
+impl LocalName for Packed<FootnoteElem> {
+    const KEY: &'static str = "footnote";
+}
+
 impl FootnoteElem {
+    pub fn alt_text(styles: StyleChain, num: &str) -> EcoString {
+        let local_name = Packed::<FootnoteElem>::local_name_in(styles);
+        eco_format!("{local_name} {num}")
+    }
+
     /// Creates a new footnote that the passed content as its body.
     pub fn with_content(content: Content) -> Self {
         Self::new(FootnoteBody::Content(content))
