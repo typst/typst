@@ -41,7 +41,10 @@ pub fn toml(
 impl toml {
     /// Reads structured data from a TOML string/bytes.
     #[func(title = "Decode TOML")]
-    #[deprecated = "`toml.decode` is deprecated, directly pass bytes to `toml` instead"]
+    #[deprecated(
+        message = "`toml.decode` is deprecated, directly pass bytes to `toml` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// TOML data.

@@ -32,4 +32,5 @@
 
 --- csv-decode-deprecated ---
 // Warning: 14-20 `csv.decode` is deprecated, directly pass bytes to `csv` instead
+// Hint: 14-20 this will be removed in 0.15.0
 #let _ = csv.decode
