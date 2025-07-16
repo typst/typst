@@ -56,6 +56,10 @@ a + 0.
    enum.item(5)[Fifth]
 )
 
+--- enum-item-number-optional ---
+#enum.item[First]
+#enum.item[Second]
+
 --- enum-numbering-pattern ---
 // Test numbering pattern.
 #set enum(numbering: "(1.a.*)")
@@ -217,7 +221,7 @@ a + 0.
 
 --- issue-2530-enum-item-panic ---
 // Enum item (pre-emptive)
-#enum.item(none)[Hello]
+#enum.item(auto)[Hello]
 #enum.item(17)[Hello]
 
 --- issue-5503-enum-in-align ---
