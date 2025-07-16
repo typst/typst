@@ -29,4 +29,5 @@
 
 --- xml-decode-deprecated ---
 // Warning: 14-20 `xml.decode` is deprecated, directly pass bytes to `xml` instead
+// Hint: 14-20 this will be removed in 0.15.0
 #let _ = xml.decode

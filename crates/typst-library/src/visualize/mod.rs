@@ -46,6 +46,7 @@ pub(super) fn define(global: &mut Scope) {
         .deprecated("the `path` function is deprecated, use `curve` instead");
     global
         .define("pattern", Type::of::<Tiling>())
-        .deprecated("the name `pattern` is deprecated, use `tiling` instead");
+        .deprecated("the name `pattern` is deprecated, use `tiling` instead")
+        .deprecated_until("0.15.0");
     global.reset_category();
 }
