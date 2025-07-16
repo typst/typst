@@ -217,7 +217,7 @@ a + 0.
 
 --- issue-2530-enum-item-panic ---
 // Enum item (pre-emptive)
-#enum.item(none)[Hello]
+#enum.item(auto)[Hello]
 #enum.item(17)[Hello]
 
 --- issue-5503-enum-in-align ---
