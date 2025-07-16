@@ -340,7 +340,7 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// ```example
-    /// #set page(foreground: text(24pt)[🥸])
+    /// #set page(foreground: text(24pt)[🤓])
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did
