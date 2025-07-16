@@ -782,7 +782,7 @@ fn oneliner(docs: &str) -> EcoString {
             '(' | '[' | '{' => depth += 1,
             ')' | ']' | '}' => depth -= 1,
             '.' if depth == 0 => period = true,
-            c if period && c.is_whitespace() => {
+            c if period && c.is_whitespace() && !docs[..i].ends_with("e.g.") => {
                 end = i;
                 break;
             }
