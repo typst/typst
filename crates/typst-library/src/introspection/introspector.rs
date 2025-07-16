@@ -10,7 +10,7 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
-use crate::introspection::{Location, Tag};
+use crate::introspection::{Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, Point, Position, Transform};
 use crate::model::Numbering;
 
@@ -422,9 +422,11 @@ impl IntrospectorBuilder {
     ) {
         match tag {
             Tag::Start(elem) => {
-                let loc = elem.location().unwrap();
-                if self.seen.insert(loc) {
-                    sink.push((elem.clone(), position));
+                if elem.can::<dyn Locatable>() {
+                    let loc = elem.location().unwrap();
+                    if self.seen.insert(loc) {
+                        sink.push((elem.clone(), position));
+                    }
                 }
             }
             Tag::End(loc, key) => {
