@@ -20,7 +20,8 @@ use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
     Destination, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, ListElem, Outlinable, OutlineEntry, TableCell, TableElem, TermsElem,
+    HeadingElem, ListElem, Outlinable, OutlineEntry, QuoteElem, TableCell, TableElem,
+    TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::visualize::ImageElem;
@@ -150,6 +151,13 @@ pub(crate) fn handle_start(
         let footnote_loc = entry.note.location().unwrap();
         push_stack(gc, loc, StackEntryKind::FootNoteEntry(footnote_loc))?;
         return Ok(());
+    } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
+        // TODO: should the attribution be handled somehow?
+        if quote.block.get(StyleChain::default()) {
+            TagKind::BlockQuote.into()
+        } else {
+            TagKind::InlineQuote.into()
+        }
     } else {
         return Ok(());
     };
