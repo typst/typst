@@ -254,7 +254,11 @@ pub struct Binding {
     /// The category of the binding.
     category: Option<Category>,
     /// A deprecation message for the definition.
-    deprecation: Option<&'static str>,
+    deprecation_message: Option<&'static str>,
+    /// A version in which the deprecated binding is planned to be removed.
+    ///
+    /// This is ignored if `deprecation` is `None`.
+    deprecation_until: Option<&'static str>,
 }
 
 /// The different kinds of slots.
@@ -274,7 +278,8 @@ impl Binding {
             span,
             kind: BindingKind::Normal,
             category: None,
-            deprecation: None,
+            deprecation_message: None,
+            deprecation_until: None,
         }
     }
 
@@ -285,7 +290,15 @@ impl Binding {
 
     /// Marks this binding as deprecated, with the given `message`.
     pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
-        self.deprecation = Some(message);
+        self.deprecation_message = Some(message);
+        self
+    }
+
+    /// Set the version in which the binding is planned to be removed.
+    ///
+    /// This is ignored if [`Binding::deprecated`] isn't also set.
+    pub fn deprecated_until(&mut self, version: &'static str) -> &mut Self {
+        self.deprecation_until = Some(version);
         self
     }
 
@@ -300,8 +313,8 @@ impl Binding {
     /// - pass `()` to ignore the message.
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
     pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
-        if let Some(message) = self.deprecation {
-            sink.emit(message);
+        if let Some(message) = self.deprecation_message {
+            sink.emit(message, self.deprecation_until);
         }
         &self.value
     }
@@ -337,8 +350,13 @@ impl Binding {
     }
 
     /// A deprecation message for the value, if any.
-    pub fn deprecation(&self) -> Option<&'static str> {
-        self.deprecation
+    pub fn deprecation_message(&self) -> Option<&'static str> {
+        self.deprecation_message
+    }
+
+    /// The version in which a deprecated binding is planned to be removed.
+    pub fn deprecation_until(&self) -> Option<&'static str> {
+        self.deprecation_until
     }
 
     /// The category of the value, if any.
