@@ -56,6 +56,10 @@ a + 0.
    enum.item(5)[Fifth]
 )
 
+--- enum-item-number-optional ---
+#enum.item[First]
+#enum.item[Second]
+
 --- enum-numbering-pattern ---
 // Test numbering pattern.
 #set enum(numbering: "(1.a.*)")
