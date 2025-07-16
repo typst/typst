@@ -1,7 +1,8 @@
 use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Result, parse_quote};
+use syn::punctuated::Punctuated;
+use syn::{MetaNameValue, Result, Token, parse_quote};
 
 use crate::util::{BareType, foundations};
 
@@ -52,13 +53,31 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
             _ => bail!(child, "unexpected item in scope"),
         };
 
-        if let Some(message) = attrs.iter().find_map(|attr| match &attr.meta {
-            syn::Meta::NameValue(pair) if pair.path.is_ident("deprecated") => {
-                Some(&pair.value)
+        if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("deprecated")) {
+            match &attr.meta {
+                syn::Meta::NameValue(pair) if pair.path.is_ident("deprecated") => {
+                    let message = &pair.value;
+                    def = quote! { #def.deprecated(#message) }
+                }
+                syn::Meta::List(list) if list.path.is_ident("deprecated") => {
+                    let args = list.parse_args_with(
+                        Punctuated::<MetaNameValue, Token![,]>::parse_separated_nonempty,
+                    )?;
+
+                    if let Some(message) = args.iter().find_map(|pair| {
+                        pair.path.is_ident("message").then_some(&pair.value)
+                    }) {
+                        def = quote! { #def.deprecated(#message) }
+                    }
+
+                    if let Some(version) = args.iter().find_map(|pair| {
+                        pair.path.is_ident("until").then_some(&pair.value)
+                    }) {
+                        def = quote! { #def.deprecated_until(#version) }
+                    }
+                }
+                _ => {}
             }
-            _ => None,
-        }) {
-            def = quote! { #def.deprecated(#message) }
         }
 
         definitions.push(def);
