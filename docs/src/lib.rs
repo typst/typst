@@ -291,8 +291,14 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
         match binding.read() {
             Value::Func(func) => {
                 let name = func.name().unwrap();
-                let subpage =
-                    func_page(resolver, &route, func, path, binding.deprecation());
+                let subpage = func_page(
+                    resolver,
+                    &route,
+                    func,
+                    path,
+                    binding.deprecation_message(),
+                    binding.deprecation_until(),
+                );
                 items.push(CategoryItem {
                     name: name.into(),
                     route: subpage.route.clone(),
@@ -381,9 +387,11 @@ fn func_page(
     parent: &str,
     func: &Func,
     path: &[&str],
-    deprecation: Option<&'static str>,
+    deprecation_message: Option<&'static str>,
+    deprecation_until: Option<&'static str>,
 ) -> PageModel {
-    let model = func_model(resolver, func, path, false, deprecation);
+    let model =
+        func_model(resolver, func, path, false, deprecation_message, deprecation_until);
     let name = func.name().unwrap();
     PageModel {
         route: eco_format!("{parent}{}/", urlify(name)),
@@ -402,7 +410,8 @@ fn func_model(
     func: &Func,
     path: &[&str],
     nested: bool,
-    deprecation: Option<&'static str>,
+    deprecation_message: Option<&'static str>,
+    deprecation_until: Option<&'static str>,
 ) -> FuncModel {
     let name = func.name().unwrap();
     let scope = func.scope().unwrap();
@@ -438,7 +447,8 @@ fn func_model(
         oneliner: oneliner(details),
         element: func.element().is_some(),
         contextual: func.contextual().unwrap_or(false),
-        deprecation,
+        deprecation_message,
+        deprecation_until,
         details: Html::markdown(resolver, details, nesting),
         example: example.map(|md| Html::markdown(resolver, md, None)),
         self_,
@@ -521,7 +531,14 @@ fn scope_models(resolver: &dyn Resolver, name: &str, scope: &Scope) -> Vec<FuncM
         .iter()
         .filter_map(|(_, binding)| {
             let Value::Func(func) = binding.read() else { return None };
-            Some(func_model(resolver, func, &[name], true, binding.deprecation()))
+            Some(func_model(
+                resolver,
+                func,
+                &[name],
+                true,
+                binding.deprecation_message(),
+                binding.deprecation_until(),
+            ))
         })
         .collect()
 }
@@ -602,7 +619,14 @@ fn group_page(
         let Ok(ref func) = binding.read().clone().cast::<Func>() else {
             panic!("not a function")
         };
-        let func = func_model(resolver, func, &path, true, binding.deprecation());
+        let func = func_model(
+            resolver,
+            func,
+            &path,
+            true,
+            binding.deprecation_message(),
+            binding.deprecation_until(),
+        );
         let id_base = urlify(&eco_format!("functions-{}", func.name));
         let children = func_outline(&func, &id_base);
         outline_items.push(OutlineItem {
@@ -669,7 +693,7 @@ fn type_model(resolver: &dyn Resolver, ty: &Type) -> TypeModel {
         constructor: ty
             .constructor()
             .ok()
-            .map(|func| func_model(resolver, &func, &[], true, None)),
+            .map(|func| func_model(resolver, &func, &[], true, None, None)),
         scope: scope_models(resolver, ty.short_name(), ty.scope()),
     }
 }
@@ -718,7 +742,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
             }
         };
 
-        for (variant, c, deprecation) in symbol.variants() {
+        for (variant, c, deprecation_message) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
                 list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
             };
@@ -737,7 +761,9 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                     .filter(|(other, _, _)| other != &variant)
                     .map(|(other, _, _)| complete(other))
                     .collect(),
-                deprecation: deprecation.or_else(|| binding.deprecation()),
+                deprecation_message: deprecation_message
+                    .or_else(|| binding.deprecation_message()),
+                deprecation_until: binding.deprecation_until(),
             });
         }
     }
