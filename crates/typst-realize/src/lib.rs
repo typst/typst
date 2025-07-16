@@ -374,7 +374,9 @@ fn visit_show_rules<'a>(
             }
 
             // Apply a built-in show rule.
-            ShowStep::Builtin(rule) => rule.apply(&output, s.engine, chained),
+            ShowStep::Builtin(rule) => rule
+                .apply(&output, s.engine, chained)
+                .map(|content| content.spanned(output.span())),
         };
 
         // Errors in show rules don't terminate compilation immediately. We just

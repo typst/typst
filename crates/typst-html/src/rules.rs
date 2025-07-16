@@ -59,19 +59,11 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register::<FrameElem>(Paged, |elem, _, _| Ok(elem.body.clone()));
 }
 
-const STRONG_RULE: ShowFn<StrongElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::strong)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const STRONG_RULE: ShowFn<StrongElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::strong).with_body(Some(elem.body.clone())).pack());
 
-const EMPH_RULE: ShowFn<EmphElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::em)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const EMPH_RULE: ShowFn<EmphElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::em).with_body(Some(elem.body.clone())).pack());
 
 const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::ul)
@@ -86,8 +78,7 @@ const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
                 .pack()
                 .spanned(item.span())
         }))))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
@@ -114,7 +105,7 @@ const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
         li.with_body(Some(body)).pack().spanned(item.span())
     }));
 
-    Ok(ol.with_body(Some(body)).pack().spanned(elem.span()))
+    Ok(ol.with_body(Some(body)).pack())
 };
 
 const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
@@ -166,8 +157,7 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     Ok(HtmlElem::new(tag::a)
         .with_optional_attr(attr::href, href)
         .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
@@ -203,10 +193,9 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .with_attr(attr::role, "heading")
             .with_attr(attr::aria_level, eco_format!("{}", level + 1))
             .pack()
-            .spanned(span)
     } else {
         let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
-        HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
+        HtmlElem::new(t).with_body(Some(realized)).pack()
     })
 };
 
@@ -225,17 +214,13 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     // Ensure that the body is considered a paragraph.
     realized += ParbreakElem::shared().clone().spanned(span);
 
-    Ok(HtmlElem::new(tag::figure)
-        .with_body(Some(realized))
-        .pack()
-        .spanned(span))
+    Ok(HtmlElem::new(tag::figure).with_body(Some(realized)).pack())
 };
 
 const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
     Ok(HtmlElem::new(tag::figcaption)
         .with_body(Some(elem.realize(engine, styles)?))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
@@ -376,19 +361,11 @@ fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
         .spanned(cell.span())
 }
 
-const SUB_RULE: ShowFn<SubElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::sub)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const SUB_RULE: ShowFn<SubElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::sub).with_body(Some(elem.body.clone())).pack());
 
-const SUPER_RULE: ShowFn<SuperElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::sup)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const SUPER_RULE: ShowFn<SuperElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::sup).with_body(Some(elem.body.clone())).pack());
 
 const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
     // Note: In modern HTML, `<u>` is not the underline element, but
@@ -427,8 +404,7 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 
     Ok(HtmlElem::new(if elem.block.get(styles) { tag::pre } else { tag::code })
         .with_body(Some(Content::sequence(seq)))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());
