@@ -580,8 +580,8 @@ their call with a `#`. Nobody can stop you from using rectangles or emoji as
 your variables anymore:
 
 ```example
-$ sum^10_(🥸=1)
-  #rect(width: 4mm, height: 2mm)/🥸
+$ sum^10_(🤓=1)
+  #rect(width: 4mm, height: 2mm)/🤓
   = 🧠 maltese $
 ```
 
