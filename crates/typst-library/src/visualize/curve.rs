@@ -2,12 +2,9 @@ use kurbo::ParamCurveExtrema;
 use typst_macros::{scope, Cast};
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, Content, NativeElement, Packed, Show, Smart, StyleChain,
-};
-use crate::layout::{Abs, Axes, BlockElem, Length, Point, Rel, Size};
+use crate::diag::{bail, HintedStrResult, HintedString};
+use crate::foundations::{cast, elem, Content, Packed, Smart};
+use crate::layout::{Abs, Axes, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
 
 use super::FixedStroke;
@@ -42,7 +39,7 @@ use super::FixedStroke;
 ///   curve.close(),
 /// )
 /// ```
-#[elem(scope, Show)]
+#[elem(scope)]
 pub struct CurveElem {
     /// How to fill the curve.
     ///
@@ -86,7 +83,6 @@ pub struct CurveElem {
     ///   down, up, down, up, down,
     /// )
     /// ```
-    #[resolve]
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
@@ -94,14 +90,6 @@ pub struct CurveElem {
     /// segment, and closes.
     #[variadic]
     pub components: Vec<CurveComponent>,
-}
-
-impl Show for Packed<CurveElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_curve)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 #[scope]

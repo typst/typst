@@ -5,7 +5,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Repr, Show, Smart, StyleChain, Synthesize,
+    Repr, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -134,7 +134,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[elem(title = "Reference", Synthesize, Locatable, Show)]
+#[elem(title = "Reference", Synthesize, Locatable)]
 pub struct RefElem {
     /// The target label that should be referenced.
     ///
@@ -175,7 +175,6 @@ pub struct RefElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
-    #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
 
     /// The kind of reference to produce.
@@ -207,12 +206,12 @@ impl Synthesize for Packed<RefElem> {
         let citation = to_citation(self, engine, styles)?;
 
         let elem = self.as_mut();
-        elem.push_citation(Some(citation));
-        elem.push_element(None);
+        elem.citation = Some(Some(citation));
+        elem.element = Some(None);
 
         if !BibliographyElem::has(engine, elem.target) {
             if let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
-                elem.push_element(Some(found));
+                elem.element = Some(Some(found));
                 return Ok(());
             }
         }
@@ -221,13 +220,17 @@ impl Synthesize for Packed<RefElem> {
     }
 }
 
-impl Show for Packed<RefElem> {
-    #[typst_macros::time(name = "ref", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+impl Packed<RefElem> {
+    /// Realize as a linked, textual reference.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let elem = engine.introspector.query_label(self.target);
         let span = self.span();
 
-        let form = self.form(styles);
+        let form = self.form.get(styles);
         if form == RefForm::Page {
             let elem = elem.at(span)?;
             let elem = elem.clone();
@@ -243,7 +246,7 @@ impl Show for Packed<RefElem> {
                 .at(span)?;
             let supplement = engine.introspector.page_supplement(loc);
 
-            return show_reference(
+            return realize_reference(
                 self,
                 engine,
                 styles,
@@ -299,7 +302,7 @@ impl Show for Packed<RefElem> {
             .hint(eco_format!(
                 "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
                 elem.func().name(),
-                if elem.func() == EquationElem::elem() {
+                if elem.func() == EquationElem::ELEM {
                     "math.equation"
                 } else {
                     elem.func().name()
@@ -307,7 +310,7 @@ impl Show for Packed<RefElem> {
             ))
             .at(span)?;
 
-        show_reference(
+        realize_reference(
             self,
             engine,
             styles,
@@ -320,7 +323,7 @@ impl Show for Packed<RefElem> {
 }
 
 /// Show a reference.
-fn show_reference(
+fn realize_reference(
     reference: &Packed<RefElem>,
     engine: &mut Engine,
     styles: StyleChain,
@@ -332,7 +335,7 @@ fn show_reference(
     let loc = elem.location().unwrap();
     let numbers = counter.display_at_loc(engine, loc, styles, &numbering.trimmed())?;
 
-    let supplement = match reference.supplement(styles).as_ref() {
+    let supplement = match reference.supplement.get_ref(styles) {
         Smart::Auto => supplement,
         Smart::Custom(None) => Content::empty(),
         Smart::Custom(Some(supplement)) => supplement.resolve(engine, styles, [elem])?,
@@ -353,7 +356,7 @@ fn to_citation(
     styles: StyleChain,
 ) -> SourceResult<Packed<CiteElem>> {
     let mut elem = Packed::new(CiteElem::new(reference.target).with_supplement(
-        match reference.supplement(styles).clone() {
+        match reference.supplement.get_cloned(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         },

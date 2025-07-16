@@ -3,7 +3,7 @@ use comemo::Track;
 use crate::diag::{bail, Hint, HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Construct, Content, Func, Packed, Show, StyleChain, Value,
+    elem, Args, Construct, Content, Func, ShowFn, StyleChain, Value,
 };
 use crate::introspection::{Locatable, Location};
 
@@ -61,7 +61,7 @@ fn require<T>(val: Option<T>) -> HintedStrResult<T> {
 }
 
 /// Executes a `context` block.
-#[elem(Construct, Locatable, Show)]
+#[elem(Construct, Locatable)]
 pub struct ContextElem {
     /// The function to call with the context.
     #[required]
@@ -75,11 +75,8 @@ impl Construct for ContextElem {
     }
 }
 
-impl Show for Packed<ContextElem> {
-    #[typst_macros::time(name = "context", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let loc = self.location().unwrap();
-        let context = Context::new(Some(loc), Some(styles));
-        Ok(self.func.call::<[Value; 0]>(engine, context.track(), [])?.display())
-    }
-}
+pub const CONTEXT_RULE: ShowFn<ContextElem> = |elem, engine, styles| {
+    let loc = elem.location().unwrap();
+    let context = Context::new(Some(loc), Some(styles));
+    Ok(elem.func.call::<[Value; 0]>(engine, context.track(), [])?.display())
+};

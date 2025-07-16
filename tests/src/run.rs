@@ -5,10 +5,10 @@ use std::path::PathBuf;
 use ecow::eco_vec;
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
-use typst::html::HtmlDocument;
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
 use typst::{Document, WorldExt};
+use typst_html::HtmlDocument;
 use typst_pdf::PdfOptions;
 use typst_syntax::{FileId, Lines};
 

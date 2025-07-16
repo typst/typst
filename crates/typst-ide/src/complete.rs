@@ -76,7 +76,7 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
@@ -130,7 +130,14 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Start of a reference: "@|" or "@he|".
+    // Start of a reference: "@|".
+    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
+        return true;
+    }
+
+    // An existing reference: "@he|".
     if ctx.leaf.kind() == SyntaxKind::RefMarker {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
@@ -448,7 +455,7 @@ fn field_access_completions(
     match value {
         Value::Symbol(symbol) => {
             for modifier in symbol.modifiers() {
-                if let Ok(modified) = symbol.clone().modified(modifier) {
+                if let Ok(modified) = symbol.clone().modified((), modifier) {
                     ctx.completions.push(Completion {
                         kind: CompletionKind::Symbol(modified.get()),
                         label: modifier.into(),
@@ -1564,7 +1571,7 @@ mod tests {
 
     use typst::layout::PagedDocument;
 
-    use super::{autocomplete, Completion};
+    use super::{autocomplete, Completion, CompletionKind};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     /// Quote a string.
@@ -1645,6 +1652,19 @@ mod tests {
     }
 
     #[track_caller]
+    fn test_with_addition(
+        initial_text: &str,
+        addition: &str,
+        pos: impl FilePos,
+    ) -> Response {
+        let mut world = TestWorld::new(initial_text);
+        let doc = typst::compile(&world).output.ok();
+        let end = world.main.text().len();
+        world.main.edit(end..end, addition);
+        test_with_doc(&world, pos, doc.as_ref())
+    }
+
+    #[track_caller]
     fn test_with_doc(
         world: impl WorldLike,
         pos: impl FilePos,
@@ -1707,6 +1727,30 @@ mod tests {
         test_with_doc(&world, -2, doc.as_ref())
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_function() {
+        test_with_addition("x<test>", " #ref(<)", -2).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand() {
+        test_with_addition("x<test>", " @", -1).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand_with_partial_identifier() {
+        test_with_addition("x<test>", " @te", -1).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_identical_labels_returns_single_completion() {
+        let result = test_with_addition("x<test> y<test>", " @t", -1);
+        let completions = result.completions();
+        let label_count =
+            completions.iter().filter(|c| c.kind == CompletionKind::Label).count();
+        assert_eq!(label_count, 1);
     }
 
     /// Test what kind of brackets we autocomplete for function calls depending

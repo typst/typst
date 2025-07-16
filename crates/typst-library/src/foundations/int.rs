@@ -46,7 +46,7 @@ impl i64 {
     /// or smaller than the minimum 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
-    /// - Floats and decimals are truncated to the next 64-bit integer.
+    /// - Floats and decimals are rounded to the next 64-bit integer towards zero.
     /// - Strings are parsed in base 10.
     ///
     /// ```example

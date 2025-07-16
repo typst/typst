@@ -5,7 +5,7 @@
   title: Variants
   category: math
   path: ["math"]
-  filter: ["serif", "sans", "frak", "mono", "bb", "cal"]
+  filter: ["serif", "sans", "frak", "mono", "bb", "cal", "scr"]
   details: |
     Alternate typefaces within formulas.
 
@@ -181,11 +181,7 @@
     [`sys.version`]($category/foundations/sys) can also be very useful.
 
     ```typ
-    #let tiling = if "tiling" in dictionary(std) {
-      tiling
-    } else {
-      pattern
-    }
+    #let tiling = if "tiling" in std { tiling } else { pattern }
 
     ...
     ```
@@ -209,7 +205,7 @@
       single or double quotes.
 
       The value is always of type [string]($str). More complex data
-      may be parsed manually using functions like [`json.decode`]($json.decode).
+      may be parsed manually using functions like [`json`]($json).
 
 - name: sym
   title: General

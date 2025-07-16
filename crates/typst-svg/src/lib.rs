@@ -5,6 +5,8 @@ mod paint;
 mod shape;
 mod text;
 
+pub use image::{convert_image_scaling, convert_image_to_base64_url};
+
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter, Write};
 
@@ -37,6 +39,30 @@ pub fn svg(page: &Page) -> String {
 pub fn svg_frame(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
+
+    let state = State::new(frame.size(), Transform::identity());
+    renderer.render_frame(state, Transform::identity(), frame);
+    renderer.finalize()
+}
+
+/// Export a frame into an SVG suitable for embedding into HTML.
+#[typst_macros::time(name = "svg html frame")]
+pub fn svg_html_frame(frame: &Frame, text_size: Abs) -> String {
+    let mut renderer = SVGRenderer::with_options(xmlwriter::Options {
+        indent: xmlwriter::Indent::None,
+        ..Default::default()
+    });
+    renderer.write_header_with_custom_attrs(frame.size(), |xml| {
+        xml.write_attribute("class", "typst-frame");
+        xml.write_attribute_fmt(
+            "style",
+            format_args!(
+                "overflow: visible; width: {}em; height: {}em;",
+                frame.width() / text_size,
+                frame.height() / text_size,
+            ),
+        );
+    });
 
     let state = State::new(frame.size(), Transform::identity());
     renderer.render_frame(state, Transform::identity(), frame);
@@ -156,8 +182,13 @@ impl State {
 impl SVGRenderer {
     /// Create a new SVG renderer with empty glyph and clip path.
     fn new() -> Self {
+        Self::with_options(Default::default())
+    }
+
+    /// Create a new SVG renderer with the given configuration.
+    fn with_options(options: xmlwriter::Options) -> Self {
         SVGRenderer {
-            xml: XmlWriter::new(xmlwriter::Options::default()),
+            xml: XmlWriter::new(options),
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),
             gradient_refs: Deduplicator::new('g'),
@@ -168,11 +199,22 @@ impl SVGRenderer {
         }
     }
 
-    /// Write the SVG header, including the `viewBox` and `width` and `height`
-    /// attributes.
+    /// Write the default SVG header, including a `typst-doc` class, the
+    /// `viewBox` and `width` and `height` attributes.
     fn write_header(&mut self, size: Size) {
+        self.write_header_with_custom_attrs(size, |xml| {
+            xml.write_attribute("class", "typst-doc");
+        });
+    }
+
+    /// Write the SVG header with additional attributes and standard attributes.
+    fn write_header_with_custom_attrs(
+        &mut self,
+        size: Size,
+        write_custom_attrs: impl FnOnce(&mut XmlWriter),
+    ) {
         self.xml.start_element("svg");
-        self.xml.write_attribute("class", "typst-doc");
+        write_custom_attrs(&mut self.xml);
         self.xml.write_attribute_fmt(
             "viewBox",
             format_args!("0 0 {} {}", size.x.to_pt(), size.y.to_pt()),

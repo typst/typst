@@ -29,8 +29,8 @@ impl FrameModifiers {
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
-            dest: LinkElem::current_in(styles),
-            hidden: HideElem::hidden_in(styles),
+            dest: styles.get_cloned(LinkElem::current),
+            hidden: styles.get(HideElem::hidden),
         }
     }
 }
@@ -83,7 +83,7 @@ pub trait FrameModifyText {
 impl FrameModifyText for Frame {
     fn modify_text(&mut self, styles: StyleChain) {
         let modifiers = FrameModifiers::get_in(styles);
-        let expand_y = 0.5 * ParElem::leading_in(styles);
+        let expand_y = 0.5 * styles.resolve(ParElem::leading);
         let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
         modify_frame(self, &modifiers, Some(outset));
     }
@@ -130,7 +130,7 @@ where
     let outer = styles;
     let mut styles = styles;
     if modifiers.dest.is_some() {
-        reset = LinkElem::set_current(None).wrap();
+        reset = LinkElem::current.set(None).wrap();
         styles = outer.chain(&reset);
     }
 

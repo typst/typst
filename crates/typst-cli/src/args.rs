@@ -7,6 +7,7 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use clap::builder::{TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
+use clap_complete::Shell;
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -81,6 +82,9 @@ pub enum Command {
     /// Self update the Typst CLI.
     #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
+
+    /// Generates shell completion scripts.
+    Completions(CompletionsCommand),
 }
 
 /// Compiles an input file into a supported output format.
@@ -200,6 +204,14 @@ pub struct UpdateCommand {
     /// defaults to system-dependent location
     #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "FILE")]
     pub backup_path: Option<PathBuf>,
+}
+
+/// Generates shell completion scripts.
+#[derive(Debug, Clone, Parser)]
+pub struct CompletionsCommand {
+    /// The shell to generate completions for.
+    #[arg(value_enum)]
+    pub shell: Shell,
 }
 
 /// Arguments for compilation and watching.
@@ -507,7 +519,7 @@ pub enum PdfStandard {
     /// PDF/A-2u.
     #[value(name = "a-2u")]
     A_2u,
-    /// PDF/A-3u.
+    /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
     /// PDF/A-3u.

@@ -2,11 +2,11 @@ use std::fmt::Write;
 
 use typst_library::diag::{bail, At, SourceResult, StrResult};
 use typst_library::foundations::Repr;
-use typst_library::html::{
-    attr, charsets, tag, HtmlDocument, HtmlElement, HtmlNode, HtmlTag,
-};
-use typst_library::layout::Frame;
 use typst_syntax::Span;
+
+use crate::{
+    attr, charsets, tag, HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag,
+};
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
@@ -121,6 +121,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     let pretty_inside = allows_pretty_inside(element.tag)
         && element.children.iter().any(|node| match node {
             HtmlNode::Element(child) => wants_pretty_around(child.tag),
+            HtmlNode::Frame(_) => true,
             _ => false,
         });
 
@@ -304,9 +305,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
 }
 
 /// Encode a laid out frame into the writer.
-fn write_frame(w: &mut Writer, frame: &Frame) {
-    // FIXME: This string replacement is obviously a hack.
-    let svg = typst_svg::svg_frame(frame)
-        .replace("<svg class", "<svg style=\"overflow: visible;\" class");
+fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
+    let svg = typst_svg::svg_html_frame(&frame.inner, frame.text_size);
     w.buf.push_str(&svg);
 }

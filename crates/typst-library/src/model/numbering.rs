@@ -18,7 +18,7 @@ use crate::foundations::{cast, func, Context, Func, Str, Value};
 ///
 /// A numbering pattern consists of counting symbols, for which the actual
 /// number is substituted, their prefixes, and one suffix. The prefixes and the
-/// suffix are repeated as-is.
+/// suffix are displayed as-is.
 ///
 /// # Example
 /// ```example
@@ -66,10 +66,10 @@ pub fn numbering(
     /// items, the number is represented using repeated symbols.
     ///
     /// **Suffixes** are all characters after the last counting symbol. They are
-    /// repeated as-is at the end of any rendered number.
+    /// displayed as-is at the end of any rendered number.
     ///
     /// **Prefixes** are all characters that are neither counting symbols nor
-    /// suffixes. They are repeated as-is at in front of their rendered
+    /// suffixes. They are displayed as-is at in front of their rendered
     /// equivalent of their counting symbol.
     ///
     /// This parameter can also be an arbitrary function that gets each number

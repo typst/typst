@@ -19,12 +19,12 @@ pub fn layout_stack(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     let mut layouter =
-        StackLayouter::new(elem.span(), elem.dir(styles), locator, styles, regions);
+        StackLayouter::new(elem.span(), elem.dir.get(styles), locator, styles, regions);
 
     let axis = layouter.dir.axis();
 
     // Spacing to insert before the next block.
-    let spacing = elem.spacing(styles);
+    let spacing = elem.spacing.get(styles);
     let mut deferred = None;
 
     for child in &elem.children {
@@ -167,11 +167,11 @@ impl<'a> StackLayouter<'a> {
 
         // Block-axis alignment of the `AlignElem` is respected by stacks.
         let align = if let Some(align) = block.to_packed::<AlignElem>() {
-            align.alignment(styles)
+            align.alignment.get(styles)
         } else if let Some(styled) = block.to_packed::<StyledElem>() {
-            AlignElem::alignment_in(styles.chain(&styled.styles))
+            styles.chain(&styled.styles).get(AlignElem::alignment)
         } else {
-            AlignElem::alignment_in(styles)
+            styles.get(AlignElem::alignment)
         }
         .resolve(styles);
 

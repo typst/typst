@@ -4,7 +4,7 @@ use crate::diag::HintedStrResult;
 use crate::foundations::{elem, func, Cast, Context};
 
 /// The export target.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Target {
     /// The target that is used for paged, fully laid-out content.
     #[default]
@@ -73,5 +73,5 @@ pub struct TargetElem {
 /// ```
 #[func(contextual)]
 pub fn target(context: Tracked<Context>) -> HintedStrResult<Target> {
-    Ok(TargetElem::target_in(context.styles()?))
+    Ok(context.styles()?.get(TargetElem::target))
 }

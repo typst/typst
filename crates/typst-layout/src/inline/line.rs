@@ -2,10 +2,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
+use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem};
+use typst_library::text::{variant, Lang, TextElem};
 use typst_utils::Numeric;
 
 use super::*;
@@ -219,7 +220,7 @@ fn collect_items<'a>(
     // Add fallback text to expand the line height, if necessary.
     if !items.iter().any(|item| matches!(item, Item::Text(_))) {
         if let Some(fallback) = fallback {
-            items.push(fallback);
+            items.push(fallback, usize::MAX);
         }
     }
 
@@ -270,10 +271,10 @@ fn collect_range<'a>(
     items: &mut Items<'a>,
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
-    for (subrange, item) in p.slice(range.clone()) {
+    for (idx, (subrange, item)) in p.slice(range.clone()).enumerate() {
         // All non-text items are just kept, they can't be split.
         let Item::Text(shaped) = item else {
-            items.push(item);
+            items.push(item, idx);
             continue;
         };
 
@@ -293,10 +294,10 @@ fn collect_range<'a>(
         } else if split {
             // When the item is split in half, reshape it.
             let reshaped = shaped.reshape(engine, sliced);
-            items.push(Item::Text(reshaped));
+            items.push(Item::Text(reshaped), idx);
         } else {
             // When the item is fully contained, just keep it.
-            items.push(item);
+            items.push(item, idx);
         }
     }
 }
@@ -330,7 +331,7 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().first_mut().unwrap();
         let shrink = glyph.shrinkability().0;
         glyph.shrink_left(shrink);
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(glyph.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && glyph.x_offset > Em::zero()
@@ -342,7 +343,7 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         glyph.x_advance -= shrink;
         glyph.x_offset = Em::zero();
         glyph.adjustability.shrinkability.0 = Em::zero();
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(glyph.size);
     }
 }
 
@@ -360,7 +361,7 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let shrink = glyph.shrinkability().1;
         let punct = shaped.glyphs.to_mut().last_mut().unwrap();
         punct.shrink_right(shrink);
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(punct.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && (glyph.x_advance - glyph.x_offset) > Em::one()
@@ -371,7 +372,7 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
         glyph.x_advance -= shrink;
         glyph.adjustability.shrinkability.1 = Em::zero();
-        shaped.width -= shrink.at(shaped.size);
+        shaped.width -= shrink.at(glyph.size);
     }
 }
 
@@ -412,9 +413,31 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
     }
 }
 
-/// Apply the current baseline shift to a frame.
-pub fn apply_baseline_shift(frame: &mut Frame, styles: StyleChain) {
-    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+/// Apply the current baseline shift and italic compensation to a frame.
+pub fn apply_shift<'a>(
+    world: &Tracked<'a, dyn World + 'a>,
+    frame: &mut Frame,
+    styles: StyleChain,
+) {
+    let mut baseline = styles.resolve(TextElem::baseline);
+    let mut compensation = Abs::zero();
+    if let Some(scripts) = styles.get_ref(TextElem::shift_settings) {
+        let font_metrics = styles
+            .get_ref(TextElem::font)
+            .into_iter()
+            .find_map(|family| {
+                world
+                    .book()
+                    .select(family.as_str(), variant(styles))
+                    .and_then(|id| world.font(id))
+            })
+            .map_or(*scripts.kind.default_metrics(), |f| {
+                *scripts.kind.read_metrics(f.metrics())
+            });
+        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).resolve(styles);
+        compensation += font_metrics.horizontal_offset.resolve(styles);
+    }
+    frame.translate(Point::new(compensation, baseline));
 }
 
 /// Commit to a line and build its frame.
@@ -441,10 +464,10 @@ pub fn commit(
     if let Some(Item::Text(text)) = line.items.first() {
         if let Some(glyph) = text.glyphs.first() {
             if !text.dir.is_positive()
-                && TextElem::overhang_in(text.styles)
+                && text.styles.get(TextElem::overhang)
                 && (line.items.len() > 1 || text.glyphs.len() > 1)
             {
-                let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
+                let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
                 offset -= amount;
                 remaining += amount;
             }
@@ -455,10 +478,10 @@ pub fn commit(
     if let Some(Item::Text(text)) = line.items.last() {
         if let Some(glyph) = text.glyphs.last() {
             if text.dir.is_positive()
-                && TextElem::overhang_in(text.styles)
+                && text.styles.get(TextElem::overhang)
                 && (line.items.len() > 1 || text.glyphs.len() > 1)
             {
-                let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
+                let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
                 remaining += amount;
             }
         }
@@ -499,16 +522,16 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for item in line.items.iter() {
-        let mut push = |offset: &mut Abs, frame: Frame| {
+    for &(idx, ref item) in line.items.indexed_iter() {
+        let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
-            frames.push((*offset, frame));
+            frames.push((*offset, frame, idx));
             *offset += width;
         };
 
-        match item {
+        match &**item {
             Item::Absolute(v, _) => {
                 offset += *v;
             }
@@ -519,8 +542,8 @@ pub fn commit(
                     let mut frame = layout_and_modify(*styles, |styles| {
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
-                    apply_baseline_shift(&mut frame, *styles);
-                    push(&mut offset, frame);
+                    apply_shift(&engine.world, &mut frame, *styles);
+                    push(&mut offset, frame, idx);
                 } else {
                     offset += amount;
                 }
@@ -532,15 +555,15 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut offset, frame);
+                push(&mut offset, frame, idx);
             }
             Item::Frame(frame) => {
-                push(&mut offset, frame.clone());
+                push(&mut offset, frame.clone(), idx);
             }
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame));
+                frames.push((offset, frame, idx));
             }
             Item::Skip(_) => {}
         }
@@ -559,8 +582,13 @@ pub fn commit(
         add_par_line_marker(&mut output, marker, engine, locator, top);
     }
 
+    // Ensure that the final frame's items are in logical order rather than in
+    // visual order. This is important because it affects the order of elements
+    // during introspection and thus things like counters.
+    frames.sort_unstable_by_key(|(_, _, idx)| *idx);
+
     // Construct the line's frame.
-    for (offset, frame) in frames {
+    for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
         let y = top - frame.baseline();
         output.push_frame(Point::new(x, y), frame);
@@ -627,7 +655,7 @@ fn overhang(c: char) -> f64 {
 }
 
 /// A collection of owned or borrowed inline items.
-pub struct Items<'a>(Vec<ItemEntry<'a>>);
+pub struct Items<'a>(Vec<(usize, ItemEntry<'a>)>);
 
 impl<'a> Items<'a> {
     /// Create empty items.
@@ -636,33 +664,38 @@ impl<'a> Items<'a> {
     }
 
     /// Push a new item.
-    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>) {
-        self.0.push(entry.into());
+    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: usize) {
+        self.0.push((idx, entry.into()));
     }
 
-    /// Iterate over the items
+    /// Iterate over the items.
     pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
-        self.0.iter().map(|item| &**item)
+        self.0.iter().map(|(_, item)| &**item)
+    }
+
+    /// Iterate over the items with indices
+    pub fn indexed_iter(&self) -> impl Iterator<Item = &(usize, ItemEntry<'a>)> {
+        self.0.iter()
     }
 
     /// Access the first item.
     pub fn first(&self) -> Option<&Item<'a>> {
-        self.0.first().map(|item| &**item)
+        self.0.first().map(|(_, item)| &**item)
     }
 
     /// Access the last item.
     pub fn last(&self) -> Option<&Item<'a>> {
-        self.0.last().map(|item| &**item)
+        self.0.last().map(|(_, item)| &**item)
     }
 
     /// Access the first item mutably, if it is text.
     pub fn first_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.first_mut()?.text_mut()
+        self.0.first_mut()?.1.text_mut()
     }
 
     /// Access the last item mutably, if it is text.
     pub fn last_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.last_mut()?.text_mut()
+        self.0.last_mut()?.1.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -673,12 +706,12 @@ impl<'a> Items<'a> {
 
 impl<'a> FromIterator<ItemEntry<'a>> for Items<'a> {
     fn from_iter<I: IntoIterator<Item = ItemEntry<'a>>>(iter: I) -> Self {
-        Self(iter.into_iter().collect())
+        Self(iter.into_iter().enumerate().collect())
     }
 }
 
 impl<'a> Deref for Items<'a> {
-    type Target = Vec<ItemEntry<'a>>;
+    type Target = Vec<(usize, ItemEntry<'a>)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -698,6 +731,10 @@ impl Debug for Items<'_> {
 }
 
 /// A reference to or a boxed item.
+///
+/// This is conceptually similar to a [`Cow<'a, Item<'a>>`][std::borrow::Cow],
+/// but we box owned items since an [`Item`] is much bigger than
+/// a box.
 pub enum ItemEntry<'a> {
     Ref(&'a Item<'a>),
     Box(Box<Item<'a>>),

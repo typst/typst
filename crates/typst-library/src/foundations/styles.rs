@@ -1,4 +1,5 @@
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
@@ -12,8 +13,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, ty, Content, Context, Element, Func, NativeElement, OneOrMultiple, Repr,
-    Selector,
+    cast, ty, Content, Context, Element, Field, Func, NativeElement, OneOrMultiple,
+    Packed, RefableProperty, Repr, Selector, SettableProperty, Target,
 };
 use crate::text::{FontFamily, FontList, TextElem};
 
@@ -48,7 +49,16 @@ impl Styles {
     /// If the property needs folding and the value is already contained in the
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
-    pub fn set(&mut self, style: impl Into<Style>) {
+    pub fn set<E, const I: u8>(&mut self, field: Field<E, I>, value: E::Type)
+    where
+        E: SettableProperty<I>,
+        E::Type: Debug + Clone + Hash + Send + Sync + 'static,
+    {
+        self.push(Property::new(field, value));
+    }
+
+    /// Add a new style to the list.
+    pub fn push(&mut self, style: impl Into<Style>) {
         self.0.push(LazyHash::new(style.into()));
     }
 
@@ -101,22 +111,25 @@ impl Styles {
     }
 
     /// Whether there is a style for the given field of the given element.
-    pub fn has<T: NativeElement>(&self, field: u8) -> bool {
-        let elem = T::elem();
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
+        let elem = E::ELEM;
         self.0
             .iter()
             .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == field)
+            .any(|property| property.is_of(elem) && property.id == I)
     }
 
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
     pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(TextElem::set_font(FontList(
-            std::iter::once(preferred)
-                .chain(TextElem::font_in(existing).into_iter().cloned())
-                .collect(),
-        )));
+        self.set(
+            TextElem::font,
+            FontList(
+                std::iter::once(preferred)
+                    .chain(existing.get_ref(TextElem::font).into_iter().cloned())
+                    .collect(),
+            ),
+        );
     }
 }
 
@@ -281,14 +294,14 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<E, T>(id: u8, value: T) -> Self
+    pub fn new<E, const I: u8>(_: Field<E, I>, value: E::Type) -> Self
     where
-        E: NativeElement,
-        T: Debug + Clone + Hash + Send + Sync + 'static,
+        E: SettableProperty<I>,
+        E::Type: Debug + Clone + Hash + Send + Sync + 'static,
     {
         Self {
-            elem: E::elem(),
-            id,
+            elem: E::ELEM,
+            id: I,
             value: Block::new(value),
             span: Span::detached(),
             liftable: false,
@@ -340,8 +353,11 @@ impl Block {
     }
 
     /// Downcasts the block to the specified type.
-    fn downcast<T: 'static>(&self) -> Option<&T> {
-        self.0.as_any().downcast_ref()
+    fn downcast<T: 'static>(&self, func: Element, id: u8) -> &T {
+        self.0
+            .as_any()
+            .downcast_ref()
+            .unwrap_or_else(|| block_wrong_type(func, id, self))
     }
 }
 
@@ -528,6 +544,103 @@ impl<'a> StyleChain<'a> {
         Self { head: &root.0, tail: None }
     }
 
+    /// Retrieves the value of the given field from the style chain.
+    ///
+    /// A `Field` value is a zero-sized value that specifies which field of an
+    /// element you want to retrieve on the type-system level. It also ensures
+    /// that Rust can infer the correct return type.
+    ///
+    /// Should be preferred over [`get_cloned`](Self::get_cloned) or
+    /// [`get_ref`](Self::get_ref), but is only available for [`Copy`] types.
+    /// For other types an explicit decision needs to be made whether cloning is
+    /// necessary.
+    pub fn get<E, const I: u8>(self, field: Field<E, I>) -> E::Type
+    where
+        E: SettableProperty<I>,
+        E::Type: Copy,
+    {
+        self.get_cloned(field)
+    }
+
+    /// Retrieves and clones the value from the style chain.
+    ///
+    /// Prefer [`get`](Self::get) if the type is `Copy` and
+    /// [`get_ref`](Self::get_ref) if a reference suffices.
+    pub fn get_cloned<E, const I: u8>(self, _: Field<E, I>) -> E::Type
+    where
+        E: SettableProperty<I>,
+    {
+        if let Some(fold) = E::FOLD {
+            self.get_folded::<E::Type>(E::ELEM, I, fold, E::default())
+        } else {
+            self.get_unfolded::<E::Type>(E::ELEM, I)
+                .cloned()
+                .unwrap_or_else(E::default)
+        }
+    }
+
+    /// Retrieves a reference to the value of the given field from the style
+    /// chain.
+    ///
+    /// Not possible if the value needs folding.
+    pub fn get_ref<E, const I: u8>(self, _: Field<E, I>) -> &'a E::Type
+    where
+        E: RefableProperty<I>,
+    {
+        self.get_unfolded(E::ELEM, I).unwrap_or_else(|| E::default_ref())
+    }
+
+    /// Retrieves the value and then immediately [resolves](Resolve) it.
+    pub fn resolve<E, const I: u8>(
+        self,
+        field: Field<E, I>,
+    ) -> <E::Type as Resolve>::Output
+    where
+        E: SettableProperty<I>,
+        E::Type: Resolve,
+    {
+        self.get_cloned(field).resolve(self)
+    }
+
+    /// Retrieves a reference to a field, also taking into account the
+    /// instance's value if any.
+    fn get_unfolded<T: 'static>(self, func: Element, id: u8) -> Option<&'a T> {
+        self.find(func, id).map(|block| block.downcast(func, id))
+    }
+
+    /// Retrieves a reference to a field, also taking into account the
+    /// instance's value if any.
+    fn get_folded<T: 'static + Clone>(
+        self,
+        func: Element,
+        id: u8,
+        fold: fn(T, T) -> T,
+        default: T,
+    ) -> T {
+        let iter = self
+            .properties(func, id)
+            .map(|block| block.downcast::<T>(func, id).clone());
+
+        if let Some(folded) = iter.reduce(fold) {
+            fold(folded, default)
+        } else {
+            default
+        }
+    }
+
+    /// Iterate over all values for the given property in the chain.
+    fn find(self, func: Element, id: u8) -> Option<&'a Block> {
+        self.properties(func, id).next()
+    }
+
+    /// Iterate over all values for the given property in the chain.
+    fn properties(self, func: Element, id: u8) -> impl Iterator<Item = &'a Block> {
+        self.entries()
+            .filter_map(|style| style.property())
+            .filter(move |property| property.is(func, id))
+            .map(|property| &property.value)
+    }
+
     /// Make the given chainable the first link of this chain.
     ///
     /// The resulting style chain contains styles from `local` as well as
@@ -538,80 +651,6 @@ impl<'a> StyleChain<'a> {
         C: Chainable + ?Sized,
     {
         Chainable::chain(local, self)
-    }
-
-    /// Cast the first value for the given property in the chain.
-    pub fn get<T: Clone + 'static>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: impl Fn() -> T,
-    ) -> T {
-        self.properties::<T>(func, id, inherent)
-            .next()
-            .cloned()
-            .unwrap_or_else(default)
-    }
-
-    /// Cast the first value for the given property in the chain,
-    /// returning a borrowed value.
-    pub fn get_ref<T: 'static>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&'a T>,
-        default: impl Fn() -> &'a T,
-    ) -> &'a T {
-        self.properties::<T>(func, id, inherent)
-            .next()
-            .unwrap_or_else(default)
-    }
-
-    /// Cast the first value for the given property in the chain, taking
-    /// `Fold` implementations into account.
-    pub fn get_folded<T: Fold + Clone + 'static>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: impl Fn() -> T,
-    ) -> T {
-        fn next<T: Fold>(
-            mut values: impl Iterator<Item = T>,
-            default: &impl Fn() -> T,
-        ) -> T {
-            values
-                .next()
-                .map(|value| value.fold(next(values, default)))
-                .unwrap_or_else(default)
-        }
-        next(self.properties::<T>(func, id, inherent).cloned(), &default)
-    }
-
-    /// Iterate over all values for the given property in the chain.
-    fn properties<T: 'static>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&'a T>,
-    ) -> impl Iterator<Item = &'a T> {
-        inherent.into_iter().chain(
-            self.entries()
-                .filter_map(|style| style.property())
-                .filter(move |property| property.is(func, id))
-                .map(|property| &property.value)
-                .map(move |value| {
-                    value.downcast().unwrap_or_else(|| {
-                        panic!(
-                            "attempted to read a value of a different type than was written {}.{}: {:?}",
-                            func.name(),
-                            func.field_name(id).unwrap(),
-                            value
-                        )
-                    })
-                }),
-        )
     }
 
     /// Iterate over the entries of the chain.
@@ -804,6 +843,9 @@ impl<T: Resolve> Resolve for Option<T> {
 /// #set rect(stroke: 4pt)
 /// #rect()
 /// ```
+///
+/// Note: Folding must be associative, i.e. any implementation must satisfy
+/// `fold(fold(a, b), c) == fold(a, fold(b, c))`.
 pub trait Fold {
     /// Fold this inner value with an outer folded value.
     fn fold(self, outer: Self) -> Self;
@@ -847,6 +889,9 @@ impl<T> Fold for OneOrMultiple<T> {
     }
 }
 
+/// A [folding](Fold) function.
+pub type FoldFn<T> = fn(T, T) -> T;
+
 /// A variant of fold for foldable optional (`Option<T>`) values where an inner
 /// `None` value isn't respected (contrary to `Option`'s usual `Fold`
 /// implementation, with which folding with an inner `None` always returns
@@ -882,5 +927,141 @@ pub struct Depth(pub usize);
 impl Fold for Depth {
     fn fold(self, outer: Self) -> Self {
         Self(outer.0 + self.0)
+    }
+}
+
+#[cold]
+fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
+    panic!(
+        "attempted to read a value of a different type than was written {}.{}: {:?}",
+        func.name(),
+        func.field_name(id).unwrap(),
+        value
+    )
+}
+
+/// Holds native show rules.
+pub struct NativeRuleMap {
+    rules: HashMap<(Element, Target), NativeShowRule>,
+}
+
+/// The signature of a native show rule.
+pub type ShowFn<T> = fn(
+    elem: &Packed<T>,
+    engine: &mut Engine,
+    styles: StyleChain,
+) -> SourceResult<Content>;
+
+impl NativeRuleMap {
+    /// Creates a new rule map.
+    ///
+    /// Should be populated with rules for all target-element combinations that
+    /// are supported.
+    ///
+    /// Contains built-in rules for a few special elements.
+    pub fn new() -> Self {
+        let mut rules = Self { rules: HashMap::new() };
+
+        // ContextElem is as special as SequenceElem and StyledElem and could,
+        // in theory, also be special cased in realization.
+        rules.register_builtin(crate::foundations::CONTEXT_RULE);
+
+        // CounterDisplayElem only exists because the compiler can't currently
+        // express the equivalent of `context counter(..).display(..)` in native
+        // code (no native closures).
+        rules.register_builtin(crate::introspection::COUNTER_DISPLAY_RULE);
+
+        // These are all only for introspection and empty on all targets.
+        rules.register_empty::<crate::introspection::CounterUpdateElem>();
+        rules.register_empty::<crate::introspection::StateUpdateElem>();
+        rules.register_empty::<crate::introspection::MetadataElem>();
+        rules.register_empty::<crate::model::PrefixInfo>();
+
+        rules
+    }
+
+    /// Registers a rule for all targets.
+    fn register_empty<T: NativeElement>(&mut self) {
+        self.register_builtin::<T>(|_, _, _| Ok(Content::empty()));
+    }
+
+    /// Registers a rule for all targets.
+    fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
+        self.register(Target::Paged, f);
+        self.register(Target::Html, f);
+    }
+
+    /// Registers a rule for a target.
+    ///
+    /// Panics if a rule already exists for this target-element combination.
+    pub fn register<T: NativeElement>(&mut self, target: Target, f: ShowFn<T>) {
+        let res = self.rules.insert((T::ELEM, target), NativeShowRule::new(f));
+        if res.is_some() {
+            panic!(
+                "duplicate native show rule for `{}` on {target:?} target",
+                T::ELEM.name()
+            )
+        }
+    }
+
+    /// Retrieves the rule that applies to the `content` on the current
+    /// `target`.
+    pub fn get(&self, target: Target, content: &Content) -> Option<NativeShowRule> {
+        self.rules.get(&(content.func(), target)).copied()
+    }
+}
+
+impl Default for NativeRuleMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub use rule::NativeShowRule;
+
+mod rule {
+    use super::*;
+
+    /// The show rule for a native element.
+    #[derive(Copy, Clone)]
+    pub struct NativeShowRule {
+        /// The element to which this rule applies.
+        elem: Element,
+        /// Must only be called with content of the appropriate type.
+        f: unsafe fn(
+            elem: &Content,
+            engine: &mut Engine,
+            styles: StyleChain,
+        ) -> SourceResult<Content>,
+    }
+
+    impl NativeShowRule {
+        /// Create a new type-erased show rule.
+        pub fn new<T: NativeElement>(f: ShowFn<T>) -> Self {
+            Self {
+                elem: T::ELEM,
+                // Safety: The two function pointer types only differ in the
+                // first argument, which changes from `&Packed<T>` to
+                // `&Content`. `Packed<T>` is a transparent wrapper around
+                // `Content`. The resulting function is unsafe to call because
+                // content of the correct type must be passed to it.
+                #[allow(clippy::missing_transmute_annotations)]
+                f: unsafe { std::mem::transmute(f) },
+            }
+        }
+
+        /// Applies the rule to content. Panics if the content is of the wrong
+        /// type.
+        pub fn apply(
+            &self,
+            content: &Content,
+            engine: &mut Engine,
+            styles: StyleChain,
+        ) -> SourceResult<Content> {
+            assert_eq!(content.elem(), self.elem);
+
+            // Safety: We just checked that the element is of the correct type.
+            unsafe { (self.f)(content, engine, styles) }
+        }
     }
 }

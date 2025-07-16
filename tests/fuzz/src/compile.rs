@@ -7,7 +7,7 @@ use typst::layout::PagedDocument;
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, World};
+use typst::{Library, LibraryExt, World};
 
 struct FuzzWorld {
     library: LazyHash<Library>,

@@ -179,24 +179,40 @@ impl Str {
     }
 
     /// Extracts the first grapheme cluster of the string.
-    /// Fails with an error if the string is empty.
+    ///
+    /// Returns the provided default value if the string is empty or fails with
+    /// an error if no default value was specified.
     #[func]
-    pub fn first(&self) -> StrResult<Str> {
+    pub fn first(
+        &self,
+        /// A default value to return if the string is empty.
+        #[named]
+        default: Option<Str>,
+    ) -> StrResult<Str> {
         self.0
             .graphemes(true)
             .next()
             .map(Into::into)
+            .or(default)
             .ok_or_else(string_is_empty)
     }
 
     /// Extracts the last grapheme cluster of the string.
-    /// Fails with an error if the string is empty.
+    ///
+    /// Returns the provided default value if the string is empty or fails with
+    /// an error if no default value was specified.
     #[func]
-    pub fn last(&self) -> StrResult<Str> {
+    pub fn last(
+        &self,
+        /// A default value to return if the string is empty.
+        #[named]
+        default: Option<Str>,
+    ) -> StrResult<Str> {
         self.0
             .graphemes(true)
             .next_back()
             .map(Into::into)
+            .or(default)
             .ok_or_else(string_is_empty)
     }
 

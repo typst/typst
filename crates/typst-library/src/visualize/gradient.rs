@@ -1285,24 +1285,17 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
 /// Sample the stops at a given position.
 fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> Color {
     let t = t.clamp(0.0, 1.0);
-    let mut low = 0;
-    let mut high = stops.len();
+    let mut j = stops.partition_point(|(_, ratio)| ratio.get() < t);
 
-    while low < high {
-        let mid = (low + high) / 2;
-        if stops[mid].1.get() < t {
-            low = mid + 1;
-        } else {
-            high = mid;
+    if j == 0 {
+        while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
+            j += 1;
         }
+        return stops[j].0;
     }
 
-    if low == 0 {
-        low = 1;
-    }
-
-    let (col_0, pos_0) = stops[low - 1];
-    let (col_1, pos_1) = stops[low];
+    let (col_0, pos_0) = stops[j - 1];
+    let (col_1, pos_1) = stops[j];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
     Color::mix_iter(

@@ -1,12 +1,8 @@
 use ecow::EcoString;
-use typst_library::foundations::Target;
 use typst_syntax::Spanned;
 
-use crate::diag::{warning, At, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain, TargetElem,
-};
+use crate::diag::At;
+use crate::foundations::{elem, Bytes, Cast, Derived};
 use crate::introspection::Locatable;
 use crate::World;
 
@@ -33,7 +29,7 @@ use crate::World;
 /// - This element is ignored if exporting to a format other than PDF.
 /// - File embeddings are not currently supported for PDF/A-2, even if the
 ///   embedded file conforms to PDF/A-1 or PDF/A-2.
-#[elem(Show, Locatable)]
+#[elem(Locatable)]
 pub struct EmbedElem {
     /// The [path]($syntax/#paths) of the file to be embedded.
     ///
@@ -48,7 +44,6 @@ pub struct EmbedElem {
         let resolved = id.vpath().as_rootless_path().to_string_lossy().replace("\\", "/").into();
         Derived::new(path.clone(), resolved)
     )]
-    #[borrowed]
     pub path: Derived<EcoString, EcoString>,
 
     /// Raw file data, optionally.
@@ -72,23 +67,10 @@ pub struct EmbedElem {
     pub relationship: Option<EmbeddedFileRelationship>,
 
     /// The MIME type of the embedded file.
-    #[borrowed]
     pub mime_type: Option<EcoString>,
 
     /// A description for the embedded file.
-    #[borrowed]
     pub description: Option<EcoString>,
-}
-
-impl Show for Packed<EmbedElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if TargetElem::target_in(styles) == Target::Html {
-            engine
-                .sink
-                .warn(warning!(self.span(), "embed was ignored during HTML export"));
-        }
-        Ok(Content::empty())
-    }
 }
 
 /// The relationship of an embedded file with the document.

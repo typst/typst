@@ -18,18 +18,24 @@ impl SVGRenderer {
         self.xml.write_attribute("width", &size.x.to_pt());
         self.xml.write_attribute("height", &size.y.to_pt());
         self.xml.write_attribute("preserveAspectRatio", "none");
-        match image.scaling() {
-            Smart::Auto => {}
-            Smart::Custom(ImageScaling::Smooth) => {
-                // This is still experimental and not implemented in all major browsers.
-                // https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering#browser_compatibility
-                self.xml.write_attribute("style", "image-rendering: smooth")
-            }
-            Smart::Custom(ImageScaling::Pixelated) => {
-                self.xml.write_attribute("style", "image-rendering: pixelated")
-            }
+        if let Some(value) = convert_image_scaling(image.scaling()) {
+            self.xml
+                .write_attribute("style", &format_args!("image-rendering: {value}"))
         }
         self.xml.end_element();
+    }
+}
+
+/// Converts an image scaling to a CSS `image-rendering` propery value.
+pub fn convert_image_scaling(scaling: Smart<ImageScaling>) -> Option<&'static str> {
+    match scaling {
+        Smart::Auto => None,
+        Smart::Custom(ImageScaling::Smooth) => {
+            // This is still experimental and not implemented in all major browsers.
+            // https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering#browser_compatibility
+            Some("smooth")
+        }
+        Smart::Custom(ImageScaling::Pixelated) => Some("pixelated"),
     }
 }
 

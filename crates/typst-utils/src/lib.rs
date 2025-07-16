@@ -15,7 +15,7 @@ mod scalar;
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
 pub use self::duration::format_duration;
-pub use self::hash::{LazyHash, ManuallyHash};
+pub use self::hash::{HashLock, LazyHash, ManuallyHash};
 pub use self::pico::{PicoStr, ResolvedPicoStr};
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
@@ -394,6 +394,10 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
         // Both ∨ and ⟑ are classified as Binary.
         // https://github.com/typst/typst/issues/5764
         '⟇' => Some(MathClass::Binary),
+
+        // Arabic comma.
+        // https://github.com/latex3/unicode-math/pull/633#issuecomment-2028936135
+        '،' => Some(MathClass::Punctuation),
 
         c => unicode_math_class::class(c),
     }

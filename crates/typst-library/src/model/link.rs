@@ -2,13 +2,10 @@ use std::ops::Deref;
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, warning, At, SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::diag::{bail, StrResult};
 use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Packed, Repr, Show, ShowSet, Smart,
-    StyleChain, Styles, TargetElem,
+    cast, elem, Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles,
 };
-use crate::html::{attr, tag, HtmlElem};
 use crate::introspection::Location;
 use crate::layout::Position;
 use crate::text::TextElem;
@@ -38,7 +35,7 @@ use crate::text::TextElem;
 /// # Syntax
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
-#[elem(Show)]
+#[elem]
 pub struct LinkElem {
     /// The destination the link points to.
     ///
@@ -103,42 +100,10 @@ impl LinkElem {
     }
 }
 
-impl Show for Packed<LinkElem> {
-    #[typst_macros::time(name = "link", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body.clone();
-
-        Ok(if TargetElem::target_in(styles).is_html() {
-            if let LinkTarget::Dest(Destination::Url(url)) = &self.dest {
-                HtmlElem::new(tag::a)
-                    .with_attr(attr::href, url.clone().into_inner())
-                    .with_body(Some(body))
-                    .pack()
-                    .spanned(self.span())
-            } else {
-                engine.sink.warn(warning!(
-                    self.span(),
-                    "non-URL links are not yet supported by HTML export"
-                ));
-                body
-            }
-        } else {
-            match &self.dest {
-                LinkTarget::Dest(dest) => body.linked(dest.clone()),
-                LinkTarget::Label(label) => {
-                    let elem = engine.introspector.query_label(*label).at(self.span())?;
-                    let dest = Destination::Location(elem.location().unwrap());
-                    body.clone().linked(dest)
-                }
-            }
-        })
-    }
-}
-
 impl ShowSet for Packed<LinkElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(TextElem::set_hyphenate(Smart::Custom(false)));
+        out.set(TextElem::hyphenate, Smart::Custom(false));
         out
     }
 }

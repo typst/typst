@@ -215,7 +215,7 @@ impl MathFragment {
                     &glyph.item.font,
                     GlyphId(glyph.item.glyphs[glyph_index].id),
                     corner,
-                    Em::from_length(height, glyph.item.size),
+                    Em::from_abs(height, glyph.item.size),
                 )
                 .unwrap_or_default()
                 .at(glyph.item.size)
@@ -315,7 +315,8 @@ impl GlyphFragment {
         let cluster = info.cluster as usize;
         let c = text[cluster..].chars().next().unwrap();
         let limits = Limits::for_char(c);
-        let class = EquationElem::class_in(styles)
+        let class = styles
+            .get(EquationElem::class)
             .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
@@ -331,11 +332,11 @@ impl GlyphFragment {
 
         let item = TextItem {
             font: font.clone(),
-            size: TextElem::size_in(styles),
-            fill: TextElem::fill_in(styles).as_decoration(),
-            stroke: TextElem::stroke_in(styles).map(|s| s.unwrap_or_default()),
-            lang: TextElem::lang_in(styles),
-            region: TextElem::region_in(styles),
+            size: styles.resolve(TextElem::size),
+            fill: styles.get_ref(TextElem::fill).as_decoration(),
+            stroke: styles.resolve(TextElem::stroke).map(|s| s.unwrap_or_default()),
+            lang: styles.get(TextElem::lang),
+            region: styles.get(TextElem::region),
             text: text.into(),
             glyphs: vec![glyph.clone()],
         };
@@ -344,7 +345,7 @@ impl GlyphFragment {
             item,
             base_glyph: glyph,
             // Math
-            math_size: EquationElem::size_in(styles),
+            math_size: styles.get(EquationElem::size),
             class,
             limits,
             mid_stretched: None,
@@ -356,7 +357,7 @@ impl GlyphFragment {
             baseline: None,
             // Misc
             align: Abs::zero(),
-            shift: TextElem::baseline_in(styles),
+            shift: styles.resolve(TextElem::baseline),
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
@@ -541,9 +542,9 @@ impl FrameFragment {
         let accent_attach = frame.width() / 2.0;
         Self {
             frame: frame.modified(&FrameModifiers::get_in(styles)),
-            font_size: TextElem::size_in(styles),
-            class: EquationElem::class_in(styles).unwrap_or(MathClass::Normal),
-            math_size: EquationElem::size_in(styles),
+            font_size: styles.resolve(TextElem::size),
+            class: styles.get(EquationElem::class).unwrap_or(MathClass::Normal),
+            math_size: styles.get(EquationElem::size),
             limits: Limits::Never,
             spaced: false,
             base_ascent,
@@ -767,8 +768,8 @@ fn assemble(
             advance += ratio * (max_overlap - min_overlap);
         }
         let (x, y) = match axis {
-            Axis::X => (Em::from_length(advance, base.item.size), Em::zero()),
-            Axis::Y => (Em::zero(), Em::from_length(advance, base.item.size)),
+            Axis::X => (Em::from_abs(advance, base.item.size), Em::zero()),
+            Axis::Y => (Em::zero(), Em::from_abs(advance, base.item.size)),
         };
         glyphs.push(Glyph {
             id: part.glyph_id.0,
@@ -864,7 +865,7 @@ impl Limits {
     pub fn active(&self, styles: StyleChain) -> bool {
         match self {
             Self::Always => true,
-            Self::Display => EquationElem::size_in(styles) == MathSize::Display,
+            Self::Display => styles.get(EquationElem::size) == MathSize::Display,
             Self::Never => false,
         }
     }

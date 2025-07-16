@@ -17,7 +17,7 @@ pub fn layout_root(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let index = elem.index(styles);
+    let index = elem.index.get_ref(styles);
     let span = elem.span();
 
     let gap = scaled!(
@@ -54,7 +54,7 @@ pub fn layout_root(
     let sqrt = sqrt.into_frame();
 
     // Layout the index.
-    let sscript = EquationElem::set_size(MathSize::ScriptScript).wrap();
+    let sscript = EquationElem::size.set(MathSize::ScriptScript).wrap();
     let index = index
         .as_ref()
         .map(|elem| ctx.layout_into_frame(elem, styles.chain(&sscript)))
@@ -112,7 +112,7 @@ pub fn layout_root(
         FrameItem::Shape(
             Geometry::Line(Point::with_x(radicand.width())).stroked(
                 FixedStroke::from_pair(
-                    TextElem::fill_in(styles).as_decoration(),
+                    styles.get_ref(TextElem::fill).as_decoration(),
                     thickness,
                 ),
             ),

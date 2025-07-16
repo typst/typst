@@ -6,7 +6,7 @@ use ecow::EcoString;
 use typst_utils::{Numeric, Scalar};
 
 use crate::foundations::{cast, repr, Repr, Resolve, StyleChain, Value};
-use crate::layout::Abs;
+use crate::layout::{Abs, Length};
 use crate::text::TextElem;
 
 /// A length that is relative to the font size.
@@ -26,24 +26,29 @@ impl Em {
         Self(Scalar::ONE)
     }
 
-    /// Create a font-relative length.
+    /// Creates a font-relative length.
     pub const fn new(em: f64) -> Self {
         Self(Scalar::new(em))
     }
 
-    /// Create an em length from font units at the given units per em.
+    /// Creates an em length from font units at the given units per em.
     pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
         Self(Scalar::new(units.into() / units_per_em))
     }
 
-    /// Create an em length from a length at the given font size.
-    pub fn from_length(length: Abs, font_size: Abs) -> Self {
+    /// Creates an em length from an absolute length at the given font size.
+    pub fn from_abs(length: Abs, font_size: Abs) -> Self {
         let result = length / font_size;
         if result.is_finite() {
             Self(Scalar::new(result))
         } else {
             Self::zero()
         }
+    }
+
+    /// Creates an em length from a length at the given font size.
+    pub fn from_length(length: Length, font_size: Abs) -> Em {
+        length.em + Self::from_abs(length.abs, font_size)
     }
 
     /// The number of em units.
@@ -56,7 +61,7 @@ impl Em {
         Self::new(self.get().abs())
     }
 
-    /// Convert to an absolute length at the given font size.
+    /// Converts to an absolute length at the given font size.
     pub fn at(self, font_size: Abs) -> Abs {
         let resolved = font_size * self.get();
         if resolved.is_finite() {
@@ -162,7 +167,7 @@ impl Resolve for Em {
         if self.is_zero() {
             Abs::zero()
         } else {
-            self.at(TextElem::size_in(styles))
+            self.at(styles.resolve(TextElem::size))
         }
     }
 }
