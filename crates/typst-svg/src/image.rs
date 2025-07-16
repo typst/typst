@@ -9,7 +9,7 @@ use typst_library::visualize::{
 
 use crate::SVGRenderer;
 
-impl SVGRenderer {
+impl SVGRenderer<'_> {
     /// Render an image element.
     pub(super) fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
         let url = convert_image_to_base64_url(image);

@@ -4,7 +4,7 @@ use ecow::{EcoString, EcoVec};
 use typst_library::diag::{bail, HintedStrResult, StrResult};
 use typst_library::foundations::{cast, Dict, Repr, Str, StyleChain};
 use typst_library::introspection::{Introspector, Tag};
-use typst_library::layout::{Abs, Frame};
+use typst_library::layout::{Abs, Frame, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::text::TextElem;
 use typst_syntax::Span;
@@ -172,9 +172,19 @@ impl HtmlAttrs {
         Self::default()
     }
 
-    /// Add an attribute.
+    /// Adds an attribute.
     pub fn push(&mut self, attr: HtmlAttr, value: impl Into<EcoString>) {
         self.0.push((attr, value.into()));
+    }
+
+    /// Adds an attribute to the start of the list.
+    pub fn push_front(&mut self, attr: HtmlAttr, value: impl Into<EcoString>) {
+        self.0.insert(0, (attr, value.into()));
+    }
+
+    /// Finds an attribute value.
+    pub fn get(&self, attr: HtmlAttr) -> Option<&EcoString> {
+        self.0.iter().find(|&&(k, _)| k == attr).map(|(_, v)| v)
     }
 }
 
@@ -279,11 +289,20 @@ pub struct HtmlFrame {
     /// frame with em units to make text in and outside of the frame sized
     /// consistently.
     pub text_size: Abs,
+    /// An ID to assign to the SVG itself.
+    pub id: Option<EcoString>,
+    /// IDs to assign to destination jump points within the SVG.
+    pub link_points: Vec<(Point, EcoString)>,
 }
 
 impl HtmlFrame {
     /// Wraps a laid-out frame.
     pub fn new(inner: Frame, styles: StyleChain) -> Self {
-        Self { inner, text_size: styles.resolve(TextElem::size) }
+        Self {
+            inner,
+            text_size: styles.resolve(TextElem::size),
+            id: None,
+            link_points: vec![],
+        }
     }
 }
