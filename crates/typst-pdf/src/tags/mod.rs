@@ -1,4 +1,5 @@
 use std::cell::OnceCell;
+use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
 
@@ -18,8 +19,8 @@ use typst_library::foundations::{
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
-    Destination, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
-    ListElem, Outlinable, OutlineEntry, TableCell, TableElem, TermsElem,
+    Destination, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
+    HeadingElem, ListElem, Outlinable, OutlineEntry, TableCell, TableElem, TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::visualize::ImageElem;
@@ -142,8 +143,13 @@ pub(crate) fn handle_start(
         let link_id = gc.tags.next_link_id();
         push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()))?;
         return Ok(());
-    } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
-        TagKind::Note.into()
+    } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
+        push_stack(gc, loc, StackEntryKind::FootNoteRef)?;
+        return Ok(());
+    } else if let Some(entry) = elem.to_packed::<FootnoteEntry>() {
+        let footnote_loc = entry.note.location().unwrap();
+        push_stack(gc, loc, StackEntryKind::FootNoteEntry(footnote_loc))?;
+        return Ok(());
     } else {
         return Ok(());
     };
@@ -216,6 +222,19 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
                 node = TagNode::Group(TagKind::Reference.into(), vec![node]);
             }
             node
+        }
+        StackEntryKind::FootNoteRef => {
+            // transparently inset all children.
+            gc.tags.extend(entry.nodes);
+            gc.tags.push(TagNode::FootnoteEntry(loc));
+            return;
+        }
+        StackEntryKind::FootNoteEntry(footnote_loc) => {
+            // Store footnotes separately so they can be inserted directly after
+            // the footnote reference in the reading order.
+            let tag = TagNode::Group(TagKind::Note.into(), entry.nodes);
+            gc.tags.footnotes.insert(footnote_loc, tag);
+            return;
         }
     };
 
@@ -294,6 +313,11 @@ pub(crate) struct Tags {
     pub(crate) stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub(crate) placeholders: Placeholders,
+    /// Footnotes are inserted directly after the footenote reference in the
+    /// reading order. Because of some layouting bugs, the entry might appear
+    /// before the reference in the text, so we only resolve them once tags
+    /// for the whole document are generated.
+    pub(crate) footnotes: HashMap<Location, TagNode>,
     pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
     pub(crate) link_id: LinkId,
@@ -310,11 +334,13 @@ impl Tags {
         Self {
             stack: TagStack(Vec::new()),
             placeholders: Placeholders(Vec::new()),
+            footnotes: HashMap::new(),
             in_artifact: None,
 
-            tree: Vec::new(),
             link_id: LinkId(0),
             table_id: TableId(0),
+
+            tree: Vec::new(),
         }
     }
 
@@ -323,6 +349,14 @@ impl Tags {
             entry.nodes.push(node);
         } else {
             self.tree.push(node);
+        }
+    }
+
+    pub(crate) fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
+        if let Some(entry) = self.stack.last_mut() {
+            entry.nodes.extend(nodes);
+        } else {
+            self.tree.extend(nodes);
         }
     }
 
@@ -346,6 +380,10 @@ impl Tags {
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
+            TagNode::FootnoteEntry(loc) => {
+                let node = self.footnotes.remove(&loc).expect("footnote");
+                self.resolve_node(node)
+            }
         }
     }
 
@@ -458,6 +496,11 @@ pub(crate) enum StackEntryKind {
     ListItemLabel,
     ListItemBody,
     Link(LinkId, Packed<LinkMarker>),
+    /// The footnote reference in the text.
+    FootNoteRef,
+    /// The footnote entry at the end of the page. Contains the [`Location`] of
+    /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
+    FootNoteEntry(Location),
 }
 
 impl StackEntryKind {
@@ -509,6 +552,7 @@ pub(crate) enum TagNode {
     /// Allows inserting a placeholder into the tag tree.
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
     Placeholder(Placeholder),
+    FootnoteEntry(Location),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
