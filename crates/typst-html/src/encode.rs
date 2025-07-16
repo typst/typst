@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use typst_library::diag::{bail, At, SourceResult, StrResult};
 use typst_library::foundations::Repr;
+use typst_library::introspection::Introspector;
 use typst_syntax::Span;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument) -> SourceResult<String> {
-    let mut w = Writer { pretty: true, ..Writer::default() };
+    let mut w = Writer::new(&document.introspector, true);
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, &document.root)?;
@@ -20,14 +21,23 @@ pub fn html(document: &HtmlDocument) -> SourceResult<String> {
     Ok(w.buf)
 }
 
-#[derive(Default)]
-struct Writer {
+/// Encodes HTML.
+struct Writer<'a> {
     /// The output buffer.
     buf: String,
     /// The current indentation level
     level: usize,
+    /// The document's introspector.
+    introspector: &'a Introspector,
     /// Whether pretty printing is enabled.
     pretty: bool,
+}
+
+impl<'a> Writer<'a> {
+    /// Creates a new writer.
+    fn new(introspector: &'a Introspector, pretty: bool) -> Self {
+        Self { buf: String::new(), level: 0, introspector, pretty }
+    }
 }
 
 /// Writes a newline and indent, if pretty printing is enabled.
@@ -121,6 +131,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     let pretty_inside = allows_pretty_inside(element.tag)
         && element.children.iter().any(|node| match node {
             HtmlNode::Element(child) => wants_pretty_around(child.tag),
+            HtmlNode::Frame(_) => true,
             _ => false,
         });
 
@@ -305,14 +316,12 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
 
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
-    // FIXME: This string replacement is obviously a hack.
-    let svg = typst_svg::svg_frame(&frame.inner).replace(
-        "<svg class",
-        &format!(
-            "<svg style=\"overflow: visible; width: {}em; height: {}em;\" class",
-            frame.inner.width() / frame.text_size,
-            frame.inner.height() / frame.text_size,
-        ),
+    let svg = typst_svg::svg_html_frame(
+        &frame.inner,
+        frame.text_size,
+        frame.id.as_deref(),
+        &frame.link_points,
+        w.introspector,
     );
     w.buf.push_str(&svg);
 }
