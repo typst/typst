@@ -75,7 +75,10 @@ pub fn xml(
 impl xml {
     /// Reads structured data from an XML string/bytes.
     #[func(title = "Decode XML")]
-    #[deprecated = "`xml.decode` is deprecated, directly pass bytes to `xml` instead"]
+    #[deprecated(
+        message = "`xml.decode` is deprecated, directly pass bytes to `xml` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// XML data.
