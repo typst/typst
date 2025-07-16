@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 
 use az::SaturatingAs;
 use krilla::tagging::{
-    TableCellSpan, TableDataCell, TableHeaderCell, TagBuilder, TagId, TagIdRefs, TagKind,
+    TableCellSpan, TableDataCell, TableHeaderCell, TagBuilder, TagId, TagKind,
 };
 use smallvec::SmallVec;
 use typst_library::foundations::{Packed, Smart, StyleChain};
@@ -90,7 +90,7 @@ impl TableCtx {
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
             colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
             kind,
-            headers: TagIdRefs::NONE,
+            headers: SmallVec::new(),
             nodes,
         });
     }
@@ -244,8 +244,8 @@ impl TableCtx {
         }
 
         if let Some((_, cell_id)) = current_header.last() {
-            if !cell.headers.ids.contains(&cell_id) {
-                cell.headers.ids.push(cell_id.clone());
+            if !cell.headers.contains(&cell_id) {
+                cell.headers.push(cell_id.clone());
             }
         }
 
@@ -294,7 +294,7 @@ struct TableCtxCell {
     rowspan: NonZeroU32,
     colspan: NonZeroU32,
     kind: Smart<TableCellKind>,
-    headers: TagIdRefs,
+    headers: SmallVec<[TagId; 1]>,
     nodes: Vec<TagNode>,
 }
 
@@ -314,9 +314,9 @@ fn should_group_rows(a: TableCellKind, b: TableCellKind) -> bool {
 }
 
 fn table_cell_id(table_id: TableId, x: u32, y: u32) -> TagId {
-    let mut buf = SmallVec::new();
+    let mut buf = SmallVec::<[u8; 32]>::new();
     _ = write!(&mut buf, "{}x{x}y{y}", table_id.0);
-    TagId::from_smallvec(buf)
+    TagId::from(buf)
 }
 
 fn table_header_scope(scope: TableHeaderScope) -> krilla::tagging::TableHeaderScope {
@@ -414,24 +414,17 @@ mod tests {
     ) -> TagNode {
         let scope = table_header_scope(scope);
         let id = table_cell_id(TableId(324), x, y);
-        let ids = headers
-            .map(|(x, y)| table_cell_id(TableId(324), x, y))
-            .into_iter()
-            .collect();
+        let ids = headers.map(|(x, y)| table_cell_id(TableId(324), x, y));
         TagNode::Group(
-            TagKind::TH(TableHeaderCell::new(scope).with_headers(TagIdRefs { ids }))
-                .with_id(Some(id)),
+            TagKind::TH(TableHeaderCell::new(scope).with_headers(ids)).with_id(Some(id)),
             Vec::new(),
         )
     }
 
     fn td<const SIZE: usize>(headers: [(u32, u32); SIZE]) -> TagNode {
-        let ids = headers
-            .map(|(x, y)| table_cell_id(TableId(324), x, y))
-            .into_iter()
-            .collect();
+        let ids = headers.map(|(x, y)| table_cell_id(TableId(324), x, y));
         TagNode::Group(
-            TagKind::TD(TableDataCell::new().with_headers(TagIdRefs { ids })).into(),
+            TagKind::TD(TableDataCell::new().with_headers(ids)).into(),
             Vec::new(),
         )
     }
