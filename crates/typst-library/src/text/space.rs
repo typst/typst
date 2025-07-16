@@ -4,9 +4,10 @@ use typst_utils::singleton;
 use crate::foundations::{
     Content, NativeElement, Packed, PlainText, Repr, Unlabellable, elem,
 };
+use crate::introspection::Unlocatable;
 
 /// A text space.
-#[elem(Unlabellable, PlainText, Repr)]
+#[elem(Unlabellable, PlainText, Repr, Unlocatable)]
 pub struct SpaceElem {}
 
 impl SpaceElem {
@@ -23,6 +24,8 @@ impl Repr for SpaceElem {
 }
 
 impl Unlabellable for Packed<SpaceElem> {}
+
+impl Unlocatable for Packed<SpaceElem> {}
 
 impl PlainText for Packed<SpaceElem> {
     fn plain_text(&self, text: &mut EcoString) {
