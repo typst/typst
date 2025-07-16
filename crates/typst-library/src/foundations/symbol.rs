@@ -151,7 +151,7 @@ impl Symbol {
                 modifiers.best_match_in(list.variants().map(|(m, _, d)| (m, d)))
             {
                 if let Some(message) = deprecation {
-                    sink.emit(message)
+                    sink.emit(message, None)
                 }
                 return Ok(self);
             }
