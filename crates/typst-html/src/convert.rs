@@ -109,10 +109,7 @@ fn handle(
             styles.chain(&style),
             Region::new(Size::splat(Abs::inf()), Axes::splat(false)),
         )?;
-        output.push(HtmlNode::Frame(HtmlFrame {
-            inner: frame,
-            text_size: styles.resolve(TextElem::size),
-        }));
+        output.push(HtmlNode::Frame(HtmlFrame::new(frame, styles)));
     } else {
         engine.sink.warn(warning!(
             child.span(),

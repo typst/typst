@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::{eco_format, EcoVec};
-use typst_library::diag::warning;
+use typst_library::diag::{warning, At};
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
@@ -59,19 +59,11 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register::<FrameElem>(Paged, |elem, _, _| Ok(elem.body.clone()));
 }
 
-const STRONG_RULE: ShowFn<StrongElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::strong)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const STRONG_RULE: ShowFn<StrongElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::strong).with_body(Some(elem.body.clone())).pack());
 
-const EMPH_RULE: ShowFn<EmphElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::em)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const EMPH_RULE: ShowFn<EmphElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::em).with_body(Some(elem.body.clone())).pack());
 
 const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::ul)
@@ -86,8 +78,7 @@ const LIST_RULE: ShowFn<ListElem> = |elem, _, styles| {
                 .pack()
                 .spanned(item.span())
         }))))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
@@ -103,7 +94,7 @@ const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
 
     let body = Content::sequence(elem.children.iter().map(|item| {
         let mut li = HtmlElem::new(tag::li);
-        if let Some(nr) = item.number.get(styles) {
+        if let Smart::Custom(nr) = item.number.get(styles) {
             li = li.with_attr(attr::value, eco_format!("{nr}"));
         }
         // Text in wide enums shall always turn into paragraphs.
@@ -114,7 +105,7 @@ const ENUM_RULE: ShowFn<EnumElem> = |elem, _, styles| {
         li.with_body(Some(body)).pack().spanned(item.span())
     }));
 
-    Ok(ol.with_body(Some(body)).pack().spanned(elem.span()))
+    Ok(ol.with_body(Some(body)).pack())
 };
 
 const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
@@ -141,20 +132,32 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 };
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
-    let body = elem.body.clone();
-    Ok(if let LinkTarget::Dest(Destination::Url(url)) = &elem.dest {
-        HtmlElem::new(tag::a)
-            .with_attr(attr::href, url.clone().into_inner())
-            .with_body(Some(body))
-            .pack()
-            .spanned(elem.span())
-    } else {
-        engine.sink.warn(warning!(
-            elem.span(),
-            "non-URL links are not yet supported by HTML export"
-        ));
-        body
-    })
+    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
+
+    let href = match dest {
+        Destination::Url(url) => Some(url.clone().into_inner()),
+        Destination::Location(location) => {
+            let id = engine
+                .introspector
+                .html_id(location)
+                .cloned()
+                .ok_or("failed to determine link anchor")
+                .at(elem.span())?;
+            Some(eco_format!("#{id}"))
+        }
+        Destination::Position(_) => {
+            engine.sink.warn(warning!(
+                elem.span(),
+                "positional link was ignored during HTML export"
+            ));
+            None
+        }
+    };
+
+    Ok(HtmlElem::new(tag::a)
+        .with_optional_attr(attr::href, href)
+        .with_body(Some(elem.body.clone()))
+        .pack())
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
@@ -190,10 +193,9 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .with_attr(attr::role, "heading")
             .with_attr(attr::aria_level, eco_format!("{}", level + 1))
             .pack()
-            .spanned(span)
     } else {
         let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
-        HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
+        HtmlElem::new(t).with_body(Some(realized)).pack()
     })
 };
 
@@ -212,17 +214,13 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     // Ensure that the body is considered a paragraph.
     realized += ParbreakElem::shared().clone().spanned(span);
 
-    Ok(HtmlElem::new(tag::figure)
-        .with_body(Some(realized))
-        .pack()
-        .spanned(span))
+    Ok(HtmlElem::new(tag::figure).with_body(Some(realized)).pack())
 };
 
 const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
     Ok(HtmlElem::new(tag::figcaption)
         .with_body(Some(elem.realize(engine, styles)?))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
@@ -363,19 +361,11 @@ fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
         .spanned(cell.span())
 }
 
-const SUB_RULE: ShowFn<SubElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::sub)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const SUB_RULE: ShowFn<SubElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::sub).with_body(Some(elem.body.clone())).pack());
 
-const SUPER_RULE: ShowFn<SuperElem> = |elem, _, _| {
-    Ok(HtmlElem::new(tag::sup)
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(elem.span()))
-};
+const SUPER_RULE: ShowFn<SuperElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::sup).with_body(Some(elem.body.clone())).pack());
 
 const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
     // Note: In modern HTML, `<u>` is not the underline element, but
@@ -414,8 +404,7 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 
     Ok(HtmlElem::new(if elem.block.get(styles) { tag::pre } else { tag::code })
         .with_body(Some(Content::sequence(seq)))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());

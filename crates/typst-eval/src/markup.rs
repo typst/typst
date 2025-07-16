@@ -251,7 +251,7 @@ impl Eval for ast::EnumItem<'_> {
         let body = self.body().eval(vm)?;
         let mut elem = EnumItem::new(body);
         if let Some(number) = self.number() {
-            elem.number.set(Some(number));
+            elem.number.set(Smart::Custom(number));
         }
         Ok(elem.pack())
     }

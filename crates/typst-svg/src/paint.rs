@@ -15,7 +15,7 @@ use crate::{Id, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 /// Smaller values could be interesting for optimization.
 const CONIC_SEGMENT: usize = 360;
 
-impl SVGRenderer {
+impl SVGRenderer<'_> {
     /// Render a frame to a string.
     pub(super) fn render_tiling_frame(
         &mut self,
