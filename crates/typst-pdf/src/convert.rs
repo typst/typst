@@ -373,6 +373,12 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
+            KrillaError::DuplicateTagId(_, _) => {
+                unreachable!("duplicate IDs shouldn't be generated")
+            }
+            KrillaError::UnknownTagId(_, _) => {
+                unreachable!("all referenced IDs should be present in the tag tree")
+            }
             KrillaError::Image(_, loc) => {
                 let span = to_span(loc);
                 bail!(span, "failed to process image");
@@ -597,16 +603,6 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
-        ValidationError::DuplicateTagId(_id, loc) => {
-            // TODO: display the id and better error message
-            let span = to_span(*loc);
-            error!(span, "{prefix} duplicate tag id")
-        }
-        ValidationError::UnknownTagId(_id, loc) => {
-            // TODO: display the id and better error message
-            let span = to_span(*loc);
-            error!(span, "{prefix} unknown header tag id")
-        }
     }
 }
 

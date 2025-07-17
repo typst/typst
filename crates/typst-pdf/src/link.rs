@@ -4,7 +4,7 @@ use krilla::annotation::Target;
 use krilla::configure::Validator;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
-use typst_library::layout::{Abs, Point, Position, Size};
+use typst_library::layout::{Point, Position, Size};
 use typst_library::model::Destination;
 
 use crate::convert::{FrameContext, GlobalContext};
@@ -15,8 +15,7 @@ pub(crate) struct LinkAnnotation {
     pub(crate) id: tags::LinkId,
     pub(crate) placeholder: Placeholder,
     pub(crate) alt: Option<String>,
-    pub(crate) rect: kg::Rect,
-    pub(crate) quad_points: Vec<kg::Point>,
+    pub(crate) quad_points: Vec<kg::Quadrilateral>,
     pub(crate) target: Target,
 }
 
@@ -54,27 +53,21 @@ pub(crate) fn handle_link(
     };
     let alt = link.alt.as_ref().map(EcoString::to_string);
 
-    let rect = to_rect(fc, size);
-    let quadpoints = quadpoints(rect);
+    let quad = to_quadrilateral(fc, size);
 
     // Unfortunately quadpoints still aren't well supported by most PDF readers,
     // even by acrobat. Which is understandable since they were only introduced
     // in PDF 1.6 (2005) /s
     let should_use_quadpoints = gc.options.standards.config.validator() == Validator::UA1;
     match fc.get_link_annotation(link_id) {
-        Some(annotation) if should_use_quadpoints => {
-            // Update the bounding box and add the quadpoints to an existing link annotation.
-            annotation.rect = bounding_rect(annotation.rect, rect);
-            annotation.quad_points.extend_from_slice(&quadpoints);
-        }
+        Some(annotation) if should_use_quadpoints => annotation.quad_points.push(quad),
         _ => {
             let placeholder = gc.tags.placeholders.reserve();
             link_nodes.push(TagNode::Placeholder(placeholder));
             fc.push_link_annotation(LinkAnnotation {
                 id: link_id,
                 placeholder,
-                rect,
-                quad_points: quadpoints.to_vec(),
+                quad_points: vec![quad],
                 alt,
                 target,
             });
@@ -82,53 +75,20 @@ pub(crate) fn handle_link(
     }
 }
 
-// Compute the bounding box of the transformed link.
-fn to_rect(fc: &FrameContext, size: Size) -> kg::Rect {
-    let mut min_x = Abs::inf();
-    let mut min_y = Abs::inf();
-    let mut max_x = -Abs::inf();
-    let mut max_y = -Abs::inf();
-
+/// Compute the quadrilateral representing the transformed rectangle of this frame.
+fn to_quadrilateral(fc: &FrameContext, size: Size) -> kg::Quadrilateral {
     let pos = Point::zero();
-
-    for point in [
-        pos,
-        pos + Point::with_x(size.x),
+    let points = [
         pos + Point::with_y(size.y),
         pos + size.to_point(),
-    ] {
-        let t = point.transform(fc.state().transform());
-        min_x.set_min(t.x);
-        min_y.set_min(t.y);
-        max_x.set_max(t.x);
-        max_y.set_max(t.y);
-    }
+        pos + Point::with_x(size.x),
+        pos,
+    ];
 
-    let x1 = min_x.to_f32();
-    let x2 = max_x.to_f32();
-    let y1 = min_y.to_f32();
-    let y2 = max_y.to_f32();
-
-    kg::Rect::from_ltrb(x1, y1, x2, y2).unwrap()
-}
-
-fn bounding_rect(a: kg::Rect, b: kg::Rect) -> kg::Rect {
-    kg::Rect::from_ltrb(
-        a.left().min(b.left()),
-        a.top().min(b.top()),
-        a.right().max(b.right()),
-        a.bottom().max(b.bottom()),
-    )
-    .unwrap()
-}
-
-fn quadpoints(rect: kg::Rect) -> [kg::Point; 4] {
-    [
-        kg::Point::from_xy(rect.left(), rect.bottom()),
-        kg::Point::from_xy(rect.right(), rect.bottom()),
-        kg::Point::from_xy(rect.right(), rect.top()),
-        kg::Point::from_xy(rect.left(), rect.top()),
-    ]
+    kg::Quadrilateral(points.map(|point| {
+        let p = point.transform(fc.state().transform());
+        kg::Point::from_xy(p.x.to_f32(), p.y.to_f32())
+    }))
 }
 
 fn pos_to_target(gc: &mut GlobalContext, pos: Position) -> Option<Target> {

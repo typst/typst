@@ -324,10 +324,9 @@ pub(crate) fn add_annotations(
     annotations: Vec<LinkAnnotation>,
 ) {
     for annotation in annotations.into_iter() {
-        let LinkAnnotation { id: _, placeholder, alt, rect, quad_points, target } =
-            annotation;
+        let LinkAnnotation { id: _, placeholder, alt, quad_points, target } = annotation;
         let annot = krilla::annotation::Annotation::new_link(
-            krilla::annotation::LinkAnnotation::new(rect, Some(quad_points), target),
+            krilla::annotation::LinkAnnotation::new_with_quad_points(quad_points, target),
             alt,
         );
         let annot_id = page.add_tagged_annotation(annot);
