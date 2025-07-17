@@ -143,6 +143,16 @@ pub struct PackageInfo {
 }
 
 impl PackageManifest {
+    /// Create a new package manifest with the given info.
+    pub fn new(package: PackageInfo) -> Self {
+        PackageManifest {
+            package,
+            template: None,
+            tool: ToolInfo::default(),
+            unknown_fields: UnknownFields::new(),
+        }
+    }
+
     /// Ensure that this manifest is indeed for the specified package.
     pub fn validate(&self, spec: &PackageSpec) -> Result<(), EcoString> {
         if self.package.name != spec.name {
@@ -170,6 +180,44 @@ impl PackageManifest {
         }
 
         Ok(())
+    }
+}
+
+impl TemplateInfo {
+    /// Create a new template info with only required content.
+    pub fn new(path: impl Into<EcoString>, entrypoint: impl Into<EcoString>) -> Self {
+        TemplateInfo {
+            path: path.into(),
+            entrypoint: entrypoint.into(),
+            thumbnail: None,
+            unknown_fields: UnknownFields::new(),
+        }
+    }
+}
+
+impl PackageInfo {
+    /// Create a new package info with only required content.
+    pub fn new(
+        name: impl Into<EcoString>,
+        version: PackageVersion,
+        entrypoint: impl Into<EcoString>,
+    ) -> Self {
+        PackageInfo {
+            name: name.into(),
+            version,
+            entrypoint: entrypoint.into(),
+            authors: vec![],
+            categories: vec![],
+            compiler: None,
+            description: None,
+            disciplines: vec![],
+            exclude: vec![],
+            homepage: None,
+            keywords: vec![],
+            license: None,
+            repository: None,
+            unknown_fields: BTreeMap::new(),
+        }
     }
 }
 
@@ -535,22 +583,11 @@ mod tests {
             "#
             ),
             Ok(PackageManifest {
-                package: PackageInfo {
-                    name: "package".into(),
-                    version: PackageVersion { major: 0, minor: 1, patch: 0 },
-                    entrypoint: "src/lib.typ".into(),
-                    authors: vec![],
-                    license: None,
-                    description: None,
-                    homepage: None,
-                    repository: None,
-                    keywords: vec![],
-                    categories: vec![],
-                    disciplines: vec![],
-                    compiler: None,
-                    exclude: vec![],
-                    unknown_fields: BTreeMap::new(),
-                },
+                package: PackageInfo::new(
+                    "package",
+                    PackageVersion { major: 0, minor: 1, patch: 0 },
+                    "src/lib.typ"
+                ),
                 template: None,
                 tool: ToolInfo { sections: BTreeMap::new() },
                 unknown_fields: BTreeMap::new(),
