@@ -14,8 +14,8 @@ use typst_library::model::{
     RefElem, StrongElem, TableCell, TableElem, TermsElem,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SpaceElem, StrikeElem,
-    SubElem, SuperElem, UnderlineElem,
+    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::ImageElem;
 
@@ -47,6 +47,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, OVERLINE_RULE);
     rules.register(Html, STRIKE_RULE);
     rules.register(Html, HIGHLIGHT_RULE);
+    rules.register(Html, SMALLCAPS_RULE);
     rules.register(Html, RAW_RULE);
     rules.register(Html, RAW_LINE_RULE);
 
@@ -389,6 +390,20 @@ const STRIKE_RULE: ShowFn<StrikeElem> =
 
 const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::mark).with_body(Some(elem.body.clone())).pack());
+
+const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::span)
+        .with_attr(
+            attr::style,
+            if elem.all.get(styles) {
+                "font-variant-caps: all-small-caps"
+            } else {
+                "font-variant-caps: small-caps"
+            },
+        )
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
 
 const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
     let lines = elem.lines.as_deref().unwrap_or_default();
