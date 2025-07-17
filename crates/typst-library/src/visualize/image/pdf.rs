@@ -3,6 +3,7 @@ use crate::foundations::Bytes;
 use hayro_syntax::pdf::Pdf;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use hayro_syntax::document::page::Page;
 
 #[derive(Clone)]
 struct DocumentRepr {
@@ -38,7 +39,7 @@ impl PdfDocument {
 
 struct ImageRepr {
     pub document: PdfDocument,
-    pub page: usize,
+    pub page_index: usize,
     pub width: f32,
     pub height: f32,
 }
@@ -46,7 +47,7 @@ struct ImageRepr {
 impl Hash for ImageRepr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.document.hash(state);
-        self.page.hash(state);
+        self.page_index.hash(state);
     }
 }
 
@@ -63,10 +64,18 @@ impl PdfImage {
 
         Ok(Self(Arc::new(ImageRepr {
             document,
-            page,
+            page_index: page,
             width: dimensions.0,
             height: dimensions.1,
         })))
+    }
+
+    pub fn with_page<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&Page) -> R,
+    {
+        let pages = self.0.document.0.pdf.pages().unwrap();
+        f(&pages.get().get(self.0.page_index).unwrap())
     }
 
     pub fn width(&self) -> f32 {
@@ -81,7 +90,7 @@ impl PdfImage {
         &self.0.document.0.data
     }
 
-    pub fn page(&self) -> usize {
-        self.0.page
+    pub fn page_index(&self) -> usize {
+        self.0.page_index
     }
 }

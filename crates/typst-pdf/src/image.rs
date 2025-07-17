@@ -67,7 +67,7 @@ pub(crate) fn handle_image(
             surface.draw_pdf_page(
                 &PdfDocument::new(pdf_data.into()).unwrap(),
                 size.to_krilla(),
-                pdf.page(),
+                pdf.page_index(),
             )
         }
     }
