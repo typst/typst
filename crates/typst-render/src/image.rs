@@ -94,6 +94,7 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
             );
             resvg::render(tree, ts, &mut texture.as_mut());
         }
+        ImageKind::Pdf(_) => todo!(),
     }
     Some(Arc::new(texture))
 }

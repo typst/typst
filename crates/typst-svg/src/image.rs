@@ -66,6 +66,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
             }),
         },
         ImageKind::Svg(svg) => ("svg+xml", svg.data()),
+        ImageKind::Pdf(_) => todo!(),
     };
 
     let mut url = eco_format!("data:image/{format};base64,");

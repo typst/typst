@@ -3,6 +3,7 @@ use std::sync::{Arc, OnceLock};
 
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
+use krilla::pdf::PdfDocument;
 use krilla::surface::Surface;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{bail, SourceResult};
@@ -59,6 +60,15 @@ pub(crate) fn handle_image(
                 size.to_krilla(),
                 SvgSettings { embed_text: true, ..Default::default() },
             );
+        }
+        ImageKind::Pdf(pdf) => {
+            let pdf_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                Arc::new(pdf.data().clone());
+            surface.draw_pdf_page(
+                &PdfDocument::new(pdf_data.into()).unwrap(),
+                size.to_krilla(),
+                pdf.page(),
+            )
         }
     }
 
