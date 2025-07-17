@@ -18,6 +18,7 @@ typst-macros = { workspace = true }
 typst-timing = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
+hayro = { workspace = true }
 image = { workspace = true }
 pixglyph = { workspace = true }
 resvg = { workspace = true }

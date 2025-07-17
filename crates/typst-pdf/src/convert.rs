@@ -363,6 +363,25 @@ fn finish(
                     hint: "convert the image to 8 bit instead"
                 )
             }
+            KrillaError::Pdf(_, e, loc) => {
+                // TODO: Better errors
+                let span = to_span(loc);
+                bail!(span, "failed to process PDF");
+            }
+            KrillaError::DuplicateTagId(_, loc) => {
+                let span = to_span(loc);
+                bail!(span,
+                    "duplicate tag id";
+                    hint: "this is a bug in typst, please report it"
+                );
+            }
+            KrillaError::UnknownTagId(_, loc) => {
+                let span = to_span(loc);
+                bail!(span,
+                    "unknown tag id";
+                    hint: "this is a bug in typst, please report it"
+                );
+            }
         },
     }
 }
@@ -535,12 +554,12 @@ fn convert_error(
         }
         // The below errors cannot occur yet, only once Typst supports full PDF/A
         // and PDF/UA. But let's still add a message just to be on the safe side.
-        ValidationError::MissingAnnotationAltText => error!(
+        ValidationError::MissingAnnotationAltText(_) => error!(
             Span::detached(),
             "{prefix} missing annotation alt text";
             hint: "please report this as a bug"
         ),
-        ValidationError::MissingAltText => error!(
+        ValidationError::MissingAltText(_) => error!(
             Span::detached(),
             "{prefix} missing alt text";
             hint: "make sure your images and equations have alt text"
@@ -576,6 +595,7 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
+        ValidationError::EmbeddedPDF(loc) => error!(to_span(*loc), "TODO"),
     }
 }
 

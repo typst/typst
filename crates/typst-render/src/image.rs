@@ -1,10 +1,12 @@
-use std::sync::Arc;
-
+use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
+use std::sync::Arc;
 use tiny_skia as sk;
+use tiny_skia::IntSize;
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;
+use typst_library::text::{FontBook, FontStretch, FontStyle, FontVariant, FontWeight};
 use typst_library::visualize::{Image, ImageKind, ImageScaling};
 
 use crate::{AbsExt, State};
@@ -59,9 +61,9 @@ pub fn render_image(
 /// Prepare a texture for an image at a scaled size.
 #[comemo::memoize]
 fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
-    let mut texture = sk::Pixmap::new(w, h)?;
-    match image.kind() {
+    let texture = match image.kind() {
         ImageKind::Raster(raster) => {
+            let mut texture = sk::Pixmap::new(w, h)?;
             let w = texture.width();
             let h = texture.height();
 
@@ -85,15 +87,73 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
                 let Rgba([r, g, b, a]) = src;
                 *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
             }
+
+            texture
         }
         ImageKind::Svg(svg) => {
+            let mut texture = sk::Pixmap::new(w, h)?;
             let tree = svg.tree();
             let ts = tiny_skia::Transform::from_scale(
                 w as f32 / tree.size().width(),
                 h as f32 / tree.size().height(),
             );
             resvg::render(tree, ts, &mut texture.as_mut());
+
+            texture
         }
-    }
+        ImageKind::Pdf(pdf) => {
+            let sf = pdf.standard_fonts().clone();
+
+            let select_standard_font = move |font: StandardFont| -> Option<FontData> {
+                let bytes = match font {
+                    StandardFont::Helvetica => sf.helvetica.normal.clone(),
+                    StandardFont::HelveticaBold => sf.helvetica.bold.clone(),
+                    StandardFont::HelveticaOblique => sf.helvetica.italic.clone(),
+                    StandardFont::HelveticaBoldOblique => {
+                        sf.helvetica.bold_italic.clone()
+                    }
+                    StandardFont::Courier => sf.courier.normal.clone(),
+                    StandardFont::CourierBold => sf.courier.bold.clone(),
+                    StandardFont::CourierOblique => sf.courier.italic.clone(),
+                    StandardFont::CourierBoldOblique => sf.courier.bold_italic.clone(),
+                    StandardFont::TimesRoman => sf.times.normal.clone(),
+                    StandardFont::TimesBold => sf.times.bold.clone(),
+                    StandardFont::TimesItalic => sf.times.italic.clone(),
+                    StandardFont::TimesBoldItalic => sf.times.bold_italic.clone(),
+                    StandardFont::ZapfDingBats => sf.zapf_dingbats.clone(),
+                    StandardFont::Symbol => sf.symbol.clone(),
+                };
+
+                bytes.map(|d| {
+                    let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                        Arc::new(d.clone());
+
+                    font_data
+                })
+            };
+
+            let interpreter_settings = InterpreterSettings {
+                font_resolver: Arc::new(move |query| match query {
+                    FontQuery::Standard(s) => select_standard_font(*s),
+                    FontQuery::Fallback(f) => {
+                        select_standard_font(f.pick_standard_font())
+                    }
+                }),
+                warning_sink: Arc::new(|_| {}),
+            };
+            let page = pdf.page();
+
+            let render_settings = RenderSettings {
+                x_scale: w as f32 / pdf.width(),
+                y_scale: h as f32 / pdf.height(),
+                width: Some(w as u16),
+                height: Some(h as u16),
+            };
+            let hayro_pix = hayro::render(page, &interpreter_settings, &render_settings);
+
+            sk::Pixmap::from_vec(hayro_pix.take_u8(), IntSize::from_wh(w, h)?)?
+        }
+    };
+
     Some(Arc::new(texture))
 }

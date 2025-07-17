@@ -3,13 +3,14 @@ use std::sync::{Arc, OnceLock};
 
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
+use krilla::pdf::PdfDocument;
 use krilla::surface::Surface;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{bail, SourceResult};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Angle, Ratio, Size, Transform};
 use typst_library::visualize::{
-    ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat, RasterImage,
+    ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat, RasterImage,
 };
 use typst_syntax::Span;
 
@@ -60,6 +61,9 @@ pub(crate) fn handle_image(
                 SvgSettings { embed_text: true, ..Default::default() },
             );
         }
+        ImageKind::Pdf(pdf) => {
+            surface.draw_pdf_page(&convert_pdf(pdf), size.to_krilla(), pdf.page_index())
+        }
     }
 
     if image.alt().is_some() {
@@ -85,9 +89,9 @@ struct Repr {
 
 /// A wrapper around `RasterImage` so that we can implement `CustomImage`.
 #[derive(Clone)]
-struct PdfImage(Arc<Repr>);
+struct PdfRasterImage(Arc<Repr>);
 
-impl PdfImage {
+impl PdfRasterImage {
     pub fn new(raster: RasterImage) -> Self {
         Self(Arc::new(Repr {
             raster,
@@ -97,7 +101,7 @@ impl PdfImage {
     }
 }
 
-impl Hash for PdfImage {
+impl Hash for PdfRasterImage {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // `alpha_channel` and `actual_dynamic` are generated from the underlying `RasterImage`,
         // so this is enough. Since `raster` is prehashed, this is also very cheap.
@@ -105,7 +109,7 @@ impl Hash for PdfImage {
     }
 }
 
-impl CustomImage for PdfImage {
+impl CustomImage for PdfRasterImage {
     fn color_channel(&self) -> &[u8] {
         self.0
             .actual_dynamic
@@ -196,8 +200,13 @@ fn convert_raster(
             interpolate,
         )
     } else {
-        krilla::image::Image::from_custom(PdfImage::new(raster), interpolate)
+        krilla::image::Image::from_custom(PdfRasterImage::new(raster), interpolate)
     }
+}
+
+#[comemo::memoize]
+fn convert_pdf(pdf: &PdfImage) -> PdfDocument {
+    PdfDocument::new(pdf.pdf().clone())
 }
 
 fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
