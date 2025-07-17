@@ -37,13 +37,12 @@ pub use crate::__select_where as select_where;
 
 /// A filter for selecting elements within the document.
 ///
-/// You can construct a selector in the following ways:
-/// - you can use an element [function]
-/// - you can filter for an element function with
-///   [specific fields]($function.where)
-/// - you can use a [string]($str) or [regular expression]($regex)
-/// - you can use a [`{<label>}`]($label)
-/// - you can use a [`location`]
+/// To construct a selector you can:
+/// - use an element [function]
+/// - filter for an element function with [specific fields]($function.where)
+/// - use a [string]($str) or [regular expression]($regex)
+/// - use a [`{<label>}`]($label)
+/// - use a [`location`]
 /// - call the [`selector`] constructor to convert any of the above types into a
 ///   selector value and use the methods below to refine it
 ///
@@ -148,7 +147,9 @@ impl Selector {
 impl Selector {
     /// Turns a value into a selector. The following values are accepted:
     /// - An element function like a `heading` or `figure`.
+    /// - A [string]($str) or [regular expression]($regex).
     /// - A `{<label>}`.
+    /// - A [`location`].
     /// - A more complex selector like `{heading.where(level: 1)}`.
     #[func(constructor)]
     pub fn construct(
