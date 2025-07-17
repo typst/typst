@@ -23,7 +23,7 @@ use typst_library::model::{
     LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
     QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
 };
-use typst_library::pdf::{ArtifactElem, EmbedElem, PdfMarkerTag, PdfMarkerTagKind};
+use typst_library::pdf::{ArtifactElem, EmbedElem, PdfMarkerTag};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
@@ -452,10 +452,7 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     }
 
     // Wrap the entries into a marker for pdf tagging.
-    seq.push(
-        PdfMarkerTag::new(PdfMarkerTagKind::OutlineBody, Content::sequence(entries))
-            .pack(),
-    );
+    seq.push(PdfMarkerTag::OutlineBody(Content::sequence(entries)));
 
     Ok(Content::sequence(seq))
 };
@@ -543,25 +540,29 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
         let mut cells = vec![];
         for (prefix, reference) in references {
+            let prefix = PdfMarkerTag::ListItemLabel(prefix.clone().unwrap_or_default());
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                    .spanned(span),
+                Packed::new(GridCell::new(prefix)).spanned(span),
             )));
+
+            let reference = PdfMarkerTag::BibEntry(reference.clone());
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(reference.clone())).spanned(span),
+                Packed::new(GridCell::new(reference)).spanned(span),
             )));
         }
-        seq.push(
-            GridElem::new(cells)
-                .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                .pack()
-                .spanned(span),
-        );
+
+        let grid = GridElem::new(cells)
+            .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+            .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+            .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
+            .pack()
+            .spanned(span);
+        // TODO(accessibility): infer list numbering from style?
+        seq.push(PdfMarkerTag::Bibliography(true, grid));
     } else {
+        let mut body = vec![];
         for (_, reference) in references {
-            let realized = reference.clone();
+            let realized = PdfMarkerTag::BibEntry(reference.clone());
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
@@ -573,8 +574,9 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 BlockElem::new().with_body(Some(BlockBody::Content(realized)))
             };
 
-            seq.push(block.pack().spanned(span));
+            body.push(block.pack().spanned(span));
         }
+        seq.push(PdfMarkerTag::Bibliography(false, Content::sequence(body)));
     }
 
     Ok(Content::sequence(seq))

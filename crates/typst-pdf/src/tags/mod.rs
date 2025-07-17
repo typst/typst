@@ -65,6 +65,16 @@ pub(crate) fn handle_start(
                 return Ok(());
             }
             PdfMarkerTagKind::FigureBody => TagKind::Figure.into(),
+            PdfMarkerTagKind::Bibliography(numbered) => {
+                let numbering =
+                    if numbered { ListNumbering::Decimal } else { ListNumbering::None };
+                push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)))?;
+                return Ok(());
+            }
+            PdfMarkerTagKind::BibEntry => {
+                push_stack(gc, loc, StackEntryKind::BibEntry)?;
+                return Ok(());
+            }
             PdfMarkerTagKind::ListItemLabel => {
                 push_stack(gc, loc, StackEntryKind::ListItemLabel)?;
                 return Ok(());
@@ -223,6 +233,11 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
         StackEntryKind::ListItemBody => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
             list_ctx.push_body(entry.nodes);
+            return;
+        }
+        StackEntryKind::BibEntry => {
+            let list_ctx = gc.tags.stack.parent_list().expect("parent list");
+            list_ctx.push_bib_entry(entry.nodes);
             return;
         }
         StackEntryKind::Link(_, link) => {
@@ -507,6 +522,7 @@ pub(crate) enum StackEntryKind {
     List(ListCtx),
     ListItemLabel,
     ListItemBody,
+    BibEntry,
     Link(LinkId, Packed<LinkMarker>),
     /// The footnote reference in the text.
     FootNoteRef,
