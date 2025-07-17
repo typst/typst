@@ -2,6 +2,7 @@
 
 mod raster;
 mod svg;
+mod pdf;
 
 pub use self::raster::{
     ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
@@ -468,9 +469,19 @@ impl ImageFormat {
         if is_svg(data) {
             return Some(Self::Vector(VectorFormat::Svg));
         }
+        
+        if is_pdf(data) {
+            return Some(Self::Vector(VectorFormat::Pdf))
+        }
 
         None
     }
+}
+
+/// Checks whether the data looks like a PDF file.
+fn is_pdf(data: &[u8]) -> bool {
+    let head = &data[..data.len().min(2048)];
+    memchr::memmem::find(head, b"%PDF-").is_some()
 }
 
 /// Checks whether the data looks like an SVG or a compressed SVG.
@@ -493,6 +504,8 @@ fn is_svg(data: &[u8]) -> bool {
 pub enum VectorFormat {
     /// The vector graphics format of the web.
     Svg,
+    /// The PDF graphics format.
+    Pdf,
 }
 
 impl<R> From<R> for ImageFormat
