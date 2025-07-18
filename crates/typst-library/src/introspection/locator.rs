@@ -236,6 +236,7 @@ enum Resolved {
 }
 
 /// A type that generates unique sublocators.
+#[derive(Clone)]
 pub struct SplitLocator<'a> {
     /// A local hash that incorporates all layers since the last memoization
     /// boundary.
