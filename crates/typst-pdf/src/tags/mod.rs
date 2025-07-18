@@ -123,9 +123,9 @@ pub(crate) fn handle_start(
         } else {
             TagKind::Figure.with_alt_text(alt)
         }
-    } else if let Some(_) = elem.to_packed::<EquationElem>() {
-        // TODO: alt text
-        TagKind::Formula.into()
+    } else if let Some(equation) = elem.to_packed::<EquationElem>() {
+        let alt = equation.alt.get_as_ref().map(|s| s.to_string());
+        TagKind::Formula.with_alt_text(alt)
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.get_as_ref().map(|s| s.to_string());

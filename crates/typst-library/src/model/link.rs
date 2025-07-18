@@ -88,7 +88,7 @@ use crate::text::{LocalName, TextElem};
 ///   generated.
 #[elem(Locatable)]
 pub struct LinkElem {
-    /// A text describing the link.
+    /// An alternative description of the link.
     pub alt: Option<EcoString>,
 
     /// The destination the link points to.
