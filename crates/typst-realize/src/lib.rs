@@ -24,8 +24,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
-    ParElem, ParbreakElem, TermsElem,
+    CiteElem, CiteGroup, DocumentElem, DocumentInfo, EnumElem, ListElem, ListItemLike,
+    ListLike, ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -35,6 +35,42 @@ use typst_utils::{SliceExt, SmallBitSet};
 /// Realize content into a flat list of well-known, styled items.
 #[typst_macros::time(name = "realize")]
 pub fn realize<'a>(
+    kind: RealizationKind,
+    engine: &mut Engine,
+    locator: &mut SplitLocator,
+    arenas: &'a Arenas,
+    content: &'a Content,
+    styles: StyleChain<'a>,
+) -> SourceResult<Vec<Pair<'a>>> {
+    let mut doc_info = DocumentInfo::default();
+    let mut frag_kind = FragmentKind::Block;
+    let _ = std::hint::black_box(realize_inner(
+        match kind {
+            RealizationKind::LayoutDocument { .. } => {
+                RealizationKind::LayoutDocument { info: &mut doc_info }
+            }
+            RealizationKind::LayoutFragment { .. } => {
+                RealizationKind::LayoutFragment { kind: &mut frag_kind }
+            }
+            RealizationKind::LayoutPar => RealizationKind::LayoutPar,
+            RealizationKind::HtmlDocument { is_inline, .. } => {
+                RealizationKind::HtmlDocument { info: &mut doc_info, is_inline }
+            }
+            RealizationKind::HtmlFragment { is_inline, .. } => {
+                RealizationKind::HtmlFragment { kind: &mut frag_kind, is_inline }
+            }
+            RealizationKind::Math => RealizationKind::Math,
+        },
+        engine,
+        &mut locator.clone(),
+        arenas,
+        content,
+        styles,
+    ));
+    realize_inner(kind, engine, locator, arenas, content, styles)
+}
+
+fn realize_inner<'a>(
     kind: RealizationKind,
     engine: &mut Engine,
     locator: &mut SplitLocator,
