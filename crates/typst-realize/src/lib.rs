@@ -356,14 +356,6 @@ fn visit_show_rules<'a>(
     // prepare it.
     let mut tags = None;
     if !prepared {
-        std::hint::black_box(prepare(
-            s.engine,
-            s.locator,
-            output.clone().to_mut(),
-            &mut map.clone(),
-            styles,
-        ));
-
         tags = prepare(s.engine, s.locator, output.to_mut(), &mut map, styles)?;
     }
 
