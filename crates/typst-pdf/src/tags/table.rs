@@ -9,6 +9,7 @@ use smallvec::SmallVec;
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::model::TableCell;
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
+use typst_syntax::Span;
 
 use crate::tags::{TableId, TagNode};
 
@@ -57,7 +58,7 @@ impl TableCtx {
         }
     }
 
-    pub(crate) fn insert(&mut self, cell: &TableCell, nodes: Vec<TagNode>) {
+    pub(crate) fn insert(&mut self, cell: &Packed<TableCell>, nodes: Vec<TagNode>) {
         let x = cell.x.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
         let y = cell.y.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
         let rowspan = cell.rowspan.get(StyleChain::default());
@@ -92,6 +93,7 @@ impl TableCtx {
             kind,
             headers: SmallVec::new(),
             nodes,
+            span: cell.span(),
         });
     }
 
@@ -175,13 +177,14 @@ impl TableCtx {
                                     .with_headers(cell.headers),
                             )
                             .with_id(Some(id))
+                            .with_location(Some(cell.span.into_raw().get()))
                         }
                         TableCellKind::Footer | TableCellKind::Data => TagKind::TD(
                             TableDataCell::new()
                                 .with_span(span)
                                 .with_headers(cell.headers),
                         )
-                        .into(),
+                        .with_location(Some(cell.span.into_raw().get())),
                     };
                     Some(TagNode::Group(tag, cell.nodes))
                 })
@@ -296,6 +299,7 @@ struct TableCtxCell {
     kind: Smart<TableCellKind>,
     headers: SmallVec<[TagId; 1]>,
     nodes: Vec<TagNode>,
+    span: Span,
 }
 
 impl TableCtxCell {
@@ -344,7 +348,7 @@ mod tests {
     fn table<const SIZE: usize>(cells: [TableCell; SIZE]) -> TableCtx {
         let mut table = TableCtx::new(TableId(324), Some("summary".into()));
         for cell in cells {
-            table.insert(&cell, Vec::new());
+            table.insert(&Packed::new(cell), Vec::new());
         }
         table
     }
@@ -416,7 +420,9 @@ mod tests {
         let id = table_cell_id(TableId(324), x, y);
         let ids = headers.map(|(x, y)| table_cell_id(TableId(324), x, y));
         TagNode::Group(
-            TagKind::TH(TableHeaderCell::new(scope).with_headers(ids)).with_id(Some(id)),
+            TagKind::TH(TableHeaderCell::new(scope).with_headers(ids))
+                .with_id(Some(id))
+                .with_location(Some(Span::detached().into_raw().get())),
             Vec::new(),
         )
     }
@@ -424,7 +430,8 @@ mod tests {
     fn td<const SIZE: usize>(headers: [(u32, u32); SIZE]) -> TagNode {
         let ids = headers.map(|(x, y)| table_cell_id(TableId(324), x, y));
         TagNode::Group(
-            TagKind::TD(TableDataCell::new().with_headers(ids)).into(),
+            TagKind::TD(TableDataCell::new().with_headers(ids))
+                .with_location(Some(Span::detached().into_raw().get())),
             Vec::new(),
         )
     }

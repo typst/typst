@@ -9,6 +9,7 @@ use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
+use krilla::tagging::TagId;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
@@ -373,11 +374,21 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
-            KrillaError::DuplicateTagId(_, _) => {
-                unreachable!("duplicate IDs shouldn't be generated")
+            KrillaError::DuplicateTagId(id, loc) => {
+                let span = to_span(loc);
+                let id = display_tag_id(&id);
+                bail!(
+                    span, "duplicate tag id `{id}`";
+                    hint: "please report this as a bug"
+                )
             }
-            KrillaError::UnknownTagId(_, _) => {
-                unreachable!("all referenced IDs should be present in the tag tree")
+            KrillaError::UnknownTagId(id, loc) => {
+                let span = to_span(loc);
+                let id = display_tag_id(&id);
+                bail!(
+                    span, "unknown tag id `{id}`";
+                    hint: "please report this as a bug"
+                )
             }
             KrillaError::Image(_, loc) => {
                 let span = to_span(loc);
@@ -392,6 +403,20 @@ fn finish(
             }
         },
     }
+}
+
+fn display_tag_id(id: &TagId) -> impl std::fmt::Display + use<'_> {
+    typst_utils::display(|f| {
+        if let Ok(str) = std::str::from_utf8(id.as_bytes()) {
+            f.write_str(str)
+        } else {
+            f.write_str("0x")?;
+            for b in id.as_bytes() {
+                write!(f, "{b:x}")?;
+            }
+            Ok(())
+        }
+    })
 }
 
 /// Converts a krilla error into a Typst error.
@@ -562,16 +587,20 @@ fn convert_error(
         }
         // The below errors cannot occur yet, only once Typst supports full PDF/A
         // and PDF/UA. But let's still add a message just to be on the safe side.
-        ValidationError::MissingAnnotationAltText => error!(
-            Span::detached(),
-            "{prefix} missing annotation alt text";
-            hint: "please report this as a bug"
-        ),
-        ValidationError::MissingAltText => error!(
-            Span::detached(),
-            "{prefix} missing alt text";
-            hint: "make sure your images and equations have alt text"
-        ),
+        ValidationError::MissingAnnotationAltText(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing annotation alt text";
+                hint: "please report this as a bug"
+            )
+        }
+        ValidationError::MissingAltText(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing alt text";
+                hint: "make sure your images and equations have alt text"
+            )
+        }
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
             "{prefix} missing document language";

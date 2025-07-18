@@ -23,10 +23,10 @@ use serde::{Serialize, Serializer};
 use typst_syntax::Span;
 use typst_utils::singleton;
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    func, repr, scope, ty, Context, Dict, IntoValue, Label, Property, Recipe,
+    func, repr, scope, ty, Args, Context, Dict, IntoValue, Label, Property, Recipe,
     RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
 };
 use crate::introspection::{Locatable, Location};
@@ -479,7 +479,7 @@ impl Content {
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
         let span = self.span();
-        LinkMarker::new(self, dest.clone(), alt)
+        LinkMarker::new(self, dest.clone(), alt, span)
             .pack()
             .spanned(span)
             .set(LinkElem::current, Some(dest))
@@ -785,15 +785,27 @@ impl Repr for StyledElem {
 }
 
 /// An element that associates the body of a link with the destination.
-#[elem(Locatable)]
+#[elem(Locatable, Construct)]
 pub struct LinkMarker {
     /// The content.
+    #[internal]
     #[required]
     pub body: Content,
+    #[internal]
     #[required]
     pub dest: Destination,
+    #[internal]
     #[required]
     pub alt: Option<EcoString>,
+    #[internal]
+    #[required]
+    pub span: Span,
+}
+
+impl Construct for LinkMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
 }
 
 impl<T: NativeElement> IntoValue for T {

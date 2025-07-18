@@ -1373,7 +1373,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?branch=main#d40f81a01ca8f8654510a76effeef12518437800"
+source = "git+https://github.com/LaurenzV/krilla?branch=main#32d070e737cd8ae4c3aa4ff901d15cb22bd052f3"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1402,7 +1402,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?branch=main#d40f81a01ca8f8654510a76effeef12518437800"
+source = "git+https://github.com/LaurenzV/krilla?branch=main#32d070e737cd8ae4c3aa4ff901d15cb22bd052f3"
 dependencies = [
  "flate2",
  "fontdb",

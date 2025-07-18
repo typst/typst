@@ -176,6 +176,7 @@ pub(crate) fn handle_start(
         return Ok(());
     };
 
+    let tag = tag.with_location(Some(elem.span().into_raw().get()));
     push_stack(gc, loc, StackEntryKind::Standard(tag))?;
 
     Ok(())
@@ -202,7 +203,8 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                let tag = TagKind::TOCI.into();
+                let tag = TagKind::TOCI
+                    .with_location(Some(outline_entry.span().into_raw().get()));
                 gc.tags.push(TagNode::Group(tag, entry.nodes));
                 return;
             };
@@ -216,7 +218,8 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                let tag = TagKind::TD(TableDataCell::new()).into();
+                let tag = TagKind::TD(TableDataCell::new())
+                    .with_location(Some(cell.span().into_raw().get()));
                 gc.tags.push(TagNode::Group(tag, entry.nodes));
                 return;
             };
@@ -324,11 +327,13 @@ pub(crate) fn add_annotations(
     annotations: Vec<LinkAnnotation>,
 ) {
     for annotation in annotations.into_iter() {
-        let LinkAnnotation { id: _, placeholder, alt, quad_points, target } = annotation;
+        let LinkAnnotation { id: _, placeholder, alt, quad_points, target, span } =
+            annotation;
         let annot = krilla::annotation::Annotation::new_link(
             krilla::annotation::LinkAnnotation::new_with_quad_points(quad_points, target),
             alt,
-        );
+        )
+        .with_location(Some(span.into_raw().get()));
         let annot_id = page.add_tagged_annotation(annot);
         gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
     }
