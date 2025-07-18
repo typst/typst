@@ -336,6 +336,21 @@ fn visit_kind_rules<'a>(
     Ok(false)
 }
 
+fn visit_with_tags_minimal<'a>(
+    s: &mut State<'a, '_, '_, '_>,
+    content: &'a Content,
+    styles: StyleChain<'a>,
+) -> SourceResult<()> {
+    let mut elem = content.clone();
+    let key = typst_utils::hash128(&elem);
+    let loc = s.locator.next_location(s.engine.introspector, key);
+    elem.set_location(loc);
+    visit(s, s.store(TagElem::packed(Tag::Start(elem.clone()))), styles)?;
+    elem.mark_prepared();
+    visit(s, s.store(TagElem::packed(Tag::End(loc, key))), styles)?;
+    visit(s, s.store(elem), styles)
+}
+
 /// Tries to apply show rules to or prepare content. Returns `true` if the
 /// element was handled.
 fn visit_show_rules<'a>(
@@ -346,7 +361,12 @@ fn visit_show_rules<'a>(
     // Determines whether and how to proceed with show rule application.
     let Some(Verdict { prepared, mut map, step }) = verdict(s.engine, content, styles)
     else {
-        return Ok(false);
+        if !content.is_prepared() && locatable(content) {
+            visit_with_tags_minimal(s, content, styles)?;
+            return Ok(true);
+        } else {
+            return Ok(false);
+        }
     };
 
     // Create a fresh copy that we can mutate.
@@ -506,7 +526,7 @@ fn verdict<'a>(
             elem.label().is_none()
                 && elem.location().is_none()
                 && !elem.can::<dyn ShowSet>()
-                && !locatable(elem)
+                && !elem.can::<dyn Locatable>()
                 && !elem.can::<dyn Synthesize>()
         })
     {
@@ -535,7 +555,9 @@ fn prepare(
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
-    if elem.location().is_none() && (locatable(elem) || elem.label().is_some()) {
+    if elem.location().is_none()
+        && (elem.can::<dyn Locatable>() || elem.label().is_some())
+    {
         let loc = locator.next_location(engine.introspector, key);
         elem.set_location(loc);
     }
