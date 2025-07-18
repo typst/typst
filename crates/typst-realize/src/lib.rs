@@ -338,7 +338,6 @@ fn visit_kind_rules<'a>(
 
 /// Tries to apply show rules to or prepare content. Returns `true` if the
 /// element was handled.
-#[typst_macros::time(name = "visit show rules")]
 fn visit_show_rules<'a>(
     s: &mut State<'a, '_, '_, '_>,
     content: &'a Content,
@@ -423,7 +422,6 @@ fn visit_show_rules<'a>(
 
 /// Inspects an element and the current styles and determines how to proceed
 /// with the styling.
-#[typst_macros::time(name = "verdict")]
 fn verdict<'a>(
     engine: &mut Engine,
     elem: &'a Content,
@@ -523,7 +521,6 @@ fn locatable(elem: &Content) -> bool {
 }
 
 /// This is only executed the first time an element is visited.
-#[typst_macros::time(name = "prepare")]
 fn prepare(
     engine: &mut Engine,
     locator: &mut SplitLocator,
