@@ -129,6 +129,13 @@ impl<'a> HeadingNode<'a> {
         let pos = gc.document.introspector.position(loc);
         let page_index = pos.page.get() - 1;
 
+        // Prepend the numbering to title if it exists
+        let title = match &self.element.numbering_displayed {
+            // The space should be a `h(0.3em)`, but only plain-texts are supported here.
+            Some(ref num) => format!("{num} {title}"),
+            None => title,
+        };
+
         if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
             let dest = XyzDestination::new(
