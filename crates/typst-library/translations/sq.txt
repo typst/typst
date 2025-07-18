@@ -6,3 +6,4 @@ heading = Kapitull
 outline = Përmbajtja
 raw = List
 page = faqe
+# footnote =

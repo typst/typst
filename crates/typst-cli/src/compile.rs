@@ -65,6 +65,8 @@ pub struct CompileConfig {
     pub open: Option<Option<String>>,
     /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
+    /// Whether to write PDF (accessibility) tags.
+    pub disable_pdf_tags: bool,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
@@ -150,6 +152,7 @@ impl CompileConfig {
             output_format,
             pages,
             pdf_standards,
+            disable_pdf_tags: args.disable_pdf_tags,
             creation_timestamp: args.world.creation_timestamp,
             make_deps: args.make_deps.clone(),
             ppi: args.ppi,
@@ -291,6 +294,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
+        disable_tags: config.disable_pdf_tags,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config
@@ -773,6 +777,7 @@ impl From<PdfStandard> for typst_pdf::PdfStandard {
             PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
             PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
             PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+            PdfStandard::Ua_1 => typst_pdf::PdfStandard::Ua_1,
         }
     }
 }

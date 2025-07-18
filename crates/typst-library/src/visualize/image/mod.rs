@@ -22,6 +22,7 @@ use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Smart,
     StyleChain,
 };
+use crate::introspection::Locatable;
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
@@ -45,7 +46,7 @@ use crate::text::{families, LocalName};
 ///   ],
 /// )
 /// ```
-#[elem(scope, LocalName, Figurable)]
+#[elem(scope, Locatable, LocalName, Figurable)]
 pub struct ImageElem {
     /// A [path]($syntax/#paths) to an image file or raw bytes making up an
     /// image in one of the supported [formats]($image.format).
@@ -123,7 +124,7 @@ pub struct ImageElem {
     /// The height of the image.
     pub height: Sizing,
 
-    /// A text describing the image.
+    /// An alternative description of the image.
     pub alt: Option<EcoString>,
 
     /// How the image should adjust itself to a given area (the area is defined

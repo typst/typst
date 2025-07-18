@@ -6,3 +6,4 @@ heading = Odjeljak
 outline = Sadržaj
 raw = Kôd
 page = str.
+# footnote =

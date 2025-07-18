@@ -11,8 +11,8 @@ use typst_library::visualize::FillRule;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::paint;
 use crate::util::{display_font, AbsExt, TransformExt};
+use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle text")]
 pub(crate) fn handle_text(
@@ -22,6 +22,9 @@ pub(crate) fn handle_text(
     gc: &mut GlobalContext,
 ) -> SourceResult<()> {
     *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
+
+    let mut handle = tags::start_marked(gc, surface);
+    let surface = handle.surface();
 
     let font = convert_font(gc, t.font.clone())?;
     let fill = paint::convert_fill(

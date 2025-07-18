@@ -5,16 +5,16 @@ use ecow::{eco_format, EcoVec};
 use smallvec::smallvec;
 use typst_library::diag::{bail, At, SourceResult};
 use typst_library::foundations::{
-    dict, Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Target,
+    dict, Content, Context, LinkMarker, NativeElement, NativeRuleMap, Packed, Resolve,
+    ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em, GridCell,
     GridChild, GridElem, GridItem, HAlignment, HElem, HideElem, InlineElem, LayoutElem,
-    Length, MoveElem, OuterVAlignment, PadElem, PlaceElem, PlacementScope, Region, Rel,
-    RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing, SkewElem, Spacing,
-    StackChild, StackElem, TrackSizings, VElem,
+    Length, MoveElem, OuterVAlignment, PadElem, PageElem, PlaceElem, PlacementScope,
+    Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing, SkewElem,
+    Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
@@ -23,12 +23,12 @@ use typst_library::model::{
     LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
     QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
 };
-use typst_library::pdf::EmbedElem;
+use typst_library::pdf::{ArtifactElem, EmbedElem, PdfMarkerTag};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
-    WeightDelta,
+    SmartQuoteElem, SmartQuotes, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem,
+    TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
@@ -46,6 +46,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LIST_RULE);
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
+    rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -103,6 +104,8 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // PDF.
     rules.register(Paged, EMBED_RULE);
+    rules.register(Paged, PDF_ARTIFACT_RULE);
+    rules.register(Paged, PDF_MARKER_TAG_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -176,9 +179,9 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     for child in elem.children.iter() {
         let mut seq = vec![];
         seq.extend(unpad.clone());
-        seq.push(child.term.clone().strong());
+        seq.push(PdfMarkerTag::ListItemLabel(child.term.clone().strong()));
         seq.push(separator.clone());
-        seq.push(child.description.clone());
+        seq.push(PdfMarkerTag::ListItemBody(child.description.clone()));
 
         // Text in wide term lists shall always turn into paragraphs.
         if !tight {
@@ -214,10 +217,16 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
+const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
+
+const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
-    Ok(body.linked(dest))
+    let alt = match elem.alt.get_cloned(styles) {
+        Some(alt) => Some(alt),
+        None => dest.alt_text(engine, styles)?,
+    };
+    Ok(body.linked(dest, alt))
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
@@ -258,7 +267,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
         let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
 
-        realized = numbering + spacing + realized;
+        realized = PdfMarkerTag::Label(numbering) + spacing + realized;
     }
 
     let block = if indent != Abs::zero() {
@@ -277,7 +286,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     let span = elem.span();
-    let mut realized = elem.body.clone();
+    let mut realized = PdfMarkerTag::FigureBody(elem.body.clone());
 
     // Build the caption, if any.
     if let Some(caption) = elem.caption.get_cloned(styles) {
@@ -376,10 +385,11 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let numbering = elem.numbering.get_ref(styles);
     let counter = Counter::of(FootnoteElem::ELEM);
     let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let sup = SuperElem::new(num).pack().spanned(span);
+    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
+    let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span));
     let loc = loc.variant(1);
     // Add zero-width weak spacing to make the footnote "sticky".
-    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
+    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc), Some(alt)))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -396,10 +406,9 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     };
 
     let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let sup = SuperElem::new(num)
-        .pack()
-        .spanned(span)
-        .linked(Destination::Location(loc))
+    let alt = num.plain_text();
+    let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span))
+        .linked(Destination::Location(loc), Some(alt))
         .located(loc.variant(1));
 
     Ok(Content::sequence([
@@ -430,6 +439,7 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     let depth = elem.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
 
     // Build the outline entries.
+    let mut entries = vec![];
     for elem in elems {
         let Some(outlinable) = elem.with::<dyn Outlinable>() else {
             bail!(span, "cannot outline {}", elem.func().name());
@@ -438,9 +448,12 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
         let level = outlinable.level();
         if outlinable.outlined() && level <= depth {
             let entry = OutlineEntry::new(level, elem);
-            seq.push(entry.pack().spanned(span));
+            entries.push(entry.pack().spanned(span));
         }
     }
+
+    // Wrap the entries into a marker for pdf tagging.
+    seq.push(PdfMarkerTag::OutlineBody(Content::sequence(entries)));
 
     Ok(Content::sequence(seq))
 };
@@ -451,7 +464,24 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let context = context.track();
 
     let prefix = elem.prefix(engine, context, span)?;
-    let inner = elem.inner(engine, context, span)?;
+    let body = elem.body().at(span)?;
+    let page = elem.page(engine, context, span)?;
+    let alt = {
+        let prefix = prefix.as_ref().map(|p| p.plain_text()).unwrap_or_default();
+        let body = body.plain_text();
+        let page_str = PageElem::local_name_in(styles);
+        let page_nr = page.plain_text();
+        let quotes = SmartQuotes::get(
+            styles.get_ref(SmartQuoteElem::quotes),
+            styles.get(TextElem::lang),
+            styles.get(TextElem::region),
+            styles.get(SmartQuoteElem::alternative),
+        );
+        let open = quotes.double_open;
+        let close = quotes.double_close;
+        eco_format!("{prefix} {open}{body}{close} {page_str} {page_nr}",)
+    };
+    let inner = elem.build_inner(context, span, body, page)?;
     let block = if elem.element.is::<EquationElem>() {
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::new()
@@ -463,7 +493,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     };
 
     let loc = elem.element_location().at(span)?;
-    Ok(block.linked(Destination::Location(loc)))
+    Ok(block.linked(Destination::Location(loc), Some(alt)))
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
@@ -511,25 +541,29 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
         let mut cells = vec![];
         for (prefix, reference) in references {
+            let prefix = PdfMarkerTag::ListItemLabel(prefix.clone().unwrap_or_default());
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                    .spanned(span),
+                Packed::new(GridCell::new(prefix)).spanned(span),
             )));
+
+            let reference = PdfMarkerTag::BibEntry(reference.clone());
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(reference.clone())).spanned(span),
+                Packed::new(GridCell::new(reference)).spanned(span),
             )));
         }
-        seq.push(
-            GridElem::new(cells)
-                .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                .pack()
-                .spanned(span),
-        );
+
+        let grid = GridElem::new(cells)
+            .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+            .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+            .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
+            .pack()
+            .spanned(span);
+        // TODO(accessibility): infer list numbering from style?
+        seq.push(PdfMarkerTag::Bibliography(true, grid));
     } else {
+        let mut body = vec![];
         for (_, reference) in references {
-            let realized = reference.clone();
+            let realized = PdfMarkerTag::BibEntry(reference.clone());
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
@@ -541,8 +575,9 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 BlockElem::new().with_body(Some(BlockBody::Content(realized)))
             };
 
-            seq.push(block.pack().spanned(span));
+            body.push(block.pack().spanned(span));
         }
+        seq.push(PdfMarkerTag::Bibliography(false, Content::sequence(body)));
     }
 
     Ok(Content::sequence(seq))
@@ -844,3 +879,7 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
 };
 
 const EMBED_RULE: ShowFn<EmbedElem> = |_, _, _| Ok(Content::empty());
+
+const PDF_ARTIFACT_RULE: ShowFn<ArtifactElem> = |elem, _, _| Ok(elem.body.clone());
+
+const PDF_MARKER_TAG_RULE: ShowFn<PdfMarkerTag> = |elem, _, _| Ok(elem.body.clone());

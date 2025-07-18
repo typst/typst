@@ -7,6 +7,7 @@ use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
+use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
 
 use crate::grid::GridLayouter;
@@ -48,12 +49,16 @@ pub fn layout_list(
         if !tight {
             body += ParbreakElem::shared();
         }
+        let body = body.set(ListElem::depth, Depth(1));
 
         cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
+        cells.push(Cell::new(
+            PdfMarkerTag::ListItemLabel(marker.clone()),
+            locator.next(&marker.span()),
+        ));
         cells.push(Cell::new(Content::empty(), locator.next(&())));
         cells.push(Cell::new(
-            body.set(ListElem::depth, Depth(1)),
+            PdfMarkerTag::ListItemBody(body),
             locator.next(&item.body.span()),
         ));
     }
@@ -142,11 +147,13 @@ pub fn layout_enum(
             body += ParbreakElem::shared();
         }
 
+        let body = body.set(EnumElem::parents, smallvec![number]);
+
         cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(resolved, locator.next(&())));
+        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved), locator.next(&())));
         cells.push(Cell::new(Content::empty(), locator.next(&())));
         cells.push(Cell::new(
-            body.set(EnumElem::parents, smallvec![number]),
+            PdfMarkerTag::ListItemBody(body),
             locator.next(&item.body.span()),
         ));
         number =

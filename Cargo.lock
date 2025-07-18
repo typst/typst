@@ -593,6 +593,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
+
+[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1367,7 +1373,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=20c14fe#20c14fefee5002566b3d6668b338bbe2168784e7"
+source = "git+https://github.com/LaurenzV/krilla?branch=main#32d070e737cd8ae4c3aa4ff901d15cb22bd052f3"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1385,6 +1391,7 @@ dependencies = [
  "rustybuzz",
  "siphasher",
  "skrifa",
+ "smallvec",
  "subsetter",
  "tiny-skia-path",
  "xmp-writer",
@@ -1395,7 +1402,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=20c14fe#20c14fefee5002566b3d6668b338bbe2168784e7"
+source = "git+https://github.com/LaurenzV/krilla?branch=main#32d070e737cd8ae4c3aa4ff901d15cb22bd052f3"
 dependencies = [
  "flate2",
  "fontdb",
@@ -1982,6 +1989,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2451,9 +2468,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.13.2"
+version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spin"
@@ -3135,6 +3152,7 @@ dependencies = [
 name = "typst-pdf"
 version = "0.13.1"
 dependencies = [
+ "az",
  "bytemuck",
  "comemo",
  "ecow",
@@ -3142,7 +3160,9 @@ dependencies = [
  "infer",
  "krilla",
  "krilla-svg",
+ "pretty_assertions",
  "serde",
+ "smallvec",
  "typst-assets",
  "typst-library",
  "typst-macros",
@@ -3804,6 +3824,12 @@ checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
 ]
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yoke"

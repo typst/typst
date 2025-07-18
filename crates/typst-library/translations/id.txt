@@ -6,3 +6,4 @@ heading = Bagian
 outline = Daftar Isi
 raw = Kode
 page = halaman
+# footnote =

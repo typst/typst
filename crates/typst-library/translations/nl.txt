@@ -6,3 +6,4 @@ heading = Hoofdstuk
 outline = Inhoudsopgave
 raw = Listing
 page = pagina
+# footnote =
