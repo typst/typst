@@ -555,6 +555,7 @@ fn prepare(
 
     // Copy style chain fields into the element itself, so that they are
     // available in rules.
+    elem.clone().materialize(styles.chain(map));
     elem.materialize(styles.chain(map));
 
     // If the element is locatable, create start and end tags to be able to find
