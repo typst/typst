@@ -206,13 +206,11 @@ pub fn layout_multi_block(
     let has_inset = !inset.is_zero();
     let is_explicit = matches!(body, None | Some(BlockBody::Content(_)));
 
-    // Skip filling/stroking the first frame if it is empty and a non-empty
-    // one follows.
+    // Skip filling, stroking and labeling the first frame if it is empty and
+    // a non-empty one follows.
     let mut skip_first = false;
     if let [first, rest @ ..] = fragment.as_slice() {
-        skip_first = has_fill_or_stroke
-            && first.is_empty()
-            && rest.iter().any(|frame| !frame.is_empty());
+        skip_first = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
     }
 
     // Post-process to apply insets, clipping, fills, and strokes.
@@ -244,7 +242,8 @@ pub fn layout_multi_block(
 
     // Assign label to each frame in the fragment.
     if let Some(label) = elem.label() {
-        for frame in fragment.iter_mut() {
+        // Skip empty orphan frames, as a label would make them non-empty.
+        for frame in fragment.iter_mut().skip(if skip_first { 1 } else { 0 }) {
             frame.label(label);
         }
     }
