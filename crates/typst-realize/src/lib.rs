@@ -343,8 +343,6 @@ fn visit_show_rules<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
-    std::hint::black_box(verdict(s.engine, content, styles));
-
     // Determines whether and how to proceed with show rule application.
     let Some(Verdict { prepared, mut map, step }) = verdict(s.engine, content, styles)
     else {
