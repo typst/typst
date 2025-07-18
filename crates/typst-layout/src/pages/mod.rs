@@ -86,7 +86,6 @@ fn layout_document_impl(
     )?;
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
-    std::hint::black_box(introspect_pages(&pages));
     let introspector = introspect_pages(&pages);
 
     Ok(PagedDocument { pages, info, introspector })
