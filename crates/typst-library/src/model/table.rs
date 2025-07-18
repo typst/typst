@@ -625,7 +625,7 @@ pub struct TableVLine {
 ///   cell(align: left)[🌴🚗],
 ///   cell(
 ///     inset: 0.06em,
-///     text(1.62em)[🛖🌅🌊],
+///     text(1.62em)[🏝️🌅🌊],
 ///   ),
 /// )
 /// ```
