@@ -405,7 +405,6 @@ fn visit_show_rules<'a>(
     let prev_outside = s.outside;
     s.outside &= content.is::<ContextElem>();
     s.engine.route.increase();
-    s.engine.route.check_show_depth().at(content.span())?;
 
     visit_styled(s, realized, Cow::Owned(map), styles)?;
 
