@@ -255,6 +255,10 @@ pub struct Binding {
     category: Option<Category>,
     /// A deprecation message for the definition.
     deprecation: Option<&'static str>,
+    /// A version in which the deprecated binding is planned to be removed.
+    ///
+    /// This is ignored if `deprecation` is `None`.
+    until: Option<&'static str>,
 }
 
 /// The different kinds of slots.
@@ -275,6 +279,7 @@ impl Binding {
             kind: BindingKind::Normal,
             category: None,
             deprecation: None,
+            until: None,
         }
     }
 
@@ -286,6 +291,14 @@ impl Binding {
     /// Marks this binding as deprecated, with the given `message`.
     pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
         self.deprecation = Some(message);
+        self
+    }
+
+    /// Set the version in which the binding is planned to be removed.
+    ///
+    /// This is ignored if [`Binding::deprecated`] isn't also set.
+    pub fn until(&mut self, version: &'static str) -> &mut Self {
+        self.until = Some(version);
         self
     }
 
@@ -301,7 +314,7 @@ impl Binding {
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
     pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
         if let Some(message) = self.deprecation {
-            sink.emit(message);
+            sink.emit(message, self.until);
         }
         &self.value
     }

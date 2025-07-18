@@ -95,7 +95,10 @@ pub fn csv(
 impl csv {
     /// Reads structured data from a CSV string/bytes.
     #[func(title = "Decode CSV")]
-    #[deprecated = "`csv.decode` is deprecated, directly pass bytes to `csv` instead"]
+    #[deprecated(
+        message = "`csv.decode` is deprecated, directly pass bytes to `csv` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// CSV data.
