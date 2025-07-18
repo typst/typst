@@ -155,6 +155,10 @@ pub struct QueryCommand {
     #[clap(long)]
     pub pretty: bool,
 
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
     /// World arguments.
     #[clap(flatten)]
     pub world: WorldArgs,
@@ -456,6 +460,18 @@ pub enum OutputFormat {
 }
 
 display_possible_values!(OutputFormat);
+
+/// The target to compile for.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum Target {
+    /// PDF and image formats.
+    #[default]
+    Paged,
+    /// HTML.
+    Html,
+}
+
+display_possible_values!(Target);
 
 /// Which format to use for diagnostics.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
