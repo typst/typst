@@ -536,6 +536,7 @@ fn prepare(
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
     if elem.location().is_none() && (locatable(elem) || elem.label().is_some()) {
+        std::hint::black_box(locator.next_location(engine.introspector, key));
         let loc = locator.next_location(engine.introspector, key);
         elem.set_location(loc);
     }
