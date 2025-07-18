@@ -1,5 +1,6 @@
 //! Image handling.
 
+mod pdf;
 mod raster;
 mod svg;
 
@@ -26,6 +27,7 @@ use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
 use crate::text::{families, LocalName};
+use crate::visualize::image::pdf::{PdfDocument, PdfImage};
 
 /// A raster or vector graphic.
 ///
@@ -125,6 +127,11 @@ pub struct ImageElem {
 
     /// A text describing the image.
     pub alt: Option<EcoString>,
+
+    /// The page number that should be embedded as an image. This attribute only has an effect
+    /// for PDF files.
+    #[default(1)]
+    pub page: usize,
 
     /// How the image should adjust itself to a given area (the area is defined
     /// by the `width` and `height` fields). Note that `fit` doesn't visually
@@ -261,6 +268,15 @@ impl Packed<ImageElem> {
                 )
                 .within(loaded)?,
             ),
+            ImageFormat::Vector(VectorFormat::Pdf) => {
+                let document = PdfDocument::new(loaded.data.clone()).within(loaded)?;
+                // The user provides the page number staring from 1, further down the pipeline they page
+                // numbers are 0-based.
+                let pdf_image =
+                    PdfImage::new(document, self.page.get(styles) - 1).within(loaded)?;
+
+                ImageKind::Pdf(pdf_image)
+            }
         };
 
         Ok(Image::new(kind, self.alt.get_cloned(styles), self.scaling.get(styles)))
@@ -286,6 +302,7 @@ impl Packed<ImageElem> {
                 "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
                 "gif" => return Ok(ExchangeFormat::Gif.into()),
                 "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
+                "pdf" => return Ok(VectorFormat::Pdf.into()),
                 "webp" => return Ok(ExchangeFormat::Webp.into()),
                 _ => {}
             }
@@ -373,6 +390,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.format().into(),
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
+            ImageKind::Pdf(_) => VectorFormat::Pdf.into(),
         }
     }
 
@@ -381,6 +399,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
+            ImageKind::Pdf(pdf) => pdf.width() as f64,
         }
     }
 
@@ -389,6 +408,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+            ImageKind::Pdf(pdf) => pdf.height() as f64,
         }
     }
 
@@ -397,6 +417,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
+            ImageKind::Pdf(_) => Some(Image::DEFAULT_DPI),
         }
     }
 
@@ -435,6 +456,8 @@ pub enum ImageKind {
     Raster(RasterImage),
     /// An SVG image.
     Svg(SvgImage),
+    /// A PDF image.
+    Pdf(PdfImage),
 }
 
 impl From<RasterImage> for ImageKind {
@@ -469,8 +492,18 @@ impl ImageFormat {
             return Some(Self::Vector(VectorFormat::Svg));
         }
 
+        if is_pdf(data) {
+            return Some(Self::Vector(VectorFormat::Pdf));
+        }
+
         None
     }
+}
+
+/// Checks whether the data looks like a PDF file.
+fn is_pdf(data: &[u8]) -> bool {
+    let head = &data[..data.len().min(2048)];
+    memchr::memmem::find(head, b"%PDF-").is_some()
 }
 
 /// Checks whether the data looks like an SVG or a compressed SVG.
@@ -493,6 +526,8 @@ fn is_svg(data: &[u8]) -> bool {
 pub enum VectorFormat {
     /// The vector graphics format of the web.
     Svg,
+    /// The PDF graphics format.
+    Pdf,
 }
 
 impl<R> From<R> for ImageFormat

@@ -1,8 +1,9 @@
 use std::sync::Arc;
-
+use hayro_render::{InterpreterSettings, RenderSettings};
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
+use tiny_skia::IntSize;
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;
 use typst_library::visualize::{Image, ImageKind, ImageScaling};
@@ -59,9 +60,9 @@ pub fn render_image(
 /// Prepare a texture for an image at a scaled size.
 #[comemo::memoize]
 fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
-    let mut texture = sk::Pixmap::new(w, h)?;
-    match image.kind() {
+    let texture = match image.kind() {
         ImageKind::Raster(raster) => {
+            let mut texture = sk::Pixmap::new(w, h)?;
             let w = texture.width();
             let h = texture.height();
 
@@ -85,15 +86,37 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
                 let Rgba([r, g, b, a]) = src;
                 *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
             }
+            
+            texture
         }
         ImageKind::Svg(svg) => {
+            let mut texture = sk::Pixmap::new(w, h)?;
             let tree = svg.tree();
             let ts = tiny_skia::Transform::from_scale(
                 w as f32 / tree.size().width(),
                 h as f32 / tree.size().height(),
             );
             resvg::render(tree, ts, &mut texture.as_mut());
+            
+            texture
         }
-    }
+        ImageKind::Pdf(pdf) => {
+            let hayro_pix = pdf.with_page(|page| {
+                // TODO: Configure so that PDF standard fonts can be resolved
+                let interpreter_settings = InterpreterSettings::default();
+                let render_settings = RenderSettings {
+                    x_scale: w as f32 / pdf.width(),
+                    y_scale: h as f32 / pdf.height(),
+                    width: Some(w as u16),
+                    height: Some(h as u16)
+                };
+                hayro_render::render(page, &interpreter_settings, &render_settings)
+                
+            });
+
+            sk::Pixmap::from_vec(hayro_pix.data_as_u8_slice().to_vec(), IntSize::from_wh(w, h)?)?
+        },
+    };
+    
     Some(Arc::new(texture))
 }

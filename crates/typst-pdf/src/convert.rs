@@ -363,6 +363,11 @@ fn finish(
                     hint: "convert the image to 8 bit instead"
                 )
             }
+            KrillaError::Pdf(_, e, loc) => {
+                // TODO: Better errors
+                let span = to_span(loc);
+                bail!(span, "failed to process PDF");
+            }
         },
     }
 }
@@ -576,6 +581,17 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
+        ValidationError::DuplicateTagId(_, loc) => error!(
+            to_span(*loc),
+            "{prefix} duplicate tag id";
+            hint: "please report this as a bug"
+        ),
+        ValidationError::UnknownTagId(_, loc) => error!(
+            to_span(*loc),
+            "{prefix} unknown tag id";
+            hint: "please report this as a bug"
+        ),
+        ValidationError::EmbeddedPDF(loc) => error!(to_span(*loc), "TODO"),
     }
 }
 
