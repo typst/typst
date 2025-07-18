@@ -520,22 +520,14 @@ pub fn commit(
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
-    enum Final<'a> {
-        Frame(Frame),
-        Tag(&'a Tag),
-    }
-
     // Build the frames and determine the height and baseline.
-    let mut finals = vec![];
+    let mut frames = vec![];
     for &(idx, ref item) in line.items.indexed_iter() {
-        let mut push = |finals: &mut Vec<(Abs, Final, usize)>,
-                        offset: &mut Abs,
-                        frame: Frame,
-                        idx: usize| {
+        let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
-            finals.push((*offset, Final::Frame(frame), idx));
+            frames.push((*offset, frame, idx));
             *offset += width;
         };
 
@@ -551,7 +543,7 @@ pub fn commit(
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
                     apply_shift(&engine.world, &mut frame, *styles);
-                    push(&mut finals, &mut offset, frame, idx);
+                    push(&mut offset, frame, idx);
                 } else {
                     offset += amount;
                 }
@@ -563,13 +555,15 @@ pub fn commit(
                     justification_ratio,
                     extra_justification,
                 );
-                push(&mut finals, &mut offset, frame, idx);
+                push(&mut offset, frame, idx);
             }
             Item::Frame(frame) => {
-                push(&mut finals, &mut offset, frame.clone(), idx);
+                push(&mut offset, frame.clone(), idx);
             }
             Item::Tag(tag) => {
-                finals.push((offset, Final::Tag(tag), idx));
+                let mut frame = Frame::soft(Size::zero());
+                frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
+                frames.push((offset, frame, idx));
             }
             Item::Skip(_) => {}
         }
@@ -591,20 +585,13 @@ pub fn commit(
     // Ensure that the final frame's items are in logical order rather than in
     // visual order. This is important because it affects the order of elements
     // during introspection and thus things like counters.
-    finals.sort_unstable_by_key(|(_, _, idx)| *idx);
+    frames.sort_unstable_by_key(|(_, _, idx)| *idx);
 
     // Construct the line's frame.
-    for (offset, f, _) in finals {
+    for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
-        match f {
-            Final::Frame(frame) => {
-                let y = top - frame.baseline();
-                output.push_frame(Point::new(x, y), frame);
-            }
-            Final::Tag(tag) => {
-                output.push(Point::new(x, top), FrameItem::Tag(tag.clone()));
-            }
-        }
+        let y = top - frame.baseline();
+        output.push_frame(Point::new(x, y), frame);
     }
 
     Ok(output)
