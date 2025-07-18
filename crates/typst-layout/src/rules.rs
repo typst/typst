@@ -222,9 +222,10 @@ const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
-    let url = || dest.as_url().map(|url| url.clone().into_inner());
-    // TODO(accessibility): remove custom alt field and generate alt text
-    let alt = elem.alt.get_cloned(styles).or_else(url);
+    let alt = match elem.alt.get_cloned(styles) {
+        Some(alt) => Some(alt),
+        None => dest.alt_text(engine, styles)?,
+    };
     Ok(body.linked(dest, alt))
 };
 
