@@ -596,16 +596,20 @@ fn convert_error(
         }
         // The below errors cannot occur yet, only once Typst supports full PDF/A
         // and PDF/UA. But let's still add a message just to be on the safe side.
-        ValidationError::MissingAnnotationAltText(_) => error!(
-            Span::detached(),
-            "{prefix} missing annotation alt text";
-            hint: "please report this as a bug"
-        ),
-        ValidationError::MissingAltText(_) => error!(
-            Span::detached(),
-            "{prefix} missing alt text";
-            hint: "make sure your images and equations have alt text"
-        ),
+        ValidationError::MissingAnnotationAltText(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing annotation alt text";
+                hint: "please report this as a bug"
+            )
+        }
+        ValidationError::MissingAltText(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing alt text";
+                hint: "make sure your images and equations have alt text"
+            )
+        }
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
             "{prefix} missing document language";

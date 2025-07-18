@@ -51,7 +51,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         return;
     }
 
-    let tag = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
+    let tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
                 push_stack(gc, loc, StackEntryKind::Outline(OutlineCtx::new()));
@@ -183,6 +183,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         return;
     };
 
+    let tag = tag.with_location(Some(elem.span().into_raw()));
     push_stack(gc, loc, StackEntryKind::Standard(tag));
 }
 
@@ -207,7 +208,8 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) 
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                gc.tags.push(TagNode::group(Tag::TOCI, entry.nodes));
+                let tag = Tag::TOCI.with_location(Some(outline_entry.span().into_raw()));
+                gc.tags.push(TagNode::group(tag, entry.nodes));
                 return;
             };
 
@@ -220,7 +222,8 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) 
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                gc.tags.push(TagNode::group(Tag::TD, entry.nodes));
+                let tag = Tag::TD.with_location(Some(cell.span().into_raw()));
+                gc.tags.push(TagNode::group(tag, entry.nodes));
                 return;
             };
 
@@ -334,7 +337,8 @@ pub fn add_link_annotations(
                 a.target,
             ),
             a.alt,
-        );
+        )
+        .with_location(Some(a.span.into_raw()));
         let annot_id = page.add_tagged_annotation(annotation);
         gc.tags.placeholders.init(a.placeholder, Node::Leaf(annot_id));
     }
@@ -476,10 +480,10 @@ impl TagStack {
 
     pub fn find_parent_link(
         &mut self,
-    ) -> Option<(LinkId, &LinkMarker, &mut Vec<TagNode>)> {
+    ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
         self.0.iter_mut().rev().find_map(|e| {
             let (link_id, link) = e.kind.as_link()?;
-            Some((link_id, link.as_ref(), &mut e.nodes))
+            Some((link_id, link, &mut e.nodes))
         })
     }
 }

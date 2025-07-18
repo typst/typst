@@ -219,10 +219,16 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
+    let span = elem.span();
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
     let alt = dest.alt_text(engine, styles)?;
-    Ok(body.linked(dest, Some(alt)))
+    // Manually construct link marker that spans the whole link elem, not just
+    // the body.
+    Ok(LinkMarker::new(body, Some(alt))
+        .pack()
+        .spanned(span)
+        .set(LinkElem::current, Some(dest)))
 };
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {

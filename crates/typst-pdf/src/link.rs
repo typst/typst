@@ -6,17 +6,19 @@ use krilla::destination::XyzDestination;
 use krilla::geom as kg;
 use typst_library::layout::{Abs, Point, Position, Size};
 use typst_library::model::Destination;
+use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
 use crate::tags::{LinkId, Placeholder, TagNode};
 use crate::util::{AbsExt, PointExt};
 
-pub struct LinkAnnotation {
-    pub id: LinkId,
-    pub placeholder: Placeholder,
-    pub alt: Option<String>,
-    pub quad_points: Vec<kg::Quadrilateral>,
-    pub target: Target,
+pub(crate) struct LinkAnnotation {
+    pub(crate) id: LinkId,
+    pub(crate) placeholder: Placeholder,
+    pub(crate) alt: Option<String>,
+    pub(crate) quad_points: Vec<kg::Quadrilateral>,
+    pub(crate) target: Target,
+    pub(crate) span: Span,
 }
 
 pub(crate) fn handle_link(
@@ -77,6 +79,7 @@ pub(crate) fn handle_link(
                 quad_points: vec![quad],
                 alt,
                 target,
+                span: link.span(),
             });
         }
     }
