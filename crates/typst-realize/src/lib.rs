@@ -344,6 +344,7 @@ fn visit_show_rules<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<bool> {
     // Determines whether and how to proceed with show rule application.
+    let keep_tags = content.can::<dyn Locatable>() || content.label().is_some();
     let Some(Verdict { prepared, mut map, step }) = verdict(s.engine, content, styles)
     else {
         return Ok(false);
@@ -400,6 +401,9 @@ fn visit_show_rules<'a>(
     let (start, end) = tags.unzip();
     if let Some(tag) = start {
         visit(s, s.store(TagElem::packed(tag)), styles)?;
+        if !keep_tags {
+            s.sink.pop();
+        }
     }
 
     let prev_outside = s.outside;
@@ -415,6 +419,9 @@ fn visit_show_rules<'a>(
     // Push end tag.
     if let Some(tag) = end {
         visit(s, s.store(TagElem::packed(tag)), styles)?;
+        if !keep_tags {
+            s.sink.pop();
+        }
     }
 
     Ok(true)
