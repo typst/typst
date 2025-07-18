@@ -718,9 +718,13 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
             }
         };
 
-        for (variant, c, deprecation) in symbol.variants() {
+        for (variant, value, deprecation) in symbol.variants() {
+            let value_char = value.parse::<char>().ok();
+
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                value_char.and_then(|c| {
+                    list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                })
             };
 
             let name = complete(variant);
@@ -729,9 +733,12 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 name,
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
                 math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
-                math_class: typst_utils::default_math_class(c).map(math_class_name),
-                codepoint: c as _,
-                accent: typst::math::Accent::combine(c).is_some(),
+                math_class: value_char.and_then(|c| {
+                    typst_utils::default_math_class(c).map(math_class_name)
+                }),
+                value: value.into(),
+                accent: value_char
+                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _, _)| other != &variant)
