@@ -534,6 +534,7 @@ fn prepare(
     //
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
+    std::hint::black_box(typst_utils::hash128(&elem));
     let key = typst_utils::hash128(&elem);
     if elem.location().is_none() && (locatable(elem) || elem.label().is_some()) {
         let loc = locator.next_location(engine.introspector, key);
