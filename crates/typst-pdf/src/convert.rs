@@ -365,7 +365,6 @@ fn finish(
                 )
             }
             KrillaError::Pdf(_, e, loc) => {
-                // TODO: prohibit export in PDF/A3, etc.
                 let span = to_span(loc);
                 match e {
                     // We already validated in `typst-library` that the page index is valid.
