@@ -13,6 +13,7 @@ use crate::foundations::{
     cast, elem, func, scope, ty, Array, Content, Func, NativeElement, NativeFunc, Packed,
     PlainText, Repr as _,
 };
+use crate::introspection::Unlocatable;
 
 /// A Unicode symbol.
 ///
@@ -413,7 +414,7 @@ impl<'a> Iterator for Variants<'a> {
 }
 
 /// A single character.
-#[elem(Repr, PlainText)]
+#[elem(Repr, PlainText, Unlocatable)]
 pub struct SymbolElem {
     /// The symbol's character.
     #[required]
@@ -439,3 +440,5 @@ impl crate::foundations::Repr for SymbolElem {
         eco_format!("[{}]", self.text)
     }
 }
+
+impl Unlocatable for Packed<SymbolElem> {}
