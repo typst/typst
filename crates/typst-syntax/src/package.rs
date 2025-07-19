@@ -143,7 +143,7 @@ pub struct PackageInfo {
 }
 
 impl PackageManifest {
-    /// Create a new package manifest with the given info.
+    /// Create a new package manifest with the given package info.
     pub fn new(package: PackageInfo) -> Self {
         PackageManifest {
             package,
@@ -184,7 +184,7 @@ impl PackageManifest {
 }
 
 impl TemplateInfo {
-    /// Create a new template info with only required content.
+    /// Create a new template info with only required fields.
     pub fn new(path: impl Into<EcoString>, entrypoint: impl Into<EcoString>) -> Self {
         TemplateInfo {
             path: path.into(),
@@ -196,7 +196,7 @@ impl TemplateInfo {
 }
 
 impl PackageInfo {
-    /// Create a new package info with only required content.
+    /// Create a new package info with only required fields.
     pub fn new(
         name: impl Into<EcoString>,
         version: PackageVersion,
