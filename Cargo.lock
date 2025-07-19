@@ -3258,6 +3258,7 @@ dependencies = [
  "comemo",
  "ecow",
  "flate2",
+ "hayro",
  "image",
  "ttf-parser",
  "typst-library",
