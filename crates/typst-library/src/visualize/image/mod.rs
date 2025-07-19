@@ -15,7 +15,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use typst_library::World;
+use typst_library::{Feature, World};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
@@ -271,32 +271,42 @@ impl Packed<ImageElem> {
                 .within(loaded)?,
             ),
             ImageFormat::Vector(VectorFormat::Pdf) => {
-                let document =
-                    PdfDocument::new(loaded.data.clone(), engine.world.clone())
-                        .within(loaded)?;
-                let page_num = self.page.get(styles);
+                if engine.world.library().features.is_enabled(Feature::PdfEmbedding) {
+                    let document =
+                        PdfDocument::new(loaded.data.clone(), engine.world.clone())
+                            .within(loaded)?;
+                    let page_num = self.page.get(styles);
 
-                if page_num == 0 {
+                    if page_num == 0 {
+                        bail!(
+                            span,
+                            "{page_num} is not a valid page number";
+                            hint: "page numbers for PDF start at 1"
+                        )
+                    };
+
+                    // The user provides the page number start from 1, further down the pipeline,
+                    // page numbers are 0-based.
+                    let page_idx = page_num - 1;
+                    let num_pages = document.len();
+
+                    let Some(pdf_image) = PdfImage::new(document, page_idx) else {
+                        bail!(
+                            span,
+                            "page {page_num} doesn't exist";
+                            hint: "the document only has {num_pages} pages"
+                        );
+                    };
+
+                    ImageKind::Pdf(pdf_image)
+                } else {
                     bail!(
                         span,
-                        "{page_num} is not a valid page number";
-                        hint: "page numbers start at 1"
-                    )
-                };
-
-                let page_idx = page_num - 1;
-                let num_pages = document.len();
-                // The user provides the page number staring from 1, further down the pipeline they page
-                // numbers are 0-based.
-                let Some(pdf_image) = PdfImage::new(document, page_idx) else {
-                    bail!(
-                        span,
-                        "page {page_num} doesn't exist";
-                        hint: "the document only has {num_pages} pages"
-                    )
-                };
-
-                ImageKind::Pdf(pdf_image)
+                        "embedding PDFs is currently an experimental, opt-in feature";
+                        hint: "enable the corresponding feature to try it out";
+                        hint: "convert your PDF to SVG instead"
+                    );
+                }
             }
         };
 

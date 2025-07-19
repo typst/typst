@@ -1,12 +1,14 @@
-use std::borrow::Cow;
-use std::sync::Arc;
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
 use image::{codecs::png::PngEncoder, ImageEncoder};
+use std::borrow::Cow;
+use std::sync::Arc;
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
-use typst_library::visualize::{ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat};
+use typst_library::visualize::{
+    ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
+};
 
 use crate::SVGRenderer;
 
@@ -73,20 +75,19 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
             // doesn't exceed 3000 pixels.
             const MIN_WIDTH: f32 = 1000.0;
             const MAX_WIDTH: f32 = 3000.0;
-            
-            
+
             let base_width = pdf.width();
             let w_scale = (MIN_WIDTH / base_width).max(MAX_WIDTH / base_width);
             let base_height = pdf.height();
             let h_scale = (MIN_WIDTH / base_height).min(MAX_WIDTH / base_height);
-            
+
             let total_scale = w_scale.min(h_scale);
-            
+
             let width = (base_width * total_scale).ceil() as u32;
             let height = (base_height * total_scale).ceil() as u32;
 
             ("png", Cow::Owned(pdf_to_png(pdf, width, height)))
-        },
+        }
     };
 
     let mut url = eco_format!("data:image/{format};base64,");
@@ -105,9 +106,7 @@ fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
             StandardFont::Helvetica => sf.helvetica.normal.clone(),
             StandardFont::HelveticaBold => sf.helvetica.bold.clone(),
             StandardFont::HelveticaOblique => sf.helvetica.italic.clone(),
-            StandardFont::HelveticaBoldOblique => {
-                sf.helvetica.bold_italic.clone()
-            }
+            StandardFont::HelveticaBoldOblique => sf.helvetica.bold_italic.clone(),
             StandardFont::Courier => sf.courier.normal.clone(),
             StandardFont::CourierBold => sf.courier.bold.clone(),
             StandardFont::CourierOblique => sf.courier.italic.clone(),
@@ -121,8 +120,7 @@ fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
         };
 
         bytes.map(|d| {
-            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-                Arc::new(d.clone());
+            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(d.clone());
 
             font_data
         })
@@ -131,9 +129,7 @@ fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
     let interpreter_settings = InterpreterSettings {
         font_resolver: Arc::new(move |query| match query {
             FontQuery::Standard(s) => select_standard_font(*s),
-            FontQuery::Fallback(f) => {
-                select_standard_font(f.pick_standard_font())
-            }
+            FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
         warning_sink: Arc::new(|_| {}),
     };

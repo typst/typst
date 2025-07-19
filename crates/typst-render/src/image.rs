@@ -116,9 +116,7 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
             StandardFont::Helvetica => sf.helvetica.normal.clone(),
             StandardFont::HelveticaBold => sf.helvetica.bold.clone(),
             StandardFont::HelveticaOblique => sf.helvetica.italic.clone(),
-            StandardFont::HelveticaBoldOblique => {
-                sf.helvetica.bold_italic.clone()
-            }
+            StandardFont::HelveticaBoldOblique => sf.helvetica.bold_italic.clone(),
             StandardFont::Courier => sf.courier.normal.clone(),
             StandardFont::CourierBold => sf.courier.bold.clone(),
             StandardFont::CourierOblique => sf.courier.italic.clone(),
@@ -132,8 +130,7 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
         };
 
         bytes.map(|d| {
-            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-                Arc::new(d.clone());
+            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(d.clone());
 
             font_data
         })
@@ -142,9 +139,7 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
     let interpreter_settings = InterpreterSettings {
         font_resolver: Arc::new(move |query| match query {
             FontQuery::Standard(s) => select_standard_font(*s),
-            FontQuery::Fallback(f) => {
-                select_standard_font(f.pick_standard_font())
-            }
+            FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
         warning_sink: Arc::new(|_| {}),
     };
@@ -156,7 +151,7 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
         width: Some(w as u16),
         height: Some(h as u16),
     };
-    
+
     let hayro_pix = hayro::render(page, &interpreter_settings, &render_settings);
 
     sk::Pixmap::from_vec(hayro_pix.take_u8(), IntSize::from_wh(w, h)?)
