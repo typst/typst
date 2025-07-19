@@ -1,4 +1,4 @@
-use crate::diag::{LoadError, LoadResult, SourceResult};
+use crate::diag::LoadResult;
 use crate::foundations::Bytes;
 use crate::text::{FontStretch, FontStyle, FontVariant, FontWeight};
 use crate::World;

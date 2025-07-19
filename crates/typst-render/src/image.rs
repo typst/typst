@@ -6,7 +6,6 @@ use tiny_skia as sk;
 use tiny_skia::IntSize;
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;
-use typst_library::text::{FontBook, FontStretch, FontStyle, FontVariant, FontWeight};
 use typst_library::visualize::{Image, ImageKind, ImageScaling, PdfImage};
 
 use crate::{AbsExt, State};

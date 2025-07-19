@@ -14,12 +14,12 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::EcoString;
 use typst_library::{Feature, World};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, error, warning, At, LoadedWithin, SourceResult, StrResult};
+use crate::diag::{bail, warning, At, LoadedWithin, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Smart,
