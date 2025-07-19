@@ -656,7 +656,7 @@ fn query_prefix_widths(
 ) -> SmallVec<[Option<Abs>; 4]> {
     let mut widths = SmallVec::<[Option<Abs>; 4]>::new();
     let elems = introspector.query(&select_where!(PrefixInfo, key => outline_loc));
-    for elem in &elems {
+    for elem in &elems.into_inner() {
         let info = elem.to_packed::<PrefixInfo>().unwrap();
         let level = info.level.get();
         if widths.len() < level {

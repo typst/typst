@@ -430,7 +430,7 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     let depth = elem.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
 
     // Build the outline entries.
-    for elem in elems {
+    for elem in elems.into_inner() {
         let Some(outlinable) = elem.with::<dyn Outlinable>() else {
             bail!(span, "cannot outline {}", elem.func().name());
         };

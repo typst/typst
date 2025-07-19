@@ -4,6 +4,7 @@ use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::RwLock;
 
+use comemo::Prehashed;
 use ecow::{EcoString, EcoVec};
 use smallvec::SmallVec;
 use typst_utils::NonZeroExt;
@@ -108,7 +109,7 @@ impl Introspector {
 #[comemo::track]
 impl Introspector {
     /// Query for all matching elements.
-    pub fn query(&self, selector: &Selector) -> EcoVec<Content> {
+    pub fn query(&self, selector: &Selector) -> Prehashed<EcoVec<Content>> {
         let hash = typst_utils::hash128(selector);
         if let Some(output) = self.queries.get(hash) {
             return output;
@@ -131,7 +132,7 @@ impl Introspector {
                 .collect(),
             Selector::Or(selectors) => selectors
                 .iter()
-                .flat_map(|sel| self.query(sel))
+                .flat_map(|sel| self.query(sel).into_inner())
                 .map(|elem| self.elem_index(&elem))
                 .collect::<BTreeSet<usize>>()
                 .into_iter()
@@ -139,7 +140,7 @@ impl Introspector {
                 .collect(),
             Selector::And(selectors) => {
                 let mut results: Vec<_> =
-                    selectors.iter().map(|sel| self.query(sel)).collect();
+                    selectors.iter().map(|sel| self.query(sel).into_inner()).collect();
 
                 // Extract the smallest result list and then keep only those
                 // elements in the smallest list that are also in all other
@@ -161,7 +162,7 @@ impl Introspector {
                     .collect()
             }
             Selector::Before { selector, end, inclusive } => {
-                let mut list = self.query(selector);
+                let mut list = self.query(selector).into_inner();
                 if let Some(end) = self.query_first(end) {
                     // Determine which elements are before `end`.
                     let split = match self.binary_search(&list, &end) {
@@ -175,7 +176,7 @@ impl Introspector {
                 list
             }
             Selector::After { selector, start, inclusive } => {
-                let mut list = self.query(selector);
+                let mut list = self.query(selector).into_inner();
                 if let Some(start) = self.query_first(start) {
                     // Determine which elements are after `start`.
                     let split = match self.binary_search(&list, &start) {
@@ -192,6 +193,7 @@ impl Introspector {
             Selector::Can(_) | Selector::Regex(_) => EcoVec::new(),
         };
 
+        let output = Prehashed::new(output);
         self.queries.insert(hash, output.clone());
         output
     }
@@ -223,6 +225,7 @@ impl Introspector {
                     bail!("selector matches multiple elements",);
                 }
                 elems
+                    .into_inner()
                     .into_iter()
                     .next()
                     .ok_or_else(|| "selector does not match any element".into())
@@ -340,14 +343,14 @@ impl<K, V> Default for MultiMap<K, V> {
 
 /// Caches queries.
 #[derive(Default)]
-struct QueryCache(RwLock<HashMap<u128, EcoVec<Content>>>);
+struct QueryCache(RwLock<HashMap<u128, Prehashed<EcoVec<Content>>>>);
 
 impl QueryCache {
-    fn get(&self, hash: u128) -> Option<EcoVec<Content>> {
+    fn get(&self, hash: u128) -> Option<Prehashed<EcoVec<Content>>> {
         self.0.read().unwrap().get(&hash).cloned()
     }
 
-    fn insert(&self, hash: u128, output: EcoVec<Content>) {
+    fn insert(&self, hash: u128, output: Prehashed<EcoVec<Content>>) {
         self.0.write().unwrap().insert(hash, output);
     }
 }

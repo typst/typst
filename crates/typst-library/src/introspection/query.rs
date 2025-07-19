@@ -149,5 +149,5 @@ pub fn query(
 ) -> HintedStrResult<Array> {
     context.introspect()?;
     let vec = engine.introspector.query(&target.0);
-    Ok(vec.into_iter().map(Value::Content).collect())
+    Ok(vec.into_inner().into_iter().map(Value::Content).collect())
 }

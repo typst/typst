@@ -79,6 +79,7 @@ fn retrieve(
     Ok(document
         .introspector
         .query(&selector.0)
+        .into_inner()
         .into_iter()
         .collect::<Vec<_>>())
 }

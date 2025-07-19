@@ -563,7 +563,7 @@ impl<'a> Generator<'a> {
         introspector: Tracked<Introspector>,
     ) -> StrResult<Self> {
         let bibliography = BibliographyElem::find(introspector)?;
-        let groups = introspector.query(&CiteGroup::ELEM.select());
+        let groups = introspector.query(&CiteGroup::ELEM.select()).into_inner();
         let infos = Vec::with_capacity(groups.len());
         Ok(Self {
             routines,

@@ -13,7 +13,7 @@ pub(crate) fn embed_files(
 ) -> SourceResult<()> {
     let elements = typst_doc.introspector.query(&EmbedElem::ELEM.select());
 
-    for elem in &elements {
+    for elem in &elements.into_inner() {
         let embed = elem.to_packed::<EmbedElem>().unwrap();
         let span = embed.span();
         let derived_path = &embed.path.derived;
