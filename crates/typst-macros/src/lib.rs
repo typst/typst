@@ -333,9 +333,18 @@ pub fn derive_cast(item: BoundaryStream) -> BoundaryStream {
 /// invocations of the function and store them in a global map. The map can be
 /// accessed through the `typst_trace::RECORDER` static.
 ///
-/// You can also specify the span of the function invocation:
-/// - `#[time(span = ..)]` to record the span, which will be used for the
-///   `EventKey`.
+/// You can also specify the following arguments (in that order):
+/// - the name of the event type using `#[time(name = ..)]`, by default uses the
+///   function's name.
+/// - the span of the function declaration using `#[time(span = ..)]`.
+/// - the span of the callsite using `#[time(callsite = ..)]`.
+/// - the name of the function being called using `#[time(func = ..)]`.
+/// - any extra arguments, which must be at the end of the argument list, they
+///   can be of four types:
+///   - serialize arguments `#[time(<name> = <value>)]`
+///   - debug arguments `#[time(<name> = ?<value>)]`
+///   - display arguments `#[time(<name> = #<value>)]`
+///   - span arguments `#[time(<name> = $<value>)]`
 ///
 /// By default, all tracing is omitted using the `wasm32` target flag.
 /// This is done to avoid bloating the web app, which doesn't need tracing.
