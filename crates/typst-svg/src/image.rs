@@ -1,11 +1,12 @@
+use std::borrow::Cow;
+use std::sync::Arc;
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
 use image::{codecs::png::PngEncoder, ImageEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
-use typst_library::visualize::{
-    ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat,
-};
+use typst_library::visualize::{ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat};
 
 use crate::SVGRenderer;
 
@@ -44,7 +45,7 @@ pub fn convert_image_scaling(scaling: Smart<ImageScaling>) -> Option<&'static st
 #[comemo::memoize]
 pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
     let mut buf;
-    let (format, data): (&str, &[u8]) = match image.kind() {
+    let (format, data): (&str, Cow<[u8]>) = match image.kind() {
         ImageKind::Raster(raster) => match raster.format() {
             RasterFormat::Exchange(format) => (
                 match format {
@@ -53,7 +54,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
                     ExchangeFormat::Gif => "gif",
                     ExchangeFormat::Webp => "webp",
                 },
-                raster.data(),
+                Cow::Borrowed(raster.data()),
             ),
             RasterFormat::Pixel(_) => ("png", {
                 buf = vec![];
@@ -62,15 +63,90 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
                     encoder.set_icc_profile(icc_profile.to_vec()).ok();
                 }
                 raster.dynamic().write_with_encoder(encoder).unwrap();
-                buf.as_slice()
+                Cow::Borrowed(buf.as_slice())
             }),
         },
-        ImageKind::Svg(svg) => ("svg+xml", svg.data()),
-        ImageKind::Pdf(_) => todo!(),
+        ImageKind::Svg(svg) => ("svg+xml", Cow::Borrowed(svg.data())),
+        ImageKind::Pdf(pdf) => {
+            // To make sure the image isn't pixelated, we always scale up so the lowest
+            // dimension has at least 1000 pixels. However, we also ensure that the largest dimension
+            // doesn't exceed 3000 pixels.
+            const MIN_WIDTH: f32 = 1000.0;
+            const MAX_WIDTH: f32 = 3000.0;
+            
+            
+            let base_width = pdf.width();
+            let w_scale = (MIN_WIDTH / base_width).max(MAX_WIDTH / base_width);
+            let base_height = pdf.height();
+            let h_scale = (MIN_WIDTH / base_height).min(MAX_WIDTH / base_height);
+            
+            let total_scale = w_scale.min(h_scale);
+            
+            let width = (base_width * total_scale).ceil() as u32;
+            let height = (base_height * total_scale).ceil() as u32;
+
+            ("png", Cow::Owned(pdf_to_png(pdf, width, height)))
+        },
     };
 
     let mut url = eco_format!("data:image/{format};base64,");
     let data = base64::engine::general_purpose::STANDARD.encode(data);
     url.push_str(&data);
     url
+}
+
+// Keep this in sync with `typst-png`!
+#[comemo::memoize]
+fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
+    let sf = pdf.standard_fonts().clone();
+
+    let select_standard_font = move |font: StandardFont| -> Option<FontData> {
+        let bytes = match font {
+            StandardFont::Helvetica => sf.helvetica.normal.clone(),
+            StandardFont::HelveticaBold => sf.helvetica.bold.clone(),
+            StandardFont::HelveticaOblique => sf.helvetica.italic.clone(),
+            StandardFont::HelveticaBoldOblique => {
+                sf.helvetica.bold_italic.clone()
+            }
+            StandardFont::Courier => sf.courier.normal.clone(),
+            StandardFont::CourierBold => sf.courier.bold.clone(),
+            StandardFont::CourierOblique => sf.courier.italic.clone(),
+            StandardFont::CourierBoldOblique => sf.courier.bold_italic.clone(),
+            StandardFont::TimesRoman => sf.times.normal.clone(),
+            StandardFont::TimesBold => sf.times.bold.clone(),
+            StandardFont::TimesItalic => sf.times.italic.clone(),
+            StandardFont::TimesBoldItalic => sf.times.bold_italic.clone(),
+            StandardFont::ZapfDingBats => sf.zapf_dingbats.clone(),
+            StandardFont::Symbol => sf.symbol.clone(),
+        };
+
+        bytes.map(|d| {
+            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                Arc::new(d.clone());
+
+            font_data
+        })
+    };
+
+    let interpreter_settings = InterpreterSettings {
+        font_resolver: Arc::new(move |query| match query {
+            FontQuery::Standard(s) => select_standard_font(*s),
+            FontQuery::Fallback(f) => {
+                select_standard_font(f.pick_standard_font())
+            }
+        }),
+        warning_sink: Arc::new(|_| {}),
+    };
+    let page = pdf.page();
+
+    let render_settings = RenderSettings {
+        x_scale: w as f32 / pdf.width(),
+        y_scale: h as f32 / pdf.height(),
+        width: Some(w as u16),
+        height: Some(h as u16),
+    };
+
+    let hayro_pix = hayro::render(page, &interpreter_settings, &render_settings);
+
+    hayro_pix.take_png()
 }
