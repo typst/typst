@@ -436,6 +436,7 @@ impl IntrospectorBuilder {
 
     /// Build a complete introspector with all acceleration structures from a
     /// list of top-level pairs.
+    #[typst_macros::time]
     pub fn finalize(mut self, root: Vec<Pair>) -> Introspector {
         self.locations.reserve(self.seen.len());
 

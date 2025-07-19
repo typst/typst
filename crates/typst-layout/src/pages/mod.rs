@@ -14,7 +14,7 @@ use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
     Introspector, IntrospectorBuilder, Locator, ManualPageCounter, SplitLocator, TagElem,
 };
-use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Transform};
+use typst_library::layout::{FrameItem, Page, PagedDocument, Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 
@@ -171,15 +171,25 @@ fn introspect_pages(pages: &[Page]) -> Introspector {
     // Discover all elements.
     let mut elems = Vec::new();
     for (i, page) in pages.iter().enumerate() {
-        builder.page_numberings.push(page.numbering.clone());
-        builder.page_supplements.push(page.supplement.clone());
-        builder.discover_in_frame(
-            &mut elems,
-            &page.frame,
-            NonZeroUsize::new(1 + i).unwrap(),
-            Transform::identity(),
-        );
+        handle_page(&mut builder, &mut elems, page, i);
     }
 
     builder.finalize(elems)
+}
+
+#[typst_macros::time(name = "handle page")]
+fn handle_page(
+    builder: &mut IntrospectorBuilder,
+    elems: &mut Vec<(Content, Position)>,
+    page: &Page,
+    i: usize,
+) {
+    builder.page_numberings.push(page.numbering.clone());
+    builder.page_supplements.push(page.supplement.clone());
+    builder.discover_in_frame(
+        elems,
+        &page.frame,
+        NonZeroUsize::new(1 + i).unwrap(),
+        Transform::identity(),
+    );
 }
