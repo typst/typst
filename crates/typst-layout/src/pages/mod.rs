@@ -4,13 +4,12 @@ mod collect;
 mod finalize;
 mod run;
 
-use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, Element, StyleChain};
+use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
     Introspector, IntrospectorBuilder, Locator, ManualPageCounter, SplitLocator, TagElem,
 };
@@ -88,18 +87,6 @@ fn layout_document_impl(
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
     let introspector = introspect_pages(&pages);
-
-    let mut kinds = HashMap::<Element, usize>::new();
-    for elem in introspector.all() {
-        *kinds.entry(elem.elem()).or_default() += 1;
-    }
-
-    let mut kinds = kinds.into_iter().collect::<Vec<_>>();
-    kinds.sort_by_key(|&(_, c)| std::cmp::Reverse(c));
-    println!("============");
-    for (elem, count) in kinds {
-        println!("{}: {count}", elem.name());
-    }
 
     Ok(PagedDocument { pages, info, introspector })
 }
