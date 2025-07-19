@@ -74,13 +74,13 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
             // To make sure the image isn't pixelated, we always scale up so the lowest
             // dimension has at least 1000 pixels. However, we only scale up as much so that the
             // largest dimension doesn't exceed 3000 pixels.
-            const MIN_WIDTH: f32 = 1000.0;
-            const MAX_WIDTH: f32 = 3000.0;
+            const MIN_RES: f32 = 1000.0;
+            const MAX_RES: f32 = 3000.0;
 
             let base_width = pdf.width();
-            let w_scale = (MIN_WIDTH / base_width).max(MAX_WIDTH / base_width);
+            let w_scale = (MIN_RES / base_width).max(MAX_RES / base_width);
             let base_height = pdf.height();
-            let h_scale = (MIN_WIDTH / base_height).min(MAX_WIDTH / base_height);
+            let h_scale = (MIN_RES / base_height).min(MAX_RES / base_height);
 
             let total_scale = w_scale.min(h_scale);
 
