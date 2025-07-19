@@ -9,9 +9,9 @@ use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
+use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
-use krilla::pdf::PdfError;
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
 use typst_library::foundations::{NativeElement, Repr};
@@ -373,8 +373,8 @@ fn finish(
                         let pdf_ver = v.as_str();
                         let config_ver = configuration.version();
                         let cur_ver = config_ver.as_str();
-                        
-                        bail!(span, 
+
+                        bail!(span,
                             "the version of the PDF file is too high";
                             hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
                             hint: "raise the export target to {pdf_ver} or higher";
@@ -616,7 +616,7 @@ fn convert_error(
                 "embedding PDFs is currently not supported in this export mode";
                 hint: "try converting the PDF to SVG before embedding it"
             )
-        },
+        }
     }
 }
 

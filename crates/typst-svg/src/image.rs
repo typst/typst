@@ -1,9 +1,10 @@
+use std::borrow::Cow;
+use std::sync::Arc;
+
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
 use image::{codecs::png::PngEncoder, ImageEncoder};
-use std::borrow::Cow;
-use std::sync::Arc;
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
@@ -71,8 +72,8 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
         ImageKind::Svg(svg) => ("svg+xml", Cow::Borrowed(svg.data())),
         ImageKind::Pdf(pdf) => {
             // To make sure the image isn't pixelated, we always scale up so the lowest
-            // dimension has at least 1000 pixels. However, we also ensure that the largest dimension
-            // doesn't exceed 3000 pixels.
+            // dimension has at least 1000 pixels. However, we only scale up as much so that the
+            // largest dimension doesn't exceed 3000 pixels.
             const MIN_WIDTH: f32 = 1000.0;
             const MAX_WIDTH: f32 = 3000.0;
 
