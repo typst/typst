@@ -11,6 +11,7 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
+use krilla::pdf::PdfError;
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
 use typst_library::foundations::{NativeElement, Repr};
@@ -364,9 +365,24 @@ fn finish(
                 )
             }
             KrillaError::Pdf(_, e, loc) => {
-                // TODO: Better errors
+                // TODO: prohibit export in PDF/A3, etc.
                 let span = to_span(loc);
-                bail!(span, "failed to process PDF");
+                match e {
+                    // We already validated in `typst-library` that the page index is valid.
+                    PdfError::InvalidPage(_) => unreachable!(),
+                    PdfError::VersionMismatch(v) => {
+                        let pdf_ver = v.as_str();
+                        let config_ver = configuration.version();
+                        let cur_ver = config_ver.as_str();
+                        
+                        bail!(span, 
+                            "the version of the PDF file is too high";
+                            hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
+                            hint: "raise the export target to {pdf_ver} or higher";
+                            hint: "preprocess the PDF to convert it to a lower version"
+                        );
+                    }
+                }
             }
             KrillaError::DuplicateTagId(_, loc) => {
                 let span = to_span(loc);
@@ -595,7 +611,13 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
-        ValidationError::EmbeddedPDF(loc) => error!(to_span(*loc), "TODO"),
+        ValidationError::EmbeddedPDF(loc) => {
+            error!(
+                to_span(*loc),
+                "embedding PDFs is currently not supported in this export mode";
+                hint: "try converting the PDF to SVG before embedding it"
+            )
+        },
     }
 }
 
