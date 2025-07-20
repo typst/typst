@@ -298,7 +298,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Hint: 2-49 the document only has 1 page
 #image("/assets/images/matplotlib.pdf", page: 2)
 
---- image-multiple-pages ---
+--- image-pdf-multiple-pages ---
 #image("/assets/images/diagrams.pdf", page: 1)
 #image("/assets/images/diagrams.pdf", page: 3)
 #image("/assets/images/diagrams.pdf", page: 2)
