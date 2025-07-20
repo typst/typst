@@ -63,7 +63,6 @@ impl PdfImage {
     /// Returns `None` if the page index is not valid.
     #[comemo::memoize]
     pub fn new(document: PdfDocument, page: usize) -> Option<PdfImage> {
-        // TODO: Remove Unwrap
         let dimensions = document.0.pdf.pages().get(page)?.render_dimensions();
 
         Some(Self(Arc::new(ImageRepr {
