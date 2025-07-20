@@ -58,8 +58,8 @@ impl Hash for ImageRepr {
 pub struct PdfImage(Arc<ImageRepr>);
 
 impl PdfImage {
-    /// Create a new PDF image. 
-    /// 
+    /// Create a new PDF image.
+    ///
     /// Returns `None` if the page index is not valid.
     #[comemo::memoize]
     pub fn new(document: PdfDocument, page: usize) -> Option<PdfImage> {

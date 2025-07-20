@@ -310,10 +310,12 @@ impl Packed<ImageElem> {
                     let num_pages = document.len();
 
                     let Some(pdf_image) = PdfImage::new(document, page_idx) else {
+                        let pages = if num_pages == 1 { "page" } else { "pages" };
+
                         bail!(
                             span,
                             "page {page_num} doesn't exist";
-                            hint: "the document only has {num_pages} pages"
+                            hint: "the document only has {num_pages} {pages}"
                         );
                     };
 
