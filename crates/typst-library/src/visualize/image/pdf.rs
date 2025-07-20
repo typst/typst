@@ -7,6 +7,7 @@ use hayro_syntax::page::Page;
 use hayro_syntax::Pdf;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use typst_library::text::FontInfo;
 
 struct DocumentRepr {
     pdf: Arc<Pdf>,
@@ -120,6 +121,9 @@ fn get_standard_fonts(world: Tracked<dyn World + '_>) -> Arc<StandardFonts> {
                 } else {
                     None
                 }
+            })
+            .or_else(|| {
+                book.select_fallback(None, variant, "A")
             })
             .and_then(|i| world.font(i))
             .map(|font| font.data().clone())
