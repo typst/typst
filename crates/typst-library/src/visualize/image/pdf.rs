@@ -1,8 +1,10 @@
-use crate::foundations::Bytes;
-use hayro_syntax::page::Page;
-use hayro_syntax::{LoadPdfError, Pdf};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+
+use hayro_syntax::page::Page;
+use hayro_syntax::{LoadPdfError, Pdf};
+
+use crate::foundations::Bytes;
 
 struct DocumentRepr {
     pdf: Arc<Pdf>,
