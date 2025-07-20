@@ -15,6 +15,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::EcoString;
+use hayro_syntax::LoadPdfError;
 use typst_library::{Feature, World};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
@@ -272,8 +273,27 @@ impl Packed<ImageElem> {
             ),
             ImageFormat::Vector(VectorFormat::Pdf) => {
                 if engine.world.library().features.is_enabled(Feature::PdfEmbedding) {
-                    let document =
-                        PdfDocument::new(loaded.data.clone()).within(loaded)?;
+                    let document = match PdfDocument::new(loaded.data.clone()) {
+                        Ok(doc) => doc,
+                        Err(e) => match e {
+                            LoadPdfError::Encryption => {
+                                bail!(
+                                    span,
+                                    "the PDF is encrypted or password-protected";
+                                    hint: "such PDFs are currently not supported";
+                                    hint: "preprocess the PDF to remove the encryption"
+                                );
+                            }
+                            LoadPdfError::Invalid => {
+                                bail!(
+                                    span,
+                                    "the PDF could not be loaded";
+                                    hint: "perhaps the PDF file is malformed"
+                                );
+                            }
+                        },
+                    };
+
                     let page_num = self.page.get(styles);
 
                     if page_num == 0 {
@@ -284,7 +304,7 @@ impl Packed<ImageElem> {
                         )
                     };
 
-                    // The user provides the page number start from 1, further down the pipeline,
+                    // The user provides the page number start from 1, but further down the pipeline,
                     // page numbers are 0-based.
                     let page_idx = page_num - 1;
                     let num_pages = document.len();

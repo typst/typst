@@ -1,7 +1,6 @@
-use crate::diag::LoadResult;
 use crate::foundations::Bytes;
 use hayro_syntax::page::Page;
-use hayro_syntax::Pdf;
+use hayro_syntax::{LoadPdfError, Pdf};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -25,9 +24,8 @@ impl PdfDocument {
     /// Load a PDF document.
     #[comemo::memoize]
     #[typst_macros::time(name = "load pdf document")]
-    pub fn new(data: Bytes) -> LoadResult<PdfDocument> {
-        // TODO: Remove unwraps
-        let pdf = Arc::new(Pdf::new(Arc::new(data.clone())).unwrap());
+    pub fn new(data: Bytes) -> Result<PdfDocument, LoadPdfError> {
+        let pdf = Arc::new(Pdf::new(Arc::new(data.clone()))?);
         let standard_fonts = get_standard_fonts();
 
         Ok(Self(Arc::new(DocumentRepr { data, pdf, standard_fonts })))
