@@ -1,13 +1,9 @@
 use crate::diag::LoadResult;
 use crate::foundations::Bytes;
-use crate::text::{FontStretch, FontStyle, FontVariant, FontWeight};
-use crate::World;
-use comemo::Tracked;
 use hayro_syntax::page::Page;
 use hayro_syntax::Pdf;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use typst_library::text::FontInfo;
 
 struct DocumentRepr {
     pdf: Arc<Pdf>,
@@ -29,10 +25,10 @@ impl PdfDocument {
     /// Load a PDF document.
     #[comemo::memoize]
     #[typst_macros::time(name = "load pdf document")]
-    pub fn new(data: Bytes, world: Tracked<dyn World + '_>) -> LoadResult<PdfDocument> {
+    pub fn new(data: Bytes) -> LoadResult<PdfDocument> {
         // TODO: Remove unwraps
         let pdf = Arc::new(Pdf::new(Arc::new(data.clone())).unwrap());
-        let standard_fonts = get_standard_fonts(world.clone());
+        let standard_fonts = get_standard_fonts();
 
         Ok(Self(Arc::new(DocumentRepr { data, pdf, standard_fonts })))
     }
@@ -64,7 +60,6 @@ impl PdfImage {
     /// Create a new PDF image. Returns `None` if the page index is not valid.
     #[comemo::memoize]
     pub fn new(document: PdfDocument, page: usize) -> Option<PdfImage> {
-        // TODO: Don't allow loading if pdf-embedding feature is disabled.
         // TODO: Remove Unwrap
         let dimensions = document.0.pdf.pages().get(page)?.render_dimensions();
 
@@ -110,76 +105,45 @@ impl PdfImage {
 }
 
 #[comemo::memoize]
-fn get_standard_fonts(world: Tracked<dyn World + '_>) -> Arc<StandardFonts> {
-    let book = world.book();
-
-    let get_font = |name: &str, fallback_name: Option<&str>, variant: FontVariant| {
-        book.select(name, variant)
-            .or_else(|| {
-                if let Some(fallback_name) = fallback_name {
-                    book.select(fallback_name, variant)
-                } else {
-                    None
-                }
-            })
-            .or_else(|| book.select_fallback(None, variant, "A"))
-            .and_then(|i| world.font(i))
-            .map(|font| (font.data().clone(), font.index()))
-    };
-
-    let normal_variant = FontVariant::new(
-        FontStyle::Normal,
-        FontWeight::default(),
-        FontStretch::default(),
-    );
-    let bold_variant =
-        FontVariant::new(FontStyle::Normal, FontWeight::BOLD, FontStretch::default());
-    let italic_variant = FontVariant::new(
-        FontStyle::Italic,
-        FontWeight::default(),
-        FontStretch::default(),
-    );
-    let bold_italic_variant =
-        FontVariant::new(FontStyle::Italic, FontWeight::BOLD, FontStretch::default());
-
+fn get_standard_fonts() -> Arc<StandardFonts> {
     let helvetica = VariantFont {
-        normal: get_font("helvetica", Some("liberation sans"), normal_variant),
-        bold: get_font("helvetica", Some("liberation sans"), bold_variant),
-        italic: get_font("helvetica", Some("liberation sans"), italic_variant),
-        bold_italic: get_font("helvetica", Some("liberation sans"), bold_italic_variant),
+        normal: Bytes::new(typst_assets::pdf::SANS),
+        bold: Bytes::new(typst_assets::pdf::SANS_BOLD),
+        italic: Bytes::new(typst_assets::pdf::SANS_ITALIC),
+        bold_italic: Bytes::new(typst_assets::pdf::SANS_BOLD_ITALIC),
     };
 
     let courier = VariantFont {
-        normal: get_font("courier", Some("liberation mono"), normal_variant),
-        bold: get_font("courier", Some("liberation mono"), bold_variant),
-        italic: get_font("courier", Some("liberation mono"), italic_variant),
-        bold_italic: get_font("courier", Some("liberation mono"), bold_italic_variant),
+        normal: Bytes::new(typst_assets::pdf::FIXED),
+        bold: Bytes::new(typst_assets::pdf::FIXED_BOLD),
+        italic: Bytes::new(typst_assets::pdf::FIXED_ITALIC),
+        bold_italic: Bytes::new(typst_assets::pdf::FIXED_BOLD_ITALIC),
     };
 
     let times = VariantFont {
-        normal: get_font("times", Some("liberation serif"), normal_variant),
-        bold: get_font("times", Some("liberation serif"), bold_variant),
-        italic: get_font("times", Some("liberation serif"), italic_variant),
-        bold_italic: get_font("times", Some("liberation serif"), bold_italic_variant),
+        normal: Bytes::new(typst_assets::pdf::SERIF),
+        bold: Bytes::new(typst_assets::pdf::SERIF_BOLD),
+        italic: Bytes::new(typst_assets::pdf::SERIF_ITALIC),
+        bold_italic: Bytes::new(typst_assets::pdf::SERIF_BOLD_ITALIC),
     };
 
-    let symbol = Some(Bytes::new(typst_assets::pdf::SYMBOL));
-    let zapf_dingbats = Some(Bytes::new(typst_assets::pdf::DING_BATS));
+    let symbol = Bytes::new(typst_assets::pdf::SYMBOL);
+    let zapf_dingbats = Bytes::new(typst_assets::pdf::DING_BATS);
 
     Arc::new(StandardFonts { helvetica, courier, times, symbol, zapf_dingbats })
 }
 
 pub struct VariantFont {
-    pub normal: Option<(Bytes, u32)>,
-    pub bold: Option<(Bytes, u32)>,
-    pub italic: Option<(Bytes, u32)>,
-    pub bold_italic: Option<(Bytes, u32)>,
+    pub normal: Bytes,
+    pub bold: Bytes,
+    pub italic: Bytes,
+    pub bold_italic: Bytes,
 }
 
 pub struct StandardFonts {
     pub helvetica: VariantFont,
     pub courier: VariantFont,
     pub times: VariantFont,
-    pub symbol: Option<Bytes>,
-    pub zapf_dingbats: Option<Bytes>,
+    pub symbol: Bytes,
+    pub zapf_dingbats: Bytes,
 }

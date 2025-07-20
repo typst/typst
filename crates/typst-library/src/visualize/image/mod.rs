@@ -273,8 +273,7 @@ impl Packed<ImageElem> {
             ImageFormat::Vector(VectorFormat::Pdf) => {
                 if engine.world.library().features.is_enabled(Feature::PdfEmbedding) {
                     let document =
-                        PdfDocument::new(loaded.data.clone(), engine.world.clone())
-                            .within(loaded)?;
+                        PdfDocument::new(loaded.data.clone()).within(loaded)?;
                     let page_num = self.page.get(styles);
 
                     if page_num == 0 {
