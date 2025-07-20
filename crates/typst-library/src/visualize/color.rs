@@ -797,7 +797,9 @@ impl Color {
         components
     }
 
-    /// Returns the constructor function for this color's space:
+    /// Returns the constructor function for this color's space.
+    ///
+    /// Returns one of:
     /// - [`luma`]($color.luma)
     /// - [`oklab`]($color.oklab)
     /// - [`oklch`]($color.oklch)
