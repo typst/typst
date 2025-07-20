@@ -102,7 +102,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
 fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
     let sf = pdf.standard_fonts().clone();
 
-    let select_standard_font = move |font: StandardFont| -> Option<FontData> {
+    let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
         let bytes = match font {
             StandardFont::Helvetica => sf.helvetica.normal.clone(),
             StandardFont::HelveticaBold => sf.helvetica.bold.clone(),
@@ -116,14 +116,14 @@ fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
             StandardFont::TimesBold => sf.times.bold.clone(),
             StandardFont::TimesItalic => sf.times.italic.clone(),
             StandardFont::TimesBoldItalic => sf.times.bold_italic.clone(),
-            StandardFont::ZapfDingBats => sf.zapf_dingbats.clone(),
-            StandardFont::Symbol => sf.symbol.clone(),
+            StandardFont::ZapfDingBats => sf.zapf_dingbats.clone().map(|d| (d, 0)),
+            StandardFont::Symbol => sf.symbol.clone().map(|d| (d, 0)),
         };
 
         bytes.map(|d| {
-            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(d.clone());
+            let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(d.0.clone());
 
-            font_data
+            (font_data, d.1)
         })
     };
 

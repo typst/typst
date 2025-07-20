@@ -122,11 +122,9 @@ fn get_standard_fonts(world: Tracked<dyn World + '_>) -> Arc<StandardFonts> {
                     None
                 }
             })
-            .or_else(|| {
-                book.select_fallback(None, variant, "A")
-            })
+            .or_else(|| book.select_fallback(None, variant, "A"))
             .and_then(|i| world.font(i))
-            .map(|font| font.data().clone())
+            .map(|font| (font.data().clone(), font.index()))
     };
 
     let normal_variant = FontVariant::new(
@@ -165,18 +163,17 @@ fn get_standard_fonts(world: Tracked<dyn World + '_>) -> Arc<StandardFonts> {
         bold_italic: get_font("times", Some("liberation serif"), bold_italic_variant),
     };
 
-    // TODO: Use Foxit fonts as fallback
-    let symbol = get_font("symbol", None, normal_variant);
-    let zapf_dingbats = get_font("zapf dingbats", None, normal_variant);
+    let symbol = Some(Bytes::new(typst_assets::pdf::SYMBOL));
+    let zapf_dingbats = Some(Bytes::new(typst_assets::pdf::DING_BATS));
 
     Arc::new(StandardFonts { helvetica, courier, times, symbol, zapf_dingbats })
 }
 
 pub struct VariantFont {
-    pub normal: Option<Bytes>,
-    pub bold: Option<Bytes>,
-    pub italic: Option<Bytes>,
-    pub bold_italic: Option<Bytes>,
+    pub normal: Option<(Bytes, u32)>,
+    pub bold: Option<(Bytes, u32)>,
+    pub italic: Option<(Bytes, u32)>,
+    pub bold_italic: Option<(Bytes, u32)>,
 }
 
 pub struct StandardFonts {
