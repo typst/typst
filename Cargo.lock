@@ -967,7 +967,7 @@ dependencies = [
 [[package]]
 name = "hayro"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=2b63dc8#2b63dc85b9447a815cc5b40c16338841c3780f7e"
+source = "git+https://github.com/LaurenzV/hayro?rev=d651e18#d651e188a747c188db2e206733eaf17e8f622a5d"
 dependencies = [
  "bytemuck",
  "hayro-interpret",
@@ -980,7 +980,7 @@ dependencies = [
 [[package]]
 name = "hayro-font"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=2b63dc8#2b63dc85b9447a815cc5b40c16338841c3780f7e"
+source = "git+https://github.com/LaurenzV/hayro?rev=d651e18#d651e188a747c188db2e206733eaf17e8f622a5d"
 dependencies = [
  "log",
  "phf",
@@ -989,7 +989,7 @@ dependencies = [
 [[package]]
 name = "hayro-interpret"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=2b63dc8#2b63dc85b9447a815cc5b40c16338841c3780f7e"
+source = "git+https://github.com/LaurenzV/hayro?rev=d651e18#d651e188a747c188db2e206733eaf17e8f622a5d"
 dependencies = [
  "bitflags 2.9.1",
  "hayro-font",
@@ -1006,7 +1006,7 @@ dependencies = [
 [[package]]
 name = "hayro-syntax"
 version = "0.0.1"
-source = "git+https://github.com/LaurenzV/hayro?rev=2b63dc8#2b63dc85b9447a815cc5b40c16338841c3780f7e"
+source = "git+https://github.com/LaurenzV/hayro?rev=d651e18#d651e188a747c188db2e206733eaf17e8f622a5d"
 dependencies = [
  "flate2",
  "kurbo",
@@ -1019,7 +1019,7 @@ dependencies = [
 [[package]]
 name = "hayro-write"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=2b63dc8#2b63dc85b9447a815cc5b40c16338841c3780f7e"
+source = "git+https://github.com/LaurenzV/hayro?rev=d651e18#d651e188a747c188db2e206733eaf17e8f622a5d"
 dependencies = [
  "flate2",
  "hayro-syntax",
@@ -1430,7 +1430,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=1668ac2#1668ac2e64dc85572e6c62a2399e85acd39b619d"
+source = "git+https://github.com/LaurenzV/krilla/?rev=2da9d6c#2da9d6c6cb6a6baa6379592c72ae4eb7e16aa7b4"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1460,7 +1460,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=1668ac2#1668ac2e64dc85572e6c62a2399e85acd39b619d"
+source = "git+https://github.com/LaurenzV/krilla/?rev=2da9d6c#2da9d6c6cb6a6baa6379592c72ae4eb7e16aa7b4"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2926,6 +2926,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.13.1"
+source = "git+https://github.com/LaurenzV/typst-assets?rev=d89cc82#d89cc821f84a5667714491019c0b64087b2608bd"
 
 [[package]]
 name = "typst-cli"
@@ -2975,7 +2976,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.13.1"
-source = "git+https://github.com/typst/typst-dev-assets?rev=bfa947f#bfa947f3433d7d13a995168c40ae788a2ebfe648"
+source = "git+https://github.com/LaurenzV/typst-dev-assets?rev=180c145#180c145cf810c8b2a7ed77355b351f3aed07d0c6"
 
 [[package]]
 name = "typst-docs"
