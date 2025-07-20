@@ -31,16 +31,17 @@ impl PdfDocument {
         Ok(Self(Arc::new(DocumentRepr { data, pdf, standard_fonts })))
     }
 
+    /// Return the number of pages in the PDF.
     pub fn len(&self) -> usize {
         self.0.pdf.pages().len()
     }
 }
 
 struct ImageRepr {
-    pub document: PdfDocument,
-    pub page_index: usize,
-    pub width: f32,
-    pub height: f32,
+    document: PdfDocument,
+    page_index: usize,
+    width: f32,
+    height: f32,
 }
 
 impl Hash for ImageRepr {
@@ -50,12 +51,14 @@ impl Hash for ImageRepr {
     }
 }
 
-/// A page of a PDF file.
+/// A specific page of a PDF acting as an image.
 #[derive(Clone, Hash)]
 pub struct PdfImage(Arc<ImageRepr>);
 
 impl PdfImage {
-    /// Create a new PDF image. Returns `None` if the page index is not valid.
+    /// Create a new PDF image. 
+    /// 
+    /// Returns `None` if the page index is not valid.
     #[comemo::memoize]
     pub fn new(document: PdfDocument, page: usize) -> Option<PdfImage> {
         // TODO: Remove Unwrap
@@ -69,34 +72,37 @@ impl PdfImage {
         })))
     }
 
+    /// Returns the PDF page of the image.
     pub fn page(&self) -> &Page {
-        &self.0.document.0.pdf.pages()[self.0.page_index]
+        &self.pdf().pages()[self.0.page_index]
     }
 
+    /// Returns the underlying PDF document.
     pub fn pdf(&self) -> &Arc<Pdf> {
         &self.0.document.0.pdf
     }
 
+    /// Returns the width of the image.
     pub fn width(&self) -> f32 {
         self.0.width
     }
 
+    /// Returns the embedded standard fonts of the image.
     pub fn standard_fonts(&self) -> &Arc<StandardFonts> {
         &self.0.document.0.standard_fonts
     }
 
+    /// Returns the height of the image.
     pub fn height(&self) -> f32 {
         self.0.height
     }
 
-    pub fn data(&self) -> &Bytes {
-        &self.0.document.0.data
-    }
-
+    /// Returns the page index of the image.
     pub fn page_index(&self) -> usize {
         self.0.page_index
     }
 
+    /// Returns the underlying Typst PDF document.
     pub fn document(&self) -> &PdfDocument {
         &self.0.document
     }
@@ -131,17 +137,28 @@ fn get_standard_fonts() -> Arc<StandardFonts> {
     Arc::new(StandardFonts { helvetica, courier, times, symbol, zapf_dingbats })
 }
 
+/// A PDF font with multiple variants.
 pub struct VariantFont {
+    /// The normal variant.
     pub normal: Bytes,
+    /// The bold variant.
     pub bold: Bytes,
+    /// The italic variant.
     pub italic: Bytes,
+    /// The bold-italic variant.
     pub bold_italic: Bytes,
 }
 
+/// A structure holding the raw data of all PDF standard fonts.
 pub struct StandardFonts {
+    /// The data for the `Helvetica` font family.
     pub helvetica: VariantFont,
+    /// The data for the `Courier` font family.
     pub courier: VariantFont,
+    /// The data for the `Times` font family.
     pub times: VariantFont,
+    /// The data for the `Symbol` font family.
     pub symbol: Bytes,
+    /// The data for the `Zapf Dingbats` font family.
     pub zapf_dingbats: Bytes,
 }
