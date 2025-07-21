@@ -210,12 +210,11 @@ impl Synthesize for Packed<RefElem> {
         elem.citation = Some(Some(citation));
         elem.element = Some(None);
 
-        if !BibliographyElem::has(engine, elem.target) {
-            if let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
+        if !BibliographyElem::has(engine, elem.target)
+            && let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
                 elem.element = Some(Some(found));
                 return Ok(());
             }
-        }
 
         Ok(())
     }

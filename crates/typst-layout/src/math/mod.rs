@@ -603,14 +603,13 @@ fn layout_h(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    if let Spacing::Rel(rel) = elem.amount {
-        if rel.rel.is_zero() {
+    if let Spacing::Rel(rel) = elem.amount
+        && rel.rel.is_zero() {
             ctx.push(MathFragment::Spacing(
                 rel.abs.resolve(styles),
                 elem.weak.get(styles),
             ));
         }
-    }
     Ok(())
 }
 

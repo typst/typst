@@ -184,11 +184,10 @@ where
     T: PartialEq + IntoValue,
 {
     fn into_value(self) -> Value {
-        if self.is_uniform() {
-            if let Some(left) = self.left {
+        if self.is_uniform()
+            && let Some(left) = self.left {
                 return left.into_value();
             }
-        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<T>| {

@@ -291,13 +291,12 @@ pub fn vline_stroke_at_row(
         // We would then analyze the cell one column after (if at a gutter
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the vline.
-        if let Some(parent) = grid.effective_parent_cell_position(x, y) {
-            if parent.x < x {
+        if let Some(parent) = grid.effective_parent_cell_position(x, y)
+            && parent.x < x {
                 // There is a colspan cell going through this vline's position,
                 // so don't draw it here.
                 return None;
             }
-        }
     }
 
     let (left_cell_stroke, left_cell_prioritized) = x
@@ -416,8 +415,8 @@ pub fn hline_stroke_at_column(
         // We would then analyze the cell one column after (if at a gutter
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the hline.
-        if let Some(parent) = grid.effective_parent_cell_position(x, y) {
-            if parent.y < y {
+        if let Some(parent) = grid.effective_parent_cell_position(x, y)
+            && parent.y < y {
                 // Get the first 'y' spanned by the possible rowspan in this region.
                 // The 'parent.y' row and any other spanned rows above 'y' could be
                 // missing from this region, which could have lead the check above
@@ -437,7 +436,6 @@ pub fn hline_stroke_at_column(
                     return None;
                 }
             }
-        }
     }
 
     // When the hline is at the top of the region and this isn't the first

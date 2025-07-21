@@ -927,12 +927,11 @@ impl ElemRenderer<'_> {
             _ => {}
         }
 
-        if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta {
-            if let Some(location) = (self.link)(i) {
+        if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
+            && let Some(location) = (self.link)(i) {
                 let dest = Destination::Location(location);
                 content = content.linked(dest);
             }
-        }
 
         Ok(content)
     }

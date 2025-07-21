@@ -284,11 +284,9 @@ impl FontInfo {
             .raw_face()
             .table(Tag::from_bytes(b"OS/2"))
             .and_then(|os2| os2.get(32..45))
-        {
-            if matches!(panose, [2, 2..=10, ..]) {
+            && matches!(panose, [2, 2..=10, ..]) {
                 flags.insert(FontFlags::SERIF);
             }
-        }
 
         Some(FontInfo {
             family,
@@ -397,11 +395,10 @@ fn typographic_family(mut family: &str) -> &str {
 
         // Also allow an extra modifier, but apply it only if it is separated it
         // from the text before it (to prevent false positives).
-        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s)) {
-            if let Some(stripped) = t.strip_suffix(SEPARATORS) {
+        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s))
+            && let Some(stripped) = t.strip_suffix(SEPARATORS) {
                 trimmed = stripped;
             }
-        }
     }
 
     // Apply style suffix trimming.

@@ -14,14 +14,12 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     let self_ty = &item.self_ty;
 
     let mut primitive_ident_ext = None;
-    if let syn::Type::Path(syn::TypePath { path, .. }) = self_ty.as_ref() {
-        if let Some(ident) = path.get_ident() {
-            if is_primitive(ident) {
+    if let syn::Type::Path(syn::TypePath { path, .. }) = self_ty.as_ref()
+        && let Some(ident) = path.get_ident()
+            && is_primitive(ident) {
                 let ident_ext = quote::format_ident!("{ident}Ext");
                 primitive_ident_ext = Some(ident_ext);
             }
-        }
-    }
 
     let self_ty_expr = match &primitive_ident_ext {
         None => quote! { #self_ty },

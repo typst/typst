@@ -46,15 +46,14 @@ impl Eval for ast::ModuleImport<'_> {
         // If there is a rename, import the source itself under that name.
         let new_name = self.new_name();
         if let Some(new_name) = new_name {
-            if let ast::Expr::Ident(ident) = self.source() {
-                if ident.as_str() == new_name.as_str() {
+            if let ast::Expr::Ident(ident) = self.source()
+                && ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
                     vm.engine.sink.warn(warning!(
                         new_name.span(),
                         "unnecessary import rename to same name",
                     ));
                 }
-            }
 
             // Define renamed module on the scope.
             vm.define(new_name, source.clone());
@@ -142,8 +141,8 @@ impl Eval for ast::ModuleImport<'_> {
                             // it.
 
                             // Warn on `import ...: x as x`
-                            if let ast::ImportItem::Renamed(renamed_item) = &item {
-                                if renamed_item.original_name().as_str()
+                            if let ast::ImportItem::Renamed(renamed_item) = &item
+                                && renamed_item.original_name().as_str()
                                     == renamed_item.new_name().as_str()
                                 {
                                     vm.engine.sink.warn(warning!(
@@ -151,7 +150,6 @@ impl Eval for ast::ModuleImport<'_> {
                                         "unnecessary import rename to same name",
                                     ));
                                 }
-                            }
 
                             vm.bind(item.bound_name(), binding.clone());
                         }

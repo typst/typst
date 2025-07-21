@@ -340,12 +340,11 @@ impl<'a> SVGRenderer<'a> {
             Destination::Location(loc) => {
                 // TODO: Location links on the same page could also be supported
                 // outside of HTML.
-                if let Some(introspector) = self.introspector {
-                    if let Some(id) = introspector.html_id(*loc) {
+                if let Some(introspector) = self.introspector
+                    && let Some(id) = introspector.html_id(*loc) {
                         self.xml.write_attribute_fmt("href", format_args!("#{id}"));
                         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
                     }
-                }
             }
             Destination::Position(_) => {
                 // TODO: Links on the same page could be supported.

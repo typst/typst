@@ -274,32 +274,29 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(footer) = &self.grid.footer {
-            if footer.repeated {
+        if let Some(footer) = &self.grid.footer
+            && footer.repeated {
                 // Ensure rows in the first region will be aware of the
                 // possible presence of the footer.
                 self.prepare_footer(footer, engine, 0)?;
                 self.regions.size.y -= self.current.footer_height;
                 self.current.initial_after_repeats = self.regions.size.y;
             }
-        }
 
         let mut y = 0;
         let mut consecutive_header_count = 0;
         while y < self.grid.rows.len() {
             if let Some(next_header) = self.upcoming_headers.get(consecutive_header_count)
-            {
-                if next_header.range.contains(&y) {
+                && next_header.range.contains(&y) {
                     self.place_new_headers(&mut consecutive_header_count, engine)?;
                     y = next_header.range.end;
 
                     // Skip header rows during normal layout.
                     continue;
                 }
-            }
 
-            if let Some(footer) = &self.grid.footer {
-                if footer.repeated && y >= footer.start {
+            if let Some(footer) = &self.grid.footer
+                && footer.repeated && y >= footer.start {
                     if y == footer.start {
                         self.layout_footer(footer, engine, self.finished.len())?;
                         self.flush_orphans();
@@ -307,7 +304,6 @@ impl<'a> GridLayouter<'a> {
                     y = footer.end;
                     continue;
                 }
-            }
 
             self.layout_row(y, engine, 0)?;
 
@@ -1283,15 +1279,13 @@ impl<'a> GridLayouter<'a> {
             // remeasure.
             if let Some([first, rest @ ..]) =
                 frames.get(measurement_data.frames_in_previous_regions..)
-            {
-                if can_skip
+                && can_skip
                     && breakable
                     && first.is_empty()
                     && rest.iter().any(|frame| !frame.is_empty())
                 {
                     return Ok(None);
                 }
-            }
 
             // Skip frames from previous regions if applicable.
             let mut sizes = frames
@@ -1529,8 +1523,8 @@ impl<'a> GridLayouter<'a> {
         // The latest rows have orphan prevention (headers) and no other rows
         // were placed, so remove those rows and try again in a new region,
         // unless this is the last region.
-        if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take() {
-            if !last {
+        if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take()
+            && !last {
                 self.current.lrows.truncate(orphan_snapshot);
                 self.current.repeated_header_rows =
                     self.current.repeated_header_rows.min(orphan_snapshot);
@@ -1540,7 +1534,6 @@ impl<'a> GridLayouter<'a> {
                     self.current.last_repeated_header_end = 0;
                 }
             }
-        }
 
         if self
             .current
@@ -1571,8 +1564,8 @@ impl<'a> GridLayouter<'a> {
             && self.current.could_progress_at_top;
 
         let mut laid_out_footer_start = None;
-        if !footer_would_be_widow {
-            if let Some(footer) = &self.grid.footer {
+        if !footer_would_be_widow
+            && let Some(footer) = &self.grid.footer {
                 // Don't layout the footer if it would be alone with the header
                 // in the page (hence the widow check), and don't layout it
                 // twice (check below).
@@ -1587,7 +1580,6 @@ impl<'a> GridLayouter<'a> {
                     self.layout_footer(footer, engine, self.finished.len())?;
                 }
             }
-        }
 
         // Determine the height of existing rows in the region.
         let mut used = Abs::zero();

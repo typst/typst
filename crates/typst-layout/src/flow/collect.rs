@@ -684,11 +684,10 @@ impl<T> CachedCell<T> {
         let input_hash = typst_utils::hash128(&input);
 
         let mut slot = self.0.borrow_mut();
-        if let Some((hash, output)) = &*slot {
-            if *hash == input_hash {
+        if let Some((hash, output)) = &*slot
+            && *hash == input_hash {
                 return output.clone();
             }
-        }
 
         let output = f(input);
         *slot = Some((input_hash, output.clone()));

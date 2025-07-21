@@ -87,11 +87,10 @@ impl MathRun {
 
             // Insert spacing between the last and this non-ignorant item.
             if !fragment.is_ignorant() {
-                if let Some(i) = last {
-                    if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
+                if let Some(i) = last
+                    && let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
                         resolved.insert(i + 1, s);
                     }
-                }
 
                 last = Some(resolved.len());
             }
@@ -123,11 +122,10 @@ impl MathRun {
             1 + self.0.iter().filter(|f| matches!(f, MathFragment::Linebreak)).count();
 
         // A linebreak at the very end does not introduce an extra row.
-        if let Some(f) = self.0.last() {
-            if matches!(f, MathFragment::Linebreak) {
+        if let Some(f) = self.0.last()
+            && matches!(f, MathFragment::Linebreak) {
                 count -= 1
             }
-        }
         count
     }
 
@@ -344,11 +342,10 @@ impl MathRun {
                 descent = Abs::zero();
 
                 space_is_visible = true;
-                if let Some(f_next) = iter.peek() {
-                    if !is_space(f_next) {
+                if let Some(f_next) = iter.peek()
+                    && !is_space(f_next) {
                         items.push(InlineItem::Space(Abs::zero(), true));
                     }
-                }
             } else {
                 space_is_visible = false;
             }

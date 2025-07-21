@@ -2098,14 +2098,13 @@ fn check_for_conflicting_cell_row(
         );
     }
 
-    if let Some((_, _, footer)) = footer {
-        if cell_y < footer.end && cell_y + rowspan > footer.start {
+    if let Some((_, _, footer)) = footer
+        && cell_y < footer.end && cell_y + rowspan > footer.start {
             bail!(
                 "cell would conflict with footer spanning the same position";
                 hint: "try reducing the cell's rowspan or moving the footer"
             );
         }
-    }
 
     Ok(())
 }

@@ -783,11 +783,10 @@ impl Lexer<'_> {
         let ident = self.s.from(start);
 
         let prev = self.s.get(0..start);
-        if !prev.ends_with(['.', '@']) || prev.ends_with("..") {
-            if let Some(keyword) = keyword(ident) {
+        if (!prev.ends_with(['.', '@']) || prev.ends_with(".."))
+            && let Some(keyword) = keyword(ident) {
                 return keyword;
             }
-        }
 
         if ident == "_" {
             SyntaxKind::Underscore

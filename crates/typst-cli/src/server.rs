@@ -162,7 +162,7 @@ impl<T> Bucket<T> {
     }
 
     /// Retrieves the current data in the bucket.
-    fn get(&self) -> MutexGuard<T> {
+    fn get(&self) -> MutexGuard<'_, T> {
         self.mutex.lock()
     }
 

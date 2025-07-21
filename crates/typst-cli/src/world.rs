@@ -361,22 +361,20 @@ impl<T: Clone> SlotCell<T> {
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
-        if mem::replace(&mut self.accessed, true) {
-            if let Some(data) = &self.data {
+        if mem::replace(&mut self.accessed, true)
+            && let Some(data) = &self.data {
                 return data.clone();
             }
-        }
 
         // Read and hash the file.
         let result = timed!("loading file", load());
         let fingerprint = timed!("hashing file", typst::utils::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
-        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {
-            if let Some(data) = &self.data {
+        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint
+            && let Some(data) = &self.data {
                 return data.clone();
             }
-        }
 
         let prev = self.data.take().and_then(Result::ok);
         let value = result.and_then(|data| f(data, prev));

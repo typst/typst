@@ -270,15 +270,14 @@ pub struct TextElem {
     /// ```
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
-        if let Some(paint) = &paint {
-            if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
+        if let Some(paint) = &paint
+            && paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(
                     paint.span,
                     "gradients and tilings on text must be relative to the parent";
                     hint: "make sure to set `relative: auto` on your text fill"
                 );
             }
-        }
         paint.map(|paint| paint.v)
     })]
     #[default(Color::BLACK.into())]

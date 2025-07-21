@@ -1382,11 +1382,10 @@ impl<'a> CompletionContext<'a> {
             }
         } else if at {
             apply = Some(eco_format!("at(\"{label}\")"));
-        } else if label.starts_with('"') && self.after.starts_with('"') {
-            if let Some(trimmed) = label.strip_suffix('"') {
+        } else if label.starts_with('"') && self.after.starts_with('"')
+            && let Some(trimmed) = label.strip_suffix('"') {
                 apply = Some(trimmed.into());
             }
-        }
 
         self.completions.push(Completion {
             kind: kind.unwrap_or_else(|| match value {

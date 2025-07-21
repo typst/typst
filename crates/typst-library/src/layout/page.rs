@@ -530,11 +530,10 @@ cast! {
     Margin,
     self => {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
+        if !two_sided && self.sides.is_uniform()
+            && let Some(left) = self.sides.left {
                 return left.into_value();
             }
-        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {

@@ -144,17 +144,15 @@ cast! {
     self => self.as_str().into_value(),
     string: EcoString => {
         let result = Self::from_str(&string);
-        if result.is_err() {
-            if let Some((lang, region)) = string.split_once('-') {
-                if Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
+        if result.is_err()
+            && let Some((lang, region)) = string.split_once('-')
+                && Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
                     return result
                         .hint(eco_format!(
                             "you should leave only \"{}\" in the `lang` parameter and specify \"{}\" in the `region` parameter",
                             lang, region,
                         ));
                 }
-            }
-        }
 
         result?
     }

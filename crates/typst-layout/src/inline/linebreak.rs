@@ -136,13 +136,12 @@ fn linebreak_simple<'a>(
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
-        if !width.fits(attempt.width) {
-            if let Some((last_attempt, last_end)) = last.take() {
+        if !width.fits(attempt.width)
+            && let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
                 attempt = line(engine, p, start..end, breakpoint, lines.last());
             }
-        }
 
         // Finish the current line if there is a mandatory line break (i.e. due
         // to "\n") or if the line doesn't fit horizontally already since then

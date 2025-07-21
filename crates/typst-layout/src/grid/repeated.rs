@@ -240,8 +240,8 @@ impl<'a> GridLayouter<'a> {
             self.current.initial_after_repeats = self.regions.size.y;
         }
 
-        if let Some(footer) = &self.grid.footer {
-            if footer.repeated && skipped_region {
+        if let Some(footer) = &self.grid.footer
+            && footer.repeated && skipped_region {
                 // Simulate the footer again; the region's 'full' might have
                 // changed.
                 self.regions.size.y += self.current.footer_height;
@@ -250,7 +250,6 @@ impl<'a> GridLayouter<'a> {
                     .height;
                 self.regions.size.y -= self.current.footer_height;
             }
-        }
 
         let repeating_header_rows =
             total_header_row_count(self.repeating_headers.iter().copied());

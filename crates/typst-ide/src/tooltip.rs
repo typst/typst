@@ -66,11 +66,10 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
             return Some(Tooltip::Text(plain_docs_sentence(docs)));
         }
 
-        if let &Value::Length(length) = value {
-            if let Some(tooltip) = length_tooltip(length) {
+        if let &Value::Length(length) = value
+            && let Some(tooltip) = length_tooltip(length) {
                 return Some(tooltip);
             }
-        }
     }
 
     if expr.is_literal() {
@@ -93,11 +92,10 @@ fn expr_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
         last = Some((value, 1));
     }
 
-    if let Some((_, count)) = last {
-        if count > 1 {
+    if let Some((_, count)) = last
+        && count > 1 {
             write!(pieces.last_mut().unwrap(), " (×{count})").unwrap();
         }
-    }
 
     if iter.next().is_some() {
         pieces.push("...".into());

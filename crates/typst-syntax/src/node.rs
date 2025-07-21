@@ -733,11 +733,9 @@ impl<'a> LinkedNode<'a> {
                 if children
                     .peek()
                     .is_none_or(|next| next.span().number() > span.number())
-                {
-                    if let Some(found) = child.find(span) {
+                    && let Some(found) = child.find(span) {
                         return Some(found);
                     }
-                }
             }
         }
 

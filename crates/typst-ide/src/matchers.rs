@@ -59,11 +59,10 @@ pub fn named_items<T>(
                 };
 
                 // Seeing the module itself.
-                if let Some((name, span)) = name_and_span {
-                    if let Some(res) = recv(NamedItem::Module(&name, span, module)) {
+                if let Some((name, span)) = name_and_span
+                    && let Some(res) = recv(NamedItem::Module(&name, span, module)) {
                         return Some(res);
                     }
-                }
 
                 // Seeing the imported items.
                 match imports {
@@ -124,8 +123,8 @@ pub fn named_items<T>(
         }
 
         if let Some(parent) = node.parent() {
-            if let Some(v) = parent.cast::<ast::ForLoop>() {
-                if node.prev_sibling_kind() != Some(SyntaxKind::In) {
+            if let Some(v) = parent.cast::<ast::ForLoop>()
+                && node.prev_sibling_kind() != Some(SyntaxKind::In) {
                     let pattern = v.pattern();
                     for ident in pattern.bindings() {
                         if let Some(res) = recv(NamedItem::Var(ident)) {
@@ -133,7 +132,6 @@ pub fn named_items<T>(
                         }
                     }
                 }
-            }
 
             if let Some(v) = parent.cast::<ast::Closure>().filter(|v| {
                 // Check if the node is in the body of the closure.
@@ -155,11 +153,10 @@ pub fn named_items<T>(
                             }
                         }
                         ast::Param::Spread(s) => {
-                            if let Some(sink_ident) = s.sink_ident() {
-                                if let Some(t) = recv(NamedItem::Var(sink_ident)) {
+                            if let Some(sink_ident) = s.sink_ident()
+                                && let Some(t) = recv(NamedItem::Var(sink_ident)) {
                                     return Some(t);
                                 }
-                            }
                         }
                     }
                 }
@@ -216,7 +213,7 @@ impl<'a> NamedItem<'a> {
 
 /// Categorize an expression into common classes IDE functionality can operate
 /// on.
-pub fn deref_target(node: LinkedNode) -> Option<DerefTarget<'_>> {
+pub fn deref_target(node: LinkedNode<'_>) -> Option<DerefTarget<'_>> {
     // Move to the first ancestor that is an expression.
     let mut ancestor = node;
     while !ancestor.is::<ast::Expr>() {

@@ -174,11 +174,10 @@ impl Content {
         id: u8,
         styles: Option<StyleChain>,
     ) -> Result<Value, FieldAccessError> {
-        if id == 255 {
-            if let Some(label) = self.label() {
+        if id == 255
+            && let Some(label) = self.label() {
                 return Ok(label.into_value());
             }
-        }
 
         match self.0.handle().field(id) {
             Some(handle) => match styles {

@@ -76,13 +76,12 @@ fn apply_assignment(
 
     // An assignment to a dictionary field is different from a normal access
     // since it can create the field instead of just modifying it.
-    if binary.op() == ast::BinOp::Assign {
-        if let ast::Expr::FieldAccess(access) = lhs {
+    if binary.op() == ast::BinOp::Assign
+        && let ast::Expr::FieldAccess(access) = lhs {
             let dict = access_dict(vm, access)?;
             dict.insert(access.field().get().clone().into(), rhs);
             return Ok(Value::None);
         }
-    }
 
     let location = binary.lhs().access(vm)?;
     let lhs = std::mem::take(&mut *location);

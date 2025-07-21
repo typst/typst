@@ -27,17 +27,15 @@ pub fn analyze_expr(
         ast::Expr::Numeric(v) => Value::numeric(v.get()),
         ast::Expr::Str(v) => Value::Str(v.get().into()),
         _ => {
-            if node.kind() == SyntaxKind::Contextual {
-                if let Some(child) = node.children().next_back() {
+            if node.kind() == SyntaxKind::Contextual
+                && let Some(child) = node.children().next_back() {
                     return analyze_expr(world, &child);
                 }
-            }
 
-            if let Some(parent) = node.parent() {
-                if parent.kind() == SyntaxKind::FieldAccess && node.index() > 0 {
+            if let Some(parent) = node.parent()
+                && parent.kind() == SyntaxKind::FieldAccess && node.index() > 0 {
                     return analyze_expr(world, parent);
                 }
-            }
 
             return typst::trace::<PagedDocument>(world.upcast(), node.span());
         }

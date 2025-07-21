@@ -1123,8 +1123,8 @@ impl Color {
             }
 
             // Ensure that the hue circle is traversed in the short direction.
-            if let Some(index) = space.hue_index() {
-                if (c0[index] - c1[index]).abs() > 180.0 {
+            if let Some(index) = space.hue_index()
+                && (c0[index] - c1[index]).abs() > 180.0 {
                     let (h0, h1) = if c0[index] < c1[index] {
                         (c0[index] + 360.0, c1[index])
                     } else {
@@ -1132,7 +1132,6 @@ impl Color {
                     };
                     m[index] = (w0 * h0 + w1 * h1) / (w0 + w1);
                 }
-            }
 
             m
         } else {

@@ -21,11 +21,10 @@ pub fn layout_lr(
     }
 
     // Extract implicit LrElem.
-    if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size.get(styles).is_one() {
+    if let Some(lr) = body.to_packed::<LrElem>()
+        && lr.size.get(styles).is_one() {
             body = &lr.body;
         }
-    }
 
     let mut fragments = ctx.layout_into_fragments(body, styles)?;
 
@@ -55,12 +54,11 @@ pub fn layout_lr(
 
     // Handle MathFragment::Glyph fragments that should be scaled up.
     for fragment in inner_fragments.iter_mut() {
-        if let MathFragment::Glyph(glyph) = fragment {
-            if glyph.mid_stretched == Some(false) {
+        if let MathFragment::Glyph(glyph) = fragment
+            && glyph.mid_stretched == Some(false) {
                 glyph.mid_stretched = Some(true);
                 scale(ctx, fragment, relative_to, height);
             }
-        }
     }
 
     // Remove weak SpacingFragment immediately after the opening or immediately

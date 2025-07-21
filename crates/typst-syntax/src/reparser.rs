@@ -70,14 +70,13 @@ fn try_reparse(
             }
 
             // If the child is a block, try to reparse the block.
-            if child.kind().is_block() {
-                if let Some(newborn) = reparse_block(text, new_range.clone()) {
+            if child.kind().is_block()
+                && let Some(newborn) = reparse_block(text, new_range.clone()) {
                     return node
                         .replace_children(i..i + 1, vec![newborn])
                         .is_ok()
                         .then_some(new_range);
                 }
-            }
         }
 
         // Does the child overlap with the edit?

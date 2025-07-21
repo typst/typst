@@ -87,8 +87,7 @@ fn render_outline_glyph(
 
         if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
             &text.stroke
-        {
-            if thickness.to_f32() > 0.0 {
+            && thickness.to_f32() > 0.0 {
                 let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
 
                 let paint = paint::to_sk_paint(
@@ -110,7 +109,6 @@ fn render_outline_glyph(
 
                 canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
             }
-        }
         return Some(());
     }
 

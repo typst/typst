@@ -238,14 +238,12 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
     if block {
         let mut blockquote = HtmlElem::new(tag::blockquote).with_body(Some(realized));
-        if let Some(Attribution::Content(attribution)) = attribution {
-            if let Some(link) = attribution.to_packed::<LinkElem>() {
-                if let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
+        if let Some(Attribution::Content(attribution)) = attribution
+            && let Some(link) = attribution.to_packed::<LinkElem>()
+                && let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
                     blockquote =
                         blockquote.with_attr(attr::cite, url.clone().into_inner());
                 }
-            }
-        }
 
         realized = blockquote.pack().spanned(span);
 

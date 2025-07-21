@@ -274,12 +274,11 @@ impl<'a> Collector<'a> {
         let segment_len = self.full.len() - prev;
 
         // Merge adjacent text segments with the same styles.
-        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut() {
-            if *last_styles == styles {
+        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut()
+            && *last_styles == styles {
                 *last_len += segment_len;
                 return;
             }
-        }
 
         self.segments.push(Segment::Text(segment_len, styles));
     }

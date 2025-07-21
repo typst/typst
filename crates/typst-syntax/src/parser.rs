@@ -442,14 +442,13 @@ fn math_unparen(p: &mut Parser, m: Marker) {
         return;
     }
 
-    if let [first, .., last] = node.children_mut() {
-        if first.text() == "(" && last.text() == ")" {
+    if let [first, .., last] = node.children_mut()
+        && first.text() == "(" && last.text() == ")" {
             first.convert_to_kind(SyntaxKind::LeftParen);
             last.convert_to_kind(SyntaxKind::RightParen);
             // Only convert if we did have regular parens.
             node.convert_to_kind(SyntaxKind::Math);
         }
-    }
 }
 
 /// The unicode math class of a string. Only returns `Some` if `text` has
@@ -1199,11 +1198,10 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
             Some(ast::Expr::Ident(ident)) => Some(ident.get().clone()),
             Some(ast::Expr::Str(s)) => Some(s.get()),
             _ => None,
-        } {
-            if !state.seen.insert(key.clone()) {
+        }
+            && !state.seen.insert(key.clone()) {
                 node.convert_to_error(eco_format!("duplicate key: {key}"));
             }
-        }
 
         p.wrap(m, pair_kind);
         state.maybe_just_parens = false;
@@ -1855,8 +1853,8 @@ impl<'s> Parser<'s> {
         self.nl_mode = mode;
         func(self);
         self.nl_mode = previous;
-        if let Some(newline) = self.token.newline {
-            if mode != previous {
+        if let Some(newline) = self.token.newline
+            && mode != previous {
                 // Restore our actual token's kind or insert a fake end.
                 let actual_kind = self.token.node.kind();
                 if self.nl_mode.stop_at(newline, actual_kind) {
@@ -1865,7 +1863,6 @@ impl<'s> Parser<'s> {
                     self.token.kind = actual_kind;
                 }
             }
-        }
     }
 
     /// Move the lexer forward and prepare the current token. In Code, this

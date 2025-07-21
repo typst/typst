@@ -193,8 +193,8 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
 
     let mut mask = state.mask;
     let storage;
-    if let Some(clip_curve) = group.clip.as_ref() {
-        if let Some(path) = shape::convert_curve(clip_curve)
+    if let Some(clip_curve) = group.clip.as_ref()
+        && let Some(path) = shape::convert_curve(clip_curve)
             .and_then(|path| path.transform(state.transform))
         {
             if let Some(mask) = mask {
@@ -226,7 +226,6 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
 
             mask = Some(&storage);
         }
-    }
 
     render_frame(canvas, state.with_mask(mask), &group.frame);
 }

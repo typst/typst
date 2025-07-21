@@ -300,8 +300,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
 fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     // Are we directly before an argument list?
     let next_leaf = node.next_leaf();
-    if let Some(next) = &next_leaf {
-        if node.range().end == next.offset()
+    if let Some(next) = &next_leaf
+        && node.range().end == next.offset()
             && ((next.kind() == SyntaxKind::LeftParen
                 && matches!(
                     next.parent_kind(),
@@ -312,7 +312,6 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
         {
             return Some(Tag::Function);
         }
-    }
 
     // Are we in math?
     if node.kind() == SyntaxKind::MathIdent {
@@ -379,14 +378,13 @@ pub fn highlight_html(root: &SyntaxNode) -> String {
 /// Highlight one source node, emitting HTML.
 fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
     let mut span = false;
-    if let Some(tag) = highlight(node) {
-        if tag != Tag::Error {
+    if let Some(tag) = highlight(node)
+        && tag != Tag::Error {
             span = true;
             html.push_str("<span class=\"");
             html.push_str(tag.css_class());
             html.push_str("\">");
         }
-    }
 
     let text = node.text();
     if !text.is_empty() {

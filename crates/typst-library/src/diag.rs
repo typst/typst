@@ -296,14 +296,13 @@ impl<T> Trace<T> for SourceResult<T> {
             let Some(trace_range) = world.range(span) else { return errors };
             for error in errors.make_mut().iter_mut() {
                 // Skip traces that surround the error.
-                if let Some(error_range) = world.range(error.span) {
-                    if error.span.id() == span.id()
+                if let Some(error_range) = world.range(error.span)
+                    && error.span.id() == span.id()
                         && trace_range.start <= error_range.start
                         && trace_range.end >= error_range.end
                     {
                         continue;
                     }
-                }
 
                 error.trace.push(Spanned::new(make_point(), span));
             }

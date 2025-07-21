@@ -750,11 +750,10 @@ fn preprocess(
     styles: StyleChain,
     span: Span,
 ) -> EcoVec<(EcoString, Span)> {
-    if let RawContent::Lines(lines) = text {
-        if lines.iter().all(|(s, _)| !s.contains('\t')) {
+    if let RawContent::Lines(lines) = text
+        && lines.iter().all(|(s, _)| !s.contains('\t')) {
             return lines.clone();
         }
-    }
 
     let mut text = text.get();
     if text.contains('\t') {

@@ -12,11 +12,10 @@ impl Eval for ast::SetRule<'_> {
     type Output = Styles;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        if let Some(condition) = self.condition() {
-            if !condition.eval(vm)?.cast::<bool>().at(condition.span())? {
+        if let Some(condition) = self.condition()
+            && !condition.eval(vm)?.cast::<bool>().at(condition.span())? {
                 return Ok(Styles::new());
             }
-        }
 
         let target = self.target();
         let target = target

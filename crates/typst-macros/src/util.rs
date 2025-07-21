@@ -27,18 +27,15 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
 
     // Parse doc comments.
     for attr in attrs {
-        if let syn::Meta::NameValue(meta) = &attr.meta {
-            if meta.path.is_ident("doc") {
-                if let syn::Expr::Lit(lit) = &meta.value {
-                    if let syn::Lit::Str(string) = &lit.lit {
+        if let syn::Meta::NameValue(meta) = &attr.meta
+            && meta.path.is_ident("doc")
+                && let syn::Expr::Lit(lit) = &meta.value
+                    && let syn::Lit::Str(string) = &lit.lit {
                         let full = string.value();
                         let line = full.strip_prefix(' ').unwrap_or(&full);
                         doc.push_str(line);
                         doc.push('\n');
                     }
-                }
-            }
-        }
     }
 
     doc.trim().into()
