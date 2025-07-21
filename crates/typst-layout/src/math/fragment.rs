@@ -2,18 +2,18 @@ use std::fmt::{self, Debug, Formatter};
 
 use az::SaturatingAs;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
-use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::GlyphId;
-use typst_library::diag::{bail, warning, SourceResult};
+use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
+use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{features, language, Font, Glyph, TextElem, TextItem};
+use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language};
 use typst_syntax::Span;
-use typst_utils::{default_math_class, Get};
+use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 
 use super::MathContext;
@@ -681,7 +681,11 @@ fn min_connector_overlap(font: &Font) -> Option<Em> {
         .map(|variants| font.to_em(variants.min_connector_overlap))
 }
 
-fn glyph_construction(font: &Font, id: GlyphId, axis: Axis) -> Option<GlyphConstruction> {
+fn glyph_construction(
+    font: &Font,
+    id: GlyphId,
+    axis: Axis,
+) -> Option<GlyphConstruction<'_>> {
     font.ttf()
         .tables()
         .math?
@@ -810,7 +814,10 @@ fn assemble(
 
 /// Return an iterator over the assembly's parts with extenders repeated the
 /// specified number of times.
-fn parts(assembly: GlyphAssembly, repeat: usize) -> impl Iterator<Item = GlyphPart> + '_ {
+fn parts(
+    assembly: GlyphAssembly<'_>,
+    repeat: usize,
+) -> impl Iterator<Item = GlyphPart> + '_ {
     assembly.parts.into_iter().flat_map(move |part| {
         let count = if part.part_flags.extender() { repeat } else { 1 };
         std::iter::repeat_n(part, count)

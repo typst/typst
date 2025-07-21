@@ -2,7 +2,8 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
-use typst_library::diag::{bail, SourceResult};
+use typst_library::World;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
@@ -11,11 +12,10 @@ use typst_library::introspection::{
 use typst_library::layout::{Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
-use typst_library::World;
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::{attr, tag, HtmlDocument, HtmlElement, HtmlNode};
+use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
 ///

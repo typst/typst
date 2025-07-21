@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{name_id, PlatformId, Tag};
+use ttf_parser::{PlatformId, Tag, name_id};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
@@ -284,10 +284,9 @@ impl FontInfo {
             .raw_face()
             .table(Tag::from_bytes(b"OS/2"))
             .and_then(|os2| os2.get(32..45))
+            && matches!(panose, [2, 2..=10, ..])
         {
-            if matches!(panose, [2, 2..=10, ..]) {
-                flags.insert(FontFlags::SERIF);
-            }
+            flags.insert(FontFlags::SERIF);
         }
 
         Some(FontInfo {
@@ -337,11 +336,7 @@ fn decode_mac_roman(coded: &[u8]) -> String {
     ];
 
     fn char_from_mac_roman(code: u8) -> char {
-        if code < 128 {
-            code as char
-        } else {
-            TABLE[(code - 128) as usize]
-        }
+        if code < 128 { code as char } else { TABLE[(code - 128) as usize] }
     }
 
     coded.iter().copied().map(char_from_mac_roman).collect()
@@ -397,10 +392,10 @@ fn typographic_family(mut family: &str) -> &str {
 
         // Also allow an extra modifier, but apply it only if it is separated it
         // from the text before it (to prevent false positives).
-        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s)) {
-            if let Some(stripped) = t.strip_suffix(SEPARATORS) {
-                trimmed = stripped;
-            }
+        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s))
+            && let Some(stripped) = t.strip_suffix(SEPARATORS)
+        {
+            trimmed = stripped;
         }
     }
 

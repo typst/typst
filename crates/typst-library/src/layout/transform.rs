@@ -1,4 +1,4 @@
-use crate::foundations::{cast, elem, Content, Smart};
+use crate::foundations::{Content, Smart, cast, elem};
 use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlignment};
 
 /// Moves content without affecting layout.

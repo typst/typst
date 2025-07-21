@@ -4,8 +4,8 @@ use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink};
 
-use typst_library::routines::{Arenas, FragmentKind, RealizationKind, Routines};
 use typst_library::World;
+use typst_library::routines::{Arenas, FragmentKind, RealizationKind, Routines};
 
 use crate::HtmlNode;
 

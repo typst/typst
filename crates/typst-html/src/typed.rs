@@ -9,9 +9,9 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
-use ecow::{eco_format, eco_vec, EcoString};
+use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::html as data;
-use typst_library::diag::{bail, At, Hint, HintedStrResult, SourceResult};
+use typst_library::diag::{At, Hint, HintedStrResult, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
@@ -22,7 +22,7 @@ use typst_library::layout::{Axes, Axis, Dir, Length};
 use typst_library::visualize::Color;
 use typst_macros::cast;
 
-use crate::{css, tag, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag};
+use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, css, tag};
 
 /// Hook up all typed HTML definitions.
 pub(super) fn define(html: &mut Scope) {

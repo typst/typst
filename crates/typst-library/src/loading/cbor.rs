@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, Bytes, Value};
+use crate::foundations::{Bytes, Value, func, scope};
 use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a CBOR file.

@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use palette::encoding::{self, Linear};
 use palette::{
     Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
@@ -11,10 +11,10 @@ use palette::{
 use qcms::Profile;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::foundations::{
-    array, cast, func, repr, scope, ty, Args, Array, IntoValue, Module, Repr, Scope, Str,
-    Value,
+    Args, Array, IntoValue, Module, Repr, Scope, Str, Value, array, cast, func, repr,
+    scope, ty,
 };
 use crate::layout::{Angle, Ratio};
 
@@ -1123,15 +1123,15 @@ impl Color {
             }
 
             // Ensure that the hue circle is traversed in the short direction.
-            if let Some(index) = space.hue_index() {
-                if (c0[index] - c1[index]).abs() > 180.0 {
-                    let (h0, h1) = if c0[index] < c1[index] {
-                        (c0[index] + 360.0, c1[index])
-                    } else {
-                        (c0[index], c1[index] + 360.0)
-                    };
-                    m[index] = (w0 * h0 + w1 * h1) / (w0 + w1);
-                }
+            if let Some(index) = space.hue_index()
+                && (c0[index] - c1[index]).abs() > 180.0
+            {
+                let (h0, h1) = if c0[index] < c1[index] {
+                    (c0[index] + 360.0, c1[index])
+                } else {
+                    (c0[index], c1[index] + 360.0)
+                };
+                m[index] = (w0 * h0 + w1 * h1) / (w0 + w1);
             }
 
             m

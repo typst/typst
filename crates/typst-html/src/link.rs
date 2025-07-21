@@ -1,14 +1,14 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use comemo::Track;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_library::foundations::{Label, NativeElement};
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Frame, FrameItem, Point};
 use typst_library::model::{Destination, LinkElem};
 use typst_utils::PicoStr;
 
-use crate::{attr, tag, HtmlElement, HtmlNode};
+use crate::{HtmlElement, HtmlNode, attr, tag};
 
 /// Searches for links within a frame.
 ///

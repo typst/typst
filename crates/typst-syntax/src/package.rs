@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unscanny::Scanner;
@@ -562,8 +562,9 @@ mod tests {
     fn tool_section() {
         // NOTE: tool section must be table of tables, but we can't easily
         // compare the error structurally
-        assert!(toml::from_str::<PackageManifest>(
-            r#"
+        assert!(
+            toml::from_str::<PackageManifest>(
+                r#"
                 [package]
                 name = "package"
                 version = "0.1.0"
@@ -572,8 +573,9 @@ mod tests {
                 [tool]
                 not-table = "str"
             "#
-        )
-        .is_err());
+            )
+            .is_err()
+        );
 
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct MyTool {

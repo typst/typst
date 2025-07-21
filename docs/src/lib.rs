@@ -11,12 +11,12 @@ pub use self::model::*;
 
 use std::collections::HashSet;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use heck::ToTitleCase;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
 use typst::foundations::{
     AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
     Smart, Type, Value,
@@ -103,7 +103,7 @@ pub trait Resolver {
 
     /// Produce HTML for an example.
     fn example(&self, hash: u128, source: Option<Html>, document: &PagedDocument)
-        -> Html;
+    -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;

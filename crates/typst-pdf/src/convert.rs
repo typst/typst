@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
-use ecow::{eco_format, EcoVec};
+use ecow::{EcoVec, eco_format};
 use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
@@ -13,7 +13,7 @@ use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
-use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
+use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;
 use typst_library::layout::{
@@ -24,6 +24,7 @@ use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::embed::embed_files;
 use crate::image::handle_image;
 use crate::link::handle_link;
@@ -32,8 +33,7 @@ use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::text::handle_text;
-use crate::util::{convert_path, display_font, AbsExt, TransformExt};
-use crate::PdfOptions;
+use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(

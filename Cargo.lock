@@ -1262,12 +1262,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "if_chain"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
-
-[[package]]
 name = "image"
 version = "0.25.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3008,7 +3002,6 @@ version = "0.13.1"
 dependencies = [
  "comemo",
  "ecow",
- "if_chain",
  "indexmap 2.7.1",
  "stacker",
  "toml",
@@ -3056,7 +3049,6 @@ version = "0.13.1"
 dependencies = [
  "comemo",
  "ecow",
- "if_chain",
  "once_cell",
  "pathdiff",
  "serde",

@@ -6,25 +6,25 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
 use syntect::highlighting::{self as synt};
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
+use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
+use crate::World;
 use crate::diag::{
     LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Bytes, Content, Derived, OneOrMultiple, Packed, PlainText,
-    ShowSet, Smart, StyleChain, Styles, Synthesize,
+    Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, cast, elem, scope,
 };
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
 use crate::text::{FontFamily, FontList, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
-use crate::World;
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -750,10 +750,10 @@ fn preprocess(
     styles: StyleChain,
     span: Span,
 ) -> EcoVec<(EcoString, Span)> {
-    if let RawContent::Lines(lines) = text {
-        if lines.iter().all(|(s, _)| !s.contains('\t')) {
-            return lines.clone();
-        }
+    if let RawContent::Lines(lines) = text
+        && lines.iter().all(|(s, _)| !s.contains('\t'))
+    {
+        return lines.clone();
     }
 
     let mut text = text.get();

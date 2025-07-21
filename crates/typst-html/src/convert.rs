@@ -1,4 +1,4 @@
-use typst_library::diag::{warning, SourceResult};
+use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
 use typst_library::introspection::{SplitLocator, TagElem};
@@ -8,7 +8,7 @@ use typst_library::routines::Pair;
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
 use crate::fragment::html_fragment;
-use crate::{attr, tag, FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode};
+use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, tag};
 
 /// Converts realized content into HTML nodes.
 pub fn convert_to_nodes<'a>(
