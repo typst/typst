@@ -253,12 +253,8 @@ pub struct Binding {
     span: Span,
     /// The category of the binding.
     category: Option<Category>,
-    /// A deprecation message for the definition.
-    deprecation_message: Option<&'static str>,
-    /// A version in which the deprecated binding is planned to be removed.
-    ///
-    /// This is ignored if `deprecation` is `None`.
-    deprecation_until: Option<&'static str>,
+    /// The deprecation information if this item is deprecated.
+    deprecation: Option<Box<DeprecationInfo>>,
 }
 
 /// The different kinds of slots.
@@ -278,8 +274,7 @@ impl Binding {
             span,
             kind: BindingKind::Normal,
             category: None,
-            deprecation_message: None,
-            deprecation_until: None,
+            deprecation: None,
         }
     }
 
@@ -290,7 +285,9 @@ impl Binding {
 
     /// Marks this binding as deprecated, with the given `message`.
     pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
-        self.deprecation_message = Some(message);
+        self.deprecation
+            .get_or_insert_with(|| Box::new(DeprecationInfo::new()))
+            .deprecated_message(message);
         self
     }
 
@@ -298,7 +295,9 @@ impl Binding {
     ///
     /// This is ignored if [`Binding::deprecated`] isn't also set.
     pub fn deprecated_until(&mut self, version: &'static str) -> &mut Self {
-        self.deprecation_until = Some(version);
+        self.deprecation
+            .get_or_insert_with(|| Box::new(DeprecationInfo::new()))
+            .deprecated_until(version);
         self
     }
 
@@ -313,8 +312,8 @@ impl Binding {
     /// - pass `()` to ignore the message.
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
     pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
-        if let Some(message) = self.deprecation_message {
-            sink.emit(message, self.deprecation_until);
+        if let Some(info) = &self.deprecation {
+            sink.emit(info.message, info.until);
         }
         &self.value
     }
@@ -350,13 +349,8 @@ impl Binding {
     }
 
     /// A deprecation message for the value, if any.
-    pub fn deprecation_message(&self) -> Option<&'static str> {
-        self.deprecation_message
-    }
-
-    /// The version in which a deprecated binding is planned to be removed.
-    pub fn deprecation_until(&self) -> Option<&'static str> {
-        self.deprecation_until
+    pub fn deprecation(&self) -> Option<&DeprecationInfo> {
+        self.deprecation.as_deref()
     }
 
     /// The category of the value, if any.
@@ -372,6 +366,51 @@ pub enum Capturer {
     Function,
     /// Captured by a context expression.
     Context,
+}
+
+/// Information about a deprecated binding.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct DeprecationInfo {
+    /// A deprecation message for the definition.
+    message: &'static str,
+    /// A version in which the deprecated binding is planned to be removed.
+    until: Option<&'static str>,
+}
+
+impl DeprecationInfo {
+    /// Creates new deprecation info with a default message to display when
+    /// emitting the deprecation warning.
+    pub fn new() -> Self {
+        Self { message: "item is deprecated", until: None }
+    }
+
+    /// Set the message to display when emitting the deprecation warning.
+    pub fn deprecated_message(&mut self, message: &'static str) -> &mut Self {
+        self.message = message;
+        self
+    }
+
+    /// Set the version in which the binding is planned to be removed.
+    pub fn deprecated_until(&mut self, version: &'static str) -> &mut Self {
+        self.until = Some(version);
+        self
+    }
+
+    /// The message to display when emitting the deprecation warning.
+    pub fn message(&self) -> &'static str {
+        self.message
+    }
+
+    /// The version in which the binding is planned to be removed.
+    pub fn until(&self) -> Option<&'static str> {
+        self.until
+    }
+}
+
+impl Default for DeprecationInfo {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// The error message when trying to mutate a variable from the standard
