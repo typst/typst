@@ -1,18 +1,20 @@
 use std::cell::OnceCell;
 use std::num::NonZeroU16;
-use std::ops::{Deref, DerefMut};
+use std::slice::SliceIndex;
 
+use krilla::configure::Validator;
+use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging as kt;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagGroup,
-    TagKind, TagTree,
+    ArtifactType, BBox, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag,
+    TagGroup, TagKind, TagTree,
 };
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
-use typst_library::layout::RepeatElem;
+use typst_library::layout::{Abs, Point, Rect, RepeatElem};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, LinkMarker,
@@ -22,12 +24,13 @@ use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagK
 use typst_library::text::{RawElem, RawLine};
 use typst_library::visualize::ImageElem;
 
-use crate::convert::GlobalContext;
+use crate::convert::{FrameContext, GlobalContext};
 use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
 use crate::tags::util::{PropertyOptRef, PropertyValCopied};
+use crate::util::AbsExt;
 
 mod list;
 mod outline;
@@ -63,7 +66,8 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
             }
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
-                Tag::Figure(alt).into()
+                push_stack(gc, loc, StackEntryKind::Figure(FigureCtx::new(alt)));
+                return;
             }
             PdfMarkerTagKind::FootnoteRef(decl_loc) => {
                 push_stack(gc, loc, StackEntryKind::FootnoteRef(*decl_loc));
@@ -114,28 +118,25 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
         let alt = image.alt.opt_ref().map(|s| s.to_string());
 
-        if let Some(StackEntryKind::Standard(TagKind::Figure(tag))) =
-            gc.tags.stack.parent()
-        {
+        if let Some(figure_ctx) = gc.tags.stack.parent_figure() {
             // Set alt text of outer figure tag, if not present.
-            if tag.alt_text().is_none() {
-                tag.set_alt_text(alt);
+            if figure_ctx.alt.is_none() {
+                figure_ctx.alt = alt;
             }
-            return;
         } else {
-            Tag::Figure(alt).into()
+            push_stack(gc, loc, StackEntryKind::Figure(FigureCtx::new(alt)));
         }
+        return;
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
         let alt = equation.alt.opt_ref().map(|s| s.to_string());
-        if let Some(StackEntryKind::Standard(TagKind::Figure(tag))) =
-            gc.tags.stack.parent()
-        {
+        if let Some(figure_ctx) = gc.tags.stack.parent_figure() {
             // Set alt text of outer figure tag, if not present.
-            if tag.alt_text().is_none() {
-                tag.set_alt_text(alt.clone());
+            if figure_ctx.alt.is_none() {
+                figure_ctx.alt = alt.clone();
             }
         }
-        Tag::Formula(alt).into()
+        push_stack(gc, loc, StackEntryKind::Formula(FigureCtx::new(alt)));
+        return;
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
@@ -254,6 +255,14 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) 
             list_ctx.push_bib_entry(entry.nodes);
             return;
         }
+        StackEntryKind::Figure(ctx) => {
+            let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.get());
+            TagNode::group(tag, entry.nodes)
+        }
+        StackEntryKind::Formula(ctx) => {
+            let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.get());
+            TagNode::group(tag, entry.nodes)
+        }
         StackEntryKind::Link(_, _) => {
             let mut node = TagNode::group(Tag::Link, entry.nodes);
             // Wrap link in reference tag if inside an outline entry.
@@ -365,6 +374,18 @@ pub fn add_link_annotations(
     }
 }
 
+pub fn update_bbox(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    compute_bbox: impl FnOnce() -> Rect,
+) {
+    if let Some(bbox) = gc.tags.stack.find_parent_bbox()
+        && gc.options.standards.config.validator() == Validator::UA1
+    {
+        bbox.expand_frame(fc, compute_bbox());
+    }
+}
+
 pub struct Tags {
     /// The intermediary stack of nested tag groups.
     pub stack: TagStack,
@@ -389,7 +410,7 @@ pub struct Tags {
 impl Tags {
     pub fn new() -> Self {
         Self {
-            stack: TagStack(Vec::new()),
+            stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             footnotes: FxHashMap::default(),
             in_artifact: None,
@@ -418,7 +439,7 @@ impl Tags {
     }
 
     pub fn build_tree(&mut self) -> TagTree {
-        assert!(self.stack.is_empty(), "tags weren't properly closed");
+        assert!(self.stack.items.is_empty(), "tags weren't properly closed");
 
         let children = std::mem::take(&mut self.tree)
             .into_iter()
@@ -459,25 +480,79 @@ impl Tags {
     }
 }
 
-pub struct TagStack(Vec<StackEntry>);
+#[derive(Debug)]
+pub struct TagStack {
+    items: Vec<StackEntry>,
+    /// The index of the topmost stack entry that has a bbox.
+    bbox_idx: Option<usize>,
+}
 
-impl Deref for TagStack {
-    type Target = Vec<StackEntry>;
+impl<I: SliceIndex<[StackEntry]>> std::ops::Index<I> for TagStack {
+    type Output = I::Output;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        std::ops::Index::index(&self.items, index)
     }
 }
 
-impl DerefMut for TagStack {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+impl<I: SliceIndex<[StackEntry]>> std::ops::IndexMut<I> for TagStack {
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        std::ops::IndexMut::index_mut(&mut self.items, index)
     }
 }
 
 impl TagStack {
+    pub fn new() -> Self {
+        Self { items: Vec::new(), bbox_idx: None }
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn last_mut(&mut self) -> Option<&mut StackEntry> {
+        self.items.last_mut()
+    }
+
+    pub fn push(&mut self, entry: StackEntry) {
+        if entry.kind.bbox().is_some() {
+            self.bbox_idx = Some(self.len());
+        }
+        self.items.push(entry);
+    }
+
+    /// Remove the last stack entry if the predicate returns true.
+    /// This takes care of updating the parent bboxes.
+    pub fn pop_if(
+        &mut self,
+        mut predicate: impl FnMut(&mut StackEntry) -> bool,
+    ) -> Option<StackEntry> {
+        let last = self.items.last_mut()?;
+        if predicate(last) { self.pop() } else { None }
+    }
+
+    /// Remove the last stack entry.
+    /// This takes care of updating the parent bboxes.
+    pub fn pop(&mut self) -> Option<StackEntry> {
+        let removed = self.items.pop()?;
+
+        let Some(inner_bbox) = removed.kind.bbox() else { return Some(removed) };
+
+        self.bbox_idx = self.items.iter_mut().enumerate().rev().find_map(|(i, entry)| {
+            let outer_bbox = entry.kind.bbox_mut()?;
+            if let Some((page_idx, rect)) = inner_bbox.rect {
+                outer_bbox.expand_page(page_idx, rect);
+            }
+            Some(i)
+        });
+
+        Some(removed)
+    }
+
     pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
-        self.0.last_mut().map(|e| &mut e.kind)
+        self.items.last_mut().map(|e| &mut e.kind)
     }
 
     pub fn parent_table(&mut self) -> Option<&mut TableCtx> {
@@ -488,8 +563,12 @@ impl TagStack {
         self.parent()?.as_list_mut()
     }
 
+    pub fn parent_figure(&mut self) -> Option<&mut FigureCtx> {
+        self.parent()?.as_figure_mut()
+    }
+
     pub fn parent_outline(&mut self) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
-        self.0.last_mut().and_then(|e| {
+        self.items.last_mut().and_then(|e| {
             let ctx = e.kind.as_outline_mut()?;
             Some((ctx, &mut e.nodes))
         })
@@ -502,10 +581,15 @@ impl TagStack {
     pub fn find_parent_link(
         &mut self,
     ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
-        self.0.iter_mut().rev().find_map(|e| {
+        self.items.iter_mut().rev().find_map(|e| {
             let (link_id, link) = e.kind.as_link()?;
             Some((link_id, link, &mut e.nodes))
         })
+    }
+
+    /// Finds the first parent that has a bounding box.
+    pub fn find_parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
+        self.items[self.bbox_idx?].kind.bbox_mut()
     }
 }
 
@@ -554,6 +638,8 @@ pub enum StackEntryKind {
     ListItemLabel,
     ListItemBody,
     BibEntry,
+    Figure(FigureCtx),
+    Formula(FigureCtx),
     Link(LinkId, Packed<LinkMarker>),
     /// The footnote reference in the text, contains the declaration location.
     FootnoteRef(Location),
@@ -581,12 +667,34 @@ impl StackEntryKind {
         if let Self::List(v) = self { Some(v) } else { None }
     }
 
+    pub fn as_figure_mut(&mut self) -> Option<&mut FigureCtx> {
+        if let Self::Figure(v) = self { Some(v) } else { None }
+    }
+
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
     }
 
     pub fn is_code_block(&self) -> bool {
         matches!(self, Self::CodeBlock)
+    }
+
+    pub fn bbox(&self) -> Option<&BBoxCtx> {
+        match self {
+            Self::Table(ctx) => Some(&ctx.bbox),
+            Self::Figure(ctx) => Some(&ctx.bbox),
+            Self::Formula(ctx) => Some(&ctx.bbox),
+            _ => None,
+        }
+    }
+
+    pub fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
+        match self {
+            Self::Table(ctx) => Some(&mut ctx.bbox),
+            Self::Figure(ctx) => Some(&mut ctx.bbox),
+            Self::Formula(ctx) => Some(&mut ctx.bbox),
+            _ => None,
+        }
     }
 }
 
@@ -603,6 +711,93 @@ pub struct FootnoteCtx {
 impl FootnoteCtx {
     pub const fn new() -> Self {
         Self { is_referenced: false, entry: None }
+    }
+}
+
+/// Figure/Formula context
+#[derive(Debug, Clone, PartialEq)]
+pub struct FigureCtx {
+    alt: Option<String>,
+    bbox: BBoxCtx,
+}
+
+impl FigureCtx {
+    fn new(alt: Option<String>) -> Self {
+        Self { alt, bbox: BBoxCtx::new() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BBoxCtx {
+    rect: Option<(usize, Rect)>,
+    multi_page: bool,
+}
+
+impl BBoxCtx {
+    pub fn new() -> Self {
+        Self { rect: None, multi_page: false }
+    }
+
+    /// Expand the bounding box with a `rect` relative to the current frame
+    /// context transform.
+    pub fn expand_frame(&mut self, fc: &FrameContext, rect: Rect) {
+        let Some(page_idx) = fc.page_idx else { return };
+        if self.multi_page {
+            return;
+        }
+        let (idx, bbox) = self.rect.get_or_insert((
+            page_idx,
+            Rect::new(Point::splat(Abs::inf()), Point::splat(-Abs::inf())),
+        ));
+        if *idx != page_idx {
+            self.multi_page = true;
+            self.rect = None;
+            return;
+        }
+
+        let size = rect.size();
+        for point in [
+            rect.min,
+            rect.min + Point::with_x(size.x),
+            rect.min + Point::with_y(size.y),
+            rect.max,
+        ] {
+            let p = point.transform(fc.state().transform());
+            bbox.min = bbox.min.min(p);
+            bbox.max = bbox.max.max(p);
+        }
+    }
+
+    /// Expand the bounding box with a rectangle that's already transformed into
+    /// page coordinates.
+    pub fn expand_page(&mut self, page_idx: usize, rect: Rect) {
+        if self.multi_page {
+            return;
+        }
+        let (idx, bbox) = self.rect.get_or_insert((
+            page_idx,
+            Rect::new(Point::splat(Abs::inf()), Point::splat(-Abs::inf())),
+        ));
+        if *idx != page_idx {
+            self.multi_page = true;
+            self.rect = None;
+            return;
+        }
+
+        bbox.min = bbox.min.min(rect.min);
+        bbox.max = bbox.max.max(rect.max);
+    }
+
+    pub fn get(&self) -> Option<BBox> {
+        let (page_idx, rect) = self.rect?;
+        let rect = kg::Rect::from_ltrb(
+            rect.min.x.to_f32(),
+            rect.min.y.to_f32(),
+            rect.max.x.to_f32(),
+            rect.max.y.to_f32(),
+        )
+        .unwrap();
+        Some(BBox::new(page_idx, rect))
     }
 }
 

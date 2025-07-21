@@ -17,6 +17,8 @@ pub(crate) fn handle_shape(
     gc: &mut GlobalContext,
     span: Span,
 ) -> SourceResult<()> {
+    tags::update_bbox(gc, fc, || shape.geometry.bbox());
+
     let mut handle = tags::start_artifact(gc, surface, ArtifactKind::Other);
     let surface = handle.surface();
 

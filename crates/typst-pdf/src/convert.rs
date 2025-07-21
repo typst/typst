@@ -106,7 +106,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             let mut page = document.start_page_with(settings);
             let mut surface = page.surface();
-            let mut fc = FrameContext::new(typst_page.frame.size());
+            let page_idx = gc.page_index_converter.pdf_page_index(i);
+            let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
 
             tags::page_start(gc, &mut surface);
 
@@ -175,13 +176,17 @@ impl State {
 
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
+    /// The logical page index. This might be `None` if the page isn't exported,
+    /// of if the FrameContext has been built to convert a pattern.
+    pub(crate) page_idx: Option<usize>,
     states: Vec<State>,
     link_annotations: Vec<LinkAnnotation>,
 }
 
 impl FrameContext {
-    pub(crate) fn new(size: Size) -> Self {
+    pub(crate) fn new(page_idx: Option<usize>, size: Size) -> Self {
         Self {
+            page_idx,
             states: vec![State::new(size)],
             link_annotations: Vec::new(),
         }
