@@ -57,12 +57,11 @@ impl Eval for ast::ShowRule<'_> {
 
 /// Migration hint for `show par: set block(spacing: ..)`.
 fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
-    if_chain::if_chain! {
-        if let Some(Selector::Elem(elem, _)) = recipe.selector();
-        if *elem == Element::of::<ParElem>();
-        if let Transformation::Style(styles) = recipe.transform();
-        if styles.has(BlockElem::above) || styles.has(BlockElem::below);
-        then {
+        if let Some(Selector::Elem(elem, _)) = recipe.selector() &&
+           *elem == Element::of::<ParElem>() &&
+           let Transformation::Style(styles) = recipe.transform() &&
+           (styles.has(BlockElem::above) || styles.has(BlockElem::below)) 
+        {
             vm.engine.sink.warn(warning!(
                 recipe.span(),
                 "`show par: set block(spacing: ..)` has no effect anymore";
@@ -70,5 +69,4 @@ fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
                 hint: "this is specific to paragraphs as they are not considered blocks anymore"
             ))
         }
-    }
 }

@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::ffi::OsStr;
 
 use ecow::{eco_format, EcoString};
-use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
@@ -145,27 +144,23 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind a half-completed binding: "#let x = |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if prev.kind() == SyntaxKind::Eq;
-        if prev.parent_kind() == Some(SyntaxKind::LetBinding);
-        then {
+        if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Eq
+        && prev.parent_kind() == Some(SyntaxKind::LetBinding)
+        {
             ctx.from = ctx.cursor;
             code_completions(ctx, false);
             return true;
         }
-    }
 
     // Behind a half-completed context block: "#context |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if prev.kind() == SyntaxKind::Context;
-        then {
+        if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Context
+         {
             ctx.from = ctx.cursor;
             code_completions(ctx, false);
             return true;
         }
-    }
 
     // Directly after a raw block.
     let mut s = Scanner::new(ctx.text);
@@ -373,38 +368,34 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     );
 
     // Behind an expression plus dot: "emoji.|".
-    if_chain! {
-        if ctx.leaf.kind() == SyntaxKind::Dot
+        if (ctx.leaf.kind() == SyntaxKind::Dot
             || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
-                && ctx.leaf.text() == ".");
-        if ctx.leaf.range().end == ctx.cursor;
-        if let Some(prev) = ctx.leaf.prev_sibling();
-        if !in_markup || prev.range().end == ctx.leaf.range().start;
-        if prev.is::<ast::Expr>();
-        if prev.parent_kind() != Some(SyntaxKind::Markup) ||
-           prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
-        if let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next();
-        then {
+                && ctx.leaf.text() == "."))
+        && ctx.leaf.range().end == ctx.cursor
+        && let Some(prev) = ctx.leaf.prev_sibling()
+        && (!in_markup || prev.range().end == ctx.leaf.range().start)
+        && prev.is::<ast::Expr>()
+        && (prev.parent_kind() != Some(SyntaxKind::Markup) ||
+           prev.prev_sibling_kind() == Some(SyntaxKind::Hash))
+        && let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next()
+         {
             ctx.from = ctx.cursor;
             field_access_completions(ctx, &value, &styles);
             return true;
         }
-    }
 
     // Behind a started field access: "emoji.fa|".
-    if_chain! {
-        if ctx.leaf.kind() == SyntaxKind::Ident;
-        if let Some(prev) = ctx.leaf.prev_sibling();
-        if prev.kind() == SyntaxKind::Dot;
-        if let Some(prev_prev) = prev.prev_sibling();
-        if prev_prev.is::<ast::Expr>();
-        if let Some((value, styles)) = analyze_expr(ctx.world, &prev_prev).into_iter().next();
-        then {
+        if ctx.leaf.kind() == SyntaxKind::Ident
+        && let Some(prev) = ctx.leaf.prev_sibling()
+        && prev.kind() == SyntaxKind::Dot
+        && let Some(prev_prev) = prev.prev_sibling()
+        && prev_prev.is::<ast::Expr>()
+        && let Some((value, styles)) = analyze_expr(ctx.world, &prev_prev).into_iter().next()
+         {
             ctx.from = ctx.leaf.offset();
             field_access_completions(ctx, &value, &styles);
             return true;
         }
-    }
 
     false
 }
@@ -507,14 +498,10 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
 fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // In an import path for a file or package:
     // "#import "|",
-    if_chain! {
-        if matches!(
-            ctx.leaf.parent_kind(),
-            Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude)
-        );
-        if let Some(ast::Expr::Str(str)) = ctx.leaf.cast();
-        let value = str.get();
-        then {
+        if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) = ctx.leaf.parent_kind()
+        && let Some(ast::Expr::Str(str)) = ctx.leaf.cast()
+         {
+            let value = str.get();
             ctx.from = ctx.leaf.offset();
             if value.starts_with('@') {
                 let all_versions = value.contains(':');
@@ -524,41 +511,36 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
             }
             return true;
         }
-    }
 
     // Behind an import list:
     // "#import "path.typ": |",
     // "#import "path.typ": a, b, |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::ModuleImport(import)) = prev.get().cast();
-        if let Some(ast::Imports::Items(items)) = import.imports();
-        if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
-        then {
+        if let Some(prev) = ctx.leaf.prev_sibling()
+        && let Some(ast::Expr::ModuleImport(import)) = prev.get().cast()
+        && let Some(ast::Imports::Items(items)) = import.imports()
+        && let Some(source) = prev.children().find(|child| child.is::<ast::Expr>())
+         {
             ctx.from = ctx.cursor;
             import_item_completions(ctx, items, &source);
             return true;
         }
-    }
 
     // Behind a half-started identifier in an import list:
     // "#import "path.typ": thi|",
-    if_chain! {
-        if ctx.leaf.kind() == SyntaxKind::Ident;
-        if let Some(parent) = ctx.leaf.parent();
-        if parent.kind() == SyntaxKind::ImportItemPath;
-        if let Some(grand) = parent.parent();
-        if grand.kind() == SyntaxKind::ImportItems;
-        if let Some(great) = grand.parent();
-        if let Some(ast::Expr::ModuleImport(import)) = great.get().cast();
-        if let Some(ast::Imports::Items(items)) = import.imports();
-        if let Some(source) = great.children().find(|child| child.is::<ast::Expr>());
-        then {
+        if ctx.leaf.kind() == SyntaxKind::Ident
+        && let Some(parent) = ctx.leaf.parent()
+        && parent.kind() == SyntaxKind::ImportItemPath
+        && let Some(grand) = parent.parent()
+        && grand.kind() == SyntaxKind::ImportItems
+        && let Some(great) = grand.parent()
+        && let Some(ast::Expr::ModuleImport(import)) = great.get().cast()
+        && let Some(ast::Imports::Items(items)) = import.imports()
+        && let Some(source) = great.children().find(|child| child.is::<ast::Expr>())
+         {
             ctx.from = ctx.leaf.offset();
             import_item_completions(ctx, items, &source);
             return true;
         }
-    }
 
     false
 }
@@ -607,16 +589,14 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind a half-completed show rule: "show strong: |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Colon);
-        if matches!(prev.parent_kind(), Some(SyntaxKind::ShowRule));
-        then {
+        if let Some(prev) = ctx.leaf.prev_leaf()
+        && matches!(prev.kind(), SyntaxKind::Colon)
+        && matches!(prev.parent_kind(), Some(SyntaxKind::ShowRule))
+         {
             ctx.from = ctx.cursor;
             show_rule_recipe_completions(ctx);
             return true;
         }
-    }
 
     false
 }
@@ -682,27 +662,26 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 /// Complete call and set rule parameters.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
-    let (callee, set, args, args_linked) = if_chain! {
-        if let Some(parent) = ctx.leaf.parent();
-        if let Some(parent) = match parent.kind() {
+    let (callee, set, args, args_linked) = 
+        if let Some(parent) = ctx.leaf.parent()
+        && let Some(parent) = match parent.kind() {
             SyntaxKind::Named => parent.parent(),
             _ => Some(parent),
-        };
-        if let Some(args) = parent.get().cast::<ast::Args>();
-        if let Some(grand) = parent.parent();
-        if let Some(expr) = grand.get().cast::<ast::Expr>();
-        let set = matches!(expr, ast::Expr::SetRule(_));
-        if let Some(callee) = match expr {
+        }
+        && let Some(args) = parent.get().cast::<ast::Args>()
+        && let Some(grand) = parent.parent()
+        && let Some(expr) = grand.get().cast::<ast::Expr>()
+        && let set = matches!(expr, ast::Expr::SetRule(_))
+        && let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
-        };
-        then {
+        }
+        {
             (callee, set, args, parent)
         } else {
             return false;
-        }
-    };
+        };
 
     // Find the piece of syntax that decides what we're completing.
     let mut deciding = ctx.leaf.clone();
@@ -718,11 +697,10 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     }
 
     // Parameter values: "func(param:|)", "func(param: |)".
-    if_chain! {
-        if deciding.kind() == SyntaxKind::Colon;
-        if let Some(prev) = deciding.prev_leaf();
-        if let Some(param) = prev.get().cast::<ast::Ident>();
-        then {
+        if let SyntaxKind::Colon = deciding.kind()
+        && let Some(prev) = deciding.prev_leaf()
+        && let Some(param) = prev.get().cast::<ast::Ident>()
+         {
             if let Some(next) = deciding.next_leaf() {
                 ctx.from = ctx.cursor.min(next.offset());
             }
@@ -730,13 +708,11 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             named_param_value_completions(ctx, callee, &param);
             return true;
         }
-    }
 
     // Parameters: "func(|)", "func(hi|)", "func(12,|)".
-    if_chain! {
-        if matches!(deciding.kind(), SyntaxKind::LeftParen | SyntaxKind::Comma);
-        if deciding.kind() != SyntaxKind::Comma || deciding.range().end < ctx.cursor;
-        then {
+        if let SyntaxKind::LeftParen | SyntaxKind::Comma = deciding.kind()
+        && (deciding.kind() != SyntaxKind::Comma || deciding.range().end < ctx.cursor)
+         {
             if let Some(next) = deciding.next_leaf() {
                 ctx.from = ctx.cursor.min(next.offset());
             }
@@ -744,7 +720,6 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             param_completions(ctx, callee, set, args, args_linked);
             return true;
         }
-    }
 
     false
 }
@@ -1104,15 +1079,13 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
     let mut node = leaf;
     while let Some(parent) = node.parent() {
-        if_chain! {
-            if let Some(expr) = parent.get().cast::<ast::Expr>();
-            if let ast::Expr::ShowRule(show) = expr;
-            if let Some(ast::Expr::FieldAccess(field)) = show.selector();
-            if field.field().as_str() == "equation";
-            then {
+            if let Some(expr) = parent.get().cast::<ast::Expr>()
+            && let ast::Expr::ShowRule(show) = expr
+            && let Some(ast::Expr::FieldAccess(field)) = show.selector()
+            && field.field().as_str() == "equation"
+            {
                 return true;
             }
-        }
         node = parent;
     }
     false

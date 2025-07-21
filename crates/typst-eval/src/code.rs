@@ -324,22 +324,19 @@ impl Eval for ast::FieldAccess<'_> {
         };
 
         // Check whether this is a get rule field access.
-        if_chain::if_chain! {
-            if let Value::Func(func) = &value;
-            if let Some(element) = func.element();
-            if let Some(id) = element.field_id(&field);
-            let styles = vm.context.styles().at(field.span());
-            if let Ok(value) = element.field_from_styles(
+            if let Value::Func(func) = &value &&
+               let Some(element) = func.element() &&
+               let Some(id) = element.field_id(&field) &&
+               let styles = vm.context.styles().at(field.span()) &&
+               let Ok(value) = element.field_from_styles(
                 id,
                 styles.as_ref().map(|&s| s).unwrap_or_default(),
-            );
-            then {
+            ) {
                 // Only validate the context once we know that this is indeed
                 // a field from the style chain.
                 let _ = styles?;
                 return Ok(value);
             }
-        }
 
         Err(err)
     }
