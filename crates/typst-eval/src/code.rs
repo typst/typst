@@ -1,9 +1,9 @@
-use ecow::{eco_vec, EcoVec};
-use typst_library::diag::{bail, error, warning, At, SourceResult};
+use ecow::{EcoVec, eco_vec};
+use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    ops, Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement,
-    Selector, Str, Value,
+    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Selector,
+    Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -324,19 +324,18 @@ impl Eval for ast::FieldAccess<'_> {
         };
 
         // Check whether this is a get rule field access.
-            if let Value::Func(func) = &value &&
-               let Some(element) = func.element() &&
-               let Some(id) = element.field_id(&field) &&
-               let styles = vm.context.styles().at(field.span()) &&
-               let Ok(value) = element.field_from_styles(
-                id,
-                styles.as_ref().map(|&s| s).unwrap_or_default(),
-            ) {
-                // Only validate the context once we know that this is indeed
-                // a field from the style chain.
-                let _ = styles?;
-                return Ok(value);
-            }
+        if let Value::Func(func) = &value
+            && let Some(element) = func.element()
+            && let Some(id) = element.field_id(&field)
+            && let styles = vm.context.styles().at(field.span())
+            && let Ok(value) = element
+                .field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+        {
+            // Only validate the context once we know that this is indeed
+            // a field from the style chain.
+            let _ = styles?;
+            return Ok(value);
+        }
 
         Err(err)
     }

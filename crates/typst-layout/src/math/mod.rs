@@ -13,7 +13,8 @@ mod stretch;
 mod text;
 mod underover;
 
-use typst_library::diag::{bail, SourceResult};
+use typst_library::World;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
@@ -28,15 +29,14 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    families, variant, Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem,
+    Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, families, variant,
 };
-use typst_library::World;
 use typst_syntax::Span;
 use typst_utils::Numeric;
 use unicode_math_class::MathClass;
 
 use self::fragment::{
-    has_dtls_feat, stretch_axes, FrameFragment, GlyphFragment, Limits, MathFragment,
+    FrameFragment, GlyphFragment, Limits, MathFragment, has_dtls_feat, stretch_axes,
 };
 use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
 use self::shared::*;
@@ -604,12 +604,10 @@ fn layout_h(
     styles: StyleChain,
 ) -> SourceResult<()> {
     if let Spacing::Rel(rel) = elem.amount
-        && rel.rel.is_zero() {
-            ctx.push(MathFragment::Spacing(
-                rel.abs.resolve(styles),
-                elem.weak.get(styles),
-            ));
-        }
+        && rel.rel.is_zero()
+    {
+        ctx.push(MathFragment::Spacing(rel.abs.resolve(styles), elem.weak.get(styles)));
+    }
     Ok(())
 }
 

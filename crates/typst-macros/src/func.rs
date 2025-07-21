@@ -2,7 +2,7 @@ use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{parse_quote, Ident, Result};
+use syn::{Ident, Result, parse_quote};
 
 use crate::util::{
     determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,

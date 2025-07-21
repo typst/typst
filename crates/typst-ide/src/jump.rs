@@ -1,10 +1,10 @@
 use std::num::NonZeroUsize;
 
+use typst::WorldExt;
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
-use typst::WorldExt;
 
 use crate::IdeWorld;
 
@@ -37,15 +37,16 @@ pub fn jump_from_click(
     // Try to find a link first.
     for (pos, item) in frame.items() {
         if let FrameItem::Link(dest, size) = item
-            && is_in_rect(*pos, *size, click) {
-                return Some(match dest {
-                    Destination::Url(url) => Jump::Url(url.clone()),
-                    Destination::Position(pos) => Jump::Position(*pos),
-                    Destination::Location(loc) => {
-                        Jump::Position(document.introspector.position(*loc))
-                    }
-                });
-            }
+            && is_in_rect(*pos, *size, click)
+        {
+            return Some(match dest {
+                Destination::Url(url) => Jump::Url(url.clone()),
+                Destination::Position(pos) => Jump::Position(*pos),
+                Destination::Location(loc) => {
+                    Jump::Position(document.introspector.position(*loc))
+                }
+            });
+        }
     }
 
     // If there's no link, search for a jump target.
@@ -54,9 +55,10 @@ pub fn jump_from_click(
             FrameItem::Group(group) => {
                 let pos = click - pos;
                 if let Some(clip) = &group.clip
-                    && !clip.contains(FillRule::NonZero, pos) {
-                        continue;
-                    }
+                    && !clip.contains(FillRule::NonZero, pos)
+                {
+                    continue;
+                }
                 // Realistic transforms should always be invertible.
                 // An example of one that isn't is a scale of 0, which would
                 // not be clickable anyway.
@@ -177,9 +179,10 @@ pub fn jump_from_cursor(
 fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
     for &(mut pos, ref item) in frame.items() {
         if let FrameItem::Group(group) = item
-            && let Some(point) = find_in_frame(&group.frame, span) {
-                return Some(pos + point.transform(group.transform));
-            }
+            && let Some(point) = find_in_frame(&group.frame, span)
+        {
+            return Some(pos + point.transform(group.transform));
+        }
 
         if let FrameItem::Text(text) = item {
             for glyph in &text.glyphs {
@@ -219,7 +222,7 @@ mod tests {
 
     use typst::layout::{Abs, Point, Position};
 
-    use super::{jump_from_click, jump_from_cursor, Jump};
+    use super::{Jump, jump_from_click, jump_from_cursor};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     fn point(x: f64, y: f64) -> Point {

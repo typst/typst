@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::foundations::{cast, elem, Content};
+use crate::foundations::{Content, cast, elem};
 use crate::layout::{Dir, Spacing};
 
 /// Arranges content and spacing horizontally or vertically.

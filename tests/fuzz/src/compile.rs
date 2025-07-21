@@ -67,8 +67,9 @@ impl World for FuzzWorld {
 fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(text);
     if let Ok(document) = typst::compile::<PagedDocument>(&world).output
-        && let Some(page) = document.pages.first() {
-            std::hint::black_box(typst_render::render(page, 1.0));
-        }
+        && let Some(page) = document.pages.first()
+    {
+        std::hint::black_box(typst_render::render(page, 1.0));
+    }
     comemo::evict(10);
 });

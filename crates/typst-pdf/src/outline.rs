@@ -24,10 +24,10 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
         if let Some(page_ranges) = &gc.options.page_ranges
             && !page_ranges
                 .includes_page(gc.document.introspector.page(elem.location().unwrap()))
-            {
-                // Don't bookmark headings in non-exported pages.
-                continue;
-            }
+        {
+            // Don't bookmark headings in non-exported pages.
+            continue;
+        }
 
         let heading = elem.to_packed::<HeadingElem>().unwrap();
         let leaf = HeadingNode::leaf(heading);

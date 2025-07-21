@@ -5,7 +5,7 @@ use typst_library::math::{EquationElem, LrElem, MidElem};
 use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
-use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
+use super::{DELIM_SHORT_FALL, MathContext, MathFragment, stretch_fragment};
 
 /// Lays out an [`LrElem`].
 #[typst_macros::time(name = "math.lr", span = elem.span())]
@@ -22,9 +22,10 @@ pub fn layout_lr(
 
     // Extract implicit LrElem.
     if let Some(lr) = body.to_packed::<LrElem>()
-        && lr.size.get(styles).is_one() {
-            body = &lr.body;
-        }
+        && lr.size.get(styles).is_one()
+    {
+        body = &lr.body;
+    }
 
     let mut fragments = ctx.layout_into_fragments(body, styles)?;
 
@@ -55,10 +56,11 @@ pub fn layout_lr(
     // Handle MathFragment::Glyph fragments that should be scaled up.
     for fragment in inner_fragments.iter_mut() {
         if let MathFragment::Glyph(glyph) = fragment
-            && glyph.mid_stretched == Some(false) {
-                glyph.mid_stretched = Some(true);
-                scale(ctx, fragment, relative_to, height);
-            }
+            && glyph.mid_stretched == Some(false)
+        {
+            glyph.mid_stretched = Some(true);
+            scale(ctx, fragment, relative_to, height);
+        }
     }
 
     // Remove weak SpacingFragment immediately after the opening or immediately

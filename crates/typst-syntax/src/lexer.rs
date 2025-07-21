@@ -1,4 +1,4 @@
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
@@ -205,11 +205,7 @@ impl Lexer<'_> {
             ':' => SyntaxKind::Colon,
             '=' => {
                 self.s.eat_while('=');
-                if self.space_or_end() {
-                    SyntaxKind::HeadingMarker
-                } else {
-                    self.text()
-                }
+                if self.space_or_end() { SyntaxKind::HeadingMarker } else { self.text() }
             }
             '-' if self.space_or_end() => SyntaxKind::ListMarker,
             '+' if self.space_or_end() => SyntaxKind::EnumMarker,
@@ -784,15 +780,12 @@ impl Lexer<'_> {
 
         let prev = self.s.get(0..start);
         if (!prev.ends_with(['.', '@']) || prev.ends_with(".."))
-            && let Some(keyword) = keyword(ident) {
-                return keyword;
-            }
-
-        if ident == "_" {
-            SyntaxKind::Underscore
-        } else {
-            SyntaxKind::Ident
+            && let Some(keyword) = keyword(ident)
+        {
+            return keyword;
         }
+
+        if ident == "_" { SyntaxKind::Underscore } else { SyntaxKind::Ident }
     }
 
     fn number(&mut self, start: usize, first_c: char) -> SyntaxKind {

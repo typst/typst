@@ -6,7 +6,7 @@ use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{variant, Lang, TextElem};
+use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -156,15 +156,17 @@ pub fn line<'a>(
 
     // Add a hyphen at the line start, if a previous dash should be repeated.
     if pred.is_some_and(|pred| should_repeat_hyphen(pred, full))
-        && let Some(shaped) = items.first_text_mut() {
-            shaped.prepend_hyphen(engine, p.config.fallback);
-        }
+        && let Some(shaped) = items.first_text_mut()
+    {
+        shaped.prepend_hyphen(engine, p.config.fallback);
+    }
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
-        && let Some(shaped) = items.last_text_mut() {
-            shaped.push_hyphen(engine, p.config.fallback);
-        }
+        && let Some(shaped) = items.last_text_mut()
+    {
+        shaped.push_hyphen(engine, p.config.fallback);
+    }
 
     // Deal with CJ characters at line boundaries.
     adjust_cj_at_line_boundaries(p, full, &mut items);
@@ -217,9 +219,10 @@ fn collect_items<'a>(
 
     // Add fallback text to expand the line height, if necessary.
     if !items.iter().any(|item| matches!(item, Item::Text(_)))
-        && let Some(fallback) = fallback {
-            items.push(fallback, usize::MAX);
-        }
+        && let Some(fallback) = fallback
+    {
+        items.push(fallback, usize::MAX);
+    }
 
     items
 }
@@ -460,25 +463,25 @@ pub fn commit(
     // Handle hanging punctuation to the left.
     if let Some(Item::Text(text)) = line.items.first()
         && let Some(glyph) = text.glyphs.first()
-            && !text.dir.is_positive()
-                && text.styles.get(TextElem::overhang)
-                && (line.items.len() > 1 || text.glyphs.len() > 1)
-            {
-                let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
-                offset -= amount;
-                remaining += amount;
-            }
+        && !text.dir.is_positive()
+        && text.styles.get(TextElem::overhang)
+        && (line.items.len() > 1 || text.glyphs.len() > 1)
+    {
+        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        offset -= amount;
+        remaining += amount;
+    }
 
     // Handle hanging punctuation to the right.
     if let Some(Item::Text(text)) = line.items.last()
         && let Some(glyph) = text.glyphs.last()
-            && text.dir.is_positive()
-                && text.styles.get(TextElem::overhang)
-                && (line.items.len() > 1 || text.glyphs.len() > 1)
-            {
-                let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
-                remaining += amount;
-            }
+        && text.dir.is_positive()
+        && text.styles.get(TextElem::overhang)
+        && (line.items.len() > 1 || text.glyphs.len() > 1)
+    {
+        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        remaining += amount;
+    }
 
     // Determine how much additional space is needed. The justification_ratio is
     // for the first step justification, extra_justification is for the last

@@ -1,11 +1,11 @@
 use comemo::Track;
 use ecow::eco_format;
 
-use crate::diag::{bail, At, Hint, SourceResult};
+use crate::diag::{At, Hint, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Repr, Smart, StyleChain, Synthesize, TargetElem,
+    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
+    StyleChain, Synthesize, TargetElem, cast, elem,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
@@ -211,10 +211,11 @@ impl Synthesize for Packed<RefElem> {
         elem.element = Some(None);
 
         if !BibliographyElem::has(engine, elem.target)
-            && let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
-                elem.element = Some(Some(found));
-                return Ok(());
-            }
+            && let Ok(found) = engine.introspector.query_label(elem.target).cloned()
+        {
+            elem.element = Some(Some(found));
+            return Ok(());
+        }
 
         Ok(())
     }

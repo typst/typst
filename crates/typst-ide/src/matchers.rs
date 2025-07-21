@@ -1,9 +1,9 @@
 use ecow::EcoString;
 use typst::foundations::{Module, Value};
 use typst::syntax::ast::AstNode;
-use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::syntax::{LinkedNode, Span, SyntaxKind, ast};
 
-use crate::{analyze_import, IdeWorld};
+use crate::{IdeWorld, analyze_import};
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(
@@ -60,9 +60,10 @@ pub fn named_items<T>(
 
                 // Seeing the module itself.
                 if let Some((name, span)) = name_and_span
-                    && let Some(res) = recv(NamedItem::Module(&name, span, module)) {
-                        return Some(res);
-                    }
+                    && let Some(res) = recv(NamedItem::Module(&name, span, module))
+                {
+                    return Some(res);
+                }
 
                 // Seeing the imported items.
                 match imports {
@@ -124,14 +125,15 @@ pub fn named_items<T>(
 
         if let Some(parent) = node.parent() {
             if let Some(v) = parent.cast::<ast::ForLoop>()
-                && node.prev_sibling_kind() != Some(SyntaxKind::In) {
-                    let pattern = v.pattern();
-                    for ident in pattern.bindings() {
-                        if let Some(res) = recv(NamedItem::Var(ident)) {
-                            return Some(res);
-                        }
+                && node.prev_sibling_kind() != Some(SyntaxKind::In)
+            {
+                let pattern = v.pattern();
+                for ident in pattern.bindings() {
+                    if let Some(res) = recv(NamedItem::Var(ident)) {
+                        return Some(res);
                     }
                 }
+            }
 
             if let Some(v) = parent.cast::<ast::Closure>().filter(|v| {
                 // Check if the node is in the body of the closure.
@@ -154,9 +156,10 @@ pub fn named_items<T>(
                         }
                         ast::Param::Spread(s) => {
                             if let Some(sink_ident) = s.sink_ident()
-                                && let Some(t) = recv(NamedItem::Var(sink_ident)) {
-                                    return Some(t);
-                                }
+                                && let Some(t) = recv(NamedItem::Var(sink_ident))
+                            {
+                                return Some(t);
+                            }
                         }
                     }
                 }

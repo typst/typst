@@ -11,7 +11,7 @@ use arrayvec::ArrayVec;
 use bumpalo::collections::{String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_library::diag::{bail, At, SourceResult};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Recipe,
@@ -308,10 +308,11 @@ fn visit_kind_rules<'a>(
                 return Ok(true);
             }
         } else if let Some(elem) = content.to_packed::<TextElem>()
-            && let Some(m) = find_regex_match_in_str(&elem.text, styles) {
-                visit_regex_match(s, &[(content, styles)], m)?;
-                return Ok(true);
-            }
+            && let Some(m) = find_regex_match_in_str(&elem.text, styles)
+        {
+            visit_regex_match(s, &[(content, styles)], m)?;
+            return Ok(true);
+        }
     } else {
         // Transparently wrap mathy content into equations.
         if content.can::<dyn Mathy>() && !content.is::<EquationElem>() {
@@ -1091,10 +1092,9 @@ fn find_regex_match_in_elems<'a>(
         }
 
         let linebreak = content.is::<LinebreakElem>();
-        if linebreak
-            && let SpaceState::Space(_) = space {
-                buf.pop();
-            }
+        if linebreak && let SpaceState::Space(_) = space {
+            buf.pop();
+        }
 
         if styles != current && !buf.is_empty() {
             leftmost = find_regex_match_in_str(&buf, current);

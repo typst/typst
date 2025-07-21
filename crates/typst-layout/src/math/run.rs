@@ -2,11 +2,11 @@ use std::iter::once;
 
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
-use typst_library::math::{EquationElem, MathSize, MEDIUM, THICK, THIN};
+use typst_library::math::{EquationElem, MEDIUM, MathSize, THICK, THIN};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
-use super::{alignments, FrameFragment, MathFragment};
+use super::{FrameFragment, MathFragment, alignments};
 
 const TIGHT_LEADING: Em = Em::new(0.25);
 
@@ -88,9 +88,10 @@ impl MathRun {
             // Insert spacing between the last and this non-ignorant item.
             if !fragment.is_ignorant() {
                 if let Some(i) = last
-                    && let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
-                        resolved.insert(i + 1, s);
-                    }
+                    && let Some(s) = spacing(&resolved[i], space.take(), &fragment)
+                {
+                    resolved.insert(i + 1, s);
+                }
 
                 last = Some(resolved.len());
             }
@@ -123,9 +124,10 @@ impl MathRun {
 
         // A linebreak at the very end does not introduce an extra row.
         if let Some(f) = self.0.last()
-            && matches!(f, MathFragment::Linebreak) {
-                count -= 1
-            }
+            && matches!(f, MathFragment::Linebreak)
+        {
+            count -= 1
+        }
         count
     }
 
@@ -343,9 +345,10 @@ impl MathRun {
 
                 space_is_visible = true;
                 if let Some(f_next) = iter.peek()
-                    && !is_space(f_next) {
-                        items.push(InlineItem::Space(Abs::zero(), true));
-                    }
+                    && !is_space(f_next)
+                {
+                    items.push(InlineItem::Space(Abs::zero(), true));
+                }
             } else {
                 space_is_visible = false;
             }

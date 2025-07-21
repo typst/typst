@@ -8,11 +8,11 @@ use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use typst_syntax::{FileId, Span};
 
-use crate::diag::{bail, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
+use crate::World;
+use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::foundations::{Styles, Value};
 use crate::introspection::Introspector;
 use crate::routines::Routines;
-use crate::World;
 
 /// Holds all data needed during compilation.
 pub struct Engine<'a> {
@@ -47,7 +47,11 @@ impl Engine<'_> {
     }
 
     /// Runs tasks on the engine in parallel.
-    pub fn parallelize<P, I, T, U, F>(&mut self, iter: P, f: F) -> impl Iterator<Item = U> + use<P, I, T, U, F>
+    pub fn parallelize<P, I, T, U, F>(
+        &mut self,
+        iter: P,
+        f: F,
+    ) -> impl Iterator<Item = U> + use<P, I, T, U, F>
     where
         P: IntoIterator<IntoIter = I>,
         I: Iterator<Item = T>,
@@ -111,11 +115,7 @@ impl Traced {
     /// We hide the span if it isn't in the given file so that only results for
     /// the file with the traced span are invalidated.
     pub fn get(&self, id: FileId) -> Option<Span> {
-        if self.0.and_then(Span::id) == Some(id) {
-            self.0
-        } else {
-            None
-        }
+        if self.0.and_then(Span::id) == Some(id) { self.0 } else { None }
     }
 }
 

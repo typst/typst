@@ -4,8 +4,8 @@ use typst_library::foundations::Resolve;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 
-use super::layouter::{points, Row};
-use super::{layout_cell, Cell, GridLayouter};
+use super::layouter::{Row, points};
+use super::{Cell, GridLayouter, layout_cell};
 
 /// All information needed to layout a single rowspan.
 pub struct Rowspan {
@@ -239,14 +239,16 @@ impl GridLayouter<'_> {
             // unbreakable cells (with or without a rowspan setting).
             let mut amount_unbreakable_rows = None;
             if let Some(footer) = &self.grid.footer
-                && !footer.repeated && current_row >= footer.start {
-                    // Non-repeated footer, so keep it unbreakable.
-                    //
-                    // TODO(subfooters): This will become unnecessary
-                    // once non-repeated footers are treated differently and
-                    // have widow prevention.
-                    amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
-                }
+                && !footer.repeated
+                && current_row >= footer.start
+            {
+                // Non-repeated footer, so keep it unbreakable.
+                //
+                // TODO(subfooters): This will become unnecessary
+                // once non-repeated footers are treated differently and
+                // have widow prevention.
+                amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
+            }
 
             let row_group = self.simulate_unbreakable_row_group(
                 current_row,
@@ -1268,7 +1270,8 @@ fn subtract_end_sizes(sizes: &mut Vec<Abs>, mut subtract: Abs) {
         subtract -= sizes.pop().unwrap();
     }
     if subtract > Abs::zero()
-        && let Some(last_size) = sizes.last_mut() {
-            *last_size -= subtract;
-        }
+        && let Some(last_size) = sizes.last_mut()
+    {
+        *last_size -= subtract;
+    }
 }

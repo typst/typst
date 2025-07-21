@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::LineBreak;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -11,7 +11,7 @@ use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{is_default_ignorable, Lang, TextElem};
+use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -137,11 +137,12 @@ fn linebreak_simple<'a>(
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
         if !width.fits(attempt.width)
-            && let Some((last_attempt, last_end)) = last.take() {
-                lines.push(last_attempt);
-                start = last_end;
-                attempt = line(engine, p, start..end, breakpoint, lines.last());
-            }
+            && let Some((last_attempt, last_end)) = last.take()
+        {
+            lines.push(last_attempt);
+            start = last_end;
+            attempt = line(engine, p, start..end, breakpoint, lines.last());
+        }
 
         // Finish the current line if there is a mandatory line break (i.e. due
         // to "\n") or if the line doesn't fit horizontally already since then
@@ -893,11 +894,7 @@ impl CostMetrics {
     /// we allow less because otherwise we get an invalid layout fairly often,
     /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
-        if approx {
-            self.min_approx_ratio
-        } else {
-            self.min_ratio
-        }
+        if approx { self.min_approx_ratio } else { self.min_ratio }
     }
 }
 

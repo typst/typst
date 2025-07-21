@@ -1,6 +1,6 @@
 use base64::Engine;
-use ecow::{eco_format, EcoString};
-use image::{codecs::png::PngEncoder, ImageEncoder};
+use ecow::{EcoString, eco_format};
+use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{

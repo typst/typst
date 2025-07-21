@@ -12,6 +12,7 @@ pub use self::box_::layout_box;
 pub use self::shaping::create_shape_plan;
 
 use comemo::{Track, Tracked, TrackedMut};
+use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
@@ -23,18 +24,17 @@ use typst_library::model::{
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::text::{Costs, Lang, TextElem};
-use typst_library::World;
 use typst_utils::{Numeric, SliceExt};
 
-use self::collect::{collect, Item, Segment, SpanMapper};
+use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
 use self::finalize::finalize;
-use self::line::{apply_shift, commit, line, Line};
-use self::linebreak::{linebreak, Breakpoint};
-use self::prepare::{prepare, Preparation};
+use self::line::{Line, apply_shift, commit, line};
+use self::linebreak::{Breakpoint, linebreak};
+use self::prepare::{Preparation, prepare};
 use self::shaping::{
-    cjk_punct_style, is_of_cj_script, shape_range, ShapedGlyph, ShapedText,
-    BEGIN_PUNCT_PAT, END_PUNCT_PAT,
+    BEGIN_PUNCT_PAT, END_PUNCT_PAT, ShapedGlyph, ShapedText, cjk_punct_style,
+    is_of_cj_script, shape_range,
 };
 
 /// Range of a substring of text.
@@ -190,11 +190,7 @@ fn configuration(
     Config {
         justify,
         linebreaks: base.linebreaks.unwrap_or_else(|| {
-            if justify {
-                Linebreaks::Optimized
-            } else {
-                Linebreaks::Simple
-            }
+            if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
         }),
         first_line_indent: {
             let FirstLineIndent { amount, all } = base.first_line_indent;

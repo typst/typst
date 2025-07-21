@@ -3,10 +3,10 @@ use std::ops::Add;
 
 use typst_utils::Get;
 
-use crate::diag::{bail, HintedStrResult};
+use crate::diag::{HintedStrResult, bail};
 use crate::foundations::{
-    cast, AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
-    StyleChain, Value,
+    AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
+    StyleChain, Value, cast,
 };
 use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Rel, Size};
 
@@ -185,9 +185,10 @@ where
 {
     fn into_value(self) -> Value {
         if self.is_uniform()
-            && let Some(left) = self.left {
-                return left.into_value();
-            }
+            && let Some(left) = self.left
+        {
+            return left.into_value();
+        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<T>| {

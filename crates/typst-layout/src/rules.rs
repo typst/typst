@@ -1,12 +1,12 @@
 use std::num::NonZeroUsize;
 
 use comemo::Track;
-use ecow::{eco_format, EcoVec};
+use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{bail, At, SourceResult};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    dict, Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
+    StyleChain, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -161,11 +161,7 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     let indent = elem.indent.get(styles);
     let hanging_indent = elem.hanging_indent.get(styles);
     let gutter = elem.spacing.get(styles).unwrap_or_else(|| {
-        if tight {
-            styles.get(ParElem::leading)
-        } else {
-            styles.get(ParElem::spacing)
-        }
+        if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
 
     let pad = hanging_indent + indent;

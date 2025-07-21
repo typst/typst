@@ -241,15 +241,17 @@ impl<'a> GridLayouter<'a> {
         }
 
         if let Some(footer) = &self.grid.footer
-            && footer.repeated && skipped_region {
-                // Simulate the footer again; the region's 'full' might have
-                // changed.
-                self.regions.size.y += self.current.footer_height;
-                self.current.footer_height = self
-                    .simulate_footer(footer, &self.regions, engine, disambiguator)?
-                    .height;
-                self.regions.size.y -= self.current.footer_height;
-            }
+            && footer.repeated
+            && skipped_region
+        {
+            // Simulate the footer again; the region's 'full' might have
+            // changed.
+            self.regions.size.y += self.current.footer_height;
+            self.current.footer_height = self
+                .simulate_footer(footer, &self.regions, engine, disambiguator)?
+                .height;
+            self.regions.size.y -= self.current.footer_height;
+        }
 
         let repeating_header_rows =
             total_header_row_count(self.repeating_headers.iter().copied());

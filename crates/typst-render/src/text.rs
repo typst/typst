@@ -9,7 +9,7 @@ use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
-use crate::{shape, AbsExt, State};
+use crate::{AbsExt, State, shape};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
@@ -87,28 +87,29 @@ fn render_outline_glyph(
 
         if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
             &text.stroke
-            && thickness.to_f32() > 0.0 {
-                let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
+            && thickness.to_f32() > 0.0
+        {
+            let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
 
-                let paint = paint::to_sk_paint(
-                    paint,
-                    state_ts,
-                    Size::zero(),
-                    true,
-                    None,
-                    &mut pixmap,
-                    None,
-                );
-                let stroke = sk::Stroke {
-                    width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
-                    line_cap: shape::to_sk_line_cap(*cap),
-                    line_join: shape::to_sk_line_join(*join),
-                    dash,
-                    miter_limit: miter_limit.get() as f32,
-                };
+            let paint = paint::to_sk_paint(
+                paint,
+                state_ts,
+                Size::zero(),
+                true,
+                None,
+                &mut pixmap,
+                None,
+            );
+            let stroke = sk::Stroke {
+                width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
+                line_cap: shape::to_sk_line_cap(*cap),
+                line_join: shape::to_sk_line_join(*join),
+                dash,
+                miter_limit: miter_limit.get() as f32,
+            };
 
-                canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
-            }
+            canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
+        }
         return Some(());
     }
 

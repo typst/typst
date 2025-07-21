@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
 use crate::diag::Hint;
-use crate::foundations::{cast, StyleChain};
+use crate::foundations::{StyleChain, cast};
 use crate::layout::Dir;
 use crate::text::TextElem;
 

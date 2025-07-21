@@ -14,7 +14,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
 use crate::foundations::{
-    array, repr, Fold, NativeElement, Packed, Repr, Str, Type, Value,
+    Fold, NativeElement, Packed, Repr, Str, Type, Value, array, repr,
 };
 
 /// Determine details of a type.
@@ -348,12 +348,14 @@ impl CastInfo {
                 }
             }
         } else if let Value::Decimal(_) = found
-            && !matching_type && parts.iter().any(|p| p == "float") {
-                msg.hint(eco_format!(
-                    "if loss of precision is acceptable, explicitly cast the \
+            && !matching_type
+            && parts.iter().any(|p| p == "float")
+        {
+            msg.hint(eco_format!(
+                "if loss of precision is acceptable, explicitly cast the \
                      decimal to a float with `float(value)`"
-                ));
-            }
+            ));
+        }
 
         msg
     }

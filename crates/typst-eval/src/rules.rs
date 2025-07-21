@@ -1,4 +1,4 @@
-use typst_library::diag::{warning, At, SourceResult};
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{
     Element, Func, Recipe, Selector, ShowableSelector, Styles, Transformation,
 };
@@ -13,9 +13,10 @@ impl Eval for ast::SetRule<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if let Some(condition) = self.condition()
-            && !condition.eval(vm)?.cast::<bool>().at(condition.span())? {
-                return Ok(Styles::new());
-            }
+            && !condition.eval(vm)?.cast::<bool>().at(condition.span())?
+        {
+            return Ok(Styles::new());
+        }
 
         let target = self.target();
         let target = target
@@ -57,16 +58,16 @@ impl Eval for ast::ShowRule<'_> {
 
 /// Migration hint for `show par: set block(spacing: ..)`.
 fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
-        if let Some(Selector::Elem(elem, _)) = recipe.selector() &&
-           *elem == Element::of::<ParElem>() &&
-           let Transformation::Style(styles) = recipe.transform() &&
-           (styles.has(BlockElem::above) || styles.has(BlockElem::below)) 
-        {
-            vm.engine.sink.warn(warning!(
+    if let Some(Selector::Elem(elem, _)) = recipe.selector()
+        && *elem == Element::of::<ParElem>()
+        && let Transformation::Style(styles) = recipe.transform()
+        && (styles.has(BlockElem::above) || styles.has(BlockElem::below))
+    {
+        vm.engine.sink.warn(warning!(
                 recipe.span(),
                 "`show par: set block(spacing: ..)` has no effect anymore";
                 hint: "write `set par(spacing: ..)` instead";
                 hint: "this is specific to paragraphs as they are not considered blocks anymore"
             ))
-        }
+    }
 }

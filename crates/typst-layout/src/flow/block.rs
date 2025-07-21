@@ -408,9 +408,10 @@ fn distribute<'a>(
     // last region (it will overflow, but there's nothing else
     // we can do).
     if !remaining.approx_empty()
-        && let Some(last) = buf.last_mut() {
-            *last += remaining;
-        }
+        && let Some(last) = buf.last_mut()
+    {
+        *last += remaining;
+    }
 
     // Distribute the heights to the first region and the
     // backlog. There is no last region, since the height is

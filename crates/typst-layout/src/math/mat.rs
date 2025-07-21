@@ -1,4 +1,4 @@
-use typst_library::diag::{bail, warning, SourceResult};
+use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Point, Ratio, Rel, Size,
@@ -9,8 +9,8 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, style_for_denominator, AlignmentResult, FrameFragment, GlyphFragment,
-    LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
+    AlignmentResult, DELIM_SHORT_FALL, FrameFragment, GlyphFragment, LeftRightAlternator,
+    MathContext, alignments, style_for_denominator,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);

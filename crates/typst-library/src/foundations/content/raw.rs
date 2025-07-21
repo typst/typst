@@ -5,7 +5,7 @@ use std::ptr::NonNull;
 use std::sync::atomic::{self, AtomicUsize, Ordering};
 
 use typst_syntax::Span;
-use typst_utils::{fat, HashLock, SmallBitSet};
+use typst_utils::{HashLock, SmallBitSet, fat};
 
 use super::vtable;
 use crate::foundations::{Element, Label, NativeElement, Packed};

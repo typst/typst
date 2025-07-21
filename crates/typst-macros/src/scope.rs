@@ -1,9 +1,9 @@
 use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Result};
+use syn::{Result, parse_quote};
 
-use crate::util::{foundations, BareType};
+use crate::util::{BareType, foundations};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -16,10 +16,11 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     let mut primitive_ident_ext = None;
     if let syn::Type::Path(syn::TypePath { path, .. }) = self_ty.as_ref()
         && let Some(ident) = path.get_ident()
-            && is_primitive(ident) {
-                let ident_ext = quote::format_ident!("{ident}Ext");
-                primitive_ident_ext = Some(ident_ext);
-            }
+        && is_primitive(ident)
+    {
+        let ident_ext = quote::format_ident!("{ident}Ext");
+        primitive_ident_ext = Some(ident_ext);
+    }
 
     let self_ty_expr = match &primitive_ident_ext {
         None => quote! { #self_ty },

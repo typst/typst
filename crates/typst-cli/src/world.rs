@@ -5,7 +5,7 @@ use std::sync::{LazyLock, OnceLock};
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
@@ -362,9 +362,10 @@ impl<T: Clone> SlotCell<T> {
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
         if mem::replace(&mut self.accessed, true)
-            && let Some(data) = &self.data {
-                return data.clone();
-            }
+            && let Some(data) = &self.data
+        {
+            return data.clone();
+        }
 
         // Read and hash the file.
         let result = timed!("loading file", load());
@@ -372,9 +373,10 @@ impl<T: Clone> SlotCell<T> {
 
         // If the file contents didn't change, yield the old processed data.
         if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint
-            && let Some(data) = &self.data {
-                return data.clone();
-            }
+            && let Some(data) = &self.data
+        {
+            return data.clone();
+        }
 
         let prev = self.data.take().and_then(Result::ok);
         let value = result.and_then(|data| f(data, prev));

@@ -16,16 +16,16 @@ use ecow::EcoString;
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{warning, At, LoadedWithin, SourceResult, StrResult};
+use crate::diag::{At, LoadedWithin, SourceResult, StrResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, Derived, NativeElement, Packed, Smart,
-    StyleChain,
+    Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, cast, elem,
+    func, scope,
 };
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
-use crate::text::{families, LocalName};
+use crate::text::{LocalName, families};
 
 /// A raster or vector graphic.
 ///

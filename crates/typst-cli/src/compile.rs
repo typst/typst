@@ -10,13 +10,13 @@ use ecow::eco_format;
 use parking_lot::RwLock;
 use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use typst::WorldExt;
 use typst::diag::{
-    bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+    At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Frame, Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Lines, Span};
-use typst::WorldExt;
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
@@ -513,7 +513,9 @@ fn write_make_deps(
         })
         .collect::<Result<Vec<_>, _>>()
     else {
-        bail!("failed to create make dependencies file because output path was not valid unicode")
+        bail!(
+            "failed to create make dependencies file because output path was not valid unicode"
+        )
     };
     if output_paths.is_empty() {
         bail!("failed to create make dependencies file because output was stdout")
