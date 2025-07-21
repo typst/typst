@@ -47,7 +47,7 @@ impl Engine<'_> {
     }
 
     /// Runs tasks on the engine in parallel.
-    pub fn parallelize<P, I, T, U, F>(&mut self, iter: P, f: F) -> impl Iterator<Item = U>
+    pub fn parallelize<P, I, T, U, F>(&mut self, iter: P, f: F) -> impl Iterator<Item = U> + use<P, I, T, U, F>
     where
         P: IntoIterator<IntoIter = I>,
         I: Iterator<Item = T>,

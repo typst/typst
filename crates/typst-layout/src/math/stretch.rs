@@ -37,7 +37,7 @@ pub fn stretch_fragment(
 ) {
     let size = fragment.size();
 
-    let MathFragment::Glyph(ref mut glyph) = fragment else { return };
+    let MathFragment::Glyph(glyph) = fragment else { return };
 
     // Return if we attempt to stretch along an axis which isn't stretchable,
     // so that the original fragment isn't modified.
