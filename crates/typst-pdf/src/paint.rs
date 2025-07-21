@@ -127,7 +127,7 @@ fn convert_pattern(
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
-    let mut fc = FrameContext::new(pattern.frame().size());
+    let mut fc = FrameContext::new(None, pattern.frame().size());
     handle_frame(&mut fc, pattern.frame(), None, &mut surface, gc)?;
     surface.finish();
     let stream = stream_builder.finish();

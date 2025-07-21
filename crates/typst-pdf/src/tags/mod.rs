@@ -1,15 +1,15 @@
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use std::ops::{Deref, DerefMut};
 
 use ecow::EcoString;
 use krilla::configure::Validator;
+use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagGroup,
-    TagKind, TagTree,
+    ArtifactType, BBox, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag,
+    TagGroup, TagKind, TagTree,
 };
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{
@@ -17,7 +17,7 @@ use typst_library::foundations::{
     SettableProperty, StyleChain,
 };
 use typst_library::introspection::Location;
-use typst_library::layout::RepeatElem;
+use typst_library::layout::{Abs, Point, Rect, RepeatElem};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Destination, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
@@ -27,11 +27,12 @@ use typst_library::model::{
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::visualize::ImageElem;
 
-use crate::convert::GlobalContext;
+use crate::convert::{FrameContext, GlobalContext};
 use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
+use crate::util::AbsExt;
 
 mod list;
 mod outline;
@@ -66,7 +67,8 @@ pub(crate) fn handle_start(
             }
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
-                Tag::Figure(alt).into()
+                push_stack(gc, loc, StackEntryKind::Figure(FigureCtx::new(alt)))?;
+                return Ok(());
             }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
@@ -114,19 +116,20 @@ pub(crate) fn handle_start(
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
         let alt = image.alt.get_as_ref().map(|s| s.to_string());
 
-        let figure_tag = gc.tags.stack.parent().and_then(StackEntryKind::as_standard_mut);
-        if let Some(TagKind::Figure(figure_tag)) = figure_tag {
+        if let Some(figure_ctx) = gc.tags.stack.parent_figure() {
             // Set alt text of outer figure tag, if not present.
-            if figure_tag.alt_text().is_none() {
-                figure_tag.set_alt_text(alt);
+            if figure_ctx.alt.is_none() {
+                figure_ctx.alt = alt;
             }
             return Ok(());
         } else {
-            Tag::Figure(alt).into()
+            push_stack(gc, loc, StackEntryKind::Figure(FigureCtx::new(alt)))?;
+            return Ok(());
         }
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
         let alt = equation.alt.get_as_ref().map(|s| s.to_string());
-        Tag::Formula(alt).into()
+        push_stack(gc, loc, StackEntryKind::Formula(FigureCtx::new(alt)))?;
+        return Ok(());
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.get_as_ref().map(|s| s.to_string());
@@ -241,6 +244,14 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
             list_ctx.push_bib_entry(entry.nodes);
             return;
         }
+        StackEntryKind::Figure(ctx) => {
+            let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.get());
+            TagNode::Group(tag.into(), entry.nodes)
+        }
+        StackEntryKind::Formula(ctx) => {
+            let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.get());
+            TagNode::Group(tag.into(), entry.nodes)
+        }
         StackEntryKind::Link(_, link) => {
             let alt = link.alt.as_ref().map(EcoString::to_string);
             let tag = Tag::Link.with_alt_text(alt);
@@ -334,6 +345,18 @@ pub(crate) fn add_annotations(
         .with_location(Some(span.into_raw().get()));
         let annot_id = page.add_tagged_annotation(annot);
         gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
+    }
+}
+
+pub(crate) fn update_bbox(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    compute_bbox: impl FnOnce() -> Rect,
+) {
+    if gc.options.standards.config.validator() == Validator::UA1
+        && let Some(bbox) = gc.tags.stack.find_parent_bbox()
+    {
+        bbox.expand_frame(fc, compute_bbox());
     }
 }
 
@@ -434,21 +457,36 @@ impl Tags {
 
 pub(crate) struct TagStack(Vec<StackEntry>);
 
-impl Deref for TagStack {
-    type Target = Vec<StackEntry>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for TagStack {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl TagStack {
+    pub(crate) fn last(&self) -> Option<&StackEntry> {
+        self.0.last()
+    }
+
+    pub(crate) fn last_mut(&mut self) -> Option<&mut StackEntry> {
+        self.0.last_mut()
+    }
+
+    pub(crate) fn push(&mut self, entry: StackEntry) {
+        self.0.push(entry);
+    }
+
+    pub(crate) fn pop_if(
+        &mut self,
+        predicate: impl FnMut(&mut StackEntry) -> bool,
+    ) -> Option<StackEntry> {
+        let entry = self.0.pop_if(predicate)?;
+
+        // TODO: If tags of the items were overlapping, only updating the
+        // direct parent bounding box might produce too large bounding boxes.
+        if let Some((page_idx, rect)) = entry.kind.bbox().and_then(|b| b.rect)
+            && let Some(parent) = self.find_parent_bbox()
+        {
+            parent.expand_page(page_idx, rect);
+        }
+
+        Some(entry)
+    }
+
     pub(crate) fn parent(&mut self) -> Option<&mut StackEntryKind> {
         self.0.last_mut().map(|e| &mut e.kind)
     }
@@ -459,6 +497,10 @@ impl TagStack {
 
     pub(crate) fn parent_list(&mut self) -> Option<&mut ListCtx> {
         self.parent()?.as_list_mut()
+    }
+
+    pub(crate) fn parent_figure(&mut self) -> Option<&mut FigureCtx> {
+        self.parent()?.as_figure_mut()
     }
 
     pub(crate) fn parent_outline(
@@ -477,6 +519,11 @@ impl TagStack {
             let (link_id, link) = e.kind.as_link()?;
             Some((link_id, link.as_ref(), &mut e.nodes))
         })
+    }
+
+    /// Finds the first parent that has a bounding box.
+    pub(crate) fn find_parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
+        self.0.iter_mut().rev().find_map(|e| e.kind.bbox_mut())
     }
 }
 
@@ -525,6 +572,8 @@ pub(crate) enum StackEntryKind {
     ListItemLabel,
     ListItemBody,
     BibEntry,
+    Figure(FigureCtx),
+    Formula(FigureCtx),
     Link(LinkId, Packed<LinkMarker>),
     /// The footnote reference in the text.
     FootNoteRef,
@@ -534,10 +583,6 @@ pub(crate) enum StackEntryKind {
 }
 
 impl StackEntryKind {
-    pub(crate) fn as_standard_mut(&mut self) -> Option<&mut TagKind> {
-        if let Self::Standard(v) = self { Some(v) } else { None }
-    }
-
     pub(crate) fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
         if let Self::Outline(v) = self { Some(v) } else { None }
     }
@@ -550,8 +595,117 @@ impl StackEntryKind {
         if let Self::List(v) = self { Some(v) } else { None }
     }
 
+    pub(crate) fn as_figure_mut(&mut self) -> Option<&mut FigureCtx> {
+        if let Self::Figure(v) = self { Some(v) } else { None }
+    }
+
     pub(crate) fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+    }
+
+    pub(crate) fn bbox(&self) -> Option<&BBoxCtx> {
+        match self {
+            Self::Table(ctx) => Some(&ctx.bbox),
+            Self::Figure(ctx) => Some(&ctx.bbox),
+            Self::Formula(ctx) => Some(&ctx.bbox),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
+        match self {
+            Self::Table(ctx) => Some(&mut ctx.bbox),
+            Self::Figure(ctx) => Some(&mut ctx.bbox),
+            Self::Formula(ctx) => Some(&mut ctx.bbox),
+            _ => None,
+        }
+    }
+}
+
+/// Figure/Formula context
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct FigureCtx {
+    alt: Option<String>,
+    bbox: BBoxCtx,
+}
+
+impl FigureCtx {
+    fn new(alt: Option<String>) -> Self {
+        Self { alt, bbox: BBoxCtx::new() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BBoxCtx {
+    rect: Option<(usize, Rect)>,
+    multi_page: bool,
+}
+
+impl BBoxCtx {
+    pub(crate) fn new() -> Self {
+        Self { rect: None, multi_page: false }
+    }
+
+    /// Expand the bounding box with a `rect` relative to the current frame
+    /// context transform.
+    pub(crate) fn expand_frame(&mut self, fc: &FrameContext, rect: Rect) {
+        let Some(page_idx) = fc.page_idx else { return };
+        if self.multi_page {
+            return;
+        }
+        let (idx, bbox) = self.rect.get_or_insert((
+            page_idx,
+            Rect::new(Point::splat(Abs::inf()), Point::splat(-Abs::inf())),
+        ));
+        if *idx != page_idx {
+            self.multi_page = true;
+            self.rect = None;
+            return;
+        }
+
+        let size = rect.size();
+        for point in [
+            rect.min,
+            rect.min + Point::with_x(size.x),
+            rect.min + Point::with_y(size.y),
+            rect.max,
+        ] {
+            let p = point.transform(fc.state().transform());
+            bbox.min = bbox.min.min(p);
+            bbox.max = bbox.max.max(p);
+        }
+    }
+
+    /// Expand the bounding box with a rectangle that's already transformed into
+    /// page coordinates.
+    pub(crate) fn expand_page(&mut self, page_idx: usize, rect: Rect) {
+        if self.multi_page {
+            return;
+        }
+        let (idx, bbox) = self.rect.get_or_insert((
+            page_idx,
+            Rect::new(Point::splat(Abs::inf()), Point::splat(-Abs::inf())),
+        ));
+        if *idx != page_idx {
+            self.multi_page = true;
+            self.rect = None;
+            return;
+        }
+
+        bbox.min = bbox.min.min(rect.min);
+        bbox.max = bbox.max.max(rect.max);
+    }
+
+    pub(crate) fn get(&self) -> Option<BBox> {
+        let (page_idx, rect) = self.rect?;
+        let rect = kg::Rect::from_ltrb(
+            rect.min.x.to_f32(),
+            rect.min.y.to_f32(),
+            rect.max.x.to_f32(),
+            rect.max.y.to_f32(),
+        )
+        .unwrap();
+        Some(BBox::new(page_idx as usize, rect))
     }
 }
 

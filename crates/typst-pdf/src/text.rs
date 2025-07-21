@@ -24,6 +24,8 @@ pub(crate) fn handle_text(
 ) -> SourceResult<()> {
     *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
 
+    tags::update_bbox(gc, fc, || t.bbox());
+
     let mut handle = tags::start_span(gc, surface, SpanTag::empty());
     let surface = handle.surface();
 

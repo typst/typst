@@ -9,7 +9,7 @@ use krilla::tagging::SpanTag;
 use krilla_svg::{SurfaceExt, SvgSettings};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::Smart;
-use typst_library::layout::{Abs, Angle, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, Point, Ratio, Rect, Size, Transform};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat, RasterImage,
 };
@@ -34,6 +34,8 @@ pub(crate) fn handle_image(
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
     gc.image_spans.insert(span);
+
+    tags::update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
 
     let mut handle =
         tags::start_span(gc, surface, SpanTag::empty().with_alt_text(image.alt()));

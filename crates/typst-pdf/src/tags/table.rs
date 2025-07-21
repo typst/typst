@@ -9,19 +9,26 @@ use typst_library::model::TableCell;
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
 use typst_syntax::Span;
 
-use crate::tags::{TableId, TagNode};
+use crate::tags::{BBoxCtx, TableId, TagNode};
 
 #[derive(Debug)]
 pub(crate) struct TableCtx {
     pub(crate) id: TableId,
     pub(crate) summary: Option<String>,
+    pub(crate) bbox: BBoxCtx,
     rows: Vec<Vec<GridCell>>,
     min_width: usize,
 }
 
 impl TableCtx {
     pub(crate) fn new(id: TableId, summary: Option<String>) -> Self {
-        Self { id, summary, rows: Vec::new(), min_width: 0 }
+        Self {
+            id,
+            summary,
+            bbox: BBoxCtx::new(),
+            rows: Vec::new(),
+            min_width: 0,
+        }
     }
 
     fn get(&self, x: usize, y: usize) -> Option<&TableCtxCell> {
@@ -220,7 +227,11 @@ impl TableCtx {
             nodes.push(TagNode::Group(tag.into(), row_chunk));
         }
 
-        TagNode::Group(Tag::Table.with_summary(self.summary).into(), nodes)
+        let tag = Tag::Table
+            .with_summary(self.summary)
+            .with_bbox(self.bbox.get())
+            .into();
+        TagNode::Group(tag, nodes)
     }
 
     fn resolve_cell_headers<F>(
