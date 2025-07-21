@@ -1,4 +1,4 @@
-use krilla::tagging::{ListNumbering, TagKind};
+use krilla::tagging::{ListNumbering, Tag, TagKind};
 
 use crate::tags::TagNode;
 
@@ -61,7 +61,7 @@ impl ListCtx {
         //
         // So move the nested list out of the list item.
         if let [_, TagNode::Group(tag, _)] = nodes.as_slice() {
-            if matches!(tag.kind, TagKind::L(_)) {
+            if let TagKind::L(_) = tag {
                 item.sub_list = nodes.pop();
             }
         }
@@ -70,7 +70,7 @@ impl ListCtx {
     }
 
     pub(crate) fn push_bib_entry(&mut self, nodes: Vec<TagNode>) {
-        let nodes = vec![TagNode::Group(TagKind::BibEntry.into(), nodes)];
+        let nodes = vec![TagNode::Group(Tag::BibEntry.into(), nodes)];
         // Bibliography lists cannot be nested, but may be missing labels.
         if let Some(item) = self.items.last_mut().filter(|item| item.body.is_none()) {
             item.body = Some(nodes);
@@ -86,16 +86,16 @@ impl ListCtx {
     pub(crate) fn build_list(self, mut nodes: Vec<TagNode>) -> TagNode {
         for item in self.items.into_iter() {
             nodes.push(TagNode::Group(
-                TagKind::LI.into(),
+                Tag::LI.into(),
                 vec![
-                    TagNode::Group(TagKind::Lbl.into(), item.label),
-                    TagNode::Group(TagKind::LBody.into(), item.body.unwrap_or_default()),
+                    TagNode::Group(Tag::Lbl.into(), item.label),
+                    TagNode::Group(Tag::LBody.into(), item.body.unwrap_or_default()),
                 ],
             ));
             if let Some(sub_list) = item.sub_list {
                 nodes.push(sub_list);
             }
         }
-        TagNode::Group(TagKind::L(self.numbering).into(), nodes)
+        TagNode::Group(Tag::L(self.numbering).into(), nodes)
     }
 }

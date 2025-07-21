@@ -2,9 +2,7 @@ use std::io::Write as _;
 use std::num::NonZeroU32;
 
 use az::SaturatingAs;
-use krilla::tagging::{
-    TableCellSpan, TableDataCell, TableHeaderCell, TagBuilder, TagId, TagKind,
-};
+use krilla::tagging::{Tag, TagId, TagKind};
 use smallvec::SmallVec;
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::model::TableCell;
@@ -101,7 +99,7 @@ impl TableCtx {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         if self.rows.is_empty() {
-            return TagNode::Group(TagKind::Table(self.summary).into(), nodes);
+            return TagNode::Group(Tag::Table.with_summary(self.summary).into(), nodes);
         }
         let height = self.rows.len();
         let width = self.rows[0].len();
@@ -166,31 +164,32 @@ impl TableCtx {
                 .into_iter()
                 .filter_map(|cell| {
                     let cell = cell.into_cell()?;
-                    let span = TableCellSpan { rows: cell.rowspan, cols: cell.colspan };
+                    let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
+                    let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
                     let tag = match cell.unwrap_kind() {
                         TableCellKind::Header(_, scope) => {
                             let id = table_cell_id(self.id, cell.x, cell.y);
                             let scope = table_header_scope(scope);
-                            TagKind::TH(
-                                TableHeaderCell::new(scope)
-                                    .with_span(span)
-                                    .with_headers(cell.headers),
-                            )
-                            .with_id(Some(id))
-                            .with_location(Some(cell.span.into_raw().get()))
+                            Tag::TH(scope)
+                                .with_id(Some(id))
+                                .with_headers(cell.headers)
+                                .with_row_span(rowspan)
+                                .with_col_span(colspan)
+                                .with_location(Some(cell.span.into_raw().get()))
+                                .into()
                         }
-                        TableCellKind::Footer | TableCellKind::Data => TagKind::TD(
-                            TableDataCell::new()
-                                .with_span(span)
-                                .with_headers(cell.headers),
-                        )
-                        .with_location(Some(cell.span.into_raw().get())),
+                        TableCellKind::Footer | TableCellKind::Data => Tag::TD
+                            .with_headers(cell.headers)
+                            .with_row_span(rowspan)
+                            .with_col_span(colspan)
+                            .with_location(Some(cell.span.into_raw().get()))
+                            .into(),
                     };
                     Some(TagNode::Group(tag, cell.nodes))
                 })
                 .collect();
 
-            let row = TagNode::Group(TagKind::TR.into(), row_nodes);
+            let row = TagNode::Group(Tag::TR.into(), row_nodes);
 
             // Push the `TR` tags directly.
             if !gen_row_groups {
@@ -200,10 +199,10 @@ impl TableCtx {
 
             // Generate row groups.
             if !should_group_rows(chunk_kind, row_kind) {
-                let tag = match chunk_kind {
-                    TableCellKind::Header(..) => TagKind::THead,
-                    TableCellKind::Footer => TagKind::TFoot,
-                    TableCellKind::Data => TagKind::TBody,
+                let tag: TagKind = match chunk_kind {
+                    TableCellKind::Header(..) => Tag::THead.into(),
+                    TableCellKind::Footer => Tag::TFoot.into(),
+                    TableCellKind::Data => Tag::TBody.into(),
                 };
                 nodes.push(TagNode::Group(tag.into(), std::mem::take(&mut row_chunk)));
 
@@ -213,15 +212,15 @@ impl TableCtx {
         }
 
         if !row_chunk.is_empty() {
-            let tag = match chunk_kind {
-                TableCellKind::Header(..) => TagKind::THead,
-                TableCellKind::Footer => TagKind::TFoot,
-                TableCellKind::Data => TagKind::TBody,
+            let tag: TagKind = match chunk_kind {
+                TableCellKind::Header(..) => Tag::THead.into(),
+                TableCellKind::Footer => Tag::TFoot.into(),
+                TableCellKind::Data => Tag::TBody.into(),
             };
             nodes.push(TagNode::Group(tag.into(), row_chunk));
         }
 
-        TagNode::Group(TagKind::Table(self.summary).into(), nodes)
+        TagNode::Group(Tag::Table.with_summary(self.summary).into(), nodes)
     }
 
     fn resolve_cell_headers<F>(
@@ -379,24 +378,24 @@ mod tests {
     }
 
     fn table_tag<const SIZE: usize>(nodes: [TagNode; SIZE]) -> TagNode {
-        let tag = TagKind::Table(Some("summary".into()));
+        let tag = Tag::Table.with_summary(Some("summary".into()));
         TagNode::Group(tag.into(), nodes.into())
     }
 
     fn thead<const SIZE: usize>(nodes: [TagNode; SIZE]) -> TagNode {
-        TagNode::Group(TagKind::THead.into(), nodes.into())
+        TagNode::Group(Tag::THead.into(), nodes.into())
     }
 
     fn tbody<const SIZE: usize>(nodes: [TagNode; SIZE]) -> TagNode {
-        TagNode::Group(TagKind::TBody.into(), nodes.into())
+        TagNode::Group(Tag::TBody.into(), nodes.into())
     }
 
     fn tfoot<const SIZE: usize>(nodes: [TagNode; SIZE]) -> TagNode {
-        TagNode::Group(TagKind::TFoot.into(), nodes.into())
+        TagNode::Group(Tag::TFoot.into(), nodes.into())
     }
 
     fn trow<const SIZE: usize>(nodes: [TagNode; SIZE]) -> TagNode {
-        TagNode::Group(TagKind::TR.into(), nodes.into())
+        TagNode::Group(Tag::TR.into(), nodes.into())
     }
 
     fn th<const SIZE: usize>(
@@ -408,9 +407,11 @@ mod tests {
         let id = table_cell_id(TableId(324), x, y);
         let ids = headers.map(|(x, y)| table_cell_id(TableId(324), x, y));
         TagNode::Group(
-            TagKind::TH(TableHeaderCell::new(scope).with_headers(ids))
+            Tag::TH(scope)
                 .with_id(Some(id))
-                .with_location(Some(Span::detached().into_raw().get())),
+                .with_headers(ids)
+                .with_location(Some(Span::detached().into_raw().get()))
+                .into(),
             Vec::new(),
         )
     }
@@ -418,8 +419,10 @@ mod tests {
     fn td<const SIZE: usize>(headers: [(u32, u32); SIZE]) -> TagNode {
         let ids = headers.map(|(x, y)| table_cell_id(TableId(324), x, y));
         TagNode::Group(
-            TagKind::TD(TableDataCell::new().with_headers(ids))
-                .with_location(Some(Span::detached().into_raw().get())),
+            Tag::TD
+                .with_headers(ids)
+                .with_location(Some(Span::detached().into_raw().get()))
+                .into(),
             Vec::new(),
         )
     }

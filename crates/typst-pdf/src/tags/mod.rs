@@ -8,8 +8,8 @@ use krilla::configure::Validator;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, TableDataCell,
-    Tag, TagBuilder, TagGroup, TagKind, TagTree,
+    ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagGroup,
+    TagKind, TagTree,
 };
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{
@@ -58,13 +58,13 @@ pub(crate) fn handle_start(
         return Ok(());
     }
 
-    let tag: Tag = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
+    let mut tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match tag.kind {
             PdfMarkerTagKind::OutlineBody => {
                 push_stack(gc, loc, StackEntryKind::Outline(OutlineCtx::new()))?;
                 return Ok(());
             }
-            PdfMarkerTagKind::FigureBody => TagKind::Figure.into(),
+            PdfMarkerTagKind::FigureBody => Tag::Figure(None).into(),
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if numbered { ListNumbering::Decimal } else { ListNumbering::None };
@@ -83,7 +83,7 @@ pub(crate) fn handle_start(
                 push_stack(gc, loc, StackEntryKind::ListItemBody)?;
                 return Ok(());
             }
-            PdfMarkerTagKind::Label => TagKind::Lbl.into(),
+            PdfMarkerTagKind::Label => Tag::Lbl.into(),
         }
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
         push_stack(gc, loc, StackEntryKind::OutlineEntry(entry.clone()))?;
@@ -105,27 +105,25 @@ pub(crate) fn handle_start(
         // caption is contained within the figure like recommended for tables
         // screen readers might ignore it.
         // TODO: maybe this could be a `NonStruct` tag?
-        TagKind::P.into()
+        Tag::P.into()
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
-        TagKind::Caption.into()
+        Tag::Caption.into()
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
         let alt = image.alt.get_as_ref().map(|s| s.to_string());
 
-        let figure_tag = (gc.tags.stack.parent())
-            .and_then(StackEntryKind::as_standard_mut)
-            .filter(|tag| tag.kind == TagKind::Figure);
-        if let Some(figure_tag) = figure_tag {
+        let figure_tag = gc.tags.stack.parent().and_then(StackEntryKind::as_standard_mut);
+        if let Some(TagKind::Figure(figure_tag)) = figure_tag {
             // Set alt text of outer figure tag, if not present.
-            if figure_tag.alt_text.is_none() {
-                figure_tag.alt_text = alt;
+            if figure_tag.alt_text().is_none() {
+                figure_tag.set_alt_text(alt);
             }
             return Ok(());
         } else {
-            TagKind::Figure.with_alt_text(alt)
+            Tag::Figure(alt).into()
         }
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
         let alt = equation.alt.get_as_ref().map(|s| s.to_string());
-        TagKind::Formula.with_alt_text(alt)
+        Tag::Formula(alt).into()
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.get_as_ref().map(|s| s.to_string());
@@ -153,7 +151,7 @@ pub(crate) fn handle_start(
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU32::MAX);
         let name = heading.body.plain_text().to_string();
-        TagKind::Hn(level, Some(name)).into()
+        Tag::Hn(level, Some(name)).into()
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
         push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()))?;
@@ -168,15 +166,15 @@ pub(crate) fn handle_start(
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
         // TODO: should the attribution be handled somehow?
         if quote.block.get(StyleChain::default()) {
-            TagKind::BlockQuote.into()
+            Tag::BlockQuote.into()
         } else {
-            TagKind::InlineQuote.into()
+            Tag::InlineQuote.into()
         }
     } else {
         return Ok(());
     };
 
-    let tag = tag.with_location(Some(elem.span().into_raw().get()));
+    tag.set_location(Some(elem.span().into_raw().get()));
     push_stack(gc, loc, StackEntryKind::Standard(tag))?;
 
     Ok(())
@@ -203,9 +201,7 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                let tag = TagKind::TOCI
-                    .with_location(Some(outline_entry.span().into_raw().get()));
-                gc.tags.push(TagNode::Group(tag, entry.nodes));
+                gc.tags.push(TagNode::Group(Tag::TOCI.into(), entry.nodes));
                 return;
             };
 
@@ -218,9 +214,8 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                let tag = TagKind::TD(TableDataCell::new())
-                    .with_location(Some(cell.span().into_raw().get()));
-                gc.tags.push(TagNode::Group(tag, entry.nodes));
+                let tag = Tag::TD.with_location(Some(cell.span().into_raw().get()));
+                gc.tags.push(TagNode::Group(tag.into(), entry.nodes));
                 return;
             };
 
@@ -245,11 +240,11 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
         }
         StackEntryKind::Link(_, link) => {
             let alt = link.alt.as_ref().map(EcoString::to_string);
-            let tag = TagKind::Link.with_alt_text(alt);
-            let mut node = TagNode::Group(tag, entry.nodes);
+            let tag = Tag::Link.with_alt_text(alt);
+            let mut node = TagNode::Group(tag.into(), entry.nodes);
             // Wrap link in reference tag, if it's not a url.
             if let Destination::Position(_) | Destination::Location(_) = link.dest {
-                node = TagNode::Group(TagKind::Reference.into(), vec![node]);
+                node = TagNode::Group(Tag::Reference.into(), vec![node]);
             }
             node
         }
@@ -262,7 +257,7 @@ pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Loc
         StackEntryKind::FootNoteEntry(footnote_loc) => {
             // Store footnotes separately so they can be inserted directly after
             // the footnote reference in the reading order.
-            let tag = TagNode::Group(TagKind::Note.into(), entry.nodes);
+            let tag = TagNode::Group(Tag::Note.into(), entry.nodes);
             gc.tags.footnotes.insert(footnote_loc, tag);
             return;
         }
@@ -518,7 +513,7 @@ pub(crate) struct StackEntry {
 
 #[derive(Debug)]
 pub(crate) enum StackEntryKind {
-    Standard(Tag),
+    Standard(TagKind),
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
     Table(TableCtx),
@@ -536,7 +531,7 @@ pub(crate) enum StackEntryKind {
 }
 
 impl StackEntryKind {
-    pub(crate) fn as_standard_mut(&mut self) -> Option<&mut Tag> {
+    pub(crate) fn as_standard_mut(&mut self) -> Option<&mut TagKind> {
         if let Self::Standard(v) = self { Some(v) } else { None }
     }
 
@@ -557,9 +552,9 @@ impl StackEntryKind {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TagNode {
-    Group(Tag, Vec<TagNode>),
+    Group(TagKind, Vec<TagNode>),
     Leaf(Identifier),
     /// Allows inserting a placeholder into the tag tree.
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].

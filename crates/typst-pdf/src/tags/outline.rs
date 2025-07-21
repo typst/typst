@@ -1,4 +1,4 @@
-use krilla::tagging::TagKind;
+use krilla::tagging::Tag;
 use typst_library::foundations::Packed;
 use typst_library::model::OutlineEntry;
 
@@ -29,7 +29,7 @@ impl OutlineCtx {
             }
         }
 
-        let section_entry = TagNode::Group(TagKind::TOCI.into(), nodes);
+        let section_entry = TagNode::Group(Tag::TOCI.into(), nodes);
         self.push(outline_nodes, section_entry);
     }
 
@@ -49,7 +49,7 @@ impl OutlineCtx {
         while !self.stack.is_empty() {
             self.finish_section(&mut outline_nodes);
         }
-        TagNode::Group(TagKind::TOC.into(), outline_nodes)
+        TagNode::Group(Tag::TOC.into(), outline_nodes)
     }
 }
 
@@ -68,6 +68,6 @@ impl OutlineSection {
     }
 
     fn into_tag(self) -> TagNode {
-        TagNode::Group(TagKind::TOC.into(), self.entries)
+        TagNode::Group(Tag::TOC.into(), self.entries)
     }
 }
