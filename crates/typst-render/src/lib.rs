@@ -4,7 +4,7 @@
 
 // Key Improvements:
 
-//Incremental Rendering: 
+//Incremental Rendering:
 // Pages are rendered one-by-one to reduce peak memory usage.
 
 //Memory Efficiency:
@@ -12,7 +12,6 @@
 
 //Safety Enhancements:
 //Includes better handling of transform failures and mask resources.
-
 
 mod image;
 mod paint;
@@ -43,7 +42,7 @@ pub fn render(page: &Page, pixel_per_pt: f32) -> sk::Pixmap {
     // Use Pixmap::new and early return if allocation fails
     let mut canvas = match sk::Pixmap::new(pxw, pxh) {
         Some(pixmap) => pixmap,
-        None => return sk::Pixmap::new(1, 1).unwrap()
+        None => return sk::Pixmap::new(1, 1).unwrap(),
     };
 
     if let Some(fill) = page.fill_or_white() {
@@ -90,7 +89,7 @@ pub fn render_merged(
 
     let mut canvas = match sk::Pixmap::new(pxw, pxh) {
         Some(pixmap) => pixmap,
-        None => return sk::Pixmap::new(1, 1).unwrap()
+        None => return sk::Pixmap::new(1, 1).unwrap(),
     };
 
     if let Some(fill) = fill {
@@ -223,14 +222,12 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
         FrameKind::Hard => state
             .pre_translate(pos)
             .pre_concat(sk_transform)
-            .pre_concat_container(
-                state.transform.post_concat(
-                    match state.container_transform.invert() {
-                        Some(inv) => inv,
-                        None => sk::Transform::identity(),
-                    }
-                ),
-            )
+            .pre_concat_container(state.transform.post_concat(
+                match state.container_transform.invert() {
+                    Some(inv) => inv,
+                    None => sk::Transform::identity(),
+                },
+            ))
             .pre_concat_container(to_sk_transform(&Transform::translate(pos.x, pos.y)))
             .pre_concat_container(sk_transform)
             .with_size(group.frame.size()),
