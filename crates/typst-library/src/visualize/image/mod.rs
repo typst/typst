@@ -20,7 +20,7 @@ use typst_library::{Feature, World};
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
-use crate::diag::{At, bail, LoadedWithin, SourceResult, StrResult, warning};
+use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, cast, elem,
