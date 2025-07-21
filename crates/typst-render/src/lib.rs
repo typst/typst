@@ -99,8 +99,8 @@ pub fn render_merged(
 
     // Draw each pixmap one after another, releasing memory after each page.
     let mut y = 0usize;
-    for ((page, (w, h))) in document.pages.iter().zip(dims) {
-        let mut pixmap = render(page, pixel_per_pt);
+    for (page, (_w, h)) in document.pages.iter().zip(dims) {
+        let pixmap = render(page, pixel_per_pt);
         canvas.draw_pixmap(
             0,
             y as i32,
@@ -237,6 +237,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
     };
 
     let mut mask = state.mask;
+    #[allow(unused_assignments)]
     let mut storage_opt = None;
     if let Some(clip_curve) = group.clip.as_ref() {
         if let Some(path) = shape::convert_curve(clip_curve)
