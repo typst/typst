@@ -834,7 +834,7 @@ fn param_value_completions<'a>(
 fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
     Some(match (func.name(), param.name) {
         (Some("image"), "source") => {
-            &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp"]
+            &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp", "pdf"]
         }
         (Some("csv"), "source") => &["csv"],
         (Some("plugin"), "source") => &["wasm"],
