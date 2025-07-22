@@ -93,7 +93,7 @@ struct State<'a> {
     size: Size,
 }
 
-impl State<'_> {
+impl<'a> State<'a> {
     fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
         Self {
             size,
@@ -128,9 +128,10 @@ impl State<'_> {
     }
 
     /// Sets the current mask.
-    fn with_mask(self, mask: Option<&sk::Mask>) -> State<'_> {
-        // Ensure that we're using the parent's mask if we don't have one.
-        if mask.is_some() { State { mask, ..self } } else { State { mask: None, ..self } }
+    ///
+    /// If no mask is provided, the parent mask is used.
+    fn with_mask(self, mask: Option<&'a sk::Mask>) -> State<'a> {
+        State { mask: mask.or(self.mask), ..self }
     }
 
     /// Sets the size of the first hard frame in the hierarchy.
