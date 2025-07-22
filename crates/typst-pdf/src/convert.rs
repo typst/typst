@@ -9,6 +9,7 @@ use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
+use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
@@ -363,6 +364,42 @@ fn finish(
                     hint: "convert the image to 8 bit instead"
                 )
             }
+            KrillaError::Pdf(_, e, loc) => {
+                let span = to_span(loc);
+                match e {
+                    // We already validated in `typst-library` that the page index is valid.
+                    PdfError::InvalidPage(_) => bail!(
+                        span,
+                        "invalid page number for PDF file";
+                        hint: "please report this as a bug"
+                    ),
+                    PdfError::VersionMismatch(v) => {
+                        let pdf_ver = v.as_str();
+                        let config_ver = configuration.version();
+                        let cur_ver = config_ver.as_str();
+                        bail!(span,
+                            "the version of the PDF is too high";
+                            hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
+                            hint: "raise the export target to {pdf_ver} or higher";
+                            hint: "or preprocess the PDF to convert it to a lower version"
+                        );
+                    }
+                }
+            }
+            KrillaError::DuplicateTagId(_, loc) => {
+                let span = to_span(loc);
+                bail!(span,
+                    "duplicate tag id";
+                    hint: "please report this as a bug"
+                );
+            }
+            KrillaError::UnknownTagId(_, loc) => {
+                let span = to_span(loc);
+                bail!(span,
+                    "unknown tag id";
+                    hint: "please report this as a bug"
+                );
+            }
         },
     }
 }
@@ -535,12 +572,12 @@ fn convert_error(
         }
         // The below errors cannot occur yet, only once Typst supports full PDF/A
         // and PDF/UA. But let's still add a message just to be on the safe side.
-        ValidationError::MissingAnnotationAltText => error!(
+        ValidationError::MissingAnnotationAltText(_) => error!(
             Span::detached(),
             "{prefix} missing annotation alt text";
             hint: "please report this as a bug"
         ),
-        ValidationError::MissingAltText => error!(
+        ValidationError::MissingAltText(_) => error!(
             Span::detached(),
             "{prefix} missing alt text";
             hint: "make sure your images and equations have alt text"
@@ -576,6 +613,13 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
+        ValidationError::EmbeddedPDF(loc) => {
+            error!(
+                to_span(*loc),
+                "embedding PDFs is currently not supported in this export mode";
+                hint: "try converting the PDF to an SVG before embedding it"
+            )
+        }
     }
 }
 
