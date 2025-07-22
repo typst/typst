@@ -1,10 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use time::ext::NumericalDuration;
 
-use crate::foundations::{func, repr, scope, ty, Repr};
+use crate::foundations::{Repr, func, repr, scope, ty};
 
 /// Represents a positive or negative span of time.
 #[ty(scope, cast)]

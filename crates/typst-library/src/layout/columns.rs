@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::foundations::{elem, Content};
+use crate::foundations::{Content, elem};
 use crate::layout::{Length, Ratio, Rel};
 
 /// Separates a region into multiple equally sized columns.

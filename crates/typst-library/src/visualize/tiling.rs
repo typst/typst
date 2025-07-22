@@ -1,17 +1,17 @@
 use std::hash::Hash;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Numeric};
 
-use crate::diag::{bail, SourceResult};
+use crate::World;
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
+use crate::foundations::{Content, Smart, StyleChain, func, repr, scope, ty};
 use crate::introspection::Locator;
 use crate::layout::{Abs, Axes, Frame, Length, Region, Size};
 use crate::visualize::RelativeTo;
-use crate::World;
 
 /// A repeating tiling fill.
 ///
@@ -259,11 +259,7 @@ impl Tiling {
     /// Returns the relative placement of the tiling.
     pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
         self.0.relative.unwrap_or_else(|| {
-            if on_text {
-                RelativeTo::Parent
-            } else {
-                RelativeTo::Self_
-            }
+            if on_text { RelativeTo::Parent } else { RelativeTo::Self_ }
         })
     }
 }

@@ -49,7 +49,6 @@ pub(crate) fn handle_link(
             fc.push_annotation(
                 LinkAnnotation::new(
                     rect,
-                    None,
                     Target::Action(Action::Link(LinkAction::new(u.to_string()))),
                 )
                 .into(),
@@ -64,7 +63,6 @@ pub(crate) fn handle_link(
                 fc.push_annotation(
                     LinkAnnotation::new(
                         rect,
-                        None,
                         Target::Destination(krilla::destination::Destination::Named(
                             nd.clone(),
                         )),
@@ -83,7 +81,6 @@ pub(crate) fn handle_link(
         fc.push_annotation(
             LinkAnnotation::new(
                 rect,
-                None,
                 Target::Destination(krilla::destination::Destination::Xyz(
                     XyzDestination::new(index, pos.point.to_krilla()),
                 )),

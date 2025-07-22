@@ -1,10 +1,13 @@
+use std::sync::Arc;
+
 use base64::Engine;
-use ecow::{eco_format, EcoString};
-use image::{codecs::png::PngEncoder, ImageEncoder};
+use ecow::{EcoString, eco_format};
+use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
+use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
-    ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat,
+    ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
 use crate::SVGRenderer;
@@ -66,10 +69,71 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
             }),
         },
         ImageKind::Svg(svg) => ("svg+xml", svg.data()),
+        ImageKind::Pdf(pdf) => {
+            // To make sure the image isn't pixelated, we always scale up so the
+            // lowest dimension has at least 1000 pixels. However, we only scale
+            // up as much so that the largest dimension doesn't exceed 3000
+            // pixels.
+            const MIN_RES: f32 = 1000.0;
+            const MAX_RES: f32 = 3000.0;
+
+            let base_width = pdf.width();
+            let w_scale = (MIN_RES / base_width).max(MAX_RES / base_width);
+            let base_height = pdf.height();
+            let h_scale = (MIN_RES / base_height).min(MAX_RES / base_height);
+            let total_scale = w_scale.min(h_scale);
+            let width = (base_width * total_scale).ceil() as u32;
+            let height = (base_height * total_scale).ceil() as u32;
+
+            buf = pdf_to_png(pdf, width, height);
+            ("png", buf.as_slice())
+        }
     };
 
     let mut url = eco_format!("data:image/{format};base64,");
     let data = base64::engine::general_purpose::STANDARD.encode(data);
     url.push_str(&data);
     url
+}
+
+// Keep this in sync with `typst-png`!
+fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
+    let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
+        let bytes = match font {
+            StandardFont::Helvetica => typst_assets::pdf::SANS,
+            StandardFont::HelveticaBold => typst_assets::pdf::SANS_BOLD,
+            StandardFont::HelveticaOblique => typst_assets::pdf::SANS_ITALIC,
+            StandardFont::HelveticaBoldOblique => typst_assets::pdf::SANS_BOLD_ITALIC,
+            StandardFont::Courier => typst_assets::pdf::FIXED,
+            StandardFont::CourierBold => typst_assets::pdf::FIXED_BOLD,
+            StandardFont::CourierOblique => typst_assets::pdf::FIXED_ITALIC,
+            StandardFont::CourierBoldOblique => typst_assets::pdf::FIXED_BOLD_ITALIC,
+            StandardFont::TimesRoman => typst_assets::pdf::SERIF,
+            StandardFont::TimesBold => typst_assets::pdf::SERIF_BOLD,
+            StandardFont::TimesItalic => typst_assets::pdf::SERIF_ITALIC,
+            StandardFont::TimesBoldItalic => typst_assets::pdf::SERIF_BOLD_ITALIC,
+            StandardFont::ZapfDingBats => typst_assets::pdf::DING_BATS,
+            StandardFont::Symbol => typst_assets::pdf::SYMBOL,
+        };
+        Some((Arc::new(bytes), 0))
+    };
+
+    let interpreter_settings = InterpreterSettings {
+        font_resolver: Arc::new(move |query| match query {
+            FontQuery::Standard(s) => select_standard_font(*s),
+            FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
+        }),
+        warning_sink: Arc::new(|_| {}),
+    };
+
+    let render_settings = RenderSettings {
+        x_scale: w as f32 / pdf.width(),
+        y_scale: h as f32 / pdf.height(),
+        width: Some(w as u16),
+        height: Some(h as u16),
+    };
+
+    let hayro_pix = hayro::render(pdf.page(), &interpreter_settings, &render_settings);
+
+    hayro_pix.take_png()
 }

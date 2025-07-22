@@ -2,13 +2,13 @@ use std::any::{Any, TypeId};
 use std::sync::Arc;
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    cast, func, repr, scope, ty, CastInfo, Content, Context, Dict, Element, FromValue,
-    Func, Label, Reflect, Regex, Repr, Str, StyleChain, Symbol, Type, Value,
+    CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
+    Repr, Str, StyleChain, Symbol, Type, Value, cast, func, repr, scope, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location, Unqueriable};
 

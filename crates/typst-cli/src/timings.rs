@@ -2,9 +2,9 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use typst::diag::{bail, StrResult};
-use typst::syntax::Span;
 use typst::World;
+use typst::diag::{StrResult, bail};
+use typst::syntax::Span;
 
 use crate::args::{CliArguments, Command};
 use crate::world::SystemWorld;

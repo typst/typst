@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, Str, Value};
+use crate::foundations::{Str, Value, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a YAML file.

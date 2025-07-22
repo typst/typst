@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content};
+use crate::foundations::{Content, elem};
 use crate::layout::{Length, Rel};
 
 /// Adds spacing around content.

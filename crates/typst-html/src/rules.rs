@@ -1,12 +1,12 @@
 use std::num::NonZeroUsize;
 
-use ecow::{eco_format, EcoVec};
-use typst_library::diag::{warning, At};
+use ecow::{EcoVec, eco_format};
+use typst_library::diag::{At, warning};
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::{Counter, Locator};
-use typst_library::layout::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
+use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
 use typst_library::layout::{OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
@@ -19,7 +19,7 @@ use typst_library::text::{
 };
 use typst_library::visualize::ImageElem;
 
-use crate::{attr, css, tag, FrameElem, HtmlAttrs, HtmlElem, HtmlTag};
+use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
 /// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -238,13 +238,11 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
     if block {
         let mut blockquote = HtmlElem::new(tag::blockquote).with_body(Some(realized));
-        if let Some(Attribution::Content(attribution)) = attribution {
-            if let Some(link) = attribution.to_packed::<LinkElem>() {
-                if let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
-                    blockquote =
-                        blockquote.with_attr(attr::cite, url.clone().into_inner());
-                }
-            }
+        if let Some(Attribution::Content(attribution)) = attribution
+            && let Some(link) = attribution.to_packed::<LinkElem>()
+            && let LinkTarget::Dest(Destination::Url(url)) = &link.dest
+        {
+            blockquote = blockquote.with_attr(attr::cite, url.clone().into_inner());
         }
 
         realized = blockquote.pack().spanned(span);

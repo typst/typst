@@ -173,8 +173,11 @@ typst help
 typst help watch
 ```
 
-If you prefer an integrated IDE-like experience with autocompletion and instant
-preview, you can also check out [Typst's free web app][app].
+If you prefer an integrated IDE-like experience with autocompletion and instant 
+preview, you can also check out our [free web app][app]. Alternatively, there is 
+a community-created language server called 
+[Tinymist](https://myriad-dreamin.github.io/tinymist/) which is integrated into 
+various editor extensions.
 
 ## Community
 The main places where the community gathers are our [Forum][forum] and our

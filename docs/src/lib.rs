@@ -11,12 +11,12 @@ pub use self::model::*;
 
 use std::collections::HashSet;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use heck::ToTitleCase;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
 use typst::foundations::{
     AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
     Smart, Type, Value,
@@ -103,7 +103,7 @@ pub trait Resolver {
 
     /// Produce HTML for an example.
     fn example(&self, hash: u128, source: Option<Html>, document: &PagedDocument)
-        -> Html;
+    -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -242,7 +242,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
             items.push(CategoryItem {
                 name: group.name.clone(),
                 route: subpage.route.clone(),
-                oneliner: oneliner(docs).into(),
+                oneliner: oneliner(docs),
                 code: true,
             });
             children.push(subpage);
@@ -296,7 +296,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
                 items.push(CategoryItem {
                     name: name.into(),
                     route: subpage.route.clone(),
-                    oneliner: oneliner(func.docs().unwrap_or_default()).into(),
+                    oneliner: oneliner(func.docs().unwrap_or_default()),
                     code: true,
                 });
                 children.push(subpage);
@@ -306,7 +306,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
                 items.push(CategoryItem {
                     name: ty.short_name().into(),
                     route: subpage.route.clone(),
-                    oneliner: oneliner(ty.docs()).into(),
+                    oneliner: oneliner(ty.docs()),
                     code: true,
                 });
                 children.push(subpage);
@@ -637,7 +637,7 @@ fn group_page(
     let item = CategoryItem {
         name: group.name.clone(),
         route: model.route.clone(),
-        oneliner: oneliner(&group.details).into(),
+        oneliner: oneliner(&group.details),
         code: false,
     };
 
@@ -772,8 +772,24 @@ pub fn urlify(title: &str) -> EcoString {
 }
 
 /// Extract the first line of documentation.
-fn oneliner(docs: &str) -> &str {
-    docs.lines().next().unwrap_or_default()
+fn oneliner(docs: &str) -> EcoString {
+    let paragraph = docs.split("\n\n").next().unwrap_or_default();
+    let mut depth = 0;
+    let mut period = false;
+    let mut end = paragraph.len();
+    for (i, c) in paragraph.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            '.' if depth == 0 => period = true,
+            c if period && c.is_whitespace() && !docs[..i].ends_with("e.g.") => {
+                end = i;
+                break;
+            }
+            _ => period = false,
+        }
+    }
+    EcoString::from(&docs[..end]).replace("\r\n", " ").replace("\n", " ")
 }
 
 /// The order of types in the documentation.

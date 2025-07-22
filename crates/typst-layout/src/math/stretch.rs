@@ -1,10 +1,10 @@
-use typst_library::diag::{warning, SourceResult};
+use typst_library::diag::{SourceResult, warning};
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::layout::{Abs, Axis, Rel};
 use typst_library::math::StretchElem;
 use typst_utils::Get;
 
-use super::{stretch_axes, MathContext, MathFragment};
+use super::{MathContext, MathFragment, stretch_axes};
 
 /// Lays out a [`StretchElem`].
 #[typst_macros::time(name = "math.stretch", span = elem.span())]
@@ -37,7 +37,7 @@ pub fn stretch_fragment(
 ) {
     let size = fragment.size();
 
-    let MathFragment::Glyph(ref mut glyph) = fragment else { return };
+    let MathFragment::Glyph(glyph) = fragment else { return };
 
     // Return if we attempt to stretch along an axis which isn't stretchable,
     // so that the original fragment isn't modified.
