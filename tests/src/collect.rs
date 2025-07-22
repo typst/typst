@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
-    is_id_continue, is_ident, is_newline, FileId, Lines, Source, VirtualPath,
+    FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
 };
 use unscanny::Scanner;
 
@@ -528,11 +528,7 @@ fn selected(name: &str, abs: PathBuf) -> bool {
     let patterns = &crate::ARGS.pattern;
     patterns.is_empty()
         || patterns.iter().any(|pattern: &regex::Regex| {
-            if exact {
-                name == pattern.as_str()
-            } else {
-                pattern.is_match(name)
-            }
+            if exact { name == pattern.as_str() } else { pattern.is_match(name) }
         })
 }
 

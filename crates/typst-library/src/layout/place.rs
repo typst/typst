@@ -1,4 +1,4 @@
-use crate::foundations::{elem, scope, Cast, Content, Packed, Smart};
+use crate::foundations::{Cast, Content, Packed, Smart, elem, scope};
 use crate::introspection::{Locatable, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 

@@ -4,14 +4,14 @@ use std::sync::Arc;
 use bytemuck::TransparentWrapper;
 use krilla::surface::{Location, Surface};
 use krilla::text::GlyphId;
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::layout::Size;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::util::{display_font, AbsExt, TransformExt};
+use crate::util::{AbsExt, TransformExt, display_font};
 use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle text")]

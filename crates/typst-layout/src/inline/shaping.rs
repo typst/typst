@@ -4,21 +4,21 @@ use std::sync::Arc;
 
 use az::SaturatingAs;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
-use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::Tag;
+use ttf_parser::gsub::SubstitutionSubtable;
+use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
-    families, features, is_default_ignorable, language, variant, Font, FontFamily,
-    FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds, TextElem, TextItem,
+    Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
+    TextElem, TextItem, families, features, is_default_ignorable, language, variant,
 };
-use typst_library::World;
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::{decorate, Item, Range, SpanMapper};
+use super::{Item, Range, SpanMapper, decorate};
 use crate::modifiers::FrameModifyText;
 
 /// The result of shaping text.
@@ -539,11 +539,7 @@ impl<'a> ShapedText<'a> {
         // Find any glyph with the text index.
         let found = self.glyphs.binary_search_by(|g: &ShapedGlyph| {
             let ordering = g.range.start.cmp(&text_index);
-            if ltr {
-                ordering
-            } else {
-                ordering.reverse()
-            }
+            if ltr { ordering } else { ordering.reverse() }
         });
 
         let mut idx = match found {

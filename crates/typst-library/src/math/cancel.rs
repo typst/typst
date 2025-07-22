@@ -1,4 +1,4 @@
-use crate::foundations::{cast, elem, Content, Func, Smart};
+use crate::foundations::{Content, Func, Smart, cast, elem};
 use crate::layout::{Abs, Angle, Length, Ratio, Rel};
 use crate::math::Mathy;
 use crate::visualize::Stroke;

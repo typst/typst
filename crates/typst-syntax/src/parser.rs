@@ -2,12 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::{Index, IndexMut, Range};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 
-use crate::set::{syntax_set, SyntaxSet};
-use crate::{ast, set, Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
+use crate::set::{SyntaxSet, syntax_set};
+use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -442,13 +442,14 @@ fn math_unparen(p: &mut Parser, m: Marker) {
         return;
     }
 
-    if let [first, .., last] = node.children_mut() {
-        if first.text() == "(" && last.text() == ")" {
-            first.convert_to_kind(SyntaxKind::LeftParen);
-            last.convert_to_kind(SyntaxKind::RightParen);
-            // Only convert if we did have regular parens.
-            node.convert_to_kind(SyntaxKind::Math);
-        }
+    if let [first, .., last] = node.children_mut()
+        && first.text() == "("
+        && last.text() == ")"
+    {
+        first.convert_to_kind(SyntaxKind::LeftParen);
+        last.convert_to_kind(SyntaxKind::RightParen);
+        // Only convert if we did have regular parens.
+        node.convert_to_kind(SyntaxKind::Math);
     }
 }
 
@@ -1199,10 +1200,9 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
             Some(ast::Expr::Ident(ident)) => Some(ident.get().clone()),
             Some(ast::Expr::Str(s)) => Some(s.get()),
             _ => None,
-        } {
-            if !state.seen.insert(key.clone()) {
-                node.convert_to_error(eco_format!("duplicate key: {key}"));
-            }
+        } && !state.seen.insert(key.clone())
+        {
+            node.convert_to_error(eco_format!("duplicate key: {key}"));
         }
 
         p.wrap(m, pair_kind);
@@ -1855,15 +1855,15 @@ impl<'s> Parser<'s> {
         self.nl_mode = mode;
         func(self);
         self.nl_mode = previous;
-        if let Some(newline) = self.token.newline {
-            if mode != previous {
-                // Restore our actual token's kind or insert a fake end.
-                let actual_kind = self.token.node.kind();
-                if self.nl_mode.stop_at(newline, actual_kind) {
-                    self.token.kind = SyntaxKind::End;
-                } else {
-                    self.token.kind = actual_kind;
-                }
+        if let Some(newline) = self.token.newline
+            && mode != previous
+        {
+            // Restore our actual token's kind or insert a fake end.
+            let actual_kind = self.token.node.kind();
+            if self.nl_mode.stop_at(newline, actual_kind) {
+                self.token.kind = SyntaxKind::End;
+            } else {
+                self.token.kind = actual_kind;
             }
         }
     }

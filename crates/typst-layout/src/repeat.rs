@@ -1,4 +1,4 @@
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, Resolve, StyleChain};
 use typst_library::introspection::Locator;

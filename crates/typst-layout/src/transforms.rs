@@ -1,6 +1,6 @@
 use std::cell::LazyCell;
 
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::Locator;

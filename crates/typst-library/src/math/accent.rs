@@ -1,12 +1,12 @@
 use std::sync::LazyLock;
 
-use icu_properties::maps::CodePointMapData;
 use icu_properties::CanonicalCombiningClass;
+use icu_properties::maps::CodePointMapData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
 
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
+use crate::foundations::{Content, NativeElement, SymbolElem, cast, elem, func};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 

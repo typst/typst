@@ -1,7 +1,7 @@
 use comemo::Tracked;
 
 use crate::diag::HintedStrResult;
-use crate::foundations::{elem, func, Cast, Context};
+use crate::foundations::{Cast, Context, elem, func};
 
 /// The export target.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]

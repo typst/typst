@@ -1,10 +1,10 @@
 use ecow::EcoString;
 
-use crate::diag::{bail, HintedStrResult, SourceResult};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart,
-    StyleChain, Styles, Value,
+    Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Styles,
+    Value, cast, elem,
 };
 
 /// The root element of a document and its metadata.

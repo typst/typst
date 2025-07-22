@@ -7,8 +7,8 @@ use az::SaturatingAs;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{round_int_with_precision, round_with_precision};
 
-use crate::diag::{bail, At, HintedString, SourceResult, StrResult};
-use crate::foundations::{cast, func, ops, Decimal, IntoValue, Module, Scope, Value};
+use crate::diag::{At, HintedString, SourceResult, StrResult, bail};
+use crate::foundations::{Decimal, IntoValue, Module, Scope, Value, cast, func, ops};
 use crate::layout::{Angle, Fr, Length, Ratio};
 
 /// A module with calculation definitions.

@@ -1,18 +1,19 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
-use ecow::{eco_format, EcoVec};
+use ecow::{EcoVec, eco_format};
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
+use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::tagging::TagId;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
-use typst_library::diag::{bail, error, SourceDiagnostic, SourceResult};
+use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Location, Tag};
 use typst_library::layout::{
@@ -23,17 +24,17 @@ use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::embed::embed_files;
 use crate::image::handle_image;
-use crate::link::{handle_link, LinkAnnotation};
+use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::tags::{self, Tags};
 use crate::text::handle_text;
-use crate::util::{convert_path, display_font, AbsExt, TransformExt};
-use crate::PdfOptions;
+use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -401,6 +402,28 @@ fn finish(
                     hint: "convert the image to 8 bit instead"
                 )
             }
+            KrillaError::Pdf(_, e, loc) => {
+                let span = to_span(loc);
+                match e {
+                    // We already validated in `typst-library` that the page index is valid.
+                    PdfError::InvalidPage(_) => bail!(
+                        span,
+                        "invalid page number for PDF file";
+                        hint: "please report this as a bug"
+                    ),
+                    PdfError::VersionMismatch(v) => {
+                        let pdf_ver = v.as_str();
+                        let config_ver = configuration.version();
+                        let cur_ver = config_ver.as_str();
+                        bail!(span,
+                            "the version of the PDF is too high";
+                            hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
+                            hint: "raise the export target to {pdf_ver} or higher";
+                            hint: "or preprocess the PDF to convert it to a lower version"
+                        );
+                    }
+                }
+            }
         },
     }
 }
@@ -632,6 +655,13 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
+        ValidationError::EmbeddedPDF(loc) => {
+            error!(
+                to_span(*loc),
+                "embedding PDFs is currently not supported in this export mode";
+                hint: "try converting the PDF to an SVG before embedding it"
+            )
+        }
     }
 }
 

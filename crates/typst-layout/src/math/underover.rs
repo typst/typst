@@ -10,8 +10,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    stack, style_cramped, style_for_subscript, style_for_superscript, FrameFragment,
-    GlyphFragment, LeftRightAlternator, MathContext, MathRun,
+    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, MathRun, stack,
+    style_cramped, style_for_subscript, style_for_superscript,
 };
 
 const BRACE_GAP: Em = Em::new(0.25);

@@ -2,10 +2,11 @@ use std::cell::{LazyCell, RefCell};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
-use bumpalo::boxed::Box as BumpBox;
 use bumpalo::Bump;
+use bumpalo::boxed::Box as BumpBox;
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{bail, warning, SourceResult};
+use typst_library::World;
+use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::{
@@ -19,10 +20,9 @@ use typst_library::layout::{
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::TextElem;
-use typst_library::World;
 use typst_utils::SliceExt;
 
-use super::{layout_multi_block, layout_single_block, FlowMode};
+use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;
 use crate::modifiers::layout_and_modify;
 
@@ -684,10 +684,10 @@ impl<T> CachedCell<T> {
         let input_hash = typst_utils::hash128(&input);
 
         let mut slot = self.0.borrow_mut();
-        if let Some((hash, output)) = &*slot {
-            if *hash == input_hash {
-                return output.clone();
-            }
+        if let Some((hash, output)) = &*slot
+            && *hash == input_hash
+        {
+            return output.clone();
         }
 
         let output = f(input);

@@ -2,13 +2,13 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use typst_utils::{singleton, NonZeroExt, Scalar};
+use typst_utils::{NonZeroExt, Scalar, singleton};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement,
-    Set, Smart, Value,
+    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
+    Value, cast, elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -530,11 +530,10 @@ cast! {
     Margin,
     self => {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
+        if !two_sided && self.sides.is_uniform()
+            && let Some(left) = self.sides.left {
                 return left.into_value();
             }
-        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {

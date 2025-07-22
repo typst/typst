@@ -86,7 +86,7 @@ use ecow::EcoString;
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;
-use crate::{is_ident, is_newline, Span, SyntaxKind, SyntaxNode};
+use crate::{Span, SyntaxKind, SyntaxNode, is_ident, is_newline};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {

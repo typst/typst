@@ -80,7 +80,7 @@ use comemo::TrackedMut;
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::{Feature, Features};
 

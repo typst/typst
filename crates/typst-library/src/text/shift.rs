@@ -1,7 +1,7 @@
 use crate::introspection::Locatable;
 use ttf_parser::Tag;
 
-use crate::foundations::{elem, Content, Smart};
+use crate::foundations::{Content, Smart, elem};
 use crate::layout::{Em, Length};
 use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 

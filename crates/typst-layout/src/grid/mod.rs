@@ -9,13 +9,13 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
-use typst_library::layout::grid::resolve::{grid_to_cellgrid, table_to_cellgrid, Cell};
+use typst_library::layout::grid::resolve::{Cell, grid_to_cellgrid, table_to_cellgrid};
 use typst_library::layout::{Fragment, GridElem, Regions};
 use typst_library::model::TableElem;
 
 use self::layouter::RowPiece;
 use self::lines::{
-    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, LineSegment,
+    LineSegment, generate_line_segments, hline_stroke_at_column, vline_stroke_at_row,
 };
 use self::rowspans::{Rowspan, UnbreakableRowGroup};
 

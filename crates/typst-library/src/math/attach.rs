@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content, Packed};
+use crate::foundations::{Content, Packed, elem};
 use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, Mathy};
 

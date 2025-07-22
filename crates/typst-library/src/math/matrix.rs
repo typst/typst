@@ -1,12 +1,12 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::Spanned;
-use typst_utils::{default_math_class, Numeric};
+use typst_utils::{Numeric, default_math_class};
 use unicode_math_class::MathClass;
 
-use crate::diag::{bail, At, HintedStrResult, StrResult};
+use crate::diag::{At, HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Resolve, Smart,
-    StyleChain, Symbol, Value,
+    Array, Content, Dict, Fold, NoneValue, Resolve, Smart, StyleChain, Symbol, Value,
+    array, cast, dict, elem,
 };
 use crate::layout::{Abs, Em, HAlignment, Length, Rel};
 use crate::math::Mathy;

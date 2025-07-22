@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use krilla::embed::{AssociationKind, EmbeddedFile};
 use krilla::Document;
-use typst_library::diag::{bail, SourceResult};
+use krilla::embed::{AssociationKind, EmbeddedFile};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;
 use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};

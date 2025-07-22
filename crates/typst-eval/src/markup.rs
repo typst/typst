@@ -1,4 +1,4 @@
-use typst_library::diag::{warning, At, SourceResult};
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{
     Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };

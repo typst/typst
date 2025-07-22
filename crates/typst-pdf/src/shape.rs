@@ -6,7 +6,7 @@ use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::util::{convert_path, AbsExt, TransformExt};
+use crate::util::{AbsExt, TransformExt, convert_path};
 use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle shape")]
@@ -39,11 +39,7 @@ pub(crate) fn handle_shape(
         };
 
         let stroke = shape.stroke.as_ref().and_then(|stroke| {
-            if stroke.thickness.to_f32() > 0.0 {
-                Some(stroke)
-            } else {
-                None
-            }
+            if stroke.thickness.to_f32() > 0.0 { Some(stroke) } else { None }
         });
 
         let stroke = if let Some(stroke) = &stroke {

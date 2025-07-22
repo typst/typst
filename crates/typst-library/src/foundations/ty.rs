@@ -5,12 +5,12 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::LazyLock;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::Static;
 
-use crate::diag::{bail, DeprecationSink, StrResult};
+use crate::diag::{DeprecationSink, StrResult, bail};
 use crate::foundations::{
-    cast, func, AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value,
+    AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
 };
 
 /// Describes a kind of value.

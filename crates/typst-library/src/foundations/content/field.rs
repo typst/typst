@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::OnceLock;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
 use crate::foundations::{
     Container, Content, FieldVtable, Fold, FoldFn, IntoValue, NativeElement, Packed,

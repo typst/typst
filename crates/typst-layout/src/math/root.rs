@@ -5,7 +5,7 @@ use typst_library::math::{EquationElem, MathSize, RootElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 
-use super::{style_cramped, FrameFragment, GlyphFragment, MathContext};
+use super::{FrameFragment, GlyphFragment, MathContext, style_cramped};
 
 /// Lays out a [`RootElem`].
 ///

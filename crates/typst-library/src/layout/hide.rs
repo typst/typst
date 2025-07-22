@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content};
+use crate::foundations::{Content, elem};
 use crate::introspection::Locatable;
 
 /// Hides content without affecting layout.

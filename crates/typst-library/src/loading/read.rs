@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{LoadedWithin, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, Cast};
+use crate::foundations::{Cast, func};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads plain text or data from a file.

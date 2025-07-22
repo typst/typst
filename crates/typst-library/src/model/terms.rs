@@ -1,6 +1,6 @@
 use crate::diag::bail;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Smart, Styles,
+    Array, Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
 };
 use crate::introspection::Locatable;
 use crate::layout::{Em, HElem, Length};

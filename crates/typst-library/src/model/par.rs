@@ -1,10 +1,10 @@
 use typst_utils::singleton;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, elem, scope, Args, Cast, Construct, Content, Dict, NativeElement, Packed,
-    Smart, Unlabellable, Value,
+    Args, Cast, Construct, Content, Dict, NativeElement, Packed, Smart, Unlabellable,
+    Value, cast, dict, elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};

@@ -5,13 +5,13 @@ use std::ops::{Add, AddAssign, Deref};
 use std::str::Utf8Error;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
 use typst_syntax::Lines;
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty};
 
 /// A sequence of bytes.
 ///

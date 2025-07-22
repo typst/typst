@@ -266,27 +266,15 @@ enum GridCell {
 
 impl GridCell {
     fn as_cell(&self) -> Option<&TableCtxCell> {
-        if let Self::Cell(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::Cell(v) = self { Some(v) } else { None }
     }
 
     fn as_cell_mut(&mut self) -> Option<&mut TableCtxCell> {
-        if let Self::Cell(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::Cell(v) = self { Some(v) } else { None }
     }
 
     fn into_cell(self) -> Option<TableCtxCell> {
-        if let Self::Cell(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::Cell(v) = self { Some(v) } else { None }
     }
 }
 

@@ -1,12 +1,12 @@
 use std::num::NonZeroUsize;
 
-use ecow::{eco_format, EcoVec};
-use typst_library::diag::{warning, At};
+use ecow::{EcoVec, eco_format};
+use typst_library::diag::{At, warning};
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::{Counter, Locator};
-use typst_library::layout::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
+use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
 use typst_library::layout::{OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
@@ -14,12 +14,12 @@ use typst_library::model::{
     RefElem, StrongElem, TableCell, TableElem, TermsElem,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SpaceElem, StrikeElem,
-    SubElem, SuperElem, UnderlineElem,
+    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::ImageElem;
 
-use crate::{attr, css, tag, FrameElem, HtmlAttrs, HtmlElem, HtmlTag};
+use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
 /// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -47,6 +47,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, OVERLINE_RULE);
     rules.register(Html, STRIKE_RULE);
     rules.register(Html, HIGHLIGHT_RULE);
+    rules.register(Html, SMALLCAPS_RULE);
     rules.register(Html, RAW_RULE);
     rules.register(Html, RAW_LINE_RULE);
 
@@ -237,13 +238,11 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
     if block {
         let mut blockquote = HtmlElem::new(tag::blockquote).with_body(Some(realized));
-        if let Some(Attribution::Content(attribution)) = attribution {
-            if let Some(link) = attribution.to_packed::<LinkElem>() {
-                if let LinkTarget::Dest(Destination::Url(url)) = &link.dest {
-                    blockquote =
-                        blockquote.with_attr(attr::cite, url.clone().into_inner());
-                }
-            }
+        if let Some(Attribution::Content(attribution)) = attribution
+            && let Some(link) = attribution.to_packed::<LinkElem>()
+            && let LinkTarget::Dest(Destination::Url(url)) = &link.dest
+        {
+            blockquote = blockquote.with_attr(attr::cite, url.clone().into_inner());
         }
 
         realized = blockquote.pack().spanned(span);
@@ -389,6 +388,20 @@ const STRIKE_RULE: ShowFn<StrikeElem> =
 
 const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::mark).with_body(Some(elem.body.clone())).pack());
+
+const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::span)
+        .with_attr(
+            attr::style,
+            if elem.all.get(styles) {
+                "font-variant-caps: all-small-caps"
+            } else {
+                "font-variant-caps: small-caps"
+            },
+        )
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
 
 const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
     let lines = elem.lines.as_deref().unwrap_or_default();

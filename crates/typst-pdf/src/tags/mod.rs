@@ -537,43 +537,23 @@ pub(crate) enum StackEntryKind {
 
 impl StackEntryKind {
     pub(crate) fn as_standard_mut(&mut self) -> Option<&mut Tag> {
-        if let Self::Standard(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::Standard(v) = self { Some(v) } else { None }
     }
 
     pub(crate) fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
-        if let Self::Outline(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::Outline(v) = self { Some(v) } else { None }
     }
 
     pub(crate) fn as_table_mut(&mut self) -> Option<&mut TableCtx> {
-        if let Self::Table(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::Table(v) = self { Some(v) } else { None }
     }
 
     pub(crate) fn as_list_mut(&mut self) -> Option<&mut ListCtx> {
-        if let Self::List(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Self::List(v) = self { Some(v) } else { None }
     }
 
     pub(crate) fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
-        if let Self::Link(id, link) = self {
-            Some((*id, link))
-        } else {
-            None
-        }
+        if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
     }
 }
 

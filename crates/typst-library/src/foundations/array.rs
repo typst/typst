@@ -4,16 +4,16 @@ use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, func, ops, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue,
-    Func, IntoValue, Reflect, Repr, Str, Value, Version,
+    Args, Bytes, CastInfo, Context, Dict, FromValue, Func, IntoValue, Reflect, Repr, Str,
+    Value, Version, cast, func, ops, repr, scope, ty,
 };
 
 /// Create a new [`Array`] from values.

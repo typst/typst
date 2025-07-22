@@ -15,7 +15,7 @@ use typst_library::visualize::{
 };
 use typst_utils::Numeric;
 
-use crate::convert::{handle_frame, FrameContext, GlobalContext, State};
+use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 
 pub(crate) fn convert_fill(

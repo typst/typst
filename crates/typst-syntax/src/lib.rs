@@ -17,7 +17,7 @@ mod source;
 mod span;
 
 pub use self::file::FileId;
-pub use self::highlight::{highlight, highlight_html, Tag};
+pub use self::highlight::{Tag, highlight, highlight_html};
 pub use self::kind::SyntaxKind;
 pub use self::lexer::{
     is_id_continue, is_id_start, is_ident, is_newline, is_valid_label_literal_id,

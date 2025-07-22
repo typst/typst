@@ -1,9 +1,9 @@
 use kurbo::ParamCurveExtrema;
-use typst_macros::{scope, Cast};
+use typst_macros::{Cast, scope};
 use typst_utils::Numeric;
 
-use crate::diag::{bail, HintedStrResult, HintedString};
-use crate::foundations::{cast, elem, Content, Packed, Smart};
+use crate::diag::{HintedStrResult, HintedString, bail};
+use crate::foundations::{Content, Packed, Smart, cast, elem};
 use crate::layout::{Abs, Axes, Length, Point, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
 

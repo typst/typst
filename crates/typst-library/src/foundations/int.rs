@@ -2,12 +2,12 @@ use std::num::{
     NonZeroI64, NonZeroIsize, NonZeroU32, NonZeroU64, NonZeroUsize, ParseIntError,
 };
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    cast, func, repr, scope, ty, Bytes, Cast, Decimal, Repr, Str, Value,
+    Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
 
 /// A whole number.

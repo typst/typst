@@ -1,12 +1,12 @@
 use comemo::Track;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::Serialize;
-use typst::diag::{bail, HintedStrResult, StrResult, Warned};
+use typst::World;
+use typst::diag::{HintedStrResult, StrResult, Warned, bail};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
-use typst::World;
 use typst_eval::eval_string;
 
 use crate::args::{QueryCommand, SerializationFormat};

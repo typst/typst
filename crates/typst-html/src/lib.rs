@@ -19,8 +19,8 @@ pub use self::encode::html;
 pub use self::rules::register;
 
 use ecow::EcoString;
-use typst_library::foundations::{Content, Module, Scope};
 use typst_library::Category;
+use typst_library::foundations::{Content, Module, Scope};
 use typst_macros::elem;
 
 /// Creates the module with all HTML definitions.
@@ -86,11 +86,7 @@ impl HtmlElem {
         attr: HtmlAttr,
         value: Option<impl Into<EcoString>>,
     ) -> Self {
-        if let Some(value) = value {
-            self.with_attr(attr, value)
-        } else {
-            self
-        }
+        if let Some(value) = value { self.with_attr(attr, value) } else { self }
     }
 
     /// Adds CSS styles to an element.

@@ -5,7 +5,7 @@ use typst_library::visualize::{
     Shape,
 };
 
-use crate::{paint, AbsExt, State};
+use crate::{AbsExt, State, paint};
 
 /// Render a geometrical shape into the canvas.
 pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<()> {

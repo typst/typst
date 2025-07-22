@@ -2,12 +2,12 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles,
+    Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{Counter, CounterKey, Introspector, Locatable, Location};
 use crate::layout::{PageElem, Position};

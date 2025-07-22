@@ -5,15 +5,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
-use ecow::{eco_format, EcoString};
-use typst_syntax::{ast, Span, SyntaxNode};
-use typst_utils::{singleton, LazyHash, Static};
+use ecow::{EcoString, eco_format};
+use typst_syntax::{Span, SyntaxNode, ast};
+use typst_utils::{LazyHash, Static, singleton};
 
-use crate::diag::{bail, At, DeprecationSink, SourceResult, StrResult};
+use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, Bytes, CastInfo, Content, Context, Element, IntoArgs,
-    PluginFunc, Scope, Selector, Type, Value,
+    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Scope,
+    Selector, Type, Value, cast, repr, scope, ty,
 };
 
 /// A mapping from argument values to a return value.

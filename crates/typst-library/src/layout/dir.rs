@@ -1,6 +1,6 @@
 use ecow::EcoString;
 
-use crate::foundations::{func, scope, ty, Repr};
+use crate::foundations::{Repr, func, scope, ty};
 use crate::layout::{Axis, Side};
 
 /// The four directions into which content can be laid out.

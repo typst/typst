@@ -1,10 +1,10 @@
 use std::num::ParseFloatError;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    cast, func, repr, scope, ty, Bytes, Decimal, Endianness, Repr, Str,
+    Bytes, Decimal, Endianness, Repr, Str, cast, func, repr, scope, ty,
 };
 use crate::layout::Ratio;
 

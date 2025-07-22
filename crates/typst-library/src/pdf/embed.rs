@@ -1,10 +1,10 @@
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::At;
-use crate::foundations::{elem, Bytes, Cast, Derived};
-use crate::introspection::Locatable;
 use crate::World;
+use crate::diag::At;
+use crate::foundations::{Bytes, Cast, Derived, elem};
+use crate::introspection::Locatable;
 
 /// A file that will be embedded into the output PDF.
 ///

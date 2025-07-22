@@ -14,7 +14,7 @@ use typst_syntax::{FileId, Lines};
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
 use crate::logger::TestResult;
-use crate::world::{system_path, TestWorld};
+use crate::world::{TestWorld, system_path};
 
 /// Runs a single test.
 ///
@@ -189,8 +189,14 @@ impl<'a> Runner<'a> {
                     log!(self, "reference output would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
-                    log!(self, "please try to minimize the size of the test (smaller pages, less text, etc.)");
-                    log!(self, "if you think the test cannot be reasonably minimized, mark it as `large`");
+                    log!(
+                        self,
+                        "please try to minimize the size of the test (smaller pages, less text, etc.)"
+                    );
+                    log!(
+                        self,
+                        "if you think the test cannot be reasonably minimized, mark it as `large`"
+                    );
                     return;
                 }
                 std::fs::write(&ref_path, &ref_data).unwrap();
@@ -337,11 +343,7 @@ impl<'a> Runner<'a> {
             return "oob".into();
         };
 
-        if line == 1 {
-            format!("{col}")
-        } else {
-            format!("{line}:{col}")
-        }
+        if line == 1 { format!("{col}") } else { format!("{line}:{col}") }
     }
 
     #[track_caller]

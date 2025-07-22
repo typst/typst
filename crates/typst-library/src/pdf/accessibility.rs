@@ -1,10 +1,10 @@
 use std::num::NonZeroU32;
 
-use typst_macros::{elem, func, Cast};
+use typst_macros::{Cast, elem, func};
 use typst_utils::NonZeroExt;
 
-use crate::diag::bail;
 use crate::diag::SourceResult;
+use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
 use crate::introspection::Locatable;

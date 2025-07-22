@@ -1,14 +1,14 @@
 use std::str::FromStr;
 
 use chinese_number::{
-    from_u64_to_chinese_ten_thousand as u64_to_chinese, ChineseCase, ChineseVariant,
+    ChineseCase, ChineseVariant, from_u64_to_chinese_ten_thousand as u64_to_chinese,
 };
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, func, Context, Func, Str, Value};
+use crate::foundations::{Context, Func, Str, Value, cast, func};
 
 /// Applies a numbering to a sequence of numbers.
 ///

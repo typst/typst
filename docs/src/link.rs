@@ -1,7 +1,7 @@
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
 use typst::foundations::{Binding, Func};
 
-use crate::{get_module, GROUPS, LIBRARY};
+use crate::{GROUPS, LIBRARY, get_module};
 
 /// Resolve an intra-doc link.
 pub fn resolve(link: &str, base: &str) -> StrResult<String> {
@@ -96,11 +96,11 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
         if let Ok(field) = value.field(next, ()) {
             route.push_str("/#definitions-");
             route.push_str(next);
-            if let Some(next) = parts.next() {
-                if field.cast::<Func>().is_ok_and(|func| func.param(next).is_some()) {
-                    route.push('-');
-                    route.push_str(next);
-                }
+            if let Some(next) = parts.next()
+                && field.cast::<Func>().is_ok_and(|func| func.param(next).is_some())
+            {
+                route.push('-');
+                route.push_str(next);
             }
         } else if value
             .clone()

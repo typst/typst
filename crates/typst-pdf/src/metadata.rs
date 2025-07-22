@@ -9,7 +9,7 @@ use crate::convert::GlobalContext;
 pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
 
-    let lang = gc.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
+    let lang = gc.languages.iter().max_by_key(|&(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         TextDirection::RightToLeft

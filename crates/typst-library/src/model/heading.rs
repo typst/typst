@@ -5,7 +5,7 @@ use typst_utils::NonZeroExt;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize,
+    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{BlockElem, Em, Length};

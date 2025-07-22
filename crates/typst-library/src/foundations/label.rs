@@ -1,8 +1,8 @@
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
 use crate::diag::StrResult;
-use crate::foundations::{bail, func, scope, ty, Repr, Str};
+use crate::foundations::{Repr, Str, bail, func, scope, ty};
 
 /// A label for an element.
 ///
