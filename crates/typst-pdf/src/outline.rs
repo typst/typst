@@ -131,7 +131,7 @@ impl<'a> HeadingNode<'a> {
         // Prepend the numbering to title if it exists
         let title = match &self.element.numbering_displayed {
             // The space should be a `h(0.3em)`, but only plain-texts are supported here.
-            Some(ref num) => format!("{num} {title}"),
+            Some(num) => format!("{num} {title}"),
             None => title,
         };
 
