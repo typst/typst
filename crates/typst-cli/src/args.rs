@@ -267,6 +267,10 @@ pub struct CompileArgs {
     #[clap(long = "make-deps", value_name = "PATH")]
     pub make_deps: Option<PathBuf>,
 
+    /// File path to which a list of NUL-separated current compilation's dependencies will be written
+    #[clap(long, value_name = "PATH")]
+    pub deps0: Option<PathBuf>,
+
     /// Processing arguments.
     #[clap(flatten)]
     pub process: ProcessArgs,

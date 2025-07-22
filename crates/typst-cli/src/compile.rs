@@ -67,6 +67,8 @@ pub struct CompileConfig {
     pub pdf_standards: PdfStandards,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
+    /// A path to write a list of NUL-separated dependencies.
+    pub deps0: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
     pub ppi: f32,
     /// The export cache for images, used for caching output files in `typst
@@ -152,6 +154,7 @@ impl CompileConfig {
             pdf_standards,
             creation_timestamp: args.world.creation_timestamp,
             make_deps: args.make_deps.clone(),
+            deps0: args.deps0.clone(),
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
@@ -209,6 +212,8 @@ pub fn compile_once(
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
+
+    write_deps0(world, config)?;
 
     Ok(())
 }
@@ -598,6 +603,38 @@ fn write_make_deps(
         .map_err(|err| {
             eco_format!("failed to create make dependencies file due to IO error ({err})")
         })
+}
+
+fn write_deps0(world: &mut SystemWorld, config: &CompileConfig) -> StrResult<()> {
+    let Some(ref deps_path) = config.deps0 else { return Ok(()) };
+    fn write(
+        deps_path: &Path,
+        root: PathBuf,
+        dependencies: impl Iterator<Item = PathBuf>,
+    ) -> io::Result<()> {
+        let mut file = File::create(deps_path)?;
+        let current_dir = std::env::current_dir()?;
+        let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
+
+        dependencies
+            .into_iter()
+            .map(|dependency| {
+                dependency
+                    .strip_prefix(&root)
+                    .map_or_else(|_| dependency.clone(), |x| relative_root.join(x))
+                    .into_os_string()
+                    .into_encoded_bytes()
+                    .into_boxed_slice()
+            })
+            .try_for_each(|ref dep| {
+                file.write_all(dep)?;
+                file.write_all(b"\0")?;
+                Ok(())
+            })
+    }
+    write(deps_path, world.root().to_owned(), world.dependencies()).map_err(|err| {
+        eco_format!("failed to create dependencies file due to IO error ({err})")
+    })
 }
 
 /// Opens the output if desired.
