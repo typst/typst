@@ -117,7 +117,6 @@ impl SystemWorld {
                 .iter()
                 .map(|&feature| match feature {
                     Feature::Html => typst::Feature::Html,
-                    Feature::PdfEmbedding => typst::Feature::PdfEmbedding,
                 })
                 .collect();
 

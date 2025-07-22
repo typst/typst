@@ -471,7 +471,6 @@ display_possible_values!(DiagnosticFormat);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum Feature {
     Html,
-    PdfEmbedding,
 }
 
 display_possible_values!(Feature);

@@ -272,62 +272,53 @@ impl Packed<ImageElem> {
                 .within(loaded)?,
             ),
             ImageFormat::Vector(VectorFormat::Pdf) => {
-                if engine.world.library().features.is_enabled(Feature::PdfEmbedding) {
-                    let document = match PdfDocument::new(loaded.data.clone()) {
-                        Ok(doc) => doc,
-                        Err(e) => match e {
-                            LoadPdfError::Encryption => {
-                                bail!(
-                                    span,
-                                    "the PDF is encrypted or password-protected";
-                                    hint: "such PDFs are currently not supported";
-                                    hint: "preprocess the PDF to remove the encryption"
-                                );
-                            }
-                            LoadPdfError::Invalid => {
-                                bail!(
-                                    span,
-                                    "the PDF could not be loaded";
-                                    hint: "perhaps the PDF file is malformed"
-                                );
-                            }
-                        },
-                    };
+                let document = match PdfDocument::new(loaded.data.clone()) {
+                    Ok(doc) => doc,
+                    Err(e) => match e {
+                        LoadPdfError::Encryption => {
+                            bail!(
+                                span,
+                                "the PDF is encrypted or password-protected";
+                                hint: "such PDFs are currently not supported";
+                                hint: "preprocess the PDF to remove the encryption"
+                            );
+                        }
+                        LoadPdfError::Invalid => {
+                            bail!(
+                                span,
+                                "the PDF could not be loaded";
+                                hint: "perhaps the PDF file is malformed"
+                            );
+                        }
+                    },
+                };
 
-                    let page_num = self.page.get(styles);
+                let page_num = self.page.get(styles);
 
-                    if page_num == 0 {
-                        bail!(
-                            span,
-                            "{page_num} is not a valid page number";
-                            hint: "page numbers for PDF start at 1"
-                        )
-                    };
-
-                    // The user provides the page number start from 1, but further down the pipeline,
-                    // page numbers are 0-based.
-                    let page_idx = page_num - 1;
-                    let num_pages = document.len();
-
-                    let Some(pdf_image) = PdfImage::new(document, page_idx) else {
-                        let pages = if num_pages == 1 { "page" } else { "pages" };
-
-                        bail!(
-                            span,
-                            "page {page_num} doesn't exist";
-                            hint: "the document only has {num_pages} {pages}"
-                        );
-                    };
-
-                    ImageKind::Pdf(pdf_image)
-                } else {
+                if page_num == 0 {
                     bail!(
                         span,
-                        "embedding PDFs is currently an experimental, opt-in feature";
-                        hint: "enable the corresponding feature to try it out";
-                        hint: "convert your PDF to SVG instead"
+                        "{page_num} is not a valid page number";
+                        hint: "page numbers for PDF start at 1"
+                    )
+                };
+
+                // The user provides the page number start from 1, but further down the pipeline,
+                // page numbers are 0-based.
+                let page_idx = page_num - 1;
+                let num_pages = document.len();
+
+                let Some(pdf_image) = PdfImage::new(document, page_idx) else {
+                    let pages = if num_pages == 1 { "page" } else { "pages" };
+
+                    bail!(
+                        span,
+                        "page {page_num} doesn't exist";
+                        hint: "the document only has {num_pages} {pages}"
                     );
-                }
+                };
+
+                ImageKind::Pdf(pdf_image)
             }
         };
 

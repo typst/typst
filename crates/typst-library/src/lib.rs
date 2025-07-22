@@ -237,7 +237,6 @@ impl FromIterator<Feature> for Features {
 #[non_exhaustive]
 pub enum Feature {
     Html,
-    PdfEmbedding,
 }
 
 /// A group of related standard library definitions.
