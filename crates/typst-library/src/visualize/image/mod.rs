@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use hayro_syntax::LoadPdfError;
-use typst_library::{Feature, World};
+use typst_library::World;
 use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
