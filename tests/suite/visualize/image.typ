@@ -293,12 +293,12 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-pdf ---
 #image("/assets/images/matplotlib.pdf")
 
---- image-pdf-invalid-page ---
-// Error: 2-49 page 2 doesn't exist
-// Hint: 2-49 the document only has 1 page
-#image("/assets/images/matplotlib.pdf", page: 2)
-
 --- image-pdf-multiple-pages ---
 #image("/assets/images/diagrams.pdf", page: 1)
 #image("/assets/images/diagrams.pdf", page: 3)
 #image("/assets/images/diagrams.pdf", page: 2)
+
+--- image-pdf-invalid-page ---
+// Error: 2-49 page 2 does not exist
+// Hint: 2-49 the document only has 1 page
+#image("/assets/images/matplotlib.pdf", page: 2)

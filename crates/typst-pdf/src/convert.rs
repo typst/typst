@@ -368,17 +368,20 @@ fn finish(
                 let span = to_span(loc);
                 match e {
                     // We already validated in `typst-library` that the page index is valid.
-                    PdfError::InvalidPage(_) => unreachable!(),
+                    PdfError::InvalidPage(_) => bail!(
+                        span,
+                        "invalid page number for PDF file";
+                        hint: "please report this as a bug"
+                    ),
                     PdfError::VersionMismatch(v) => {
                         let pdf_ver = v.as_str();
                         let config_ver = configuration.version();
                         let cur_ver = config_ver.as_str();
-
                         bail!(span,
-                            "the version of the PDF file is too high";
+                            "the version of the PDF is too high";
                             hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
                             hint: "raise the export target to {pdf_ver} or higher";
-                            hint: "preprocess the PDF to convert it to a lower version"
+                            hint: "or preprocess the PDF to convert it to a lower version"
                         );
                     }
                 }
@@ -387,14 +390,14 @@ fn finish(
                 let span = to_span(loc);
                 bail!(span,
                     "duplicate tag id";
-                    hint: "this is a bug in typst, please report it"
+                    hint: "please report this as a bug"
                 );
             }
             KrillaError::UnknownTagId(_, loc) => {
                 let span = to_span(loc);
                 bail!(span,
                     "unknown tag id";
-                    hint: "this is a bug in typst, please report it"
+                    hint: "please report this as a bug"
                 );
             }
         },
@@ -614,7 +617,7 @@ fn convert_error(
             error!(
                 to_span(*loc),
                 "embedding PDFs is currently not supported in this export mode";
-                hint: "try converting the PDF to SVG before embedding it"
+                hint: "try converting the PDF to an SVG before embedding it"
             )
         }
     }

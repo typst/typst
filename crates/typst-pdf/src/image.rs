@@ -206,7 +206,7 @@ fn convert_raster(
 
 #[comemo::memoize]
 fn convert_pdf(pdf: &PdfImage) -> PdfDocument {
-    PdfDocument::new(pdf.pdf().clone())
+    PdfDocument::new(pdf.document().pdf().clone())
 }
 
 fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {

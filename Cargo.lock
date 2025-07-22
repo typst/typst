@@ -1424,7 +1424,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla/?rev=37b9a00#37b9a00bfac87ed0b347b7cf8e9d37a6f68fcccd"
+source = "git+https://github.com/LaurenzV/krilla?rev=37b9a00#37b9a00bfac87ed0b347b7cf8e9d37a6f68fcccd"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1454,7 +1454,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla/?rev=37b9a00#37b9a00bfac87ed0b347b7cf8e9d37a6f68fcccd"
+source = "git+https://github.com/LaurenzV/krilla?rev=37b9a00#37b9a00bfac87ed0b347b7cf8e9d37a6f68fcccd"
 dependencies = [
  "flate2",
  "fontdb",
@@ -3237,6 +3237,7 @@ dependencies = [
  "resvg",
  "tiny-skia",
  "ttf-parser",
+ "typst-assets",
  "typst-library",
  "typst-macros",
  "typst-timing",
@@ -3253,6 +3254,7 @@ dependencies = [
  "hayro",
  "image",
  "ttf-parser",
+ "typst-assets",
  "typst-library",
  "typst-macros",
  "typst-timing",

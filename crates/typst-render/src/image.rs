@@ -97,7 +97,6 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
                 h as f32 / tree.size().height(),
             );
             resvg::render(tree, ts, &mut texture.as_mut());
-
             texture
         }
         ImageKind::Pdf(pdf) => build_pdf_texture(pdf, w, h)?,
@@ -108,29 +107,24 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 
 // Keep this in sync with `typst-svg`!
 fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
-    let sf = pdf.standard_fonts().clone();
-
     let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
         let bytes = match font {
-            StandardFont::Helvetica => sf.helvetica.normal.clone(),
-            StandardFont::HelveticaBold => sf.helvetica.bold.clone(),
-            StandardFont::HelveticaOblique => sf.helvetica.italic.clone(),
-            StandardFont::HelveticaBoldOblique => sf.helvetica.bold_italic.clone(),
-            StandardFont::Courier => sf.courier.normal.clone(),
-            StandardFont::CourierBold => sf.courier.bold.clone(),
-            StandardFont::CourierOblique => sf.courier.italic.clone(),
-            StandardFont::CourierBoldOblique => sf.courier.bold_italic.clone(),
-            StandardFont::TimesRoman => sf.times.normal.clone(),
-            StandardFont::TimesBold => sf.times.bold.clone(),
-            StandardFont::TimesItalic => sf.times.italic.clone(),
-            StandardFont::TimesBoldItalic => sf.times.bold_italic.clone(),
-            StandardFont::ZapfDingBats => sf.zapf_dingbats.clone(),
-            StandardFont::Symbol => sf.symbol.clone(),
+            StandardFont::Helvetica => typst_assets::pdf::SANS,
+            StandardFont::HelveticaBold => typst_assets::pdf::SANS_BOLD,
+            StandardFont::HelveticaOblique => typst_assets::pdf::SANS_ITALIC,
+            StandardFont::HelveticaBoldOblique => typst_assets::pdf::SANS_BOLD_ITALIC,
+            StandardFont::Courier => typst_assets::pdf::FIXED,
+            StandardFont::CourierBold => typst_assets::pdf::FIXED_BOLD,
+            StandardFont::CourierOblique => typst_assets::pdf::FIXED_ITALIC,
+            StandardFont::CourierBoldOblique => typst_assets::pdf::FIXED_BOLD_ITALIC,
+            StandardFont::TimesRoman => typst_assets::pdf::SERIF,
+            StandardFont::TimesBold => typst_assets::pdf::SERIF_BOLD,
+            StandardFont::TimesItalic => typst_assets::pdf::SERIF_ITALIC,
+            StandardFont::TimesBoldItalic => typst_assets::pdf::SERIF_BOLD_ITALIC,
+            StandardFont::ZapfDingBats => typst_assets::pdf::DING_BATS,
+            StandardFont::Symbol => typst_assets::pdf::SYMBOL,
         };
-
-        let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(bytes.clone());
-
-        Some((font_data, 0))
+        Some((Arc::new(bytes), 0))
     };
 
     let interpreter_settings = InterpreterSettings {
@@ -140,7 +134,6 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
         }),
         warning_sink: Arc::new(|_| {}),
     };
-    let page = pdf.page();
 
     let render_settings = RenderSettings {
         x_scale: w as f32 / pdf.width(),
@@ -149,7 +142,7 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
         height: Some(h as u16),
     };
 
-    let hayro_pix = hayro::render(page, &interpreter_settings, &render_settings);
+    let hayro_pix = hayro::render(pdf.page(), &interpreter_settings, &render_settings);
 
     sk::Pixmap::from_vec(hayro_pix.take_u8(), IntSize::from_wh(w, h)?)
 }

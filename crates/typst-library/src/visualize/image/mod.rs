@@ -12,12 +12,13 @@ pub use self::svg::SvgImage;
 
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use ecow::EcoString;
 use hayro_syntax::LoadPdfError;
 use typst_syntax::{Span, Spanned};
-use typst_utils::LazyHash;
+use typst_utils::{LazyHash, NonZeroExt};
 
 use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
@@ -129,10 +130,10 @@ pub struct ImageElem {
     /// A text describing the image.
     pub alt: Option<EcoString>,
 
-    /// The page number that should be embedded as an image. This attribute only has an effect
-    /// for PDF files.
-    #[default(1)]
-    pub page: usize,
+    /// The page number that should be embedded as an image. This attribute only
+    /// has an effect for PDF files.
+    #[default(NonZeroUsize::ONE)]
+    pub page: NonZeroUsize,
 
     /// How the image should adjust itself to a given area (the area is defined
     /// by the `width` and `height` fields). Note that `fit` doesn't visually
@@ -291,28 +292,18 @@ impl Packed<ImageElem> {
                     },
                 };
 
-                let page_num = self.page.get(styles);
-
-                if page_num == 0 {
-                    bail!(
-                        span,
-                        "{page_num} is not a valid page number";
-                        hint: "page numbers for PDF start at 1"
-                    )
-                };
-
-                // The user provides the page number start from 1, but further down the pipeline,
-                // page numbers are 0-based.
+                // The user provides the page number start from 1, but further
+                // down the pipeline, page numbers are 0-based.
+                let page_num = self.page.get(styles).get();
                 let page_idx = page_num - 1;
-                let num_pages = document.len();
+                let num_pages = document.num_pages();
 
                 let Some(pdf_image) = PdfImage::new(document, page_idx) else {
-                    let pages = if num_pages == 1 { "page" } else { "pages" };
-
+                    let s = if num_pages == 1 { "" } else { "s" };
                     bail!(
                         span,
-                        "page {page_num} doesn't exist";
-                        hint: "the document only has {num_pages} {pages}"
+                        "page {page_num} does not exist";
+                        hint: "the document only has {num_pages} page{s}"
                     );
                 };
 
@@ -567,7 +558,8 @@ fn is_svg(data: &[u8]) -> bool {
 pub enum VectorFormat {
     /// The vector graphics format of the web.
     Svg,
-    /// The PDF graphics format.
+    /// High-fidelity document and graphics format, with focus on exact
+    /// reproduction in print.
     Pdf,
 }
 
