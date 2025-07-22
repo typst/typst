@@ -273,10 +273,20 @@ pub struct CompileArgs {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
-    /// File path to which a Makefile with the current compilation's
-    /// dependencies will be written.
-    #[clap(long = "make-deps", value_name = "PATH")]
-    pub make_deps: Option<PathBuf>,
+    /// File path to which a list of current compilation's dependencies will be written
+    #[clap(
+        long,
+        value_name = "PATH",
+        value_parser = output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
+    pub deps: Option<Output>,
+
+    /// File format to use for dependencies
+    ///
+    /// Note that JSON disallows non-Unicode paths, and Make disallows even more than that.
+    #[clap(long, default_value_t)]
+    pub deps_format: DepsFormat,
 
     /// Processing arguments.
     #[clap(flatten)]
@@ -467,6 +477,16 @@ pub enum OutputFormat {
 }
 
 display_possible_values!(OutputFormat);
+
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum DepsFormat {
+    #[default]
+    Zero,
+    Json,
+    Make,
+}
+
+display_possible_values!(DepsFormat);
 
 /// The target to compile for.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]

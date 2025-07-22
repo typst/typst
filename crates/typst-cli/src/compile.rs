@@ -67,8 +67,10 @@ pub struct CompileConfig {
     pub pdf_standards: PdfStandards,
     /// Whether to write PDF (accessibility) tags.
     pub disable_pdf_tags: bool,
-    /// A path to write a Makefile rule describing the current compilation.
-    pub make_deps: Option<PathBuf>,
+    /// A path to write a list of dependencies.to.
+    pub deps: Option<Output>,
+    /// The format to use for dependencies.
+    pub deps_format: DepsFormat,
     /// The PPI (pixels per inch) to use for PNG export.
     pub ppi: f32,
     /// The export cache for images, used for caching output files in `typst
@@ -158,11 +160,12 @@ impl CompileConfig {
             pdf_standards,
             disable_pdf_tags: args.no_pdf_tags,
             creation_timestamp: args.world.creation_timestamp,
-            make_deps: args.make_deps.clone(),
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
             export_cache: ExportCache::new(),
+            deps: args.deps.clone(),
+            deps_format: args.deps_format.into(),
             #[cfg(feature = "http-server")]
             server,
         })
@@ -200,7 +203,11 @@ pub fn compile_once(
             print_diagnostics(world, &[], &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
-            write_make_deps(world, config, outputs)?;
+            if let DepsFormat::WithOutput(deps) = config.deps_format
+                && let Some(ref file) = config.deps
+            {
+                deps.write(world, file, outputs)?;
+            }
             open_output(config)?;
         }
 
@@ -215,6 +222,12 @@ pub fn compile_once(
             print_diagnostics(world, &errors, &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
+    }
+
+    if let DepsFormat::NoOutput(deps) = config.deps_format
+        && let Some(ref file) = config.deps
+    {
+        deps.write(world, file)?;
     }
 
     Ok(())
@@ -504,110 +517,218 @@ impl ExportCache {
     }
 }
 
-/// Writes a Makefile rule describing the relationship between the output and
-/// its dependencies to the path specified by the --make-deps argument, if it
-/// was provided.
-fn write_make_deps(
-    world: &mut SystemWorld,
-    config: &CompileConfig,
-    outputs: Vec<Output>,
-) -> StrResult<()> {
-    let Some(ref make_deps_path) = config.make_deps else { return Ok(()) };
-    let Ok(output_paths) = outputs
-        .into_iter()
-        .filter_map(|o| match o {
-            Output::Path(path) => Some(path.into_os_string().into_string()),
-            Output::Stdout => None,
-        })
-        .collect::<Result<Vec<_>, _>>()
-    else {
-        bail!(
-            "failed to create make dependencies file because output path was not valid unicode"
-        )
-    };
-    if output_paths.is_empty() {
-        bail!("failed to create make dependencies file because output was stdout")
-    }
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DepsFormat {
+    WithOutput(DepsWithOutputs),
+    NoOutput(DepsNoOutputs),
+}
 
-    // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
-    // perfect as some special characters can't be escaped.
-    fn munge(s: &str) -> String {
-        let mut res = String::with_capacity(s.len());
-        let mut slashes = 0;
-        for c in s.chars() {
-            match c {
-                '\\' => slashes += 1,
-                '$' => {
-                    res.push('$');
-                    slashes = 0;
-                }
-                ':' => {
-                    res.push('\\');
-                    slashes = 0;
-                }
-                ' ' | '\t' => {
-                    // `munge`'s source contains a comment here that says: "A
-                    // space or tab preceded by 2N+1 backslashes represents N
-                    // backslashes followed by space..."
-                    for _ in 0..slashes + 1 {
-                        res.push('\\');
-                    }
-                    slashes = 0;
-                }
-                '#' => {
-                    res.push('\\');
-                    slashes = 0;
-                }
-                _ => slashes = 0,
-            };
-            res.push(c);
+impl From<crate::args::DepsFormat> for DepsFormat {
+    fn from(value: crate::args::DepsFormat) -> Self {
+        use crate::args::DepsFormat;
+        match value {
+            DepsFormat::Make => Self::WithOutput(DepsWithOutputs::Make),
+            DepsFormat::Zero => Self::NoOutput(DepsNoOutputs::Zero),
+            DepsFormat::Json => Self::NoOutput(DepsNoOutputs::Json),
         }
-        res
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DepsNoOutputs {
+    Json,
+    Zero,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DepsWithOutputs {
+    Make,
+}
+#[derive(Debug)]
+enum OpenOutput<'a> {
+    Stdout(std::io::StdoutLock<'a>),
+    File(std::fs::File),
+}
+
+impl OpenOutput<'_> {
+    fn new(output: &Output) -> io::Result<Self> {
+        match output {
+            Output::Stdout => Ok(Self::Stdout(std::io::stdout().lock())),
+            Output::Path(path) => File::create(path).map(Self::File),
+        }
+    }
+}
+
+impl io::Write for OpenOutput<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            OpenOutput::Stdout(x) => x.write(buf),
+            OpenOutput::File(x) => x.write(buf),
+        }
     }
 
-    fn write(
-        make_deps_path: &Path,
-        output_paths: Vec<String>,
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            OpenOutput::Stdout(x) => x.flush(),
+            OpenOutput::File(x) => x.flush(),
+        }
+    }
+}
+
+impl DepsNoOutputs {
+    fn write_inner(
+        self,
+        deps_path: &Output,
         root: PathBuf,
         dependencies: impl Iterator<Item = PathBuf>,
     ) -> io::Result<()> {
-        let mut file = File::create(make_deps_path)?;
+        use serde::ser::{SerializeSeq as _, Serializer as _};
+        let mut file = OpenOutput::new(deps_path)?;
         let current_dir = std::env::current_dir()?;
         let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
-
-        for (i, output_path) in output_paths.into_iter().enumerate() {
-            if i != 0 {
-                file.write_all(b" ")?;
-            }
-            file.write_all(munge(&output_path).as_bytes())?;
+        let mut dependencies = dependencies.map(|dependency| {
+            dependency
+                .strip_prefix(&root)
+                .map_or_else(|_| dependency.clone(), |x| relative_root.join(x))
+                .into_os_string()
+        });
+        match self {
+            Self::Zero => dependencies.try_for_each(|ref dep| {
+                file.write_all(dep.as_encoded_bytes())?;
+                file.write_all(b"\0")?;
+                Ok(())
+            }),
+            Self::Json => dependencies
+                .try_fold(
+                    serde_json::Serializer::new(file).serialize_seq(None)?,
+                    |mut acc, cur| {
+                        <&str>::try_from(cur.as_os_str())
+                            .map_err(|_| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    format!("{cur:?} isn't valid UTF-8"),
+                                )
+                            })
+                            .and_then(|x| acc.serialize_element(x).map_err(Into::into))?;
+                        Ok(acc)
+                    },
+                )
+                .and_then(|x| x.end().map_err(Into::into)),
         }
-        file.write_all(b":")?;
-        for dependency in dependencies {
-            let relative_dependency = match dependency.strip_prefix(&root) {
-                Ok(root_relative_dependency) => {
-                    relative_root.join(root_relative_dependency)
-                }
-                Err(_) => dependency,
-            };
-            let Some(relative_dependency) = relative_dependency.to_str() else {
-                // Silently skip paths that aren't valid unicode so we still
-                // produce a rule that will work for the other paths that can be
-                // processed.
-                continue;
-            };
-
-            file.write_all(b" ")?;
-            file.write_all(munge(relative_dependency).as_bytes())?;
-        }
-        file.write_all(b"\n")?;
-
-        Ok(())
     }
+    fn write(self, world: &mut SystemWorld, deps_file: &Output) -> StrResult<()> {
+        self.write_inner(deps_file, world.root().to_owned(), world.dependencies())
+            .map_err(|err| {
+                eco_format!("failed to create dependencies file due to IO error ({err})")
+            })
+    }
+}
 
-    write(make_deps_path, output_paths, world.root().to_owned(), world.dependencies())
-        .map_err(|err| {
-            eco_format!("failed to create make dependencies file due to IO error ({err})")
-        })
+impl DepsWithOutputs {
+    fn write(
+        self,
+        world: &mut SystemWorld,
+        make_deps_path: &Output,
+        outputs: Vec<Output>,
+    ) -> StrResult<()> {
+        let Ok(output_paths) = outputs
+            .into_iter()
+            .filter_map(|o| match o {
+                Output::Path(path) => Some(path.into_os_string().into_string()),
+                Output::Stdout => None,
+            })
+            .collect::<Result<Vec<_>, _>>()
+        else {
+            bail!(
+                "failed to create make dependencies file because output path was not valid unicode"
+            )
+        };
+        if output_paths.is_empty() {
+            bail!("failed to create make dependencies file because output was stdout")
+        }
+
+        // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
+        // perfect as some special characters can't be escaped.
+        fn munge(s: &str) -> String {
+            let mut res = String::with_capacity(s.len());
+            let mut slashes = 0;
+            for c in s.chars() {
+                match c {
+                    '\\' => slashes += 1,
+                    '$' => {
+                        res.push('$');
+                        slashes = 0;
+                    }
+                    ':' => {
+                        res.push('\\');
+                        slashes = 0;
+                    }
+                    ' ' | '\t' => {
+                        // `munge`'s source contains a comment here that says: "A
+                        // space or tab preceded by 2N+1 backslashes represents N
+                        // backslashes followed by space..."
+                        for _ in 0..slashes + 1 {
+                            res.push('\\');
+                        }
+                        slashes = 0;
+                    }
+                    '#' => {
+                        res.push('\\');
+                        slashes = 0;
+                    }
+                    _ => slashes = 0,
+                };
+                res.push(c);
+            }
+            res
+        }
+
+        fn write(
+            make_deps_path: &Output,
+            output_paths: Vec<String>,
+            root: PathBuf,
+            dependencies: impl Iterator<Item = PathBuf>,
+        ) -> io::Result<()> {
+            let mut file = OpenOutput::new(make_deps_path)?;
+            let current_dir = std::env::current_dir()?;
+            let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
+
+            for (i, output_path) in output_paths.into_iter().enumerate() {
+                if i != 0 {
+                    file.write_all(b" ")?;
+                }
+                file.write_all(munge(&output_path).as_bytes())?;
+            }
+            file.write_all(b":")?;
+            for dependency in dependencies {
+                let relative_dependency = match dependency.strip_prefix(&root) {
+                    Ok(root_relative_dependency) => {
+                        relative_root.join(root_relative_dependency)
+                    }
+                    Err(_) => dependency,
+                };
+                let Some(relative_dependency) = relative_dependency.to_str() else {
+                    // Silently skip paths that aren't valid unicode so we still
+                    // produce a rule that will work for the other paths that can be
+                    // processed.
+                    continue;
+                };
+
+                file.write_all(b" ")?;
+                file.write_all(munge(relative_dependency).as_bytes())?;
+            }
+            file.write_all(b"\n")?;
+
+            Ok(())
+        }
+
+        write(make_deps_path, output_paths, world.root().to_owned(), world.dependencies())
+            .map_err(|err| {
+                eco_format!(
+                    "failed to create make dependencies file due to IO error ({err})"
+                )
+            })
+    }
 }
 
 /// Opens the output if desired.
