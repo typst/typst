@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, HintedStrResult, HintedString};
-use crate::foundations::{cast, elem, scope, Content, Packed, Smart};
+use crate::diag::{HintedStrResult, HintedString, bail};
+use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,

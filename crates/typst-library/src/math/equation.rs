@@ -7,7 +7,7 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize,
+    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
@@ -20,8 +20,8 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 /// A mathematical equation.
 ///
 /// Can be displayed inline with text or as a separate block. An equation
-/// becomes block-level through the presence of at least one space after the
-/// opening dollar sign and one space before the closing dollar sign.
+/// becomes block-level through the presence of whitespace after the opening
+/// dollar sign and whitespace before the closing dollar sign.
 ///
 /// # Example
 /// ```example
@@ -41,9 +41,9 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 ///
 /// # Syntax
 /// This function also has dedicated syntax: Write mathematical markup within
-/// dollar signs to create an equation. Starting and ending the equation with at
-/// least one space lifts it into a separate block that is centered
-/// horizontally. For more details about math syntax, see the
+/// dollar signs to create an equation. Starting and ending the equation with
+/// whitespace lifts it into a separate block that is centered horizontally.
+/// For more details about math syntax, see the
 /// [main math page]($category/math).
 #[elem(Locatable, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {

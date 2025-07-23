@@ -3,7 +3,7 @@ use std::str::FromStr;
 use smallvec::SmallVec;
 
 use crate::diag::bail;
-use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, Styles};
+use crate::foundations::{Array, Content, Packed, Smart, Styles, cast, elem, scope};
 use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
@@ -220,7 +220,7 @@ impl EnumElem {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<u64>,
+    pub number: Smart<u64>,
 
     /// The item's body.
     #[required]

@@ -1,10 +1,10 @@
 use comemo::Track;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Context, Depth, Func, NativeElement, Packed,
-    Smart, StyleChain, Styles, Value,
+    Array, Content, Context, Depth, Func, NativeElement, Packed, Smart, StyleChain,
+    Styles, Value, cast, elem, scope,
 };
 use crate::layout::{Em, Length};
 use crate::text::TextElem;

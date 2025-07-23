@@ -15,7 +15,6 @@ extern crate self as typst_library;
 pub mod diag;
 pub mod engine;
 pub mod foundations;
-pub mod html;
 pub mod introspection;
 pub mod layout;
 pub mod loading;

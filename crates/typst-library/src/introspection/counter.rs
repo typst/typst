@@ -2,24 +2,24 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
-use smallvec::{smallvec, SmallVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, HintedStrResult, SourceResult};
+use crate::World;
+use crate::diag::{At, HintedStrResult, SourceResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
-    Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
-    Selector, ShowFn, Smart, Str, StyleChain, Value,
+    Args, Array, Construct, Content, Context, Element, Func, IntoValue, Label,
+    LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
+    StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::routines::Routines;
-use crate::World;
 
 /// Counts through pages, elements, and more.
 ///

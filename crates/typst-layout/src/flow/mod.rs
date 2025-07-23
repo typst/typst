@@ -14,7 +14,8 @@ use std::rc::Rc;
 use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use typst_library::diag::{bail, At, SourceDiagnostic, SourceResult};
+use typst_library::World;
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::introspection::{
@@ -27,14 +28,13 @@ use typst_library::layout::{
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::TextElem;
-use typst_library::World;
 use typst_utils::{NonZeroExt, Numeric};
 
 use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
-    collect, Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild,
+    Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, collect,
 };
-use self::compose::{compose, Composer};
+use self::compose::{Composer, compose};
 use self::distribute::distribute;
 
 /// Lays out content into a single region, producing a single frame.
@@ -143,7 +143,7 @@ fn layout_fragment_impl(
     let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
     let children = (engine.routines.realize)(
-        RealizationKind::LayoutFragment(&mut kind),
+        RealizationKind::LayoutFragment { kind: &mut kind },
         &mut engine,
         &mut locator,
         &arenas,

@@ -1,6 +1,6 @@
 use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 use crate::diag::bail;
-use crate::foundations::{array, cast, elem, Array, Reflect, Smart};
+use crate::foundations::{Array, Reflect, Smart, array, cast, elem};
 use crate::layout::{Axes, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 

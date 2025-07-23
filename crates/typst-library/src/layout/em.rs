@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::EcoString;
 use typst_utils::{Numeric, Scalar};
 
-use crate::foundations::{cast, repr, Repr, Resolve, StyleChain, Value};
+use crate::foundations::{Repr, Resolve, StyleChain, Value, cast, repr};
 use crate::layout::{Abs, Length};
 use crate::text::TextElem;
 
@@ -39,11 +39,7 @@ impl Em {
     /// Creates an em length from an absolute length at the given font size.
     pub fn from_abs(length: Abs, font_size: Abs) -> Self {
         let result = length / font_size;
-        if result.is_finite() {
-            Self(Scalar::new(result))
-        } else {
-            Self::zero()
-        }
+        if result.is_finite() { Self(Scalar::new(result)) } else { Self::zero() }
     }
 
     /// Creates an em length from a length at the given font size.
@@ -64,11 +60,7 @@ impl Em {
     /// Converts to an absolute length at the given font size.
     pub fn at(self, font_size: Abs) -> Abs {
         let resolved = font_size * self.get();
-        if resolved.is_finite() {
-            resolved
-        } else {
-            Abs::zero()
-        }
+        if resolved.is_finite() { resolved } else { Abs::zero() }
     }
 }
 
@@ -164,10 +156,6 @@ impl Resolve for Em {
     type Output = Abs;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        if self.is_zero() {
-            Abs::zero()
-        } else {
-            self.at(styles.resolve(TextElem::size))
-        }
+        if self.is_zero() { Abs::zero() } else { self.at(styles.resolve(TextElem::size)) }
     }
 }

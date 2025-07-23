@@ -65,6 +65,23 @@ impl PicoStr {
         id
     }
 
+    /// Try to create a `PicoStr`, but don't intern it if it does not exist yet.
+    ///
+    /// This is useful to try to compare against one or multiple `PicoStr`
+    /// without interning needlessly.
+    ///
+    /// Will always return `Some(_)` if the string can be represented inline.
+    pub fn get(string: &str) -> Option<PicoStr> {
+        // Try to use bitcode or exception representations.
+        if let Ok(value) = PicoStr::try_constant(string) {
+            return Some(value);
+        }
+
+        // Try to find an existing entry that we can reuse.
+        let interner = INTERNER.read().unwrap();
+        interner.seen.get(string).copied()
+    }
+
     /// Creates a compile-time constant `PicoStr`.
     ///
     /// Should only be used in const contexts because it can panic.
@@ -313,11 +330,7 @@ mod exceptions {
 
     /// Determine the minimum of two integers.
     const fn min(a: usize, b: usize) -> usize {
-        if a < b {
-            a
-        } else {
-            b
-        }
+        if a < b { a } else { b }
     }
 }
 

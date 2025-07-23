@@ -1,6 +1,6 @@
 use codex::styling::MathVariant;
 
-use crate::foundations::{func, Cast, Content};
+use crate::foundations::{Cast, Content, func};
 use crate::math::EquationElem;
 
 /// Bold font style in math.

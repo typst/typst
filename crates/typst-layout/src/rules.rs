@@ -1,12 +1,12 @@
 use std::num::NonZeroUsize;
 
 use comemo::Track;
-use ecow::{eco_format, EcoVec};
+use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{bail, At, SourceResult};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    dict, Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
+    StyleChain, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -20,8 +20,8 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, LinkTarget, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem,
-    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
+    LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
 };
 use typst_library::pdf::EmbedElem;
 use typst_library::text::{
@@ -161,11 +161,7 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     let indent = elem.indent.get(styles);
     let hanging_indent = elem.hanging_indent.get(styles);
     let gutter = elem.spacing.get(styles).unwrap_or_else(|| {
-        if tight {
-            styles.get(ParElem::leading)
-        } else {
-            styles.get(ParElem::spacing)
-        }
+        if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
 
     let pad = hanging_indent + indent;
@@ -216,14 +212,8 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let body = elem.body.clone();
-    Ok(match &elem.dest {
-        LinkTarget::Dest(dest) => body.linked(dest.clone()),
-        LinkTarget::Label(label) => {
-            let elem = engine.introspector.query_label(*label).at(elem.span())?;
-            let dest = Destination::Location(elem.location().unwrap());
-            body.linked(dest)
-        }
-    })
+    let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
+    Ok(body.linked(dest))
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
@@ -278,7 +268,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         BlockElem::new().with_body(Some(BlockBody::Content(realized)))
     };
 
-    Ok(block.pack().spanned(span))
+    Ok(block.pack())
 };
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
@@ -332,8 +322,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
 const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
     Ok(BlockElem::new()
         .with_body(Some(BlockBody::Content(elem.realize(engine, styles)?)))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
@@ -556,9 +545,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 };
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
-    Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_table)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_table).pack())
 };
 
 const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, styles| {
@@ -709,27 +696,19 @@ const ALIGN_RULE: ShowFn<AlignElem> =
     |elem, _, styles| Ok(elem.body.clone().aligned(elem.alignment.get(styles)));
 
 const PAD_RULE: ShowFn<PadElem> = |elem, _, _| {
-    Ok(BlockElem::multi_layouter(elem.clone(), crate::pad::layout_pad)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::multi_layouter(elem.clone(), crate::pad::layout_pad).pack())
 };
 
 const COLUMNS_RULE: ShowFn<ColumnsElem> = |elem, _, _| {
-    Ok(BlockElem::multi_layouter(elem.clone(), crate::flow::layout_columns)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::multi_layouter(elem.clone(), crate::flow::layout_columns).pack())
 };
 
 const STACK_RULE: ShowFn<StackElem> = |elem, _, _| {
-    Ok(BlockElem::multi_layouter(elem.clone(), crate::stack::layout_stack)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::multi_layouter(elem.clone(), crate::stack::layout_stack).pack())
 };
 
 const GRID_RULE: ShowFn<GridElem> = |elem, _, _| {
-    Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_grid)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_grid).pack())
 };
 
 const GRID_CELL_RULE: ShowFn<GridCell> = |elem, _, styles| {
@@ -759,33 +738,23 @@ fn show_cell(
 }
 
 const MOVE_RULE: ShowFn<MoveElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_move)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_move).pack())
 };
 
 const SCALE_RULE: ShowFn<ScaleElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_scale)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_scale).pack())
 };
 
 const ROTATE_RULE: ShowFn<RotateElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_rotate)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_rotate).pack())
 };
 
 const SKEW_RULE: ShowFn<SkewElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_skew)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::transforms::layout_skew).pack())
 };
 
 const REPEAT_RULE: ShowFn<RepeatElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::repeat::layout_repeat)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::repeat::layout_repeat).pack())
 };
 
 const HIDE_RULE: ShowFn<HideElem> =
@@ -807,83 +776,66 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
             crate::flow::layout_fragment(engine, &result, locator, styles, regions)
         },
     )
-    .pack()
-    .spanned(elem.span()))
+    .pack())
 };
 
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
         .with_width(elem.width.get(styles))
         .with_height(elem.height.get(styles))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const LINE_RULE: ShowFn<LineElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_line)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_line).pack())
 };
 
 const RECT_RULE: ShowFn<RectElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_rect)
         .with_width(elem.width.get(styles))
         .with_height(elem.height.get(styles))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const SQUARE_RULE: ShowFn<SquareElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_square)
         .with_width(elem.width.get(styles))
         .with_height(elem.height.get(styles))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const ELLIPSE_RULE: ShowFn<EllipseElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_ellipse)
         .with_width(elem.width.get(styles))
         .with_height(elem.height.get(styles))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const CIRCLE_RULE: ShowFn<CircleElem> = |elem, _, styles| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_circle)
         .with_width(elem.width.get(styles))
         .with_height(elem.height.get(styles))
-        .pack()
-        .spanned(elem.span()))
+        .pack())
 };
 
 const POLYGON_RULE: ShowFn<PolygonElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_polygon)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_polygon).pack())
 };
 
 const CURVE_RULE: ShowFn<CurveElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_curve)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_curve).pack())
 };
 
 const PATH_RULE: ShowFn<PathElem> = |elem, _, _| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_path)
-        .pack()
-        .spanned(elem.span()))
+    Ok(BlockElem::single_layouter(elem.clone(), crate::shapes::layout_path).pack())
 };
 
 const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
     if elem.block.get(styles) {
         Ok(BlockElem::multi_layouter(elem.clone(), crate::math::layout_equation_block)
-            .pack()
-            .spanned(elem.span()))
+            .pack())
     } else {
-        Ok(InlineElem::layouter(elem.clone(), crate::math::layout_equation_inline)
-            .pack()
-            .spanned(elem.span()))
+        Ok(InlineElem::layouter(elem.clone(), crate::math::layout_equation_inline).pack())
     }
 };
 

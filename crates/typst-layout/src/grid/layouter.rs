@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::grid::resolve::{
@@ -16,8 +16,8 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::{
-    generate_line_segments, hline_stroke_at_column, layout_cell, vline_stroke_at_row,
-    LineSegment, Rowspan, UnbreakableRowGroup,
+    LineSegment, Rowspan, UnbreakableRowGroup, generate_line_segments,
+    hline_stroke_at_column, layout_cell, vline_stroke_at_row,
 };
 
 /// Performs grid layout.
@@ -274,39 +274,39 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(footer) = &self.grid.footer {
-            if footer.repeated {
-                // Ensure rows in the first region will be aware of the
-                // possible presence of the footer.
-                self.prepare_footer(footer, engine, 0)?;
-                self.regions.size.y -= self.current.footer_height;
-                self.current.initial_after_repeats = self.regions.size.y;
-            }
+        if let Some(footer) = &self.grid.footer
+            && footer.repeated
+        {
+            // Ensure rows in the first region will be aware of the
+            // possible presence of the footer.
+            self.prepare_footer(footer, engine, 0)?;
+            self.regions.size.y -= self.current.footer_height;
+            self.current.initial_after_repeats = self.regions.size.y;
         }
 
         let mut y = 0;
         let mut consecutive_header_count = 0;
         while y < self.grid.rows.len() {
             if let Some(next_header) = self.upcoming_headers.get(consecutive_header_count)
+                && next_header.range.contains(&y)
             {
-                if next_header.range.contains(&y) {
-                    self.place_new_headers(&mut consecutive_header_count, engine)?;
-                    y = next_header.range.end;
+                self.place_new_headers(&mut consecutive_header_count, engine)?;
+                y = next_header.range.end;
 
-                    // Skip header rows during normal layout.
-                    continue;
-                }
+                // Skip header rows during normal layout.
+                continue;
             }
 
-            if let Some(footer) = &self.grid.footer {
-                if footer.repeated && y >= footer.start {
-                    if y == footer.start {
-                        self.layout_footer(footer, engine, self.finished.len())?;
-                        self.flush_orphans();
-                    }
-                    y = footer.end;
-                    continue;
+            if let Some(footer) = &self.grid.footer
+                && footer.repeated
+                && y >= footer.start
+            {
+                if y == footer.start {
+                    self.layout_footer(footer, engine, self.finished.len())?;
+                    self.flush_orphans();
                 }
+                y = footer.end;
+                continue;
             }
 
             self.layout_row(y, engine, 0)?;
@@ -1228,7 +1228,7 @@ impl<'a> GridLayouter<'a> {
                     .skip(parent.y)
                     .take(rowspan)
                     .rev()
-                    .find(|(_, &row)| row == Sizing::Auto)
+                    .find(|&(_, &row)| row == Sizing::Auto)
                     .map(|(y, _)| y);
 
                 if last_spanned_auto_row != Some(y) {
@@ -1283,14 +1283,12 @@ impl<'a> GridLayouter<'a> {
             // remeasure.
             if let Some([first, rest @ ..]) =
                 frames.get(measurement_data.frames_in_previous_regions..)
+                && can_skip
+                && breakable
+                && first.is_empty()
+                && rest.iter().any(|frame| !frame.is_empty())
             {
-                if can_skip
-                    && breakable
-                    && first.is_empty()
-                    && rest.iter().any(|frame| !frame.is_empty())
-                {
-                    return Ok(None);
-                }
+                return Ok(None);
             }
 
             // Skip frames from previous regions if applicable.
@@ -1529,16 +1527,16 @@ impl<'a> GridLayouter<'a> {
         // The latest rows have orphan prevention (headers) and no other rows
         // were placed, so remove those rows and try again in a new region,
         // unless this is the last region.
-        if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take() {
-            if !last {
-                self.current.lrows.truncate(orphan_snapshot);
-                self.current.repeated_header_rows =
-                    self.current.repeated_header_rows.min(orphan_snapshot);
+        if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take()
+            && !last
+        {
+            self.current.lrows.truncate(orphan_snapshot);
+            self.current.repeated_header_rows =
+                self.current.repeated_header_rows.min(orphan_snapshot);
 
-                if orphan_snapshot == 0 {
-                    // Removed all repeated headers.
-                    self.current.last_repeated_header_end = 0;
-                }
+            if orphan_snapshot == 0 {
+                // Removed all repeated headers.
+                self.current.last_repeated_header_end = 0;
             }
         }
 
@@ -1571,21 +1569,19 @@ impl<'a> GridLayouter<'a> {
             && self.current.could_progress_at_top;
 
         let mut laid_out_footer_start = None;
-        if !footer_would_be_widow {
-            if let Some(footer) = &self.grid.footer {
-                // Don't layout the footer if it would be alone with the header
-                // in the page (hence the widow check), and don't layout it
-                // twice (check below).
-                //
-                // TODO(subfooters): this check can be replaced by a vector of
-                // repeating footers in the future, and/or some "pending
-                // footers" vector for footers we're about to place.
-                if footer.repeated
-                    && self.current.lrows.iter().all(|row| row.index() < footer.start)
-                {
-                    laid_out_footer_start = Some(footer.start);
-                    self.layout_footer(footer, engine, self.finished.len())?;
-                }
+        if !footer_would_be_widow && let Some(footer) = &self.grid.footer {
+            // Don't layout the footer if it would be alone with the header
+            // in the page (hence the widow check), and don't layout it
+            // twice (check below).
+            //
+            // TODO(subfooters): this check can be replaced by a vector of
+            // repeating footers in the future, and/or some "pending
+            // footers" vector for footers we're about to place.
+            if footer.repeated
+                && self.current.lrows.iter().all(|row| row.index() < footer.start)
+            {
+                laid_out_footer_start = Some(footer.start);
+                self.layout_footer(footer, engine, self.finished.len())?;
             }
         }
 

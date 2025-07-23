@@ -3,15 +3,15 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::sync::Arc;
 
 use codex::ModifierSet;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
-use typst_syntax::{is_ident, Span, Spanned};
+use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
 
-use crate::diag::{bail, DeprecationSink, SourceResult, StrResult};
+use crate::diag::{DeprecationSink, SourceResult, StrResult, bail};
 use crate::foundations::{
-    cast, elem, func, scope, ty, Array, Content, Func, NativeElement, NativeFunc, Packed,
-    PlainText, Repr as _,
+    Array, Content, Func, NativeElement, NativeFunc, Packed, PlainText, Repr as _, cast,
+    elem, func, scope, ty,
 };
 
 /// A Unicode symbol.

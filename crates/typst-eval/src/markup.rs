@@ -1,4 +1,4 @@
-use typst_library::diag::{warning, At, SourceResult};
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{
     Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };
@@ -251,7 +251,7 @@ impl Eval for ast::EnumItem<'_> {
         let body = self.body().eval(vm)?;
         let mut elem = EnumItem::new(body);
         if let Some(number) = self.number() {
-            elem.number.set(Some(number));
+            elem.number.set(Smart::Custom(number));
         }
         Ok(elem.pack())
     }

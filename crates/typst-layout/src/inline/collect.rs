@@ -6,14 +6,14 @@ use typst_library::layout::{
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
-    is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
-    SpaceElem, TextElem,
+    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_default_ignorable,
 };
 use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{layout_and_modify, FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -274,11 +274,11 @@ impl<'a> Collector<'a> {
         let segment_len = self.full.len() - prev;
 
         // Merge adjacent text segments with the same styles.
-        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut() {
-            if *last_styles == styles {
-                *last_len += segment_len;
-                return;
-            }
+        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut()
+            && *last_styles == styles
+        {
+            *last_len += segment_len;
+            return;
         }
 
         self.segments.push(Segment::Text(segment_len, styles));
