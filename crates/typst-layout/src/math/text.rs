@@ -129,44 +129,41 @@ pub fn layout_symbol(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    assert!(
-        elem.text.len() <= 4 && elem.text.chars().count() == 1,
-        "TODO: layout multi-char symbol"
-    );
-    let elem_char = elem
-        .text
-        .chars()
-        .next()
-        .expect("TODO: should an empty symbol value forbidden?");
-
-    // Switch dotless char to normal when we have the dtls OpenType feature.
-    // This should happen before the main styling pass.
-    let dtls = style_dtls();
-    let (unstyled_c, symbol_styles) = match try_dotless(elem_char) {
-        Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
-        _ => (elem_char, styles),
-    };
-
     let variant = styles.get(EquationElem::variant);
     let bold = styles.get(EquationElem::bold);
     let italic = styles.get(EquationElem::italic);
+    let dtls = style_dtls();
+    let has_dtls_feat = has_dtls_feat(ctx.font);
+    for cluster in elem.text.graphemes(true) {
+        // Switch dotless char to normal when we have the dtls OpenType feature.
+        // This should happen before the main styling pass.
+        let mut enable_dtls = false;
+        let text: EcoString = cluster
+            .chars()
+            .flat_map(|mut c| {
+                if has_dtls_feat && let Some(d) = try_dotless(c) {
+                    enable_dtls = true;
+                    c = d;
+                }
+                to_style(c, MathStyle::select(c, variant, bold, italic))
+            })
+            .collect();
+        let styles = if enable_dtls { styles.chain(&dtls) } else { styles };
 
-    let style = MathStyle::select(unstyled_c, variant, bold, italic);
-    let text: EcoString = to_style(unstyled_c, style).collect();
-
-    let fragment: MathFragment =
-        match GlyphFragment::new(ctx.font, symbol_styles, &text, elem.span()) {
-            Ok(mut glyph) => {
-                adjust_glyph_layout(&mut glyph, ctx, styles);
-                glyph.into()
-            }
-            Err(_) => {
-                // Not in the math font, fallback to normal inline text layout.
-                // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
-                layout_inline_text(&text, elem.span(), ctx, styles)?.into()
-            }
-        };
-    ctx.push(fragment);
+        let fragment: MathFragment =
+            match GlyphFragment::new(ctx.font, styles, &text, elem.span()) {
+                Ok(mut glyph) => {
+                    adjust_glyph_layout(&mut glyph, ctx, styles);
+                    glyph.into()
+                }
+                Err(_) => {
+                    // Not in the math font, fallback to normal inline text layout.
+                    // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
+                    layout_inline_text(&text, elem.span(), ctx, styles)?.into()
+                }
+            };
+        ctx.push(fragment);
+    }
     Ok(())
 }
 

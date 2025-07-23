@@ -300,6 +300,7 @@ impl GlyphFragment {
         );
 
         let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
+        // TODO: deal with multiple glyphs.
         if buffer.len() != 1 {
             bail!(span, "did not get a single glyph after shaping {}", text);
         }
