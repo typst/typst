@@ -64,17 +64,22 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
                         Punctuated::<MetaNameValue, Token![,]>::parse_separated_nonempty,
                     )?;
 
+                    let mut deprecation =
+                        quote! { crate::foundations::Deprecation::new() };
+
                     if let Some(message) = args.iter().find_map(|pair| {
                         pair.path.is_ident("message").then_some(&pair.value)
                     }) {
-                        def = quote! { #def.deprecated(#message) }
+                        deprecation = quote! { #deprecation.with_message(#message) }
                     }
 
                     if let Some(version) = args.iter().find_map(|pair| {
                         pair.path.is_ident("until").then_some(&pair.value)
                     }) {
-                        def = quote! { #def.deprecated_until(#version) }
+                        deprecation = quote! { #deprecation.with_until(#version) }
                     }
+
+                    def = quote! { #def.deprecated(#deprecation) }
                 }
                 _ => {}
             }

@@ -254,7 +254,7 @@ pub struct Binding {
     /// The category of the binding.
     category: Option<Category>,
     /// The deprecation information if this item is deprecated.
-    deprecation: Option<Box<DeprecationInfo>>,
+    deprecation: Option<Box<Deprecation>>,
 }
 
 /// The different kinds of slots.
@@ -284,20 +284,8 @@ impl Binding {
     }
 
     /// Marks this binding as deprecated, with the given `message`.
-    pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
-        self.deprecation
-            .get_or_insert_with(|| Box::new(DeprecationInfo::new()))
-            .deprecated_message(message);
-        self
-    }
-
-    /// Set the version in which the binding is planned to be removed.
-    ///
-    /// This is ignored if [`Binding::deprecated`] isn't also set.
-    pub fn deprecated_until(&mut self, version: &'static str) -> &mut Self {
-        self.deprecation
-            .get_or_insert_with(|| Box::new(DeprecationInfo::new()))
-            .deprecated_until(version);
+    pub fn deprecated(&mut self, deprecation: Deprecation) -> &mut Self {
+        self.deprecation = Some(Box::new(deprecation));
         self
     }
 
@@ -349,7 +337,7 @@ impl Binding {
     }
 
     /// A deprecation message for the value, if any.
-    pub fn deprecation(&self) -> Option<&DeprecationInfo> {
+    pub fn deprecation(&self) -> Option<&Deprecation> {
         self.deprecation.as_deref()
     }
 
@@ -370,14 +358,14 @@ pub enum Capturer {
 
 /// Information about a deprecated binding.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct DeprecationInfo {
+pub struct Deprecation {
     /// A deprecation message for the definition.
     message: &'static str,
     /// A version in which the deprecated binding is planned to be removed.
     until: Option<&'static str>,
 }
 
-impl DeprecationInfo {
+impl Deprecation {
     /// Creates new deprecation info with a default message to display when
     /// emitting the deprecation warning.
     pub fn new() -> Self {
@@ -385,13 +373,13 @@ impl DeprecationInfo {
     }
 
     /// Set the message to display when emitting the deprecation warning.
-    pub fn deprecated_message(&mut self, message: &'static str) -> &mut Self {
+    pub fn with_message(mut self, message: &'static str) -> Self {
         self.message = message;
         self
     }
 
     /// Set the version in which the binding is planned to be removed.
-    pub fn deprecated_until(&mut self, version: &'static str) -> &mut Self {
+    pub fn with_until(mut self, version: &'static str) -> Self {
         self.until = Some(version);
         self
     }
@@ -407,7 +395,7 @@ impl DeprecationInfo {
     }
 }
 
-impl Default for DeprecationInfo {
+impl Default for Deprecation {
     fn default() -> Self {
         Self::new()
     }
