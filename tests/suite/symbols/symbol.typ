@@ -21,6 +21,10 @@
   ("lightning", "🖄"),
   ("fly", "🖅"),
 )
+#let one = symbol(
+  "1",
+  ("emoji", "1️")
+)
 
 #envelope
 #envelope.stamped
@@ -28,6 +32,8 @@
 #envelope.stamped.pen
 #envelope.lightning
 #envelope.fly
+#one
+#one.emoji
 
 --- symbol-constructor-empty ---
 // Error: 2-10 expected at least one variant
@@ -80,6 +86,14 @@
 #symbol(
   ("duplicate.variant", "x"),
   ("variant.duplicate", "y"),
+)
+
+--- symbol-constructor-empty-variant ---
+// Error: 2:3-2:5 empty default variant
+// Error: 3:3-3:16 empty variant: "empty"
+#symbol(
+  "",
+  ("empty", "")
 )
 
 --- symbol-unknown-modifier ---

@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
 
-use crate::diag::{DeprecationSink, SourceResult, StrResult, bail};
+use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
 use crate::foundations::{
     Array, Content, Func, NativeElement, NativeFunc, Packed, PlainText, Repr as _, cast,
     elem, func, scope, ty,
@@ -231,15 +231,30 @@ impl Symbol {
         // A list of modifiers, cleared & reused in each iteration.
         let mut modifiers = Vec::new();
 
+        let mut errors = ecow::eco_vec![];
+
         // Validate the variants.
-        for (i, &Spanned { ref v, span }) in variants.iter().enumerate() {
+        'variants: for (i, &Spanned { ref v, span }) in variants.iter().enumerate() {
             modifiers.clear();
+
+            if v.1.is_empty() {
+                errors.push(if v.0.is_empty() {
+                    error!(span, "empty default variant")
+                } else {
+                    error!(span, "empty variant: {}", v.0.repr())
+                });
+            }
 
             if !v.0.is_empty() {
                 // Collect all modifiers.
                 for modifier in v.0.split('.') {
                     if !is_ident(modifier) {
-                        bail!(span, "invalid symbol modifier: {}", modifier.repr());
+                        errors.push(error!(
+                            span,
+                            "invalid symbol modifier: {}",
+                            modifier.repr()
+                        ));
+                        continue 'variants;
                     }
                     modifiers.push(modifier);
                 }
@@ -250,36 +265,33 @@ impl Symbol {
 
             // Ensure that there are no duplicate modifiers.
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
-                bail!(
+                errors.push(error!(
                     span, "duplicate modifier within variant: {}", ms[0].repr();
                     hint: "modifiers are not ordered, so each one may appear only once"
-                )
+                ));
+                continue 'variants;
             }
 
             // Check whether we had this set of modifiers before.
             let hash = hash128(&modifiers);
             if let Some(&i) = seen.get(&hash) {
-                if v.0.is_empty() {
-                    bail!(span, "duplicate default variant");
+                errors.push(if v.0.is_empty() {
+                    error!(span, "duplicate default variant")
                 } else if v.0 == variants[i].v.0 {
-                    bail!(span, "duplicate variant: {}", v.0.repr());
+                    error!(span, "duplicate variant: {}", v.0.repr())
                 } else {
-                    bail!(
+                    error!(
                         span, "duplicate variant: {}", v.0.repr();
                         hint: "variants with the same modifiers are identical, regardless of their order"
                     )
-                }
-            }
-
-            if v.1.is_empty() {
-                if v.0.is_empty() {
-                    bail!(span, "default variant is empty");
-                } else {
-                    bail!(span, "variant is empty: {}", v.0.repr());
-                }
+                });
+                continue 'variants;
             }
 
             seen.insert(hash, i);
+        }
+        if !errors.is_empty() {
+            return Err(errors);
         }
 
         let list = variants
@@ -394,7 +406,6 @@ pub struct SymbolVariant(EcoString, EcoString);
 
 cast! {
     SymbolVariant,
-    c: char => Self(EcoString::new(), c.into()),
     s: EcoString => Self(EcoString::new(), s),
     array: Array => {
         let mut iter = array.into_iter();
