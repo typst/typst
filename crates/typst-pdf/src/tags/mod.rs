@@ -592,15 +592,6 @@ impl<'a> TagHandle<'a, '_> {
 
 /// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
 /// when dropped.
-pub(crate) fn start_marked<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-) -> TagHandle<'a, 'b> {
-    start_content(gc, surface, ContentTag::Other)
-}
-
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
 pub(crate) fn start_span<'a, 'b>(
     gc: &mut GlobalContext,
     surface: &'b mut Surface<'a>,

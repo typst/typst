@@ -331,8 +331,6 @@ pub(crate) fn handle_group(
         .and_then(|p| p.transform(fc.state().transform.to_krilla()));
 
     if let Some(clip_path) = &clip_path {
-        let mut handle = tags::start_marked(gc, surface);
-        let surface = handle.surface();
         surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
     }
 
