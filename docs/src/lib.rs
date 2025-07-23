@@ -720,24 +720,24 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
 
         for (variant, value, deprecation) in symbol.variants() {
             let value_char = value.parse::<char>().ok();
-
             let shorthand = |list: &[(&'static str, char)]| {
                 value_char.and_then(|c| {
                     list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
                 })
             };
 
+            let base_char = base_char(value);
             let name = complete(variant);
 
             list.push(SymbolModel {
                 name,
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
                 math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
-                math_class: value_char.and_then(|c| {
+                math_class: base_char.and_then(|c| {
                     typst_utils::default_math_class(c).map(math_class_name)
                 }),
                 value: value.into(),
-                accent: value_char
+                accent: base_char
                     .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
                 alternates: symbol
                     .variants()
@@ -776,6 +776,13 @@ pub fn urlify(title: &str) -> EcoString {
             _ => '-',
         })
         .collect()
+}
+
+/// Convert a string to a `char`, ignoring any suffixed variation selectors.
+fn base_char(value: &str) -> Option<char> {
+    value.trim_end_matches(|c: char| {
+        matches!(c, '\u{180B}'..='\u{180D}' | '\u{180F}' | '\u{FE00}'..='\u{FE0F}' | '\u{E0100}'..='\u{E01EF}')
+    }).parse::<char>().ok()
 }
 
 /// Extract the first line of documentation.
