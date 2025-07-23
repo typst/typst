@@ -451,9 +451,9 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "comemo"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df6916408a724339aa77b18214233355f3eb04c42eb895e5f8909215bd8a7a91"
+source = "git+https://github.com/typst/comemo?rev=483e073#483e07350cc17b191c7968fa51eb6364d3edbbf4"
 dependencies = [
+ "bumpalo",
  "comemo-macros",
  "once_cell",
  "parking_lot",
@@ -463,8 +463,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8936e42f9b4f5bdfaf23700609ac1f11cb03ad4c1ec128a4ee4fd0903e228db"
+source = "git+https://github.com/typst/comemo?rev=483e073#483e07350cc17b191c7968fa51eb6364d3edbbf4"
 dependencies = [
  "proc-macro2",
  "quote",

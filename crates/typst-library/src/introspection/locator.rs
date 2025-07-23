@@ -312,7 +312,7 @@ enum LinkKind<'a> {
     /// We need to override the constraint's lifetime here so that `Tracked` is
     /// covariant over the constraint. If it becomes invariant, we're in for a
     /// world of lifetime pain.
-    Outer(Tracked<'a, Locator<'a>, <Locator<'static> as Validate>::Constraint>),
+    Outer(Tracked<'a, Locator<'a>, <Locator<'static> as Validate>::Call>),
     /// A link which indicates that we are in measurement mode.
     Measure(Location),
 }
