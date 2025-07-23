@@ -5,7 +5,8 @@ use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    dict, Content, Context, LinkMarker, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart, StyleChain, Target
+    Content, Context, LinkMarker, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn,
+    Smart, StyleChain, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
