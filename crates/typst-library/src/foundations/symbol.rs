@@ -271,6 +271,14 @@ impl Symbol {
                 }
             }
 
+            if v.1.is_empty() {
+                if v.0.is_empty() {
+                    bail!(span, "default variant is empty");
+                } else {
+                    bail!(span, "variant is empty: {}", v.0.repr());
+                }
+            }
+
             seen.insert(hash, i);
         }
 
