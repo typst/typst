@@ -103,6 +103,9 @@ use crate::visualize::ImageElem;
 /// ```
 #[elem(scope, Locatable, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
+    /// An alternative description of the figure.
+    pub alt: Option<EcoString>,
+
     /// The content of the figure. Often, an [image].
     #[required]
     pub body: Content,

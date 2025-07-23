@@ -59,15 +59,18 @@ pub(crate) fn handle_start(
     }
 
     let mut tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
-        match tag.kind {
+        match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
                 push_stack(gc, loc, StackEntryKind::Outline(OutlineCtx::new()))?;
                 return Ok(());
             }
-            PdfMarkerTagKind::FigureBody => Tag::Figure(None).into(),
+            PdfMarkerTagKind::FigureBody(alt) => {
+                let alt = alt.as_ref().map(|s| s.to_string());
+                Tag::Figure(alt).into()
+            }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
-                    if numbered { ListNumbering::Decimal } else { ListNumbering::None };
+                    if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
                 push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)))?;
                 return Ok(());
             }

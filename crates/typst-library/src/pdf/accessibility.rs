@@ -1,5 +1,6 @@
 use std::num::NonZeroU32;
 
+use ecow::EcoString;
 use typst_macros::{Cast, elem, func};
 use typst_utils::NonZeroExt;
 
@@ -118,8 +119,8 @@ impl Construct for PdfMarkerTag {
 }
 
 macro_rules! pdf_marker_tag {
-    ($(#[doc = $doc:expr] $variant:ident$(($($name:ident: $ty:ident)+))?,)+) => {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    ($(#[doc = $doc:expr] $variant:ident$(($($name:ident: $ty:ty)+))?,)+) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub enum PdfMarkerTagKind {
             $(
                 #[doc = $doc]
@@ -147,7 +148,7 @@ pdf_marker_tag! {
     /// `TOC`
     OutlineBody,
     /// `Figure`
-    FigureBody,
+    FigureBody(alt: Option<EcoString>),
     /// `L` bibliography list
     Bibliography(numbered: bool),
     /// `LBody` wrapping `BibEntry`
