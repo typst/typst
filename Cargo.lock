@@ -451,7 +451,7 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "comemo"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=c2b00a0#c2b00a09c944a7dbab779762017a9574bf297439"
+source = "git+https://github.com/typst/comemo?rev=70c0307#70c03075453deda2b2cc592ee8676edfe7962804"
 dependencies = [
  "bumpalo",
  "comemo-macros",
@@ -463,7 +463,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=c2b00a0#c2b00a09c944a7dbab779762017a9574bf297439"
+source = "git+https://github.com/typst/comemo?rev=70c0307#70c03075453deda2b2cc592ee8676edfe7962804"
 dependencies = [
  "proc-macro2",
  "quote",
