@@ -486,10 +486,8 @@ impl Curve {
                     cursor = *to;
                 }
                 CurveItem::Line(to) => {
-                    min = min.min(cursor);
-                    max = max.max(cursor);
-                    min = min.min(*to);
-                    max = max.max(*to);
+                    min = min.min(cursor).min(*to);
+                    max = max.max(cursor).max(*to);
                     cursor = *to;
                 }
                 CurveItem::Cubic(c0, c1, end) => {
