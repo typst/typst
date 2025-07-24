@@ -131,6 +131,12 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
+        if args.disable_pdf_tags
+            && args.pdf_standard.iter().any(|s| *s == PdfStandard::Ua_1)
+        {
+            bail!("cannot disable pdf tags when exporting a PDF/UA-1 document");
+        }
+
         let pdf_standards = PdfStandards::new(
             &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
         )?;
