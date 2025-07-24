@@ -165,4 +165,4 @@ uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
 
 [patch.crates-io]
-comemo = { git = "https://github.com/typst/comemo", rev = "a5028dd" }
+comemo = { git = "https://github.com/typst/comemo", rev = "daaa9c9" }
