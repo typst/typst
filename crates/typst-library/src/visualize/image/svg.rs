@@ -426,8 +426,8 @@ impl<'a> ImageResolver<'a> {
                 FileError::NotFound(path) => {
                     eco_format!("file not found, searched at {}", path.display())
                 }
-                FileError::AccessDenied => "access denied".into(),
-                FileError::IsDirectory => "is a directory".into(),
+                FileError::AccessDenied(path) => eco_format!("access to {} denied", path.display()),
+                FileError::IsDirectory(path) => eco_format!("{} is a directory", path.display()),
                 FileError::Other(Some(msg)) => msg,
                 FileError::Other(None) => "unspecified error".into(),
                 _ => eco_format!("unexpected error: {}", err),

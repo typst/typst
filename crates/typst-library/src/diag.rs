@@ -369,6 +369,24 @@ impl<T> Trace<T> for SourceResult<T> {
 /// error for this type is with the [`bail!`] macro.
 pub type StrResult<T> = Result<T, EcoString>;
 
+/// A common trait to add a span to any error
+pub trait ErrAt {
+    /// Attach a span to a more specialized error and turn it into
+    /// a generic error, optionally with hints.
+    fn err_at(self, span: Span) -> SourceDiagnostic;
+}
+
+/// Blanket implementation for anything that doesn't implement its own
+/// convertion to a SourceDiagnostic.
+impl<S> ErrAt for S
+where
+    S: Into<EcoString>,
+{
+    fn err_at(self, span: Span) -> SourceDiagnostic {
+        SourceDiagnostic::error(span, self)
+    }
+}
+
 /// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
 /// adding span information.
 pub trait At<T> {
@@ -378,18 +396,10 @@ pub trait At<T> {
 
 impl<T, S> At<T> for Result<T, S>
 where
-    S: Into<EcoString>,
+    S: ErrAt,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| {
-            let mut diagnostic = SourceDiagnostic::error(span, message);
-            if diagnostic.message.contains("(access denied)") {
-                diagnostic.hint("cannot read file outside of project root");
-                diagnostic
-                    .hint("you can adjust the project root with the --root argument");
-            }
-            eco_vec![diagnostic]
-        })
+        self.map_err(|e| eco_vec![e.err_at(span)])
     }
 }
 
@@ -525,6 +535,29 @@ impl FileError {
             _ => Self::Other(Some(eco_format!("{err}"))),
         }
     }
+
+    fn write_hints(&self) -> EcoVec<EcoString> {
+        match self {
+            Self::NotFound(_) => eco_vec![],
+            Self::AccessDenied(_) => {
+                eco_vec![
+                    eco_format!("cannot read file outside of project root"),
+                    eco_format!(
+                        "you can adjust the project root with the --root argument"
+                    ),
+                ]
+            }
+            Self::IsDirectory(_) => eco_vec![],
+            Self::NotSource(_) => eco_vec![],
+            Self::InvalidUtf8(Some(path)) => {
+                eco_vec![eco_format!("tried to read {}", path.display())]
+            }
+            Self::InvalidUtf8(None) => eco_vec![],
+            Self::Package(error) => error.write_hints(),
+            Self::Other(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::Other(None) => eco_vec![],
+        }
+    }
 }
 
 impl std::error::Error for FileError {}
@@ -535,23 +568,28 @@ impl Display for FileError {
             Self::NotFound(path) => {
                 write!(f, "file not found (searched at {})", path.display())
             }
-            Self::AccessDenied(path) => {
-                write!(f, "failed to load file {} (access denied)", path.display())
-            }
-            Self::IsDirectory(path) => {
-                write!(f, "failed to load file {} (is a directory)", path.display())
-            }
             Self::NotSource(path) => {
                 write!(f, "{} is not a typst source file", path.display())
             }
-            Self::InvalidUtf8(Some(path)) => {
-                write!(f, "file {} is not valid utf-8", path.display())
+            Self::InvalidUtf8(_) => write!(f, "file is not valid utf-8"),
+            Self::IsDirectory(path) => {
+                write!(f, "failed to load file {} (is a directory)", path.display())
             }
-            Self::InvalidUtf8(None) => f.pad("file is not valid utf-8"),
-            Self::Package(error) => error.fmt(f),
-            Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
-            Self::Other(None) => f.pad("failed to load file"),
+            Self::AccessDenied(path) => {
+                write!(f, "failed to load file {} (access denied)", path.display())
+            }
+            Self::Other(_) => {
+                write!(f, "failed to load file")
+            }
+            Self::Package(error) => write!(f, "{error}"),
         }
+    }
+}
+
+impl ErrAt for FileError {
+    fn err_at(self, span: Span) -> SourceDiagnostic {
+        let hints = self.write_hints();
+        SourceDiagnostic::error(span, eco_format!("{}", self)).with_hints(hints)
     }
 }
 
@@ -570,12 +608,6 @@ impl From<FromUtf8Error> for FileError {
 impl From<PackageError> for FileError {
     fn from(err: PackageError) -> Self {
         Self::Package(err)
-    }
-}
-
-impl From<FileError> for EcoString {
-    fn from(err: FileError) -> Self {
-        eco_format!("{err}")
     }
 }
 
@@ -601,45 +633,55 @@ pub enum PackageError {
     Other(Option<EcoString>),
 }
 
+impl PackageError {
+    fn write_hints(&self) -> EcoVec<EcoString> {
+        match self {
+            Self::NotFound(_, detail) => {
+                eco_vec![eco_format!("{detail}")]
+            }
+            Self::VersionNotFound(spec, latest, registry) => {
+                if let Some(version) = latest {
+                    eco_vec![
+                        eco_format!(
+                            "the package {} exists, but not with version {}",
+                            spec.name,
+                            spec.version
+                        ),
+                        eco_format!(
+                            "the registry at {registry} provides up to version {version}"
+                        ),
+                    ]
+                } else {
+                    eco_vec![eco_format!(
+                        "the registry at {registry} contains no versions for this package"
+                    )]
+                }
+            }
+            Self::NetworkFailed(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::NetworkFailed(None) => eco_vec![],
+            Self::MalformedArchive(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::MalformedArchive(None) => {
+                eco_vec![eco_format!("the archive is malformed")]
+            }
+            Self::Other(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::Other(None) => eco_vec![],
+        }
+    }
+}
+
 impl std::error::Error for PackageError {}
 
 impl Display for PackageError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::NotFound(spec, detail) => {
-                write!(f, "package not found: {detail} (searching for {spec})",)
+            Self::NotFound(spec, _) => write!(f, "package {spec} not found"),
+            Self::VersionNotFound(spec, _, _) => {
+                write!(f, "package version {spec} not found")
             }
-            Self::VersionNotFound(spec, latest, registry) => {
-                write!(
-                    f,
-                    "package '{}' found, but version {} does not exist",
-                    spec.name, spec.version
-                )?;
-                if let Some(version) = latest {
-                    write!(f, " (latest version provided by {registry} is {version})")
-                } else {
-                    write!(f, " ({registry} contains no versions for this package)")
-                }
-            }
-            Self::NetworkFailed(Some(err)) => {
-                write!(f, "failed to download package ({err})")
-            }
-            Self::NetworkFailed(None) => f.pad("failed to download package"),
-            Self::MalformedArchive(Some(err)) => {
-                write!(f, "failed to decompress package ({err})")
-            }
-            Self::MalformedArchive(None) => {
-                f.pad("failed to decompress package (archive malformed)")
-            }
-            Self::Other(Some(err)) => write!(f, "failed to load package ({err})"),
-            Self::Other(None) => f.pad("failed to load package"),
+            Self::NetworkFailed(_) => write!(f, "failed to download package"),
+            Self::MalformedArchive(_) => write!(f, "failed to decompress package"),
+            Self::Other(_) => f.pad("failed to load package"),
         }
-    }
-}
-
-impl From<PackageError> for EcoString {
-    fn from(err: PackageError) -> Self {
-        eco_format!("{err}")
     }
 }
 
