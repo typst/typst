@@ -575,15 +575,15 @@ pub type PackageResult<T> = Result<T, PackageError>;
 
 /// An error that occurred while trying to load a package.
 ///
-/// Some variants have an optional string can give more details, if available.
+/// Some variants have an optional string that can give more details, if available.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PackageError {
     /// The specified package does not exist.
-    /// Optionally provides information on where we tried to find the package,
-    /// defaults to simply "searched for" if absent.
-    NotFound(PackageSpec, Option<EcoString>),
+    /// Additionally provides information on where we tried to find the package.
+    NotFound(PackageSpec, EcoString),
     /// The specified package found, but the version does not exist.
-    VersionNotFound(PackageSpec, PackageVersion),
+    /// TODO: make the registry part of the error better typed
+    VersionNotFound(PackageSpec, Option<PackageVersion>, EcoString),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
@@ -597,18 +597,16 @@ impl std::error::Error for PackageError {}
 impl Display for PackageError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::NotFound(spec, None) => {
-                write!(f, "package not found (searched for {spec})",)
+            Self::NotFound(spec, detail) => {
+                write!(f, "package not found: {detail} (searching for {spec})",)
             }
-            Self::NotFound(spec, Some(attempted)) => {
-                write!(f, "package not found ({attempted} {spec})",)
-            }
-            Self::VersionNotFound(spec, latest) => {
-                write!(
-                    f,
-                    "package found, but version {} does not exist (latest is {})",
-                    spec.version, latest,
-                )
+            Self::VersionNotFound(spec, latest, registry) => {
+                write!(f, "package found, but version {} does not exist", spec.version,)?;
+                if let Some(version) = latest {
+                    write!(f, " (latest version provided by {registry} is {version})")
+                } else {
+                    write!(f, " ({registry} contains no versions for this package)")
+                }
             }
             Self::NetworkFailed(Some(err)) => {
                 write!(f, "failed to download package ({err})")
