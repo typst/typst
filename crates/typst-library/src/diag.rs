@@ -314,6 +314,24 @@ impl<T> Trace<T> for SourceResult<T> {
 /// A result type with a string error message.
 pub type StrResult<T> = Result<T, EcoString>;
 
+/// A common trait to add a span to any error
+pub trait ErrAt {
+    /// Attach a span to a more specialized error and turn it into
+    /// a generic error, optionally with hints.
+    fn err_at(self, span: Span) -> SourceDiagnostic;
+}
+
+/// Blanket implementation for anything that doesn't implement its own
+/// convertion to a SourceDiagnostic.
+impl<S> ErrAt for S
+where
+    S: Into<EcoString>,
+{
+    fn err_at(self, span: Span) -> SourceDiagnostic {
+        SourceDiagnostic::error(span, self)
+    }
+}
+
 /// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
 /// adding span information.
 pub trait At<T> {
@@ -323,18 +341,10 @@ pub trait At<T> {
 
 impl<T, S> At<T> for Result<T, S>
 where
-    S: Into<EcoString>,
+    S: ErrAt,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| {
-            let mut diagnostic = SourceDiagnostic::error(span, message);
-            if diagnostic.message.contains("(access denied)") {
-                diagnostic.hint("cannot read file outside of project root");
-                diagnostic
-                    .hint("you can adjust the project root with the --root argument");
-            }
-            eco_vec![diagnostic]
-        })
+        self.map_err(|e| eco_vec![e.err_at(span)])
     }
 }
 
@@ -439,13 +449,13 @@ pub enum FileError {
     /// A file was not found at this path.
     NotFound(PathBuf),
     /// A file could not be accessed.
-    AccessDenied,
+    AccessDenied(PathBuf),
     /// A directory was found, but a file was expected.
-    IsDirectory,
+    IsDirectory(PathBuf),
     /// The file is not a Typst source file, but should have been.
-    NotSource,
+    NotSource(PathBuf),
     /// The file was not valid UTF-8, but should have been.
-    InvalidUtf8,
+    InvalidUtf8(Option<PathBuf>),
     /// The package the file is part of could not be loaded.
     Package(PackageError),
     /// Another error.
@@ -459,13 +469,36 @@ impl FileError {
     pub fn from_io(err: io::Error, path: &Path) -> Self {
         match err.kind() {
             io::ErrorKind::NotFound => Self::NotFound(path.into()),
-            io::ErrorKind::PermissionDenied => Self::AccessDenied,
+            io::ErrorKind::PermissionDenied => Self::AccessDenied(path.into()),
             io::ErrorKind::InvalidData
                 if err.to_string().contains("stream did not contain valid UTF-8") =>
             {
-                Self::InvalidUtf8
+                Self::InvalidUtf8(Some(path.into()))
             }
             _ => Self::Other(Some(eco_format!("{err}"))),
+        }
+    }
+
+    fn write_hints(&self) -> EcoVec<EcoString> {
+        match self {
+            Self::NotFound(_) => eco_vec![],
+            Self::AccessDenied(_) => {
+                eco_vec![
+                    eco_format!("cannot read file outside of project root"),
+                    eco_format!(
+                        "you can adjust the project root with the --root argument"
+                    ),
+                ]
+            }
+            Self::IsDirectory(_) => eco_vec![],
+            Self::NotSource(_) => eco_vec![],
+            Self::InvalidUtf8(Some(path)) => {
+                eco_vec![eco_format!("tried to read {}", path.display())]
+            }
+            Self::InvalidUtf8(None) => eco_vec![],
+            Self::Package(error) => error.write_hints(),
+            Self::Other(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::Other(None) => eco_vec![],
         }
     }
 }
@@ -478,26 +511,40 @@ impl Display for FileError {
             Self::NotFound(path) => {
                 write!(f, "file not found (searched at {})", path.display())
             }
-            Self::AccessDenied => f.pad("failed to load file (access denied)"),
-            Self::IsDirectory => f.pad("failed to load file (is a directory)"),
-            Self::NotSource => f.pad("not a typst source file"),
-            Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
-            Self::Package(error) => error.fmt(f),
-            Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
-            Self::Other(None) => f.pad("failed to load file"),
+            Self::NotSource(path) => {
+                write!(f, "{} is not a typst source file", path.display())
+            }
+            Self::InvalidUtf8(_) => write!(f, "file is not valid utf-8"),
+            Self::IsDirectory(path) => {
+                write!(f, "failed to load file {} (is a directory)", path.display())
+            }
+            Self::AccessDenied(path) => {
+                write!(f, "failed to load file {} (access denied)", path.display())
+            }
+            Self::Other(_) => {
+                write!(f, "failed to load file")
+            }
+            Self::Package(error) => write!(f, "{error}"),
         }
+    }
+}
+
+impl ErrAt for FileError {
+    fn err_at(self, span: Span) -> SourceDiagnostic {
+        let hints = self.write_hints();
+        SourceDiagnostic::error(span, eco_format!("{}", self)).with_hints(hints)
     }
 }
 
 impl From<Utf8Error> for FileError {
     fn from(_: Utf8Error) -> Self {
-        Self::InvalidUtf8
+        Self::InvalidUtf8(None)
     }
 }
 
 impl From<FromUtf8Error> for FileError {
     fn from(_: FromUtf8Error) -> Self {
-        Self::InvalidUtf8
+        Self::InvalidUtf8(None)
     }
 }
 
@@ -507,24 +554,20 @@ impl From<PackageError> for FileError {
     }
 }
 
-impl From<FileError> for EcoString {
-    fn from(err: FileError) -> Self {
-        eco_format!("{err}")
-    }
-}
-
 /// A result type with a package-related error.
 pub type PackageResult<T> = Result<T, PackageError>;
 
 /// An error that occurred while trying to load a package.
 ///
-/// Some variants have an optional string can give more details, if available.
+/// Some variants have an optional string that can give more details, if available.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PackageError {
     /// The specified package does not exist.
-    NotFound(PackageSpec),
+    /// Additionally provides information on where we tried to find the package.
+    NotFound(PackageSpec, EcoString),
     /// The specified package found, but the version does not exist.
-    VersionNotFound(PackageSpec, PackageVersion),
+    /// TODO: make the registry part of the error better typed
+    VersionNotFound(PackageSpec, Option<PackageVersion>, EcoString),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
@@ -533,40 +576,55 @@ pub enum PackageError {
     Other(Option<EcoString>),
 }
 
+impl PackageError {
+    fn write_hints(&self) -> EcoVec<EcoString> {
+        match self {
+            Self::NotFound(_, detail) => {
+                eco_vec![eco_format!("{detail}")]
+            }
+            Self::VersionNotFound(spec, latest, registry) => {
+                if let Some(version) = latest {
+                    eco_vec![
+                        eco_format!(
+                            "the package {} exists, but not with version {}",
+                            spec.name,
+                            spec.version
+                        ),
+                        eco_format!(
+                            "the registry at {registry} provides up to version {version}"
+                        ),
+                    ]
+                } else {
+                    eco_vec![eco_format!(
+                        "the registry at {registry} contains no versions for this package"
+                    )]
+                }
+            }
+            Self::NetworkFailed(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::NetworkFailed(None) => eco_vec![],
+            Self::MalformedArchive(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::MalformedArchive(None) => {
+                eco_vec![eco_format!("the archive is malformed")]
+            }
+            Self::Other(Some(err)) => eco_vec![eco_format!("{err}")],
+            Self::Other(None) => eco_vec![],
+        }
+    }
+}
+
 impl std::error::Error for PackageError {}
 
 impl Display for PackageError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::NotFound(spec) => {
-                write!(f, "package not found (searched for {spec})",)
+            Self::NotFound(spec, _) => write!(f, "package {spec} not found"),
+            Self::VersionNotFound(spec, _, _) => {
+                write!(f, "package version {spec} not found")
             }
-            Self::VersionNotFound(spec, latest) => {
-                write!(
-                    f,
-                    "package found, but version {} does not exist (latest is {})",
-                    spec.version, latest,
-                )
-            }
-            Self::NetworkFailed(Some(err)) => {
-                write!(f, "failed to download package ({err})")
-            }
-            Self::NetworkFailed(None) => f.pad("failed to download package"),
-            Self::MalformedArchive(Some(err)) => {
-                write!(f, "failed to decompress package ({err})")
-            }
-            Self::MalformedArchive(None) => {
-                f.pad("failed to decompress package (archive malformed)")
-            }
-            Self::Other(Some(err)) => write!(f, "failed to load package ({err})"),
-            Self::Other(None) => f.pad("failed to load package"),
+            Self::NetworkFailed(_) => write!(f, "failed to download package"),
+            Self::MalformedArchive(_) => write!(f, "failed to decompress package"),
+            Self::Other(_) => f.pad("failed to load package"),
         }
-    }
-}
-
-impl From<PackageError> for EcoString {
-    fn from(err: PackageError) -> Self {
-        eco_format!("{err}")
     }
 }
 
