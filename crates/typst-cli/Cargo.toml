@@ -56,6 +56,7 @@ toml = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
+memmap2 = "*"
 
 [build-dependencies]
 chrono = { workspace = true }

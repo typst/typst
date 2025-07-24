@@ -47,6 +47,13 @@ static ARGS: LazyLock<CliArguments> = LazyLock::new(|| {
 
 /// Entry point.
 fn main() -> ExitCode {
+    let mut prescient = false;
+    if let Ok(file) = std::fs::File::open("comemo-sink") {
+        let mmap = Box::leak(Box::new(unsafe { memmap2::Mmap::map(&file).unwrap() }));
+        comemo::put_prescience(&*mmap);
+        prescient = true;
+    }
+
     // Handle SIGPIPE
     // https://stackoverflow.com/questions/65755853/simple-word-count-rust-program-outputs-valid-stdout-but-panicks-when-piped-to-he/65760807
     sigpipe::reset();
@@ -56,6 +63,12 @@ fn main() -> ExitCode {
     if let Err(msg) = res {
         set_failed();
         print_error(msg.message()).expect("failed to print error");
+    }
+
+    if !prescient {
+        let file = std::fs::File::create("comemo-sink").unwrap();
+        let sink = std::io::BufWriter::new(file);
+        comemo::write_prescience(sink);
     }
 
     EXIT.with(|cell| cell.get())

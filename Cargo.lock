@@ -451,7 +451,7 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "comemo"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=70c0307#70c03075453deda2b2cc592ee8676edfe7962804"
+source = "git+https://github.com/typst/comemo?rev=499bce5#499bce59ae44af9e61dc106b6b1663a45669b87e"
 dependencies = [
  "bumpalo",
  "comemo-macros",
@@ -463,7 +463,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=70c0307#70c03075453deda2b2cc592ee8676edfe7962804"
+source = "git+https://github.com/typst/comemo?rev=499bce5#499bce59ae44af9e61dc106b6b1663a45669b87e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2935,6 +2935,7 @@ dependencies = [
  "dirs",
  "ecow",
  "fs_extra",
+ "memmap2",
  "notify",
  "open",
  "parking_lot",
