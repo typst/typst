@@ -135,7 +135,7 @@ impl PackageStorage {
         let namespace_dir = packages_dir.join(format!("{}", spec.namespace));
         if !namespace_dir.exists() {
             return not_found(eco_format!(
-                "namespace @{} should be located at {}",
+                "the namespace @{} should be located at {}",
                 spec.namespace,
                 namespace_dir.display()
             ));
@@ -143,7 +143,7 @@ impl PackageStorage {
         let package_dir = namespace_dir.join(format!("{}", spec.name));
         if !package_dir.exists() {
             return not_found(eco_format!(
-                "{} does not have package '{}'",
+                "the registry at {} does not have package '{}'",
                 namespace_dir.display(),
                 spec.name
             ));
@@ -234,7 +234,7 @@ impl PackageStorage {
                     return Err(PackageError::NotFound(
                         spec.clone(),
                         eco_format!(
-                            "{namespace_url} does not have package '{}'",
+                            "the registry at {namespace_url} does not have package '{}'",
                             spec.name
                         ),
                     ));
