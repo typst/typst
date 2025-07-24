@@ -397,6 +397,12 @@ impl LocalName for PageElem {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
+///
+/// Note that even without manual page breaks, the content will be automatically
+/// paginated based on the size of the content and the page. You could adjust
+/// [costs]($text.costs) to fine-tune the algorithm that prevents widows and
+/// orphans. You can also set [the page height]($page.height) to `{auto}` to
+/// let the page grow dynamically until a manual page break occurs.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
