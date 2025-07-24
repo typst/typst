@@ -33,9 +33,10 @@ collaborative editor and run Typst in your browser, no installation required.
 
 If you choose to use Typst on your computer instead, you can download the
 compiler as a single, small binary which any user can run, no root privileges
-required. Unlike LaTeX, packages are downloaded  when you first use them and
-then cached locally, keeping your Typst installation lean. You can use your own
-editor and decide where to store your files with the local compiler.
+required. Unlike popular LaTeX distributions such as TeX Live, packages are
+downloaded when you first use them and then cached locally, keeping your Typst
+installation lean. You can use your own editor and decide where to store your
+files with the local compiler.
 
 ## How do I create a new, empty document? { #getting-started }
 That's easy. You just create a new, empty text file (the file extension is
@@ -459,7 +460,7 @@ and their corresponding Typst functions.
 | LaTeX Package                   | Typst Alternative                          |
 |:--------------------------------|:-------------------------------------------|
 | graphicx, svg                   | [`image`] function                         |
-| tabularx                        | [`table`], [`grid`] functions              |
+| tabularx, tabularray            | [`table`], [`grid`] functions              |
 | fontenc, inputenc, unicode-math | Just start writing!                        |
 | babel, polyglossia              | [`text`]($text.lang) function: `[#set text(lang: "zh")]` |
 | amsmath                         | [Math mode]($category/math)                |
@@ -550,7 +551,7 @@ $ f(x) = (x + 1) / x $
 to include more than one value in a sub- or superscript, enclose their contents
 in parentheses: `{$x_(a -> epsilon)$}`.
 
-Since variables in math mode do not need to be prepended with a `#` or a `/`,
+Since variables in math mode do not need to be prepended with a `#` or a `\`, unlike LaTeX,
 you can also call functions without these special characters:
 
 ```example
@@ -580,8 +581,8 @@ their call with a `#`. Nobody can stop you from using rectangles or emoji as
 your variables anymore:
 
 ```example
-$ sum^10_(🥸=1)
-  #rect(width: 4mm, height: 2mm)/🥸
+$ sum^10_(🤓=1)
+  #rect(width: 4mm, height: 2mm)/🤓
   = 🧠 maltese $
 ```
 
