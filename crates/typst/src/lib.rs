@@ -41,9 +41,10 @@ pub use typst_utils as utils;
 use std::sync::LazyLock;
 
 use comemo::{Track, Tracked, Validate};
-use ecow::{eco_format, eco_vec, EcoVec};
+use ecow::{EcoVec, eco_format, eco_vec};
+use typst_html::HtmlDocument;
 use typst_library::diag::{
-    bail, warning, ErrAt, FileError, SourceDiagnostic, SourceResult, Warned,
+    ErrAt, FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
