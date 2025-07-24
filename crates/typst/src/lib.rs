@@ -41,9 +41,9 @@ pub use typst_utils as utils;
 use std::collections::HashSet;
 
 use comemo::{Track, Tracked, Validate};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoVec};
 use typst_library::diag::{
-    bail, warning, FileError, SourceDiagnostic, SourceResult, Warned,
+    bail, warning, ErrAt, FileError, SourceDiagnostic, SourceResult, Warned,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{StyleChain, Styles, Value};
@@ -191,8 +191,7 @@ fn hint_invalid_main_file(
     input: FileId,
 ) -> EcoVec<SourceDiagnostic> {
     let is_utf8_error = matches!(file_error, FileError::InvalidUtf8(_));
-    let mut diagnostic =
-        SourceDiagnostic::error(Span::detached(), EcoString::from(file_error));
+    let mut diagnostic = file_error.err_at(Span::detached());
 
     // Attempt to provide helpful hints for UTF-8 errors. Perhaps the user
     // mistyped the filename. For example, they could have written "file.pdf"
