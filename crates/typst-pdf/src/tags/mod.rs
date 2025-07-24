@@ -43,6 +43,10 @@ pub(crate) fn handle_start(
     surface: &mut Surface,
     elem: &Content,
 ) -> SourceResult<()> {
+    if gc.options.disable_tags {
+        return Ok(());
+    }
+
     if gc.tags.in_artifact.is_some() {
         // Don't nest artifacts
         return Ok(());
@@ -187,6 +191,10 @@ pub(crate) fn handle_start(
 }
 
 pub(crate) fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if let Some((l, _)) = gc.tags.in_artifact {
         if l == loc {
             pop_artifact(gc, surface);
@@ -316,6 +324,10 @@ fn pop_artifact(gc: &mut GlobalContext, surface: &mut Surface) {
 }
 
 pub(crate) fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if let Some((_, kind)) = gc.tags.in_artifact {
         let ty = artifact_type(kind);
         let id = surface.start_tagged(ContentTag::Artifact(ty));
@@ -324,13 +336,17 @@ pub(crate) fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
 }
 
 pub(crate) fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if gc.tags.in_artifact.is_some() {
         surface.end_tagged();
     }
 }
 
 /// Add all annotations that were found in the page frame.
-pub(crate) fn add_annotations(
+pub(crate) fn add_link_annotations(
     gc: &mut GlobalContext,
     page: &mut Page,
     annotations: Vec<LinkAnnotation>,
@@ -343,8 +359,13 @@ pub(crate) fn add_annotations(
             alt,
         )
         .with_location(Some(span.into_raw().get()));
-        let annot_id = page.add_tagged_annotation(annot);
-        gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
+
+        if gc.options.disable_tags {
+            page.add_annotation(annot);
+        } else {
+            let annot_id = page.add_tagged_annotation(annot);
+            gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
+        }
     }
 }
 
@@ -372,10 +393,10 @@ pub(crate) struct Tags {
     pub(crate) footnotes: HashMap<Location, TagNode>,
     pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
-    pub(crate) link_id: LinkId,
+    link_id: LinkId,
     /// Used to generate IDs referenced in table `Headers` attributes.
     /// The IDs must be document wide unique.
-    pub(crate) table_id: TableId,
+    table_id: TableId,
 
     /// The output.
     pub(crate) tree: Vec<TagNode>,
@@ -444,7 +465,7 @@ impl Tags {
         true
     }
 
-    fn next_link_id(&mut self) -> LinkId {
+    pub(crate) fn next_link_id(&mut self) -> LinkId {
         self.link_id.0 += 1;
         self.link_id
     }
@@ -770,6 +791,10 @@ fn start_content<'a, 'b>(
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
     let content = if gc.tags.in_artifact.is_some() {
         return TagHandle { surface, started: false };
     } else if let Some(StackEntryKind::Table(_)) = gc.tags.stack.last().map(|e| &e.kind) {

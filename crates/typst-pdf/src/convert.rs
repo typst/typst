@@ -124,7 +124,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             surface.finish();
 
-            tags::add_annotations(gc, &mut page, fc.link_annotations);
+            tags::add_link_annotations(gc, &mut page, fc.link_annotations);
         }
     }
 
