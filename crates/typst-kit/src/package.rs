@@ -101,9 +101,15 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
-        // QUESTION: is it sometimes the case that both package_path
-        // and package_cache_path are Some? Is it a problem if we change
-        // this order?
+        // By default, search for the package locally
+        if let Some(packages_dir) = &self.package_path {
+            let dir = packages_dir.join(&subdir);
+            if dir.exists() {
+                return Ok(dir);
+            }
+        }
+
+        // As a fallback, look into the cache and possibly download from network.
         if let Some(cache_dir) = &self.package_cache_path {
             let dir = cache_dir.join(&subdir);
             if dir.exists() {
@@ -116,38 +122,42 @@ impl PackageStorage {
             }
         }
 
-        // In all paths from now, we either succeed or fail with a NotFound.
+        // None of the strategies above found the package, so all code paths
+        // from now on fail. The rest of the function is only to determine the
+        // cause of the failure.
         let not_found = |msg| Err(PackageError::NotFound(spec.clone(), msg));
 
         let Some(packages_dir) = &self.package_path else {
-            // QUESTION: when is this code path hit?
-            return not_found(None);
+            return not_found(eco_format!("cannot access local package storage"));
         };
-        // We try the fast path
-        let dir = packages_dir.join(&subdir);
-        if dir.exists() {
-            return Ok(dir);
-        }
         // Fast path failed. Instead we try to diagnose the issue by going
         // down the subdirectories of the expected path one at a time.
         let namespace_dir = packages_dir.join(format!("{}", spec.namespace));
         if !namespace_dir.exists() {
-            return not_found(Some(eco_format!("did not find namespace '{}' while searching at {} for", spec.namespace, namespace_dir.display())));
+            return not_found(eco_format!(
+                "namespace @{} should be located at {}",
+                spec.namespace,
+                namespace_dir.display()
+            ));
         }
         let package_dir = namespace_dir.join(format!("{}", spec.name));
         if !package_dir.exists() {
-            return not_found(Some(eco_format!("did not find package '{}' while searching at {} for", spec.name, package_dir.display())));
+            return not_found(eco_format!(
+                "{} does not have package '{}'",
+                namespace_dir.display(),
+                spec.name
+            ));
         }
-        let version_dir = package_dir.join(format!("{}", spec.version));
-        if !version_dir.exists() {
-            return not_found(Some(eco_format!("did not find version {} while searching at {} for", spec.version, version_dir.display())));
-        }
-        // We'll never hit this path as long as subdir is indeed namespace/name/version.
-        // What's Typst's policy on `unreachable`?
-        unreachable!()
+        let latest = self.determine_latest_version(&spec.versionless()).ok();
+        Err(PackageError::VersionNotFound(
+            spec.clone(),
+            latest,
+            eco_format!("{}", namespace_dir.display()),
+        ))
     }
 
     /// Tries to determine the latest version of a package.
+    /// TODO improve here too
     pub fn determine_latest_version(
         &self,
         spec: &VersionlessPackageSpec,
@@ -209,18 +219,26 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
 
-        let url = format!(
-            "{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/{}-{}.tar.gz",
-            spec.name, spec.version
-        );
+        let namespace_url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}");
+        let url = format!("{namespace_url}/{}-{}.tar.gz", spec.name, spec.version);
 
         let data = match self.downloader.download_with_progress(&url, progress) {
             Ok(data) => data,
             Err(ureq::Error::Status(404, _)) => {
                 if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
-                    return Err(PackageError::VersionNotFound(spec.clone(), version));
+                    return Err(PackageError::VersionNotFound(
+                        spec.clone(),
+                        Some(version),
+                        eco_format!("{namespace_url}"),
+                    ));
                 } else {
-                    return Err(PackageError::NotFound(spec.clone(), Some(eco_format!("attempted to download"))));
+                    return Err(PackageError::NotFound(
+                        spec.clone(),
+                        eco_format!(
+                            "{namespace_url} does not have package '{}'",
+                            spec.name
+                        ),
+                    ));
                 }
             }
             Err(err) => {
