@@ -50,11 +50,14 @@ pub(crate) fn handle_link(
         }
     };
 
-    let Some((link_id, link, link_nodes)) = gc.tags.stack.find_parent_link() else {
-        unreachable!("expected a link parent")
+    let (link_id, tagging_ctx) = match gc.tags.stack.find_parent_link() {
+        Some((link_id, link, nodes)) => (link_id, Some((link, nodes))),
+        None if gc.options.disable_tags => {
+            let link_id = gc.tags.next_link_id();
+            (link_id, None)
+        }
+        None => unreachable!("expected a link parent"),
     };
-    let alt = link.alt.as_ref().map(EcoString::to_string);
-
     let quad = to_quadrilateral(fc, size);
 
     // Unfortunately quadpoints still aren't well supported by most PDF readers.
@@ -72,14 +75,20 @@ pub(crate) fn handle_link(
         Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
             let placeholder = gc.tags.placeholders.reserve();
-            link_nodes.push(TagNode::Placeholder(placeholder));
+            let (alt, span) = if let Some((link, nodes)) = tagging_ctx {
+                nodes.push(TagNode::Placeholder(placeholder));
+                let alt = link.alt.as_ref().map(EcoString::to_string);
+                (alt, link.span())
+            } else {
+                (None, Span::detached())
+            };
             fc.push_link_annotation(LinkAnnotation {
                 id: link_id,
                 placeholder,
                 quad_points: vec![quad],
                 alt,
                 target,
-                span: link.span(),
+                span,
             });
         }
     }

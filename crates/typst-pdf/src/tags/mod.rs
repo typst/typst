@@ -35,6 +35,10 @@ mod table;
 mod util;
 
 pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Content) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if gc.tags.in_artifact.is_some() {
         // Don't nest artifacts
         return;
@@ -188,6 +192,10 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
 }
 
 pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if let Some((l, _)) = gc.tags.in_artifact {
         if l == loc {
             pop_artifact(gc, surface);
@@ -311,6 +319,10 @@ fn pop_artifact(gc: &mut GlobalContext, surface: &mut Surface) {
 }
 
 pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if let Some((_, kind)) = gc.tags.in_artifact {
         let ty = artifact_type(kind);
         let id = surface.start_tagged(ContentTag::Artifact(ty));
@@ -319,6 +331,10 @@ pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
 }
 
 pub fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
+    if gc.options.disable_tags {
+        return;
+    }
+
     if gc.tags.in_artifact.is_some() {
         surface.end_tagged();
     }
@@ -339,8 +355,13 @@ pub fn add_link_annotations(
             a.alt,
         )
         .with_location(Some(a.span.into_raw()));
-        let annot_id = page.add_tagged_annotation(annotation);
-        gc.tags.placeholders.init(a.placeholder, Node::Leaf(annot_id));
+
+        if gc.options.disable_tags {
+            page.add_annotation(annotation);
+        } else {
+            let annot_id = page.add_tagged_annotation(annotation);
+            gc.tags.placeholders.init(a.placeholder, Node::Leaf(annot_id));
+        }
     }
 }
 
@@ -356,10 +377,10 @@ pub struct Tags {
     pub footnotes: FxHashMap<Location, FootnoteCtx>,
     pub in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
-    pub link_id: LinkId,
+    link_id: LinkId,
     /// Used to generate IDs referenced in table `Headers` attributes.
     /// The IDs must be document wide unique.
-    pub table_id: TableId,
+    table_id: TableId,
 
     /// The output.
     pub tree: Vec<TagNode>,
@@ -427,7 +448,7 @@ impl Tags {
         }
     }
 
-    fn next_link_id(&mut self) -> LinkId {
+    pub fn next_link_id(&mut self) -> LinkId {
         self.link_id.0 += 1;
         self.link_id
     }
@@ -652,6 +673,10 @@ fn start_content<'a, 'b>(
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
     let content = if gc.tags.in_artifact.is_some() {
         return TagHandle { surface, started: false };
     } else {
