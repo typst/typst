@@ -189,6 +189,37 @@ pub struct FigureElem {
     ///   supplement: [Atom],
     /// )
     /// ```
+    ///
+    /// If you want to modify a counter to skip a number or reset the counter,
+    /// you can access the [counter] of each kind of figures from
+    /// a [`where`]($function.where) selector:
+    ///
+    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
+    /// - For [images]($image): `{counter(figure.where(kind: image))}`
+    /// - For a custom kind: `{counter(figure.where(kind: kind))}`
+    ///
+    /// ```example
+    /// #figure(
+    ///   table(columns: 2, $n$, $1$),
+    ///   caption: [The first table.],
+    /// )
+    ///
+    /// #counter(figure.where(kind: table)).update(41)
+    ///
+    /// #figure(
+    ///   table(columns: 2, $n$, $42$),
+    ///   caption: [Jumped to the 42nd table.],
+    /// )
+    ///
+    /// #figure(
+    ///   rect[Image],
+    ///   caption: [And it doesn't affect images.],
+    /// )
+    /// ```
+    ///
+    /// There is also a convenience field called `counter` to simplify general
+    /// [show rules]($styling/#show-rules). There is an example
+    /// [show rule that customizes `figure.caption`]($figure.caption.body) below.
     pub kind: Smart<FigureKind>,
 
     /// The figure's supplement.
@@ -228,8 +259,8 @@ pub struct FigureElem {
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
-    /// - For (tables)[@table]: `{counter(figure.where(kind: table))}`
-    /// - For (images)[@image]: `{counter(figure.where(kind: image))}`
+    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
+    /// - For [images]($image): `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
     /// These are the counters you'll need to modify if you want to skip a

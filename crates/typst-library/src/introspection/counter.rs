@@ -415,6 +415,8 @@ impl Counter {
         /// - If it is a [selector], counts through elements that matches with the
         ///   selector. For example,
         ///   - provide an element function: counts elements of that type,
+        ///   - provide a [`where`]($function.where) selector:
+        ///     counts a type of elements with specific fields,
         ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
