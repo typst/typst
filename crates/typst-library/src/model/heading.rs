@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
 use crate::diag::SourceResult;
@@ -103,6 +104,16 @@ pub struct HeadingElem {
     /// ```
     pub numbering: Option<Numbering>,
 
+    /// Plain-text displayed numbering.
+    ///
+    /// This field is only necessary for creating PDF bookmarks.
+    /// The problem is that in the export stage, we don't have access to the World/Engine etc.
+    /// which is needed to resolve numbers and numbering patterns (or functions) into a concrete string/content.
+    /// Therefore, we have to save the result before the export stage.
+    #[internal]
+    #[synthesized]
+    pub numbering_displayed: EcoString,
+
     /// A supplement for the heading.
     ///
     /// For references to headings, this is added before the referenced number.
@@ -202,10 +213,23 @@ impl Synthesize for Packed<HeadingElem> {
             }
         };
 
+        let numbering_displayed = if let (Some(numbering), Some(location)) =
+            (self.numbering.get_ref(styles).as_ref(), self.location())
+        {
+            Some(
+                self.counter()
+                    .display_at_loc(engine, location, styles, numbering)?
+                    .plain_text(),
+            )
+        } else {
+            None
+        };
+
         let elem = self.as_mut();
         elem.level.set(Smart::Custom(elem.resolve_level(styles)));
         elem.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
+        elem.numbering_displayed = numbering_displayed;
         Ok(())
     }
 }
