@@ -2,7 +2,7 @@ use comemo::Tracked;
 
 use crate::diag::HintedStrResult;
 use crate::engine::Engine;
-use crate::foundations::{func, Array, Context, LocatableSelector, Value};
+use crate::foundations::{Array, Context, LocatableSelector, Value, func};
 
 /// Finds elements in the document.
 ///

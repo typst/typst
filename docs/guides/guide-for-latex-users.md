@@ -256,8 +256,8 @@ In Typst, the same function can be used both to affect the appearance for the
 remainder of the document, a block (or scope), or just its arguments. For
 example, `[#text(weight: "bold")[bold text]]` will only embolden its argument,
 while `[#set text(weight: "bold")]` will embolden any text until the end of the
-current block, or, if there is none, document. The effects of a function are
-immediately obvious based on whether it is used in a call or a
+current block, or the end of the document, if there is none. The effects of a
+function are immediately obvious based on whether it is used in a call or a
 [set rule.]($styling/#set-rules)
 
 ```example
@@ -665,12 +665,3 @@ applicable, contains possible workarounds.
   [`page` function]($page) which will force a page break. If you just want a few
   paragraphs to stretch into the margins, then reverting to the old margins, you
   can use the [`pad` function]($pad) with negative padding.
-
-- **Include PDFs as images.** In LaTeX, it has become customary to insert vector
-  graphics as PDF or EPS files. Typst supports neither format as an image
-  format, but you can easily convert both into SVG files with [online
-  tools](https://cloudconvert.com/pdf-to-svg) or
-  [Inkscape](https://inkscape.org/). The web app will automatically convert PDF
-  files to SVG files upon uploading them. You can also use the
-  community-provided [`muchpdf` package](https://typst.app/universe/package/muchpdf)
-  to embed PDFs. It internally converts PDFs to SVGs on-the-fly.

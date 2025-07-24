@@ -8,18 +8,18 @@ use std::sync::OnceLock;
 
 use comemo::Tracked;
 use parking_lot::Mutex;
-use typst::diag::{bail, At, FileError, FileResult, SourceResult, StrResult};
+use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    func, Array, Bytes, Context, Datetime, IntoValue, NoneValue, Repr, Smart, Value,
+    Array, Bytes, Context, Datetime, IntoValue, NoneValue, Repr, Smart, Value, func,
 };
 use typst::layout::{Abs, Margin, PageElem};
 use typst::model::{Numbering, NumberingPattern};
 use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
-use typst::utils::{singleton, LazyHash};
+use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
-use typst::{Feature, Library, World};
+use typst::{Feature, Library, LibraryExt, World};
 use typst_syntax::Lines;
 
 /// A world that provides access to the tests environment.
@@ -216,13 +216,11 @@ fn library() -> Library {
         .define("forest", Color::from_u8(0x43, 0xA1, 0x27, 0xFF));
 
     // Hook up default styles.
+    lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
+    lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles
-        .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
-    lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
-        Abs::pt(10.0).into(),
-    )))));
-    lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
+        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
 
     lib
 }

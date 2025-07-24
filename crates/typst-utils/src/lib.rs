@@ -15,7 +15,7 @@ mod scalar;
 pub use self::bitset::{BitSet, SmallBitSet};
 pub use self::deferred::Deferred;
 pub use self::duration::format_duration;
-pub use self::hash::{LazyHash, ManuallyHash};
+pub use self::hash::{HashLock, LazyHash, ManuallyHash};
 pub use self::pico::{PicoStr, ResolvedPicoStr};
 pub use self::round::{round_int_with_precision, round_with_precision};
 pub use self::scalar::Scalar;
@@ -23,7 +23,7 @@ pub use self::scalar::Scalar;
 #[doc(hidden)]
 pub use once_cell;
 
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
 use std::num::{NonZeroU32, NonZeroUsize};
@@ -41,6 +41,25 @@ where
     struct Wrapper<F>(F);
 
     impl<F> Debug for Wrapper<F>
+    where
+        F: Fn(&mut Formatter) -> std::fmt::Result,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            self.0(f)
+        }
+    }
+
+    Wrapper(f)
+}
+
+/// Turn a closure into a struct implementing [`Display`].
+pub fn display<F>(f: F) -> impl Display
+where
+    F: Fn(&mut Formatter) -> std::fmt::Result,
+{
+    struct Wrapper<F>(F);
+
+    impl<F> Display for Wrapper<F>
     where
         F: Fn(&mut Formatter) -> std::fmt::Result,
     {
@@ -375,6 +394,10 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
         // Both ∨ and ⟑ are classified as Binary.
         // https://github.com/typst/typst/issues/5764
         '⟇' => Some(MathClass::Binary),
+
+        // Arabic comma.
+        // https://github.com/latex3/unicode-math/pull/633#issuecomment-2028936135
+        '،' => Some(MathClass::Punctuation),
 
         c => unicode_math_class::class(c),
     }

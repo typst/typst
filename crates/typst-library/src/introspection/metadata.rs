@@ -1,6 +1,4 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain, Value};
+use crate::foundations::{Value, elem};
 use crate::introspection::Locatable;
 
 /// Exposes a value to the query system without producing visible content.
@@ -24,15 +22,9 @@ use crate::introspection::Locatable;
 ///   query(<note>).first().value
 /// }
 /// ```
-#[elem(Show, Locatable)]
+#[elem(Locatable)]
 pub struct MetadataElem {
     /// The value to embed into the document.
     #[required]
     pub value: Value,
-}
-
-impl Show for Packed<MetadataElem> {
-    fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
-    }
 }

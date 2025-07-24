@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use ecow::eco_format;
-use typst_library::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{Array, Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 

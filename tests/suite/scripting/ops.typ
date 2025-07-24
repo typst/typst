@@ -264,6 +264,8 @@
 #test("Hey" not in "abheyCd", true)
 #test("a" not
 /* fun comment? */ in "abc", false)
+#test("sys" in std, true)
+#test("system" in std, false)
 
 --- ops-not-trailing ---
 // Error: 10 expected keyword `in`

@@ -39,14 +39,14 @@ pub fn collect<'a>(
         if let Some(pagebreak) = elem.to_packed::<PagebreakElem>() {
             // Add a blank page if we encounter a strong pagebreak and there was
             // a staged empty page.
-            let strong = !pagebreak.weak(styles);
+            let strong = !pagebreak.weak.get(styles);
             if strong && staged_empty_page {
                 let locator = locator.next(&elem.span());
                 items.push(Item::Run(&[], initial, locator));
             }
 
             // Add an instruction to adjust the page parity if requested.
-            if let Some(parity) = pagebreak.to(styles) {
+            if let Some(parity) = pagebreak.to.get(styles) {
                 let locator = locator.next(&elem.span());
                 items.push(Item::Parity(parity, styles, locator));
             }
@@ -56,7 +56,7 @@ pub fn collect<'a>(
             // the scope of a page set rule to ensure a page boundary. Its
             // styles correspond to the styles _before_ the page set rule, so we
             // don't want to apply it to a potential empty page.
-            if !pagebreak.boundary(styles) {
+            if !pagebreak.boundary.get(styles) {
                 initial = styles;
             }
 
@@ -94,7 +94,7 @@ pub fn collect<'a>(
             if group.iter().all(|(c, _)| c.is::<TagElem>())
                 && !(staged_empty_page
                     && children.iter().all(|&(c, s)| {
-                        c.to_packed::<PagebreakElem>().is_some_and(|c| c.boundary(s))
+                        c.to_packed::<PagebreakElem>().is_some_and(|c| c.boundary.get(s))
                     }))
             {
                 items.push(Item::Tags(group));

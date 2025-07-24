@@ -2,13 +2,13 @@ use std::any::{Any, TypeId};
 use std::sync::Arc;
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    cast, func, repr, scope, ty, CastInfo, Content, Context, Dict, Element, FromValue,
-    Func, Label, Reflect, Regex, Repr, Str, StyleChain, Symbol, Type, Value,
+    CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
+    Repr, Str, StyleChain, Symbol, Type, Value, cast, func, repr, scope, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location, Unqueriable};
 
@@ -21,12 +21,12 @@ macro_rules! __select_where {
         let mut fields = ::smallvec::SmallVec::new();
         $(
             fields.push((
-                <$ty as $crate::foundations::Fields>::Enum::$field as u8,
+                <$ty>::$field.index(),
                 $crate::foundations::IntoValue::into_value($value),
             ));
         )*
         $crate::foundations::Selector::Elem(
-            <$ty as $crate::foundations::NativeElement>::elem(),
+            <$ty as $crate::foundations::NativeElement>::ELEM,
             Some(fields),
         )
     }};
@@ -37,13 +37,12 @@ pub use crate::__select_where as select_where;
 
 /// A filter for selecting elements within the document.
 ///
-/// You can construct a selector in the following ways:
-/// - you can use an element [function]
-/// - you can filter for an element function with
-///   [specific fields]($function.where)
-/// - you can use a [string]($str) or [regular expression]($regex)
-/// - you can use a [`{<label>}`]($label)
-/// - you can use a [`location`]
+/// To construct a selector you can:
+/// - use an element [function]
+/// - filter for an element function with [specific fields]($function.where)
+/// - use a [string]($str) or [regular expression]($regex)
+/// - use a [`{<label>}`]($label)
+/// - use a [`location`]
 /// - call the [`selector`] constructor to convert any of the above types into a
 ///   selector value and use the methods below to refine it
 ///
@@ -148,7 +147,9 @@ impl Selector {
 impl Selector {
     /// Turns a value into a selector. The following values are accepted:
     /// - An element function like a `heading` or `figure`.
+    /// - A [string]($str) or [regular expression]($regex).
     /// - A `{<label>}`.
+    /// - A [`location`].
     /// - A more complex selector like `{heading.where(level: 1)}`.
     #[func(constructor)]
     pub fn construct(

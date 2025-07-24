@@ -28,3 +28,7 @@
   mime-type: "text/plain",
   description: "A test file",
 )
+
+--- pdf-embed-invalid-data ---
+// Error: 38-45 expected bytes, found string
+#pdf.embed("/assets/text/hello.txt", "hello")

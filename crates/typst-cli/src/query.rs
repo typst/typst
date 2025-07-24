@@ -1,13 +1,13 @@
 use comemo::Track;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::Serialize;
-use typst::diag::{bail, HintedStrResult, StrResult, Warned};
+use typst::World;
+use typst::diag::{HintedStrResult, StrResult, Warned, bail};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::layout::PagedDocument;
-use typst::syntax::Span;
-use typst::World;
-use typst_eval::{eval_string, EvalMode};
+use typst::syntax::{Span, SyntaxMode};
+use typst_eval::eval_string;
 
 use crate::args::{QueryCommand, SerializationFormat};
 use crate::compile::print_diagnostics;
@@ -63,7 +63,7 @@ fn retrieve(
         Sink::new().track_mut(),
         &command.selector,
         Span::detached(),
-        EvalMode::Code,
+        SyntaxMode::Code,
         Scope::default(),
     )
     .map_err(|errors| {

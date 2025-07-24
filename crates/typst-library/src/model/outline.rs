@@ -1,17 +1,16 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::{Track, Tracked};
+use comemo::Tracked;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::{Get, NonZeroExt};
 
-use crate::diag::{bail, error, At, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, select_where, Args, Construct, Content, Context, Func,
-    LocatableSelector, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
-    Styles,
+    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Packed,
+    Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
 };
 use crate::introspection::{
     Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink,
@@ -20,8 +19,7 @@ use crate::layout::{
     Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,
     RepeatElem, Sides,
 };
-use crate::math::EquationElem;
-use crate::model::{Destination, HeadingElem, NumberingPattern, ParElem, Refable};
+use crate::model::{HeadingElem, NumberingPattern, ParElem, Refable};
 use crate::text::{LocalName, SpaceElem, TextElem};
 
 /// A table of contents, figures, or other elements.
@@ -147,7 +145,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 ///
 /// [^1]: The outline of equations is the exception to this rule as it does not
 ///       have a body and thus does not use indented layout.
-#[elem(scope, keywords = ["Table of Contents", "toc"], Show, ShowSet, LocalName, Locatable)]
+#[elem(scope, keywords = ["Table of Contents", "toc"], ShowSet, LocalName, Locatable)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -183,8 +181,7 @@ pub struct OutlineElem {
     ///   caption: [Experiment results],
     /// )
     /// ```
-    #[default(LocatableSelector(HeadingElem::elem().select()))]
-    #[borrowed]
+    #[default(LocatableSelector(HeadingElem::ELEM.select()))]
     pub target: LocatableSelector,
 
     /// The maximum level up to which elements are included in the outline. When
@@ -225,25 +222,21 @@ pub struct OutlineElem {
     ///   to just specifying `{2em}`.
     ///
     /// ```example
-    /// #set heading(numbering: "1.a.")
+    /// >>> #show heading: none
+    /// #set heading(numbering: "I-I.")
+    /// #set outline(title: none)
     ///
-    /// #outline(
-    ///   title: [Contents (Automatic)],
-    ///   indent: auto,
-    /// )
+    /// #outline()
+    /// #line(length: 100%)
+    /// #outline(indent: 3em)
     ///
-    /// #outline(
-    ///   title: [Contents (Length)],
-    ///   indent: 2em,
-    /// )
-    ///
-    /// = About ACME Corp.
-    /// == History
-    /// === Origins
-    /// #lorem(10)
-    ///
-    /// == Products
-    /// #lorem(10)
+    /// = Software engineering technologies
+    /// == Requirements
+    /// == Tools and technologies
+    /// === Code editors
+    /// == Analyzing alternatives
+    /// = Designing software components
+    /// = Testing and integration
     /// ```
     pub indent: Smart<OutlineIndent>,
 }
@@ -254,54 +247,16 @@ impl OutlineElem {
     type OutlineEntry;
 }
 
-impl Show for Packed<OutlineElem> {
-    #[typst_macros::time(name = "outline", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let span = self.span();
-
-        // Build the outline title.
-        let mut seq = vec![];
-        if let Some(title) = self.title(styles).unwrap_or_else(|| {
-            Some(TextElem::packed(Self::local_name_in(styles)).spanned(span))
-        }) {
-            seq.push(
-                HeadingElem::new(title)
-                    .with_depth(NonZeroUsize::ONE)
-                    .pack()
-                    .spanned(span),
-            );
-        }
-
-        let elems = engine.introspector.query(&self.target(styles).0);
-        let depth = self.depth(styles).unwrap_or(NonZeroUsize::MAX);
-
-        // Build the outline entries.
-        for elem in elems {
-            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-                bail!(span, "cannot outline {}", elem.func().name());
-            };
-
-            let level = outlinable.level();
-            if outlinable.outlined() && level <= depth {
-                let entry = OutlineEntry::new(level, elem);
-                seq.push(entry.pack().spanned(span));
-            }
-        }
-
-        Ok(Content::sequence(seq))
-    }
-}
-
 impl ShowSet for Packed<OutlineElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(HeadingElem::set_outlined(false));
-        out.set(HeadingElem::set_numbering(None));
-        out.set(ParElem::set_justify(false));
-        out.set(BlockElem::set_above(Smart::Custom(ParElem::leading_in(styles).into())));
+        out.set(HeadingElem::outlined, false);
+        out.set(HeadingElem::numbering, None);
+        out.set(ParElem::justify, false);
+        out.set(BlockElem::above, Smart::Custom(styles.get(ParElem::leading).into()));
         // Makes the outline itself available to its entries. Should be
         // superseded by a proper ancestry mechanism in the future.
-        out.set(OutlineEntry::set_parent(Some(self.clone())));
+        out.set(OutlineEntry::parent, Some(self.clone()));
         out
     }
 }
@@ -368,7 +323,7 @@ pub trait Outlinable: Refable {
 /// With show-set and show rules on outline entries, you can richly customize
 /// the outline's appearance. See the
 /// [section on styling the outline]($outline/#styling-the-outline) for details.
-#[elem(scope, name = "entry", title = "Outline Entry", Show)]
+#[elem(scope, name = "entry", title = "Outline Entry")]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
@@ -399,7 +354,6 @@ pub struct OutlineEntry {
     ///
     /// = A New Beginning
     /// ```
-    #[borrowed]
     #[default(Some(
         RepeatElem::new(TextElem::packed("."))
             .with_gap(Em::new(0.15).into())
@@ -414,30 +368,6 @@ pub struct OutlineEntry {
     pub parent: Option<Packed<OutlineElem>>,
 }
 
-impl Show for Packed<OutlineEntry> {
-    #[typst_macros::time(name = "outline.entry", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let span = self.span();
-        let context = Context::new(None, Some(styles));
-        let context = context.track();
-
-        let prefix = self.prefix(engine, context, span)?;
-        let inner = self.inner(engine, context, span)?;
-        let block = if self.element.is::<EquationElem>() {
-            let body = prefix.unwrap_or_default() + inner;
-            BlockElem::new()
-                .with_body(Some(BlockBody::Content(body)))
-                .pack()
-                .spanned(span)
-        } else {
-            self.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
-        };
-
-        let loc = self.element_location().at(span)?;
-        Ok(block.linked(Destination::Location(loc)))
-    }
-}
-
 #[scope]
 impl OutlineEntry {
     /// A helper function for producing an indented entry layout: Lays out a
@@ -450,8 +380,9 @@ impl OutlineEntry {
     /// at the same level are aligned.
     ///
     /// If the outline's indent is a fixed value or a function, the prefixes are
-    /// indented, but the inner contents are simply inset from the prefix by the
-    /// specified `gap`, rather than aligning outline-wide.
+    /// indented, but the inner contents are simply offset from the prefix by
+    /// the specified `gap`, rather than aligning outline-wide. For a visual
+    /// explanation, see [`outline.indent`]($outline.indent).
     #[func(contextual)]
     pub fn indented(
         &self,
@@ -475,7 +406,9 @@ impl OutlineEntry {
         gap: Length,
     ) -> SourceResult<Content> {
         let styles = context.styles().at(span)?;
-        let outline = Self::parent_in(styles)
+        let outline = styles
+            .get_ref(Self::parent)
+            .as_ref()
             .ok_or("must be called within the context of an outline")
             .at(span)?;
         let outline_loc = outline.location().unwrap();
@@ -486,7 +419,7 @@ impl OutlineEntry {
             .transpose()?;
         let prefix_inset = prefix_width.map(|w| w + gap.resolve(styles));
 
-        let indent = outline.indent(styles);
+        let indent = outline.indent.get_ref(styles);
         let (base_indent, hanging_indent) = match &indent {
             Smart::Auto => compute_auto_indents(
                 engine.introspector,
@@ -530,7 +463,7 @@ impl OutlineEntry {
         };
 
         let inset = Sides::default().with(
-            TextElem::dir_in(styles).start(),
+            styles.resolve(TextElem::dir).start(),
             Some(base_indent + Rel::from(hanging_indent.unwrap_or_default())),
         );
 
@@ -585,7 +518,7 @@ impl OutlineEntry {
         // See also:
         // - https://github.com/typst/typst/issues/4476
         // - https://github.com/typst/typst/issues/5176
-        let rtl = TextElem::dir_in(styles) == Dir::RTL;
+        let rtl = styles.resolve(TextElem::dir) == Dir::RTL;
         if rtl {
             // "Right-to-Left Embedding"
             seq.push(TextElem::packed("\u{202B}"));
@@ -599,11 +532,11 @@ impl OutlineEntry {
         }
 
         // Add the filler between the section name and page number.
-        if let Some(filler) = self.fill(styles) {
+        if let Some(filler) = self.fill.get_cloned(styles) {
             seq.push(SpaceElem::shared().clone());
             seq.push(
                 BoxElem::new()
-                    .with_body(Some(filler.clone()))
+                    .with_body(Some(filler))
                     .with_width(Fr::one().into())
                     .pack()
                     .spanned(span),
@@ -657,7 +590,8 @@ impl OutlineEntry {
             .ok_or_else(|| error!("cannot outline {}", self.element.func().name()))
     }
 
-    fn element_location(&self) -> HintedStrResult<Location> {
+    /// Returns the location of the outlined element.
+    pub fn element_location(&self) -> HintedStrResult<Location> {
         let elem = &self.element;
         elem.location().ok_or_else(|| {
             if elem.can::<dyn Locatable>() && elem.can::<dyn Outlinable>() {
@@ -720,7 +654,7 @@ fn query_prefix_widths(
     outline_loc: Location,
 ) -> SmallVec<[Option<Abs>; 4]> {
     let mut widths = SmallVec::<[Option<Abs>; 4]>::new();
-    let elems = introspector.query(&select_where!(PrefixInfo, Key => outline_loc));
+    let elems = introspector.query(&select_where!(PrefixInfo, key => outline_loc));
     for elem in &elems {
         let info = elem.to_packed::<PrefixInfo>().unwrap();
         let level = info.level.get();
@@ -733,8 +667,8 @@ fn query_prefix_widths(
 }
 
 /// Helper type for introspection-based prefix alignment.
-#[elem(Construct, Locatable, Show)]
-struct PrefixInfo {
+#[elem(Construct, Locatable)]
+pub(crate) struct PrefixInfo {
     /// The location of the outline this prefix is part of. This is used to
     /// scope prefix computations to a specific outline.
     #[required]
@@ -754,11 +688,5 @@ struct PrefixInfo {
 impl Construct for PrefixInfo {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
-    }
-}
-
-impl Show for Packed<PrefixInfo> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
     }
 }

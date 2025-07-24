@@ -84,7 +84,8 @@
 --- line-bad-point-array ---
 // Test errors.
 
-// Error: 12-19 point array must contain exactly two entries
+// Error: 12-19 array must contain exactly two items
+// Hint: 12-19 the first item determines the value for the X axis and the second item the value for the Y axis
 #line(end: (50pt,))
 
 --- line-bad-point-component-type ---

@@ -3,15 +3,15 @@ use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::Arc;
 
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
-use ecow::{eco_format, EcoString};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{Bytes, Cast, Dict, Smart, Value, cast, dict};
+use ecow::{EcoString, eco_format};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
 use image::codecs::webp::WebPDecoder;
 use image::{
-    guess_format, DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel,
+    DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel, guess_format,
 };
 
 /// A decoded raster image.

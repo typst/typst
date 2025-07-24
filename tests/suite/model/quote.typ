@@ -2,6 +2,7 @@
 
 --- quote-dir-author-pos ---
 // Text direction affects author positioning
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 #set text(lang: "ar")
@@ -9,6 +10,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 --- quote-dir-align ---
 // Text direction affects block alignment
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 #set quote(block: true)
 #quote(attribution: [René Descartes])[cogito, ergo sum]
 

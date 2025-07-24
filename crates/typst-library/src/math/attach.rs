@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content, Packed};
+use crate::foundations::{Content, Packed, elem};
 use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, Mathy};
 
@@ -59,9 +59,9 @@ impl Packed<AttachElem> {
 
             macro_rules! merge {
                 ($content:ident) => {
-                    if base.$content.is_none() && elem.$content.is_some() {
+                    if !base.$content.is_set() && elem.$content.is_set() {
                         base.$content = elem.$content.clone();
-                        elem.$content = None;
+                        elem.$content.unset();
                     }
                 };
             }
@@ -152,7 +152,6 @@ pub struct StretchElem {
 
     /// The size to stretch to, relative to the maximum size of the glyph and
     /// its attachments.
-    #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
 }

@@ -18,16 +18,15 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
     // Therefore, its next descendant must be added at its level, which is
     // enforced in the manner shown below.
     let mut last_skipped_level = None;
-    let elements = &gc.document.introspector.query(&HeadingElem::elem().select());
+    let elements = &gc.document.introspector.query(&HeadingElem::ELEM.select());
 
     for elem in elements.iter() {
-        if let Some(page_ranges) = &gc.options.page_ranges {
-            if !page_ranges
+        if let Some(page_ranges) = &gc.options.page_ranges
+            && !page_ranges
                 .includes_page(gc.document.introspector.page(elem.location().unwrap()))
-            {
-                // Don't bookmark headings in non-exported pages.
-                continue;
-            }
+        {
+            // Don't bookmark headings in non-exported pages.
+            continue;
         }
 
         let heading = elem.to_packed::<HeadingElem>().unwrap();
@@ -115,8 +114,9 @@ impl<'a> HeadingNode<'a> {
             level: element.resolve_level(StyleChain::default()),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
-                .bookmarked(StyleChain::default())
-                .unwrap_or_else(|| element.outlined(StyleChain::default())),
+                .bookmarked
+                .get(StyleChain::default())
+                .unwrap_or_else(|| element.outlined.get(StyleChain::default())),
             element,
             children: Vec::new(),
         }

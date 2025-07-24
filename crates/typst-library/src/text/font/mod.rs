@@ -228,6 +228,10 @@ pub struct FontMetrics {
     pub underline: LineMetrics,
     /// Recommended metrics for an overline.
     pub overline: LineMetrics,
+    /// Metrics for subscripts, if provided by the font.
+    pub subscript: Option<ScriptMetrics>,
+    /// Metrics for superscripts, if provided by the font.
+    pub superscript: Option<ScriptMetrics>,
 }
 
 impl FontMetrics {
@@ -240,6 +244,7 @@ impl FontMetrics {
         let cap_height = ttf.capital_height().filter(|&h| h > 0).map_or(ascender, to_em);
         let x_height = ttf.x_height().filter(|&h| h > 0).map_or(ascender, to_em);
         let descender = to_em(ttf.typographic_descender().unwrap_or(ttf.descender()));
+
         let strikeout = ttf.strikeout_metrics();
         let underline = ttf.underline_metrics();
 
@@ -262,6 +267,20 @@ impl FontMetrics {
             thickness: underline.thickness,
         };
 
+        let subscript = ttf.subscript_metrics().map(|metrics| ScriptMetrics {
+            width: to_em(metrics.x_size),
+            height: to_em(metrics.y_size),
+            horizontal_offset: to_em(metrics.x_offset),
+            vertical_offset: -to_em(metrics.y_offset),
+        });
+
+        let superscript = ttf.superscript_metrics().map(|metrics| ScriptMetrics {
+            width: to_em(metrics.x_size),
+            height: to_em(metrics.y_size),
+            horizontal_offset: to_em(metrics.x_offset),
+            vertical_offset: to_em(metrics.y_offset),
+        });
+
         Self {
             units_per_em,
             ascender,
@@ -271,6 +290,8 @@ impl FontMetrics {
             strikethrough,
             underline,
             overline,
+            superscript,
+            subscript,
         }
     }
 
@@ -294,6 +315,24 @@ pub struct LineMetrics {
     pub position: Em,
     /// The thickness of the line.
     pub thickness: Em,
+}
+
+/// Metrics for subscripts or superscripts.
+#[derive(Debug, Copy, Clone)]
+pub struct ScriptMetrics {
+    /// The width of those scripts, relative to the outer font size.
+    pub width: Em,
+    /// The height of those scripts, relative to the outer font size.
+    pub height: Em,
+    /// The horizontal (to the right) offset of those scripts, relative to the
+    /// outer font size.
+    ///
+    /// This is used for italic correction.
+    pub horizontal_offset: Em,
+    /// The vertical (to the top) offset of those scripts, relative to the outer font size.
+    ///
+    /// For superscripts, this is positive. For subscripts, this is negative.
+    pub vertical_offset: Em,
 }
 
 /// Identifies a vertical metric of a font.

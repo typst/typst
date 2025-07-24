@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ecow::eco_format;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use tiny_http::{Header, Request, Response, StatusCode};
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
 
 use crate::args::{Input, ServerArgs};
 
@@ -162,7 +162,7 @@ impl<T> Bucket<T> {
     }
 
     /// Retrieves the current data in the bucket.
-    fn get(&self) -> MutexGuard<T> {
+    fn get(&self) -> MutexGuard<'_, T> {
         self.mutex.lock()
     }
 

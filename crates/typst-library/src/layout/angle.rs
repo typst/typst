@@ -6,7 +6,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::EcoString;
 use typst_utils::{Numeric, Scalar};
 
-use crate::foundations::{func, repr, scope, ty, Repr};
+use crate::foundations::{Repr, func, repr, scope, ty};
 
 /// An angle describing a rotation.
 ///

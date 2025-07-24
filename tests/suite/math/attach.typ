@@ -121,8 +121,8 @@ $a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.lo
 
 --- math-attach-integral ---
 // Test default of scripts attachments on integrals at display size.
-$ integral.sect_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
-$integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
+$ integral.inter_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
+$integral.inter_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
 
 --- math-attach-large-operator ---
 // Test default of limit attachments on large operators at display size only.
@@ -179,7 +179,7 @@ $ a0 + a1 + a0_2 \
 #{
   let var = $x^1$
   for i in range(24) {
-    var = $var$    
+    var = $var$
   }
   $var_2$
 }

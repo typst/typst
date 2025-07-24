@@ -1,7 +1,7 @@
 use comemo::Tracked;
 
 use crate::diag::HintedStrResult;
-use crate::foundations::{func, Context};
+use crate::foundations::{Context, func};
 use crate::introspection::Location;
 
 /// Provides the current location in the document.

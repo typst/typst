@@ -10,12 +10,12 @@ use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
-use typst::diag::{bail, warning, StrResult};
+use typst::diag::{StrResult, bail, warning};
 use typst::syntax::Span;
 use typst::utils::format_duration;
 
 use crate::args::{Input, Output, WatchCommand};
-use crate::compile::{compile_once, print_diagnostics, CompileConfig};
+use crate::compile::{CompileConfig, compile_once, print_diagnostics};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};

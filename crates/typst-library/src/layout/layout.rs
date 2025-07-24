@@ -1,13 +1,7 @@
-use comemo::Track;
 use typst_syntax::Span;
 
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    dict, elem, func, Content, Context, Func, NativeElement, Packed, Show, StyleChain,
-};
+use crate::foundations::{Content, Func, NativeElement, elem, func};
 use crate::introspection::Locatable;
-use crate::layout::{BlockElem, Size};
 
 /// Provides access to the current outer container's (or page's, if none)
 /// dimensions (width and height).
@@ -86,37 +80,9 @@ pub fn layout(
 }
 
 /// Executes a `layout` call.
-#[elem(Locatable, Show)]
-struct LayoutElem {
+#[elem(Locatable)]
+pub struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]
-    func: Func,
-}
-
-impl Show for Packed<LayoutElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(
-            self.clone(),
-            |elem, engine, locator, styles, regions| {
-                // Gets the current region's base size, which will be the size of the
-                // outer container, or of the page if there is no such container.
-                let Size { x, y } = regions.base();
-                let loc = elem.location().unwrap();
-                let context = Context::new(Some(loc), Some(styles));
-                let result = elem
-                    .func
-                    .call(
-                        engine,
-                        context.track(),
-                        [dict! { "width" => x, "height" => y }],
-                    )?
-                    .display();
-                (engine.routines.layout_fragment)(
-                    engine, &result, locator, styles, regions,
-                )
-            },
-        )
-        .pack()
-        .spanned(self.span()))
-    }
+    pub func: Func,
 }

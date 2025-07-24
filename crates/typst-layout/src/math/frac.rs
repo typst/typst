@@ -7,8 +7,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    style_for_denominator, style_for_numerator, FrameFragment, GlyphFragment,
-    MathContext, DELIM_SHORT_FALL,
+    DELIM_SHORT_FALL, FrameFragment, GlyphFragment, MathContext, style_for_denominator,
+    style_for_numerator,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -124,7 +124,7 @@ fn layout_frac_like(
             FrameItem::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(
                     FixedStroke::from_pair(
-                        TextElem::fill_in(styles).as_decoration(),
+                        styles.get_ref(TextElem::fill).as_decoration(),
                         thickness,
                     ),
                 ),

@@ -1,6 +1,6 @@
 use ecow::EcoString;
 
-use crate::foundations::{ty, Repr};
+use crate::foundations::{Repr, ty};
 
 /// A type with two states.
 ///

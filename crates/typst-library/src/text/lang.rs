@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
 use crate::diag::Hint;
-use crate::foundations::{cast, StyleChain};
+use crate::foundations::{StyleChain, cast};
 use crate::layout::Dir;
 use crate::text::TextElem;
 
@@ -30,12 +30,14 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     translation!("fr"),
     translation!("gl"),
     translation!("he"),
+    translation!("hr"),
     translation!("hu"),
     translation!("id"),
     translation!("is"),
     translation!("it"),
     translation!("ja"),
     translation!("la"),
+    translation!("lt"),
     translation!("lv"),
     translation!("nb"),
     translation!("nl"),
@@ -89,6 +91,7 @@ impl Lang {
     pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const LATIN: Self = Self(*b"la ", 2);
     pub const LATVIAN: Self = Self(*b"lv ", 2);
+    pub const LITHUANIAN: Self = Self(*b"lt ", 2);
     pub const LOWER_SORBIAN: Self = Self(*b"dsb", 3);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
@@ -141,17 +144,15 @@ cast! {
     self => self.as_str().into_value(),
     string: EcoString => {
         let result = Self::from_str(&string);
-        if result.is_err() {
-            if let Some((lang, region)) = string.split_once('-') {
-                if Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
+        if result.is_err()
+            && let Some((lang, region)) = string.split_once('-')
+                && Lang::from_str(lang).is_ok() && Region::from_str(region).is_ok() {
                     return result
                         .hint(eco_format!(
                             "you should leave only \"{}\" in the `lang` parameter and specify \"{}\" in the `region` parameter",
                             lang, region,
                         ));
                 }
-            }
-        }
 
         result?
     }
@@ -249,7 +250,7 @@ pub trait LocalName {
     where
         Self: Sized,
     {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+        Self::local_name(styles.get(TextElem::lang), styles.get(TextElem::region))
     }
 }
 

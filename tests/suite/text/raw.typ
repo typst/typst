@@ -687,6 +687,11 @@ a b c --------------------
 #let hi = "你好world"
 ```
 
+--- issue-6559-equality-between-raws ---
+
+#test(`foo`, `foo`)
+#assert.ne(`foo`, `bar`)
+
 --- raw-theme-set-to-auto ---
 ```typ
 #let hi = "Hello World"

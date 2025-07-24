@@ -1,0 +1,8 @@
+figure = Slika
+table = Tablica
+equation = Jednadžba
+bibliography = Literatura
+heading = Odjeljak
+outline = Sadržaj
+raw = Kôd
+page = str.

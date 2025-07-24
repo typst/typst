@@ -27,7 +27,7 @@ pub use self::underover::*;
 use typst_utils::singleton;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{elem, Content, Module, NativeElement, Scope};
+use crate::foundations::{Content, Module, NativeElement, Scope, elem};
 use crate::layout::{Em, HElem};
 use crate::text::TextElem;
 
@@ -80,6 +80,7 @@ pub fn module() -> Module {
     math.define_func::<italic>();
     math.define_func::<serif>();
     math.define_func::<sans>();
+    math.define_func::<scr>();
     math.define_func::<cal>();
     math.define_func::<frak>();
     math.define_func::<mono>();
