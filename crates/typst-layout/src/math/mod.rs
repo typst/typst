@@ -13,8 +13,7 @@ mod stretch;
 mod text;
 mod underover;
 
-use typst_library::World;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
@@ -28,10 +27,7 @@ use typst_library::layout::{
 use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
-use typst_library::text::{
-    Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, families, variant,
-};
-use typst_syntax::Span;
+use typst_library::text::{LinebreakElem, RawElem, SpaceElem, TextEdgeBounds, TextElem};
 use typst_utils::Numeric;
 use unicode_math_class::MathClass;
 
@@ -53,12 +49,11 @@ pub fn layout_equation_inline(
 ) -> SourceResult<Vec<InlineItem>> {
     assert!(!elem.block.get(styles));
 
-    let font = find_math_font(engine, styles, elem.span())?;
-
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, region, &font);
+    let mut ctx = MathContext::new(engine, &mut locator, region);
 
-    let scale_style = style_for_script_scale(&ctx);
+    let font = find_math_font(ctx.engine.world, styles, elem.span())?;
+    let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
     let run = ctx.layout_into_run(&elem.body, styles)?;
@@ -108,12 +103,12 @@ pub fn layout_equation_block(
     assert!(elem.block.get(styles));
 
     let span = elem.span();
-    let font = find_math_font(engine, styles, span)?;
 
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), &font);
+    let mut ctx = MathContext::new(engine, &mut locator, regions.base());
 
-    let scale_style = style_for_script_scale(&ctx);
+    let font = find_math_font(ctx.engine.world, styles, elem.span())?;
+    let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
     let full_equation_builder = ctx
@@ -234,24 +229,6 @@ pub fn layout_equation_block(
     Ok(Fragment::frames(frames))
 }
 
-fn find_math_font(
-    engine: &mut Engine<'_>,
-    styles: StyleChain,
-    span: Span,
-) -> SourceResult<Font> {
-    let variant = variant(styles);
-    let world = engine.world;
-    let Some(font) = families(styles).find_map(|family| {
-        let id = world.book().select(family.as_str(), variant)?;
-        let font = world.font(id)?;
-        let _ = font.ttf().tables().math?.constants?;
-        Some(font)
-    }) else {
-        bail!(span, "current font does not support math");
-    };
-    Ok(font)
-}
-
 fn add_equation_number(
     equation_builder: MathRunFrameBuilder,
     number: Frame,
@@ -370,9 +347,6 @@ struct MathContext<'a, 'v, 'e> {
     engine: &'v mut Engine<'e>,
     locator: &'v mut SplitLocator<'a>,
     region: Region,
-    // Font-related.
-    font: &'a Font,
-    constants: ttf_parser::math::Constants<'a>,
     // Mutable.
     fragments: Vec<MathFragment>,
 }
@@ -383,19 +357,11 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         engine: &'v mut Engine<'e>,
         locator: &'v mut SplitLocator<'a>,
         base: Size,
-        font: &'a Font,
     ) -> Self {
-        // These unwraps are safe as the font given is one returned by the
-        // find_math_font function, which only returns fonts that have a math
-        // constants table.
-        let constants = font.ttf().tables().math.unwrap().constants.unwrap();
-
         Self {
             engine,
             locator,
             region: Region::new(base, Axes::splat(false)),
-            font,
-            constants,
             fragments: vec![],
         }
     }
@@ -469,17 +435,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             styles,
         )?;
 
-        let outer = styles;
         for (elem, styles) in pairs {
-            // Hack because the font is fixed in math.
-            if styles != outer
-                && styles.get_ref(TextElem::font) != outer.get_ref(TextElem::font)
-            {
-                let frame = layout_external(elem, self, styles)?;
-                self.push(FrameFragment::new(styles, frame).with_spaced(true));
-                continue;
-            }
-
             layout_realized(elem, self, styles)?;
         }
 
@@ -496,7 +452,10 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        let space_width = ctx.font.space_width().unwrap_or(THICK);
+        let space_width = find_math_font(ctx.engine.world, styles, elem.span())
+            .ok()
+            .and_then(|font| font.space_width())
+            .unwrap_or(THICK);
         ctx.push(MathFragment::Space(space_width.resolve(styles)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
@@ -566,9 +525,11 @@ fn layout_realized(
         self::underover::layout_overshell(elem, ctx, styles)?
     } else {
         let mut frame = layout_external(elem, ctx, styles)?;
-        if !frame.has_baseline() {
-            let axis = scaled!(ctx, styles, axis_height);
-            frame.set_baseline(frame.height() / 2.0 + axis);
+        if !frame.has_baseline() && !elem.is::<RawElem>() {
+            if let Ok(font) = find_math_font(ctx.engine.world, styles, elem.span()) {
+                let axis = value!(font, axis_height).resolve(styles);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+            }
         }
         ctx.push(
             FrameFragment::new(styles, frame)

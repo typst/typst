@@ -1,11 +1,11 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain};
+use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
 use typst_library::math::{EquationElem, MathSize, RootElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 
-use super::{FrameFragment, GlyphFragment, MathContext, style_cramped};
+use super::{FrameFragment, MathContext, style_cramped};
 
 /// Lays out a [`RootElem`].
 ///
@@ -17,19 +17,7 @@ pub fn layout_root(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let index = elem.index.get_ref(styles);
     let span = elem.span();
-
-    let gap = scaled!(
-        ctx, styles,
-        text: radical_vertical_gap,
-        display: radical_display_style_vertical_gap,
-    );
-    let thickness = scaled!(ctx, styles, radical_rule_thickness);
-    let extra_ascender = scaled!(ctx, styles, radical_extra_ascender);
-    let kern_before = scaled!(ctx, styles, radical_kern_before_degree);
-    let kern_after = scaled!(ctx, styles, radical_kern_after_degree);
-    let raise_factor = percent!(ctx, radical_degree_bottom_raise_percent);
 
     // Layout radicand.
     let radicand = {
@@ -37,25 +25,54 @@ pub fn layout_root(
         let styles = styles.chain(&cramped);
         let run = ctx.layout_into_run(&elem.radicand, styles)?;
         let multiline = run.is_multiline();
-        let mut radicand = run.into_fragment(styles).into_frame();
+        let radicand = run.into_fragment(styles);
         if multiline {
             // Align the frame center line with the math axis.
-            radicand.set_baseline(
-                radicand.height() / 2.0 + scaled!(ctx, styles, axis_height),
-            );
+            let (font, size) = radicand.font(ctx, styles, elem.radicand.span())?;
+            let axis = value!(font, axis_height).at(size);
+            let mut radicand = radicand.into_frame();
+            radicand.set_baseline(radicand.height() / 2.0 + axis);
+            radicand
+        } else {
+            radicand.into_frame()
         }
-        radicand
     };
 
     // Layout root symbol.
+    let mut sqrt =
+        ctx.layout_into_fragment(&SymbolElem::packed('√').spanned(span), styles)?;
+
+    let (font, size) = sqrt.font(ctx, styles, span)?;
+    let thickness = value!(font, radical_rule_thickness).at(size);
+    let extra_ascender = value!(font, radical_extra_ascender).at(size);
+    let kern_before = value!(font, radical_kern_before_degree).at(size);
+    let kern_after = value!(font, radical_kern_after_degree).at(size);
+    let raise_factor = percent!(font, radical_degree_bottom_raise_percent);
+    let gap = value!(
+        font, styles,
+        text: radical_vertical_gap,
+        display: radical_display_style_vertical_gap,
+    )
+    .at(size);
+
+    let line = FrameItem::Shape(
+        Geometry::Line(Point::with_x(radicand.width())).stroked(FixedStroke::from_pair(
+            sqrt.fill()
+                .unwrap_or_else(|| styles.get_ref(TextElem::fill).as_decoration()),
+            thickness,
+        )),
+        span,
+    );
+
     let target = radicand.height() + thickness + gap;
-    let mut sqrt = GlyphFragment::new_char(ctx.font, styles, '√', span)?;
     sqrt.stretch_vertical(ctx, target);
     let sqrt = sqrt.into_frame();
 
     // Layout the index.
     let sscript = EquationElem::size.set(MathSize::ScriptScript).wrap();
-    let index = index
+    let index = elem
+        .index
+        .get_ref(styles)
         .as_ref()
         .map(|elem| ctx.layout_into_frame(elem, styles.chain(&sscript)))
         .transpose()?;
@@ -107,19 +124,7 @@ pub fn layout_root(
     }
 
     frame.push_frame(sqrt_pos, sqrt);
-    frame.push(
-        line_pos,
-        FrameItem::Shape(
-            Geometry::Line(Point::with_x(radicand.width())).stroked(
-                FixedStroke::from_pair(
-                    styles.get_ref(TextElem::fill).as_decoration(),
-                    thickness,
-                ),
-            ),
-            span,
-        ),
-    );
-
+    frame.push(line_pos, line);
     frame.push_frame(radicand_pos, radicand);
     ctx.push(FrameFragment::new(styles, frame));
 
