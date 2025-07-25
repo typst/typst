@@ -39,9 +39,9 @@ pub use typst_syntax as syntax;
 pub use typst_utils as utils;
 
 use std::collections::HashSet;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
-use comemo::{Track, Tracked, Validate};
+use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_html::HtmlDocument;
 use typst_library::diag::{
@@ -135,10 +135,11 @@ fn compile_impl<D: Document>(
 
         subsink = Sink::new();
 
-        let constraint = <Introspector as Validate>::Constraint::new();
+        let constraint = Mutex::new(comemo::Constraint::new());
+        let push = |call, ret| constraint.lock().unwrap().push(call, ret);
         let mut engine = Engine {
             world,
-            introspector: introspector.track_with(&constraint),
+            introspector: introspector.track_with(&push),
             traced,
             sink: subsink.track_mut(),
             route: Route::default(),
@@ -150,7 +151,10 @@ fn compile_impl<D: Document>(
         introspector = document.introspector();
         iter += 1;
 
-        if timed!("check stabilized", introspector.validate(&constraint)) {
+        if timed!(
+            "check stabilized",
+            constraint.into_inner().unwrap().validate(introspector)
+        ) {
             break;
         }
 

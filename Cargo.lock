@@ -451,17 +451,19 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "comemo"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=60b30c6#60b30c6ae54f3c940dc4f778ca5090bd2a42a72e"
+source = "git+https://github.com/typst/comemo?rev=4b949e2#4b949e2c4f1ac5a6d31c73f06daf290d880ff509"
 dependencies = [
+ "bumpalo",
  "comemo-macros",
  "parking_lot",
  "siphasher",
+ "slab",
 ]
 
 [[package]]
 name = "comemo-macros"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=60b30c6#60b30c6ae54f3c940dc4f778ca5090bd2a42a72e"
+source = "git+https://github.com/typst/comemo?rev=4b949e2#4b949e2c4f1ac5a6d31c73f06daf290d880ff509"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2495,6 +2497,12 @@ dependencies = [
  "bytemuck",
  "read-fonts",
 ]
+
+[[package]]
+name = "slab"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04dc19736151f35336d325007ac991178d504a119863a2fcb3758cdb5e52c50d"
 
 [[package]]
 name = "slotmap"
