@@ -548,7 +548,7 @@ pub struct GridHLine {
 /// the grid's `row-gutter` option.
 #[elem(name = "vline", title = "Grid Vertical Line")]
 pub struct GridVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
+    /// The column before which the vertical line is placed (zero-indexed).
     /// If the `position` field is set to `{end}`, the line is placed after the
     /// column with the given index instead (see that field's docs for
     /// details).
