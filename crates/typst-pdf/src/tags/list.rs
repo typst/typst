@@ -60,10 +60,8 @@ impl ListCtx {
         // ```
         //
         // So move the nested list out of the list item.
-        if let [_, TagNode::Group(tag, _)] = nodes.as_slice() {
-            if let TagKind::L(_) = tag {
-                item.sub_list = nodes.pop();
-            }
+        if let [_, TagNode::Group(TagKind::L(_), _)] = nodes.as_slice() {
+            item.sub_list = nodes.pop();
         }
 
         item.body = Some(nodes);

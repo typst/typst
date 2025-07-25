@@ -211,7 +211,7 @@ impl TableCtx {
                     TableCellKind::Footer => Tag::TFoot.into(),
                     TableCellKind::Data => Tag::TBody.into(),
                 };
-                nodes.push(TagNode::Group(tag.into(), std::mem::take(&mut row_chunk)));
+                nodes.push(TagNode::Group(tag, std::mem::take(&mut row_chunk)));
 
                 chunk_kind = row_kind;
             }
@@ -224,7 +224,7 @@ impl TableCtx {
                 TableCellKind::Footer => Tag::TFoot.into(),
                 TableCellKind::Data => Tag::TBody.into(),
             };
-            nodes.push(TagNode::Group(tag.into(), row_chunk));
+            nodes.push(TagNode::Group(tag, row_chunk));
         }
 
         let tag = Tag::Table
@@ -257,7 +257,7 @@ impl TableCtx {
         }
 
         if let Some((_, cell_id)) = current_header.last() {
-            if !cell.headers.contains(&cell_id) {
+            if !cell.headers.contains(cell_id) {
                 cell.headers.push(cell_id.clone());
             }
         }

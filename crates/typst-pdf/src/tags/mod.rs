@@ -895,7 +895,7 @@ impl BBoxCtx {
             rect.max.y.to_f32(),
         )
         .unwrap();
-        Some(BBox::new(page_idx as usize, rect))
+        Some(BBox::new(page_idx, rect))
     }
 }
 
