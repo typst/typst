@@ -12,17 +12,20 @@ use krilla::tagging::{
     TagGroup, TagKind, TagTree,
 };
 use rustc_hash::FxHashMap;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, Point, Rect, RepeatElem};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, LinkMarker,
-    ListElem, Outlinable, OutlineEntry, QuoteElem, TableCell, TableElem, TermsElem,
+    ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell, TableElem,
+    TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{RawElem, RawLine};
 use typst_library::visualize::ImageElem;
+use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::LinkAnnotation;
@@ -47,66 +50,64 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         return;
     }
 
-    let loc = elem.location().expect("elem to be locatable");
-
     if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         let kind = artifact.kind.val();
-        push_artifact(gc, surface, loc, kind);
+        push_artifact(gc, surface, elem, kind);
         return;
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        push_artifact(gc, surface, loc, ArtifactKind::Other);
+        push_artifact(gc, surface, elem, ArtifactKind::Other);
         return;
     }
 
     let tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
-                push_stack(gc, loc, StackEntryKind::Outline(OutlineCtx::new()));
+                push_stack(gc, elem, StackEntryKind::Outline(OutlineCtx::new()));
                 return;
             }
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
-                push_stack(gc, loc, StackEntryKind::Figure(FigureCtx::new(alt)));
+                push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)));
                 return;
             }
             PdfMarkerTagKind::FootnoteRef(decl_loc) => {
-                push_stack(gc, loc, StackEntryKind::FootnoteRef(*decl_loc));
+                push_stack(gc, elem, StackEntryKind::FootnoteRef(*decl_loc));
                 return;
             }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
-                push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
+                push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
                 return;
             }
             PdfMarkerTagKind::BibEntry => {
-                push_stack(gc, loc, StackEntryKind::BibEntry);
+                push_stack(gc, elem, StackEntryKind::BibEntry);
                 return;
             }
             PdfMarkerTagKind::ListItemLabel => {
-                push_stack(gc, loc, StackEntryKind::ListItemLabel);
+                push_stack(gc, elem, StackEntryKind::ListItemLabel);
                 return;
             }
             PdfMarkerTagKind::ListItemBody => {
-                push_stack(gc, loc, StackEntryKind::ListItemBody);
+                push_stack(gc, elem, StackEntryKind::ListItemBody);
                 return;
             }
             PdfMarkerTagKind::Label => Tag::Lbl.into(),
         }
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
-        push_stack(gc, loc, StackEntryKind::OutlineEntry(entry.clone()));
+        push_stack(gc, elem, StackEntryKind::OutlineEntry(entry.clone()));
         return;
     } else if let Some(_list) = elem.to_packed::<ListElem>() {
         let numbering = ListNumbering::Circle; // TODO: infer numbering from `list.marker`
-        push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
+        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
         return;
     } else if let Some(_enumeration) = elem.to_packed::<EnumElem>() {
         let numbering = ListNumbering::Decimal; // TODO: infer numbering from `enum.numbering`
-        push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
+        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
         return;
     } else if let Some(_terms) = elem.to_packed::<TermsElem>() {
         let numbering = ListNumbering::None;
-        push_stack(gc, loc, StackEntryKind::List(ListCtx::new(numbering)));
+        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
         return;
     } else if let Some(_) = elem.to_packed::<FigureElem>() {
         // Wrap the figure tag and the sibling caption in a container, if the
@@ -124,7 +125,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
                 figure_ctx.alt = alt;
             }
         } else {
-            push_stack(gc, loc, StackEntryKind::Figure(FigureCtx::new(alt)));
+            push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)));
         }
         return;
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
@@ -135,13 +136,13 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
                 figure_ctx.alt = alt.clone();
             }
         }
-        push_stack(gc, loc, StackEntryKind::Formula(FigureCtx::new(alt)));
+        push_stack(gc, elem, StackEntryKind::Formula(FigureCtx::new(alt)));
         return;
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
         let ctx = TableCtx::new(table_id, summary);
-        push_stack(gc, loc, StackEntryKind::Table(ctx));
+        push_stack(gc, elem, StackEntryKind::Table(ctx));
         return;
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         let table_ctx = gc.tags.stack.parent_table();
@@ -151,29 +152,31 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         if cell.is_repeated.val() || table_ctx.is_some_and(|ctx| ctx.contains(cell)) {
-            push_artifact(gc, surface, loc, ArtifactKind::Other);
+            push_artifact(gc, surface, elem, ArtifactKind::Other);
         } else {
-            push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
+            push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()));
         }
         return;
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
         Tag::Hn(level, Some(name)).into()
+    } else if let Some(_) = elem.to_packed::<ParElem>() {
+        Tag::P.into()
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
-        push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()));
+        push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()));
         return;
     } else if let Some(entry) = elem.to_packed::<FootnoteEntry>() {
         let footnote_loc = entry.note.location().unwrap();
-        push_stack(gc, loc, StackEntryKind::FootnoteEntry(footnote_loc));
+        push_stack(gc, elem, StackEntryKind::FootnoteEntry(footnote_loc));
         return;
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
         // TODO: should the attribution be handled somehow?
         if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
     } else if let Some(raw) = elem.to_packed::<RawElem>() {
         if raw.block.val() {
-            push_stack(gc, loc, StackEntryKind::CodeBlock);
+            push_stack(gc, elem, StackEntryKind::CodeBlock);
             return;
         } else {
             Tag::Code.into()
@@ -181,7 +184,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     } else if let Some(_) = elem.to_packed::<RawLine>() {
         // If the raw element is inline, the content can be inserted directly.
         if gc.tags.stack.parent().is_some_and(|p| p.is_code_block()) {
-            push_stack(gc, loc, StackEntryKind::CodeBlockLine);
+            push_stack(gc, elem, StackEntryKind::CodeBlockLine);
         }
         return;
     } else {
@@ -189,25 +192,130 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     };
 
     let tag = tag.with_location(Some(elem.span().into_raw()));
-    push_stack(gc, loc, StackEntryKind::Standard(tag));
+    push_stack(gc, elem, StackEntryKind::Standard(tag));
 }
 
-pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) {
+fn push_stack(gc: &mut GlobalContext, elem: &Content, kind: StackEntryKind) {
+    let loc = elem.location().expect("elem to be locatable");
+    let span = elem.span();
+    gc.tags.stack.push(StackEntry { loc, span, kind, nodes: Vec::new() });
+}
+
+fn push_artifact(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    elem: &Content,
+    kind: ArtifactKind,
+) {
+    let loc = elem.location().expect("elem to be locatable");
+    let ty = artifact_type(kind);
+    let id = surface.start_tagged(ContentTag::Artifact(ty));
+    gc.tags.push(TagNode::Leaf(id));
+    gc.tags.in_artifact = Some((loc, kind));
+}
+
+pub fn handle_end(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    loc: Location,
+) -> SourceResult<()> {
     if gc.options.disable_tags {
-        return;
+        return Ok(());
     }
 
-    if let Some((l, _)) = gc.tags.in_artifact {
-        if l == loc {
-            pop_artifact(gc, surface);
-        }
-        return;
+    if let Some((l, _)) = gc.tags.in_artifact
+        && l == loc
+    {
+        pop_artifact(gc, surface);
+        return Ok(());
     }
 
-    let Some(entry) = gc.tags.stack.pop_if(|e| e.loc == loc) else {
-        return;
+    if let Some(entry) = gc.tags.stack.pop_if(|e| e.loc == loc) {
+        // The tag nesting was properly closed.
+        pop_stack(gc, entry);
+        return Ok(());
+    }
+
+    // Search for an improperly nested starting tag, that is being closed.
+    let Some(idx) = (gc.tags.stack.iter().enumerate())
+        .rev()
+        .find_map(|(i, e)| (e.loc == loc).then_some(i))
+    else {
+        // The start tag isn't in the tag stack, just ignore the end tag.
+        return Ok(());
     };
 
+    // There are overlapping tags in the tag tree. Figure whether breaking
+    // up the current tag stack is semantically ok.
+    let is_pdf_ua = gc.options.standards.config.validator() == Validator::UA1;
+    let mut is_breakable = true;
+    let mut non_breakable_span = Span::detached();
+    for e in gc.tags.stack[idx + 1..].iter() {
+        if e.kind.is_breakable(is_pdf_ua) {
+            continue;
+        }
+
+        is_breakable = false;
+        if !e.span.is_detached() {
+            non_breakable_span = e.span;
+            break;
+        }
+    }
+    if !is_breakable {
+        let validator = gc.options.standards.config.validator();
+        if is_pdf_ua {
+            let ua1 = validator.as_str();
+            bail!(
+                non_breakable_span,
+                "{ua1} error: invalid semantic structure, \
+                    this element's tag would be split up";
+                hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`"
+            );
+        } else {
+            bail!(
+                non_breakable_span,
+                "invalid semantic structure, \
+                this element's tag would be split up";
+                hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`";
+                hint: "disable tagged pdf by passing `--no-pdf-tags`"
+            );
+        }
+    }
+
+    // Close all children tags and reopen them after the currently enclosing element.
+    let mut broken_entries = Vec::new();
+    for _ in idx + 1..gc.tags.stack.len() {
+        let entry = gc.tags.stack.pop().unwrap();
+
+        let mut kind = entry.kind.clone();
+        if let StackEntryKind::Link(id, _) = &mut kind {
+            // Assign a new link id, so a new link annotation will be created.
+            *id = gc.tags.next_link_id();
+        }
+        if let Some(bbox) = kind.bbox_mut() {
+            bbox.reset();
+        }
+
+        broken_entries.push(StackEntry {
+            loc: entry.loc,
+            span: entry.span,
+            kind,
+            nodes: Vec::new(),
+        });
+        pop_stack(gc, entry);
+    }
+
+    // Pop the closed entry off the stack.
+    let closed = gc.tags.stack.pop().unwrap();
+    pop_stack(gc, closed);
+
+    // Push all broken and afterwards duplicated entries back on.
+    gc.tags.stack.extend(broken_entries);
+
+    Ok(())
+}
+
+fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => TagNode::group(tag, entry.nodes),
         StackEntryKind::Outline(ctx) => ctx.build_outline(entry.nodes),
@@ -304,22 +412,6 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface, loc: Location) 
     };
 
     gc.tags.push(node);
-}
-
-fn push_stack(gc: &mut GlobalContext, loc: Location, kind: StackEntryKind) {
-    gc.tags.stack.push(StackEntry { loc, kind, nodes: Vec::new() });
-}
-
-fn push_artifact(
-    gc: &mut GlobalContext,
-    surface: &mut Surface,
-    loc: Location,
-    kind: ArtifactKind,
-) {
-    let ty = artifact_type(kind);
-    let id = surface.start_tagged(ContentTag::Artifact(ty));
-    gc.tags.push(TagNode::Leaf(id));
-    gc.tags.in_artifact = Some((loc, kind));
 }
 
 fn pop_artifact(gc: &mut GlobalContext, surface: &mut Surface) {
@@ -516,11 +608,26 @@ impl TagStack {
         self.items.last_mut()
     }
 
+    pub fn iter(&self) -> std::slice::Iter<'_, StackEntry> {
+        self.items.iter()
+    }
+
     pub fn push(&mut self, entry: StackEntry) {
         if entry.kind.bbox().is_some() {
             self.bbox_idx = Some(self.len());
         }
         self.items.push(entry);
+    }
+
+    pub fn extend(&mut self, iter: impl IntoIterator<Item = StackEntry>) {
+        let start = self.len();
+        self.items.extend(iter);
+        let last_bbox_offset = self.items[start..]
+            .iter()
+            .rposition(|entry| entry.kind.bbox().is_some());
+        if let Some(offset) = last_bbox_offset {
+            self.bbox_idx = Some(start + offset);
+        }
     }
 
     /// Remove the last stack entry if the predicate returns true.
@@ -623,11 +730,12 @@ pub struct LinkId(u32);
 #[derive(Debug)]
 pub struct StackEntry {
     pub loc: Location,
+    pub span: Span,
     pub kind: StackEntryKind,
     pub nodes: Vec<TagNode>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
     Outline(OutlineCtx),
@@ -696,6 +804,66 @@ impl StackEntryKind {
             _ => None,
         }
     }
+
+    fn is_breakable(&self, is_pdf_ua: bool) -> bool {
+        match self {
+            StackEntryKind::Standard(tag) => match tag {
+                TagKind::Part(_) => !is_pdf_ua,
+                TagKind::Article(_) => !is_pdf_ua,
+                TagKind::Section(_) => !is_pdf_ua,
+                TagKind::Div(_) => !is_pdf_ua,
+                TagKind::BlockQuote(_) => !is_pdf_ua,
+                TagKind::Caption(_) => !is_pdf_ua,
+                TagKind::TOC(_) => false,
+                TagKind::TOCI(_) => false,
+                TagKind::Index(_) => false,
+                TagKind::P(_) => true,
+                TagKind::Hn(_) => !is_pdf_ua,
+                TagKind::L(_) => false,
+                TagKind::LI(_) => false,
+                TagKind::Lbl(_) => !is_pdf_ua,
+                TagKind::LBody(_) => !is_pdf_ua,
+                TagKind::Table(_) => false,
+                TagKind::TR(_) => false,
+                TagKind::TH(_) => false,
+                TagKind::TD(_) => false,
+                TagKind::THead(_) => false,
+                TagKind::TBody(_) => false,
+                TagKind::TFoot(_) => false,
+                TagKind::Span(_) => true,
+                TagKind::InlineQuote(_) => !is_pdf_ua,
+                TagKind::Note(_) => !is_pdf_ua,
+                TagKind::Reference(_) => !is_pdf_ua,
+                TagKind::BibEntry(_) => !is_pdf_ua,
+                TagKind::Code(_) => !is_pdf_ua,
+                TagKind::Link(_) => !is_pdf_ua,
+                TagKind::Annot(_) => !is_pdf_ua,
+                TagKind::Figure(_) => !is_pdf_ua,
+                TagKind::Formula(_) => !is_pdf_ua,
+                TagKind::NonStruct(_) => !is_pdf_ua,
+                TagKind::Datetime(_) => !is_pdf_ua,
+                TagKind::Terms(_) => !is_pdf_ua,
+                TagKind::Title(_) => !is_pdf_ua,
+                TagKind::Strong(_) => !is_pdf_ua,
+                TagKind::Em(_) => !is_pdf_ua,
+            },
+            StackEntryKind::Outline(_) => false,
+            StackEntryKind::OutlineEntry(_) => false,
+            StackEntryKind::Table(_) => false,
+            StackEntryKind::TableCell(_) => false,
+            StackEntryKind::List(_) => false,
+            StackEntryKind::ListItemLabel => false,
+            StackEntryKind::ListItemBody => false,
+            StackEntryKind::BibEntry => false,
+            StackEntryKind::Figure(_) => false,
+            StackEntryKind::Formula(_) => false,
+            StackEntryKind::Link(..) => !is_pdf_ua,
+            StackEntryKind::FootnoteRef(_) => false,
+            StackEntryKind::FootnoteEntry(_) => false,
+            StackEntryKind::CodeBlock => false,
+            StackEntryKind::CodeBlockLine => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -736,6 +904,10 @@ pub struct BBoxCtx {
 impl BBoxCtx {
     pub fn new() -> Self {
         Self { rect: None, multi_page: false }
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new();
     }
 
     /// Expand the bounding box with a `rect` relative to the current frame

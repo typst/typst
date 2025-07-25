@@ -12,7 +12,7 @@ use typst_syntax::Span;
 use crate::tags::util::PropertyValCopied;
 use crate::tags::{BBoxCtx, TableId, TagNode};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TableCtx {
     pub id: TableId,
     pub summary: Option<String>,
@@ -230,9 +230,7 @@ impl TableCtx {
             nodes.push(TagNode::Group(tag, row_chunk));
         }
 
-        let tag = Tag::Table
-            .with_summary(self.summary)
-            .with_bbox(self.bbox.get());
+        let tag = Tag::Table.with_summary(self.summary).with_bbox(self.bbox.get());
         TagNode::group(tag, nodes)
     }
 
