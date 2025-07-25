@@ -216,13 +216,19 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
 const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
+    let span = elem.span();
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
     let alt = match elem.alt.get_cloned(styles) {
         Some(alt) => Some(alt),
         None => dest.alt_text(engine, styles)?,
     };
-    Ok(body.linked(dest, alt))
+    // Manually construct link marker that spans the whole link elem, not just
+    // the body.
+    Ok(LinkMarker::new(body, dest.clone(), alt)
+        .pack()
+        .spanned(span)
+        .set(LinkElem::current, Some(dest)))
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {

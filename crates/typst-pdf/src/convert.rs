@@ -617,7 +617,7 @@ fn convert_error(
             let span = to_span(*loc);
             error!(
                 span, "{prefix} missing annotation alt text";
-                hint: "please report this as a bug"
+                hint: "manually add alt text to your links"
             )
         }
         ValidationError::MissingAltText(loc) => {

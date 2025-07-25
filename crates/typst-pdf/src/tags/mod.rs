@@ -535,10 +535,10 @@ impl TagStack {
 
     pub(crate) fn find_parent_link(
         &mut self,
-    ) -> Option<(LinkId, &LinkMarker, &mut Vec<TagNode>)> {
+    ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
         self.0.iter_mut().rev().find_map(|e| {
             let (link_id, link) = e.kind.as_link()?;
-            Some((link_id, link.as_ref(), &mut e.nodes))
+            Some((link_id, link, &mut e.nodes))
         })
     }
 

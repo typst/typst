@@ -71,7 +71,7 @@ pub(crate) fn handle_link(
             let (alt, span) = if let Some((link, nodes)) = tagging_ctx {
                 nodes.push(TagNode::Placeholder(placeholder));
                 let alt = link.alt.as_ref().map(EcoString::to_string);
-                (alt, link.span)
+                (alt, link.span())
             } else {
                 (None, Span::detached())
             };
