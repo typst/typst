@@ -11,7 +11,7 @@ use typst_syntax::Span;
 
 use crate::tags::{BBoxCtx, TableId, TagNode};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct TableCtx {
     pub(crate) id: TableId,
     pub(crate) summary: Option<String>,
