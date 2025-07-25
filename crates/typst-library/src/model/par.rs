@@ -60,10 +60,9 @@ use crate::model::Numbering;
 ///
 /// - A proper distinction between paragraphs and other text helps people who
 ///   rely on assistive technologies (such as screen readers) navigate and
-///   understand the document properly. Currently, this only applies to HTML
-///   export since Typst does not yet output accessible PDFs, but support for
-///   this is planned for the near future.
+///   understand the document properly.
 ///
+/// - PDF export will generate a `P` tag only for paragraphs.
 /// - HTML export will generate a `<p>` tag only for paragraphs.
 ///
 /// When creating custom reusable components, you can and should take charge

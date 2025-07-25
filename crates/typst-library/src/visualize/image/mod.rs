@@ -134,7 +134,7 @@ pub struct ImageElem {
     /// The height of the image.
     pub height: Sizing,
 
-    /// A text describing the image.
+    /// An alternative description of the image.
     pub alt: Option<EcoString>,
 
     /// The page number that should be embedded as an image. This attribute only
