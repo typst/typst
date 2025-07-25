@@ -60,6 +60,7 @@ use crate::model::Numbering;
 ///
 /// - A proper distinction between paragraphs and other text helps people who
 ///   rely on assistive technologies (such as screen readers) navigate and
+// TODO(accessibility): update comment
 ///   understand the document properly. Currently, this only applies to HTML
 ///   export since Typst does not yet output accessible PDFs, but support for
 ///   this is planned for the near future.
