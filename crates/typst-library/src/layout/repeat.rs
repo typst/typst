@@ -1,4 +1,5 @@
 use crate::foundations::{Content, elem};
+use crate::introspection::Locatable;
 use crate::layout::Length;
 
 /// Repeats content to the available space.
@@ -22,7 +23,7 @@ use crate::layout::Length;
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-#[elem]
+#[elem(Locatable)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]

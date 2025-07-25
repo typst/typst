@@ -593,6 +593,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
+
+[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1424,7 +1430,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=37b9a00#37b9a00bfac87ed0b347b7cf8e9d37a6f68fcccd"
+source = "git+https://github.com/LaurenzV/krilla?branch=main#9e825532895036c7dfb440710d19271c6ad0473a"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1454,7 +1460,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=37b9a00#37b9a00bfac87ed0b347b7cf8e9d37a6f68fcccd"
+source = "git+https://github.com/LaurenzV/krilla?branch=main#9e825532895036c7dfb440710d19271c6ad0473a"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2038,6 +2044,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi",
 ]
 
 [[package]]
@@ -3193,6 +3209,7 @@ dependencies = [
 name = "typst-pdf"
 version = "0.13.1"
 dependencies = [
+ "az",
  "bytemuck",
  "comemo",
  "ecow",
@@ -3200,7 +3217,9 @@ dependencies = [
  "infer",
  "krilla",
  "krilla-svg",
+ "pretty_assertions",
  "serde",
+ "smallvec",
  "typst-assets",
  "typst-library",
  "typst-macros",
@@ -3866,6 +3885,12 @@ checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
 ]
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yoke"

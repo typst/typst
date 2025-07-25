@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use codex::styling::MathVariant;
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 use unicode_math_class::MathClass;
 
@@ -47,6 +48,9 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 /// [main math page]($category/math).
 #[elem(Locatable, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
+    /// An alternative description of the mathematical equation.
+    pub alt: Option<EcoString>,
+
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
