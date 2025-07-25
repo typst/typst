@@ -528,7 +528,7 @@ pub struct TableHLine {
 /// part of all your tables' designs.
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
+    /// The column before which the vertical line is placed (zero-indexed).
     /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
     pub x: Smart<usize>,
 
