@@ -7,6 +7,7 @@ use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
 use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
 use crate::foundations::{
@@ -237,14 +238,6 @@ impl Symbol {
         'variants: for (i, &Spanned { ref v, span }) in variants.iter().enumerate() {
             modifiers.clear();
 
-            if v.1.is_empty() {
-                errors.push(if v.0.is_empty() {
-                    error!(span, "empty default variant")
-                } else {
-                    error!(span, "empty variant: {}", v.0.repr())
-                });
-            }
-
             if !v.0.is_empty() {
                 // Collect all modifiers.
                 for modifier in v.0.split('.') {
@@ -406,7 +399,11 @@ pub struct SymbolVariant(EcoString, EcoString);
 
 cast! {
     SymbolVariant,
-    s: EcoString => Self(EcoString::new(), s),
+    s: EcoString => if s.is_empty() || s.graphemes(true).nth(1).is_some() {
+        Err("variant value must be exactly one grapheme cluster")?
+    } else {
+        Self(EcoString::new(), s)
+    },
     array: Array => {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next()) {
