@@ -42,6 +42,7 @@ impl TextItem {
     }
 
     /// The bounding box of the text run.
+    #[comemo::memoize]
     pub fn bbox(&self) -> Rect {
         let mut min = Point::splat(Abs::inf());
         let mut max = Point::splat(-Abs::inf());

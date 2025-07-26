@@ -295,6 +295,9 @@ pub(crate) fn handle_end(
             // Assign a new link id, so a new link annotation will be created.
             *id = gc.tags.next_link_id();
         }
+        if let Some(bbox) = kind.bbox_mut() {
+            bbox.reset();
+        }
 
         broken_entries.push(StackEntry {
             loc: entry.loc,
@@ -454,8 +457,8 @@ pub(crate) fn update_bbox(
     fc: &FrameContext,
     compute_bbox: impl FnOnce() -> Rect,
 ) {
-    if gc.options.standards.config.validator() == Validator::UA1
-        && let Some(bbox) = gc.tags.stack.find_parent_bbox()
+    if let Some(bbox) = gc.tags.stack.find_parent_bbox()
+        && gc.options.standards.config.validator() == Validator::UA1
     {
         bbox.expand_frame(fc, compute_bbox());
     }
@@ -485,7 +488,7 @@ pub(crate) struct Tags {
 impl Tags {
     pub(crate) fn new() -> Self {
         Self {
-            stack: TagStack(Vec::new()),
+            stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             footnotes: HashMap::new(),
             in_artifact: None,
@@ -557,47 +560,65 @@ impl Tags {
 }
 
 #[derive(Debug)]
-pub(crate) struct TagStack(Vec<StackEntry>);
+pub(crate) struct TagStack {
+    items: Vec<StackEntry>,
+    /// The index of the topmost stack entry that has a bbox.
+    bbox_idx: Option<usize>,
+}
 
 impl<I: SliceIndex<[StackEntry]>> std::ops::Index<I> for TagStack {
     type Output = I::Output;
 
     #[inline]
     fn index(&self, index: I) -> &Self::Output {
-        std::ops::Index::index(&self.0, index)
+        std::ops::Index::index(&self.items, index)
     }
 }
 
 impl<I: SliceIndex<[StackEntry]>> std::ops::IndexMut<I> for TagStack {
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        std::ops::IndexMut::index_mut(&mut self.0, index)
+        std::ops::IndexMut::index_mut(&mut self.items, index)
     }
 }
 
 impl TagStack {
+    pub(crate) fn new() -> Self {
+        Self { items: Vec::new(), bbox_idx: None }
+    }
+
     pub(crate) fn len(&self) -> usize {
-        self.0.len()
+        self.items.len()
     }
 
     pub(crate) fn last(&self) -> Option<&StackEntry> {
-        self.0.last()
+        self.items.last()
     }
 
     pub(crate) fn last_mut(&mut self) -> Option<&mut StackEntry> {
-        self.0.last_mut()
+        self.items.last_mut()
     }
 
     pub(crate) fn iter(&self) -> std::slice::Iter<StackEntry> {
-        self.0.iter()
+        self.items.iter()
     }
 
     pub(crate) fn push(&mut self, entry: StackEntry) {
-        self.0.push(entry);
+        if entry.kind.bbox().is_some() {
+            self.bbox_idx = Some(self.len());
+        }
+        self.items.push(entry);
     }
 
     pub(crate) fn extend(&mut self, iter: impl IntoIterator<Item = StackEntry>) {
-        self.0.extend(iter);
+        let start = self.len();
+        self.items.extend(iter);
+        let last_bbox_offset = self.items[start..]
+            .iter()
+            .rposition(|entry| entry.kind.bbox().is_some());
+        if let Some(offset) = last_bbox_offset {
+            self.bbox_idx = Some(start + offset);
+        }
     }
 
     /// Remove the last stack entry if the predicate returns true.
@@ -606,24 +627,30 @@ impl TagStack {
         &mut self,
         mut predicate: impl FnMut(&mut StackEntry) -> bool,
     ) -> Option<StackEntry> {
-        let last = self.0.last_mut()?;
+        let last = self.items.last_mut()?;
         if predicate(last) { self.pop() } else { None }
     }
 
     /// Remove the last stack entry.
     /// This takes care of updating the parent bboxes.
     pub(crate) fn pop(&mut self) -> Option<StackEntry> {
-        let entry = self.0.pop()?;
-        if let Some((page_idx, rect)) = entry.kind.bbox().and_then(|b| b.rect)
-            && let Some(bbox) = self.find_parent_bbox()
-        {
-            bbox.expand_page(page_idx, rect);
-        }
-        Some(entry)
+        let removed = self.items.pop()?;
+
+        let Some(inner_bbox) = removed.kind.bbox() else { return Some(removed) };
+
+        self.bbox_idx = self.items.iter_mut().enumerate().rev().find_map(|(i, entry)| {
+            let outer_bbox = entry.kind.bbox_mut()?;
+            if let Some((page_idx, rect)) = inner_bbox.rect {
+                outer_bbox.expand_page(page_idx, rect);
+            }
+            Some(i)
+        });
+
+        Some(removed)
     }
 
     pub(crate) fn parent(&mut self) -> Option<&mut StackEntryKind> {
-        self.0.last_mut().map(|e| &mut e.kind)
+        self.items.last_mut().map(|e| &mut e.kind)
     }
 
     pub(crate) fn parent_table(&mut self) -> Option<&mut TableCtx> {
@@ -641,7 +668,7 @@ impl TagStack {
     pub(crate) fn parent_outline(
         &mut self,
     ) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
-        self.0.last_mut().and_then(|e| {
+        self.items.last_mut().and_then(|e| {
             let ctx = e.kind.as_outline_mut()?;
             Some((ctx, &mut e.nodes))
         })
@@ -650,7 +677,7 @@ impl TagStack {
     pub(crate) fn find_parent_link(
         &mut self,
     ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
-        self.0.iter_mut().rev().find_map(|e| {
+        self.items.iter_mut().rev().find_map(|e| {
             let (link_id, link) = e.kind.as_link()?;
             Some((link_id, link, &mut e.nodes))
         })
@@ -658,7 +685,7 @@ impl TagStack {
 
     /// Finds the first parent that has a bounding box.
     pub(crate) fn find_parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
-        self.0.iter_mut().rev().find_map(|e| e.kind.bbox_mut())
+        self.items[self.bbox_idx?].kind.bbox_mut()
     }
 }
 
@@ -834,6 +861,10 @@ pub(crate) struct BBoxCtx {
 impl BBoxCtx {
     pub(crate) fn new() -> Self {
         Self { rect: None, multi_page: false }
+    }
+
+    pub(crate) fn reset(&mut self) {
+        *self = Self::new();
     }
 
     /// Expand the bounding box with a `rect` relative to the current frame
