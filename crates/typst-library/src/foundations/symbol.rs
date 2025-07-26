@@ -238,6 +238,13 @@ impl Symbol {
         'variants: for (i, &Spanned { ref v, span }) in variants.iter().enumerate() {
             modifiers.clear();
 
+            if v.1.is_empty() || v.1.graphemes(true).nth(1).is_some() {
+                errors.push(error!(
+                    span, "invalid variant value: {}", v.1.repr();
+                    hint: "variant value must be exactly one grapheme cluster"
+                ));
+            }
+
             if !v.0.is_empty() {
                 // Collect all modifiers.
                 for modifier in v.0.split('.') {
@@ -399,11 +406,7 @@ pub struct SymbolVariant(EcoString, EcoString);
 
 cast! {
     SymbolVariant,
-    s: EcoString => if s.is_empty() || s.graphemes(true).nth(1).is_some() {
-        Err("variant value must be exactly one grapheme cluster")?
-    } else {
-        Self(EcoString::new(), s)
-    },
+    s: EcoString => Self(EcoString::new(), s),
     array: Array => {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next()) {

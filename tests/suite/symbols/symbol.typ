@@ -88,12 +88,24 @@
   ("variant.duplicate", "y"),
 )
 
---- symbol-constructor-empty-variant ---
-// Error: 2:3-2:5 empty default variant
-// Error: 3:3-3:16 empty variant: "empty"
+--- symbol-constructor-empty-variant-value ---
+// Error: 2:3-2:5 invalid variant value: ""
+// Hint: 2:3-2:5 variant value must be exactly one grapheme cluster
+// Error: 3:3-3:16 invalid variant value: ""
+// Hint: 3:3-3:16 variant value must be exactly one grapheme cluster
 #symbol(
   "",
   ("empty", "")
+)
+
+--- symbol-constructor-multi-cluster-variant-value ---
+// Error: 2:3-2:7 invalid variant value: "aa"
+// Hint: 2:3-2:7 variant value must be exactly one grapheme cluster
+// Error: 3:3-3:14 invalid variant value: "bb"
+// Hint: 3:3-3:14 variant value must be exactly one grapheme cluster
+#symbol(
+  "aa",
+  ("b", "bb")
 )
 
 --- symbol-unknown-modifier ---
