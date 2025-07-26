@@ -8,7 +8,7 @@ use ecow::{EcoString, EcoVec};
 use smallvec::SmallVec;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{Location, Tag};
 use crate::layout::{Frame, FrameItem, Point, Position, Transform};
@@ -327,7 +327,7 @@ where
         self.0.entry(key).or_default().push(value);
     }
 
-    fn take(&mut self, key: &K) -> Option<impl Iterator<Item = V>> {
+    fn take(&mut self, key: &K) -> Option<impl Iterator<Item = V> + use<K, V>> {
         self.0.remove(key).map(|vec| vec.into_iter())
     }
 }

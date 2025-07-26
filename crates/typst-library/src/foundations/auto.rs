@@ -4,8 +4,8 @@ use ecow::EcoString;
 
 use crate::diag::HintedStrResult;
 use crate::foundations::{
-    ty, CastInfo, Fold, FromValue, IntoValue, Reflect, Repr, Resolve, StyleChain, Type,
-    Value,
+    CastInfo, Fold, FromValue, IntoValue, Reflect, Repr, Resolve, StyleChain, Type,
+    Value, ty,
 };
 
 /// A value that indicates a smart default.

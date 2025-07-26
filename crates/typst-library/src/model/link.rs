@@ -1,11 +1,11 @@
 use std::ops::Deref;
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    cast, elem, Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles,
+    Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::Position;

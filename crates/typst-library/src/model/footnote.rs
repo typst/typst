@@ -3,11 +3,11 @@ use std::str::FromStr;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain,
-    Styles,
+    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
+    elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, Length, Ratio};

@@ -1,6 +1,6 @@
 use typst_syntax::Span;
 
-use crate::foundations::{elem, func, Content, Func, NativeElement};
+use crate::foundations::{Content, Func, NativeElement, elem, func};
 use crate::introspection::Locatable;
 
 /// Provides access to the current outer container's (or page's, if none)

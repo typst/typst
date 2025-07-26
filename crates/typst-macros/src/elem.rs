@@ -6,8 +6,8 @@ use syn::punctuated::Punctuated;
 use syn::{Ident, Result, Token};
 
 use crate::util::{
-    determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,
-    parse_flag, parse_string, parse_string_array, validate_attrs, BlockWithReturn,
+    BlockWithReturn, determine_name_and_title, documentation, foundations, has_attr, kw,
+    parse_attr, parse_flag, parse_string, parse_string_array, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.

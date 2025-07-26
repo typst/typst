@@ -1,8 +1,8 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
 use ecow::{EcoString, EcoVec};
-use typst_library::diag::{bail, HintedStrResult, StrResult};
-use typst_library::foundations::{cast, Dict, Repr, Str, StyleChain};
+use typst_library::diag::{HintedStrResult, StrResult, bail};
+use typst_library::foundations::{Dict, Repr, Str, StyleChain, cast};
 use typst_library::introspection::{Introspector, Tag};
 use typst_library::layout::{Abs, Frame, Point};
 use typst_library::model::DocumentInfo;

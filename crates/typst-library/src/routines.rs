@@ -5,6 +5,7 @@ use comemo::{Tracked, TrackedMut};
 use typst_syntax::{Span, SyntaxMode};
 use typst_utils::LazyHash;
 
+use crate::World;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
@@ -14,7 +15,6 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
 use crate::model::DocumentInfo;
-use crate::World;
 
 /// Defines the `Routines` struct.
 macro_rules! routines {

@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content};
+use crate::foundations::{Content, elem};
 
 /// Emphasizes content by toggling italics.
 ///
