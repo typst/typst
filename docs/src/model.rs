@@ -159,7 +159,7 @@ pub struct SymbolsModel {
 #[serde(rename_all = "camelCase")]
 pub struct SymbolModel {
     pub name: EcoString,
-    pub codepoint: u32,
+    pub value: EcoString,
     pub accent: bool,
     pub alternates: Vec<EcoString>,
     pub markup_shorthand: Option<&'static str>,
