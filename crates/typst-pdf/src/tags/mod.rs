@@ -434,20 +434,21 @@ pub(crate) fn add_link_annotations(
     page: &mut Page,
     annotations: Vec<LinkAnnotation>,
 ) {
-    for annotation in annotations.into_iter() {
-        let LinkAnnotation { id: _, placeholder, alt, quad_points, target, span } =
-            annotation;
-        let annot = krilla::annotation::Annotation::new_link(
-            krilla::annotation::LinkAnnotation::new_with_quad_points(quad_points, target),
-            alt,
+    for a in annotations.into_iter() {
+        let annotation = krilla::annotation::Annotation::new_link(
+            krilla::annotation::LinkAnnotation::new_with_quad_points(
+                a.quad_points,
+                a.target,
+            ),
+            a.alt,
         )
-        .with_location(Some(span.into_raw().get()));
+        .with_location(Some(a.span.into_raw()));
 
         if gc.options.disable_tags {
-            page.add_annotation(annot);
+            page.add_annotation(annotation);
         } else {
-            let annot_id = page.add_tagged_annotation(annot);
-            gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
+            let annot_id = page.add_tagged_annotation(annotation);
+            gc.tags.placeholders.init(a.placeholder, Node::Leaf(annot_id));
         }
     }
 }

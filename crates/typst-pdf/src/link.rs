@@ -9,11 +9,11 @@ use typst_library::model::Destination;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::tags::{self, Placeholder, TagNode};
+use crate::tags::{LinkId, Placeholder, TagNode};
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) struct LinkAnnotation {
-    pub(crate) id: tags::LinkId,
+    pub(crate) id: LinkId,
     pub(crate) placeholder: Placeholder,
     pub(crate) alt: Option<String>,
     pub(crate) quad_points: Vec<kg::Quadrilateral>,
@@ -60,12 +60,19 @@ pub(crate) fn handle_link(
     };
     let quad = to_quadrilateral(fc, size);
 
-    // Unfortunately quadpoints still aren't well supported by most PDF readers,
-    // even by acrobat. Which is understandable since they were only introduced
-    // in PDF 1.6 (2005) /s
-    let should_use_quadpoints = gc.options.standards.config.validator() == Validator::UA1;
+    // Unfortunately quadpoints still aren't well supported by most PDF readers.
+    // So only add multiple quadpoint entries to one annotation when targeting
+    // PDF/UA. Otherwise generate multiple annotations, to avoid pdf readers
+    // falling back to the bounding box rectangle, which can span parts unrelated
+    // to the link. For example if there is a linebreak:
+    // ```
+    // Imagine this is a paragraph containing a link. It starts here https://github.com/
+    // typst/typst and then ends on another line.
+    // ```
+    // The bounding box would span the entire paragraph, which is undesirable.
+    let join_annotations = gc.options.standards.config.validator() == Validator::UA1;
     match fc.get_link_annotation(link_id) {
-        Some(annotation) if should_use_quadpoints => annotation.quad_points.push(quad),
+        Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
             let placeholder = gc.tags.placeholders.reserve();
             let (alt, span) = if let Some((link, nodes)) = tagging_ctx {
