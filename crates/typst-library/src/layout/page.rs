@@ -903,6 +903,7 @@ papers! {
     (NEWSPAPER_BERLINER:   315.0,    470.0, "newspaper-berliner")
     (NEWSPAPER_BROADSHEET: 381.0,    578.0, "newspaper-broadsheet")
     (PRESENTATION_16_9:    297.0, 167.0625, "presentation-16-9")
+    (PRESENTATION_16_10:   297.0,  185.625, "presentation-16-10")
     (PRESENTATION_4_3:     280.0,    210.0, "presentation-4-3")
 }
 
