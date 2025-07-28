@@ -15,7 +15,7 @@ use crate::package;
 
 /// Execute an initialization command.
 pub fn init(command: &InitCommand) -> StrResult<()> {
-    let package_storage = package::storage(&command.package);
+    let package_storage = package::storage(&command.package, None);
 
     // Parse the package specification. If the user didn't specify the version,
     // we try to figure it out automatically by downloading the package index

@@ -76,6 +76,9 @@ pub enum Command {
     /// Processes an input file to extract provided metadata.
     Query(QueryCommand),
 
+    /// Create a vendor directory with all used packages.
+    Vendor(VendorCommand),
+
     /// Lists all discovered fonts in system and custom font paths.
     Fonts(FontsCommand),
 
@@ -154,6 +157,22 @@ pub struct QueryCommand {
     /// Only applies to JSON format.
     #[clap(long)]
     pub pretty: bool,
+
+    /// World arguments.
+    #[clap(flatten)]
+    pub world: WorldArgs,
+
+    /// Processing arguments.
+    #[clap(flatten)]
+    pub process: ProcessArgs,
+}
+
+/// Create a vendor directory with all used packages in the current directory.
+#[derive(Debug, Clone, Parser)]
+pub struct VendorCommand {
+    /// Path to input Typst file. Use `-` to read input from stdin.
+    #[clap(value_parser = input_value_parser(), value_hint = ValueHint::FilePath)]
+    pub input: Input,
 
     /// World arguments.
     #[clap(flatten)]
@@ -354,6 +373,14 @@ pub struct PackageArgs {
         value_name = "DIR"
     )]
     pub package_cache_path: Option<PathBuf>,
+
+    /// Custom vendor directory name.
+    #[clap(
+        long = "package-vendor-path",
+        env = "TYPST_PACKAGE_VENDOR_PATH",
+        value_name = "DIR"
+    )]
+    pub vendor_path: Option<PathBuf>,
 }
 
 /// Common arguments to customize available fonts.
