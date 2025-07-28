@@ -246,11 +246,11 @@ impl DeprecationSink for () {
 impl DeprecationSink for (&mut Engine<'_>, Span) {
     /// Emits the deprecation message as a warning.
     fn emit(self, message: &str, version: Option<&str>) {
-        self.0.sink.warn(
-            SourceDiagnostic::warning(self.1, message).with_hints(
-                version.map(|v| eco_format!("this will be removed in {}", v)),
-            ),
-        );
+        self.0
+            .sink
+            .warn(SourceDiagnostic::warning(self.1, message).with_hints(
+                version.map(|v| eco_format!("it will be removed in Typst {}", v)),
+            ));
     }
 }
 
