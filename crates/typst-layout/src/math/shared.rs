@@ -6,7 +6,7 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Style, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{Font, FontFeatures, TextElem, families, variant};
+use typst_library::text::{Font, FontFeatures, FontFlags, TextElem, families, variant};
 use typst_syntax::Span;
 use typst_utils::LazyHash;
 
@@ -80,11 +80,13 @@ pub fn find_math_font(
 ) -> SourceResult<Font> {
     let variant = variant(styles);
     let Some(font) = families(styles).find_map(|family| {
-        let id = world.book().select(family.as_str(), variant)?;
-        let font = world.font(id)?;
-        let _ = font.ttf().tables().math?.constants?;
         // Take the base font as the "main" math font.
-        family.covers().map_or(Some(font), |_| None)
+        world
+            .book()
+            .select(family.as_str(), variant)
+            .and_then(|id| world.font(id))
+            .filter(|font| font.info().flags.contains(FontFlags::MATH))
+            .filter(|_| family.covers().is_none())
     }) else {
         bail!(span, "current font does not support math");
     };

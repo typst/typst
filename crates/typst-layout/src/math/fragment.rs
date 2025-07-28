@@ -13,7 +13,7 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{
-    Font, Glyph, TextElem, TextItem, families, features, language, variant,
+    Font, FontFlags, Glyph, TextElem, TextItem, families, features, language, variant,
 };
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
@@ -333,9 +333,7 @@ impl GlyphFragment {
             selection = book
                 .select(family.as_str(), variant)
                 .and_then(|id| world.font(id))
-                .filter(|font| {
-                    font.ttf().tables().math.and_then(|math| math.constants).is_some()
-                })
+                .filter(|font| font.info().flags.contains(FontFlags::MATH))
                 .filter(|_| family.covers().is_none_or(|cov| cov.is_match(&text[..end])));
             if selection.is_some() {
                 break;
@@ -347,9 +345,7 @@ impl GlyphFragment {
             selection = book
                 .select_fallback(None, variant, text)
                 .and_then(|id| world.font(id))
-                .filter(|font| {
-                    font.ttf().tables().math.and_then(|math| math.constants).is_some()
-                });
+                .filter(|font| font.info().flags.contains(FontFlags::MATH));
         }
 
         // Error out if no math font could be found at all.
