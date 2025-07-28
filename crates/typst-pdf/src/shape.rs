@@ -22,7 +22,7 @@ pub(crate) fn handle_shape(
     let mut handle = tags::start_artifact(gc, surface, ArtifactKind::Other);
     let surface = handle.surface();
 
-    surface.set_location(span.into_raw().get());
+    surface.set_location(span.into_raw());
     surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {

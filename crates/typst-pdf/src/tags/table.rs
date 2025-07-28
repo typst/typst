@@ -182,14 +182,14 @@ impl TableCtx {
                                 .with_headers(cell.headers)
                                 .with_row_span(rowspan)
                                 .with_col_span(colspan)
-                                .with_location(Some(cell.span.into_raw().get()))
+                                .with_location(Some(cell.span.into_raw()))
                                 .into()
                         }
                         TableCellKind::Footer | TableCellKind::Data => Tag::TD
                             .with_headers(cell.headers)
                             .with_row_span(rowspan)
                             .with_col_span(colspan)
-                            .with_location(Some(cell.span.into_raw().get()))
+                            .with_location(Some(cell.span.into_raw()))
                             .into(),
                     };
                     Some(TagNode::Group(tag, cell.nodes))
@@ -421,7 +421,7 @@ mod tests {
             Tag::TH(scope)
                 .with_id(Some(id))
                 .with_headers(ids)
-                .with_location(Some(Span::detached().into_raw().get()))
+                .with_location(Some(Span::detached().into_raw()))
                 .into(),
             Vec::new(),
         )
@@ -432,7 +432,7 @@ mod tests {
         TagNode::Group(
             Tag::TD
                 .with_headers(ids)
-                .with_location(Some(Span::detached().into_raw().get()))
+                .with_location(Some(Span::detached().into_raw()))
                 .into(),
             Vec::new(),
         )

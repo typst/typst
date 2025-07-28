@@ -113,8 +113,7 @@ pub(crate) fn handle_start(
         // Wrap the figure tag and the sibling caption in a container, if the
         // caption is contained within the figure like recommended for tables
         // screen readers might ignore it.
-        // TODO: maybe this could be a `NonStruct` tag?
-        Tag::P.into()
+        Tag::NonStruct.into()
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
@@ -186,7 +185,7 @@ pub(crate) fn handle_start(
         return Ok(());
     };
 
-    tag.set_location(Some(elem.span().into_raw().get()));
+    tag.set_location(Some(elem.span().into_raw()));
     push_stack(gc, elem, StackEntryKind::Standard(tag))?;
 
     Ok(())
@@ -341,7 +340,7 @@ fn pop_stack(gc: &mut GlobalContext, loc: Location, entry: StackEntry) {
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                let tag = Tag::TD.with_location(Some(cell.span().into_raw().get()));
+                let tag = Tag::TD.with_location(Some(cell.span().into_raw()));
                 gc.tags.push(TagNode::Group(tag.into(), entry.nodes));
                 return;
             };
@@ -791,6 +790,7 @@ impl StackEntryKind {
                 TagKind::Part(_) => !is_pdf_ua,
                 TagKind::Article(_) => !is_pdf_ua,
                 TagKind::Section(_) => !is_pdf_ua,
+                TagKind::Div(_) => !is_pdf_ua,
                 TagKind::BlockQuote(_) => !is_pdf_ua,
                 TagKind::Caption(_) => !is_pdf_ua,
                 TagKind::TOC(_) => false,
@@ -810,6 +810,7 @@ impl StackEntryKind {
                 TagKind::THead(_) => false,
                 TagKind::TBody(_) => false,
                 TagKind::TFoot(_) => false,
+                TagKind::Span(_) => false,
                 TagKind::InlineQuote(_) => !is_pdf_ua,
                 TagKind::Note(_) => !is_pdf_ua,
                 TagKind::Reference(_) => !is_pdf_ua,
@@ -819,6 +820,7 @@ impl StackEntryKind {
                 TagKind::Annot(_) => !is_pdf_ua,
                 TagKind::Figure(_) => !is_pdf_ua,
                 TagKind::Formula(_) => !is_pdf_ua,
+                TagKind::NonStruct(_) => !is_pdf_ua,
                 TagKind::Datetime(_) => !is_pdf_ua,
                 TagKind::Terms(_) => !is_pdf_ua,
                 TagKind::Title(_) => !is_pdf_ua,
