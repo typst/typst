@@ -6,7 +6,7 @@ use crate::foundations::{Array, Context, LocatableSelector, Value, func};
 
 /// Finds elements in the document.
 ///
-/// The `query` functions lets you search your document for elements of a
+/// The `query` function lets you search your document for elements of a
 /// particular type or with a particular label. To use it, you first need to
 /// ensure that [context] is available.
 ///
