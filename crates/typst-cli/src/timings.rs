@@ -67,14 +67,14 @@ impl Timer {
         let output = f(world);
         self.index += 1;
 
-        let file =
-            File::create(path).map_err(|e| format!("failed to create file: {e}"))?;
-        let writer = BufWriter::with_capacity(1 << 20, file);
+        // let file =
+        //     File::create(path).map_err(|e| format!("failed to create file: {e}"))?;
+        // let writer = BufWriter::with_capacity(1 << 20, file);
 
-        typst_timing::export_json(writer, |span| {
-            resolve_span(world, Span::from_raw(span))
-                .unwrap_or_else(|| ("unknown".to_string(), 0))
-        })?;
+        // typst_timing::export_json(writer, |span| {
+        //     resolve_span(world, Span::from_raw(span))
+        //         .unwrap_or_else(|| ("unknown".to_string(), 0))
+        // })?;
 
         Ok(output)
     }
