@@ -7,7 +7,7 @@ use typst_utils::{NonZeroExt, Scalar, singleton};
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
+    Args, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
     Value, cast, elem,
 };
 use crate::introspection::Introspector;
@@ -152,7 +152,7 @@ pub struct PageElem {
     /// ```
     #[fold]
     #[ghost]
-    pub margin: Margin,
+    pub margin: Smart<Margin>,
 
     /// The page's bleed margin.
     ///
@@ -162,7 +162,6 @@ pub struct PageElem {
     ///
     /// Accepted values:
     ///
-    /// - `{auto}`: Sets the bleed to `0mm` on all sides.
     /// - A single length: Applies the same bleed to all sides.
     /// - A dictionary: Allows setting bleed values individually. The dictionary
     ///   may include the following keys, listed in order of precedence:
@@ -181,8 +180,7 @@ pub struct PageElem {
     /// Note: The keys `left` and `right` are mutually exclusive with `inside` and
     /// `outside`.
     ///
-    /// On PDF output, if the bleed is non-zero, a `TrimBox` and a `BleedBox` are
-    /// defined for the page.
+    /// On PDF output, if the bleed is non-zero, a `TrimBox` is defined for the page.
     ///
     /// ```example
     /// #set page(
@@ -567,10 +565,10 @@ impl Page {
 }
 
 /// Specification of the page's margins.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Margin {
     /// The margins for each side.
-    pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    pub sides: Sides<Option<Rel<Length>>>,
     /// Whether to swap `left` and `right` to make them `inside` and `outside`
     /// (when to swap depends on the binding).
     pub two_sided: Option<bool>,
@@ -578,17 +576,8 @@ pub struct Margin {
 
 impl Margin {
     /// Create an instance with four equal components.
-    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
+    pub fn splat(value: Option<Rel<Length>>) -> Self {
         Self { sides: Sides::splat(value), two_sided: None }
-    }
-}
-
-impl Default for Margin {
-    fn default() -> Self {
-        Self {
-            sides: Sides::splat(Some(Smart::Auto)),
-            two_sided: None,
-        }
     }
 }
 
@@ -611,7 +600,7 @@ cast! {
             }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {
+        let mut handle = |key: &str, component: Option<Rel<Length>>| {
             if let Some(c) = component {
                 dict.insert(key.into(), c.into_value());
             }
@@ -629,8 +618,7 @@ cast! {
 
         Value::Dict(dict)
     },
-    _: AutoValue => Self::splat(Some(Smart::Auto)),
-    v: Rel<Length> => Self::splat(Some(Smart::Custom(v))),
+    v: Rel<Length> => Self::splat(Some(v)),
     mut dict: Dict => {
         let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
