@@ -88,19 +88,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             );
 
             if typst_page.bleed != Sides::splat(Abs::zero()) {
-                settings = settings
-                    .with_bleed_box(Rect::from_xywh(
-                        0.0,
-                        0.0,
-                        typst_page.frame.width().to_f32(),
-                        typst_page.frame.height().to_f32(),
-                    ))
-                    .with_trim_box(Rect::from_ltrb(
-                        typst_page.bleed.left.to_f32(),
-                        typst_page.bleed.top.to_f32(),
-                        (typst_page.frame.width() - typst_page.bleed.right).to_f32(),
-                        (typst_page.frame.height() - typst_page.bleed.bottom).to_f32(),
-                    ));
+                settings = settings.with_trim_box(Rect::from_ltrb(
+                    typst_page.bleed.left.to_f32(),
+                    typst_page.bleed.top.to_f32(),
+                    (typst_page.frame.width() - typst_page.bleed.right).to_f32(),
+                    (typst_page.frame.height() - typst_page.bleed.bottom).to_f32(),
+                ));
             }
 
             if let Some(label) = typst_page
