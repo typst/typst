@@ -178,7 +178,10 @@ pub struct ImageElem {
 impl ImageElem {
     /// Decode a raster or vector graphic from bytes or a string.
     #[func(title = "Decode Image")]
-    #[deprecated = "`image.decode` is deprecated, directly pass bytes to `image` instead"]
+    #[deprecated(
+        message = "`image.decode` is deprecated, directly pass bytes to `image` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
