@@ -302,11 +302,11 @@
 #import 5 as x
 
 --- import-from-string-invalid ---
-// Error: 9-11 failed to load file (is a directory)
+// Error: 9-11 failed to load file tests/suite/scripting (is a directory)
 #import "": name
 
 --- import-from-string-renamed-invalid ---
-// Error: 9-11 failed to load file (is a directory)
+// Error: 9-11 failed to load file tests/suite/scripting (is a directory)
 #import "" as x
 
 --- import-file-not-found-invalid ---
@@ -483,3 +483,4 @@ This is never reached.
 --- import-from-file-package-lookalike ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
+
