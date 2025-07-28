@@ -118,17 +118,17 @@ fn layout_page_run_impl(
 
     // Determine the margins.
     let default = Rel::<Length>::from((2.5 / 21.0) * min);
-    let margin = styles.get(PageElem::margin);
+    let margin = styles.get(PageElem::margin).custom().unwrap_or_default();
     let two_sided = margin.two_sided.unwrap_or(false);
     let margin = margin
         .sides
-        .map(|side| side.and_then(Smart::custom).unwrap_or(default))
+        .map(|side| side.unwrap_or(default))
         .resolve(styles)
         .relative_to(size);
 
-    let bleed = PageElem::bleed_in(styles)
+    let bleed = styles.get(PageElem::bleed)
         .sides
-        .map(|side| side.and_then(Smart::custom).unwrap_or(Rel::zero()))
+        .map(|side| side.unwrap_or(Rel::zero()))
         .resolve(styles)
         .relative_to(size);
 
