@@ -301,9 +301,7 @@ fn visit_kind_rules<'a>(
         // textual elements via `TEXTUAL` grouping. However, in math, this is
         // not desirable, so we just do it on a per-element basis.
         if let Some(elem) = content.to_packed::<SymbolElem>() {
-            if let Some(m) =
-                find_regex_match_in_str(elem.text.encode_utf8(&mut [0; 4]), styles)
-            {
+            if let Some(m) = find_regex_match_in_str(elem.text.as_str(), styles) {
                 visit_regex_match(s, &[(content, styles)], m)?;
                 return Ok(true);
             }
@@ -324,7 +322,7 @@ fn visit_kind_rules<'a>(
         // Symbols in non-math content transparently convert to `TextElem` so we
         // don't have to handle them in non-math layout.
         if let Some(elem) = content.to_packed::<SymbolElem>() {
-            let mut text = TextElem::packed(elem.text).spanned(elem.span());
+            let mut text = TextElem::packed(elem.text.clone()).spanned(elem.span());
             if let Some(label) = elem.label() {
                 text.set_label(label);
             }
@@ -1238,7 +1236,7 @@ fn visit_regex_match<'a>(
         let len = if let Some(elem) = content.to_packed::<TextElem>() {
             elem.text.len()
         } else if let Some(elem) = content.to_packed::<SymbolElem>() {
-            elem.text.len_utf8()
+            elem.text.len()
         } else {
             1 // The rest are Ascii, so just one byte.
         };
