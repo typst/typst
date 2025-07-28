@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU64;
 
+use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
@@ -13,6 +14,8 @@ use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
+use typst::World;
+use typst::engine::{Engine, Route, Sink, Traced};
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;
@@ -37,9 +40,21 @@ use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
+    world: &dyn World,
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
+    let traced = Traced::default();
+    let mut sink = Sink::new();
+    let mut engine = Engine {
+        routines: &typst::ROUTINES,
+        world: world.track(),
+        introspector: typst_document.introspector.track(),
+        traced: traced.track(),
+        sink: sink.track_mut(),
+        route: Route::root(),
+    };
+
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -65,7 +80,7 @@ pub fn convert(
     convert_pages(&mut gc, &mut document)?;
     embed_files(typst_document, &mut document)?;
 
-    document.set_outline(build_outline(&gc));
+    document.set_outline(build_outline(&gc, &mut engine)?);
     document.set_metadata(build_metadata(&gc));
 
     finish(document, gc, options.standards.config)

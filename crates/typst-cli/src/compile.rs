@@ -229,7 +229,8 @@ fn compile_and_export(
         }
         _ => {
             let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_paged(&document, config));
+            let result =
+                output.and_then(|document| export_paged(world, &document, config));
             Warned { output: result, warnings }
         }
     }
@@ -252,12 +253,13 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
 
 /// Export to a paged target format.
 fn export_paged(
+    world: &mut SystemWorld,
     document: &PagedDocument,
     config: &CompileConfig,
 ) -> SourceResult<Vec<Output>> {
     match config.output_format {
         OutputFormat::Pdf => {
-            export_pdf(document, config).map(|()| vec![config.output.clone()])
+            export_pdf(world, document, config).map(|()| vec![config.output.clone()])
         }
         OutputFormat::Png => {
             export_image(document, config, ImageExportFormat::Png).at(Span::detached())
@@ -270,7 +272,11 @@ fn export_paged(
 }
 
 /// Export to a PDF.
-fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+fn export_pdf(
+    world: &mut SystemWorld,
+    document: &PagedDocument,
+    config: &CompileConfig,
+) -> SourceResult<()> {
     // If the timestamp is provided through the CLI, use UTC suffix,
     // else, use the current local time and timezone.
     let timestamp = match config.creation_timestamp {
@@ -292,7 +298,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
     };
-    let buffer = typst_pdf::pdf(document, &options)?;
+    let buffer = typst_pdf::pdf(world, document, &options)?;
     config
         .output
         .write(&buffer)

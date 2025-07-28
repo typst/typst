@@ -18,6 +18,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::eco_format;
 use serde::{Deserialize, Serialize};
+use typst_library::World;
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
 use typst_library::layout::{PageRanges, PagedDocument};
@@ -26,8 +27,12 @@ use typst_library::layout::{PageRanges, PagedDocument};
 ///
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
-pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options)
+pub fn pdf(
+    world: &dyn World,
+    document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<Vec<u8>> {
+    convert::convert(world, document, options)
 }
 
 /// Settings for PDF export.

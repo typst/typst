@@ -166,7 +166,7 @@ impl<'a> Runner<'a> {
         }
 
         // Render and save live version.
-        document.save_live(&self.test.name, &live);
+        document.save_live(&self.world, &self.test.name, &live);
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
@@ -376,7 +376,7 @@ trait OutputType: Document {
     fn make_live(&self) -> SourceResult<Self::Live>;
 
     /// Saves the live output.
-    fn save_live(&self, name: &str, live: &Self::Live);
+    fn save_live(&self, world: &TestWorld, name: &str, live: &Self::Live);
 
     /// Produces the reference output from the live output.
     fn make_ref(live: Self::Live) -> Vec<u8>;
@@ -424,7 +424,7 @@ impl OutputType for PagedDocument {
         Ok(render(self, 1.0))
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, world: &TestWorld, name: &str, live: &Self::Live) {
         // Save live version, possibly rerendering if different scale is
         // requested.
         let mut pixmap_live = live;
@@ -440,7 +440,7 @@ impl OutputType for PagedDocument {
         // Write PDF if requested.
         if crate::ARGS.pdf() {
             let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, name);
-            let pdf = typst_pdf::pdf(self, &PdfOptions::default()).unwrap();
+            let pdf = typst_pdf::pdf(world, self, &PdfOptions::default()).unwrap();
             std::fs::write(pdf_path, pdf).unwrap();
         }
 
@@ -489,7 +489,7 @@ impl OutputType for HtmlDocument {
         typst_html::html(self)
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, _: &TestWorld, name: &str, live: &Self::Live) {
         std::fs::write(Self::live_path(name), live).unwrap();
     }
 

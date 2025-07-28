@@ -3201,6 +3201,7 @@ dependencies = [
  "krilla",
  "krilla-svg",
  "serde",
+ "typst",
  "typst-assets",
  "typst-library",
  "typst-macros",

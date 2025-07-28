@@ -1,7 +1,11 @@
 use std::num::NonZeroUsize;
 
+use ecow::eco_format;
 use krilla::destination::XyzDestination;
 use krilla::outline::{Outline, OutlineNode};
+use typst::diag::SourceResult;
+use typst::engine::Engine;
+use typst::model::Refable;
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::layout::Abs;
 use typst_library::model::HeadingElem;
@@ -9,7 +13,10 @@ use typst_library::model::HeadingElem;
 use crate::convert::GlobalContext;
 use crate::util::AbsExt;
 
-pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
+pub(crate) fn build_outline(
+    gc: &GlobalContext,
+    engine: &mut Engine,
+) -> SourceResult<Outline> {
     let mut tree: Vec<HeadingNode> = vec![];
 
     // Stores the level of the topmost skipped ancestor of the next bookmarked
@@ -93,11 +100,11 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
 
     let mut outline = Outline::new();
 
-    for child in convert_nodes(&tree, gc) {
+    for child in convert_nodes(&tree, gc, engine)? {
         outline.push_child(child);
     }
 
-    outline
+    Ok(outline)
 }
 
 #[derive(Debug)]
@@ -122,11 +129,25 @@ impl<'a> HeadingNode<'a> {
         }
     }
 
-    fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
+    fn to_krilla(
+        &self,
+        gc: &GlobalContext,
+        engine: &mut Engine,
+    ) -> SourceResult<Option<OutlineNode>> {
         let loc = self.element.location().unwrap();
-        let title = self.element.body.plain_text().to_string();
         let pos = gc.document.introspector.position(loc);
         let page_index = pos.page.get() - 1;
+
+        let mut title = self.element.body.plain_text();
+        if let Some(numbering) = &self.element.numbering.get_ref(StyleChain::default()) {
+            // Prepend the numbering to title if it exists
+            let numbers = self
+                .element
+                .counter()
+                .display_at_loc(engine, loc, StyleChain::default(), numbering)?
+                .plain_text();
+            title = eco_format!("{numbers} {title}");
+        }
 
         if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
@@ -135,18 +156,26 @@ impl<'a> HeadingNode<'a> {
                 krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
             );
 
-            let mut outline_node = OutlineNode::new(title, dest);
-            for child in convert_nodes(&self.children, gc) {
+            let mut outline_node = OutlineNode::new(title.into(), dest);
+            for child in convert_nodes(&self.children, gc, engine)? {
                 outline_node.push_child(child);
             }
 
-            return Some(outline_node);
+            return Ok(Some(outline_node));
         }
 
-        None
+        Ok(None)
     }
 }
 
-fn convert_nodes(nodes: &[HeadingNode], gc: &GlobalContext) -> Vec<OutlineNode> {
-    nodes.iter().flat_map(|node| node.to_krilla(gc)).collect()
+fn convert_nodes(
+    nodes: &[HeadingNode],
+    gc: &GlobalContext,
+    engine: &mut Engine,
+) -> SourceResult<Vec<OutlineNode>> {
+    let mut output = Vec::with_capacity(nodes.len());
+    for node in nodes {
+        output.extend(node.to_krilla(gc, engine)?);
+    }
+    Ok(output)
 }
