@@ -411,6 +411,9 @@ pub struct TextElem {
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
+    ///
+    /// The language code is case-insensitive, and will be lowercased when
+    /// accessed through [context]($context).
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,
@@ -418,6 +421,9 @@ pub struct TextElem {
     /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
     ///
     /// This lets the text processing pipeline make more informed choices.
+    ///
+    /// The region code is case-insensitive, and will be uppercased when
+    /// accessed through [context]($context).
     #[ghost]
     pub region: Option<Region>,
 
