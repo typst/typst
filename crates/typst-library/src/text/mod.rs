@@ -412,8 +412,8 @@ pub struct TextElem {
     /// In diesem Dokument, ...
     /// ```
     ///
-    /// The language code is case-insensitive, and will be normalized to
-    /// lowercase before made available to the [context]($context).
+    /// The language code is case-insensitive, and will be lowercased when
+    /// accessed through [context]($context).
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,
@@ -422,8 +422,8 @@ pub struct TextElem {
     ///
     /// This lets the text processing pipeline make more informed choices.
     ///
-    /// The region code is case-insensitive, and will be normalized to
-    /// uppercase before made available to the [context]($context).
+    /// The region code is case-insensitive, and will be uppercased when
+    /// accessed through [context]($context).
     #[ghost]
     pub region: Option<Region>,
 

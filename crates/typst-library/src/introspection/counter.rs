@@ -412,11 +412,11 @@ impl Counter {
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
         /// - If it is the [`page`] function, counts through pages,
-        /// - If it is a [selector], counts through elements that matches with the
+        /// - If it is a [selector], counts through elements that match the
         ///   selector. For example,
         ///   - provide an element function: counts elements of that type,
         ///   - provide a [`where`]($function.where) selector:
-        ///     counts a type of elements with specific fields,
+        ///     counts a type of element with specific fields,
         ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
