@@ -14,7 +14,7 @@ provides compact syntax to embed a code expression into markup: An expression is
 introduced with a hash (`#`) and normal markup parsing resumes after the
 expression is finished. If a character would continue the expression but should
 be interpreted as text, the expression can forcibly be ended with a semicolon
-(`;`).
+(`;`). As usual, you can [escape literal `#` or `;` with a backslash]($syntax/#escapes).
 
 ```example
 #emph[Hello] \
@@ -66,6 +66,7 @@ Content and code blocks can be nested arbitrarily. In the example below,
 ## Bindings and Destructuring { #bindings }
 As already demonstrated above, variables can be defined with `{let}` bindings.
 The variable is assigned the value of the expression that follows the `=` sign.
+A [valid variable name](#identifiers) may contain `-`, but cannot start with `-`.
 The assignment of a value is optional, if no value is assigned, the variable
 will be initialized as `{none}`. The `{let}` keyword can also be used to create
 a [custom named function]($function/#defining-functions). Variables can be
@@ -77,8 +78,8 @@ is no containing block).
 This is #name's documentation.
 It explains #name.
 
-#let add(x, y) = x + y
-Sum is #add(2, 3).
+#let my-add(x, y) = x + y
+Sum is #my-add(2, 3).
 ```
 
 Let bindings can also be used to destructure [arrays]($array) and
@@ -337,6 +338,34 @@ all available community packages on [Typst Universe]($universe).
 If you are using Typst locally, you can also create your own system-local
 packages. For more details on this, see the
 [package repository](https://github.com/typst/packages).
+
+## Names and identifiers { #identifiers }
+When developing modules and packages, it is recommended to use kebab-case for
+identifiers of public variables, functions, and their arguments. In kebab-case,
+words are separated by hyphens (`-`), like `cap-height`.
+
+The identifier syntax in Typst is based on the
+[Unicode Standard Annex #31](https://www.unicode.org/reports/tr31/),
+with two extensions: allowing `_` as a starting character, and allowing both `_`
+and `-` as continuing characters.
+
+Specifically: 
+
+- Identifiers may start with a letter or an underscore (`_`),
+- and continue with letters, digits, underscores, and hyphen (`-`) thereafter.
+
+```example
+#let kebab-case = [Using hyphen]
+#let _schön = "😊"
+#let 小四 = 12pt
+#let π = calc.pi
+
+#kebab-case
+#if -π < 0 { _schön }
+```
+
+Note that this does not apply to names of [`label`]($label), which follows
+[a dedicated syntax]($label/#syntax).
 
 ## Operators
 The following table lists all available unary and binary operators with effect,
