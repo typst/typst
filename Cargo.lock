@@ -451,7 +451,7 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "comemo"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=418f02b#418f02b58ce10e09abf0bcba92437e05f284294f"
+source = "git+https://github.com/typst/comemo?rev=33e6bf6#33e6bf67f0867c3c83c432dfaf210869121a01e1"
 dependencies = [
  "comemo-macros",
  "parking_lot",
@@ -462,7 +462,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.4.0"
-source = "git+https://github.com/typst/comemo?rev=418f02b#418f02b58ce10e09abf0bcba92437e05f284294f"
+source = "git+https://github.com/typst/comemo?rev=33e6bf6#33e6bf67f0867c3c83c432dfaf210869121a01e1"
 dependencies = [
  "proc-macro2",
  "quote",
