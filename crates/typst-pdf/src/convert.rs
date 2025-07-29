@@ -7,6 +7,7 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
+use krilla::tagging::fmt::Output;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -17,7 +18,7 @@ use typst_library::layout::{
     Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::Font;
+use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -38,6 +39,48 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
+    let (mut document, mut gc) = setup(typst_document, options);
+
+    convert_pages(&mut gc, &mut document)?;
+    attach_files(&gc, &mut document)?;
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc));
+    document.set_tag_tree(gc.tags.build_tree());
+
+    finish(document, gc, options.standards.config)
+}
+
+pub fn tag_tree(
+    typst_document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<String> {
+    let (mut document, mut gc) = setup(typst_document, options);
+    convert_pages(&mut gc, &mut document)?;
+    attach_files(&gc, &mut document)?;
+
+    let tree = gc.tags.build_tree();
+    let mut output = String::new();
+    if let Some(lang) = gc.tags.doc_lang
+        && lang != Lang::ENGLISH
+    {
+        output = format!("lang: \"{}\"\n---\n", lang.as_str());
+    }
+    tree.output(&mut output).unwrap();
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc));
+    document.set_tag_tree(tree);
+
+    finish(document, gc, options.standards.config)?;
+
+    Ok(output)
+}
+
+fn setup<'a>(
+    typst_document: &'a PagedDocument,
+    options: &'a PdfOptions,
+) -> (Document, GlobalContext<'a>) {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -49,26 +92,19 @@ pub fn convert(
         render_svg_glyph_fn: render_svg_glyph,
     };
 
-    let mut document = Document::new_with(settings);
+    let document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
 
-    let mut gc = GlobalContext::new(
+    let gc = GlobalContext::new(
         typst_document,
         options,
         named_destinations,
         page_index_converter,
     );
 
-    convert_pages(&mut gc, &mut document)?;
-    attach_files(&gc, &mut document)?;
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
-    document.set_tag_tree(gc.tags.build_tree());
-
-    finish(document, gc, options.standards.config)
+    (document, gc)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
