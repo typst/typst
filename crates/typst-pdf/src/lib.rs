@@ -18,6 +18,7 @@ pub use self::metadata::{Timestamp, Timezone};
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::eco_format;
+use krilla::tagging::TagTree;
 use serde::{Deserialize, Serialize};
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
@@ -29,6 +30,12 @@ use typst_library::layout::{PageRanges, PagedDocument};
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
     convert::convert(document, options)
+}
+
+/// Generate the document tag tree and display it in a human readable form.
+#[doc(hidden)]
+pub fn pdf_tags(document: &PagedDocument, options: &PdfOptions) -> SourceResult<TagTree> {
+    convert::tag_tree(document, options)
 }
 
 /// Settings for PDF export.

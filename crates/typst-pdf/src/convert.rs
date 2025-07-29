@@ -9,7 +9,7 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
-use krilla::tagging::TagId;
+use krilla::tagging::{TagId, TagTree};
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
@@ -40,6 +40,31 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
+    let (mut document, mut gc) = setup(typst_document, options);
+
+    convert_pages(&mut gc, &mut document)?;
+    embed_files(typst_document, &mut document)?;
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc));
+    document.set_tag_tree(gc.tags.build_tree());
+
+    finish(document, gc, options.standards.config)
+}
+
+pub fn tag_tree(
+    typst_document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<TagTree> {
+    let (mut document, mut gc) = setup(typst_document, options);
+    convert_pages(&mut gc, &mut document)?;
+    Ok(gc.tags.build_tree())
+}
+
+fn setup<'a>(
+    typst_document: &'a PagedDocument,
+    options: &'a PdfOptions,
+) -> (Document, GlobalContext<'a>) {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -51,26 +76,19 @@ pub fn convert(
         render_svg_glyph_fn: render_svg_glyph,
     };
 
-    let mut document = Document::new_with(settings);
+    let document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
 
-    let mut gc = GlobalContext::new(
+    let gc = GlobalContext::new(
         typst_document,
         options,
         named_destinations,
         page_index_converter,
     );
 
-    convert_pages(&mut gc, &mut document)?;
-    embed_files(typst_document, &mut document)?;
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
-    document.set_tag_tree(gc.tags.build_tree());
-
-    finish(document, gc, options.standards.config)
+    (document, gc)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
