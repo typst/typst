@@ -527,7 +527,7 @@ fn layout_realized(
         let mut frame = layout_external(elem, ctx, styles)?;
         if !frame.has_baseline() && !elem.is::<RawElem>() {
             if let Ok(font) = find_math_font(ctx.engine.world, styles, elem.span()) {
-                let axis = value!(font, axis_height).resolve(styles);
+                let axis = font.metrics().math.axis_height.resolve(styles);
                 frame.set_baseline(frame.height() / 2.0 + axis);
             }
         }

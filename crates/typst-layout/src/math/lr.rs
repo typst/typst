@@ -36,7 +36,7 @@ pub fn layout_lr(
     let mut max_extent = Abs::zero();
     for fragment in inner_fragments.iter() {
         let (font, size) = fragment.font(ctx, styles, elem.span())?;
-        let axis = value!(font, axis_height).at(size);
+        let axis = font.metrics().math.axis_height.at(size);
         let extent = (fragment.ascent() - axis).max(fragment.descent() + axis);
         max_extent = max_extent.max(extent);
     }

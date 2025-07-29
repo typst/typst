@@ -14,7 +14,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ttf_parser::GlyphId;
+use ttf_parser::{GlyphId, name_id};
 
 use self::book::find_name;
 use crate::foundations::{Bytes, Cast};
@@ -232,6 +232,8 @@ pub struct FontMetrics {
     pub subscript: Option<ScriptMetrics>,
     /// Metrics for superscripts, if provided by the font.
     pub superscript: Option<ScriptMetrics>,
+    /// Metrics for math layout.
+    pub math: MathConstants,
 }
 
 impl FontMetrics {
@@ -281,6 +283,169 @@ impl FontMetrics {
             vertical_offset: to_em(metrics.y_offset),
         });
 
+        let display_operator_min_height = |constants: ttf_parser::math::Constants| {
+            Em::from_units(
+                if find_name(ttf, name_id::POST_SCRIPT_NAME)
+                    .map(|x| x == "CambriaMath")
+                    .unwrap_or(false)
+                {
+                    constants.delimited_sub_formula_min_height()
+                } else {
+                    constants.display_operator_min_height()
+                },
+                units_per_em,
+            )
+        };
+
+        let math = ttf
+            .tables()
+            .math
+            .and_then(|math| math.constants)
+            .map(|constants| MathConstants {
+                script_percent_scale_down: constants.script_percent_scale_down() as f64
+                    / 100.0,
+                script_script_percent_scale_down: constants
+                    .script_script_percent_scale_down()
+                    as f64
+                    / 100.0,
+                display_operator_min_height: display_operator_min_height(constants),
+                axis_height: to_em(constants.axis_height().value),
+                accent_base_height: to_em(constants.accent_base_height().value),
+                flattened_accent_base_height: to_em(
+                    constants.flattened_accent_base_height().value,
+                ),
+                subscript_shift_down: to_em(constants.subscript_shift_down().value),
+                subscript_top_max: to_em(constants.subscript_top_max().value),
+                subscript_baseline_drop_min: to_em(
+                    constants.subscript_baseline_drop_min().value,
+                ),
+                superscript_shift_up: to_em(constants.superscript_shift_up().value),
+                superscript_shift_up_cramped: to_em(
+                    constants.superscript_shift_up_cramped().value,
+                ),
+                superscript_bottom_min: to_em(constants.superscript_bottom_min().value),
+                superscript_baseline_drop_max: to_em(
+                    constants.superscript_baseline_drop_max().value,
+                ),
+                sub_superscript_gap_min: to_em(constants.sub_superscript_gap_min().value),
+                superscript_bottom_max_with_subscript: to_em(
+                    constants.superscript_bottom_max_with_subscript().value,
+                ),
+                space_after_script: to_em(constants.space_after_script().value),
+                upper_limit_gap_min: to_em(constants.upper_limit_gap_min().value),
+                upper_limit_baseline_rise_min: to_em(
+                    constants.upper_limit_baseline_rise_min().value,
+                ),
+                lower_limit_gap_min: to_em(constants.lower_limit_gap_min().value),
+                lower_limit_baseline_drop_min: to_em(
+                    constants.lower_limit_baseline_drop_min().value,
+                ),
+                fraction_numerator_shift_up: to_em(
+                    constants.fraction_numerator_shift_up().value,
+                ),
+                fraction_numerator_display_style_shift_up: to_em(
+                    constants.fraction_numerator_display_style_shift_up().value,
+                ),
+                fraction_denominator_shift_down: to_em(
+                    constants.fraction_denominator_shift_down().value,
+                ),
+                fraction_denominator_display_style_shift_down: to_em(
+                    constants.fraction_denominator_display_style_shift_down().value,
+                ),
+                fraction_numerator_gap_min: to_em(
+                    constants.fraction_numerator_gap_min().value,
+                ),
+                fraction_num_display_style_gap_min: to_em(
+                    constants.fraction_num_display_style_gap_min().value,
+                ),
+                fraction_rule_thickness: to_em(constants.fraction_rule_thickness().value),
+                fraction_denominator_gap_min: to_em(
+                    constants.fraction_denominator_gap_min().value,
+                ),
+                fraction_denom_display_style_gap_min: to_em(
+                    constants.fraction_denom_display_style_gap_min().value,
+                ),
+                overbar_vertical_gap: to_em(constants.overbar_vertical_gap().value),
+                overbar_rule_thickness: to_em(constants.overbar_rule_thickness().value),
+                overbar_extra_ascender: to_em(constants.overbar_extra_ascender().value),
+                underbar_vertical_gap: to_em(constants.underbar_vertical_gap().value),
+                underbar_rule_thickness: to_em(constants.underbar_rule_thickness().value),
+                underbar_extra_descender: to_em(
+                    constants.underbar_extra_descender().value,
+                ),
+                radical_vertical_gap: to_em(constants.radical_vertical_gap().value),
+                radical_display_style_vertical_gap: to_em(
+                    constants.radical_display_style_vertical_gap().value,
+                ),
+                radical_rule_thickness: to_em(constants.radical_rule_thickness().value),
+                radical_extra_ascender: to_em(constants.radical_extra_ascender().value),
+                radical_kern_before_degree: to_em(
+                    constants.radical_kern_before_degree().value,
+                ),
+                radical_kern_after_degree: to_em(
+                    constants.radical_kern_after_degree().value,
+                ),
+                radical_degree_bottom_raise_percent: constants
+                    .radical_degree_bottom_raise_percent()
+                    as f64
+                    / 100.0,
+            })
+            // https://www.w3.org/TR/mathml-core/#layout-constants-mathconstants
+            // https://github.com/notofonts/math/blob/main/documentation/building-math-fonts/index.md
+            .unwrap_or(MathConstants {
+                script_percent_scale_down: 0.71,
+                script_script_percent_scale_down: 0.5041,
+                display_operator_min_height: Em::zero(),
+                axis_height: x_height / 2.0,
+                accent_base_height: x_height,
+                // This is from Building Math Fonts.
+                flattened_accent_base_height: cap_height,
+                subscript_shift_down: subscript
+                    .map(|metrics| metrics.vertical_offset)
+                    // This is from DEFAULT_SUBSCRIPT_METRICS.
+                    .unwrap_or(Em::new(-0.2)),
+                subscript_top_max: 0.8 * x_height,
+                subscript_baseline_drop_min: Em::zero(),
+                superscript_shift_up: superscript
+                    .map(|metrics| metrics.vertical_offset)
+                    // This is from DEFAULT_SUPERSCRIPT_METRICS.
+                    .unwrap_or(Em::new(0.5)),
+                superscript_shift_up_cramped: Em::zero(),
+                superscript_bottom_min: 0.25 * x_height,
+                superscript_baseline_drop_max: Em::zero(),
+                sub_superscript_gap_min: 4.0 * underline.thickness,
+                superscript_bottom_max_with_subscript: 0.8 * x_height,
+                space_after_script: Em::new(1.0 / 24.0),
+                upper_limit_gap_min: Em::zero(),
+                upper_limit_baseline_rise_min: Em::zero(),
+                lower_limit_gap_min: Em::zero(),
+                lower_limit_baseline_drop_min: Em::zero(),
+                fraction_numerator_shift_up: Em::zero(),
+                fraction_numerator_display_style_shift_up: Em::zero(),
+                fraction_denominator_shift_down: Em::zero(),
+                fraction_denominator_display_style_shift_down: Em::zero(),
+                fraction_numerator_gap_min: underline.thickness,
+                fraction_num_display_style_gap_min: 3.0 * underline.thickness,
+                fraction_rule_thickness: underline.thickness,
+                fraction_denominator_gap_min: underline.thickness,
+                fraction_denom_display_style_gap_min: 3.0 * underline.thickness,
+                overbar_vertical_gap: 3.0 * underline.thickness,
+                // This is my best guess.
+                overbar_rule_thickness: underline.thickness,
+                overbar_extra_ascender: underline.thickness,
+                underbar_vertical_gap: 3.0 * underline.thickness,
+                // This is my best guess.
+                underbar_rule_thickness: underline.thickness,
+                underbar_extra_descender: underline.thickness,
+                radical_vertical_gap: 1.25 * underline.thickness,
+                radical_display_style_vertical_gap: underline.thickness + 0.25 * x_height,
+                radical_rule_thickness: underline.thickness,
+                radical_extra_ascender: underline.thickness,
+                radical_kern_before_degree: Em::new(5.0 / 18.0),
+                radical_kern_after_degree: Em::new(-10.0 / 18.0),
+                radical_degree_bottom_raise_percent: 0.6,
+            });
+
         Self {
             units_per_em,
             ascender,
@@ -292,6 +457,7 @@ impl FontMetrics {
             overline,
             superscript,
             subscript,
+            math,
         }
     }
 
@@ -333,6 +499,54 @@ pub struct ScriptMetrics {
     ///
     /// For superscripts, this is positive. For subscripts, this is negative.
     pub vertical_offset: Em,
+}
+
+/// Constants from the MathConstants table used in Typst.
+/// Ones not currently used are omitted.
+#[derive(Debug, Copy, Clone)]
+pub struct MathConstants {
+    pub script_percent_scale_down: f64,
+    pub script_script_percent_scale_down: f64,
+    pub display_operator_min_height: Em,
+    pub axis_height: Em,
+    pub accent_base_height: Em,
+    pub flattened_accent_base_height: Em,
+    pub subscript_shift_down: Em,
+    pub subscript_top_max: Em,
+    pub subscript_baseline_drop_min: Em,
+    pub superscript_shift_up: Em,
+    pub superscript_shift_up_cramped: Em,
+    pub superscript_bottom_min: Em,
+    pub superscript_baseline_drop_max: Em,
+    pub sub_superscript_gap_min: Em,
+    pub superscript_bottom_max_with_subscript: Em,
+    pub space_after_script: Em,
+    pub upper_limit_gap_min: Em,
+    pub upper_limit_baseline_rise_min: Em,
+    pub lower_limit_gap_min: Em,
+    pub lower_limit_baseline_drop_min: Em,
+    pub fraction_numerator_shift_up: Em,
+    pub fraction_numerator_display_style_shift_up: Em,
+    pub fraction_denominator_shift_down: Em,
+    pub fraction_denominator_display_style_shift_down: Em,
+    pub fraction_numerator_gap_min: Em,
+    pub fraction_num_display_style_gap_min: Em,
+    pub fraction_rule_thickness: Em,
+    pub fraction_denominator_gap_min: Em,
+    pub fraction_denom_display_style_gap_min: Em,
+    pub overbar_vertical_gap: Em,
+    pub overbar_rule_thickness: Em,
+    pub overbar_extra_ascender: Em,
+    pub underbar_vertical_gap: Em,
+    pub underbar_rule_thickness: Em,
+    pub underbar_extra_descender: Em,
+    pub radical_vertical_gap: Em,
+    pub radical_display_style_vertical_gap: Em,
+    pub radical_rule_thickness: Em,
+    pub radical_extra_ascender: Em,
+    pub radical_kern_before_degree: Em,
+    pub radical_kern_after_degree: Em,
+    pub radical_degree_bottom_raise_percent: f64,
 }
 
 /// Identifies a vertical metric of a font.
