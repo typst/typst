@@ -7,8 +7,8 @@ use typst_utils::{NonZeroExt, Scalar, singleton};
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
-    Value, cast, elem,
+    Args, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart, Value, cast,
+    elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
