@@ -130,7 +130,7 @@ impl HtmlTag {
             }
         }
 
-        let is_start_with_lowercase = string.starts_with(|c| matches!(c, 'a'..='z'));
+        let is_start_with_lowercase = string.starts_with(|c: char| c.is_ascii_lowercase());
         let is_reserved = matches!(
             string,
             "annotation-xml"
@@ -355,9 +355,9 @@ impl HtmlFrame {
 
 //unit tests
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
-    
+
     #[test]
     fn test_custom_element_validation() {
         // Valid custom element names
