@@ -105,8 +105,54 @@ impl HtmlTag {
             bail!("tag name must not be empty");
         }
 
-        if let Some(c) = string.chars().find(|&c| !charsets::is_valid_in_tag_name(c)) {
-            bail!("the character {} is not valid in a tag name", c.repr());
+        // A valid custom element name must:
+        // - Contain at least one hyphen (U+002D)
+        // - Start with an ASCII lowercase letter (a-z)
+        // - Not contain any ASCII uppercase letters (A-Z)
+        // - Not be one of the reserved names
+        // - Only contain valid characters (ASCII alphanumeric and hyphens)
+        //
+        // See: https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name
+        let mut maybe_custom_element = false;
+        let mut is_containing_uppercase = false;
+
+        for c in string.chars() {
+            // If we encounter a hyphen, we might be dealing with a custom element.
+            if c == '-' {
+                maybe_custom_element = true;
+                continue;
+            }
+            if c.is_ascii_uppercase() {
+                is_containing_uppercase = true;
+            }
+            if !charsets::is_valid_in_tag_name(c) {
+                bail!("the character {} is not valid in a tag name", c.repr());
+            }
+        }
+
+        let is_start_with_lowercase = string.starts_with(|c| matches!(c, 'a'..='z'));
+        let is_reserved = matches!(
+            string,
+            "annotation-xml"
+                | "color-profile"
+                | "font-face"
+                | "font-face-src"
+                | "font-face-uri"
+                | "font-face-format"
+                | "font-face-name"
+                | "missing-glyph"
+        );
+
+        if maybe_custom_element {
+            if !is_start_with_lowercase {
+                bail!("custom element names must start with a lowercase letter");
+            }
+            if is_containing_uppercase {
+                bail!("custom element names must not contain uppercase letters");
+            }
+            if is_reserved {
+                bail!("custom element names must not be reserved names");
+            }
         }
 
         Ok(Self(PicoStr::intern(string)))
@@ -304,5 +350,38 @@ impl HtmlFrame {
             id: None,
             link_points: vec![],
         }
+    }
+}
+
+//unit tests
+#[cfg(test)]
+mod tests{
+    use super::*;
+    
+    #[test]
+    fn test_custom_element_validation() {
+        // Valid custom element names
+        assert!(HtmlTag::intern("my-element").is_ok());
+        assert!(HtmlTag::intern("custom-button").is_ok());
+        assert!(HtmlTag::intern("multi-word-component").is_ok());
+        assert!(HtmlTag::intern("x-foo").is_ok());
+        assert!(HtmlTag::intern("element-").is_ok());
+
+        // Invalid custom element names - no hyphen
+        assert!(HtmlTag::intern("customelement").is_ok()); // Regular HTML element
+
+        // Invalid custom element names - bad format
+        assert!(HtmlTag::intern("-invalid").is_err()); // Starts with hyphen
+        assert!(HtmlTag::intern("Invalid-element").is_err()); // Contains uppercase
+        assert!(HtmlTag::intern("1-element").is_err()); // Starts with number
+
+        // Reserved names
+        assert!(HtmlTag::intern("annotation-xml").is_err());
+        assert!(HtmlTag::intern("font-face").is_err());
+
+        // Invalid characters
+        assert!(HtmlTag::intern("my@element").is_err());
+        assert!(HtmlTag::intern("my element").is_err());
+        assert!(HtmlTag::intern("my/element").is_err());
     }
 }
