@@ -49,7 +49,7 @@ pub fn finalize(
     // important as it affects the relative ordering of introspectable elements
     // and thus how counters resolve.
     if let Some(background) = background {
-        frame.push_frame(content_origin, background);
+        frame.push_frame(Point::zero(), background);
     }
     if let Some(header) = header {
         frame.push_frame(content_origin + Point::with_x(margin.left), header);
@@ -64,7 +64,7 @@ pub fn finalize(
         frame.push_frame(Point::new(margin.left + bleed.left, y), footer);
     }
     if let Some(foreground) = foreground {
-        frame.push_frame(content_origin + Point::zero(), foreground);
+        frame.push_frame(Point::zero(), foreground);
     }
 
     // Apply counter updates from within the page to the manual page counter.
