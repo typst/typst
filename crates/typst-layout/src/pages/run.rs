@@ -220,7 +220,7 @@ fn layout_page_run_impl(
     for inner in fragment {
         let header_size = Size::new(inner.width(), margin.top - header_ascent);
         let footer_size = Size::new(inner.width(), margin.bottom - footer_descent);
-        let full_size = inner.size() + margin.sum_by_axis();
+        let full_size = inner.size() + margin.sum_by_axis() + bleed.sum_by_axis();
         let mid = HAlignment::Center + VAlignment::Horizon;
         layouted.push(LayoutedPage {
             inner,
