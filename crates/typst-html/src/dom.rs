@@ -130,7 +130,8 @@ impl HtmlTag {
             }
         }
 
-        let is_start_with_lowercase = string.starts_with(|c: char| c.is_ascii_lowercase());
+        let is_start_with_lowercase =
+            string.starts_with(|c: char| c.is_ascii_lowercase());
         let is_reserved = matches!(
             string,
             "annotation-xml"
