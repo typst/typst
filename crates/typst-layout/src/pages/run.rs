@@ -126,7 +126,8 @@ fn layout_page_run_impl(
         .resolve(styles)
         .relative_to(size);
 
-    let bleed = styles.get(PageElem::bleed)
+    let bleed = styles
+        .get(PageElem::bleed)
         .sides
         .map(|side| side.unwrap_or(Rel::zero()))
         .resolve(styles)
