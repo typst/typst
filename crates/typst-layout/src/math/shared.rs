@@ -1,6 +1,5 @@
 use comemo::Tracked;
 use ttf_parser::Tag;
-use ttf_parser::math::MathValue;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Style, StyleChain};
@@ -12,64 +11,8 @@ use typst_utils::LazyHash;
 
 use super::{LeftRightAlternator, MathFragment, MathRun};
 
-macro_rules! value {
-    ($font:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
-        match $styles.get(typst_library::math::EquationElem::size) {
-            typst_library::math::MathSize::Display => value!($font, $display),
-            _ => value!($font, $text),
-        }
-    };
-    ($font:expr, $name:ident) => {
-        $font
-            .ttf()
-            .tables()
-            .math
-            .and_then(|math| math.constants)
-            .map(|constants| {
-                crate::math::shared::Scaled::scaled(constants.$name(), &$font)
-            })
-            .unwrap()
-    };
-}
-
-macro_rules! percent {
-    ($font:expr, $name:ident) => {
-        $font
-            .ttf()
-            .tables()
-            .math
-            .and_then(|math| math.constants)
-            .map(|constants| constants.$name())
-            .unwrap() as f64
-            / 100.0
-    };
-}
-
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
-
-/// Converts some unit to an absolute length with the current font & font size.
-pub trait Scaled {
-    fn scaled(self, font: &Font) -> Em;
-}
-
-impl Scaled for i16 {
-    fn scaled(self, font: &Font) -> Em {
-        font.to_em(self)
-    }
-}
-
-impl Scaled for u16 {
-    fn scaled(self, font: &Font) -> Em {
-        font.to_em(self)
-    }
-}
-
-impl Scaled for MathValue<'_> {
-    fn scaled(self, font: &Font) -> Em {
-        self.value.scaled(font)
-    }
-}
 
 /// Get the current math font.
 #[comemo::memoize]

@@ -1,5 +1,3 @@
-use std::f64::consts::SQRT_2;
-
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_library::diag::SourceResult;
@@ -53,7 +51,7 @@ fn layout_text_lines<'a>(
     }
     let mut frame = MathRun::new(fragments).into_frame(styles);
     let font = find_math_font(ctx.engine.world, styles, span)?;
-    let axis = value!(font, axis_height).resolve(styles);
+    let axis = font.metrics().math.axis_height.resolve(styles);
     frame.set_baseline(frame.height() / 2.0 + axis);
     Ok(FrameFragment::new(styles, frame))
 }
@@ -153,9 +151,13 @@ pub fn layout_symbol(
     if let Some(mut glyph) = GlyphFragment::new(ctx, symbol_styles, &text, elem.span())? {
         if glyph.class == MathClass::Large {
             if styles.get(EquationElem::size) == MathSize::Display {
-                let height = value!(glyph.item.font, display_operator_min_height)
-                    .at(glyph.item.size)
-                    .max(SQRT_2 * glyph.size.y);
+                let height = glyph
+                    .item
+                    .font
+                    .metrics()
+                    .math
+                    .display_operator_min_height
+                    .at(glyph.item.size);
                 glyph.stretch_vertical(ctx, height);
             };
             // TeXbook p 155. Large operators are always vertically centered on

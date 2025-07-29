@@ -226,7 +226,7 @@ fn layout_attachments(
     // `space_after_script` is extra spacing that is at the start before each
     // pre-script, and at the end after each post-script (see the MathConstants
     // table in the OpenType MATH spec).
-    let space_after_script = value!(font, space_after_script).at(size);
+    let space_after_script = font.metrics().math.space_after_script.at(size);
 
     // Calculate the distance each pre-script extends to the left of the base's
     // width.
@@ -385,14 +385,16 @@ fn compute_limit_shifts(
     // `lower_drop_min` give gaps to each limit's baseline (see the
     // MathConstants table in the OpenType MATH spec).
     let t_shift = t.map_or_default(|t| {
-        let upper_gap_min = value!(font, upper_limit_gap_min).at(font_size);
-        let upper_rise_min = value!(font, upper_limit_baseline_rise_min).at(font_size);
+        let upper_gap_min = font.metrics().math.upper_limit_gap_min.at(font_size);
+        let upper_rise_min =
+            font.metrics().math.upper_limit_baseline_rise_min.at(font_size);
         base.ascent() + upper_rise_min.max(upper_gap_min + t.descent())
     });
 
     let b_shift = b.map_or_default(|b| {
-        let lower_gap_min = value!(font, lower_limit_gap_min).at(font_size);
-        let lower_drop_min = value!(font, lower_limit_baseline_drop_min).at(font_size);
+        let lower_gap_min = font.metrics().math.lower_limit_gap_min.at(font_size);
+        let lower_drop_min =
+            font.metrics().math.lower_limit_baseline_drop_min.at(font_size);
         base.descent() + lower_drop_min.max(lower_gap_min + b.ascent())
     });
 
@@ -410,20 +412,23 @@ fn compute_script_shifts(
     [tl, tr, bl, br]: [&Option<MathFragment>; 4],
 ) -> (Abs, Abs) {
     let sup_shift_up = (if cramped {
-        value!(font, superscript_shift_up_cramped)
+        font.metrics().math.superscript_shift_up_cramped
     } else {
-        value!(font, superscript_shift_up)
+        font.metrics().math.superscript_shift_up
     })
     .at(font_size);
 
-    let sup_bottom_min = value!(font, superscript_bottom_min).at(font_size);
-    let sup_bottom_max_with_sub =
-        value!(font, superscript_bottom_max_with_subscript).at(font_size);
-    let sup_drop_max = value!(font, superscript_baseline_drop_max).at(font_size);
-    let gap_min = value!(font, sub_superscript_gap_min).at(font_size);
-    let sub_shift_down = value!(font, subscript_shift_down).at(font_size);
-    let sub_top_max = value!(font, subscript_top_max).at(font_size);
-    let sub_drop_min = value!(font, subscript_baseline_drop_min).at(font_size);
+    let sup_bottom_min = font.metrics().math.superscript_bottom_min.at(font_size);
+    let sup_bottom_max_with_sub = font
+        .metrics()
+        .math
+        .superscript_bottom_max_with_subscript
+        .at(font_size);
+    let sup_drop_max = font.metrics().math.superscript_baseline_drop_max.at(font_size);
+    let gap_min = font.metrics().math.sub_superscript_gap_min.at(font_size);
+    let sub_shift_down = font.metrics().math.subscript_shift_down.at(font_size);
+    let sub_top_max = font.metrics().math.subscript_top_max.at(font_size);
+    let sub_drop_min = font.metrics().math.subscript_baseline_drop_min.at(font_size);
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
