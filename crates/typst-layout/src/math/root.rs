@@ -29,7 +29,7 @@ pub fn layout_root(
         if multiline {
             // Align the frame center line with the math axis.
             let (font, size) = radicand.font(ctx, styles, elem.radicand.span())?;
-            let axis = value!(font, axis_height).at(size);
+            let axis = font.metrics().math.axis_height.at(size);
             let mut radicand = radicand.into_frame();
             radicand.set_baseline(radicand.height() / 2.0 + axis);
             radicand
@@ -43,16 +43,15 @@ pub fn layout_root(
         ctx.layout_into_fragment(&SymbolElem::packed('√').spanned(span), styles)?;
 
     let (font, size) = sqrt.font(ctx, styles, span)?;
-    let thickness = value!(font, radical_rule_thickness).at(size);
-    let extra_ascender = value!(font, radical_extra_ascender).at(size);
-    let kern_before = value!(font, radical_kern_before_degree).at(size);
-    let kern_after = value!(font, radical_kern_after_degree).at(size);
-    let raise_factor = percent!(font, radical_degree_bottom_raise_percent);
-    let gap = value!(
-        font, styles,
-        text: radical_vertical_gap,
-        display: radical_display_style_vertical_gap,
-    )
+    let thickness = font.metrics().math.radical_rule_thickness.at(size);
+    let extra_ascender = font.metrics().math.radical_extra_ascender.at(size);
+    let kern_before = font.metrics().math.radical_kern_before_degree.at(size);
+    let kern_after = font.metrics().math.radical_kern_after_degree.at(size);
+    let raise_factor = font.metrics().math.radical_degree_bottom_raise_percent;
+    let gap = match styles.get(EquationElem::size) {
+        MathSize::Display => font.metrics().math.radical_display_style_vertical_gap,
+        _ => font.metrics().math.radical_vertical_gap,
+    }
     .at(size);
 
     let line = FrameItem::Shape(

@@ -313,7 +313,7 @@ fn layout_delimiters(
 ) -> SourceResult<()> {
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
     let font = find_math_font(ctx.engine.world, styles, span)?;
-    let axis = value!(font, axis_height).resolve(styles);
+    let axis = font.metrics().math.axis_height.resolve(styles);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
