@@ -21,9 +21,9 @@ use typst_library::introspection::Location;
 use typst_library::layout::{Abs, Point, Rect, RepeatElem};
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Destination, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell,
-    TableElem, TermsElem,
+    Destination, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
+    ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell, TableElem,
+    TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::visualize::ImageElem;
@@ -72,6 +72,10 @@ pub(crate) fn handle_start(
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
                 push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)))?;
+                return Ok(());
+            }
+            PdfMarkerTagKind::FootnoteRef(decl_loc) => {
+                push_stack(gc, elem, StackEntryKind::FootnoteRef(*decl_loc))?;
                 return Ok(());
             }
             PdfMarkerTagKind::Bibliography(numbered) => {
@@ -167,12 +171,9 @@ pub(crate) fn handle_start(
         let link_id = gc.tags.next_link_id();
         push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()))?;
         return Ok(());
-    } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
-        push_stack(gc, elem, StackEntryKind::FootNoteRef)?;
-        return Ok(());
     } else if let Some(entry) = elem.to_packed::<FootnoteEntry>() {
         let footnote_loc = entry.note.location().unwrap();
-        push_stack(gc, elem, StackEntryKind::FootNoteEntry(footnote_loc))?;
+        push_stack(gc, elem, StackEntryKind::FootnoteEntry(footnote_loc))?;
         return Ok(());
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
         // TODO: should the attribution be handled somehow?
@@ -244,7 +245,7 @@ pub(crate) fn handle_end(
 
     if let Some(entry) = gc.tags.stack.pop_if(|e| e.loc == loc) {
         // The tag nesting was properly closed.
-        pop_stack(gc, loc, entry);
+        pop_stack(gc, entry);
         return Ok(());
     }
 
@@ -304,12 +305,12 @@ pub(crate) fn handle_end(
             kind,
             nodes: Vec::new(),
         });
-        pop_stack(gc, loc, entry);
+        pop_stack(gc, entry);
     }
 
     // Pop the closed entry off the stack.
     let closed = gc.tags.stack.pop().unwrap();
-    pop_stack(gc, loc, closed);
+    pop_stack(gc, closed);
 
     // Push all broken and afterwards duplicated entries back on.
     gc.tags.stack.extend(broken_entries);
@@ -317,7 +318,7 @@ pub(crate) fn handle_end(
     Ok(())
 }
 
-fn pop_stack(gc: &mut GlobalContext, loc: Location, entry: StackEntry) {
+fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => TagNode::Group(tag, entry.nodes),
         StackEntryKind::Outline(ctx) => ctx.build_outline(entry.nodes),
@@ -382,17 +383,25 @@ fn pop_stack(gc: &mut GlobalContext, loc: Location, entry: StackEntry) {
             }
             node
         }
-        StackEntryKind::FootNoteRef => {
-            // transparently inset all children.
+        StackEntryKind::FootnoteRef(decl_loc) => {
+            // transparently insert all children.
             gc.tags.extend(entry.nodes);
-            gc.tags.push(TagNode::FootnoteEntry(loc));
+
+            let ctx = gc.tags.footnotes.entry(decl_loc).or_insert(FootnoteCtx::new());
+
+            // Only insert the footnote entry once after the first reference.
+            if !ctx.is_referenced {
+                ctx.is_referenced = true;
+                gc.tags.push(TagNode::FootnoteEntry(decl_loc));
+            }
             return;
         }
-        StackEntryKind::FootNoteEntry(footnote_loc) => {
+        StackEntryKind::FootnoteEntry(footnote_loc) => {
             // Store footnotes separately so they can be inserted directly after
             // the footnote reference in the reading order.
             let tag = TagNode::Group(Tag::Note.into(), entry.nodes);
-            gc.tags.footnotes.insert(footnote_loc, tag);
+            let ctx = gc.tags.footnotes.entry(footnote_loc).or_insert(FootnoteCtx::new());
+            ctx.entry = Some(tag);
             return;
         }
     };
@@ -473,7 +482,7 @@ pub(crate) struct Tags {
     /// reading order. Because of some layouting bugs, the entry might appear
     /// before the reference in the text, so we only resolve them once tags
     /// for the whole document are generated.
-    pub(crate) footnotes: HashMap<Location, TagNode>,
+    pub(crate) footnotes: HashMap<Location, FootnoteCtx>,
     pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
@@ -537,7 +546,9 @@ impl Tags {
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
             TagNode::FootnoteEntry(loc) => {
-                let node = self.footnotes.remove(&loc).expect("footnote");
+                let node = (self.footnotes.remove(&loc))
+                    .and_then(|ctx| ctx.entry)
+                    .expect("footnote");
                 self.resolve_node(node)
             }
         }
@@ -738,11 +749,11 @@ pub(crate) enum StackEntryKind {
     Figure(FigureCtx),
     Formula(FigureCtx),
     Link(LinkId, Packed<LinkMarker>),
-    /// The footnote reference in the text.
-    FootNoteRef,
+    /// The footnote reference in the text, contains the declaration location.
+    FootnoteRef(Location),
     /// The footnote entry at the end of the page. Contains the [`Location`] of
     /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
-    FootNoteEntry(Location),
+    FootnoteEntry(Location),
 }
 
 impl StackEntryKind {
@@ -836,9 +847,25 @@ impl StackEntryKind {
             StackEntryKind::Figure(_) => false,
             StackEntryKind::Formula(_) => false,
             StackEntryKind::Link(..) => !is_pdf_ua,
-            StackEntryKind::FootNoteRef => false,
-            StackEntryKind::FootNoteEntry(_) => false,
+            StackEntryKind::FootnoteRef(_) => false,
+            StackEntryKind::FootnoteEntry(_) => false,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct FootnoteCtx {
+    /// Whether this footenote has been referenced inside the document. The
+    /// entry will be inserted inside the reading order after the first
+    /// reference. All other references will still have links to the footnote.
+    is_referenced: bool,
+    /// The nodes that make up the footnote entry.
+    entry: Option<TagNode>,
+}
+
+impl FootnoteCtx {
+    pub const fn new() -> Self {
+        Self { is_referenced: false, entry: None }
     }
 }
 

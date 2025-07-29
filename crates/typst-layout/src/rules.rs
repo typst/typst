@@ -384,15 +384,16 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
-    let loc = elem.declaration_location(engine).at(span)?;
+    let decl_loc = elem.declaration_location(engine).at(span)?;
     let numbering = elem.numbering.get_ref(styles);
     let counter = Counter::of(FootnoteElem::ELEM);
-    let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+    let num = counter.display_at_loc(engine, decl_loc, styles, numbering)?;
     let alt = FootnoteElem::alt_text(styles, &num.plain_text());
     let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span));
-    let loc = loc.variant(1);
+    let loc = decl_loc.variant(1);
     // Add zero-width weak spacing to make the footnote "sticky".
-    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc), Some(alt)))
+    let link = sup.linked(Destination::Location(loc), Some(alt));
+    Ok(PdfMarkerTag::FootnoteRef(decl_loc, HElem::hole().pack() + link))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
