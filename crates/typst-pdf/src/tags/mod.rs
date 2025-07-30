@@ -2,14 +2,13 @@ use std::cell::OnceCell;
 use std::num::NonZeroU16;
 use std::ops::{Deref, DerefMut};
 
-use ecow::EcoString;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
     ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagGroup,
     TagKind, TagTree,
 };
-use typst_library::foundations::{Content, Packed, StyleChain};
+use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
@@ -24,10 +23,12 @@ use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
+use crate::tags::util::{PropertyOptRef, PropertyValCopied};
 
 mod list;
 mod outline;
 mod table;
+mod util;
 
 pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Content) {
     if gc.tags.in_artifact.is_some() {
@@ -38,7 +39,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     let loc = elem.location().expect("elem to be locatable");
 
     if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
-        let kind = artifact.kind.get(StyleChain::default());
+        let kind = artifact.kind.val();
         push_artifact(gc, surface, loc, kind);
         return;
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
@@ -89,7 +90,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
-        let alt = image.alt.get_cloned(StyleChain::default()).map(|s| s.to_string());
+        let alt = image.alt.opt_ref().map(|s| s.to_string());
 
         if let Some(StackEntryKind::Standard(TagKind::Figure(tag))) =
             gc.tags.stack.parent()
@@ -104,11 +105,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         }
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
-        let summary = table
-            .summary
-            .get_ref(StyleChain::default())
-            .as_ref()
-            .map(EcoString::to_string);
+        let summary = table.summary.opt_ref().map(|s| s.to_string());
         let ctx = TableCtx::new(table_id, summary);
         push_stack(gc, loc, StackEntryKind::Table(ctx));
         return;
@@ -119,9 +116,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if cell.is_repeated.get(StyleChain::default())
-            || table_ctx.is_some_and(|ctx| ctx.contains(cell))
-        {
+        if cell.is_repeated.val() || table_ctx.is_some_and(|ctx| ctx.contains(cell)) {
             push_artifact(gc, surface, loc, ArtifactKind::Other);
         } else {
             push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
@@ -363,9 +358,7 @@ impl TagStack {
         self.parent()?.as_list_mut()
     }
 
-    pub fn parent_outline(
-        &mut self,
-    ) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
+    pub fn parent_outline(&mut self) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
         self.0.last_mut().and_then(|e| {
             let ctx = e.kind.as_outline_mut()?;
             Some((ctx, &mut e.nodes))
