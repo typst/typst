@@ -21,37 +21,36 @@ Running just the integration tests (the tests in this directory):
 cargo test --workspace --test tests
 ```
 
-You may want to [make yourself an alias](#making-an-alias) `testit` so that you can
-write shorter commands. In the examples below, we will use this alias.
+You can use the set up `cargo testit` alias to write shorter commands. In the examples below, we will use this alias.
 
 Running all tests with the given name pattern. You can use
 [regular expression](https://docs.rs/regex/latest/regex/)s.
 ```bash
-testit math            # The name has "math" anywhere
-testit math page       # The name has "math" or "page" anywhere
-testit "^math" "^page" # The name begins with "math" or "page"
-testit "^(math|page)"  # Same as above.
+cargo testit math            # The name has "math" anywhere
+cargo testit math page       # The name has "math" or "page" anywhere
+cargo testit "^math" "^page" # The name begins with "math" or "page"
+cargo testit "^(math|page)"  # Same as above.
 ```
 
 Running all tests discovered under given paths:
 ```bash
-testit -p tests/suite/math/attach.typ
-testit -p tests/suite/model -p tests/suite/text
+cargo testit -p tests/suite/math/attach.typ
+cargo testit -p tests/suite/model -p tests/suite/text
 ```
 
 Running tests that begin with `issue` under a given path:
 ```bash
-testit "^issue" -p tests/suite/model
+cargo testit "^issue" -p tests/suite/model
 ```
 
 Running a test with the exact test name `math-attach-mixed`.
 ```bash
-testit --exact math-attach-mixed
+cargo testit --exact math-attach-mixed
 ```
 
 You may find more options in the help message:
 ```bash
-testit --help
+cargo testit --help
 ```
 
 To make the integration tests go faster they don't generate PDFs or SVGs by
@@ -59,7 +58,7 @@ default. Pass the `--pdf` or `--svg` flag to generate those. Mind that PDFs and
 SVGs are **not** tested automatically at the moment, so you should always check
 the output manually when making changes.
 ```bash
-testit --pdf
+cargo testit --pdf
 ```
 
 ## Writing tests
@@ -119,7 +118,7 @@ If you created a new test or fixed a bug in an existing test, you may need to
 update the reference output used for comparison. For this, you can use the
 `--update` flag:
 ```bash
-testit --exact my-test-name --update
+cargo testit --exact my-test-name --update
 ```
 
 For visual tests, this will generally generate compressed reference images (to
@@ -127,24 +126,3 @@ remain within the size limit).
 
 If you use the VS Code test helper extension (see the `tools` folder), you can
 alternatively use the save button to update the reference output.
-
-## Making an alias
-If you want to have a quicker way to run the tests, consider adding a shortcut
-to your shell profile so that you can simply write something like:
-```bash
-testit --exact my-test-name
-```
-
-### Bash
-Open your Bash configuration by executing `nano ~/.bashrc`.
-```bash
-alias testit="cargo test --workspace --test tests --"
-```
-
-### PowerShell
-Open your PowerShell profile by executing `notepad $profile`.
-```ps
-function testit {
-    cargo test --workspace --test tests -- $args
-}
-```
