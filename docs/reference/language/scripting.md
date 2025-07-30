@@ -343,13 +343,15 @@ packages. For more details on this, see the
 When developing modules and packages, it is recommended to use
 [kebab case](https://en.wikipedia.org/wiki/Letter_case#Kebab_case)
 for identifiers of public variables, functions, and their arguments.
+In kebab case, words are written in lowercase and separated by hyphens (`-`),
+like `cap-height`.
 
 The identifier syntax in Typst is based on the
 [Unicode Standard Annex #31](https://www.unicode.org/reports/tr31/),
 with two extensions: allowing `_` as a starting character, and allowing both `_`
 and `-` as continuing characters.
 
-Specifically: 
+Specifically:
 
 - Identifiers may start with a letter or an underscore (`_`),
 - and continue with letters, digits, underscores, and hyphen (`-`).
@@ -366,8 +368,10 @@ Specifically:
 // so it's not a valid identifier
 ```
 
-Note that this does not apply to names of [`label`]($label), which follow
-[a dedicated syntax]($label/#syntax).
+Note that the above only applies to identifiers. For example, [`label`]($label)s
+are not identifiers. Therefore, [its dedicated syntax]($label/#syntax) allows
+the name to start with `-`, and also allows the use of `:` and `.`. Furthermore,
+[its constructor function]($label/#constructor) allows any non-empty string.
 
 ## Operators
 The following table lists all available unary and binary operators with effect,
