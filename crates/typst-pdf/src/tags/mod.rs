@@ -23,6 +23,7 @@ use typst_library::model::{
     TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
+use typst_library::text::RawElem;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
@@ -177,6 +178,22 @@ pub(crate) fn handle_start(
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
         // TODO: should the attribution be handled somehow?
         if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
+    } else if let Some(raw) = elem.to_packed::<RawElem>() {
+        let desc = raw.lang.opt_ref().and_then(|lang_token| {
+            let lower = lang_token.to_lowercase();
+            let (lang, _) = RawElem::languages()
+                .into_iter()
+                .find(|(_, tokens)| tokens.contains(&lower.as_str()))?;
+
+            // TODO: localization
+            Some(if raw.block.val() {
+                format!("code block {lang}")
+            } else {
+                format!("inline code {lang}")
+            })
+        });
+        push_stack(gc, elem, StackEntryKind::Code(desc))?;
+        return Ok(());
     } else {
         return Ok(());
     };
@@ -398,6 +415,15 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
             let ctx = gc.tags.footnotes.entry(footnote_loc).or_insert(FootnoteCtx::new());
             ctx.entry = Some(tag);
             return;
+        }
+        StackEntryKind::Code(desc) => {
+            let code = TagNode::group(Tag::Code, entry.nodes);
+            if desc.is_some() {
+                let desc = TagNode::group(Tag::Span.with_alt_text(desc), Vec::new());
+                TagNode::group(Tag::NonStruct, vec![desc, code])
+            } else {
+                code
+            }
         }
     };
 
@@ -749,6 +775,7 @@ pub(crate) enum StackEntryKind {
     /// The footnote entry at the end of the page. Contains the [`Location`] of
     /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
     FootnoteEntry(Location),
+    Code(Option<String>),
 }
 
 impl StackEntryKind {
@@ -844,6 +871,7 @@ impl StackEntryKind {
             StackEntryKind::Link(..) => !is_pdf_ua,
             StackEntryKind::FootnoteRef(_) => false,
             StackEntryKind::FootnoteEntry(_) => false,
+            StackEntryKind::Code(_) => false,
         }
     }
 }
@@ -963,6 +991,12 @@ pub(crate) enum TagNode {
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
     Placeholder(Placeholder),
     FootnoteEntry(Location),
+}
+
+impl TagNode {
+    pub fn group(tag: impl Into<TagKind>, children: Vec<TagNode>) -> Self {
+        TagNode::Group(tag.into(), children)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
