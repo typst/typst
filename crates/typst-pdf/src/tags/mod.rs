@@ -821,7 +821,7 @@ impl StackEntryKind {
                 TagKind::THead(_) => false,
                 TagKind::TBody(_) => false,
                 TagKind::TFoot(_) => false,
-                TagKind::Span(_) => false,
+                TagKind::Span(_) => true,
                 TagKind::InlineQuote(_) => !is_pdf_ua,
                 TagKind::Note(_) => !is_pdf_ua,
                 TagKind::Reference(_) => !is_pdf_ua,
