@@ -7,7 +7,7 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    DELIM_SHORT_FALL, FrameFragment, MathContext, find_math_font, style_for_denominator,
+    DELIM_SHORT_FALL, FrameFragment, MathContext, style_for_denominator,
     style_for_numerator,
 };
 
@@ -49,32 +49,29 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let font = find_math_font(ctx.engine.world, styles, span)?;
-    let axis = font.metrics().math.axis_height.resolve(styles);
-    let thickness = font.metrics().math.fraction_rule_thickness.resolve(styles);
+    let axis = ctx.font().math().axis_height.resolve(styles);
+    let thickness = ctx.font().math().fraction_rule_thickness.resolve(styles);
     let size = styles.get(EquationElem::size);
     let shift_up = match size {
-        MathSize::Display => {
-            font.metrics().math.fraction_numerator_display_style_shift_up
-        }
-        _ => font.metrics().math.fraction_numerator_shift_up,
+        MathSize::Display => ctx.font().math().fraction_numerator_display_style_shift_up,
+        _ => ctx.font().math().fraction_numerator_shift_up,
     }
     .resolve(styles);
     let shift_down = match size {
         MathSize::Display => {
-            font.metrics().math.fraction_denominator_display_style_shift_down
+            ctx.font().math().fraction_denominator_display_style_shift_down
         }
-        _ => font.metrics().math.fraction_denominator_shift_down,
+        _ => ctx.font().math().fraction_denominator_shift_down,
     }
     .resolve(styles);
     let num_min = match size {
-        MathSize::Display => font.metrics().math.fraction_num_display_style_gap_min,
-        _ => font.metrics().math.fraction_numerator_gap_min,
+        MathSize::Display => ctx.font().math().fraction_num_display_style_gap_min,
+        _ => ctx.font().math().fraction_numerator_gap_min,
     }
     .resolve(styles);
     let denom_min = match size {
-        MathSize::Display => font.metrics().math.fraction_denom_display_style_gap_min,
-        _ => font.metrics().math.fraction_denominator_gap_min,
+        MathSize::Display => ctx.font().math().fraction_denom_display_style_gap_min,
+        _ => ctx.font().math().fraction_denominator_gap_min,
     }
     .resolve(styles);
 
