@@ -273,25 +273,35 @@ pub(crate) fn handle_end(
     // There are overlapping tags in the tag tree. Figure whether breaking
     // up the current tag stack is semantically ok.
     let is_pdf_ua = gc.options.standards.config.validator() == Validator::UA1;
-    let non_breakable = gc.tags.stack[idx + 1..]
-        .iter()
-        .find(|e| !e.kind.is_breakable(is_pdf_ua));
-    if let Some(entry) = non_breakable {
+    let mut is_breakable = true;
+    let mut non_breakable_span = Span::detached();
+    for e in gc.tags.stack[idx + 1..].iter() {
+        if e.kind.is_breakable(is_pdf_ua) {
+            continue;
+        }
+
+        is_breakable = false;
+        if !e.span.is_detached() {
+            non_breakable_span = e.span;
+            break;
+        }
+    }
+    if !is_breakable {
         let validator = gc.options.standards.config.validator();
         if is_pdf_ua {
             let ua1 = validator.as_str();
             bail!(
-                entry.span,
+                non_breakable_span,
                 "{ua1} error: invalid semantic structure, \
                     this element's tag would be split up";
-                hint: "maybe there is a `parbreak`, `colbreak`, or `pagebreak`"
+                hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`"
             );
         } else {
             bail!(
-                entry.span,
+                non_breakable_span,
                 "invalid semantic structure, \
                 this element's tag would be split up";
-                hint: "maybe there is a `parbreak`, `colbreak`, or `pagebreak`";
+                hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`";
                 hint: "disable tagged pdf by passing `--disable-pdf-tags`"
             );
         }
