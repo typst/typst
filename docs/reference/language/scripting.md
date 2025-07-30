@@ -14,7 +14,7 @@ provides compact syntax to embed a code expression into markup: An expression is
 introduced with a hash (`#`) and normal markup parsing resumes after the
 expression is finished. If a character would continue the expression but should
 be interpreted as text, the expression can forcibly be ended with a semicolon
-(`;`). As usual, you can [escape literal `#` or `;` with a backslash]($syntax/#escapes).
+(`;`). You can [escape literal `#` or `;` with a backslash]($syntax/#escapes).
 
 ```example
 #emph[Hello] \
@@ -340,9 +340,9 @@ packages. For more details on this, see the
 [package repository](https://github.com/typst/packages).
 
 ## Names and identifiers { #identifiers }
-When developing modules and packages, it is recommended to use kebab-case for
-identifiers of public variables, functions, and their arguments. In kebab-case,
-words are separated by hyphens (`-`), like `cap-height`.
+When developing modules and packages, it is recommended to use
+[kebab case](https://en.wikipedia.org/wiki/Letter_case#Kebab_case)
+for identifiers of public variables, functions, and their arguments.
 
 The identifier syntax in Typst is based on the
 [Unicode Standard Annex #31](https://www.unicode.org/reports/tr31/),
@@ -352,7 +352,7 @@ and `-` as continuing characters.
 Specifically: 
 
 - Identifiers may start with a letter or an underscore (`_`),
-- and continue with letters, digits, underscores, and hyphen (`-`) thereafter.
+- and continue with letters, digits, underscores, and hyphen (`-`).
 
 ```example
 #let kebab-case = [Using hyphen]
@@ -364,7 +364,7 @@ Specifically:
 #if -π < 0 { _schön }
 ```
 
-Note that this does not apply to names of [`label`]($label), which follows
+Note that this does not apply to names of [`label`]($label), which follow
 [a dedicated syntax]($label/#syntax).
 
 ## Operators

@@ -75,7 +75,10 @@ impl Label {
     /// Creates a label from a string.
     #[func(constructor)]
     pub fn construct(
-        /// The name of the label. Must not be empty.
+        /// The name of the label.
+        ///
+        /// Unlike the [dedicated syntax](#syntax), this constructor accepts
+        /// any non-empty string, including names with special characters.
         name: Str,
     ) -> StrResult<Label> {
         if name.is_empty() {
