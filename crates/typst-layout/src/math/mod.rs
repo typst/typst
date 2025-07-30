@@ -13,10 +13,12 @@ mod stretch;
 mod text;
 mod underover;
 
-use typst_library::diag::SourceResult;
+use comemo::Tracked;
+use typst_library::World;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
+    Content, NativeElement, Packed, Resolve, Style, StyleChain, SymbolElem,
 };
 use typst_library::introspection::{Counter, Locator, SplitLocator, TagElem};
 use typst_library::layout::{
@@ -27,8 +29,12 @@ use typst_library::layout::{
 use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
-use typst_library::text::{LinebreakElem, RawElem, SpaceElem, TextEdgeBounds, TextElem};
-use typst_utils::Numeric;
+use typst_library::text::{
+    Font, LinebreakElem, RawElem, SpaceElem, TextEdgeBounds, TextElem, families, variant,
+};
+use typst_syntax::Span;
+use typst_utils::{LazyHash, Numeric};
+
 use unicode_math_class::MathClass;
 
 use self::fragment::{
@@ -49,10 +55,12 @@ pub fn layout_equation_inline(
 ) -> SourceResult<Vec<InlineItem>> {
     assert!(!elem.block.get(styles));
 
-    let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, region);
+    // TODO: add warning if top-level font isn't a math font.
+    let font = get_font(engine.world, styles, elem.span())?;
 
-    let font = find_math_font(ctx.engine.world, styles, elem.span())?;
+    let mut locator = locator.split();
+    let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
+
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
@@ -103,11 +111,12 @@ pub fn layout_equation_block(
     assert!(elem.block.get(styles));
 
     let span = elem.span();
+    // TODO: add warning if top-level font isn't a math font.
+    let font = get_font(engine.world, styles, elem.span())?;
 
     let mut locator = locator.split();
-    let mut ctx = MathContext::new(engine, &mut locator, regions.base());
+    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
 
-    let font = find_math_font(ctx.engine.world, styles, elem.span())?;
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
@@ -341,6 +350,36 @@ fn resize_equation(
     resizing_offset + Point::with_y(excess_above)
 }
 
+fn get_font(
+    world: Tracked<dyn World + '_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    let Some(font) = families(styles).find_map(|family| {
+        // Take the base font as the "main" math font.
+        world
+            .book()
+            .select(family.as_str(), variant)
+            .and_then(|id| world.font(id))
+            .filter(|_| family.covers().is_none())
+    }) else {
+        // TODO: surely this can never be triggered...?
+        bail!(span, "current font does not support math");
+    };
+    Ok(font)
+}
+
+/// Styles to add font constants to the style chain.
+fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+    EquationElem::script_scale
+        .set((
+            font.math().script_percent_scale_down,
+            font.math().script_script_percent_scale_down,
+        ))
+        .wrap()
+}
+
 /// The context for math layout.
 struct MathContext<'a, 'v, 'e> {
     // External.
@@ -348,6 +387,7 @@ struct MathContext<'a, 'v, 'e> {
     locator: &'v mut SplitLocator<'a>,
     region: Region,
     // Mutable.
+    fonts_stack: Vec<Font>,
     fragments: Vec<MathFragment>,
 }
 
@@ -357,13 +397,21 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         engine: &'v mut Engine<'e>,
         locator: &'v mut SplitLocator<'a>,
         base: Size,
+        font: Font,
     ) -> Self {
         Self {
             engine,
             locator,
             region: Region::new(base, Axes::splat(false)),
+            fonts_stack: vec![font],
             fragments: vec![],
         }
+    }
+
+    #[inline]
+    fn font(&self) -> &Font {
+        // Will always be at least one font in the stack.
+        self.fonts_stack.last().unwrap()
     }
 
     /// Push a fragment.
@@ -435,8 +483,28 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             styles,
         )?;
 
+        let (outer_font, outer_style, outer_weight) = (
+            styles.get_ref(TextElem::font),
+            styles.get_ref(TextElem::style),
+            styles.get_ref(TextElem::weight),
+        );
         for (elem, styles) in pairs {
-            layout_realized(elem, self, styles)?;
+            // TODO: can we get away with just checking the font?
+            if styles.get_ref(TextElem::font) != outer_font
+                || styles.get_ref(TextElem::style) != outer_style
+                || styles.get_ref(TextElem::weight) != outer_weight
+            {
+                self.fonts_stack.push(get_font(
+                    self.engine.world,
+                    styles,
+                    content.span(),
+                )?);
+                let scale_style = style_for_script_scale(self.font());
+                layout_realized(elem, self, styles.chain(&scale_style))?;
+                self.fonts_stack.pop();
+            } else {
+                layout_realized(elem, self, styles)?;
+            }
         }
 
         Ok(())
@@ -452,11 +520,7 @@ fn layout_realized(
     if let Some(elem) = elem.to_packed::<TagElem>() {
         ctx.push(MathFragment::Tag(elem.tag.clone()));
     } else if elem.is::<SpaceElem>() {
-        let space_width = find_math_font(ctx.engine.world, styles, elem.span())
-            .ok()
-            .and_then(|font| font.space_width())
-            .unwrap_or(THICK);
-        ctx.push(MathFragment::Space(space_width.resolve(styles)));
+        ctx.push(MathFragment::Space(ctx.font().space_width().resolve(styles)));
     } else if elem.is::<LinebreakElem>() {
         ctx.push(MathFragment::Linebreak);
     } else if let Some(elem) = elem.to_packed::<HElem>() {
@@ -526,10 +590,8 @@ fn layout_realized(
     } else {
         let mut frame = layout_external(elem, ctx, styles)?;
         if !frame.has_baseline() && !elem.is::<RawElem>() {
-            if let Ok(font) = find_math_font(ctx.engine.world, styles, elem.span()) {
-                let axis = font.metrics().math.axis_height.resolve(styles);
-                frame.set_baseline(frame.height() / 2.0 + axis);
-            }
+            let axis = ctx.font().math().axis_height.resolve(styles);
+            frame.set_baseline(frame.height() / 2.0 + axis);
         }
         ctx.push(
             FrameFragment::new(styles, frame)

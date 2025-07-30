@@ -13,14 +13,14 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{
-    Font, FontFlags, Glyph, TextElem, TextItem, families, features, language, variant,
+    Font, Glyph, TextElem, TextItem, families, features, language, variant,
 };
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 
-use super::{MathContext, find_math_font};
+use super::MathContext;
 use crate::inline::create_shape_plan;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
@@ -112,19 +112,15 @@ impl MathFragment {
         }
     }
 
-    pub fn font(
-        &self,
-        ctx: &MathContext,
-        styles: StyleChain,
-        span: Span,
-    ) -> SourceResult<(Font, Abs)> {
-        Ok((
+    #[inline]
+    pub fn font(&self, ctx: &MathContext, styles: StyleChain) -> (Font, Abs) {
+        (
             match self {
                 Self::Glyph(glyph) => glyph.item.font.clone(),
-                _ => find_math_font(ctx.engine.world, styles, span)?,
+                _ => ctx.font().clone(),
             },
             self.font_size().unwrap_or_else(|| styles.resolve(TextElem::size)),
-        ))
+        )
     }
 
     pub fn font_size(&self) -> Option<Abs> {
@@ -333,7 +329,6 @@ impl GlyphFragment {
             selection = book
                 .select(family.as_str(), variant)
                 .and_then(|id| world.font(id))
-                .filter(|font| font.info().flags.contains(FontFlags::MATH))
                 .filter(|_| family.covers().is_none_or(|cov| cov.is_match(&text[..end])));
             if selection.is_some() {
                 break;
@@ -345,11 +340,11 @@ impl GlyphFragment {
             selection = book
                 .select_fallback(None, variant, text)
                 .and_then(|id| world.font(id))
-                .filter(|font| font.info().flags.contains(FontFlags::MATH));
         }
 
-        // Error out if no math font could be found at all.
+        // Error out if no font could be found at all.
         let Some(font) = selection else {
+            // TODO: shape tofus?
             bail!(span, "current font does not support math");
         };
 

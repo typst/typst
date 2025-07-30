@@ -29,14 +29,14 @@ pub fn layout_accent(
     let base_styles = base_styles.chain(&cramped);
     let base = ctx.layout_into_fragment(&elem.base, base_styles)?;
 
-    let (font, size) = base.font(ctx, base_styles, elem.base.span())?;
+    let (font, size) = base.font(ctx, base_styles);
 
     // Preserve class to preserve automatic spacing.
     let base_class = base.class();
     let base_attach = base.accent_attach();
 
     // Try to replace the accent glyph with its flattened variant.
-    let flattened_base_height = font.metrics().math.flattened_accent_base_height.at(size);
+    let flattened_base_height = font.math().flattened_accent_base_height.at(size);
     let flac = style_flac();
     let accent_styles = if top_accent && base.ascent() > flattened_base_height {
         styles.chain(&flac)
@@ -62,7 +62,7 @@ pub fn layout_accent(
         // baseline. Therefore, the default gap is the accent's negated descent
         // minus the accent base height. Only if the base is very small, we
         // need a larger gap so that the accent doesn't move too low.
-        let accent_base_height = font.metrics().math.accent_base_height.at(size);
+        let accent_base_height = font.math().accent_base_height.at(size);
         let gap = -accent.descent() - base.ascent().min(accent_base_height);
         let accent_pos = Point::with_x(base_attach.0 - accent_attach);
         let base_pos = Point::with_y(accent.height() + gap);

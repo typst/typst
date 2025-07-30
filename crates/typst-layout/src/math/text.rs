@@ -12,8 +12,8 @@ use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun, find_math_font,
-    has_dtls_feat, style_dtls,
+    FrameFragment, GlyphFragment, MathContext, MathFragment, MathRun, has_dtls_feat,
+    style_dtls,
 };
 
 /// Lays out a [`TextElem`].
@@ -50,8 +50,7 @@ fn layout_text_lines<'a>(
         }
     }
     let mut frame = MathRun::new(fragments).into_frame(styles);
-    let font = find_math_font(ctx.engine.world, styles, span)?;
-    let axis = font.metrics().math.axis_height.resolve(styles);
+    let axis = ctx.font().math().axis_height.resolve(styles);
     frame.set_baseline(frame.height() / 2.0 + axis);
     Ok(FrameFragment::new(styles, frame))
 }
@@ -133,11 +132,8 @@ pub fn layout_symbol(
     // Switch dotless char to normal when we have the dtls OpenType feature.
     // This should happen before the main styling pass.
     let dtls = style_dtls();
-    let (unstyled_c, symbol_styles) = match (
-        try_dotless(elem.text),
-        find_math_font(ctx.engine.world, styles, elem.span()),
-    ) {
-        (Some(c), Ok(font)) if has_dtls_feat(&font) => (c, styles.chain(&dtls)),
+    let (unstyled_c, symbol_styles) = match (try_dotless(elem.text), ctx.font().clone()) {
+        (Some(c), font) if has_dtls_feat(&font) => (c, styles.chain(&dtls)),
         _ => (elem.text, styles),
     };
 
@@ -154,8 +150,7 @@ pub fn layout_symbol(
                 let height = glyph
                     .item
                     .font
-                    .metrics()
-                    .math
+                    .math()
                     .display_operator_min_height
                     .at(glyph.item.size);
                 glyph.stretch_vertical(ctx, height);

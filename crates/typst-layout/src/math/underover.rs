@@ -210,10 +210,10 @@ fn layout_underoverline(
         Position::Under => {
             content = ctx.layout_into_fragment(body, styles)?;
 
-            let (font, size) = content.font(ctx, styles, span)?;
-            let sep = font.metrics().math.underbar_extra_descender.at(size);
-            bar_height = font.metrics().math.underbar_rule_thickness.at(size);
-            let gap = font.metrics().math.underbar_vertical_gap.at(size);
+            let (font, size) = content.font(ctx, styles);
+            let sep = font.math().underbar_extra_descender.at(size);
+            bar_height = font.math().underbar_rule_thickness.at(size);
+            let gap = font.math().underbar_vertical_gap.at(size);
             extra_height = sep + bar_height + gap;
 
             line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
@@ -226,10 +226,10 @@ fn layout_underoverline(
             let styles = styles.chain(&cramped);
             content = ctx.layout_into_fragment(body, styles)?;
 
-            let (font, size) = content.font(ctx, styles, span)?;
-            let sep = font.metrics().math.overbar_extra_ascender.at(size);
-            bar_height = font.metrics().math.overbar_rule_thickness.at(size);
-            let gap = font.metrics().math.overbar_vertical_gap.at(size);
+            let (font, size) = content.font(ctx, styles);
+            let sep = font.math().overbar_extra_ascender.at(size);
+            bar_height = font.math().overbar_rule_thickness.at(size);
+            let gap = font.math().overbar_vertical_gap.at(size);
             extra_height = sep + bar_height + gap;
 
             line_pos = Point::with_y(sep + bar_height / 2.0);

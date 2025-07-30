@@ -10,7 +10,7 @@ use typst_syntax::Span;
 
 use super::{
     AlignmentResult, DELIM_SHORT_FALL, FrameFragment, GlyphFragment, LeftRightAlternator,
-    MathContext, alignments, find_math_font, style_for_denominator,
+    MathContext, alignments, style_for_denominator,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -312,8 +312,7 @@ fn layout_delimiters(
     span: Span,
 ) -> SourceResult<()> {
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
-    let font = find_math_font(ctx.engine.world, styles, span)?;
-    let axis = font.metrics().math.axis_height.resolve(styles);
+    let axis = ctx.font().math().axis_height.resolve(styles);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);

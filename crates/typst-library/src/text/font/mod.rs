@@ -95,6 +95,18 @@ impl Font {
         &self.0.metrics
     }
 
+    /// Look up the width of a space.
+    #[inline]
+    pub fn space_width(&self) -> Em {
+        self.0.metrics.space_width
+    }
+
+    /// The font's math constants.
+    #[inline]
+    pub fn math(&self) -> &MathConstants {
+        &self.0.metrics.math
+    }
+
     /// The number of font units per one em.
     pub fn units_per_em(&self) -> f64 {
         self.0.metrics.units_per_em
@@ -119,11 +131,6 @@ impl Font {
             .ttf
             .glyph_ver_advance(GlyphId(glyph))
             .map(|units| self.to_em(units))
-    }
-
-    /// Look up the width of a space.
-    pub fn space_width(&self) -> Option<Em> {
-        self.0.ttf.glyph_index(' ').and_then(|id| self.x_advance(id.0))
     }
 
     /// Lookup a name by id.
@@ -232,6 +239,8 @@ pub struct FontMetrics {
     pub subscript: Option<ScriptMetrics>,
     /// Metrics for superscripts, if provided by the font.
     pub superscript: Option<ScriptMetrics>,
+    /// The width of a space.
+    pub space_width: Em,
     /// Metrics for math layout.
     pub math: MathConstants,
 }
@@ -283,6 +292,14 @@ impl FontMetrics {
             vertical_offset: to_em(metrics.y_offset),
         });
 
+        let space_width = ttf
+            .glyph_index(' ')
+            .and_then(|id| {
+                ttf.glyph_hor_advance(id)
+                    .map(|units| Em::from_units(units, units_per_em))
+            })
+            .unwrap_or(typst_library::math::THICK);
+
         let display_operator_min_height = |constants: ttf_parser::math::Constants| {
             Em::from_units(
                 if find_name(ttf, name_id::POST_SCRIPT_NAME)
@@ -302,12 +319,9 @@ impl FontMetrics {
             .math
             .and_then(|math| math.constants)
             .map(|constants| MathConstants {
-                script_percent_scale_down: constants.script_percent_scale_down() as f64
-                    / 100.0,
+                script_percent_scale_down: constants.script_percent_scale_down(),
                 script_script_percent_scale_down: constants
-                    .script_script_percent_scale_down()
-                    as f64
-                    / 100.0,
+                    .script_script_percent_scale_down(),
                 display_operator_min_height: display_operator_min_height(constants),
                 axis_height: to_em(constants.axis_height().value),
                 accent_base_height: to_em(constants.accent_base_height().value),
@@ -393,8 +407,11 @@ impl FontMetrics {
             // https://www.w3.org/TR/mathml-core/#layout-constants-mathconstants
             // https://github.com/notofonts/math/blob/main/documentation/building-math-fonts/index.md
             .unwrap_or(MathConstants {
-                script_percent_scale_down: 0.71,
-                script_script_percent_scale_down: 0.5041,
+                // The defaults given in MathML Core are problematic as they
+                // have more precision then i16. So instead of 0.71, 0.5041 we
+                // use 0.7 and 0.5.
+                script_percent_scale_down: 70,
+                script_script_percent_scale_down: 50,
                 display_operator_min_height: Em::zero(),
                 axis_height: x_height / 2.0,
                 accent_base_height: x_height,
@@ -457,6 +474,7 @@ impl FontMetrics {
             overline,
             superscript,
             subscript,
+            space_width,
             math,
         }
     }
@@ -505,8 +523,9 @@ pub struct ScriptMetrics {
 /// Ones not currently used are omitted.
 #[derive(Debug, Copy, Clone)]
 pub struct MathConstants {
-    pub script_percent_scale_down: f64,
-    pub script_script_percent_scale_down: f64,
+    // These are both i16 instead of f64 as they need to go on the StyleChain.
+    pub script_percent_scale_down: i16,
+    pub script_script_percent_scale_down: i16,
     pub display_operator_min_height: Em,
     pub axis_height: Em,
     pub accent_base_height: Em,
