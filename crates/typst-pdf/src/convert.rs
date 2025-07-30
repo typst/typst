@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::num::NonZeroU64;
 
 use ecow::{EcoVec, eco_format};
-use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::embed::EmbedError;
@@ -11,11 +9,12 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
+use krilla::tagging::{TagId, TagTree};
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
-use typst_library::introspection::Location;
+use typst_library::introspection::{Location, Tag};
 use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
@@ -27,11 +26,12 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::embed::embed_files;
 use crate::image::handle_image;
-use crate::link::handle_link;
+use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
+use crate::tags::{self, Tags};
 use crate::text::handle_text;
 use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
@@ -40,6 +40,31 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
+    let (mut document, mut gc) = setup(typst_document, options);
+
+    convert_pages(&mut gc, &mut document)?;
+    embed_files(typst_document, &mut document)?;
+
+    document.set_outline(build_outline(&gc));
+    document.set_metadata(build_metadata(&gc));
+    document.set_tag_tree(gc.tags.build_tree());
+
+    finish(document, gc, options.standards.config)
+}
+
+pub fn tag_tree(
+    typst_document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<TagTree> {
+    let (mut document, mut gc) = setup(typst_document, options);
+    convert_pages(&mut gc, &mut document)?;
+    Ok(gc.tags.build_tree())
+}
+
+fn setup<'a>(
+    typst_document: &'a PagedDocument,
+    options: &'a PdfOptions,
+) -> (Document, GlobalContext<'a>) {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -47,28 +72,23 @@ pub fn convert(
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
-        enable_tagging: false,
+        enable_tagging: !options.disable_tags,
         render_svg_glyph_fn: render_svg_glyph,
     };
 
-    let mut document = Document::new_with(settings);
+    let document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
-    let mut gc = GlobalContext::new(
+
+    let gc = GlobalContext::new(
         typst_document,
         options,
         named_destinations,
         page_index_converter,
     );
 
-    convert_pages(&mut gc, &mut document)?;
-    embed_files(typst_document, &mut document)?;
-
-    document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
-
-    finish(document, gc, options.standards.config)
+    (document, gc)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
@@ -104,7 +124,10 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             let mut page = document.start_page_with(settings);
             let mut surface = page.surface();
-            let mut fc = FrameContext::new(typst_page.frame.size());
+            let page_idx = gc.page_index_converter.pdf_page_index(i);
+            let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+
+            tags::page_start(gc, &mut surface);
 
             handle_frame(
                 &mut fc,
@@ -114,11 +137,11 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                 gc,
             )?;
 
+            tags::page_end(gc, &mut surface);
+
             surface.finish();
 
-            for annotation in fc.annotations {
-                page.add_annotation(annotation);
-            }
+            tags::add_link_annotations(gc, &mut page, fc.link_annotations);
         }
     }
 
@@ -171,15 +194,19 @@ impl State {
 
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
+    /// The logical page index. This might be `None` if the page isn't exported,
+    /// of if the FrameContext has been built to convert a pattern.
+    pub(crate) page_idx: Option<usize>,
     states: Vec<State>,
-    annotations: Vec<Annotation>,
+    link_annotations: Vec<LinkAnnotation>,
 }
 
 impl FrameContext {
-    pub(crate) fn new(size: Size) -> Self {
+    pub(crate) fn new(page_idx: Option<usize>, size: Size) -> Self {
         Self {
+            page_idx,
             states: vec![State::new(size)],
-            annotations: vec![],
+            link_annotations: Vec::new(),
         }
     }
 
@@ -199,8 +226,15 @@ impl FrameContext {
         self.states.last_mut().unwrap()
     }
 
-    pub(crate) fn push_annotation(&mut self, annotation: Annotation) {
-        self.annotations.push(annotation);
+    pub(crate) fn get_link_annotation(
+        &mut self,
+        link_id: tags::LinkId,
+    ) -> Option<&mut LinkAnnotation> {
+        self.link_annotations.iter_mut().rfind(|a| a.id == link_id)
+    }
+
+    pub(crate) fn push_link_annotation(&mut self, annotation: LinkAnnotation) {
+        self.link_annotations.push(annotation);
     }
 }
 
@@ -226,6 +260,8 @@ pub(crate) struct GlobalContext<'a> {
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
     pub(crate) page_index_converter: PageIndexConverter,
+    /// Tagged PDF context.
+    pub(crate) tags: Tags,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -245,6 +281,8 @@ impl<'a> GlobalContext<'a> {
             image_spans: HashSet::new(),
             languages: BTreeMap::new(),
             page_index_converter,
+
+            tags: Tags::new(),
         }
     }
 }
@@ -279,8 +317,9 @@ pub(crate) fn handle_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(d, s) => handle_link(fc, gc, d, *s),
-            FrameItem::Tag(_) => {}
+            FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size),
+            FrameItem::Tag(Tag::Start(elem)) => tags::handle_start(gc, surface, elem)?,
+            FrameItem::Tag(Tag::End(loc, _)) => tags::handle_end(gc, surface, *loc)?,
         }
 
         fc.pop();
@@ -295,7 +334,7 @@ pub(crate) fn handle_group(
     fc: &mut FrameContext,
     group: &GroupItem,
     surface: &mut Surface,
-    context: &mut GlobalContext,
+    gc: &mut GlobalContext,
 ) -> SourceResult<()> {
     fc.push();
     fc.state_mut().pre_concat(group.transform);
@@ -314,7 +353,7 @@ pub(crate) fn handle_group(
         surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
     }
 
-    handle_frame(fc, &group.frame, None, surface, context)?;
+    handle_frame(fc, &group.frame, None, surface, gc)?;
 
     if clip_path.is_some() {
         surface.pop();
@@ -353,6 +392,22 @@ fn finish(
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
+            KrillaError::DuplicateTagId(id, loc) => {
+                let span = to_span(loc);
+                let id = display_tag_id(&id);
+                bail!(
+                    span, "duplicate tag id `{id}`";
+                    hint: "please report this as a bug"
+                )
+            }
+            KrillaError::UnknownTagId(id, loc) => {
+                let span = to_span(loc);
+                let id = display_tag_id(&id);
+                bail!(
+                    span, "unknown tag id `{id}`";
+                    hint: "please report this as a bug"
+                )
+            }
             KrillaError::Image(_, loc) => {
                 let span = to_span(loc);
                 bail!(span, "failed to process image");
@@ -386,22 +441,22 @@ fn finish(
                     }
                 }
             }
-            KrillaError::DuplicateTagId(_, loc) => {
-                let span = to_span(loc);
-                bail!(span,
-                    "duplicate tag id";
-                    hint: "please report this as a bug"
-                );
-            }
-            KrillaError::UnknownTagId(_, loc) => {
-                let span = to_span(loc);
-                bail!(span,
-                    "unknown tag id";
-                    hint: "please report this as a bug"
-                );
-            }
         },
     }
+}
+
+fn display_tag_id(id: &TagId) -> impl std::fmt::Display + use<'_> {
+    typst_utils::display(|f| {
+        if let Ok(str) = std::str::from_utf8(id.as_bytes()) {
+            f.write_str(str)
+        } else {
+            f.write_str("0x")?;
+            for b in id.as_bytes() {
+                write!(f, "{b:x}")?;
+            }
+            Ok(())
+        }
+    })
 }
 
 /// Converts a krilla error into a Typst error.
@@ -572,16 +627,20 @@ fn convert_error(
         }
         // The below errors cannot occur yet, only once Typst supports full PDF/A
         // and PDF/UA. But let's still add a message just to be on the safe side.
-        ValidationError::MissingAnnotationAltText(_) => error!(
-            Span::detached(),
-            "{prefix} missing annotation alt text";
-            hint: "please report this as a bug"
-        ),
-        ValidationError::MissingAltText(_) => error!(
-            Span::detached(),
-            "{prefix} missing alt text";
-            hint: "make sure your images and equations have alt text"
-        ),
+        ValidationError::MissingAnnotationAltText(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing annotation alt text";
+                hint: "manually add alt text to your links"
+            )
+        }
+        ValidationError::MissingAltText(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing alt text";
+                hint: "make sure your images and equations have alt text"
+            )
+        }
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
             "{prefix} missing document language";
@@ -625,8 +684,7 @@ fn convert_error(
 
 /// Convert a krilla location to a span.
 fn to_span(loc: Option<krilla::surface::Location>) -> Span {
-    loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
-        .unwrap_or(Span::detached())
+    loc.map(Span::from_raw).unwrap_or(Span::detached())
 }
 
 fn collect_named_destinations(

@@ -13,6 +13,7 @@ use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
     Resolve, Smart, StyleChain, Value, cast, elem, scope,
 };
+use crate::introspection::Locatable;
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
@@ -136,7 +137,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope)]
+#[elem(scope, Locatable)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -640,7 +641,7 @@ pub struct GridVLine {
 /// which allows you, for example, to apply styles based on a cell's position.
 /// Refer to the examples of the [`table.cell`]($table.cell) element to learn
 /// more about this.
-#[elem(name = "cell", title = "Grid Cell")]
+#[elem(name = "cell", title = "Grid Cell", Locatable)]
 pub struct GridCell {
     /// The cell's body.
     #[required]

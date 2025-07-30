@@ -3,13 +3,15 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 use ecow::eco_vec;
+use krilla::tagging::TagTree;
+use krilla::tagging::fmt::Output;
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
-use typst::{Document, WorldExt};
+use typst::{World, WorldExt};
 use typst_html::HtmlDocument;
-use typst_pdf::PdfOptions;
+use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::{FileId, Lines};
 
 use crate::collect::{Attr, FileSize, NoteKind, Test};
@@ -65,12 +67,16 @@ impl<'a> Runner<'a> {
         }
 
         let html = self.test.attrs.contains(&Attr::Html);
-        let render = !html || self.test.attrs.contains(&Attr::Render);
+        let pdftags = self.test.attrs.contains(&Attr::Pdftags);
+        let render = !html && !pdftags || self.test.attrs.contains(&Attr::Render);
         if render {
             self.run_test::<PagedDocument>();
         }
         if html {
             self.run_test::<HtmlDocument>();
+        }
+        if pdftags {
+            self.run_test::<TagTree>();
         }
 
         self.handle_not_emitted();
@@ -81,7 +87,7 @@ impl<'a> Runner<'a> {
 
     /// Run test specific to document format.
     fn run_test<D: OutputType>(&mut self) {
-        let Warned { output, warnings } = typst::compile(&self.world);
+        let Warned { output, warnings } = D::compile(&self.world);
         let (doc, mut errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
@@ -89,7 +95,7 @@ impl<'a> Runner<'a> {
 
         D::check_custom(self, doc.as_ref());
 
-        let output = doc.and_then(|doc: D| match doc.make_live() {
+        let output = doc.and_then(|doc| match doc.make_live() {
             Ok(live) => Some((doc, live)),
             Err(list) => {
                 errors.extend(list);
@@ -357,12 +363,14 @@ impl<'a> Runner<'a> {
 }
 
 /// An output type we can test.
-trait OutputType: Document {
+trait OutputType: Sized {
     /// The type that represents live output.
     type Live;
 
     /// The path at which the live output is stored.
     fn live_path(name: &str) -> PathBuf;
+
+    fn compile(world: &dyn World) -> Warned<SourceResult<Self>>;
 
     /// The path at which the reference output is stored.
     fn ref_path(name: &str) -> PathBuf;
@@ -398,6 +406,10 @@ impl OutputType for PagedDocument {
 
     fn ref_path(name: &str) -> PathBuf {
         format!("{}/{}.png", crate::REF_PATH, name).into()
+    }
+
+    fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
+        typst::compile(world)
     }
 
     fn is_skippable(&self) -> Result<bool, ()> {
@@ -485,8 +497,56 @@ impl OutputType for HtmlDocument {
         format!("{}/html/{}.html", crate::REF_PATH, name).into()
     }
 
+    fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
+        typst::compile(world)
+    }
+
     fn make_live(&self) -> SourceResult<Self::Live> {
         typst_html::html(self)
+    }
+
+    fn save_live(&self, name: &str, live: &Self::Live) {
+        std::fs::write(Self::live_path(name), live).unwrap();
+    }
+
+    fn make_ref(live: Self::Live) -> Vec<u8> {
+        live.into_bytes()
+    }
+
+    fn matches(live: &Self::Live, ref_data: &[u8]) -> bool {
+        live.as_bytes() == ref_data
+    }
+}
+
+impl OutputType for TagTree {
+    type Live = String;
+
+    fn live_path(name: &str) -> PathBuf {
+        format!("{}/pdftags/{}.yml", crate::STORE_PATH, name).into()
+    }
+
+    fn ref_path(name: &str) -> PathBuf {
+        format!("{}/pdftags/{}.yml", crate::REF_PATH, name).into()
+    }
+
+    fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
+        let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
+        let doc = match output {
+            Ok(doc) => doc,
+            Err(errors) => return Warned { output: Err(errors), warnings },
+        };
+        let mut options = PdfOptions::default();
+        options.standards = PdfStandards::new(&[PdfStandard::Ua_1]).unwrap();
+        let output = typst_pdf::pdf_tags(&doc, &options);
+        Warned { warnings, output }
+    }
+
+    fn is_skippable(&self) -> Result<bool, ()> {
+        Ok(self.children.is_empty())
+    }
+
+    fn make_live(&self) -> SourceResult<Self::Live> {
+        Ok(self.display().to_string())
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {

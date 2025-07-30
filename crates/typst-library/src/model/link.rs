@@ -1,15 +1,18 @@
 use std::ops::Deref;
+use std::str::FromStr;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 
-use crate::diag::{StrResult, bail};
+use crate::diag::{SourceResult, StrResult, bail};
+use crate::engine::Engine;
 use crate::foundations::{
     Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles, cast, elem,
 };
-use crate::introspection::{Introspector, Locatable, Location};
-use crate::layout::Position;
-use crate::text::TextElem;
+use crate::introspection::{Counter, CounterKey, Introspector, Locatable, Location};
+use crate::layout::{PageElem, Position};
+use crate::model::NumberingPattern;
+use crate::text::{LocalName, TextElem};
 
 /// Links to a URL or a location in the document.
 ///
@@ -85,6 +88,9 @@ use crate::text::TextElem;
 ///   generated.
 #[elem(Locatable)]
 pub struct LinkElem {
+    /// An alternative description of the link.
+    pub alt: Option<EcoString>,
+
     /// The destination the link points to.
     ///
     /// - To link to web pages, `dest` should be a valid URL string. If the URL
@@ -212,7 +218,29 @@ pub enum Destination {
     Location(Location),
 }
 
-impl Destination {}
+impl Destination {
+    pub fn alt_text(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Option<EcoString>> {
+        let alt = match self {
+            Destination::Url(url) => Some(url.clone().into_inner()),
+            Destination::Position(_) => None,
+            &Destination::Location(loc) => {
+                let numbering = loc
+                    .page_numbering(engine)
+                    .unwrap_or_else(|| NumberingPattern::from_str("1").unwrap().into());
+                let content = Counter::new(CounterKey::Page)
+                    .display_at_loc(engine, loc, styles, &numbering)?;
+                let page_nr = content.plain_text();
+                let page_str = PageElem::local_name_in(styles);
+                Some(eco_format!("{page_str} {page_nr}"))
+            }
+        };
+        Ok(alt)
+    }
+}
 
 impl Repr for Destination {
     fn repr(&self) -> EcoString {

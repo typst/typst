@@ -1,12 +1,13 @@
 use krilla::geom::{Path, PathBuilder, Rect};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
+use typst_library::pdf::ArtifactKind;
 use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::paint;
 use crate::util::{AbsExt, TransformExt, convert_path};
+use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle shape")]
 pub(crate) fn handle_shape(
@@ -16,7 +17,12 @@ pub(crate) fn handle_shape(
     gc: &mut GlobalContext,
     span: Span,
 ) -> SourceResult<()> {
-    surface.set_location(span.into_raw().get());
+    tags::update_bbox(gc, fc, || shape.geometry.bbox());
+
+    let mut handle = tags::start_artifact(gc, surface, ArtifactKind::Other);
+    let surface = handle.surface();
+
+    surface.set_location(span.into_raw());
     surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {

@@ -1279,14 +1279,23 @@ impl<'a> GridLayouter<'a> {
             let frames =
                 layout_cell(cell, engine, disambiguator, self.styles, pod)?.into_frames();
 
+            // HACK: reconsider if this is the right decision
+            fn is_empty_frame(frame: &Frame) -> bool {
+                !frame.items().any(|(_, item)| match item {
+                    FrameItem::Group(group) => is_empty_frame(&group.frame),
+                    FrameItem::Tag(_) => false,
+                    _ => true,
+                })
+            }
+
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
             if let Some([first, rest @ ..]) =
                 frames.get(measurement_data.frames_in_previous_regions..)
                 && can_skip
                 && breakable
-                && first.is_empty()
-                && rest.iter().any(|frame| !frame.is_empty())
+                && is_empty_frame(first)
+                && rest.iter().any(|frame| !is_empty_frame(frame))
             {
                 return Ok(None);
             }

@@ -1,0 +1,130 @@
+- Tag: P
+  /K:
+    - Content: page=0 mcid=0
+    - Tag: Reference
+      /K:
+        - Tag: Link
+          /Alt: "Figure I"
+          /K:
+            - Content: page=0 mcid=1
+            - Annotation: page=0 index=0
+    - Content: page=0 mcid=2
+    - Tag: Reference
+      /K:
+        - Tag: Link
+          /Alt: "Table II"
+          /K:
+            - Content: page=0 mcid=3
+            - Annotation: page=0 index=1
+    - Content: page=0 mcid=4
+    - Content: page=0 mcid=5
+- Tag: NonStruct
+  /K:
+    - Tag: Figure
+      /BBox:
+        page: 0
+        left:    59.750
+        top:     54.240
+        right:   90.250
+        bottom:  71.820
+      /K:
+        - Tag: Table
+          /BBox:
+            page: 0
+            left:    59.750
+            top:     54.240
+            right:   90.250
+            bottom:  71.820
+          /K:
+            - Artifact
+            - Artifact
+            - Artifact
+            - Artifact
+            - Artifact
+            - Tag: TBody
+              /K:
+                - Tag: TR
+                  /K:
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=6
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=7
+    - Tag: Caption
+      /K:
+        - Content: page=0 mcid=8
+- Tag: NonStruct
+  /K:
+    - Tag: Figure
+      /BBox:
+        page: 0
+        left:    46.654
+        top:     90.400
+        right:  103.346
+        bottom: 147.093
+      /K:
+        - Content: page=0 mcid=9
+    - Tag: Caption
+      /K:
+        - Content: page=0 mcid=10
+- Tag: NonStruct
+  /K:
+    - Tag: Figure
+      /BBox:
+        page: 0
+        left:    52.365
+        top:    165.673
+        right:   97.635
+        bottom: 199.833
+      /K:
+        - Tag: Table
+          /BBox:
+            page: 0
+            left:    52.365
+            top:    165.673
+            right:   97.635
+            bottom: 199.833
+          /K:
+            - Artifact
+            - Artifact
+            - Artifact
+            - Artifact
+            - Artifact
+            - Artifact
+            - Artifact
+            - Tag: TBody
+              /K:
+                - Tag: TR
+                  /K:
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=11
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=12
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=13
+                - Tag: TR
+                  /K:
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=14
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=15
+                    - Tag: TD
+                      /Headers: []
+                      /K:
+                        - Content: page=0 mcid=16
+    - Tag: Caption
+      /K:
+        - Content: page=0 mcid=17

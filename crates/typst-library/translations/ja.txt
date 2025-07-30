@@ -6,3 +6,4 @@ heading = 節
 outline = 目次
 raw = リスト
 page = ページ
+# footnote =
