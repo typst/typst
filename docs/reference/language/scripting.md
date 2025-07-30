@@ -357,11 +357,13 @@ Specifically:
 ```example
 #let kebab-case = [Using hyphen]
 #let _schön = "😊"
-#let 小四 = 12pt
+#let 始料不及 = "😱"
 #let π = calc.pi
 
 #kebab-case
-#if -π < 0 { _schön }
+#if -π < 0 { _schön } else { 始料不及 }
+// -π means -1 * π,
+// so it's not a valid identifier
 ```
 
 Note that this does not apply to names of [`label`]($label), which follow
