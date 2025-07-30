@@ -107,7 +107,7 @@ impl TableCtx {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         if self.rows.is_empty() {
-            return TagNode::Group(Tag::Table.with_summary(self.summary).into(), nodes);
+            return TagNode::group(Tag::Table.with_summary(self.summary), nodes);
         }
         let height = self.rows.len();
         let width = self.rows[0].len();
@@ -197,7 +197,7 @@ impl TableCtx {
                 })
                 .collect();
 
-            let row = TagNode::Group(Tag::TR.into(), row_nodes);
+            let row = TagNode::group(Tag::TR, row_nodes);
 
             // Push the `TR` tags directly.
             if !gen_row_groups {

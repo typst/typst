@@ -340,7 +340,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
                 // PDF/UA compliance of the structure hierarchy is checked
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
-                gc.tags.push(TagNode::Group(Tag::TOCI.into(), entry.nodes));
+                gc.tags.push(TagNode::group(Tag::TOCI, entry.nodes));
                 return;
             };
 
@@ -354,7 +354,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
                 // elsewhere. While this doesn't make a lot of sense, just
                 // avoid crashing here.
                 let tag = Tag::TD.with_location(Some(cell.span().into_raw()));
-                gc.tags.push(TagNode::Group(tag.into(), entry.nodes));
+                gc.tags.push(TagNode::group(tag, entry.nodes));
                 return;
             };
 
@@ -379,19 +379,19 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         }
         StackEntryKind::Figure(ctx) => {
             let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.get());
-            TagNode::Group(tag.into(), entry.nodes)
+            TagNode::group(tag, entry.nodes)
         }
         StackEntryKind::Formula(ctx) => {
             let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.get());
-            TagNode::Group(tag.into(), entry.nodes)
+            TagNode::group(tag, entry.nodes)
         }
         StackEntryKind::Link(_, link) => {
             let alt = link.alt.as_ref().map(EcoString::to_string);
             let tag = Tag::Link.with_alt_text(alt);
-            let mut node = TagNode::Group(tag.into(), entry.nodes);
+            let mut node = TagNode::group(tag, entry.nodes);
             // Wrap link in reference tag, if it's not a url.
             if let Destination::Position(_) | Destination::Location(_) = link.dest {
-                node = TagNode::Group(Tag::Reference.into(), vec![node]);
+                node = TagNode::group(Tag::Reference, vec![node]);
             }
             node
         }
@@ -411,7 +411,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         StackEntryKind::FootnoteEntry(footnote_loc) => {
             // Store footnotes separately so they can be inserted directly after
             // the footnote reference in the reading order.
-            let tag = TagNode::Group(Tag::Note.into(), entry.nodes);
+            let tag = TagNode::group(Tag::Note, entry.nodes);
             let ctx = gc.tags.footnotes.entry(footnote_loc).or_insert(FootnoteCtx::new());
             ctx.entry = Some(tag);
             return;

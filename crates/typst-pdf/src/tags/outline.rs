@@ -29,7 +29,7 @@ impl OutlineCtx {
             }
         }
 
-        let section_entry = TagNode::Group(Tag::TOCI.into(), nodes);
+        let section_entry = TagNode::group(Tag::TOCI, nodes);
         self.push(outline_nodes, section_entry);
     }
 
@@ -49,7 +49,7 @@ impl OutlineCtx {
         while !self.stack.is_empty() {
             self.finish_section(&mut outline_nodes);
         }
-        TagNode::Group(Tag::TOC.into(), outline_nodes)
+        TagNode::group(Tag::TOC, outline_nodes)
     }
 }
 
@@ -68,6 +68,6 @@ impl OutlineSection {
     }
 
     fn into_tag(self) -> TagNode {
-        TagNode::Group(Tag::TOC.into(), self.entries)
+        TagNode::group(Tag::TOC, self.entries)
     }
 }
