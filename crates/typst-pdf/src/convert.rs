@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::num::NonZeroU64;
 
 use ecow::{EcoVec, eco_format};
 use krilla::annotation::Annotation;
@@ -626,8 +625,7 @@ fn convert_error(
 
 /// Convert a krilla location to a span.
 fn to_span(loc: Option<krilla::surface::Location>) -> Span {
-    loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
-        .unwrap_or(Span::detached())
+    loc.map(Span::from_raw).unwrap_or(Span::detached())
 }
 
 fn collect_named_destinations(

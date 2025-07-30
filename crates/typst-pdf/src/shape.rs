@@ -16,7 +16,7 @@ pub(crate) fn handle_shape(
     gc: &mut GlobalContext,
     span: Span,
 ) -> SourceResult<()> {
-    surface.set_location(span.into_raw().get());
+    surface.set_location(span.into_raw());
     surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {
