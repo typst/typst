@@ -42,7 +42,7 @@ pub struct FracElem {
     ///   parentheses are not absorbed
     ///
     /// The default style is "vertical"
-    pub frac_style: Option<FracStyle>,
+    pub style: Option<FracStyle>,
 
     /// Whether the numerator was originally surrounded by parentheses
     /// that were stripped by the parser.

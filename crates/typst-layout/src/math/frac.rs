@@ -22,7 +22,7 @@ pub fn layout_frac(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    match elem.frac_style.get(styles) {
+    match elem.style.get(styles) {
         Some(FracStyle::Diagonal) => {
             layout_diagonal_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
         }
