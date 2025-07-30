@@ -1,6 +1,6 @@
 // Test citations and bibliographies.
 
---- bibliography-basic render html ---
+--- bibliography-basic render html pdftags ---
 #show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 = Details

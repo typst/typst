@@ -1,6 +1,6 @@
 // Test hyperlinking.
 
---- link-basic render html ---
+--- link-basic render html pdftags ---
 // Link syntax.
 https://example.com/
 

@@ -398,8 +398,8 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num) = elem.realize(engine, styles)?;
     let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-    let sup = PdfMarkerTag::Label(SuperElem::new(num).pack().spanned(span));
-    let note = HElem::hole().clone() + sup.linked(dest, Some(alt));
+    let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
+    let note = HElem::hole().clone() + PdfMarkerTag::Label(sup);
     let decl_loc = elem.declaration_location(engine).unwrap();
     Ok(PdfMarkerTag::FootnoteRef(decl_loc, note))
 };
