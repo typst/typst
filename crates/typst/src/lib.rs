@@ -42,7 +42,7 @@ use std::sync::LazyLock;
 
 use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use typst_html::HtmlDocument;
 use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,

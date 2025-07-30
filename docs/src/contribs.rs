@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::fmt::Write;
 
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{Html, Resolver};

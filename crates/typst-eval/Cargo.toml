@@ -20,8 +20,8 @@ typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-fxhash = { workspace = true }
 indexmap = { workspace = true }
+rustc-hash = { workspace = true }
 toml = { workspace = true }
 unicode-segmentation = { workspace = true }
 

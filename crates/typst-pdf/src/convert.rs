@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
 use ecow::{EcoVec, eco_format};
-use fxhash::{FxHashMap, FxHashSet};
 use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
@@ -14,6 +13,7 @@ use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;

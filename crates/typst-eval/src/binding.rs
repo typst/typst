@@ -1,5 +1,5 @@
 use ecow::eco_format;
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{Array, Dict, Value};
 use typst_syntax::ast::{self, AstNode};

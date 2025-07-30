@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};

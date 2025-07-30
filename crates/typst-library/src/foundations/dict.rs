@@ -4,8 +4,8 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
-use fxhash::FxBuildHasher;
 use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
 use typst_utils::ArcExt;

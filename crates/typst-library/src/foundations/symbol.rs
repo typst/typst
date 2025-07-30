@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use codex::ModifierSet;
 use ecow::{EcoString, eco_format};
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use serde::{Serialize, Serializer};
 use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;

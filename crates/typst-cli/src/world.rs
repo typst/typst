@@ -5,8 +5,8 @@ use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{EcoString, eco_format};
-use fxhash::FxHashMap;
 use parking_lot::Mutex;
+use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Lines, Source, VirtualPath};

@@ -6,7 +6,7 @@ use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::{LazyLock, RwLock};
 
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 
 /// Marks a number as a bitcode encoded `PicoStr``.
 const MARKER: u64 = 1 << 63;

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ecow::{EcoString, eco_format};
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 
 use crate::diag::Hint;
 use crate::foundations::{StyleChain, cast};
@@ -315,7 +315,7 @@ fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
 mod tests {
     use std::path::PathBuf;
 
-    use fxhash::FxHashSet;
+    use rustc_hash::FxHashSet;
     use typst_utils::option_eq;
 
     use super::*;

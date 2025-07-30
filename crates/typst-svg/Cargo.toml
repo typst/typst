@@ -22,9 +22,9 @@ base64 = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
-fxhash = { workspace = true }
 hayro = { workspace = true }
 image = { workspace = true }
+rustc-hash = { workspace = true }
 ttf-parser = { workspace = true }
 xmlparser = { workspace = true }
 xmlwriter = { workspace = true }

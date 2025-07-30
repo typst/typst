@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use crate::World;

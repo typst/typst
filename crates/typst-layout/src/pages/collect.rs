@@ -1,4 +1,4 @@
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::{Locator, SplitLocator, Tag, TagElem};
 use typst_library::layout::{PagebreakElem, Parity};

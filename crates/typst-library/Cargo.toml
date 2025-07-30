@@ -29,7 +29,6 @@ csv = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
-fxhash = { workspace = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }
@@ -51,6 +50,7 @@ regex = { workspace = true }
 regex-syntax = { workspace = true }
 roxmltree = { workspace = true }
 rust_decimal = { workspace = true }
+rustc-hash = { workspace = true }
 rustybuzz = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

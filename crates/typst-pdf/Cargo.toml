@@ -22,11 +22,11 @@ typst-utils = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-fxhash = { workspace = true }
 image = { workspace = true }
 infer = { workspace = true }
 krilla = { workspace = true }
 krilla-svg = { workspace = true }
+rustc-hash = { workspace = true }
 serde = { workspace = true }
 
 [lints]

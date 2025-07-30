@@ -2,9 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use ecow::{EcoString, eco_format};
-use fxhash::FxBuildHasher;
 use indexmap::IndexMap;
 use indexmap::map::Entry;
+use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
 use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult, bail};

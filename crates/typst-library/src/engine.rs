@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
-use fxhash::FxHashSet;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
 
 use crate::World;

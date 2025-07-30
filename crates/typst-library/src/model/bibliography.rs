@@ -6,7 +6,6 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format};
-use fxhash::{FxBuildHasher, FxHashMap};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
@@ -14,6 +13,7 @@ use hayagriva::{
     SpecificLocator, citationberg,
 };
 use indexmap::IndexMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{ManuallyHash, PicoStr};

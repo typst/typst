@@ -10,8 +10,8 @@ pub use self::html::*;
 pub use self::model::*;
 
 use ecow::{EcoString, eco_format};
-use fxhash::FxHashSet;
 use heck::ToTitleCase;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;

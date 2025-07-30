@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
 use ecow::{EcoString, eco_format};
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr, StyleChain, Styles,

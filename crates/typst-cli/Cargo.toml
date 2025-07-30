@@ -36,12 +36,12 @@ comemo = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 fs_extra = { workspace = true }
-fxhash = { workspace = true }
 notify = { workspace = true }
 open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
+rustc-hash = { workspace = true }
 same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }

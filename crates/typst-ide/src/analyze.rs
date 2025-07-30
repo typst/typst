@@ -1,6 +1,6 @@
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use typst::foundations::{Label, Styles, Value};
 use typst::layout::PagedDocument;
 use typst::model::{BibliographyElem, FigureElem};

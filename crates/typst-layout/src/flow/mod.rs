@@ -13,7 +13,7 @@ use std::rc::Rc;
 use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};

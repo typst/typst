@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::sync::Arc;
 
 use ecow::EcoString;
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Smart};
 use typst::layout::{Abs, Margin, PageElem};

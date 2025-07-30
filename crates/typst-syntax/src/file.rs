@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU16;
 use std::sync::{LazyLock, RwLock};
 
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 
 use crate::VirtualPath;
 use crate::package::PackageSpec;

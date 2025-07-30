@@ -6,8 +6,8 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 
 use comemo::Tracked;
-use fxhash::FxHashMap;
 use parking_lot::Mutex;
+use rustc_hash::FxHashMap;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{

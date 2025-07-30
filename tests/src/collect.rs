@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
-use fxhash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
     FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,

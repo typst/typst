@@ -2,7 +2,7 @@ use std::mem;
 use std::ops::{Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
-use fxhash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_utils::default_math_class;
 use unicode_math_class::MathClass;
 

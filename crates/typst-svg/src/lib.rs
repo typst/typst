@@ -5,8 +5,8 @@ mod paint;
 mod shape;
 mod text;
 
-use fxhash::FxHashMap;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
+use rustc_hash::FxHashMap;
 use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 

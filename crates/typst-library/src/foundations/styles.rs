@@ -5,7 +5,7 @@ use std::{mem, ptr};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_vec};
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;

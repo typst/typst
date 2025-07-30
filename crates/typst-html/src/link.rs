@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use comemo::Track;
 use ecow::{EcoString, eco_format};
-use fxhash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::foundations::{Label, NativeElement};
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Frame, FrameItem, Point};

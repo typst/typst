@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use std::sync::RwLock;
 
 use ecow::{EcoString, EcoVec};
-use fxhash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_utils::NonZeroExt;
 

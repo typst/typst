@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::sync::OnceLock;
 
 use comemo::{Tracked, Validate};
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 
 use crate::introspection::{Introspector, Location};
 
