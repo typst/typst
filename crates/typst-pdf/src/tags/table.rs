@@ -4,11 +4,12 @@ use std::num::NonZeroU32;
 use az::SaturatingAs;
 use krilla::tagging::{Tag, TagId, TagKind};
 use smallvec::SmallVec;
-use typst_library::foundations::{Packed, Smart, StyleChain};
+use typst_library::foundations::{Packed, Smart};
 use typst_library::model::TableCell;
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
 use typst_syntax::Span;
 
+use crate::tags::util::PropertyValCopied;
 use crate::tags::{BBoxCtx, TableId, TagNode};
 
 #[derive(Clone, Debug)]
@@ -50,8 +51,8 @@ impl TableCtx {
     }
 
     pub(crate) fn contains(&self, cell: &Packed<TableCell>) -> bool {
-        let x = cell.x.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
-        let y = cell.y.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
+        let x = cell.x.val().unwrap_or_else(|| unreachable!());
+        let y = cell.y.val().unwrap_or_else(|| unreachable!());
         self.get(x, y).is_some()
     }
 
@@ -64,11 +65,11 @@ impl TableCtx {
     }
 
     pub(crate) fn insert(&mut self, cell: &Packed<TableCell>, nodes: Vec<TagNode>) {
-        let x = cell.x.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
-        let y = cell.y.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
-        let rowspan = cell.rowspan.get(StyleChain::default());
-        let colspan = cell.colspan.get(StyleChain::default());
-        let kind = cell.kind.get(StyleChain::default());
+        let x = cell.x.val().unwrap_or_else(|| unreachable!());
+        let y = cell.y.val().unwrap_or_else(|| unreachable!());
+        let rowspan = cell.rowspan.val();
+        let colspan = cell.colspan.val();
+        let kind = cell.kind.val();
 
         // Extend the table grid to fit this cell.
         let required_height = y + rowspan.get();

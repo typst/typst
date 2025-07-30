@@ -13,10 +13,7 @@ use krilla::tagging::{
     TagGroup, TagKind, TagTree,
 };
 use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::{
-    Content, LinkMarker, NativeElement, Packed, RefableProperty, Settable,
-    SettableProperty, StyleChain,
-};
+use typst_library::foundations::{Content, LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, Point, Rect, RepeatElem};
 use typst_library::math::EquationElem;
@@ -34,11 +31,13 @@ use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
+use crate::tags::util::{PropertyOptRef, PropertyValCopied};
 use crate::util::AbsExt;
 
 mod list;
 mod outline;
 mod table;
+mod util;
 
 pub(crate) fn handle_start(
     gc: &mut GlobalContext,
@@ -55,7 +54,7 @@ pub(crate) fn handle_start(
     }
 
     if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
-        let kind = artifact.kind.get(StyleChain::default());
+        let kind = artifact.kind.val();
         push_artifact(gc, surface, elem, kind);
         return Ok(());
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
@@ -121,7 +120,7 @@ pub(crate) fn handle_start(
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
-        let alt = image.alt.get_as_ref().map(|s| s.to_string());
+        let alt = image.alt.opt_ref().map(|s| s.to_string());
 
         if let Some(figure_ctx) = gc.tags.stack.parent_figure() {
             // Set alt text of outer figure tag, if not present.
@@ -134,12 +133,12 @@ pub(crate) fn handle_start(
             return Ok(());
         }
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
-        let alt = equation.alt.get_as_ref().map(|s| s.to_string());
+        let alt = equation.alt.opt_ref().map(|s| s.to_string());
         push_stack(gc, elem, StackEntryKind::Formula(FigureCtx::new(alt)))?;
         return Ok(());
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
-        let summary = table.summary.get_as_ref().map(|s| s.to_string());
+        let summary = table.summary.opt_ref().map(|s| s.to_string());
         let ctx = TableCtx::new(table_id, summary);
         push_stack(gc, elem, StackEntryKind::Table(ctx))?;
         return Ok(());
@@ -177,11 +176,7 @@ pub(crate) fn handle_start(
         return Ok(());
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
         // TODO: should the attribution be handled somehow?
-        if quote.block.get(StyleChain::default()) {
-            Tag::BlockQuote.into()
-        } else {
-            Tag::InlineQuote.into()
-        }
+        if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
     } else {
         return Ok(());
     };
@@ -1045,20 +1040,5 @@ fn artifact_type(kind: ArtifactKind) -> ArtifactType {
         ArtifactKind::Footer => ArtifactType::Footer,
         ArtifactKind::Page => ArtifactType::Page,
         ArtifactKind::Other => ArtifactType::Other,
-    }
-}
-
-trait PropertyGetAsRef<E, T, const I: u8> {
-    fn get_as_ref(&self) -> Option<&T>;
-}
-
-impl<E, T, const I: u8> PropertyGetAsRef<E, T, I> for Settable<E, I>
-where
-    E: NativeElement,
-    E: SettableProperty<I, Type = Option<T>>,
-    E: RefableProperty<I>,
-{
-    fn get_as_ref(&self) -> Option<&T> {
-        self.get_ref(StyleChain::default()).as_ref()
     }
 }
