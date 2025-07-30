@@ -1,40 +1,14 @@
-use comemo::Tracked;
 use ttf_parser::Tag;
-use typst_library::World;
-use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Style, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{Font, FontFeatures, FontFlags, TextElem, families, variant};
-use typst_syntax::Span;
+use typst_library::text::{FontFeatures, TextElem};
 use typst_utils::LazyHash;
 
 use super::{LeftRightAlternator, MathFragment, MathRun};
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
-
-/// Get the current math font.
-#[comemo::memoize]
-pub fn find_math_font(
-    world: Tracked<dyn World + '_>,
-    styles: StyleChain,
-    span: Span,
-) -> SourceResult<Font> {
-    let variant = variant(styles);
-    let Some(font) = families(styles).find_map(|family| {
-        // Take the base font as the "main" math font.
-        world
-            .book()
-            .select(family.as_str(), variant)
-            .and_then(|id| world.font(id))
-            .filter(|font| font.info().flags.contains(FontFlags::MATH))
-            .filter(|_| family.covers().is_none())
-    }) else {
-        bail!(span, "current font does not support math");
-    };
-    Ok(font)
-}
 
 /// Styles something as cramped.
 pub fn style_cramped() -> LazyHash<Style> {
@@ -84,17 +58,6 @@ pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
 /// The style for denominators in the current style.
 pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
-}
-
-/// Styles to add font constants to the style chain.
-pub fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
-    let constants = font.ttf().tables().math.and_then(|math| math.constants).unwrap();
-    EquationElem::script_scale
-        .set((
-            constants.script_percent_scale_down(),
-            constants.script_script_percent_scale_down(),
-        ))
-        .wrap()
 }
 
 /// Stack rows on top of each other.
