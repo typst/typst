@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
 use typst::diag::{StrResult, bail};
+use typst::foundations::Deprecation;
 use typst::foundations::{
     AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
     Smart, Type, Value,
@@ -381,7 +382,7 @@ fn func_page(
     parent: &str,
     func: &Func,
     path: &[&str],
-    deprecation: Option<&'static str>,
+    deprecation: Option<&Deprecation>,
 ) -> PageModel {
     let model = func_model(resolver, func, path, false, deprecation);
     let name = func.name().unwrap();
@@ -402,7 +403,7 @@ fn func_model(
     func: &Func,
     path: &[&str],
     nested: bool,
-    deprecation: Option<&'static str>,
+    deprecation: Option<&Deprecation>,
 ) -> FuncModel {
     let name = func.name().unwrap();
     let scope = func.scope().unwrap();
@@ -438,7 +439,8 @@ fn func_model(
         oneliner: oneliner(details),
         element: func.element().is_some(),
         contextual: func.contextual().unwrap_or(false),
-        deprecation,
+        deprecation_message: deprecation.map(Deprecation::message),
+        deprecation_until: deprecation.and_then(Deprecation::until),
         details: Html::markdown(resolver, details, nesting),
         example: example.map(|md| Html::markdown(resolver, md, None)),
         self_,
@@ -718,7 +720,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
             }
         };
 
-        for (variant, c, deprecation) in symbol.variants() {
+        for (variant, c, deprecation_message) in symbol.variants() {
             let shorthand = |list: &[(&'static str, char)]| {
                 list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
             };
@@ -737,7 +739,9 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                     .filter(|(other, _, _)| other != &variant)
                     .map(|(other, _, _)| complete(other))
                     .collect(),
-                deprecation: deprecation.or_else(|| binding.deprecation()),
+                deprecation_message: deprecation_message
+                    .or_else(|| binding.deprecation().map(Deprecation::message)),
+                deprecation_until: binding.deprecation().and_then(Deprecation::until),
             });
         }
     }

@@ -3286,7 +3286,6 @@ dependencies = [
 name = "typst-syntax"
 version = "0.13.1"
 dependencies = [
- "comemo",
  "ecow",
  "serde",
  "toml",
