@@ -840,6 +840,13 @@ impl<'a> Math<'a> {
     pub fn exprs(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
         self.0.children().filter_map(Expr::cast_with_space)
     }
+
+    /// Whether this `Math` node was originally parenthesized.
+    pub fn was_deparenthesized(self) -> bool {
+        let mut iter = self.0.children();
+        matches!(iter.next().map(SyntaxNode::kind), Some(SyntaxKind::LeftParen))
+            && matches!(iter.last().map(SyntaxNode::kind), Some(SyntaxKind::RightParen))
+    }
 }
 
 node! {

@@ -1,8 +1,16 @@
 use typst_syntax::Spanned;
 
 use crate::diag::bail;
-use crate::foundations::{Content, Value, elem};
+use crate::foundations::{Cast, Content, Value, elem};
 use crate::math::Mathy;
+
+/// Fraction style
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum FracStyle {
+    Vertical,
+    Diagonal,
+    Horizontal,
+}
 
 /// A mathematical fraction.
 ///
@@ -26,6 +34,27 @@ pub struct FracElem {
     /// The fraction's denominator.
     #[required]
     pub denom: Content,
+
+    /// The style of the fraction.
+    /// - `"vertical"`: stacked numerator and denominator with a bar.
+    /// - `"diagonal"`: numerator and denominator separated by a slash.
+    /// - `"horizontal"`: numerator and denominator placed inline and
+    ///   parentheses are not absorbed
+    ///
+    /// The default style is "vertical"
+    pub frac_style: Option<FracStyle>,
+
+    /// Whether the numerator was originally surrounded by parentheses
+    /// that were stripped by the parser.
+    #[internal]
+    #[synthesized]
+    pub num_deparenthesized: bool,
+
+    /// Whether the denominator was originally surrounded by parentheses
+    /// that were stripped by the parser.
+    #[internal]
+    #[synthesized]
+    pub denom_deparenthesized: bool,
 }
 
 /// A binomial expression.
