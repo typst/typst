@@ -24,6 +24,7 @@ typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+fxhash = { workspace = true }
 
 [lints]
 workspace = true

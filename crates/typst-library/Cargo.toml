@@ -29,6 +29,7 @@ csv = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
+fxhash = { workspace = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }

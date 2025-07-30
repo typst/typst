@@ -13,6 +13,7 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
+fxhash = { workspace = true }
 once_cell = { workspace = true }
 portable-atomic = { workspace = true }
 rayon = { workspace = true }

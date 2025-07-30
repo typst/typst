@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
+use fxhash::FxHashSet;
 use typst::foundations::{Label, Styles, Value};
 use typst::layout::PagedDocument;
 use typst::model::{BibliographyElem, FigureElem};
@@ -76,7 +75,7 @@ pub fn analyze_labels(
     document: &PagedDocument,
 ) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];
-    let mut seen_labels = HashSet::new();
+    let mut seen_labels = FxHashSet::default();
 
     // Labels in the document.
     for elem in document.introspector.all() {

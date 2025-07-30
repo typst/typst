@@ -2906,6 +2906,7 @@ version = "0.13.1"
 dependencies = [
  "comemo",
  "ecow",
+ "fxhash",
  "typst-eval",
  "typst-html",
  "typst-layout",
@@ -2936,6 +2937,7 @@ dependencies = [
  "dirs",
  "ecow",
  "fs_extra",
+ "fxhash",
  "notify",
  "open",
  "parking_lot",
@@ -2979,6 +2981,7 @@ dependencies = [
  "clap",
  "codex",
  "ecow",
+ "fxhash",
  "heck",
  "pulldown-cmark",
  "serde",
@@ -3002,6 +3005,7 @@ version = "0.13.1"
 dependencies = [
  "comemo",
  "ecow",
+ "fxhash",
  "indexmap 2.7.1",
  "stacker",
  "toml",
@@ -3032,6 +3036,7 @@ dependencies = [
  "bumpalo",
  "comemo",
  "ecow",
+ "fxhash",
  "palette",
  "time",
  "typst-assets",
@@ -3049,6 +3054,7 @@ version = "0.13.1"
 dependencies = [
  "comemo",
  "ecow",
+ "fxhash",
  "once_cell",
  "pathdiff",
  "serde",
@@ -3092,6 +3098,7 @@ dependencies = [
  "codex",
  "comemo",
  "ecow",
+ "fxhash",
  "hypher",
  "icu_properties",
  "icu_provider",
@@ -3130,6 +3137,7 @@ dependencies = [
  "ecow",
  "flate2",
  "fontdb",
+ "fxhash",
  "glidesort",
  "hayagriva",
  "hayro-syntax",
@@ -3196,6 +3204,7 @@ dependencies = [
  "bytemuck",
  "comemo",
  "ecow",
+ "fxhash",
  "image",
  "infer",
  "krilla",
@@ -3251,6 +3260,7 @@ dependencies = [
  "comemo",
  "ecow",
  "flate2",
+ "fxhash",
  "hayro",
  "image",
  "ttf-parser",
@@ -3268,6 +3278,7 @@ name = "typst-syntax"
 version = "0.13.1"
 dependencies = [
  "ecow",
+ "fxhash",
  "serde",
  "toml",
  "typst-timing",
@@ -3286,6 +3297,7 @@ dependencies = [
  "clap",
  "comemo",
  "ecow",
+ "fxhash",
  "oxipng",
  "parking_lot",
  "rayon",
@@ -3318,6 +3330,7 @@ dependencies = [
 name = "typst-utils"
 version = "0.13.1"
 dependencies = [
+ "fxhash",
  "once_cell",
  "portable-atomic",
  "rayon",

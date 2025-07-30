@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use ecow::EcoString;
+use fxhash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Smart};
 use typst::layout::{Abs, Margin, PageElem};
@@ -137,8 +137,8 @@ impl IdeWorld for TestWorld {
 /// Test-specific files.
 #[derive(Default, Clone)]
 struct TestFiles {
-    assets: HashMap<FileId, Bytes>,
-    sources: HashMap<FileId, Source>,
+    assets: FxHashMap<FileId, Bytes>,
+    sources: FxHashMap<FileId, Source>,
 }
 
 /// Shared foundation of all test worlds.

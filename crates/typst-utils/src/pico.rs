@@ -1,22 +1,24 @@
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::{LazyLock, RwLock};
 
+use fxhash::FxHashMap;
+
 /// Marks a number as a bitcode encoded `PicoStr``.
 const MARKER: u64 = 1 << 63;
 
 /// The global runtime string interner.
-static INTERNER: LazyLock<RwLock<Interner>> =
-    LazyLock::new(|| RwLock::new(Interner { seen: HashMap::new(), strings: Vec::new() }));
+static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
+    RwLock::new(Interner { seen: FxHashMap::default(), strings: Vec::new() })
+});
 
 /// A string interner.
 struct Interner {
-    seen: HashMap<&'static str, PicoStr>,
+    seen: FxHashMap<&'static str, PicoStr>,
     strings: Vec<&'static str>,
 }
 

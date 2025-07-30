@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -6,6 +5,7 @@ use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
 use ecow::{EcoString, eco_format};
+use fxhash::FxHashMap;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
@@ -41,7 +41,7 @@ pub struct SystemWorld {
     /// Locations of and storage for lazily loaded fonts.
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
-    slots: Mutex<HashMap<FileId, FileSlot>>,
+    slots: Mutex<FxHashMap<FileId, FileSlot>>,
     /// Holds information about where packages are stored.
     package_storage: PackageStorage,
     /// The current datetime if requested. This is stored here to ensure it is
@@ -139,7 +139,7 @@ impl SystemWorld {
             library: LazyHash::new(library),
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
-            slots: Mutex::new(HashMap::new()),
+            slots: Mutex::new(FxHashMap::default()),
             package_storage: package::storage(&world_args.package),
             now,
         })

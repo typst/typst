@@ -4,6 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
+use fxhash::FxBuildHasher;
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
@@ -20,7 +21,7 @@ use crate::foundations::{
 macro_rules! __dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
-        let mut map = $crate::foundations::IndexMap::new();
+        let mut map = $crate::foundations::IndexMap::default();
         $(map.insert($key.into(), $crate::foundations::IntoValue::into_value($value));)*
         $crate::foundations::Dict::from(map)
     }};
@@ -66,7 +67,7 @@ pub use crate::__dict as dict;
 /// ```
 #[ty(scope, cast, name = "dictionary")]
 #[derive(Default, Clone, PartialEq)]
-pub struct Dict(Arc<IndexMap<Str, Value>>);
+pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -343,7 +344,7 @@ impl<'de> Deserialize<'de> for Dict {
     where
         D: Deserializer<'de>,
     {
-        Ok(IndexMap::<Str, Value>::deserialize(deserializer)?.into())
+        Ok(IndexMap::<Str, Value, FxBuildHasher>::deserialize(deserializer)?.into())
     }
 }
 
@@ -377,8 +378,8 @@ impl<'a> IntoIterator for &'a Dict {
     }
 }
 
-impl From<IndexMap<Str, Value>> for Dict {
-    fn from(map: IndexMap<Str, Value>) -> Self {
+impl From<IndexMap<Str, Value, FxBuildHasher>> for Dict {
+    fn from(map: IndexMap<Str, Value, FxBuildHasher>) -> Self {
         Self(Arc::new(map))
     }
 }

@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use fxhash::FxHashSet;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::{Locator, SplitLocator, Tag, TagElem};
 use typst_library::layout::{PagebreakElem, Parity};
@@ -134,7 +133,7 @@ fn migrate_unterminated_tags(children: &mut [Pair], mid: usize) -> usize {
 
     // Determine the set of tag locations which we won't migrate (because they
     // are terminated).
-    let excluded: HashSet<_> = children[start..mid]
+    let excluded: FxHashSet<_> = children[start..mid]
         .iter()
         .filter_map(|(c, _)| match c.to_packed::<TagElem>()?.tag {
             Tag::Start(_) => None,

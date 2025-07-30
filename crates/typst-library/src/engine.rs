@@ -1,10 +1,10 @@
 //! Definition of the central compilation context.
 
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::EcoVec;
+use fxhash::FxHashSet;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use typst_syntax::{FileId, Span};
 
@@ -135,7 +135,7 @@ pub struct Sink {
     /// Warnings emitted during iteration.
     warnings: EcoVec<SourceDiagnostic>,
     /// Hashes of all warning's spans and messages for warning deduplication.
-    warnings_set: HashSet<u128>,
+    warnings_set: FxHashSet<u128>,
     /// A sequence of traced values for a span.
     values: EcoVec<(Value, Option<Styles>)>,
 }

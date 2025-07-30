@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use ecow::{EcoString, eco_format};
+use fxhash::FxBuildHasher;
 use indexmap::IndexMap;
 use indexmap::map::Entry;
 use typst_syntax::Span;
@@ -102,7 +103,7 @@ impl<'a> Scopes<'a> {
 /// A map from binding names to values.
 #[derive(Default, Clone)]
 pub struct Scope {
-    map: IndexMap<EcoString, Binding>,
+    map: IndexMap<EcoString, Binding, FxBuildHasher>,
     deduplicate: bool,
     category: Option<Category>,
 }

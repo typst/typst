@@ -38,11 +38,11 @@ pub use typst_syntax as syntax;
 #[doc(inline)]
 pub use typst_utils as utils;
 
-use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use comemo::{Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use fxhash::FxHashSet;
 use typst_html::HtmlDocument;
 use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
@@ -176,7 +176,7 @@ fn compile_impl<D: Document>(
 
 /// Deduplicate diagnostics.
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-    let mut unique = HashSet::new();
+    let mut unique = FxHashSet::default();
     diags.retain(|diag| {
         let hash = typst_utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)

@@ -49,6 +49,7 @@ regex = { workspace = true }
 tiny-skia = { workspace = true }
 unscanny = { workspace = true }
 walkdir = { workspace = true }
+fxhash = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,7 +1,8 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
 
 use comemo::Track;
 use ecow::{EcoString, eco_format};
+use fxhash::{FxHashMap, FxHashSet};
 use typst_library::foundations::{Label, NativeElement};
 use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Frame, FrameItem, Point};
@@ -16,7 +17,7 @@ use crate::{HtmlElement, HtmlNode, attr, tag};
 /// in favor of the query in `identify_link_targets`. For the time being, some
 /// links are created without existence of a `LinkElem`, so this is
 /// unfortunately necessary.
-pub fn introspect_frame_links(frame: &Frame, targets: &mut HashSet<Location>) {
+pub fn introspect_frame_links(frame: &Frame, targets: &mut FxHashSet<Location>) {
     for (_, item) in frame.items() {
         match item {
             FrameItem::Link(Destination::Location(loc), _) => {
@@ -35,7 +36,7 @@ pub fn introspect_frame_links(frame: &Frame, targets: &mut HashSet<Location>) {
 pub fn identify_link_targets(
     root: &mut HtmlElement,
     introspector: &mut Introspector,
-    mut targets: HashSet<Location>,
+    mut targets: FxHashSet<Location>,
 ) {
     // Query for all links with an intra-doc (i.e. `Location`) destination to
     // know what needs IDs.
@@ -72,7 +73,7 @@ pub fn identify_link_targets(
 /// Traverses a list of nodes.
 fn traverse(
     work: &mut Work,
-    targets: &HashSet<Location>,
+    targets: &FxHashSet<Location>,
     identificator: &mut Identificator<'_>,
     nodes: &mut Vec<HtmlNode>,
 ) {
@@ -144,7 +145,7 @@ fn traverse(
 /// Traverses a frame embedded in HTML.
 fn traverse_frame(
     work: &mut Work,
-    targets: &HashSet<Location>,
+    targets: &FxHashSet<Location>,
     identificator: &mut Identificator<'_>,
     frame: &Frame,
     link_points: &mut Vec<(Point, EcoString)>,
@@ -174,13 +175,13 @@ struct Work {
     /// now.
     queue: VecDeque<(Location, Option<Label>)>,
     /// The resulting mapping from element location's to HTML IDs.
-    ids: HashMap<Location, EcoString>,
+    ids: FxHashMap<Location, EcoString>,
 }
 
 impl Work {
     /// Sets up.
     fn new() -> Self {
-        Self { queue: VecDeque::new(), ids: HashMap::new() }
+        Self { queue: VecDeque::new(), ids: FxHashMap::default() }
     }
 
     /// Marks the element with the given location and label as in need of an
@@ -215,7 +216,7 @@ impl Work {
 struct Identificator<'a> {
     introspector: &'a Introspector,
     loc_counter: usize,
-    label_counter: HashMap<Label, usize>,
+    label_counter: FxHashMap<Label, usize>,
 }
 
 impl<'a> Identificator<'a> {
@@ -224,7 +225,7 @@ impl<'a> Identificator<'a> {
         Self {
             introspector,
             loc_counter: 0,
-            label_counter: HashMap::new(),
+            label_counter: FxHashMap::default(),
         }
     }
 

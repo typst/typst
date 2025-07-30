@@ -1,8 +1,9 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
 use ecow::{EcoString, eco_format};
+use fxhash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr, StyleChain, Styles,
@@ -739,7 +740,7 @@ fn param_completions<'a>(
 
     // Determine which arguments are already present.
     let mut existing_positional = 0;
-    let mut existing_named = HashSet::new();
+    let mut existing_named = FxHashSet::default();
     for arg in args.items() {
         match arg {
             ast::Arg::Pos(_) => {
@@ -1116,7 +1117,7 @@ struct CompletionContext<'a> {
     explicit: bool,
     from: usize,
     completions: Vec<Completion>,
-    seen_casts: HashSet<u128>,
+    seen_casts: FxHashSet<u128>,
 }
 
 impl<'a> CompletionContext<'a> {
@@ -1141,7 +1142,7 @@ impl<'a> CompletionContext<'a> {
             explicit,
             from: cursor,
             completions: vec![],
-            seen_casts: HashSet::new(),
+            seen_casts: FxHashSet::default(),
         })
     }
 

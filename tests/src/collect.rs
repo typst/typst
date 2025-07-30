@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -6,6 +5,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
+use fxhash::{FxHashMap, FxHashSet};
 use typst_syntax::package::PackageVersion;
 use typst_syntax::{
     FileId, Lines, Source, VirtualPath, is_id_continue, is_ident, is_newline,
@@ -122,7 +122,7 @@ impl Display for NoteKind {
 struct Collector {
     tests: Vec<Test>,
     errors: Vec<TestParseError>,
-    seen: HashMap<EcoString, (FilePos, Vec<Attr>)>,
+    seen: FxHashMap<EcoString, (FilePos, Vec<Attr>)>,
     skipped: usize,
 }
 
@@ -132,7 +132,7 @@ impl Collector {
         Self {
             tests: vec![],
             errors: vec![],
-            seen: HashMap::new(),
+            seen: FxHashMap::default(),
             skipped: 0,
         }
     }
@@ -507,7 +507,7 @@ impl<'a> Parser<'a> {
 
 /// Whether a test is within the selected set to run.
 fn selected(name: &str, abs: PathBuf) -> bool {
-    static SKIPPED: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    static SKIPPED: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
         String::leak(std::fs::read_to_string(crate::SKIP_PATH).unwrap())
             .lines()
             .map(|line| line.trim())

@@ -34,6 +34,7 @@ typed-arena = { workspace = true }
 unicode-math-class = { workspace = true }
 unscanny = { workspace = true }
 yaml-front-matter = { workspace = true }
+fxhash = { workspace = true }
 
 [lints]
 workspace = true

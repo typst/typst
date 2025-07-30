@@ -36,6 +36,7 @@ comemo = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 fs_extra = { workspace = true }
+fxhash = { workspace = true }
 notify = { workspace = true }
 open = { workspace = true }
 parking_lot = { workspace = true }

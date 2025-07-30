@@ -5,11 +5,11 @@ mod paint;
 mod shape;
 mod text;
 
+use fxhash::FxHashMap;
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
 use typst_library::introspection::Introspector;
 use typst_library::model::Destination;
 
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
@@ -421,12 +421,16 @@ impl<'a> SVGRenderer<'a> {
 struct Deduplicator<T> {
     kind: char,
     vec: Vec<(u128, T)>,
-    present: HashMap<u128, Id>,
+    present: FxHashMap<u128, Id>,
 }
 
 impl<T> Deduplicator<T> {
     fn new(kind: char) -> Self {
-        Self { kind, vec: Vec::new(), present: HashMap::new() }
+        Self {
+            kind,
+            vec: Vec::new(),
+            present: FxHashMap::default(),
+        }
     }
 
     /// Inserts a value into the vector. If the hash is already present, returns
