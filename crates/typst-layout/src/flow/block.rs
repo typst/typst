@@ -24,15 +24,15 @@ pub fn layout_single_block(
     region: Region,
 ) -> SourceResult<Frame> {
     // Fetch sizing properties.
-    let width = elem.width(styles);
-    let height = elem.height(styles);
-    let inset = elem.inset(styles).unwrap_or_default();
+    let width = elem.width.get(styles);
+    let height = elem.height.get(styles);
+    let inset = elem.inset.resolve(styles).unwrap_or_default();
 
     // Build the pod regions.
     let pod = unbreakable_pod(&width.into(), &height, &inset, styles, region.size);
 
     // Layout the body.
-    let body = elem.body(styles);
+    let body = elem.body.get_ref(styles);
     let mut frame = match body {
         // If we have no body, just create one frame. Its size will be
         // adjusted below.
@@ -73,18 +73,19 @@ pub fn layout_single_block(
     }
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
+    let fill = elem.fill.get_cloned(styles);
     let stroke = elem
-        .stroke(styles)
+        .stroke
+        .resolve(styles)
         .unwrap_or_default()
         .map(|s| s.map(Stroke::unwrap_or_default));
 
     // Only fetch these if necessary (for clipping or filling/stroking).
-    let outset = LazyCell::new(|| elem.outset(styles).unwrap_or_default());
-    let radius = LazyCell::new(|| elem.radius(styles).unwrap_or_default());
+    let outset = LazyCell::new(|| elem.outset.resolve(styles).unwrap_or_default());
+    let radius = LazyCell::new(|| elem.radius.resolve(styles).unwrap_or_default());
 
     // Clip the contents, if requested.
-    if elem.clip(styles) {
+    if elem.clip.get(styles) {
         frame.clip(clip_rect(frame.size(), &radius, &stroke, &outset));
     }
 
@@ -111,9 +112,9 @@ pub fn layout_multi_block(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     // Fetch sizing properties.
-    let width = elem.width(styles);
-    let height = elem.height(styles);
-    let inset = elem.inset(styles).unwrap_or_default();
+    let width = elem.width.get(styles);
+    let height = elem.height.get(styles);
+    let inset = elem.inset.resolve(styles).unwrap_or_default();
 
     // Allocate a small vector for backlogs.
     let mut buf = SmallVec::<[Abs; 2]>::new();
@@ -122,7 +123,7 @@ pub fn layout_multi_block(
     let pod = breakable_pod(&width.into(), &height, &inset, styles, regions, &mut buf);
 
     // Layout the body.
-    let body = elem.body(styles);
+    let body = elem.body.get_ref(styles);
     let mut fragment = match body {
         // If we have no body, just create one frame plus one per backlog
         // region. We create them zero-sized; if necessary, their size will
@@ -188,18 +189,19 @@ pub fn layout_multi_block(
     };
 
     // Prepare fill and stroke.
-    let fill = elem.fill(styles);
+    let fill = elem.fill.get_ref(styles);
     let stroke = elem
-        .stroke(styles)
+        .stroke
+        .resolve(styles)
         .unwrap_or_default()
         .map(|s| s.map(Stroke::unwrap_or_default));
 
     // Only fetch these if necessary (for clipping or filling/stroking).
-    let outset = LazyCell::new(|| elem.outset(styles).unwrap_or_default());
-    let radius = LazyCell::new(|| elem.radius(styles).unwrap_or_default());
+    let outset = LazyCell::new(|| elem.outset.resolve(styles).unwrap_or_default());
+    let radius = LazyCell::new(|| elem.radius.resolve(styles).unwrap_or_default());
 
     // Fetch/compute these outside of the loop.
-    let clip = elem.clip(styles);
+    let clip = elem.clip.get(styles);
     let has_fill_or_stroke = fill.is_some() || stroke.iter().any(Option::is_some);
     let has_inset = !inset.is_zero();
     let is_explicit = matches!(body, None | Some(BlockBody::Content(_)));
@@ -405,10 +407,10 @@ fn distribute<'a>(
     // If there is still something remaining, apply it to the
     // last region (it will overflow, but there's nothing else
     // we can do).
-    if !remaining.approx_empty() {
-        if let Some(last) = buf.last_mut() {
-            *last += remaining;
-        }
+    if !remaining.approx_empty()
+        && let Some(last) = buf.last_mut()
+    {
+        *last += remaining;
     }
 
     // Distribute the heights to the first region and the

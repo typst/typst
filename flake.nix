@@ -10,7 +10,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-manifest = {
-      url = "https://static.rust-lang.org/dist/channel-rust-1.85.0.toml";
+      url = "https://static.rust-lang.org/dist/channel-rust-1.88.0.toml";
       flake = false;
     };
   };
@@ -126,6 +126,10 @@
         devShells.default = craneLib.devShell {
           checks = self'.checks;
           inputsFrom = [ typst ];
+
+          buildInputs = with pkgs; [
+            rust-analyzer
+          ];
 
           packages = [
             # A script for quickly running tests.

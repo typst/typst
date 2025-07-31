@@ -1,21 +1,13 @@
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, HintedStrResult, HintedString, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, scope, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    TargetElem,
-};
-use crate::html::{attr, tag, HtmlAttrs, HtmlElem, HtmlTag};
-use crate::introspection::Locator;
-use crate::layout::grid::resolve::{table_to_cellgrid, Cell, CellGrid, Entry};
+use crate::diag::{HintedStrResult, HintedString, bail};
+use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, BlockElem, Celled, GridCell, GridFooter, GridHLine,
-    GridHeader, GridVLine, Length, OuterHAlignment, OuterVAlignment, Rel, Sides,
-    TrackSizings,
+    Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
+    Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::LocalName;
@@ -121,16 +113,14 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, Show, LocalName, Figurable)]
+#[elem(scope, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
-    #[borrowed]
     pub columns: TrackSizings,
 
     /// The row sizes. See the [grid documentation]($grid) for more information
     /// on track sizing.
-    #[borrowed]
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand for setting
@@ -141,7 +131,6 @@ pub struct TableElem {
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
-    #[borrowed]
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -151,7 +140,6 @@ pub struct TableElem {
     /// The gaps between rows. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
@@ -176,7 +164,6 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    #[borrowed]
     pub fill: Celled<Option<Paint>>,
 
     /// How to align the cells' content.
@@ -194,7 +181,6 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
-    #[borrowed]
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke] the cells.
@@ -209,7 +195,6 @@ pub struct TableElem {
     ///
     /// See the [grid documentation]($grid.stroke) for more information on
     /// strokes.
-    #[resolve]
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
@@ -260,68 +245,6 @@ impl TableElem {
 
     #[elem]
     type TableFooter;
-}
-
-fn show_cell_html(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
-    let cell = cell.body.clone();
-    let Some(cell) = cell.to_packed::<TableCell>() else { return cell };
-    let mut attrs = HtmlAttrs::default();
-    let span = |n: NonZeroUsize| (n != NonZeroUsize::MIN).then(|| n.to_string());
-    if let Some(colspan) = span(cell.colspan(styles)) {
-        attrs.push(attr::colspan, colspan);
-    }
-    if let Some(rowspan) = span(cell.rowspan(styles)) {
-        attrs.push(attr::rowspan, rowspan);
-    }
-    HtmlElem::new(tag)
-        .with_body(Some(cell.body.clone()))
-        .with_attrs(attrs)
-        .pack()
-        .spanned(cell.span())
-}
-
-fn show_cellgrid_html(grid: CellGrid, styles: StyleChain) -> Content {
-    let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
-    let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
-
-    let tr = |tag, row: &[Entry]| {
-        let row = row
-            .iter()
-            .flat_map(|entry| entry.as_cell())
-            .map(|cell| show_cell_html(tag, cell, styles));
-        elem(tag::tr, Content::sequence(row))
-    };
-
-    let footer = grid.footer.map(|ft| {
-        let rows = rows.drain(ft.unwrap().start..);
-        elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
-    });
-    let header = grid.header.map(|hd| {
-        let rows = rows.drain(..hd.unwrap().end);
-        elem(tag::thead, Content::sequence(rows.map(|row| tr(tag::th, row))))
-    });
-
-    let mut body = Content::sequence(rows.into_iter().map(|row| tr(tag::td, row)));
-    if header.is_some() || footer.is_some() {
-        body = elem(tag::tbody, body);
-    }
-
-    let content = header.into_iter().chain(core::iter::once(body)).chain(footer);
-    elem(tag::table, Content::sequence(content))
-}
-
-impl Show for Packed<TableElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(if TargetElem::target_in(styles).is_html() {
-            // TODO: This is a hack, it is not clear whether the locator is actually used by HTML.
-            // How can we find out whether locator is actually used?
-            let locator = Locator::root();
-            show_cellgrid_html(table_to_cellgrid(self, engine, locator, styles)?, styles)
-        } else {
-            BlockElem::multi_layouter(self.clone(), engine.routines.layout_table).pack()
-        }
-        .spanned(self.span()))
-    }
 }
 
 impl LocalName for Packed<TableElem> {
@@ -492,6 +415,17 @@ pub struct TableHeader {
     #[default(true)]
     pub repeat: bool,
 
+    /// The level of the header. Must not be zero.
+    ///
+    /// This allows repeating multiple headers at once. Headers with different
+    /// levels can repeat together, as long as they have ascending levels.
+    ///
+    /// Notably, when a header with a lower level starts repeating, all higher
+    /// or equal level headers stop repeating (they are "replaced" by the new
+    /// header).
+    #[default(NonZeroU32::ONE)]
+    pub level: NonZeroU32,
+
     /// The cells and lines within the header.
     #[variadic]
     pub children: Vec<TableItem>,
@@ -565,7 +499,6 @@ pub struct TableHLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including hlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -595,7 +528,7 @@ pub struct TableHLine {
 /// part of all your tables' designs.
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
+    /// The column before which the vertical line is placed (zero-indexed).
     /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
     pub x: Smart<usize>,
 
@@ -610,7 +543,6 @@ pub struct TableVLine {
     ///
     /// Specifying `{none}` removes any lines previously placed across this
     /// line's range, including vlines or per-cell stroke below it.
-    #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
@@ -693,7 +625,7 @@ pub struct TableVLine {
 ///   cell(align: left)[🌴🚗],
 ///   cell(
 ///     inset: 0.06em,
-///     text(1.62em)[🛖🌅🌊],
+///     text(1.62em)[🏝️🌅🌊],
 ///   ),
 /// )
 /// ```
@@ -714,7 +646,7 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell", Show)]
+#[elem(name = "cell", title = "Table Cell")]
 pub struct TableCell {
     /// The cell's body.
     #[required]
@@ -746,7 +678,6 @@ pub struct TableCell {
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [stroke]($table.stroke) override.
-    #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
@@ -762,15 +693,16 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Show for Packed<TableCell> {
-    fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        show_grid_cell(self.body.clone(), self.inset(styles), self.align(styles))
-    }
-}
-
 impl Default for Packed<TableCell> {
     fn default() -> Self {
-        Packed::new(TableCell::new(Content::default()))
+        Packed::new(
+            // Explicitly set colspan and rowspan to ensure they won't be
+            // overridden by set rules (default cells are created after
+            // colspans and rowspans are processed in the resolver)
+            TableCell::new(Content::default())
+                .with_colspan(NonZeroUsize::ONE)
+                .with_rowspan(NonZeroUsize::ONE),
+        )
     }
 }
 

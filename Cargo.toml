@@ -5,9 +5,9 @@ resolver = "2"
 
 [workspace.package]
 version = "0.13.1"
-rust-version = "1.83" # also change in ci.yml
+rust-version = "1.88" # also change in ci.yml
 authors = ["The Typst Project Developers"]
-edition = "2021"
+edition = "2024"
 homepage = "https://typst.app"
 repository = "https://github.com/typst/typst"
 license = "Apache-2.0"
@@ -32,8 +32,8 @@ typst-svg = { path = "crates/typst-svg", version = "0.13.1" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "ab1295f" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "fddbf8b" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "fbf00f9" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "c6c2acf" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -47,7 +47,7 @@ clap = { version = "4.4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
-codex = "0.1.1"
+codex = { git = "https://github.com/typst/codex", rev = "9ac86f9" }
 color-print = "0.3.6"
 comemo = "0.4"
 csv = "1"
@@ -61,6 +61,8 @@ fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 glidesort = "0.1.2"
 hayagriva = "0.8.1"
+hayro-syntax = { git = "https://github.com/LaurenzV/hayro", rev = "e701f95" }
+hayro = { git = "https://github.com/LaurenzV/hayro", rev = "e701f95" }
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }
@@ -68,12 +70,12 @@ icu_provider = { version = "1.4", features = ["sync"] }
 icu_provider_adapters = "1.4"
 icu_provider_blob = "1.4"
 icu_segmenter = { version = "1.4", features = ["serde"] }
-if_chain = "1"
-image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif"] }
+image = { version = "0.25.5", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 indexmap = { version = "2", features = ["serde"] }
+infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
-krilla = { version = "0.4.0", default-features = false, features = ["raster-images", "comemo", "rayon"] }
-krilla-svg = "0.1.0"
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "37b9a00", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "37b9a00"}
 kurbo = "0.11"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -134,6 +136,7 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.45", default-features = false, features = ["text"] }
+utf8_iter = "1.0.4"
 walkdir = "2"
 wasmi = "0.40.0"
 web-sys = "0.3"
@@ -141,7 +144,7 @@ xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
-zip = { version = "2.5", default-features = false, features = ["deflate"] }
+zip = { version = "4.3", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
 opt-level = 2
@@ -156,6 +159,7 @@ strip = true
 [workspace.lints.clippy]
 blocks_in_conditions = "allow"
 comparison_chain = "allow"
+iter_over_hash_type = "warn"
 manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"

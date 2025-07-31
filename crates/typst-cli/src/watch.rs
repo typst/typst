@@ -10,11 +10,12 @@ use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail, warning};
+use typst::syntax::Span;
 use typst::utils::format_duration;
 
 use crate::args::{Input, Output, WatchCommand};
-use crate::compile::{compile_once, CompileConfig};
+use crate::compile::{CompileConfig, compile_once, print_diagnostics};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
@@ -54,6 +55,11 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
 
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut config))??;
+
+    // Print warning when trying to watch stdin.
+    if matches!(&config.input, Input::Stdin) {
+        warn_watching_std(&world, &config)?;
+    }
 
     // Recompile whenever something relevant happens.
     loop {
@@ -133,6 +139,7 @@ impl Watcher {
     fn update(&mut self, iter: impl IntoIterator<Item = PathBuf>) -> StrResult<()> {
         // Mark all files as not "seen" so that we may unwatch them if they
         // aren't in the dependency list.
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
         for seen in self.watched.values_mut() {
             *seen = false;
         }
@@ -331,4 +338,16 @@ impl Status {
             _ => styles.header_note,
         }
     }
+}
+
+/// Emits a warning when trying to watch stdin.
+fn warn_watching_std(world: &SystemWorld, config: &CompileConfig) -> StrResult<()> {
+    let warning = warning!(
+        Span::detached(),
+        "cannot watch changes for stdin";
+        hint: "to recompile on changes, watch a regular file instead";
+        hint: "to compile once and exit, please use `typst compile` instead"
+    );
+    print_diagnostics(world, &[], &[warning], config.diagnostic_format)
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))
 }

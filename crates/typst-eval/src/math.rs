@@ -80,17 +80,17 @@ impl Eval for ast::MathAttach<'_> {
         let mut elem = AttachElem::new(base);
 
         if let Some(expr) = self.top() {
-            elem.push_t(Some(expr.eval_display(vm)?));
+            elem.t.set(Some(expr.eval_display(vm)?));
         }
 
         // Always attach primes in scripts style (not limits style),
         // i.e. at the top-right corner.
         if let Some(primes) = self.primes() {
-            elem.push_tr(Some(primes.eval(vm)?));
+            elem.tr.set(Some(primes.eval(vm)?));
         }
 
         if let Some(expr) = self.bottom() {
-            elem.push_b(Some(expr.eval_display(vm)?));
+            elem.b.set(Some(expr.eval_display(vm)?));
         }
 
         Ok(elem.pack())

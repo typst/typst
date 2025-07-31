@@ -7,9 +7,9 @@ use ecow::EcoString;
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::foundations::{
-    array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue, Repr, Smart,
+    Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
@@ -549,7 +549,7 @@ impl Gradient {
     }
 
     /// Repeats this gradient a given number of times, optionally mirroring it
-    /// at each repetition.
+    /// at every second repetition.
     ///
     /// ```example
     /// #circle(
@@ -564,7 +564,17 @@ impl Gradient {
         &self,
         /// The number of times to repeat the gradient.
         repetitions: Spanned<usize>,
-        /// Whether to mirror the gradient at each repetition.
+        /// Whether to mirror the gradient at every second repetition, i.e.,
+        /// the first instance (and all odd ones) stays unchanged.
+        ///
+        /// ```example
+        /// #circle(
+        ///   radius: 40pt,
+        ///   fill: gradient
+        ///     .conic(green, black)
+        ///     .repeat(2, mirror: true)
+        /// )
+        /// ```
         #[named]
         #[default(false)]
         mirror: bool,
@@ -883,11 +893,7 @@ impl Gradient {
     /// the special case of `auto`.
     pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
         self.relative().unwrap_or_else(|| {
-            if on_text {
-                RelativeTo::Parent
-            } else {
-                RelativeTo::Self_
-            }
+            if on_text { RelativeTo::Parent } else { RelativeTo::Self_ }
         })
     }
 
@@ -1275,24 +1281,17 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
 /// Sample the stops at a given position.
 fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> Color {
     let t = t.clamp(0.0, 1.0);
-    let mut low = 0;
-    let mut high = stops.len();
+    let mut j = stops.partition_point(|(_, ratio)| ratio.get() < t);
 
-    while low < high {
-        let mid = (low + high) / 2;
-        if stops[mid].1.get() < t {
-            low = mid + 1;
-        } else {
-            high = mid;
+    if j == 0 {
+        while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
+            j += 1;
         }
+        return stops[j].0;
     }
 
-    if low == 0 {
-        low = 1;
-    }
-
-    let (col_0, pos_0) = stops[low - 1];
-    let (col_1, pos_1) = stops[low];
+    let (col_0, pos_0) = stops[j - 1];
+    let (col_1, pos_1) = stops[j];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
     Color::mix_iter(

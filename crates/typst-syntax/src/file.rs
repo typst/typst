@@ -5,8 +5,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU16;
 use std::sync::{LazyLock, RwLock};
 
-use crate::package::PackageSpec;
 use crate::VirtualPath;
+use crate::package::PackageSpec;
 
 /// The global package-path interner.
 static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {

@@ -389,6 +389,29 @@
   table.footer[a][b][c]
 )
 
+--- grid-footer-repeatable-unbreakable ---
+#set page(height: 8em, width: auto)
+#table(
+  [h],
+  table.footer(
+    [a],
+    [b],
+    [c],
+  )
+)
+
+--- grid-footer-non-repeatable-unbreakable ---
+#set page(height: 8em, width: auto)
+#table(
+  [h],
+  table.footer(
+    [a],
+    [b],
+    [c],
+    repeat: false,
+  )
+)
+
 --- grid-footer-stroke-edge-cases ---
 // Test footer stroke priority edge case
 #set page(height: 10em)

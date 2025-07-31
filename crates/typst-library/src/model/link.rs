@@ -1,15 +1,13 @@
 use std::ops::Deref;
 
-use ecow::{eco_format, EcoString};
+use comemo::Tracked;
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, warning, At, SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Packed, Repr, Show, ShowSet, Smart,
-    StyleChain, Styles, TargetElem,
+    Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles, cast, elem,
 };
-use crate::html::{attr, tag, HtmlElem};
-use crate::introspection::Location;
+use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::Position;
 use crate::text::TextElem;
 
@@ -30,15 +28,62 @@ use crate::text::TextElem;
 /// ]
 /// ```
 ///
+/// # Syntax
+/// This function also has dedicated syntax: Text that starts with `http://` or
+/// `https://` is automatically turned into a link.
+///
 /// # Hyphenation
 /// If you enable hyphenation or justification, by default, it will not apply to
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
 /// default via `{show link: set text(hyphenate: true)}`.
 ///
-/// # Syntax
-/// This function also has dedicated syntax: Text that starts with `http://` or
-/// `https://` is automatically turned into a link.
-#[elem(Show)]
+/// # Links in HTML export
+/// In HTML export, a link to a [label] or [location] will be turned into a
+/// fragment link to a named anchor point. To support this, targets without an
+/// existing ID will automatically receive an ID in the DOM. How this works
+/// varies by which kind of HTML node(s) the link target turned into:
+///
+/// - If the link target turned into a single HTML element, that element will
+///   receive the ID. This is, for instance, typically the case when linking to
+///   a top-level heading (which turns into a single `<h2>` element).
+///
+/// - If the link target turned into a single text node, the node will be
+///   wrapped in a `<span>`, which will then receive the ID.
+///
+/// - If the link target turned into multiple nodes, the first node will receive
+///   the ID.
+///
+/// - If the link target turned into no nodes at all, an empty span will be
+///   generated to serve as a link target.
+///
+/// If you rely on a specific DOM structure, you should ensure that the link
+/// target turns into one or multiple elements, as the compiler makes no
+/// guarantees on the precise segmentation of text into text nodes.
+///
+/// If present, the automatic ID generation tries to reuse the link target's
+/// label to create a human-readable ID. A label can be reused if:
+///
+/// - All characters are alphabetic or numeric according to Unicode, or a
+///   hyphen, or an underscore.
+///
+/// - The label does not start with a digit or hyphen.
+///
+/// These rules ensure that the label is both a valid CSS identifier and a valid
+/// URL fragment for linking.
+///
+/// As IDs must be unique in the DOM, duplicate labels might need disambiguation
+/// when reusing them as IDs. The precise rules for this are as follows:
+///
+/// - If a label can be reused and is unique in the document, it will directly
+///   be used as the ID.
+///
+/// - If it's reusable, but not unique, a suffix consisting of a hyphen and an
+///   integer will be added. For instance, if the label `<mylabel>` exists
+///   twice, it would turn into `mylabel-1` and `mylabel-2`.
+///
+/// - Otherwise, a unique ID of the form `loc-` followed by an integer will be
+///   generated.
+#[elem(Locatable)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///
@@ -103,42 +148,10 @@ impl LinkElem {
     }
 }
 
-impl Show for Packed<LinkElem> {
-    #[typst_macros::time(name = "link", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body.clone();
-
-        Ok(if TargetElem::target_in(styles).is_html() {
-            if let LinkTarget::Dest(Destination::Url(url)) = &self.dest {
-                HtmlElem::new(tag::a)
-                    .with_attr(attr::href, url.clone().into_inner())
-                    .with_body(Some(body))
-                    .pack()
-                    .spanned(self.span())
-            } else {
-                engine.sink.warn(warning!(
-                    self.span(),
-                    "non-URL links are not yet supported by HTML export"
-                ));
-                body
-            }
-        } else {
-            match &self.dest {
-                LinkTarget::Dest(dest) => body.linked(dest.clone()),
-                LinkTarget::Label(label) => {
-                    let elem = engine.introspector.query_label(*label).at(self.span())?;
-                    let dest = Destination::Location(elem.location().unwrap());
-                    body.clone().linked(dest)
-                }
-            }
-        })
-    }
-}
-
 impl ShowSet for Packed<LinkElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(TextElem::set_hyphenate(Smart::Custom(false)));
+        out.set(TextElem::hyphenate, Smart::Custom(false));
         out
     }
 }
@@ -157,6 +170,19 @@ fn body_from_url(url: &Url) -> Content {
 pub enum LinkTarget {
     Dest(Destination),
     Label(Label),
+}
+
+impl LinkTarget {
+    /// Resolves the destination.
+    pub fn resolve(&self, introspector: Tracked<Introspector>) -> StrResult<Destination> {
+        Ok(match self {
+            LinkTarget::Dest(dest) => dest.clone(),
+            LinkTarget::Label(label) => {
+                let elem = introspector.query_label(*label)?;
+                Destination::Location(elem.location().unwrap())
+            }
+        })
+    }
 }
 
 cast! {

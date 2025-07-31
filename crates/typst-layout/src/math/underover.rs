@@ -10,8 +10,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    stack, style_cramped, style_for_subscript, style_for_superscript, FrameFragment,
-    GlyphFragment, LeftRightAlternator, MathContext, MathRun,
+    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, MathRun, stack,
+    style_cramped, style_for_subscript, style_for_superscript,
 };
 
 const BRACE_GAP: Em = Em::new(0.25);
@@ -56,7 +56,7 @@ pub fn layout_underbrace(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⏟',
         BRACE_GAP,
         Position::Under,
@@ -75,7 +75,7 @@ pub fn layout_overbrace(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⏞',
         BRACE_GAP,
         Position::Over,
@@ -94,7 +94,7 @@ pub fn layout_underbracket(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⎵',
         BRACKET_GAP,
         Position::Under,
@@ -113,7 +113,7 @@ pub fn layout_overbracket(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⎴',
         BRACKET_GAP,
         Position::Over,
@@ -132,7 +132,7 @@ pub fn layout_underparen(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⏝',
         PAREN_GAP,
         Position::Under,
@@ -151,7 +151,7 @@ pub fn layout_overparen(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⏜',
         PAREN_GAP,
         Position::Over,
@@ -170,7 +170,7 @@ pub fn layout_undershell(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⏡',
         SHELL_GAP,
         Position::Under,
@@ -189,7 +189,7 @@ pub fn layout_overshell(
         ctx,
         styles,
         &elem.body,
-        &elem.annotation(styles),
+        elem.annotation.get_ref(styles),
         '⏠',
         SHELL_GAP,
         Position::Over,
@@ -251,7 +251,7 @@ fn layout_underoverline(
         line_pos,
         FrameItem::Shape(
             Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
-                paint: TextElem::fill_in(styles).as_decoration(),
+                paint: styles.get_ref(TextElem::fill).as_decoration(),
                 thickness: bar_height,
                 ..FixedStroke::default()
             }),
@@ -285,14 +285,14 @@ fn layout_underoverspreader(
     let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(styles);
-    let glyph = GlyphFragment::new(ctx, styles, c, span);
-    let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
+    let mut glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
+    glyph.stretch_horizontal(ctx, body.width());
 
     let mut rows = vec![];
     let baseline = match position {
         Position::Under => {
             rows.push(MathRun::new(vec![body]));
-            rows.push(stretched.into());
+            rows.push(glyph.into());
             if let Some(annotation) = annotation {
                 let under_style = style_for_subscript(styles);
                 let annotation_styles = styles.chain(&under_style);
@@ -306,7 +306,7 @@ fn layout_underoverspreader(
                 let annotation_styles = styles.chain(&over_style);
                 rows.extend(ctx.layout_into_run(annotation, annotation_styles)?.rows());
             }
-            rows.push(stretched.into());
+            rows.push(glyph.into());
             rows.push(MathRun::new(vec![body]));
             rows.len() - 1
         }

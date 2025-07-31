@@ -2,54 +2,55 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
-use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Track, Tracked};
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
-    citationberg, BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest,
-    Library, SpecificLocator,
+    BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest, Library,
+    SpecificLocator, citationberg,
 };
 use indexmap::IndexMap;
-use smallvec::{smallvec, SmallVec};
-use typst_syntax::{Span, Spanned};
-use typst_utils::{Get, ManuallyHash, NonZeroExt, PicoStr};
+use smallvec::{SmallVec, smallvec};
+use typst_syntax::{Span, Spanned, SyntaxMode};
+use typst_utils::{ManuallyHash, PicoStr};
 
-use crate::diag::{bail, error, At, FileError, HintedStrResult, SourceResult, StrResult};
+use crate::World;
+use crate::diag::{
+    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
+    StrResult, bail, error,
+};
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
-    elem, Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
-    OneOrMultiple, Packed, Reflect, Scope, Show, ShowSet, Smart, StyleChain, Styles,
-    Synthesize, Value,
+    Bytes, CastInfo, Content, Derived, FromValue, IntoValue, Label, NativeElement,
+    OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain, Styles,
+    Synthesize, Value, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
     BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
-    Sides, Sizing, TrackSizings,
+    Sizing, TrackSizings,
 };
-use crate::loading::{DataSource, Load};
+use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
-    Url,
+    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, Url,
 };
-use crate::routines::{EvalMode, Routines};
+use crate::routines::Routines;
 use crate::text::{
     FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
     WeightDelta,
 };
-use crate::World;
 
 /// A bibliography / reference listing.
 ///
 /// You can create a new bibliography by calling this function with a path
 /// to a bibliography file in either one of two formats:
 ///
-/// - A Hayagriva `.yml` file. Hayagriva is a new bibliography file format
-///   designed for use with Typst. Visit its
+/// - A Hayagriva `.yaml`/`.yml` file. Hayagriva is a new bibliography
+///   file format designed for use with Typst. Visit its
 ///   [documentation](https://github.com/typst/hayagriva/blob/main/docs/file-format.md)
 ///   for more details.
 /// - A BibLaTeX `.bib` file.
@@ -85,9 +86,9 @@ use crate::World;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
+#[elem(Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
-    /// One or multiple paths to or raw bytes for Hayagriva `.yml` and/or
+    /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.
     ///
     /// This can be a:
@@ -155,7 +156,7 @@ pub struct BibliographyElem {
 impl BibliographyElem {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Packed<Self>> {
-        let query = introspector.query(&Self::elem().select());
+        let query = introspector.query(&Self::ELEM.select());
         let mut iter = query.iter();
         let Some(elem) = iter.next() else {
             bail!("the document does not contain a bibliography");
@@ -172,7 +173,7 @@ impl BibliographyElem {
     pub fn has(engine: &Engine, key: Label) -> bool {
         engine
             .introspector
-            .query(&Self::elem().select())
+            .query(&Self::ELEM.select())
             .iter()
             .any(|elem| elem.to_packed::<Self>().unwrap().sources.derived.has(key))
     }
@@ -180,7 +181,7 @@ impl BibliographyElem {
     /// Find all bibliography keys.
     pub fn keys(introspector: Tracked<Introspector>) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
-        for elem in introspector.query(&Self::elem().select()).iter() {
+        for elem in introspector.query(&Self::ELEM.select()).iter() {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
@@ -194,79 +195,9 @@ impl BibliographyElem {
 impl Synthesize for Packed<BibliographyElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_lang(TextElem::lang_in(styles));
-        elem.push_region(TextElem::region_in(styles));
+        elem.lang = Some(styles.get(TextElem::lang));
+        elem.region = Some(styles.get(TextElem::region));
         Ok(())
-    }
-}
-
-impl Show for Packed<BibliographyElem> {
-    #[typst_macros::time(name = "bibliography", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        const COLUMN_GUTTER: Em = Em::new(0.65);
-        const INDENT: Em = Em::new(1.5);
-
-        let span = self.span();
-
-        let mut seq = vec![];
-        if let Some(title) = self.title(styles).unwrap_or_else(|| {
-            Some(TextElem::packed(Self::local_name_in(styles)).spanned(span))
-        }) {
-            seq.push(
-                HeadingElem::new(title)
-                    .with_depth(NonZeroUsize::ONE)
-                    .pack()
-                    .spanned(span),
-            );
-        }
-
-        let works = Works::generate(engine).at(span)?;
-        let references = works
-            .references
-            .as_ref()
-            .ok_or("CSL style is not suitable for bibliographies")
-            .at(span)?;
-
-        if references.iter().any(|(prefix, _)| prefix.is_some()) {
-            let row_gutter = ParElem::spacing_in(styles);
-
-            let mut cells = vec![];
-            for (prefix, reference) in references {
-                cells.push(GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                        .spanned(span),
-                )));
-                cells.push(GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(reference.clone())).spanned(span),
-                )));
-            }
-            seq.push(
-                GridElem::new(cells)
-                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                    .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                    .pack()
-                    .spanned(span),
-            );
-        } else {
-            for (_, reference) in references {
-                let realized = reference.clone();
-                let block = if works.hanging_indent {
-                    let body = HElem::new((-INDENT).into()).pack() + realized;
-                    let inset = Sides::default()
-                        .with(TextElem::dir_in(styles).start(), Some(INDENT.into()));
-                    BlockElem::new()
-                        .with_body(Some(BlockBody::Content(body)))
-                        .with_inset(inset)
-                } else {
-                    BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-                };
-
-                seq.push(block.pack().spanned(span));
-            }
-        }
-
-        Ok(Content::sequence(seq))
     }
 }
 
@@ -274,8 +205,8 @@ impl ShowSet for Packed<BibliographyElem> {
     fn show_set(&self, _: StyleChain) -> Styles {
         const INDENT: Em = Em::new(1.0);
         let mut out = Styles::new();
-        out.set(HeadingElem::set_numbering(None));
-        out.set(PadElem::set_left(INDENT.into()));
+        out.set(HeadingElem::numbering, None);
+        out.set(PadElem::left, INDENT.into());
         out
     }
 }
@@ -294,26 +225,27 @@ impl Bibliography {
         world: Tracked<dyn World + '_>,
         sources: Spanned<OneOrMultiple<DataSource>>,
     ) -> SourceResult<Derived<OneOrMultiple<DataSource>, Self>> {
-        let data = sources.load(world)?;
-        let bibliography = Self::decode(&sources.v, &data).at(sources.span)?;
+        let loaded = sources.load(world)?;
+        let bibliography = Self::decode(&loaded)?;
         Ok(Derived::new(sources.v, bibliography))
     }
 
     /// Decode a bibliography from loaded data sources.
     #[comemo::memoize]
     #[typst_macros::time(name = "load bibliography")]
-    fn decode(
-        sources: &OneOrMultiple<DataSource>,
-        data: &[Bytes],
-    ) -> StrResult<Bibliography> {
+    fn decode(data: &[Loaded]) -> SourceResult<Bibliography> {
         let mut map = IndexMap::new();
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for (source, data) in sources.0.iter().zip(data) {
-            let library = decode_library(source, data)?;
+        for d in data.iter() {
+            let library = decode_library(d)?;
             for entry in library {
-                match map.entry(Label::new(PicoStr::intern(entry.key()))) {
+                let label = Label::new(PicoStr::intern(entry.key()))
+                    .ok_or("bibliography contains entry with empty key")
+                    .at(d.source.span)?;
+
+                match map.entry(label) {
                     indexmap::map::Entry::Vacant(vacant) => {
                         vacant.insert(entry);
                     }
@@ -325,7 +257,11 @@ impl Bibliography {
         }
 
         if !duplicates.is_empty() {
-            bail!("duplicate bibliography keys: {}", duplicates.join(", "));
+            // TODO: Store spans of entries for duplicate key error messages.
+            // Requires hayagriva entries to store their location, which should
+            // be fine, since they are 1kb anyway.
+            let span = data.first().unwrap().source.span;
+            bail!(span, "duplicate bibliography keys: {}", duplicates.join(", "));
         }
 
         Ok(Bibliography(Arc::new(ManuallyHash::new(map, typst_utils::hash128(data)))))
@@ -351,36 +287,47 @@ impl Debug for Bibliography {
 }
 
 /// Decode on library from one data source.
-fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
-    let src = data.as_str().map_err(FileError::from)?;
+fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
+    let data = loaded.data.as_str().within(loaded)?;
 
-    if let DataSource::Path(path) = source {
+    if let LoadSource::Path(file_id) = loaded.source.v {
         // If we got a path, use the extension to determine whether it is
         // YAML or BibLaTeX.
-        let ext = Path::new(path.as_str())
+        let ext = file_id
+            .vpath()
+            .as_rooted_path()
             .extension()
             .and_then(OsStr::to_str)
             .unwrap_or_default();
 
         match ext.to_lowercase().as_str() {
-            "yml" | "yaml" => hayagriva::io::from_yaml_str(src)
-                .map_err(|err| eco_format!("failed to parse YAML ({err})")),
-            "bib" => hayagriva::io::from_biblatex_str(src)
-                .map_err(|errors| format_biblatex_error(src, Some(path), errors)),
-            _ => bail!("unknown bibliography format (must be .yml/.yaml or .bib)"),
+            "yml" | "yaml" => hayagriva::io::from_yaml_str(data)
+                .map_err(format_yaml_error)
+                .within(loaded),
+            "bib" => hayagriva::io::from_biblatex_str(data)
+                .map_err(format_biblatex_error)
+                .within(loaded),
+            _ => bail!(
+                loaded.source.span,
+                "unknown bibliography format (must be .yaml/.yml or .bib)"
+            ),
         }
     } else {
         // If we just got bytes, we need to guess. If it can be decoded as
         // hayagriva YAML, we'll use that.
-        let haya_err = match hayagriva::io::from_yaml_str(src) {
+        let haya_err = match hayagriva::io::from_yaml_str(data) {
             Ok(library) => return Ok(library),
             Err(err) => err,
         };
 
         // If it can be decoded as BibLaTeX, we use that isntead.
-        let bib_errs = match hayagriva::io::from_biblatex_str(src) {
-            Ok(library) => return Ok(library),
-            Err(err) => err,
+        let bib_errs = match hayagriva::io::from_biblatex_str(data) {
+            // If the file is almost valid yaml, but contains no `@` character
+            // it will be successfully parsed as an empty BibLaTeX library,
+            // since BibLaTeX does support arbitrary text outside of entries.
+            Ok(library) if !library.is_empty() => return Ok(library),
+            Ok(_) => None,
+            Err(err) => Some(err),
         };
 
         // If neither decoded correctly, check whether `:` or `{` appears
@@ -388,7 +335,7 @@ fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
         // and emit the more appropriate error.
         let mut yaml = 0;
         let mut biblatex = 0;
-        for c in src.chars() {
+        for c in data.chars() {
             match c {
                 ':' => yaml += 1,
                 '{' => biblatex += 1,
@@ -396,37 +343,33 @@ fn decode_library(source: &DataSource, data: &Bytes) -> StrResult<Library> {
             }
         }
 
-        if yaml > biblatex {
-            bail!("failed to parse YAML ({haya_err})")
-        } else {
-            Err(format_biblatex_error(src, None, bib_errs))
+        match bib_errs {
+            Some(bib_errs) if biblatex >= yaml => {
+                Err(format_biblatex_error(bib_errs)).within(loaded)
+            }
+            _ => Err(format_yaml_error(haya_err)).within(loaded),
         }
     }
 }
 
 /// Format a BibLaTeX loading error.
-fn format_biblatex_error(
-    src: &str,
-    path: Option<&str>,
-    errors: Vec<BibLaTeXError>,
-) -> EcoString {
-    let Some(error) = errors.first() else {
-        return match path {
-            Some(path) => eco_format!("failed to parse BibLaTeX file ({path})"),
-            None => eco_format!("failed to parse BibLaTeX"),
-        };
+fn format_biblatex_error(errors: Vec<BibLaTeXError>) -> LoadError {
+    // TODO: return multiple errors?
+    let Some(error) = errors.into_iter().next() else {
+        // TODO: can this even happen, should we just unwrap?
+        return LoadError::new(
+            ReportPos::None,
+            "failed to parse BibLaTeX",
+            "something went wrong",
+        );
     };
 
-    let (span, msg) = match error {
-        BibLaTeXError::Parse(error) => (&error.span, error.kind.to_string()),
-        BibLaTeXError::Type(error) => (&error.span, error.kind.to_string()),
+    let (range, msg) = match error {
+        BibLaTeXError::Parse(error) => (error.span, error.kind.to_string()),
+        BibLaTeXError::Type(error) => (error.span, error.kind.to_string()),
     };
 
-    let line = src.get(..span.start).unwrap_or_default().lines().count();
-    match path {
-        Some(path) => eco_format!("failed to parse BibLaTeX file ({path}:{line}: {msg})"),
-        None => eco_format!("failed to parse BibLaTeX ({line}: {msg})"),
-    }
+    LoadError::new(range, "failed to parse BibLaTeX", msg)
 }
 
 /// A loaded CSL style.
@@ -442,8 +385,8 @@ impl CslStyle {
         let style = match &source {
             CslSource::Named(style) => Self::from_archived(*style),
             CslSource::Normal(source) => {
-                let data = Spanned::new(source, span).load(world)?;
-                Self::from_data(data).at(span)?
+                let loaded = Spanned::new(source, span).load(world)?;
+                Self::from_data(&loaded.data).within(&loaded)?
             }
         };
         Ok(Derived::new(source, style))
@@ -464,16 +407,18 @@ impl CslStyle {
 
     /// Load a CSL style from file contents.
     #[comemo::memoize]
-    pub fn from_data(data: Bytes) -> StrResult<CslStyle> {
-        let text = data.as_str().map_err(FileError::from)?;
+    pub fn from_data(bytes: &Bytes) -> LoadResult<CslStyle> {
+        let text = bytes.as_str()?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| {
                 Self(Arc::new(ManuallyHash::new(
                     style,
-                    typst_utils::hash128(&(TypeId::of::<Bytes>(), data)),
+                    typst_utils::hash128(&(TypeId::of::<Bytes>(), bytes)),
                 )))
             })
-            .map_err(|err| eco_format!("failed to load CSL style ({err})"))
+            .map_err(|err| {
+                LoadError::new(ReportPos::None, "failed to load CSL style", err)
+            })
     }
 
     /// Get the underlying independent style.
@@ -539,7 +484,7 @@ impl IntoValue for CslSource {
 /// memoization) for the whole document. This setup is necessary because
 /// citation formatting is inherently stateful and we need access to all
 /// citations to do it.
-pub(super) struct Works {
+pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
     pub citations: HashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
@@ -571,7 +516,7 @@ impl Works {
 
 /// Context for generating the bibliography.
 struct Generator<'a> {
-    /// The routines that is used to evaluate mathematical material in citations.
+    /// The routines that are used to evaluate mathematical material in citations.
     routines: &'a Routines,
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
@@ -588,7 +533,7 @@ struct Generator<'a> {
 
 /// Details about a group of merged citations. All citations are put into groups
 /// of adjacent ones (e.g., `@foo @bar` will merge into a group of length two).
-/// Even single citations will be put into groups of length ones.
+/// Even single citations will be put into groups of length one.
 struct GroupInfo {
     /// The group's location.
     location: Location,
@@ -618,7 +563,7 @@ impl<'a> Generator<'a> {
         introspector: Tracked<Introspector>,
     ) -> StrResult<Self> {
         let bibliography = BibliographyElem::find(introspector)?;
-        let groups = introspector.query(&CiteGroup::elem().select());
+        let groups = introspector.query(&CiteGroup::ELEM.select());
         let infos = Vec::with_capacity(groups.len());
         Ok(Self {
             routines,
@@ -636,7 +581,8 @@ impl<'a> Generator<'a> {
             LazyLock::new(hayagriva::archive::locales);
 
         let database = &self.bibliography.sources.derived;
-        let bibliography_style = &self.bibliography.style(StyleChain::default()).derived;
+        let bibliography_style =
+            &self.bibliography.style.get_ref(StyleChain::default()).derived;
 
         // Process all citation groups.
         let mut driver = BibliographyDriver::new();
@@ -664,7 +610,7 @@ impl<'a> Generator<'a> {
                     continue;
                 };
 
-                let supplement = child.supplement(StyleChain::default());
+                let supplement = child.supplement.get_cloned(StyleChain::default());
                 let locator = supplement.as_ref().map(|_| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
@@ -673,7 +619,7 @@ impl<'a> Generator<'a> {
                 });
 
                 let mut hidden = false;
-                let special_form = match child.form(StyleChain::default()) {
+                let special_form = match child.form.get(StyleChain::default()) {
                     None => {
                         hidden = true;
                         None
@@ -695,7 +641,7 @@ impl<'a> Generator<'a> {
                 continue;
             }
 
-            let style = match first.style(StyleChain::default()) {
+            let style = match first.style.get_ref(StyleChain::default()) {
                 Smart::Auto => bibliography_style.get(),
                 Smart::Custom(style) => style.derived.get(),
             };
@@ -711,23 +657,20 @@ impl<'a> Generator<'a> {
             driver.citation(CitationRequest::new(
                 items,
                 style,
-                Some(locale(
-                    first.lang().copied().unwrap_or(Lang::ENGLISH),
-                    first.region().copied().flatten(),
-                )),
+                Some(locale(first.lang.unwrap_or(Lang::ENGLISH), first.region.flatten())),
                 &LOCALES,
                 None,
             ));
         }
 
         let locale = locale(
-            self.bibliography.lang().copied().unwrap_or(Lang::ENGLISH),
-            self.bibliography.region().copied().flatten(),
+            self.bibliography.lang.unwrap_or(Lang::ENGLISH),
+            self.bibliography.region.flatten(),
         );
 
         // Add hidden items for everything if we should print the whole
         // bibliography.
-        if self.bibliography.full(StyleChain::default()) {
+        if self.bibliography.full.get(StyleChain::default()) {
             for (_, entry) in database.iter() {
                 driver.citation(CitationRequest::new(
                     vec![CitationItem::new(entry, None, None, true, None)],
@@ -984,11 +927,11 @@ impl ElemRenderer<'_> {
             _ => {}
         }
 
-        if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta {
-            if let Some(location) = (self.link)(i) {
-                let dest = Destination::Location(location);
-                content = content.linked(dest);
-            }
+        if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
+            && let Some(location) = (self.link)(i)
+        {
+            let dest = Destination::Location(location);
+            content = content.linked(dest);
         }
 
         Ok(content)
@@ -1003,7 +946,7 @@ impl ElemRenderer<'_> {
             Sink::new().track_mut(),
             math,
             self.span,
-            EvalMode::Math,
+            SyntaxMode::Math,
             Scope::new(),
         )
         .map(Value::display)
@@ -1046,25 +989,24 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
-            content = content.styled(TextElem::set_style(FontStyle::Italic));
+            content = content.set(TextElem::style, FontStyle::Italic);
         }
     }
 
     match format.font_variant {
         citationberg::FontVariant::Normal => {}
         citationberg::FontVariant::SmallCaps => {
-            content =
-                content.styled(TextElem::set_smallcaps(Some(Smallcaps::Minuscules)));
+            content = content.set(TextElem::smallcaps, Some(Smallcaps::Minuscules));
         }
     }
 
     match format.font_weight {
         citationberg::FontWeight::Normal => {}
         citationberg::FontWeight::Bold => {
-            content = content.styled(TextElem::set_delta(WeightDelta(300)));
+            content = content.set(TextElem::delta, WeightDelta(300));
         }
         citationberg::FontWeight::Light => {
-            content = content.styled(TextElem::set_delta(WeightDelta(-100)));
+            content = content.set(TextElem::delta, WeightDelta(-100));
         }
     }
 

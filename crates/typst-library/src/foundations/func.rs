@@ -5,22 +5,22 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::{Arc, LazyLock};
 
 use comemo::{Tracked, TrackedMut};
-use ecow::{eco_format, EcoString};
-use typst_syntax::{ast, Span, SyntaxNode};
-use typst_utils::{singleton, LazyHash, Static};
+use ecow::{EcoString, eco_format};
+use typst_syntax::{Span, SyntaxNode, ast};
+use typst_utils::{LazyHash, Static, singleton};
 
-use crate::diag::{bail, At, DeprecationSink, SourceResult, StrResult};
+use crate::diag::{At, DeprecationSink, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, Bytes, CastInfo, Content, Context, Element, IntoArgs,
-    PluginFunc, Scope, Selector, Type, Value,
+    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Scope,
+    Selector, Type, Value, cast, repr, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
 ///
 /// You can call a function by writing a comma-separated list of function
 /// _arguments_ enclosed in parentheses directly after the function name.
-/// Additionally, you can pass any number of trailing content blocks arguments
+/// Additionally, you can pass any number of trailing content block arguments
 /// to a function _after_ the normal argument list. If the normal argument list
 /// would become empty, it can be omitted. Typst supports positional and named
 /// arguments. The former are identified by position and type, while the latter
@@ -307,7 +307,7 @@ impl Func {
     ) -> SourceResult<Value> {
         match &self.repr {
             Repr::Native(native) => {
-                let value = (native.function)(engine, context, &mut args)?;
+                let value = (native.function.0)(engine, context, &mut args)?;
                 args.finish()?;
                 Ok(value)
             }
@@ -491,8 +491,8 @@ pub trait NativeFunc {
 /// Defines a native function.
 #[derive(Debug)]
 pub struct NativeFuncData {
-    /// Invokes the function from Typst.
-    pub function: fn(&mut Engine, Tracked<Context>, &mut Args) -> SourceResult<Value>,
+    /// The implementation of the function.
+    pub function: NativeFuncPtr,
     /// The function's normal name (e.g. `align`), as exposed to Typst.
     pub name: &'static str,
     /// The function's title case name (e.g. `Align`).
@@ -504,17 +504,39 @@ pub struct NativeFuncData {
     /// Whether this function makes use of context.
     pub contextual: bool,
     /// Definitions in the scope of the function.
-    pub scope: LazyLock<Scope>,
+    pub scope: DynLazyLock<Scope>,
     /// A list of parameter information for each parameter.
-    pub params: LazyLock<Vec<ParamInfo>>,
+    pub params: DynLazyLock<Vec<ParamInfo>>,
     /// Information about the return value of this function.
-    pub returns: LazyLock<CastInfo>,
+    pub returns: DynLazyLock<CastInfo>,
 }
 
 cast! {
     &'static NativeFuncData,
     self => Func::from(self).into_value(),
 }
+
+/// A pointer to a native function's implementation.
+pub struct NativeFuncPtr(pub &'static NativeFuncSignature);
+
+/// The signature of a native function's implementation.
+type NativeFuncSignature =
+    dyn Fn(&mut Engine, Tracked<Context>, &mut Args) -> SourceResult<Value> + Send + Sync;
+
+impl Debug for NativeFuncPtr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.pad("NativeFuncPtr(..)")
+    }
+}
+
+/// A `LazyLock` that uses a static closure for initialization instead of only
+/// working with function pointers.
+///
+/// Can be created from a normal function or closure by prepending with a `&`,
+/// e.g. `LazyLock::new(&|| "hello")`. Can be created from a dynamic closure
+/// by allocating and then leaking it. This is equivalent to having it
+/// statically allocated, but allows for it to be generated at runtime.
+type DynLazyLock<T> = LazyLock<T, &'static (dyn Fn() -> T + Send + Sync)>;
 
 /// Describes a function parameter.
 #[derive(Debug, Clone)]

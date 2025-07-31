@@ -1,4 +1,4 @@
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, Resolve, StyleChain};
 use typst_library::introspection::Locator;
@@ -29,7 +29,7 @@ pub fn layout_repeat(
         frame.set_baseline(piece.baseline());
     }
 
-    let mut gap = elem.gap(styles).resolve(styles);
+    let mut gap = elem.gap.resolve(styles);
     let fill = region.size.x;
     let width = piece.width();
 
@@ -47,12 +47,12 @@ pub fn layout_repeat(
     let count = ((fill + gap) / (width + gap)).floor();
     let remaining = (fill + gap) % (width + gap);
 
-    let justify = elem.justify(styles);
+    let justify = elem.justify.get(styles);
     if justify {
         gap += remaining / (count - 1.0);
     }
 
-    let align = AlignElem::alignment_in(styles).resolve(styles);
+    let align = styles.get(AlignElem::alignment).resolve(styles);
     let mut offset = Abs::zero();
     if count == 1.0 || !justify {
         offset += align.x.position(remaining);

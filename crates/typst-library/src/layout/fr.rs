@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::EcoString;
 use typst_utils::{Numeric, Scalar};
 
-use crate::foundations::{repr, ty, Repr};
+use crate::foundations::{Repr, repr, ty};
 use crate::layout::Abs;
 
 /// Defines how the remaining space in a layout is distributed.

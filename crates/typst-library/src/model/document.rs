@@ -1,10 +1,10 @@
 use ecow::EcoString;
 
-use crate::diag::{bail, HintedStrResult, SourceResult};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Fields, OneOrMultiple, Smart,
-    StyleChain, Styles, Value,
+    Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Styles,
+    Value, cast, elem,
 };
 
 /// The root element of a document and its metadata.
@@ -109,23 +109,26 @@ impl DocumentInfo {
     /// Document set rules are a bit special, so we need to do this manually.
     pub fn populate(&mut self, styles: &Styles) {
         let chain = StyleChain::new(styles);
-        let has = |field| styles.has::<DocumentElem>(field as _);
-        if has(<DocumentElem as Fields>::Enum::Title) {
-            self.title =
-                DocumentElem::title_in(chain).map(|content| content.plain_text());
+        if styles.has(DocumentElem::title) {
+            self.title = chain
+                .get_ref(DocumentElem::title)
+                .as_ref()
+                .map(|content| content.plain_text());
         }
-        if has(<DocumentElem as Fields>::Enum::Author) {
-            self.author = DocumentElem::author_in(chain).0;
+        if styles.has(DocumentElem::author) {
+            self.author = chain.get_cloned(DocumentElem::author).0;
         }
-        if has(<DocumentElem as Fields>::Enum::Description) {
-            self.description =
-                DocumentElem::description_in(chain).map(|content| content.plain_text());
+        if styles.has(DocumentElem::description) {
+            self.description = chain
+                .get_ref(DocumentElem::description)
+                .as_ref()
+                .map(|content| content.plain_text());
         }
-        if has(<DocumentElem as Fields>::Enum::Keywords) {
-            self.keywords = DocumentElem::keywords_in(chain).0;
+        if styles.has(DocumentElem::keywords) {
+            self.keywords = chain.get_cloned(DocumentElem::keywords).0;
         }
-        if has(<DocumentElem as Fields>::Enum::Date) {
-            self.date = DocumentElem::date_in(chain);
+        if styles.has(DocumentElem::date) {
+            self.date = chain.get(DocumentElem::date);
         }
     }
 }

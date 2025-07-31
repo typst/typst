@@ -7,8 +7,8 @@ use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    style_for_denominator, style_for_numerator, FrameFragment, GlyphFragment,
-    MathContext, DELIM_SHORT_FALL,
+    DELIM_SHORT_FALL, FrameFragment, GlyphFragment, MathContext, style_for_denominator,
+    style_for_numerator,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -109,14 +109,14 @@ fn layout_frac_like(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        let mut left = GlyphFragment::new(ctx, styles, '(', span)
-            .stretch_vertical(ctx, height, short_fall);
-        left.center_on_axis(ctx);
+        let mut left = GlyphFragment::new_char(ctx.font, styles, '(', span)?;
+        left.stretch_vertical(ctx, height - short_fall);
+        left.center_on_axis();
         ctx.push(left);
         ctx.push(FrameFragment::new(styles, frame));
-        let mut right = GlyphFragment::new(ctx, styles, ')', span)
-            .stretch_vertical(ctx, height, short_fall);
-        right.center_on_axis(ctx);
+        let mut right = GlyphFragment::new_char(ctx.font, styles, ')', span)?;
+        right.stretch_vertical(ctx, height - short_fall);
+        right.center_on_axis();
         ctx.push(right);
     } else {
         frame.push(
@@ -124,7 +124,7 @@ fn layout_frac_like(
             FrameItem::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(
                     FixedStroke::from_pair(
-                        TextElem::fill_in(styles).as_decoration(),
+                        styles.get_ref(TextElem::fill).as_decoration(),
                         thickness,
                     ),
                 ),

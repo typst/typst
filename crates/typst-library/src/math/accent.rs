@@ -1,5 +1,12 @@
+use std::sync::LazyLock;
+
+use icu_properties::CanonicalCombiningClass;
+use icu_properties::maps::CodePointMapData;
+use icu_provider::AsDeserializingBufferProvider;
+use icu_provider_blob::BlobDataProvider;
+
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
+use crate::foundations::{Content, NativeElement, SymbolElem, cast, elem, func};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 
@@ -55,7 +62,6 @@ pub struct AccentElem {
     /// ```example
     /// $dash(A, size: #150%)$
     /// ```
-    #[resolve]
     #[default(Rel::one())]
     pub size: Rel<Length>,
 
@@ -79,6 +85,24 @@ impl Accent {
     /// Normalize a character into an accent.
     pub fn new(c: char) -> Self {
         Self(Self::combine(c).unwrap_or(c))
+    }
+
+    /// Whether this accent is a bottom accent or not.
+    pub fn is_bottom(&self) -> bool {
+        static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
+            LazyLock::new(|| {
+                icu_properties::maps::load_canonical_combining_class(
+                    &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
+                        .unwrap()
+                        .as_deserializing(),
+                )
+                .unwrap()
+            });
+
+        matches!(
+            COMBINING_CLASS_DATA.as_borrowed().get(self.0),
+            CanonicalCombiningClass::Below
+        )
     }
 }
 

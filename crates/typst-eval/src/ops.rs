@@ -1,8 +1,8 @@
 use typst_library::diag::{At, HintedStrResult, SourceResult};
-use typst_library::foundations::{ops, IntoValue, Value};
+use typst_library::foundations::{IntoValue, Value, ops};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{access_dict, Access, Eval, Vm};
+use crate::{Access, Eval, Vm, access_dict};
 
 impl Eval for ast::Unary<'_> {
     type Output = Value;
@@ -76,12 +76,12 @@ fn apply_assignment(
 
     // An assignment to a dictionary field is different from a normal access
     // since it can create the field instead of just modifying it.
-    if binary.op() == ast::BinOp::Assign {
-        if let ast::Expr::FieldAccess(access) = lhs {
-            let dict = access_dict(vm, access)?;
-            dict.insert(access.field().get().clone().into(), rhs);
-            return Ok(Value::None);
-        }
+    if binary.op() == ast::BinOp::Assign
+        && let ast::Expr::FieldAccess(access) = lhs
+    {
+        let dict = access_dict(vm, access)?;
+        dict.insert(access.field().get().clone().into(), rhs);
+        return Ok(Value::None);
     }
 
     let location = binary.lhs().access(vm)?;

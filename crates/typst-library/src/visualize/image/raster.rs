@@ -3,14 +3,15 @@ use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::Arc;
 
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, dict, Bytes, Cast, Dict, Smart, Value};
-use ecow::{eco_format, EcoString};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{Bytes, Cast, Dict, Smart, Value, cast, dict};
+use ecow::{EcoString, eco_format};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
+use image::codecs::webp::WebPDecoder;
 use image::{
-    guess_format, DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel,
+    DynamicImage, ImageBuffer, ImageDecoder, ImageResult, Limits, Pixel, guess_format,
 };
 
 /// A decoded raster image.
@@ -77,6 +78,7 @@ impl RasterImage {
                     ExchangeFormat::Jpg => decode(JpegDecoder::new(cursor), icc),
                     ExchangeFormat::Png => decode(PngDecoder::new(cursor), icc),
                     ExchangeFormat::Gif => decode(GifDecoder::new(cursor), icc),
+                    ExchangeFormat::Webp => decode(WebPDecoder::new(cursor), icc),
                 }
                 .map_err(format_image_error)?;
 
@@ -242,6 +244,8 @@ pub enum ExchangeFormat {
     /// Raster format that is typically used for short animated clips. Typst can
     /// load GIFs, but they will become static.
     Gif,
+    /// Raster format that supports both lossy and lossless compression.
+    Webp,
 }
 
 impl ExchangeFormat {
@@ -257,6 +261,7 @@ impl From<ExchangeFormat> for image::ImageFormat {
             ExchangeFormat::Png => image::ImageFormat::Png,
             ExchangeFormat::Jpg => image::ImageFormat::Jpeg,
             ExchangeFormat::Gif => image::ImageFormat::Gif,
+            ExchangeFormat::Webp => image::ImageFormat::WebP,
         }
     }
 }
@@ -269,6 +274,7 @@ impl TryFrom<image::ImageFormat> for ExchangeFormat {
             image::ImageFormat::Png => ExchangeFormat::Png,
             image::ImageFormat::Jpeg => ExchangeFormat::Jpg,
             image::ImageFormat::Gif => ExchangeFormat::Gif,
+            image::ImageFormat::WebP => ExchangeFormat::Webp,
             _ => bail!("format not yet supported"),
         })
     }

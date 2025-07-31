@@ -3,14 +3,14 @@ use std::hash::{Hash, Hasher};
 use std::ops::Neg;
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use rust_decimal::MathematicalOps;
-use typst_syntax::{ast, Span, Spanned};
+use typst_syntax::{Span, Spanned, ast};
 
-use crate::diag::{warning, At, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str};
 use crate::World;
+use crate::diag::{At, SourceResult, warning};
+use crate::engine::Engine;
+use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 
 /// A fixed-point decimal number type.
 ///
