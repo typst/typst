@@ -7,7 +7,7 @@ use crate::foundations::{
     Smart, Unlabellable, Value,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
-use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
+use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
 use crate::model::Numbering;
 
 /// A logical subdivison of textual content.
@@ -139,7 +139,13 @@ pub struct ParElem {
     pub justify: bool,
 
     /// Microtypographical settings that are used during justification.
-    pub microtype: Microtype,
+    #[default(JustificationLimits {
+        word_min: Rel::new(Ratio::new(0.8), Abs::zero().into()),
+        word_max: Rel::new(Ratio::new(1.33), Abs::zero().into()),
+        glyph_min: Rel::new(Ratio::new(0.98), Abs::zero().into()),
+        glyph_max: Rel::new(Ratio::new(1.02), Abs::zero().into())
+    })]
+    pub justification_limits: JustificationLimits,
 
     /// How to determine line breaks.
     ///
@@ -233,29 +239,50 @@ impl ParElem {
 /// Configuration for microtypographical settings to be used during
 /// justification.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
-pub struct Microtype {
-    /// How much a glyph is allowed to translate into its neighbor.
-    pub max_retract: Length,
-    /// How much a glyph is allowed to translate away from its neighbor.
-    pub max_expand: Length,
+pub struct JustificationLimits {
+    /// Minimum allowable word spacing.
+    pub word_min: Rel,
+    /// Maximum allowable word spacing.
+    pub word_max: Rel,
+    /// Minimum allowable glyph spacing.
+    pub glyph_min: Rel,
+    /// Maximum allowable glyph spacing.
+    pub glyph_max: Rel,
 }
 
 cast! {
-    Microtype,
+    JustificationLimits,
     self => Value::Dict(self.into()),
     mut dict: Dict => {
-        let max_retract = dict.take("max-retract")?.cast()?;
-        let max_expand = dict.take("max-expand")?.cast()?;
-        dict.finish(&["max-retract", "max-expand"])?;
-        Self { max_retract, max_expand }
+        let mut word: Dict = dict.take("word")?.cast()?;
+        let word_min = word.take("min")?.cast()?;
+        let word_max = word.take("max")?.cast()?;
+
+        let mut glyph: Dict = dict.take("glyph")?.cast()?;
+        let glyph_min = glyph.take("min")?.cast()?;
+        let glyph_max = glyph.take("max")?.cast()?;
+
+        dict.finish(&["word", "glyph"])?;
+        Self {
+            word_min,
+            word_max,
+            glyph_min,
+            glyph_max
+        }
     },
 }
 
-impl From<Microtype> for Dict {
-    fn from(microtype: Microtype) -> Self {
+impl From<JustificationLimits> for Dict {
+    fn from(justification_limits: JustificationLimits) -> Self {
         dict! {
-            "max-retract" => microtype.max_retract,
-            "max-expand" => microtype.max_expand,
+            "word" => dict! {
+                "min" => justification_limits.word_min,
+                "max" => justification_limits.word_max,
+            },
+            "glyph" => dict! {
+                "min" => justification_limits.glyph_min,
+                "max" => justification_limits.glyph_max,
+            },
         }
     }
 }
