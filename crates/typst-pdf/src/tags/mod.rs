@@ -9,7 +9,7 @@ use krilla::surface::Surface;
 use krilla::tagging as kt;
 use krilla::tagging::{
     ArtifactType, BBox, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag,
-    TagGroup, TagKind, TagTree,
+    TagKind, TagTree,
 };
 use rustc_hash::FxHashMap;
 use typst_library::diag::{SourceResult, bail};
@@ -23,7 +23,7 @@ use typst_library::model::{
     TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
-use typst_library::text::{RawElem, RawLine};
+use typst_library::text::{Lang, RawElem, RawLine};
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
@@ -198,7 +198,9 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
 fn push_stack(gc: &mut GlobalContext, elem: &Content, kind: StackEntryKind) {
     let loc = elem.location().expect("elem to be locatable");
     let span = elem.span();
-    gc.tags.stack.push(StackEntry { loc, span, kind, nodes: Vec::new() });
+    gc.tags
+        .stack
+        .push(StackEntry { loc, span, lang: None, kind, nodes: Vec::new() });
 }
 
 fn push_artifact(
@@ -299,6 +301,7 @@ pub fn handle_end(
         broken_entries.push(StackEntry {
             loc: entry.loc,
             span: entry.span,
+            lang: None,
             kind,
             nodes: Vec::new(),
         });
@@ -316,72 +319,77 @@ pub fn handle_end(
 }
 
 fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
+    // Try to propagate the tag language to the parent tag, or the document.
+    // If successfull omit the language attribute on this tag.
+    let lang = entry.lang.and_then(|lang| {
+        let parent_lang = (gc.tags.stack.last_mut())
+            .map(|e| &mut e.lang)
+            .unwrap_or(&mut gc.tags.doc_lang);
+        if parent_lang.is_none_or(|l| l == lang) {
+            *parent_lang = Some(lang);
+            return None;
+        }
+        Some(lang)
+    });
+
+    let contents = GroupContents { span: entry.span, lang, nodes: entry.nodes };
     let node = match entry.kind {
-        StackEntryKind::Standard(tag) => TagNode::group(tag, entry.nodes),
-        StackEntryKind::Outline(ctx) => ctx.build_outline(entry.nodes),
+        StackEntryKind::Standard(tag) => TagNode::group(tag, contents),
+        StackEntryKind::Outline(ctx) => ctx.build_outline(contents),
         StackEntryKind::OutlineEntry(outline_entry) => {
-            let Some((outline_ctx, outline_nodes)) = gc.tags.stack.parent_outline()
-            else {
-                // PDF/UA compliance of the structure hierarchy is checked
-                // elsewhere. While this doesn't make a lot of sense, just
-                // avoid crashing here.
-                let tag = Tag::TOCI.with_location(Some(outline_entry.span().into_raw()));
-                gc.tags.push(TagNode::group(tag, entry.nodes));
+            if let Some((outline_ctx, outline_nodes)) = gc.tags.stack.parent_outline() {
+                outline_ctx.insert(outline_nodes, outline_entry, contents);
                 return;
-            };
-
-            outline_ctx.insert(outline_nodes, outline_entry, entry.nodes);
-            return;
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                TagNode::group(Tag::TOCI, contents)
+            }
         }
-        StackEntryKind::Table(ctx) => ctx.build_table(entry.nodes),
+        StackEntryKind::Table(ctx) => ctx.build_table(contents),
         StackEntryKind::TableCell(cell) => {
-            let Some(table_ctx) = gc.tags.stack.parent_table() else {
-                // PDF/UA compliance of the structure hierarchy is checked
-                // elsewhere. While this doesn't make a lot of sense, just
-                // avoid crashing here.
-                let tag = Tag::TD.with_location(Some(cell.span().into_raw()));
-                gc.tags.push(TagNode::group(tag, entry.nodes));
+            if let Some(table_ctx) = gc.tags.stack.parent_table() {
+                table_ctx.insert(&cell, contents);
                 return;
-            };
-
-            table_ctx.insert(&cell, entry.nodes);
-            return;
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                TagNode::group(Tag::TD, contents)
+            }
         }
-        StackEntryKind::List(list) => list.build_list(entry.nodes),
+        StackEntryKind::List(list) => list.build_list(contents),
         StackEntryKind::ListItemLabel => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
-            list_ctx.push_label(entry.nodes);
+            list_ctx.push_label(contents);
             return;
         }
         StackEntryKind::ListItemBody => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
-            list_ctx.push_body(entry.nodes);
+            list_ctx.push_body(contents);
             return;
         }
         StackEntryKind::BibEntry => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
-            list_ctx.push_bib_entry(entry.nodes);
+            list_ctx.push_bib_entry(contents);
             return;
         }
         StackEntryKind::Figure(ctx) => {
             let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.get());
-            TagNode::group(tag, entry.nodes)
+            TagNode::group(tag, contents)
         }
         StackEntryKind::Formula(ctx) => {
             let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.get());
-            TagNode::group(tag, entry.nodes)
+            TagNode::group(tag, contents)
         }
         StackEntryKind::Link(_, _) => {
-            let mut node = TagNode::group(Tag::Link, entry.nodes);
+            let mut node = TagNode::group(Tag::Link, contents);
             // Wrap link in reference tag if inside an outline entry.
             if gc.tags.stack.parent_outline_entry().is_some() {
-                node = TagNode::group(Tag::Reference, vec![node]);
+                node = TagNode::virtual_group(Tag::Reference, vec![node]);
             }
             node
         }
         StackEntryKind::FootnoteRef(decl_loc) => {
             // transparently insert all children.
-            gc.tags.extend(entry.nodes);
+            gc.tags.extend(contents.nodes);
 
             let ctx = gc.tags.footnotes.entry(decl_loc).or_insert(FootnoteCtx::new());
 
@@ -395,19 +403,18 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         StackEntryKind::FootnoteEntry(footnote_loc) => {
             // Store footnotes separately so they can be inserted directly after
             // the footnote reference in the reading order.
-            let tag = TagNode::group(Tag::Note, entry.nodes);
+            let tag = TagNode::group(Tag::Note, contents);
             let ctx = gc.tags.footnotes.entry(footnote_loc).or_insert(FootnoteCtx::new());
             ctx.entry = Some(tag);
             return;
         }
-        StackEntryKind::CodeBlock => TagNode::group(
-            Tag::Code.with_placement(Some(kt::Placement::Block)),
-            entry.nodes,
-        ),
+        StackEntryKind::CodeBlock => {
+            TagNode::group(Tag::Code.with_placement(Some(kt::Placement::Block)), contents)
+        }
         StackEntryKind::CodeBlockLine => {
             // If the raw element is a block, wrap each line in a BLSE, so the
             // individual lines are properly wrapped and indented when reflowed.
-            TagNode::group(Tag::P, entry.nodes)
+            TagNode::group(Tag::P, contents)
         }
     };
 
@@ -479,6 +486,8 @@ pub fn update_bbox(
 }
 
 pub struct Tags {
+    /// The language of the first text item that has been encountered.
+    pub doc_lang: Option<Lang>,
     /// The intermediary stack of nested tag groups.
     pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
@@ -502,6 +511,7 @@ pub struct Tags {
 impl Tags {
     pub fn new() -> Self {
         Self {
+            doc_lang: None,
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             footnotes: FxHashMap::default(),
@@ -540,15 +550,37 @@ impl Tags {
         TagTree::from(children)
     }
 
+    /// Try to set the language of a parent tag, or the entire document.
+    /// If the language couldn't be set and is different from the existing one,
+    /// this will return `Some`, and the language should be specified on the
+    /// marked content directly.
+    pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
+        // Discard languages within artifacts.
+        if self.in_artifact.is_some() {
+            return None;
+        }
+        if self.doc_lang.is_none_or(|l| l == lang) {
+            self.doc_lang = Some(lang);
+            return None;
+        }
+        if let Some(last) = self.stack.last_mut()
+            && last.lang.is_none_or(|l| l == lang)
+        {
+            last.lang = Some(lang);
+            return None;
+        }
+        Some(lang)
+    }
+
     /// Resolves [`Placeholder`] nodes.
     fn resolve_node(&mut self, node: TagNode) -> Node {
         match node {
-            TagNode::Group(tag, nodes) => {
+            TagNode::Group(TagGroup { tag, nodes }) => {
                 let children = nodes
                     .into_iter()
                     .map(|node| self.resolve_node(node))
                     .collect::<Vec<_>>();
-                Node::Group(TagGroup::with_children(tag, children))
+                Node::Group(krilla::tagging::TagGroup::with_children(tag, children))
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
@@ -731,6 +763,7 @@ pub struct LinkId(u32);
 pub struct StackEntry {
     pub loc: Location,
     pub span: Span,
+    pub lang: Option<Lang>,
     pub kind: StackEntryKind,
     pub nodes: Vec<TagNode>,
 }
@@ -975,7 +1008,7 @@ impl BBoxCtx {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TagNode {
-    Group(TagKind, Vec<TagNode>),
+    Group(TagGroup),
     Leaf(Identifier),
     /// Allows inserting a placeholder into the tag tree.
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
@@ -984,9 +1017,38 @@ pub enum TagNode {
 }
 
 impl TagNode {
-    pub fn group(tag: impl Into<TagKind>, children: Vec<TagNode>) -> Self {
-        TagNode::Group(tag.into(), children)
+    pub fn group(tag: impl Into<TagKind>, contents: GroupContents) -> Self {
+        let lang = contents.lang.map(|l| l.as_str().to_string());
+        let tag = tag
+            .into()
+            .with_lang(lang)
+            .with_location(Some(contents.span.into_raw()));
+        TagNode::Group(TagGroup { tag, nodes: contents.nodes })
     }
+
+    /// A tag group not directly related to a typst element, generated to
+    /// accomodate the tag structure.
+    pub fn virtual_group(tag: impl Into<TagKind>, nodes: Vec<TagNode>) -> Self {
+        let tag = tag.into();
+        TagNode::Group(TagGroup { tag, nodes })
+    }
+
+    pub fn empty_group(tag: impl Into<TagKind>) -> Self {
+        Self::virtual_group(tag, Vec::new())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TagGroup {
+    tag: TagKind,
+    nodes: Vec<TagNode>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupContents {
+    span: Span,
+    lang: Option<Lang>,
+    nodes: Vec<TagNode>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

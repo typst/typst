@@ -2,7 +2,7 @@ use krilla::tagging::Tag;
 use typst_library::foundations::Packed;
 use typst_library::model::OutlineEntry;
 
-use crate::tags::TagNode;
+use crate::tags::{GroupContents, TagNode};
 
 #[derive(Clone, Debug)]
 pub struct OutlineCtx {
@@ -18,7 +18,7 @@ impl OutlineCtx {
         &mut self,
         outline_nodes: &mut Vec<TagNode>,
         entry: Packed<OutlineEntry>,
-        nodes: Vec<TagNode>,
+        contents: GroupContents,
     ) {
         let expected_len = entry.level.get() - 1;
         if self.stack.len() < expected_len {
@@ -29,7 +29,7 @@ impl OutlineCtx {
             }
         }
 
-        let section_entry = TagNode::group(Tag::TOCI, nodes);
+        let section_entry = TagNode::group(Tag::TOCI, contents);
         self.push(outline_nodes, section_entry);
     }
 
@@ -45,11 +45,11 @@ impl OutlineCtx {
         }
     }
 
-    pub fn build_outline(mut self, mut outline_nodes: Vec<TagNode>) -> TagNode {
+    pub fn build_outline(mut self, mut contents: GroupContents) -> TagNode {
         while !self.stack.is_empty() {
-            self.finish_section(&mut outline_nodes);
+            self.finish_section(&mut contents.nodes);
         }
-        TagNode::group(Tag::TOC, outline_nodes)
+        TagNode::group(Tag::TOC, contents)
     }
 }
 
@@ -68,6 +68,6 @@ impl OutlineSection {
     }
 
     fn into_tag(self) -> TagNode {
-        TagNode::group(Tag::TOC, self.entries)
+        TagNode::virtual_group(Tag::TOC, self.entries)
     }
 }

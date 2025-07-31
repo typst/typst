@@ -1,6 +1,6 @@
 use krilla::tagging::{ListNumbering, Tag, TagKind};
 
-use crate::tags::TagNode;
+use crate::tags::{GroupContents, TagNode};
 
 #[derive(Clone, Debug)]
 pub struct ListCtx {
@@ -10,8 +10,8 @@ pub struct ListCtx {
 
 #[derive(Clone, Debug)]
 struct ListItem {
-    label: Vec<TagNode>,
-    body: Option<Vec<TagNode>>,
+    label: TagNode,
+    body: Option<TagNode>,
     sub_list: Option<TagNode>,
 }
 
@@ -20,11 +20,15 @@ impl ListCtx {
         Self { numbering, items: Vec::new() }
     }
 
-    pub fn push_label(&mut self, nodes: Vec<TagNode>) {
-        self.items.push(ListItem { label: nodes, body: None, sub_list: None });
+    pub fn push_label(&mut self, contents: GroupContents) {
+        self.items.push(ListItem {
+            label: TagNode::group(Tag::Lbl, contents),
+            body: None,
+            sub_list: None,
+        });
     }
 
-    pub fn push_body(&mut self, mut nodes: Vec<TagNode>) {
+    pub fn push_body(&mut self, mut contents: GroupContents) {
         let item = self.items.last_mut().expect("ListItemLabel");
 
         // Nested lists are expected to have the following structure:
@@ -60,40 +64,43 @@ impl ListCtx {
         // ```
         //
         // So move the nested list out of the list item.
-        if let [.., TagNode::Group(TagKind::L(_), _)] = nodes.as_slice() {
-            item.sub_list = nodes.pop();
+        if let [.., TagNode::Group(group)] = contents.nodes.as_slice()
+            && let TagKind::L(_) = group.tag
+        {
+            item.sub_list = contents.nodes.pop();
         }
 
-        item.body = Some(nodes);
+        item.body = Some(TagNode::group(Tag::LBody, contents));
     }
 
-    pub fn push_bib_entry(&mut self, nodes: Vec<TagNode>) {
-        let nodes = vec![TagNode::group(Tag::BibEntry, nodes)];
+    pub fn push_bib_entry(&mut self, contents: GroupContents) {
+        let nodes = vec![TagNode::group(Tag::BibEntry, contents)];
         // Bibliography lists cannot be nested, but may be missing labels.
+        let body = TagNode::virtual_group(Tag::LBody, nodes);
         if let Some(item) = self.items.last_mut().filter(|item| item.body.is_none()) {
-            item.body = Some(nodes);
+            item.body = Some(body);
         } else {
             self.items.push(ListItem {
-                label: Vec::new(),
-                body: Some(nodes),
+                label: TagNode::empty_group(Tag::Lbl),
+                body: Some(body),
                 sub_list: None,
             });
         }
     }
 
-    pub fn build_list(self, mut nodes: Vec<TagNode>) -> TagNode {
+    pub fn build_list(self, mut contents: GroupContents) -> TagNode {
         for item in self.items.into_iter() {
-            nodes.push(TagNode::group(
+            contents.nodes.push(TagNode::virtual_group(
                 Tag::LI,
                 vec![
-                    TagNode::group(Tag::Lbl, item.label),
-                    TagNode::group(Tag::LBody, item.body.unwrap_or_default()),
+                    item.label,
+                    item.body.unwrap_or_else(|| TagNode::empty_group(Tag::LBody)),
                 ],
             ));
             if let Some(sub_list) = item.sub_list {
-                nodes.push(sub_list);
+                contents.nodes.push(sub_list);
             }
         }
-        TagNode::group(Tag::L(self.numbering), nodes)
+        TagNode::group(Tag::L(self.numbering), contents)
     }
 }
