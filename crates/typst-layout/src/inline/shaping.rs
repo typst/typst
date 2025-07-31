@@ -158,18 +158,12 @@ impl ShapedGlyph {
                 stretchability: (
                     Em::zero(),
                     (width / 2.0) * justification_limits.word_max.rel.get()
-                        + Em::from_length(
-                            justification_limits.word_max.abs.at(font_size),
-                            font_size,
-                        ),
+                        + Em::from_length(justification_limits.word_max.abs, font_size),
                 ),
                 shrinkability: (
                     Em::zero(),
                     (width / 3.0) * justification_limits.word_min.rel.get()
-                        + Em::from_length(
-                            justification_limits.word_min.abs.at(font_size),
-                            font_size,
-                        ),
+                        + Em::from_length(justification_limits.word_min.abs, font_size),
                 ),
             }
         } else if self.is_cjk_left_aligned_punctuation(style) {
@@ -192,18 +186,12 @@ impl ShapedGlyph {
                 stretchability: (
                     Em::zero(),
                     width * (justification_limits.glyph_max.rel.get() - 1.0)
-                        + Em::from_length(
-                            justification_limits.glyph_max.abs.at(font_size),
-                            font_size,
-                        ),
+                        + Em::from_length(justification_limits.glyph_max.abs, font_size),
                 ),
                 shrinkability: (
                     Em::zero(),
                     width * (1.0 - justification_limits.glyph_min.rel.get())
-                        + Em::from_length(
-                            justification_limits.glyph_min.abs.at(font_size),
-                            font_size,
-                        ),
+                        + Em::from_length(justification_limits.glyph_min.abs, font_size),
                 ),
             }
         }
@@ -1143,7 +1131,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
-    let justification_limits = ParElem::justification_limits_in(ctx.styles);
+    let justification_limits = ctx.styles.get(ParElem::justification_limits);
     let font_size = ctx.size;
 
     for glyph in &mut ctx.glyphs {
