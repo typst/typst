@@ -1152,15 +1152,23 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // The normal auto index should only be stepped (upon placing an
         // automatically-positioned cell, to indicate the position of the
         // next) outside of headers or footers, in which case the auto
-        // index will be updated with the local auto index. Inside headers
-        // and footers, however, cells can only start after the first empty
-        // row (as determined by 'first_available_row' below), meaning that
-        // the next automatically-positioned cell will be in a different
-        // position than it would usually be if it would be in a non-empty
-        // row, so we must step a local index inside headers and footers
-        // instead, and use a separate counter outside them.
+        // index will be updated together with the local auto index.
+        //
+        // Inside headers and footers, however, cells can only start after the
+        // first empty row (as determined by 'first_available_row' below),
+        // meaning that the next automatically-positioned cell will be in a
+        // different position than it would usually be if it would be in a
+        // non-empty row, so we must step a local index inside headers and
+        // footers instead, and keep a separate counter outside them.
+        //
+        // At the end, if the header or footer had any automatically-positioned
+        // cells, the outer auto index is synchronized and moved to right below
+        // the header or footer. That is, a header or footer with one or more
+        // auto cells automatically triggers a "rowbreak".
         let local_auto_index = if matches!(child, ResolvableGridChild::Item(_)) {
-            auto_index
+            // Re-borrow the original auto index so we can re-use this mutable
+            // reference later.
+            &mut *auto_index
         } else {
             // Although 'usize' is Copy, we need to be explicit here that we
             // aren't reborrowing the original auto index but rather making a
@@ -1254,6 +1262,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         };
 
         let items = header_footer_items.into_iter().flatten().chain(simple_item);
+        let mut had_any_cells = false;
+        let mut had_auto_cells = false;
         for item in items {
             let cell = match item {
                 ResolvableGridItem::HLine { y, start, end, stroke, span, position } => {
@@ -1356,6 +1366,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
                 ResolvableGridItem::Cell(cell) => cell,
             };
+            had_any_cells = true;
             let cell_span = cell.span();
             let colspan = cell.colspan(self.styles).get();
             let rowspan = cell.rowspan(self.styles).get();
@@ -1364,6 +1375,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             let resolved_index = {
                 let cell_x = cell.x(self.styles);
                 let cell_y = cell.y(self.styles);
+                had_auto_cells |= cell_x.is_auto() && cell_y.is_auto();
                 resolve_cell_position(
                     cell_x,
                     cell_y,
@@ -1613,6 +1625,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                     *repeat_footer = row_group.repeat;
                 }
+            }
+
+            if !had_any_cells || had_auto_cells {
+                // Header was automatically positioned, so trigger a rowbreak.
+                *auto_index = local_auto_index.next_multiple_of(columns);
             }
         }
 
