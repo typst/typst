@@ -148,6 +148,21 @@
   [f], grid.cell(x: 1)[g]
 )
 
+--- grid-header-rowbreak ---
+#grid(
+  columns: 2,
+  [x],
+  grid.header([a]),
+  [y],
+  grid.header(),
+  [z],
+  grid.header(grid.cell(x: 0)[b]),
+  [w],
+  [j],
+  grid.header(grid.cell(x: 0, y: 9)[c]),
+  [k]
+)
+
 --- grid-header-too-large-non-repeating-orphan ---
 #set page(height: 8em)
 #grid(
@@ -624,4 +639,20 @@
     [A], table.cell(x: 1)[B], [C],
     table.cell(x: 1)[D],
   ),
+)
+
+--- issue-6666-auto-hlines-around-header ---
+
+#table(
+	columns: 2,
+	table.hline(stroke: 2pt + blue),
+	table.header(
+		[*foo*],
+		[*bar*],
+	),
+	table.hline(stroke: 1.5pt + red),
+	table.cell(colspan: 2)[_asdf_],
+	table.hline(stroke: 1.5pt + red),
+	[a], [b],
+	[c], [d],
 )
