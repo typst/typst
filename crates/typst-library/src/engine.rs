@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use comemo::{Track, Tracked, TrackedMut, Validate};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxHashSet;
@@ -219,7 +219,7 @@ pub struct Route<'a> {
     // We need to override the constraint's lifetime here so that `Tracked` is
     // covariant over the constraint. If it becomes invariant, we're in for a
     // world of lifetime pain.
-    outer: Option<Tracked<'a, Self, <Route<'static> as Validate>::Constraint>>,
+    outer: Option<Tracked<'a, Self, <Route<'static> as Track>::Call>>,
     /// This is set if this route segment was inserted through the start of a
     /// module evaluation.
     id: Option<FileId>,
