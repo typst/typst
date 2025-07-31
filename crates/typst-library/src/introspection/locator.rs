@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::OnceLock;
 
 use comemo::{Tracked, Validate};
+use rustc_hash::FxHashMap;
 
 use crate::introspection::{Introspector, Location};
 
@@ -188,7 +188,7 @@ impl<'a> Locator<'a> {
         SplitLocator {
             local: self.local,
             outer: self.outer,
-            disambiguators: HashMap::new(),
+            disambiguators: FxHashMap::default(),
         }
     }
 
@@ -244,7 +244,7 @@ pub struct SplitLocator<'a> {
     /// for all the layers beyond the memoization boundary on-demand.
     outer: Option<&'a LocatorLink<'a>>,
     /// Simply counts up the number of times we've seen each local hash.
-    disambiguators: HashMap<u128, usize>,
+    disambiguators: FxHashMap<u128, usize>,
 }
 
 impl<'a> SplitLocator<'a> {

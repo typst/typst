@@ -1,7 +1,7 @@
-use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
+use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
@@ -87,7 +87,7 @@ fn html_document_impl(
         children.iter().copied(),
     )?;
 
-    let mut link_targets = HashSet::new();
+    let mut link_targets = FxHashSet::default();
     let mut introspector = introspect_html(&output, &mut link_targets);
     let mut root = root_element(output, &info)?;
     crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
@@ -99,12 +99,12 @@ fn html_document_impl(
 #[typst_macros::time(name = "introspect html")]
 fn introspect_html(
     output: &[HtmlNode],
-    link_targets: &mut HashSet<Location>,
+    link_targets: &mut FxHashSet<Location>,
 ) -> Introspector {
     fn discover(
         builder: &mut IntrospectorBuilder,
         sink: &mut Vec<(Content, Position)>,
-        link_targets: &mut HashSet<Location>,
+        link_targets: &mut FxHashSet<Location>,
         nodes: &[HtmlNode],
     ) {
         for node in nodes {
