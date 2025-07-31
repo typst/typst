@@ -8,7 +8,7 @@ use crate::math::Mathy;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum FracStyle {
     Vertical,
-    Diagonal,
+    Skewed,
     Horizontal,
 }
 

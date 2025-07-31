@@ -23,8 +23,8 @@ pub fn layout_frac(
     styles: StyleChain,
 ) -> SourceResult<()> {
     match elem.style.get(styles) {
-        Some(FracStyle::Diagonal) => {
-            layout_diagonal_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
+        Some(FracStyle::Skewed) => {
+            layout_skewed_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
         }
         Some(FracStyle::Horizontal) => layout_horizontal_frac(
             ctx,
@@ -198,8 +198,8 @@ fn layout_horizontal_frac(
     Ok(())
 }
 
-/// Lay out a diagonal fraction.
-fn layout_diagonal_frac(
+/// Lay out a skewed fraction.
+fn layout_skewed_frac(
     ctx: &mut MathContext,
     styles: StyleChain,
     num: &Content,
