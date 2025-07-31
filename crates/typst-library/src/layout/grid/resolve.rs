@@ -1149,22 +1149,29 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // in which case this variable remains 'None'.
         let mut row_group_data: Option<RowGroupData> = None;
 
-        // The normal auto index should only be stepped (upon placing an
-        // automatically-positioned cell, to indicate the position of the
-        // next) outside of headers or footers, in which case the auto
-        // index will be updated together with the local auto index.
+        // Usually, the global auto index is stepped only when a cell with
+        // fully automatic position (no fixed x/y) is placed, advancing one
+        // position. In that usual case, 'local_auto_index == auto_index'
+        // holds, as 'local_auto_index' is what the code below actually
+        // updates.
         //
-        // Inside headers and footers, however, cells can only start after the
-        // first empty row (as determined by 'first_available_row' below),
-        // meaning that the next automatically-positioned cell will be in a
-        // different position than it would usually be if it would be in a
-        // non-empty row, so we must step a local index inside headers and
-        // footers instead, and keep a separate counter outside them.
+        // However, headers and footers must trigger a rowbreak if the
+        // previous row isn't empty, given they cannot occupy only part of a
+        // row. Therefore, the initial auto index used by their auto cells
+        // should be right below the first empty row.
         //
-        // At the end, if the header or footer had any automatically-positioned
-        // cells, the outer auto index is synchronized and moved to right below
-        // the header or footer. That is, a header or footer with one or more
-        // auto cells automatically triggers a "rowbreak".
+        // The problem is that we don't know whether the header will actually
+        // have an auto cell or not, and we don't want the external auto index
+        // to change (no rowbreak should be triggered) if the header has no
+        // auto cells (although a fully empty header does count as having
+        // auto cells, albeit empty).
+        //
+        // So we use a separate auto index counter inside the header. It starts
+        // below the first non-empty row. If the header only has fixed-position
+        // cells, the external counter is unchanged. Otherwise (only auto cells
+        // or empty), the external counter is synchronized and moved to below
+        // the header. This ensures lines and cells specified below the header
+        // in the source code also appear below it in the final grid/table.
         let local_auto_index = if matches!(child, ResolvableGridChild::Item(_)) {
             // Re-borrow the original auto index so we can re-use this mutable
             // reference later.
