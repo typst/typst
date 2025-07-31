@@ -368,8 +368,8 @@ Specifically:
 // so it's not a valid identifier
 ```
 
-Note that the above only applies to identifiers. For example, [`label`]($label)s
-are not identifiers. Therefore, [its dedicated syntax]($label/#syntax) allows
+Note that the above only applies to identifiers. [`label`]($label), however,
+is not an identifier. Therefore, [its dedicated syntax]($label/#syntax) allows
 the name to start with `-`, and also allows the use of `:` and `.`. Furthermore,
 [its constructor function]($label/#constructor) allows any non-empty string.
 
