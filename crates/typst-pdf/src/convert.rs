@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use ecow::{EcoVec, eco_format};
 use krilla::configure::{Configuration, ValidationError, Validator};
@@ -19,7 +19,7 @@ use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::{Font, Lang};
+use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -257,8 +257,6 @@ pub(crate) struct GlobalContext<'a> {
     pub(crate) options: &'a PdfOptions<'a>,
     /// Mapping between locations in the document and named destinations.
     pub(crate) loc_to_names: HashMap<Location, NamedDestination>,
-    /// The languages used throughout the document.
-    pub(crate) languages: BTreeMap<Lang, usize>,
     pub(crate) page_index_converter: PageIndexConverter,
     /// Tagged PDF context.
     pub(crate) tags: Tags,
@@ -279,7 +277,6 @@ impl<'a> GlobalContext<'a> {
             loc_to_names,
             image_to_spans: HashMap::new(),
             image_spans: HashSet::new(),
-            languages: BTreeMap::new(),
             page_index_converter,
 
             tags: Tags::new(),

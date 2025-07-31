@@ -7,7 +7,7 @@ use krilla::tagging::SpanTag;
 use krilla::text::GlyphId;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::layout::Size;
-use typst_library::text::{Font, Glyph, TextItem};
+use typst_library::text::{Font, Glyph, Lang, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
 
@@ -22,11 +22,11 @@ pub(crate) fn handle_text(
     surface: &mut Surface,
     gc: &mut GlobalContext,
 ) -> SourceResult<()> {
-    *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
-
+    let lang = gc.tags.try_set_lang(t.lang);
+    let lang = lang.as_ref().map(Lang::as_str);
     tags::update_bbox(gc, fc, || t.bbox());
 
-    let mut handle = tags::start_span(gc, surface, SpanTag::empty());
+    let mut handle = tags::start_span(gc, surface, SpanTag::empty().with_lang(lang));
     let surface = handle.surface();
 
     let font = convert_font(gc, t.font.clone())?;

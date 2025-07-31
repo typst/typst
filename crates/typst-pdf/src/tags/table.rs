@@ -7,10 +7,9 @@ use smallvec::SmallVec;
 use typst_library::foundations::{Packed, Smart};
 use typst_library::model::TableCell;
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
-use typst_syntax::Span;
 
 use crate::tags::util::PropertyValCopied;
-use crate::tags::{BBoxCtx, TableId, TagNode};
+use crate::tags::{BBoxCtx, GroupContents, TableId, TagNode};
 
 #[derive(Clone, Debug)]
 pub(crate) struct TableCtx {
@@ -64,7 +63,7 @@ impl TableCtx {
         }
     }
 
-    pub(crate) fn insert(&mut self, cell: &Packed<TableCell>, nodes: Vec<TagNode>) {
+    pub(crate) fn insert(&mut self, cell: &Packed<TableCell>, contents: GroupContents) {
         let x = cell.x.val().unwrap_or_else(|| unreachable!());
         let y = cell.y.val().unwrap_or_else(|| unreachable!());
         let rowspan = cell.rowspan.val();
@@ -98,16 +97,15 @@ impl TableCtx {
             colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
             kind,
             headers: SmallVec::new(),
-            nodes,
-            span: cell.span(),
+            contents,
         });
     }
 
-    pub(crate) fn build_table(mut self, mut nodes: Vec<TagNode>) -> TagNode {
+    pub(crate) fn build_table(mut self, mut contents: GroupContents) -> TagNode {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         if self.rows.is_empty() {
-            return TagNode::group(Tag::Table.with_summary(self.summary), nodes);
+            return TagNode::group(Tag::Table.with_summary(self.summary), contents);
         }
         let height = self.rows.len();
         let width = self.rows[0].len();
@@ -174,7 +172,7 @@ impl TableCtx {
                     let cell = cell.into_cell()?;
                     let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
                     let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
-                    let tag = match cell.unwrap_kind() {
+                    let tag: TagKind = match cell.unwrap_kind() {
                         TableCellKind::Header(_, scope) => {
                             let id = table_cell_id(self.id, cell.x, cell.y);
                             let scope = table_header_scope(scope);
@@ -183,25 +181,23 @@ impl TableCtx {
                                 .with_headers(Some(cell.headers))
                                 .with_row_span(rowspan)
                                 .with_col_span(colspan)
-                                .with_location(Some(cell.span.into_raw()))
                                 .into()
                         }
                         TableCellKind::Footer | TableCellKind::Data => Tag::TD
                             .with_headers(Some(cell.headers))
                             .with_row_span(rowspan)
                             .with_col_span(colspan)
-                            .with_location(Some(cell.span.into_raw()))
                             .into(),
                     };
-                    Some(TagNode::Group(tag, cell.nodes))
+                    Some(TagNode::group(tag, cell.contents))
                 })
                 .collect();
 
-            let row = TagNode::group(Tag::TR, row_nodes);
+            let row = TagNode::virtual_group(Tag::TR, row_nodes);
 
             // Push the `TR` tags directly.
             if !gen_row_groups {
-                nodes.push(row);
+                contents.nodes.push(row);
                 continue;
             }
 
@@ -212,7 +208,8 @@ impl TableCtx {
                     TableCellKind::Footer => Tag::TFoot.into(),
                     TableCellKind::Data => Tag::TBody.into(),
                 };
-                nodes.push(TagNode::Group(tag, std::mem::take(&mut row_chunk)));
+                let chunk_nodes = std::mem::take(&mut row_chunk);
+                contents.nodes.push(TagNode::virtual_group(tag, chunk_nodes));
 
                 chunk_kind = row_kind;
             }
@@ -225,14 +222,11 @@ impl TableCtx {
                 TableCellKind::Footer => Tag::TFoot.into(),
                 TableCellKind::Data => Tag::TBody.into(),
             };
-            nodes.push(TagNode::Group(tag, row_chunk));
+            contents.nodes.push(TagNode::virtual_group(tag, row_chunk));
         }
 
-        let tag = Tag::Table
-            .with_summary(self.summary)
-            .with_bbox(self.bbox.get())
-            .into();
-        TagNode::Group(tag, nodes)
+        let tag = Tag::Table.with_summary(self.summary).with_bbox(self.bbox.get());
+        TagNode::group(tag, contents)
     }
 
     fn resolve_cell_headers<F>(
@@ -297,8 +291,7 @@ struct TableCtxCell {
     colspan: NonZeroU32,
     kind: Smart<TableCellKind>,
     headers: SmallVec<[TagId; 1]>,
-    nodes: Vec<TagNode>,
-    span: Span,
+    contents: GroupContents,
 }
 
 impl TableCtxCell {
