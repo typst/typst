@@ -1,5 +1,5 @@
 use typst::diag::{StrResult, bail};
-use typst::foundations::{Binding, Func};
+use typst::foundations::{Binding, Func, Type};
 
 use crate::{GROUPS, LIBRARY, get_module};
 
@@ -94,23 +94,49 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
     let mut route = format!("{}reference/{}/{name}", base, category.name());
     if let Some(next) = parts.next() {
         if let Ok(field) = value.field(next, ()) {
+            // For top-level definitions
             route.push_str("/#definitions-");
             route.push_str(next);
-            if let Some(next) = parts.next()
-                && field.cast::<Func>().is_ok_and(|func| func.param(next).is_some())
-            {
-                route.push('-');
-                route.push_str(next);
+
+            let mut focus = field;
+            // For subsequent parameters, definitions, or definitions’ parameters
+            for next in parts.by_ref() {
+                if let Ok(field) = focus.field(next, ()) {
+                    // For definitions
+                    route.push_str("-definitions-");
+                    route.push_str(next);
+                    focus = field.clone();
+                } else if focus
+                    .clone()
+                    .cast::<Func>()
+                    .is_ok_and(|func| func.param(next).is_some())
+                {
+                    // For parameters
+                    route.push('-');
+                    route.push_str(next);
+                }
             }
+        } else if let Ok(ty) = value.clone().cast::<Type>()
+            && let Ok(func) = ty.constructor()
+            && func.param(next).is_some()
+        {
+            // For parameters of a constructor function
+            route.push_str("/#constructor-");
+            route.push_str(next);
         } else if value
             .clone()
             .cast::<Func>()
             .is_ok_and(|func| func.param(next).is_some())
         {
+            // For parameters of a function (except for constructor functions)
             route.push_str("/#parameters-");
             route.push_str(next);
         } else {
             bail!("field {next} not found");
+        }
+
+        if let Some(next) = parts.next() {
+            bail!("found redundant field {next}");
         }
     }
 
