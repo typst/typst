@@ -180,14 +180,14 @@ impl TableCtx {
                             let scope = table_header_scope(scope);
                             Tag::TH(scope)
                                 .with_id(Some(id))
-                                .with_headers(cell.headers)
+                                .with_headers(Some(cell.headers))
                                 .with_row_span(rowspan)
                                 .with_col_span(colspan)
                                 .with_location(Some(cell.span.into_raw()))
                                 .into()
                         }
                         TableCellKind::Footer | TableCellKind::Data => Tag::TD
-                            .with_headers(cell.headers)
+                            .with_headers(Some(cell.headers))
                             .with_row_span(rowspan)
                             .with_col_span(colspan)
                             .with_location(Some(cell.span.into_raw()))
