@@ -1,4 +1,4 @@
-use crate::foundations::{elem, scope, Cast, Content, Packed, Smart};
+use crate::foundations::{Cast, Content, Packed, Smart, elem, scope};
 use crate::introspection::{Locatable, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 
@@ -134,7 +134,6 @@ pub struct PlaceElem {
     ///
     /// Has no effect if `float` is `{false}`.
     #[default(Em::new(1.5).into())]
-    #[resolve]
     pub clearance: Length,
 
     /// The horizontal displacement of the placed content.

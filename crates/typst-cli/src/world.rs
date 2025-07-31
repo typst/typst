@@ -5,14 +5,14 @@ use std::sync::{LazyLock, OnceLock};
 use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Utc};
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::{FileId, Lines, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, World};
+use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 use typst_kit::package::PackageStorage;
 use typst_timing::timed;
@@ -173,6 +173,7 @@ impl SystemWorld {
 
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
@@ -181,10 +182,20 @@ impl SystemWorld {
         }
     }
 
-    /// Lookup a source file by id.
+    /// Lookup line metadata for a file by id.
     #[track_caller]
-    pub fn lookup(&self, id: FileId) -> Source {
-        self.source(id).expect("file id does not point to any source file")
+    pub fn lookup(&self, id: FileId) -> Lines<String> {
+        self.slot(id, |slot| {
+            if let Some(source) = slot.source.get() {
+                let source = source.as_ref().expect("file is not valid");
+                source.lines().clone()
+            } else if let Some(bytes) = slot.file.get() {
+                let bytes = bytes.as_ref().expect("file is not valid");
+                Lines::try_from(bytes).expect("file is not valid utf-8")
+            } else {
+                panic!("file id does not point to any source file");
+            }
+        })
     }
 }
 
@@ -339,6 +350,11 @@ impl<T: Clone> SlotCell<T> {
         self.accessed = false;
     }
 
+    /// Gets the contents of the cell.
+    fn get(&self) -> Option<&FileResult<T>> {
+        self.data.as_ref()
+    }
+
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
@@ -346,10 +362,10 @@ impl<T: Clone> SlotCell<T> {
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
-        if mem::replace(&mut self.accessed, true) {
-            if let Some(data) = &self.data {
-                return data.clone();
-            }
+        if mem::replace(&mut self.accessed, true)
+            && let Some(data) = &self.data
+        {
+            return data.clone();
         }
 
         // Read and hash the file.
@@ -357,10 +373,10 @@ impl<T: Clone> SlotCell<T> {
         let fingerprint = timed!("hashing file", typst::utils::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
-        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {
-            if let Some(data) = &self.data {
-                return data.clone();
-            }
+        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint
+            && let Some(data) = &self.data
+        {
+            return data.clone();
         }
 
         let prev = self.data.take().and_then(Result::ok);

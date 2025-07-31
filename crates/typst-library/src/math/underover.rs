@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Content};
+use crate::foundations::{Content, elem};
 use crate::math::Mathy;
 
 /// A horizontal line under content.

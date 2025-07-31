@@ -17,7 +17,6 @@ typst = { workspace = true }
 typst-eval = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
-if_chain = { workspace = true }
 pathdiff = { workspace = true }
 serde = { workspace = true }
 unscanny = { workspace = true }

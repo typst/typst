@@ -1,16 +1,14 @@
-use std::borrow::Cow;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use comemo::Track;
-use typst_utils::{singleton, NonZeroExt, Scalar};
+use typst_utils::{NonZeroExt, Scalar, singleton};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Cast, Construct, Content, Context, Dict, Fold, Func,
-    NativeElement, Set, Smart, StyleChain, Value,
+    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
+    Value, cast, elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -62,7 +60,6 @@ pub struct PageElem {
     ///   box(square(width: 1cm))
     /// }
     /// ```
-    #[resolve]
     #[parse(
         let paper = args.named_or_find::<Paper>("paper")?;
         args.named("width")?
@@ -79,7 +76,6 @@ pub struct PageElem {
     /// page set rule. Most examples throughout this documentation use `{auto}`
     /// for the height of the page to dynamically grow and shrink to fit their
     /// content.
-    #[resolve]
     #[parse(
         args.named("height")?
             .or_else(|| paper.map(|paper| Smart::Custom(paper.height().into())))
@@ -203,7 +199,6 @@ pub struct PageElem {
     /// #set text(fill: rgb("fdfdfd"))
     /// *Dark mode enabled.*
     /// ```
-    #[borrowed]
     #[ghost]
     pub fill: Smart<Option<Paint>>,
 
@@ -221,7 +216,6 @@ pub struct PageElem {
     ///
     /// #lorem(48)
     /// ```
-    #[borrowed]
     #[ghost]
     pub numbering: Option<Numbering>,
 
@@ -278,12 +272,10 @@ pub struct PageElem {
     ///
     /// #lorem(19)
     /// ```
-    #[borrowed]
     #[ghost]
     pub header: Smart<Option<Content>>,
 
     /// The amount the header is raised into the top margin.
-    #[resolve]
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub header_ascent: Rel<Length>,
@@ -316,12 +308,10 @@ pub struct PageElem {
     ///
     /// #lorem(48)
     /// ```
-    #[borrowed]
     #[ghost]
     pub footer: Smart<Option<Content>>,
 
     /// The amount the footer is lowered into the bottom margin.
-    #[resolve]
     #[default(Ratio::new(0.3).into())]
     #[ghost]
     pub footer_descent: Rel<Length>,
@@ -342,7 +332,6 @@ pub struct PageElem {
     /// In the year 2023, we plan to take
     /// over the world (of typesetting).
     /// ```
-    #[borrowed]
     #[ghost]
     pub background: Option<Content>,
 
@@ -351,13 +340,12 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// ```example
-    /// #set page(foreground: text(24pt)[🥸])
+    /// #set page(foreground: text(24pt)[🤓])
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did
     /// not understand our approach...
     /// ```
-    #[borrowed]
     #[ghost]
     pub foreground: Option<Content>,
 
@@ -409,6 +397,15 @@ impl LocalName for PageElem {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
+///
+/// Even without manual page breaks, content will be automatically paginated
+/// based on the configured page size. You can set [the page height]($page.height)
+/// to `{auto}` to let the page grow dynamically until a manual page break
+/// occurs.
+///
+/// Pagination tries to avoid single lines of text at the top or bottom of a
+/// page (these are called _widows_ and _orphans_). You can adjust the
+/// [`text.costs`]($text.costs) parameter to disable this behavior.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
@@ -542,11 +539,10 @@ cast! {
     Margin,
     self => {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
+        if !two_sided && self.sides.is_uniform()
+            && let Some(left) = self.sides.left {
                 return left.into_value();
             }
-        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {
@@ -647,43 +643,6 @@ cast! {
         Alignment::RIGHT => Self::Right,
         _ => bail!("must be `left` or `right`"),
     },
-}
-
-/// A header, footer, foreground or background definition.
-#[derive(Debug, Clone, Hash)]
-pub enum Marginal {
-    /// Bare content.
-    Content(Content),
-    /// A closure mapping from a page number to content.
-    Func(Func),
-}
-
-impl Marginal {
-    /// Resolve the marginal based on the page number.
-    pub fn resolve(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        page: usize,
-    ) -> SourceResult<Cow<'_, Content>> {
-        Ok(match self {
-            Self::Content(content) => Cow::Borrowed(content),
-            Self::Func(func) => Cow::Owned(
-                func.call(engine, Context::new(None, Some(styles)).track(), [page])?
-                    .display(),
-            ),
-        })
-    }
-}
-
-cast! {
-    Marginal,
-    self => match self {
-        Self::Content(v) => v.into_value(),
-        Self::Func(v) => v.into_value(),
-    },
-    v: Content => Self::Content(v),
-    v: Func => Self::Func(v),
 }
 
 /// A list of page ranges to be exported.

@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 
 use crate::engine::Engine;
-use crate::foundations::{func, scope, ty, Repr};
+use crate::foundations::{Repr, func, scope, ty};
 use crate::layout::Position;
 use crate::model::Numbering;
 

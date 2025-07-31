@@ -86,10 +86,11 @@ pub struct FuncModel {
     pub name: EcoString,
     pub title: &'static str,
     pub keywords: &'static [&'static str],
-    pub oneliner: &'static str,
+    pub oneliner: EcoString,
     pub element: bool,
     pub contextual: bool,
-    pub deprecation: Option<&'static str>,
+    pub deprecation_message: Option<&'static str>,
+    pub deprecation_until: Option<&'static str>,
     pub details: Html,
     /// This example is only for nested function models. Others can have
     /// their example directly in their details.
@@ -139,7 +140,7 @@ pub struct TypeModel {
     pub name: &'static str,
     pub title: &'static str,
     pub keywords: &'static [&'static str],
-    pub oneliner: &'static str,
+    pub oneliner: EcoString,
     pub details: Html,
     pub constructor: Option<FuncModel>,
     pub scope: Vec<FuncModel>,
@@ -165,7 +166,8 @@ pub struct SymbolModel {
     pub markup_shorthand: Option<&'static str>,
     pub math_shorthand: Option<&'static str>,
     pub math_class: Option<&'static str>,
-    pub deprecation: Option<&'static str>,
+    pub deprecation_message: Option<&'static str>,
+    pub deprecation_until: Option<&'static str>,
 }
 
 /// Shorthands listed on a category page.

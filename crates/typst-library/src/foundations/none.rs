@@ -5,7 +5,7 @@ use serde::{Serialize, Serializer};
 
 use crate::diag::HintedStrResult;
 use crate::foundations::{
-    cast, ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value,
+    CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value, cast, ty,
 };
 
 /// A value that indicates the absence of any other value.

@@ -6,14 +6,14 @@ use typst_library::layout::{
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
-    is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
-    SpaceElem, TextElem,
+    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_default_ignorable,
 };
 use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{layout_and_modify, FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -144,7 +144,7 @@ pub fn collect<'a>(
             collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             collector.build_text(styles, |full| {
-                let dir = TextElem::dir_in(styles);
+                let dir = styles.resolve(TextElem::dir);
                 if dir != config.dir {
                     // Insert "Explicit Directional Embedding".
                     match dir {
@@ -154,7 +154,7 @@ pub fn collect<'a>(
                     }
                 }
 
-                if let Some(case) = TextElem::case_in(styles) {
+                if let Some(case) = styles.get(TextElem::case) {
                     full.push_str(&case.apply(&elem.text));
                 } else {
                     full.push_str(&elem.text);
@@ -174,20 +174,22 @@ pub fn collect<'a>(
                 Spacing::Fr(fr) => Item::Fractional(fr, None),
                 Spacing::Rel(rel) => Item::Absolute(
                     rel.resolve(styles).relative_to(region.x),
-                    elem.weak(styles),
+                    elem.weak.get(styles),
                 ),
             });
         } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
-            collector
-                .push_text(if elem.justify(styles) { "\u{2028}" } else { "\n" }, styles);
+            collector.push_text(
+                if elem.justify.get(styles) { "\u{2028}" } else { "\n" },
+                styles,
+            );
         } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
-            let double = elem.double(styles);
-            if elem.enabled(styles) {
+            let double = elem.double.get(styles);
+            if elem.enabled.get(styles) {
                 let quotes = SmartQuotes::get(
-                    elem.quotes(styles),
-                    TextElem::lang_in(styles),
-                    TextElem::region_in(styles),
-                    elem.alternative(styles),
+                    elem.quotes.get_ref(styles),
+                    styles.get(TextElem::lang),
+                    styles.get(TextElem::region),
+                    elem.alternative.get(styles),
                 );
                 let before =
                     collector.full.chars().rev().find(|&c| !is_default_ignorable(c));
@@ -206,7 +208,7 @@ pub fn collect<'a>(
                     }
                     InlineItem::Frame(mut frame) => {
                         frame.modify(&FrameModifiers::get_in(styles));
-                        apply_baseline_shift(&mut frame, styles);
+                        apply_shift(&engine.world, &mut frame, styles);
                         collector.push_item(Item::Frame(frame));
                     }
                 }
@@ -215,13 +217,13 @@ pub fn collect<'a>(
             collector.push_item(Item::Skip(POP_ISOLATE));
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
             let loc = locator.next(&elem.span());
-            if let Sizing::Fr(v) = elem.width(styles) {
+            if let Sizing::Fr(v) = elem.width.get(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
                 let mut frame = layout_and_modify(styles, |styles| {
                     layout_box(elem, engine, loc, styles, region)
                 })?;
-                apply_baseline_shift(&mut frame, styles);
+                apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
@@ -272,11 +274,11 @@ impl<'a> Collector<'a> {
         let segment_len = self.full.len() - prev;
 
         // Merge adjacent text segments with the same styles.
-        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut() {
-            if *last_styles == styles {
-                *last_len += segment_len;
-                return;
-            }
+        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut()
+            && *last_styles == styles
+        {
+            *last_len += segment_len;
+            return;
         }
 
         self.segments.push(Segment::Text(segment_len, styles));

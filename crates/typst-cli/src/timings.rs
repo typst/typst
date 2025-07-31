@@ -2,9 +2,9 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use typst::diag::{bail, StrResult};
-use typst::syntax::Span;
 use typst::World;
+use typst::diag::{StrResult, bail};
+use typst::syntax::Span;
 
 use crate::args::{CliArguments, Command};
 use crate::world::SystemWorld;
@@ -85,6 +85,6 @@ fn resolve_span(world: &SystemWorld, span: Span) -> Option<(String, u32)> {
     let id = span.id()?;
     let source = world.source(id).ok()?;
     let range = source.range(span)?;
-    let line = source.byte_to_line(range.start)?;
+    let line = source.lines().byte_to_line(range.start)?;
     Some((format!("{id:?}"), line as u32 + 1))
 }
