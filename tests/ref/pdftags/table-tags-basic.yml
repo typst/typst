@@ -1,0 +1,68 @@
+- Tag: Table
+  /BBox:
+    page: 0
+    left:     9.500
+    top:      9.500
+    right:   76.350
+    bottom:  60.240
+  /K:
+    - Artifact
+    - Artifact
+    - Artifact
+    - Artifact
+    - Artifact
+    - Artifact
+    - Artifact
+    - Artifact
+    - Tag: THead
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TH
+              /Id: "U1x0y0"
+              /Scope: Column
+              /Headers: []
+              /K:
+                - Content: page=0 mcid=0
+            - Tag: TH
+              /Id: "U1x1y0"
+              /Scope: Column
+              /Headers: []
+              /K:
+                - Content: page=0 mcid=1
+            - Tag: TH
+              /Id: "U1x2y0"
+              /Scope: Column
+              /Headers: []
+              /K:
+                - Content: page=0 mcid=2
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y0"]
+              /K:
+                - Content: page=0 mcid=3
+            - Tag: TD
+              /Headers: ["U1x1y0"]
+              /K:
+                - Content: page=0 mcid=4
+            - Tag: TD
+              /Headers: ["U1x2y0"]
+              /K:
+                - Content: page=0 mcid=5
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y0"]
+              /K:
+                - Content: page=0 mcid=6
+            - Tag: TD
+              /Headers: ["U1x1y0"]
+              /K:
+                - Content: page=0 mcid=7
+            - Tag: TD
+              /Headers: ["U1x2y0"]
+              /K:
+                - Content: page=0 mcid=8
