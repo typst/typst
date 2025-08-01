@@ -36,11 +36,6 @@
             right:   90.250
             bottom:  71.820
           /K:
-            - Artifact
-            - Artifact
-            - Artifact
-            - Artifact
-            - Artifact
             - Tag: TBody
               /K:
                 - Tag: TR
@@ -88,13 +83,6 @@
             right:   97.635
             bottom: 199.833
           /K:
-            - Artifact
-            - Artifact
-            - Artifact
-            - Artifact
-            - Artifact
-            - Artifact
-            - Artifact
             - Tag: TBody
               /K:
                 - Tag: TR

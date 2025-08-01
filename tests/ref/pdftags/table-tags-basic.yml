@@ -6,14 +6,6 @@
     right:   76.350
     bottom:  60.240
   /K:
-    - Artifact
-    - Artifact
-    - Artifact
-    - Artifact
-    - Artifact
-    - Artifact
-    - Artifact
-    - Artifact
     - Tag: THead
       /K:
         - Tag: TR
