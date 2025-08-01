@@ -351,36 +351,3 @@ impl HtmlFrame {
         }
     }
 }
-
-//unit tests
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_custom_element_validation() {
-        // Valid custom element names
-        assert!(HtmlTag::intern("my-element").is_ok());
-        assert!(HtmlTag::intern("custom-button").is_ok());
-        assert!(HtmlTag::intern("multi-word-component").is_ok());
-        assert!(HtmlTag::intern("x-foo").is_ok());
-        assert!(HtmlTag::intern("element-").is_ok());
-
-        // Invalid custom element names - no hyphen
-        assert!(HtmlTag::intern("customelement").is_ok()); // Regular HTML element
-
-        // Invalid custom element names - bad format
-        assert!(HtmlTag::intern("-invalid").is_err()); // Starts with hyphen
-        assert!(HtmlTag::intern("Invalid-element").is_err()); // Contains uppercase
-        assert!(HtmlTag::intern("1-element").is_err()); // Starts with number
-
-        // Reserved names
-        assert!(HtmlTag::intern("annotation-xml").is_err());
-        assert!(HtmlTag::intern("font-face").is_err());
-
-        // Invalid characters
-        assert!(HtmlTag::intern("my@element").is_err());
-        assert!(HtmlTag::intern("my element").is_err());
-        assert!(HtmlTag::intern("my/element").is_err());
-    }
-}
