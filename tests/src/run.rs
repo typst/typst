@@ -3,8 +3,6 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 use ecow::eco_vec;
-use krilla::tagging::TagTree;
-use krilla::tagging::fmt::Output;
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
@@ -76,7 +74,7 @@ impl<'a> Runner<'a> {
             self.run_test::<HtmlDocument>();
         }
         if pdftags {
-            self.run_test::<TagTree>();
+            self.run_test::<Pdftags>();
         }
 
         self.handle_not_emitted();
@@ -518,7 +516,9 @@ impl OutputType for HtmlDocument {
     }
 }
 
-impl OutputType for TagTree {
+struct Pdftags(String);
+
+impl OutputType for Pdftags {
     type Live = String;
 
     fn live_path(name: &str) -> PathBuf {
@@ -537,16 +537,16 @@ impl OutputType for TagTree {
         };
         let mut options = PdfOptions::default();
         options.standards = PdfStandards::new(&[PdfStandard::Ua_1]).unwrap();
-        let output = typst_pdf::pdf_tags(&doc, &options);
+        let output = typst_pdf::pdf_tags(&doc, &options).map(Pdftags);
         Warned { warnings, output }
     }
 
     fn is_skippable(&self) -> Result<bool, ()> {
-        Ok(self.children.is_empty())
+        Ok(self.0.is_empty())
     }
 
     fn make_live(&self) -> SourceResult<Self::Live> {
-        Ok(self.display().to_string())
+        Ok(self.0.clone())
     }
 
     fn save_live(&self, name: &str, live: &Self::Live) {

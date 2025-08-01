@@ -25,7 +25,6 @@ default = [
     "typst-render",
     "typst-svg",
     "typst-svg",
-    "krilla",
 ]
 
 [dependencies]
@@ -40,7 +39,6 @@ typst-library = { workspace = true, optional = true }
 typst-pdf = { workspace = true, optional = true }
 typst-render = { workspace = true, optional = true }
 typst-svg = { workspace = true, optional = true }
-krilla = { workspace = true, optional = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

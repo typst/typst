@@ -18,7 +18,6 @@ pub use self::metadata::{Timestamp, Timezone};
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::eco_format;
-use krilla::tagging::TagTree;
 use serde::{Deserialize, Serialize};
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
@@ -34,7 +33,10 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
 
 /// Generate the document tag tree and display it in a human readable form.
 #[doc(hidden)]
-pub fn pdf_tags(document: &PagedDocument, options: &PdfOptions) -> SourceResult<TagTree> {
+pub fn pdf_tags(
+    document: &PagedDocument,
+    options: &PdfOptions,
+) -> SourceResult<String> {
     convert::tag_tree(document, options)
 }
 

@@ -3326,7 +3326,6 @@ dependencies = [
  "clap",
  "comemo 0.4.0",
  "ecow",
- "krilla",
  "oxipng",
  "parking_lot",
  "rayon",

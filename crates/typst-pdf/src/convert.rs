@@ -9,7 +9,8 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
-use krilla::tagging::{TagId, TagTree};
+use krilla::tagging::TagId;
+use krilla::tagging::fmt::Output;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
@@ -19,7 +20,7 @@ use typst_library::layout::{
     Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::Font;
+use typst_library::text::{Font, Lang};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -55,10 +56,18 @@ pub fn convert(
 pub fn tag_tree(
     typst_document: &PagedDocument,
     options: &PdfOptions,
-) -> SourceResult<TagTree> {
+) -> SourceResult<String> {
     let (mut document, mut gc) = setup(typst_document, options);
     convert_pages(&mut gc, &mut document)?;
-    Ok(gc.tags.build_tree())
+    let mut tree = if let Some(lang) = gc.tags.doc_lang
+        && lang != Lang::ENGLISH
+    {
+        format!("lang: \"{}\"\n---\n", lang.as_str())
+    } else {
+        String::new()
+    };
+    gc.tags.build_tree().output(&mut tree).unwrap();
+    Ok(tree)
 }
 
 fn setup<'a>(
