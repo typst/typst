@@ -1,7 +1,6 @@
 use krilla::geom::{Path, PathBuilder, Rect};
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::pdf::ArtifactKind;
 use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
 
@@ -17,9 +16,7 @@ pub(crate) fn handle_shape(
     gc: &mut GlobalContext,
     span: Span,
 ) -> SourceResult<()> {
-    tags::update_bbox(gc, fc, || shape.geometry.bbox());
-
-    let mut handle = tags::start_artifact(gc, surface, ArtifactKind::Other);
+    let mut handle = tags::shape(gc, fc, surface, shape);
     let surface = handle.surface();
 
     surface.set_location(span.into_raw());

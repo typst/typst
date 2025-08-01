@@ -5,12 +5,13 @@ use krilla::configure::Validator;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagKind,
+    ArtifactType, ContentTag, Identifier, ListNumbering, NaiveRgbColor, Node, SpanTag,
+    Tag, TagKind,
 };
-use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::{Content, LinkMarker};
+use typst_library::diag::{At, SourceResult, bail};
+use typst_library::foundations::{Content, LinkMarker, Smart};
 use typst_library::introspection::Location;
-use typst_library::layout::{Rect, RepeatElem};
+use typst_library::layout::{Point, Rect, RepeatElem, Size};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Destination, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
@@ -18,8 +19,10 @@ use typst_library::model::{
     TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
-use typst_library::text::{Lang, RawElem};
-use typst_library::visualize::ImageElem;
+use typst_library::text::{
+    Lang, OverlineElem, RawElem, StrikeElem, TextItem, UnderlineElem,
+};
+use typst_library::visualize::{Image, ImageElem, Paint, Shape, Stroke};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
@@ -27,7 +30,7 @@ use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
-use crate::tags::util::{PropertyOptRef, PropertyValCopied};
+use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::*;
 
@@ -45,6 +48,9 @@ pub enum TagNode {
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
     Placeholder(Placeholder),
     FootnoteEntry(Location),
+    /// If the attributes are non-empty this will resolve to a [`Tag::Span`],
+    /// otherwise the items are inserted directly.
+    Text(ResolvedTextAttrs, Vec<Identifier>),
 }
 
 impl TagNode {
@@ -108,7 +114,7 @@ pub fn handle_start(
         return Ok(());
     }
 
-    let mut tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
+    let tag = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
                 push_stack(gc, elem, StackEntryKind::Outline(OutlineCtx::new()))?;
@@ -239,14 +245,57 @@ pub fn handle_start(
         });
         push_stack(gc, elem, StackEntryKind::Code(desc))?;
         return Ok(());
+    } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
+        let loc = elem.location().unwrap();
+        let stroke = deco_stroke(underline.stroke.val_cloned());
+        gc.tags
+            .text_attrs
+            .push_underline(gc.options, loc, stroke)
+            .at(elem.span())?;
+        return Ok(());
+    } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
+        let loc = elem.location().unwrap();
+        let stroke = deco_stroke(overline.stroke.val_cloned());
+        gc.tags
+            .text_attrs
+            .push_overline(gc.options, loc, stroke)
+            .at(elem.span())?;
+        return Ok(());
+    } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
+        let loc = elem.location().unwrap();
+        let stroke = deco_stroke(strike.stroke.val_cloned());
+        gc.tags
+            .text_attrs
+            .push_strike(gc.options, loc, stroke)
+            .at(elem.span())?;
+        return Ok(());
     } else {
         return Ok(());
     };
 
-    tag.set_location(Some(elem.span().into_raw()));
     push_stack(gc, elem, StackEntryKind::Standard(tag))?;
 
     Ok(())
+}
+
+fn deco_stroke(stroke: Smart<Stroke>) -> TextDecoStroke {
+    let Smart::Custom(stroke) = stroke else {
+        return TextDecoStroke::default();
+    };
+    let color = stroke.paint.custom().and_then(|paint| match paint {
+        Paint::Solid(color) => {
+            let c = color.to_rgb();
+            Some(NaiveRgbColor::new(c.red, c.green, c.blue))
+        }
+        // TODO: Don't fail silently, maybe make a best effort to convert a
+        // gradient to a single solid color?
+        Paint::Gradient(_) => None,
+        // TODO: Don't fail silently, maybe just error in PDF/UA mode?
+        Paint::Tiling(_) => None,
+    });
+
+    let thickness = stroke.thickness.custom();
+    TextDecoStroke { color, thickness }
 }
 
 fn push_stack(
@@ -307,6 +356,10 @@ pub fn handle_end(
         return Ok(());
     }
 
+    if gc.tags.text_attrs.pop_deco(loc) {
+        return Ok(());
+    }
+
     // Search for an improperly nested starting tag, that is being closed.
     let Some(idx) = (gc.tags.stack.iter().enumerate())
         .rev()
@@ -318,11 +371,10 @@ pub fn handle_end(
 
     // There are overlapping tags in the tag tree. Figure whether breaking
     // up the current tag stack is semantically ok.
-    let is_pdf_ua = gc.options.standards.config.validator() == Validator::UA1;
     let mut is_breakable = true;
     let mut non_breakable_span = Span::detached();
     for e in gc.tags.stack[idx + 1..].iter() {
-        if e.kind.is_breakable(is_pdf_ua) {
+        if e.kind.is_breakable(gc.options.is_pdf_ua()) {
             continue;
         }
 
@@ -333,12 +385,12 @@ pub fn handle_end(
         }
     }
     if !is_breakable {
-        let validator = gc.options.standards.config.validator();
-        if is_pdf_ua {
-            let ua1 = validator.as_str();
+        if gc.options.is_pdf_ua() {
+            let validator = gc.options.standards.config.validator();
+            let validator = validator.as_str();
             bail!(
                 non_breakable_span,
-                "{ua1} error: invalid semantic structure, \
+                "{validator} error: invalid semantic structure, \
                     this element's tag would be split up";
                 hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`"
             );
@@ -543,7 +595,66 @@ pub fn add_link_annotations(
     }
 }
 
-pub fn update_bbox(
+pub fn text<'a, 'b>(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &'b mut Surface<'a>,
+    text: &TextItem,
+) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
+    update_bbox(gc, fc, || text.bbox());
+
+    if gc.tags.in_artifact.is_some() {
+        return TagHandle { surface, started: false };
+    }
+
+    let attrs = gc.tags.text_attrs.resolve(text.size);
+
+    // Marked content
+    let lang = gc.tags.try_set_lang(text.lang);
+    let lang = lang.as_ref().map(Lang::as_str);
+    let content = ContentTag::Span(SpanTag::empty().with_lang(lang));
+    let id = surface.start_tagged(content);
+
+    gc.tags.push_text(attrs, id);
+
+    TagHandle { surface, started: true }
+}
+
+pub fn image<'a, 'b>(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &'b mut Surface<'a>,
+    image: &Image,
+    size: Size,
+) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
+    update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
+    let content = ContentTag::Span(SpanTag::empty().with_alt_text(image.alt()));
+    start_content(gc, surface, content)
+}
+
+pub fn shape<'a, 'b>(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &'b mut Surface<'a>,
+    shape: &Shape,
+) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
+    update_bbox(gc, fc, || shape.geometry.bbox());
+    start_content(gc, surface, ContentTag::Artifact(ArtifactType::Other))
+}
+
+fn update_bbox(
     gc: &mut GlobalContext,
     fc: &FrameContext,
     compute_bbox: impl FnOnce() -> Rect,
@@ -577,36 +688,11 @@ impl<'a> TagHandle<'a, '_> {
     }
 }
 
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_span<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-    span: SpanTag,
-) -> TagHandle<'a, 'b> {
-    start_content(gc, surface, ContentTag::Span(span))
-}
-
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_artifact<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-    kind: ArtifactKind,
-) -> TagHandle<'a, 'b> {
-    let ty = artifact_type(kind);
-    start_content(gc, surface, ContentTag::Artifact(ty))
-}
-
 fn start_content<'a, 'b>(
     gc: &mut GlobalContext,
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
-    if gc.options.disable_tags {
-        return TagHandle { surface, started: false };
-    }
-
     let content = if gc.tags.in_artifact.is_some() {
         return TagHandle { surface, started: false };
     } else if let Some(StackEntryKind::Table(_)) = gc.tags.stack.last().map(|e| &e.kind) {

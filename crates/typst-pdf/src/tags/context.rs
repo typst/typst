@@ -3,25 +3,32 @@ use std::collections::HashMap;
 use std::slice::SliceIndex;
 
 use krilla::geom as kg;
-use krilla::tagging::{BBox, Node, TagKind, TagTree};
+use krilla::tagging::{
+    BBox, Identifier, LineHeight, NaiveRgbColor, Node, Tag, TagKind, TagTree,
+    TextDecorationType,
+};
+use typst_library::diag::{StrResult, bail};
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
-use typst_library::layout::{Abs, Point, Rect};
+use typst_library::layout::{Abs, Length, Point, Rect};
 use typst_library::model::{OutlineEntry, TableCell};
 use typst_library::pdf::ArtifactKind;
 use typst_library::text::Lang;
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::convert::FrameContext;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
-use crate::tags::{Placeholder, TagGroup, TagNode};
+use crate::tags::{Placeholder, TagNode};
 use crate::util::AbsExt;
 
 pub struct Tags {
     /// The language of the first text item that has been encountered.
     pub doc_lang: Option<Lang>,
+    /// The current set of text attributes.
+    pub text_attrs: TextAttrs,
     /// The intermediary stack of nested tag groups.
     pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
@@ -39,13 +46,14 @@ pub struct Tags {
     table_id: TableId,
 
     /// The output.
-    pub tree: Vec<TagNode>,
+    tree: Vec<TagNode>,
 }
 
 impl Tags {
     pub fn new() -> Self {
         Self {
             doc_lang: None,
+            text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             footnotes: HashMap::new(),
@@ -66,6 +74,23 @@ impl Tags {
         }
     }
 
+    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, id: Identifier) {
+        // FIXME: Artifacts will force a split in the spans, and decoartions
+        // generate artifacts
+        let last_node = if let Some(entry) = self.stack.last_mut() {
+            entry.nodes.last_mut()
+        } else {
+            self.tree.last_mut()
+        };
+        if let Some(TagNode::Text(prev_attrs, nodes)) = last_node
+            && *prev_attrs == new_attrs
+        {
+            nodes.push(id);
+        } else {
+            self.push(TagNode::Text(new_attrs, vec![id]));
+        }
+    }
+
     pub fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
         if let Some(entry) = self.stack.last_mut() {
             entry.nodes.extend(nodes);
@@ -77,11 +102,11 @@ impl Tags {
     pub fn build_tree(&mut self) -> TagTree {
         assert!(self.stack.items.is_empty(), "tags weren't properly closed");
 
-        let children = std::mem::take(&mut self.tree)
-            .into_iter()
-            .map(|node| self.resolve_node(node))
-            .collect::<Vec<_>>();
-        TagTree::from(children)
+        let mut nodes = Vec::new();
+        for child in std::mem::take(&mut self.tree) {
+            self.resolve_node(&mut nodes, child);
+        }
+        TagTree::from(nodes)
     }
 
     /// Try to set the language of a parent tag, or the entire document.
@@ -89,10 +114,6 @@ impl Tags {
     /// this will return `Some`, and the language should be specified on the
     /// marked content directly.
     pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
-        // Discard languages within artifacts.
-        if self.in_artifact.is_some() {
-            return None;
-        }
         if self.doc_lang.is_none_or(|l| l == lang) {
             self.doc_lang = Some(lang);
             return None;
@@ -106,23 +127,46 @@ impl Tags {
         Some(lang)
     }
 
-    /// Resolves [`Placeholder`] nodes.
-    fn resolve_node(&mut self, node: TagNode) -> Node {
+    /// Resolves nodes into an accumulator.
+    fn resolve_node(&mut self, accum: &mut Vec<Node>, node: TagNode) {
         match node {
-            TagNode::Group(TagGroup { tag, nodes }) => {
-                let children = nodes
-                    .into_iter()
-                    .map(|node| self.resolve_node(node))
-                    .collect::<Vec<_>>();
-                Node::Group(krilla::tagging::TagGroup::with_children(tag, children))
+            TagNode::Group(group) => {
+                let mut nodes = Vec::new();
+                for child in group.nodes {
+                    self.resolve_node(&mut nodes, child);
+                }
+                let group = krilla::tagging::TagGroup::with_children(group.tag, nodes);
+                accum.push(Node::Group(group));
             }
-            TagNode::Leaf(identifier) => Node::Leaf(identifier),
-            TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
+            TagNode::Leaf(identifier) => {
+                accum.push(Node::Leaf(identifier));
+            }
+            TagNode::Placeholder(placeholder) => {
+                accum.push(self.placeholders.take(placeholder));
+            }
             TagNode::FootnoteEntry(loc) => {
                 let node = (self.footnotes.remove(&loc))
                     .and_then(|ctx| ctx.entry)
                     .expect("footnote");
-                self.resolve_node(node)
+                self.resolve_node(accum, node)
+            }
+            TagNode::Text(attrs, ids) => {
+                let children = ids.into_iter().map(|id| Node::Leaf(id));
+                if attrs.is_empty() {
+                    accum.extend(children);
+                } else {
+                    let tag = Tag::Span
+                        .with_line_height(attrs.lineheight)
+                        .with_baseline_shift(attrs.baseline_shift)
+                        .with_text_decoration_type(attrs.deco.map(|d| d.kind.to_krilla()))
+                        .with_text_decoration_color(attrs.deco.and_then(|d| d.color))
+                        .with_text_decoration_thickness(
+                            attrs.deco.and_then(|d| d.thickness),
+                        );
+                    let group =
+                        krilla::tagging::TagGroup::with_children(tag, children.collect());
+                    accum.push(Node::Group(group));
+                }
             }
         }
     }
@@ -141,6 +185,142 @@ impl Tags {
         self.table_id.0 += 1;
         self.table_id
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct TextAttrs {
+    lineheight: Option<LineHeight>,
+    baseline_shift: Option<f32>,
+    /// PDF can only represent one of the following attributes at a time.
+    /// Keep track of all of them, and depending if PDF/UA-1 is enforced, either
+    /// throw an error, or just use one of them.
+    decos: Vec<(Location, TextDeco)>,
+}
+
+impl TextAttrs {
+    pub fn new() -> Self {
+        Self {
+            lineheight: None,
+            baseline_shift: None,
+            decos: Vec::new(),
+        }
+    }
+
+    pub fn push_underline(
+        &mut self,
+        options: &PdfOptions,
+        loc: Location,
+        stroke: TextDecoStroke,
+    ) -> StrResult<()> {
+        self.push_deco(options, loc, TextDeco { kind: TextDecoKind::Underline, stroke })
+    }
+
+    pub fn push_overline(
+        &mut self,
+        options: &PdfOptions,
+        loc: Location,
+        stroke: TextDecoStroke,
+    ) -> StrResult<()> {
+        self.push_deco(options, loc, TextDeco { kind: TextDecoKind::Overline, stroke })
+    }
+
+    pub fn push_strike(
+        &mut self,
+        options: &PdfOptions,
+        loc: Location,
+        stroke: TextDecoStroke,
+    ) -> StrResult<()> {
+        self.push_deco(options, loc, TextDeco { kind: TextDecoKind::Strike, stroke })
+    }
+
+    pub fn push_deco(
+        &mut self,
+        options: &PdfOptions,
+        loc: Location,
+        deco: TextDeco,
+    ) -> StrResult<()> {
+        // TODO: can overlapping tags break this?
+        if self.decos.iter().any(|(_, d)| d.kind != deco.kind) {
+            let validator = options.standards.config.validator();
+            let validator = validator.as_str();
+            bail!("{validator} error: cannot combine underline, overline, and or strike");
+        }
+        self.decos.push((loc, deco));
+        Ok(())
+    }
+
+    /// Returns true if a decoration was removed.
+    pub fn pop_deco(&mut self, loc: Location) -> bool {
+        // TODO: Ideally we would just check the top of the stack, can
+        // overlapping tags even happen for decorations?
+        if let Some(i) = self.decos.iter().rposition(|(l, _)| *l != loc) {
+            self.decos.remove(i);
+            return true;
+        }
+        false
+    }
+
+    pub fn resolve(&self, em: Abs) -> ResolvedTextAttrs {
+        let deco = self.decos.last().map(|&(_, TextDeco { kind, stroke })| {
+            let thickness = stroke.thickness.map(|t| t.at(em).to_f32());
+            ResolvedTextDeco { kind, color: stroke.color, thickness }
+        });
+
+        ResolvedTextAttrs {
+            lineheight: self.lineheight,
+            baseline_shift: self.baseline_shift,
+            deco,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct TextDeco {
+    kind: TextDecoKind,
+    stroke: TextDecoStroke,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextDecoKind {
+    Underline,
+    Overline,
+    Strike,
+}
+
+impl TextDecoKind {
+    fn to_krilla(self) -> TextDecorationType {
+        match self {
+            TextDecoKind::Underline => TextDecorationType::Underline,
+            TextDecoKind::Overline => TextDecorationType::Overline,
+            TextDecoKind::Strike => TextDecorationType::LineThrough,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TextDecoStroke {
+    pub color: Option<NaiveRgbColor>,
+    pub thickness: Option<Length>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ResolvedTextAttrs {
+    lineheight: Option<LineHeight>,
+    baseline_shift: Option<f32>,
+    deco: Option<ResolvedTextDeco>,
+}
+
+impl ResolvedTextAttrs {
+    pub fn is_empty(&self) -> bool {
+        self.lineheight.is_none() && self.baseline_shift.is_none() && self.deco.is_none()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ResolvedTextDeco {
+    kind: TextDecoKind,
+    color: Option<NaiveRgbColor>,
+    thickness: Option<f32>,
 }
 
 #[derive(Debug)]
