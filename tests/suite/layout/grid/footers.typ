@@ -570,3 +570,14 @@
     table.cell(x: 1)[D],
   ),
 )
+
+--- issue-6666-auto-hlines-around-footer ---
+#table(
+	columns: 2,
+	table.hline(stroke: 2pt + blue),
+	table.footer(
+		[*foo*],
+		[*bar*],
+	),
+	table.hline(stroke: 8pt),
+)

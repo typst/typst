@@ -1149,18 +1149,33 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // in which case this variable remains 'None'.
         let mut row_group_data: Option<RowGroupData> = None;
 
-        // The normal auto index should only be stepped (upon placing an
-        // automatically-positioned cell, to indicate the position of the
-        // next) outside of headers or footers, in which case the auto
-        // index will be updated with the local auto index. Inside headers
-        // and footers, however, cells can only start after the first empty
-        // row (as determined by 'first_available_row' below), meaning that
-        // the next automatically-positioned cell will be in a different
-        // position than it would usually be if it would be in a non-empty
-        // row, so we must step a local index inside headers and footers
-        // instead, and use a separate counter outside them.
+        // Usually, the global auto index is stepped only when a cell with
+        // fully automatic position (no fixed x/y) is placed, advancing one
+        // position. In that usual case, 'local_auto_index == auto_index'
+        // holds, as 'local_auto_index' is what the code below actually
+        // updates.
+        //
+        // However, headers and footers must trigger a rowbreak if the
+        // previous row isn't empty, given they cannot occupy only part of a
+        // row. Therefore, the initial auto index used by their auto cells
+        // should be right below the first empty row.
+        //
+        // The problem is that we don't know whether the header will actually
+        // have an auto cell or not, and we don't want the external auto index
+        // to change (no rowbreak should be triggered) if the header has no
+        // auto cells (although a fully empty header does count as having
+        // auto cells, albeit empty).
+        //
+        // So we use a separate auto index counter inside the header. It starts
+        // below the first non-empty row. If the header only has fixed-position
+        // cells, the external counter is unchanged. Otherwise (only auto cells
+        // or empty), the external counter is synchronized and moved to below
+        // the header. This ensures lines and cells specified below the header
+        // in the source code also appear below it in the final grid/table.
         let local_auto_index = if matches!(child, ResolvableGridChild::Item(_)) {
-            auto_index
+            // Re-borrow the original auto index so we can re-use this mutable
+            // reference later.
+            &mut *auto_index
         } else {
             // Although 'usize' is Copy, we need to be explicit here that we
             // aren't reborrowing the original auto index but rather making a
@@ -1254,6 +1269,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         };
 
         let items = header_footer_items.into_iter().flatten().chain(simple_item);
+        let mut had_any_cells = false;
+        let mut had_auto_cells = false;
         for item in items {
             let cell = match item {
                 ResolvableGridItem::HLine { y, start, end, stroke, span, position } => {
@@ -1356,6 +1373,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
                 ResolvableGridItem::Cell(cell) => cell,
             };
+            had_any_cells = true;
             let cell_span = cell.span();
             let colspan = cell.colspan(self.styles).get();
             let rowspan = cell.rowspan(self.styles).get();
@@ -1364,6 +1382,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             let resolved_index = {
                 let cell_x = cell.x(self.styles);
                 let cell_y = cell.y(self.styles);
+                had_auto_cells |= cell_x.is_auto() && cell_y.is_auto();
                 resolve_cell_position(
                     cell_x,
                     cell_y,
@@ -1563,7 +1582,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // is gutter. But only once all cells have been analyzed
                         // and the header has fully expanded in the fixup loop
                         // below.
-                        range: group_range,
+                        range: group_range.clone(),
 
                         level: row_group.repeatable_level.get(),
 
@@ -1613,6 +1632,12 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                     *repeat_footer = row_group.repeat;
                 }
+            }
+
+            if !had_any_cells || had_auto_cells {
+                // Header/footer was automatically positioned, so trigger a
+                // rowbreak. Move auto index counter below it.
+                *auto_index = group_range.end * columns;
             }
         }
 
