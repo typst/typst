@@ -75,6 +75,8 @@ impl Tags {
     }
 
     pub fn build_tree(&mut self) -> TagTree {
+        assert!(self.stack.items.is_empty(), "tags weren't properly closed");
+
         let children = std::mem::take(&mut self.tree)
             .into_iter()
             .map(|node| self.resolve_node(node))
