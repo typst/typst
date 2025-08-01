@@ -21,7 +21,8 @@ Running just the integration tests (the tests in this directory):
 cargo test --workspace --test tests
 ```
 
-You can use the set up `cargo testit` alias to write shorter commands. In the examples below, we will use this alias.
+The repository includes the alias `cargo testit` to make this less verbose. In
+the examples below, we will use this alias.
 
 Running all tests with the given name pattern. You can use
 [regular expression](https://docs.rs/regex/latest/regex/)s.
