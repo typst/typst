@@ -1,10 +1,11 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::RwLock;
 
 use ecow::{EcoString, EcoVec};
+use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_utils::NonZeroExt;
 
@@ -31,14 +32,14 @@ pub struct Introspector {
     keys: MultiMap<u128, Location>,
 
     /// Accelerates lookup of elements by location.
-    locations: HashMap<Location, usize>,
+    locations: FxHashMap<Location, usize>,
     /// Accelerates lookup of elements by label.
     labels: MultiMap<Label, usize>,
 
     /// Maps from element locations to assigned HTML IDs. This used to support
     /// intra-doc links in HTML export. In paged export, is is simply left
     /// empty and [`Self::html_id`] is not used.
-    html_ids: HashMap<Location, EcoString>,
+    html_ids: FxHashMap<Location, EcoString>,
 
     /// Caches queries done on the introspector. This is important because
     /// even if all top-level queries are distinct, they often have shared
@@ -63,7 +64,7 @@ impl Introspector {
 
     /// Enriches an existing introspector with HTML IDs, which were assigned
     /// to the DOM in a post-processing step.
-    pub fn set_html_ids(&mut self, html_ids: HashMap<Location, EcoString>) {
+    pub fn set_html_ids(&mut self, html_ids: FxHashMap<Location, EcoString>) {
         self.html_ids = html_ids;
     }
 
@@ -313,7 +314,7 @@ impl Debug for Introspector {
 
 /// A map from one keys to multiple elements.
 #[derive(Clone)]
-struct MultiMap<K, V>(HashMap<K, SmallVec<[V; 1]>>);
+struct MultiMap<K, V>(FxHashMap<K, SmallVec<[V; 1]>>);
 
 impl<K, V> MultiMap<K, V>
 where
@@ -334,13 +335,13 @@ where
 
 impl<K, V> Default for MultiMap<K, V> {
     fn default() -> Self {
-        Self(HashMap::new())
+        Self(FxHashMap::default())
     }
 }
 
 /// Caches queries.
 #[derive(Default)]
-struct QueryCache(RwLock<HashMap<u128, EcoVec<Content>>>);
+struct QueryCache(RwLock<FxHashMap<u128, EcoVec<Content>>>);
 
 impl QueryCache {
     fn get(&self, hash: u128) -> Option<EcoVec<Content>> {
@@ -364,11 +365,11 @@ pub struct IntrospectorBuilder {
     pub pages: usize,
     pub page_numberings: Vec<Option<Numbering>>,
     pub page_supplements: Vec<Content>,
-    pub html_ids: HashMap<Location, EcoString>,
-    seen: HashSet<Location>,
+    pub html_ids: FxHashMap<Location, EcoString>,
+    seen: FxHashSet<Location>,
     insertions: MultiMap<Location, Vec<Pair>>,
     keys: MultiMap<u128, Location>,
-    locations: HashMap<Location, usize>,
+    locations: FxHashMap<Location, usize>,
     labels: MultiMap<Label, usize>,
 }
 

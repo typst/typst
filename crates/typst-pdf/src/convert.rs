@@ -1,5 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::num::NonZeroU64;
+use std::collections::BTreeMap;
 
 use ecow::{EcoVec, eco_format};
 use krilla::annotation::Annotation;
@@ -9,9 +8,11 @@ use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
+use krilla::pdf::PdfError;
 use krilla::surface::Surface;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;
@@ -206,22 +207,22 @@ impl FrameContext {
 /// Globally needed context for converting a typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
-    pub(crate) fonts_forward: HashMap<Font, krilla::text::Font>,
-    pub(crate) fonts_backward: HashMap<krilla::text::Font, Font>,
+    pub(crate) fonts_forward: FxHashMap<Font, krilla::text::Font>,
+    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, Font>,
     /// Mapping between images and their span.
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
     // first appearance, though.
-    pub(crate) image_to_spans: HashMap<krilla::image::Image, Span>,
+    pub(crate) image_to_spans: FxHashMap<krilla::image::Image, Span>,
     /// The spans of all images that appear in the document. We use this so
     /// we can give more accurate error messages.
-    pub(crate) image_spans: HashSet<Span>,
+    pub(crate) image_spans: FxHashSet<Span>,
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
     pub(crate) options: &'a PdfOptions<'a>,
     /// Mapping between locations in the document and named destinations.
-    pub(crate) loc_to_names: HashMap<Location, NamedDestination>,
+    pub(crate) loc_to_names: FxHashMap<Location, NamedDestination>,
     /// The languages used throughout the document.
     pub(crate) languages: BTreeMap<Lang, usize>,
     pub(crate) page_index_converter: PageIndexConverter,
@@ -231,17 +232,17 @@ impl<'a> GlobalContext<'a> {
     pub(crate) fn new(
         document: &'a PagedDocument,
         options: &'a PdfOptions,
-        loc_to_names: HashMap<Location, NamedDestination>,
+        loc_to_names: FxHashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
     ) -> GlobalContext<'a> {
         Self {
-            fonts_forward: HashMap::new(),
-            fonts_backward: HashMap::new(),
+            fonts_forward: FxHashMap::default(),
+            fonts_backward: FxHashMap::default(),
             document,
             options,
             loc_to_names,
-            image_to_spans: HashMap::new(),
-            image_spans: HashSet::new(),
+            image_to_spans: FxHashMap::default(),
+            image_spans: FxHashSet::default(),
             languages: BTreeMap::new(),
             page_index_converter,
         }
@@ -362,6 +363,42 @@ fn finish(
                     *span, "16 bit images are not supported in this export mode";
                     hint: "convert the image to 8 bit instead"
                 )
+            }
+            KrillaError::Pdf(_, e, loc) => {
+                let span = to_span(loc);
+                match e {
+                    // We already validated in `typst-library` that the page index is valid.
+                    PdfError::InvalidPage(_) => bail!(
+                        span,
+                        "invalid page number for PDF file";
+                        hint: "please report this as a bug"
+                    ),
+                    PdfError::VersionMismatch(v) => {
+                        let pdf_ver = v.as_str();
+                        let config_ver = configuration.version();
+                        let cur_ver = config_ver.as_str();
+                        bail!(span,
+                            "the version of the PDF is too high";
+                            hint: "the current export target is {cur_ver}, while the PDF has version {pdf_ver}";
+                            hint: "raise the export target to {pdf_ver} or higher";
+                            hint: "or preprocess the PDF to convert it to a lower version"
+                        );
+                    }
+                }
+            }
+            KrillaError::DuplicateTagId(_, loc) => {
+                let span = to_span(loc);
+                bail!(span,
+                    "duplicate tag id";
+                    hint: "please report this as a bug"
+                );
+            }
+            KrillaError::UnknownTagId(_, loc) => {
+                let span = to_span(loc);
+                bail!(span,
+                    "unknown tag id";
+                    hint: "please report this as a bug"
+                );
             }
         },
     }
@@ -535,12 +572,12 @@ fn convert_error(
         }
         // The below errors cannot occur yet, only once Typst supports full PDF/A
         // and PDF/UA. But let's still add a message just to be on the safe side.
-        ValidationError::MissingAnnotationAltText => error!(
+        ValidationError::MissingAnnotationAltText(_) => error!(
             Span::detached(),
             "{prefix} missing annotation alt text";
             hint: "please report this as a bug"
         ),
-        ValidationError::MissingAltText => error!(
+        ValidationError::MissingAltText(_) => error!(
             Span::detached(),
             "{prefix} missing alt text";
             hint: "make sure your images and equations have alt text"
@@ -576,25 +613,31 @@ fn convert_error(
             "{prefix} missing document date";
             hint: "set the date of the document"
         ),
+        ValidationError::EmbeddedPDF(loc) => {
+            error!(
+                to_span(*loc),
+                "embedding PDFs is currently not supported in this export mode";
+                hint: "try converting the PDF to an SVG before embedding it"
+            )
+        }
     }
 }
 
 /// Convert a krilla location to a span.
 fn to_span(loc: Option<krilla::surface::Location>) -> Span {
-    loc.map(|l| Span::from_raw(NonZeroU64::new(l).unwrap()))
-        .unwrap_or(Span::detached())
+    loc.map(Span::from_raw).unwrap_or(Span::detached())
 }
 
 fn collect_named_destinations(
     document: &PagedDocument,
     pic: &PageIndexConverter,
-) -> HashMap<Location, NamedDestination> {
-    let mut locs_to_names = HashMap::new();
+) -> FxHashMap<Location, NamedDestination> {
+    let mut locs_to_names = FxHashMap::default();
 
     // Find all headings that have a label and are the first among other
     // headings with the same label.
     let matches: Vec<_> = {
-        let mut seen = HashSet::new();
+        let mut seen = FxHashSet::default();
         document
             .introspector
             .query(&HeadingElem::ELEM.select())
@@ -629,13 +672,13 @@ fn collect_named_destinations(
 }
 
 pub(crate) struct PageIndexConverter {
-    page_indices: HashMap<usize, usize>,
+    page_indices: FxHashMap<usize, usize>,
     skipped_pages: usize,
 }
 
 impl PageIndexConverter {
     pub fn new(document: &PagedDocument, options: &PdfOptions) -> Self {
-        let mut page_indices = HashMap::new();
+        let mut page_indices = FxHashMap::default();
         let mut skipped_pages = 0;
 
         for i in 0..document.pages.len() {
