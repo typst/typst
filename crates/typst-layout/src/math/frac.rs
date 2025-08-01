@@ -1,7 +1,7 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
-use typst_library::math::{BinomElem, FracElem, FracStyle};
+use typst_library::math::{BinomElem, FracElem, FracStyle, LrElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
@@ -163,11 +163,11 @@ fn layout_horizontal_frac(
 ) -> SourceResult<()> {
     let num_frame = if num_deparen {
         ctx.layout_into_frame(
-            &Content::sequence(vec![
+            &Content::new(LrElem::new(Content::sequence(vec![
                 SymbolElem::packed('('),
                 num.clone(),
                 SymbolElem::packed(')'),
-            ]),
+            ]))),
             styles,
         )?
     } else {
@@ -181,11 +181,11 @@ fn layout_horizontal_frac(
 
     let denom_frame = if denom_deparen {
         ctx.layout_into_frame(
-            &Content::sequence(vec![
+            &Content::new(LrElem::new(Content::sequence(vec![
                 SymbolElem::packed('('),
                 denom.clone(),
                 SymbolElem::packed(')'),
-            ]),
+            ]))),
             styles,
         )?
     } else {
