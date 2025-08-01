@@ -1,5 +1,5 @@
 use ecow::eco_format;
-use typst_library::diag::{warning, At, SourceResult};
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
     AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem,
