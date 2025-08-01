@@ -498,8 +498,8 @@ pub struct GridFooter {
 pub struct GridHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
     /// If the `position` field is set to `{bottom}`, the line is placed below
-    /// the row with the given index instead (see that field's docs for
-    /// details).
+    /// the row with the given index instead (see
+    /// [`grid.hline.position`]($grid.hline.position) for details).
     ///
     /// Specifying `{auto}` causes the line to be placed at the row below the
     /// last automatically positioned cell (that is, cell without coordinate
@@ -550,8 +550,8 @@ pub struct GridHLine {
 pub struct GridVLine {
     /// The column before which the vertical line is placed (zero-indexed).
     /// If the `position` field is set to `{end}`, the line is placed after the
-    /// column with the given index instead (see that field's docs for
-    /// details).
+    /// column with the given index instead (see
+    /// [`grid.vline.position`]($grid.vline.position) for details).
     ///
     /// Specifying `{auto}` causes the line to be placed at the column after
     /// the last automatically positioned cell (that is, cell without
