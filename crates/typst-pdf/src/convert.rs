@@ -6,7 +6,7 @@ use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::{NamedDestination, XyzDestination};
 use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
-use krilla::geom::PathBuilder;
+use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
@@ -17,7 +17,7 @@ use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;
 use typst_library::layout::{
-    Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
+    Abs, Frame, FrameItem, GroupItem, PagedDocument, Sides, Size, Transform,
 };
 use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Lang};
@@ -81,6 +81,15 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
                 typst_page.frame.width().to_f32(),
                 typst_page.frame.height().to_f32(),
             );
+
+            if typst_page.bleed != Sides::splat(Abs::zero()) {
+                settings = settings.with_trim_box(Rect::from_ltrb(
+                    typst_page.bleed.left.to_f32(),
+                    typst_page.bleed.top.to_f32(),
+                    (typst_page.frame.width() - typst_page.bleed.right).to_f32(),
+                    (typst_page.frame.height() - typst_page.bleed.bottom).to_f32(),
+                ));
+            }
 
             if let Some(label) = typst_page
                 .numbering
