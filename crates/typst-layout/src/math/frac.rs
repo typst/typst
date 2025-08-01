@@ -12,8 +12,6 @@ use super::{
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
-const FRAC_DIAGONAL_SKEW: Em = Em::new(0.3); // shift up and down
-const FRAC_DIAGONAL_OFFSET: Em = Em::new(0.1); // how much operands can bite into the slash
 
 /// Lays out a [`FracElem`].
 #[typst_macros::time(name = "math.frac", span = elem.span())]
@@ -206,51 +204,60 @@ fn layout_skewed_frac(
     denom: &Content,
     span: Span,
 ) -> SourceResult<()> {
-    let num_frame = ctx.layout_into_frame(num, styles)?;
-    let denom_frame = ctx.layout_into_frame(denom, styles)?;
+    // Font-derived constants
+    let vgap = scaled!(ctx, styles, skewed_fraction_vertical_gap);
+    let hgap = scaled!(ctx, styles, skewed_fraction_horizontal_gap);
+    let axis = scaled!(ctx, styles, axis_height);
+    // let vgap = vgap + axis / 2.0; // LuaTeX behavior
 
-    let skew = FRAC_DIAGONAL_SKEW.resolve(styles);
-    let offset = FRAC_DIAGONAL_OFFSET.resolve(styles);
+    let num_style = style_for_numerator(styles);
+    let num_frame = ctx.layout_into_frame(num, styles.chain(&num_style))?;
+    let num_size = num_frame.size();
+    let denom_style = style_for_denominator(styles);
+    let denom_frame = ctx.layout_into_frame(denom, styles.chain(&denom_style))?;
+    let denom_size = denom_frame.size();
+
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
 
-    let baseline = Abs::zero();
-    let num_y = baseline - skew - num_frame.baseline();
-    let denom_y = baseline + skew - denom_frame.baseline();
+    // Final size of the fraction frame, save for the one exception below
+    let mut fraction_height = num_size.y + denom_size.y + vgap;
+    let fraction_width = num_size.x + denom_size.x + hgap;
 
-    // height without the slash
-    let provisional_top = num_y.min(denom_y);
-    let provisional_bottom =
-        (num_y + num_frame.height()).max(denom_y + denom_frame.height());
-    let provisional_height = provisional_bottom - provisional_top;
-
-    // stretch the slash to (height - short_fall) and center it on the math axis.
+    // Only exception: if the stretched slash is bigger than intended.
     let mut slash_frag = GlyphFragment::new_char(ctx.font, styles, '/', span)?;
-    slash_frag.stretch_vertical(ctx, provisional_height - short_fall);
+    slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
     slash_frag.center_on_axis();
     let slash_frame = slash_frag.into_frame();
+    let slash_size = slash_frame.size();
+    let vertical_offset = Abs::zero().max(slash_size.y - fraction_height) / 2.0;
+    fraction_height = fraction_height.max(slash_size.y);
 
-    let slash_y = baseline - slash_frame.baseline();
+    // Build the final frame
+    let mut fraction_frame = Frame::soft(Size::new(fraction_width, fraction_height));
 
-    let num_x = Abs::zero();
-    let slash_x = num_frame.width() - offset;
-    let denom_x = slash_x + slash_frame.width() - offset;
+    // Numerator
+    fraction_frame.push_frame(Point::new(Abs::zero(), vertical_offset), num_frame);
+    // Denominator
+    fraction_frame.push_frame(
+        Point::new(num_size.x + hgap, vertical_offset + num_size.y + vgap),
+        denom_frame,
+    );
 
-    let top = num_y.min(slash_y).min(denom_y);
-    let bottom = (num_y + num_frame.height())
-        .max(slash_y + slash_frame.height())
-        .max(denom_y + denom_frame.height());
-    let height = bottom - top;
-    let width = denom_x + denom_frame.width();
+    // Slash
+    fraction_frame.push_frame(
+        Point::new(
+            num_size.x + hgap / 2.0 - slash_size.x / 2.0,
+            fraction_height / 2.0 - slash_size.y / 2.0,
+        ),
+        slash_frame,
+    );
 
-    let mut frame = Frame::soft(Size::new(width, height));
-    frame.set_baseline(baseline - top);
+    // Baseline (use axis height to center slash on the axis)
+    fraction_frame.set_baseline(fraction_height / 2.0 + axis);
 
-    let shift = -top;
-    frame.push_frame(Point::new(num_x, num_y + shift), num_frame);
-    frame.push_frame(Point::new(slash_x, slash_y + shift), slash_frame);
-    frame.push_frame(Point::new(denom_x, denom_y + shift), denom_frame);
+    // fraction_frame.mark_box_in_place();
 
-    ctx.push(FrameFragment::new(styles, frame));
+    ctx.push(FrameFragment::new(styles, fraction_frame));
 
     Ok(())
 }
