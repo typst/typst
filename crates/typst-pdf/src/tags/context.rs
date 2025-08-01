@@ -2,7 +2,7 @@ use std::cell::OnceCell;
 use std::slice::SliceIndex;
 
 use krilla::geom as kg;
-use krilla::tagging::{BBox, Node, TagKind, TagTree};
+use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
@@ -16,12 +16,15 @@ use crate::convert::FrameContext;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
-use crate::tags::{Placeholder, TagGroup, TagNode};
+use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
+use crate::tags::{Placeholder, TagNode};
 use crate::util::AbsExt;
 
 pub struct Tags {
     /// The language of the first text item that has been encountered.
     pub doc_lang: Option<Lang>,
+    /// The set of text attributes.
+    pub text_attrs: TextAttrs,
     /// The intermediary stack of nested tag groups.
     pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
@@ -39,13 +42,14 @@ pub struct Tags {
     table_id: TableId,
 
     /// The output.
-    pub tree: Vec<TagNode>,
+    tree: Vec<TagNode>,
 }
 
 impl Tags {
     pub fn new() -> Self {
         Self {
             doc_lang: None,
+            text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             footnotes: FxHashMap::default(),
@@ -63,6 +67,28 @@ impl Tags {
             entry.nodes.push(node);
         } else {
             self.tree.push(node);
+        }
+    }
+
+    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, id: Identifier) {
+        if new_attrs.is_empty() {
+            self.push(TagNode::Leaf(id));
+            return;
+        }
+
+        // FIXME: Artifacts will force a split in the spans, and decoartions
+        // generate artifacts
+        let last_node = if let Some(entry) = self.stack.last_mut() {
+            entry.nodes.last_mut()
+        } else {
+            self.tree.last_mut()
+        };
+        if let Some(TagNode::Text(prev_attrs, nodes)) = last_node
+            && *prev_attrs == new_attrs
+        {
+            nodes.push(id);
+        } else {
+            self.push(TagNode::Text(new_attrs, vec![id]));
         }
     }
 
@@ -89,10 +115,6 @@ impl Tags {
     /// this will return `Some`, and the language should be specified on the
     /// marked content directly.
     pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
-        // Discard languages within artifacts.
-        if self.in_artifact.is_some() {
-            return None;
-        }
         if self.doc_lang.is_none_or(|l| l == lang) {
             self.doc_lang = Some(lang);
             return None;
@@ -106,15 +128,15 @@ impl Tags {
         Some(lang)
     }
 
-    /// Resolves [`Placeholder`] nodes.
+    /// Resolves nodes into an accumulator.
     fn resolve_node(&mut self, node: TagNode) -> Node {
         match node {
-            TagNode::Group(TagGroup { tag, nodes }) => {
-                let children = nodes
-                    .into_iter()
+            TagNode::Group(group) => {
+                let nodes = (group.nodes.into_iter())
                     .map(|node| self.resolve_node(node))
-                    .collect::<Vec<_>>();
-                Node::Group(krilla::tagging::TagGroup::with_children(tag, children))
+                    .collect();
+                let group = krilla::tagging::TagGroup::with_children(group.tag, nodes);
+                Node::Group(group)
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
@@ -123,6 +145,12 @@ impl Tags {
                     .and_then(|ctx| ctx.entry)
                     .expect("footnote");
                 self.resolve_node(node)
+            }
+            TagNode::Text(attrs, ids) => {
+                let tag = attrs.to_tag();
+                let children = ids.into_iter().map(Node::Leaf).collect();
+                let group = krilla::tagging::TagGroup::with_children(tag, children);
+                Node::Group(group)
             }
         }
     }

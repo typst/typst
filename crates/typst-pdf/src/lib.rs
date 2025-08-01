@@ -18,6 +18,7 @@ pub use self::metadata::{Timestamp, Timezone};
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::eco_format;
+use krilla::configure::Validator;
 use serde::{Deserialize, Serialize};
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
@@ -65,6 +66,14 @@ pub struct PdfOptions<'a> {
     /// circumstances, for example when trying to reduce the size of a document,
     /// it can be desirable to disable tagged PDF.
     pub disable_tags: bool,
+}
+
+impl PdfOptions<'_> {
+    /// Whether the current export mode is PDF/UA-1, and in the future maybe
+    /// PDF/UA-2.
+    pub(crate) fn is_pdf_ua(&self) -> bool {
+        self.standards.config.validator() == Validator::UA1
+    }
 }
 
 /// Encapsulates a list of compatible PDF standards.

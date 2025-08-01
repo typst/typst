@@ -1,0 +1,14 @@
+- Tag: P
+  /K:
+    - Tag: Span
+      /TextDecorationType: Underline
+      /K:
+        - Content: page=0 mcid=0
+    - Tag: Span
+      /TextDecorationType: Overline
+      /K:
+        - Content: page=0 mcid=1
+    - Tag: Span
+      /TextDecorationType: LineThrough
+      /K:
+        - Content: page=0 mcid=2

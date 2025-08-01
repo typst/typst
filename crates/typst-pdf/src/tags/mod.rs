@@ -10,7 +10,7 @@ use krilla::tagging::{
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::Content;
 use typst_library::introspection::Location;
-use typst_library::layout::{Rect, RepeatElem};
+use typst_library::layout::{Point, Rect, RepeatElem, Size};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, LinkMarker,
@@ -18,8 +18,11 @@ use typst_library::model::{
     TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
-use typst_library::text::{Lang, RawElem, RawLine};
-use typst_library::visualize::ImageElem;
+use typst_library::text::{
+    HighlightElem, Lang, OverlineElem, RawElem, RawLine, ScriptKind, StrikeElem, SubElem,
+    SuperElem, TextItem, UnderlineElem,
+};
+use typst_library::visualize::{Image, ImageElem, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
@@ -27,7 +30,8 @@ use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
-use crate::tags::util::{PropertyOptRef, PropertyValCopied};
+use crate::tags::text::{ResolvedTextAttrs, TextDecoKind};
+use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::*;
 
@@ -35,6 +39,7 @@ mod context;
 mod list;
 mod outline;
 mod table;
+mod text;
 mod util;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +50,9 @@ pub enum TagNode {
     /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
     Placeholder(Placeholder),
     FootnoteEntry(Location),
+    /// If the attributes are non-empty this will resolve to a [`Tag::Span`],
+    /// otherwise the items are inserted directly.
+    Text(ResolvedTextAttrs, Vec<Identifier>),
 }
 
 impl TagNode {
@@ -85,75 +93,79 @@ pub struct GroupContents {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Placeholder(usize);
 
-pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Content) {
+pub fn handle_start(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    elem: &Content,
+) -> SourceResult<()> {
     if gc.options.disable_tags {
-        return;
+        return Ok(());
     }
 
     if gc.tags.in_artifact.is_some() {
         // Don't nest artifacts
-        return;
+        return Ok(());
     }
 
     if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         let kind = artifact.kind.val();
         push_artifact(gc, surface, elem, kind);
-        return;
+        return Ok(());
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
         push_artifact(gc, surface, elem, ArtifactKind::Other);
-        return;
+        return Ok(());
     }
 
     let tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
                 push_stack(gc, elem, StackEntryKind::Outline(OutlineCtx::new()));
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
                 push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)));
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::FootnoteRef(decl_loc) => {
                 push_stack(gc, elem, StackEntryKind::FootnoteRef(*decl_loc));
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
                 push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::BibEntry => {
                 push_stack(gc, elem, StackEntryKind::BibEntry);
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::ListItemLabel => {
                 push_stack(gc, elem, StackEntryKind::ListItemLabel);
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::ListItemBody => {
                 push_stack(gc, elem, StackEntryKind::ListItemBody);
-                return;
+                return Ok(());
             }
             PdfMarkerTagKind::Label => Tag::Lbl.into(),
         }
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
         push_stack(gc, elem, StackEntryKind::OutlineEntry(entry.clone()));
-        return;
+        return Ok(());
     } else if let Some(_list) = elem.to_packed::<ListElem>() {
         let numbering = ListNumbering::Circle; // TODO: infer numbering from `list.marker`
         push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
-        return;
+        return Ok(());
     } else if let Some(_enumeration) = elem.to_packed::<EnumElem>() {
         let numbering = ListNumbering::Decimal; // TODO: infer numbering from `enum.numbering`
         push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
-        return;
+        return Ok(());
     } else if let Some(_terms) = elem.to_packed::<TermsElem>() {
         let numbering = ListNumbering::None;
         push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
-        return;
+        return Ok(());
     } else if let Some(_) = elem.to_packed::<FigureElem>() {
         // Wrap the figure tag and the sibling caption in a container, if the
         // caption is contained within the figure like recommended for tables
@@ -172,7 +184,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         } else {
             push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)));
         }
-        return;
+        return Ok(());
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
         let alt = equation.alt.opt_ref().map(|s| s.to_string());
         if let Some(figure_ctx) = gc.tags.stack.parent_figure() {
@@ -182,13 +194,13 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
             }
         }
         push_stack(gc, elem, StackEntryKind::Formula(FigureCtx::new(alt)));
-        return;
+        return Ok(());
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
         let ctx = TableCtx::new(table_id, summary);
         push_stack(gc, elem, StackEntryKind::Table(ctx));
-        return;
+        return Ok(());
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         let table_ctx = gc.tags.stack.parent_table();
 
@@ -201,7 +213,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()));
         }
-        return;
+        return Ok(());
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
@@ -211,18 +223,18 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
         push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()));
-        return;
+        return Ok(());
     } else if let Some(entry) = elem.to_packed::<FootnoteEntry>() {
         let footnote_loc = entry.note.location().unwrap();
         push_stack(gc, elem, StackEntryKind::FootnoteEntry(footnote_loc));
-        return;
+        return Ok(());
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
         // TODO: should the attribution be handled somehow?
         if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
     } else if let Some(raw) = elem.to_packed::<RawElem>() {
         if raw.block.val() {
             push_stack(gc, elem, StackEntryKind::CodeBlock);
-            return;
+            return Ok(());
         } else {
             Tag::Code.into()
         }
@@ -231,13 +243,46 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface, elem: &Conten
         if gc.tags.stack.parent().is_some_and(|p| p.is_code_block()) {
             push_stack(gc, elem, StackEntryKind::CodeBlockLine);
         }
-        return;
+        return Ok(());
+    } else if let Some(sub) = elem.to_packed::<SubElem>() {
+        let baseline_shift = sub.baseline.val();
+        let lineheight = sub.size.val();
+        let kind = ScriptKind::Sub;
+        gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
+        return Ok(());
+    } else if let Some(sub) = elem.to_packed::<SuperElem>() {
+        let baseline_shift = sub.baseline.val();
+        let lineheight = sub.size.val();
+        let kind = ScriptKind::Super;
+        gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
+        return Ok(());
+    } else if let Some(highlight) = elem.to_packed::<HighlightElem>() {
+        let paint = highlight.fill.opt_ref();
+        gc.tags.text_attrs.push_highlight(elem, paint);
+        return Ok(());
+    } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
+        let kind = TextDecoKind::Underline;
+        let stroke = underline.stroke.val_cloned();
+        gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
+        return Ok(());
+    } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
+        let kind = TextDecoKind::Overline;
+        let stroke = overline.stroke.val_cloned();
+        gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
+        return Ok(());
+    } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
+        let kind = TextDecoKind::Strike;
+        let stroke = strike.stroke.val_cloned();
+        gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
+        return Ok(());
     } else {
-        return;
+        return Ok(());
     };
 
     let tag = tag.with_location(Some(elem.span().into_raw()));
     push_stack(gc, elem, StackEntryKind::Standard(tag));
+
+    Ok(())
 }
 
 fn push_stack(gc: &mut GlobalContext, elem: &Content, kind: StackEntryKind) {
@@ -256,8 +301,7 @@ fn push_artifact(
 ) {
     let loc = elem.location().expect("elem to be locatable");
     let ty = artifact_type(kind);
-    let id = surface.start_tagged(ContentTag::Artifact(ty));
-    gc.tags.push(TagNode::Leaf(id));
+    surface.start_tagged(ContentTag::Artifact(ty));
     gc.tags.in_artifact = Some((loc, kind));
 }
 
@@ -283,6 +327,10 @@ pub fn handle_end(
         return Ok(());
     }
 
+    if gc.tags.text_attrs.pop(loc) {
+        return Ok(());
+    }
+
     // Search for an improperly nested starting tag, that is being closed.
     let Some(idx) = (gc.tags.stack.iter().enumerate())
         .rev()
@@ -294,11 +342,10 @@ pub fn handle_end(
 
     // There are overlapping tags in the tag tree. Figure whether breaking
     // up the current tag stack is semantically ok.
-    let is_pdf_ua = gc.options.standards.config.validator() == Validator::UA1;
     let mut is_breakable = true;
     let mut non_breakable_span = Span::detached();
     for e in gc.tags.stack[idx + 1..].iter() {
-        if e.kind.is_breakable(is_pdf_ua) {
+        if e.kind.is_breakable(gc.options.is_pdf_ua()) {
             continue;
         }
 
@@ -309,12 +356,12 @@ pub fn handle_end(
         }
     }
     if !is_breakable {
-        let validator = gc.options.standards.config.validator();
-        if is_pdf_ua {
-            let ua1 = validator.as_str();
+        if gc.options.is_pdf_ua() {
+            let validator = gc.options.standards.config.validator();
+            let validator = validator.as_str();
             bail!(
                 non_breakable_span,
-                "{ua1} error: invalid semantic structure, \
+                "{validator} error: invalid semantic structure, \
                     this element's tag would be split up";
                 hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`"
             );
@@ -478,8 +525,7 @@ pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
 
     if let Some((_, kind)) = gc.tags.in_artifact {
         let ty = artifact_type(kind);
-        let id = surface.start_tagged(ContentTag::Artifact(ty));
-        gc.tags.push(TagNode::Leaf(id));
+        surface.start_tagged(ContentTag::Artifact(ty));
     }
 }
 
@@ -518,7 +564,66 @@ pub fn add_link_annotations(
     }
 }
 
-pub fn update_bbox(
+pub fn text<'a, 'b>(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &'b mut Surface<'a>,
+    text: &TextItem,
+) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
+    update_bbox(gc, fc, || text.bbox());
+
+    if gc.tags.in_artifact.is_some() {
+        return TagHandle { surface, started: false };
+    }
+
+    let attrs = gc.tags.text_attrs.resolve(text);
+
+    // Marked content
+    let lang = gc.tags.try_set_lang(text.lang);
+    let lang = lang.as_ref().map(Lang::as_str);
+    let content = ContentTag::Span(SpanTag::empty().with_lang(lang));
+    let id = surface.start_tagged(content);
+
+    gc.tags.push_text(attrs, id);
+
+    TagHandle { surface, started: true }
+}
+
+pub fn image<'a, 'b>(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &'b mut Surface<'a>,
+    image: &Image,
+    size: Size,
+) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
+    update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
+    let content = ContentTag::Span(SpanTag::empty().with_alt_text(image.alt()));
+    start_content(gc, surface, content)
+}
+
+pub fn shape<'a, 'b>(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &'b mut Surface<'a>,
+    shape: &Shape,
+) -> TagHandle<'a, 'b> {
+    if gc.options.disable_tags {
+        return TagHandle { surface, started: false };
+    }
+
+    update_bbox(gc, fc, || shape.geometry.bbox());
+    start_content(gc, surface, ContentTag::Artifact(ArtifactType::Other))
+}
+
+fn update_bbox(
     gc: &mut GlobalContext,
     fc: &FrameContext,
     compute_bbox: impl FnOnce() -> Rect,
@@ -552,44 +657,21 @@ impl<'a> TagHandle<'a, '_> {
     }
 }
 
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_span<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-    span: SpanTag,
-) -> TagHandle<'a, 'b> {
-    start_content(gc, surface, ContentTag::Span(span))
-}
-
-/// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
-/// when dropped.
-pub fn start_artifact<'a, 'b>(
-    gc: &mut GlobalContext,
-    surface: &'b mut Surface<'a>,
-    kind: ArtifactKind,
-) -> TagHandle<'a, 'b> {
-    let ty = artifact_type(kind);
-    start_content(gc, surface, ContentTag::Artifact(ty))
-}
-
 fn start_content<'a, 'b>(
     gc: &mut GlobalContext,
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
-    if gc.options.disable_tags {
-        return TagHandle { surface, started: false };
-    }
-
-    let content = if gc.tags.in_artifact.is_some() {
-        return TagHandle { surface, started: false };
+    if gc.tags.in_artifact.is_some() {
+        TagHandle { surface, started: false }
     } else {
-        content
-    };
-    let id = surface.start_tagged(content);
-    gc.tags.push(TagNode::Leaf(id));
-    TagHandle { surface, started: true }
+        let artifact = matches!(content, ContentTag::Artifact(_));
+        let id = surface.start_tagged(content);
+        if !artifact {
+            gc.tags.push(TagNode::Leaf(id));
+        }
+        TagHandle { surface, started: true }
+    }
 }
 
 fn artifact_type(kind: ArtifactKind) -> ArtifactType {
