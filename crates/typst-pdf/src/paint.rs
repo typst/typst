@@ -157,7 +157,7 @@ fn convert_gradient(
     let stops = convert_gradient_stops(gradient);
     match &gradient {
         Gradient::Linear(_) => {
-            angle =  Gradient::correct_aspect_ratio(angle, size.aspect_ratio());
+            angle = Gradient::correct_aspect_ratio(angle, size.aspect_ratio());
             let (x1, y1, x2, y2) = {
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
