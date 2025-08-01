@@ -148,19 +148,41 @@
   [f], grid.cell(x: 1)[g]
 )
 
---- grid-header-rowbreak ---
+--- grid-header-rowbreak-auto-pos ---
 #grid(
   columns: 2,
   [x],
+  grid.hline(stroke: red),
   grid.header([a]),
+  grid.hline(stroke: 3pt),
   [y],
   grid.header(),
   [z],
+)
+
+--- grid-header-rowbreak-fixed-pos ---
+#grid(
+  columns: 2,
+  [z],
+  grid.hline(stroke: red),
   grid.header(grid.cell(x: 0)[b]),
+  grid.hline(stroke: 3pt),
   [w],
   [j],
   grid.header(grid.cell(x: 0, y: 9)[c]),
   [k]
+)
+
+--- grid-header-rowbreak-mixed-pos ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header([x], grid.cell(x: 0)[b]),
+  [c],
+  grid.hline(stroke: red),
+  grid.header([y], grid.cell(x: 0, y: 8)[d]),
+  grid.hline(stroke: 3pt),
+  [e]
 )
 
 --- grid-header-too-large-non-repeating-orphan ---
@@ -642,7 +664,6 @@
 )
 
 --- issue-6666-auto-hlines-around-header ---
-
 #table(
 	columns: 2,
 	table.hline(stroke: 2pt + blue),

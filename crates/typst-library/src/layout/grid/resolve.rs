@@ -1582,7 +1582,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         // is gutter. But only once all cells have been analyzed
                         // and the header has fully expanded in the fixup loop
                         // below.
-                        range: group_range,
+                        range: group_range.clone(),
 
                         level: row_group.repeatable_level.get(),
 
@@ -1635,8 +1635,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             }
 
             if !had_any_cells || had_auto_cells {
-                // Header was automatically positioned, so trigger a rowbreak.
-                *auto_index = local_auto_index.next_multiple_of(columns);
+                // Header/footer was automatically positioned, so trigger a
+                // rowbreak. Move auto index counter below it.
+                *auto_index = group_range.end * columns;
             }
         }
 
