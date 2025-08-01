@@ -294,11 +294,10 @@ pub fn handle_end(
         return Ok(());
     }
 
-    // FIXME: Overlapping tags in artifacts will break the close mechanism.
-    if let Some((l, _)) = gc.tags.in_artifact {
-        if l == loc {
-            pop_artifact(gc, surface);
-        }
+    if let Some((l, _)) = gc.tags.in_artifact
+        && l == loc
+    {
+        pop_artifact(gc, surface);
         return Ok(());
     }
 
