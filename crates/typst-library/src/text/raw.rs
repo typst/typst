@@ -6,26 +6,25 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
 use syntect::highlighting::{self as synt};
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_syntax::{split_newlines, LinkedNode, Span, Spanned};
+use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Lang;
+use crate::World;
 use crate::diag::{
     LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Bytes, Content, Derived, NativeElement, OneOrMultiple, Packed,
-    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, TargetElem,
+    Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, cast, elem, scope,
 };
-use crate::html::{tag, HtmlElem};
-use crate::layout::{BlockBody, BlockElem, Em, HAlignment};
+use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
-use crate::text::{FontFamily, FontList, LinebreakElem, LocalName, TextElem, TextSize};
+use crate::text::{FontFamily, FontList, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
-use crate::World;
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -78,7 +77,6 @@ use crate::World;
     scope,
     title = "Raw Text / Code",
     Synthesize,
-    Show,
     ShowSet,
     LocalName,
     Figurable,
@@ -429,46 +427,6 @@ impl Packed<RawElem> {
     }
 }
 
-impl Show for Packed<RawElem> {
-    #[typst_macros::time(name = "raw", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let lines = self.lines.as_deref().unwrap_or_default();
-
-        let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
-        for (i, line) in lines.iter().enumerate() {
-            if i != 0 {
-                seq.push(LinebreakElem::shared().clone());
-            }
-
-            seq.push(line.clone().pack());
-        }
-
-        let mut realized = Content::sequence(seq);
-
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(if self.block.get(styles) {
-                tag::pre
-            } else {
-                tag::code
-            })
-            .with_body(Some(realized))
-            .pack()
-            .spanned(self.span()));
-        }
-
-        if self.block.get(styles) {
-            // Align the text before inserting it into the block.
-            realized = realized.aligned(self.align.get(styles).into());
-            realized = BlockElem::new()
-                .with_body(Some(BlockBody::Content(realized)))
-                .pack()
-                .spanned(self.span());
-        }
-
-        Ok(realized)
-    }
-}
-
 impl ShowSet for Packed<RawElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
@@ -498,7 +456,11 @@ impl PlainText for Packed<RawElem> {
 }
 
 /// The content of the raw text.
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash)]
+#[allow(
+    clippy::derived_hash_with_manual_eq,
+    reason = "https://github.com/typst/typst/pull/6560#issuecomment-3045393640"
+)]
 pub enum RawContent {
     /// From a string.
     Text(EcoString),
@@ -519,6 +481,22 @@ impl RawContent {
                     lines.collect::<Vec<_>>().join("\n").into()
                 }
             }
+        }
+    }
+}
+
+impl PartialEq for RawContent {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (RawContent::Text(a), RawContent::Text(b)) => a == b,
+            (lines @ RawContent::Lines(_), RawContent::Text(text))
+            | (RawContent::Text(text), lines @ RawContent::Lines(_)) => {
+                *text == lines.get()
+            }
+            (RawContent::Lines(a), RawContent::Lines(b)) => Iterator::eq(
+                a.iter().map(|(line, _)| line),
+                b.iter().map(|(line, _)| line),
+            ),
         }
     }
 }
@@ -634,7 +612,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", Show, PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", PlainText)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]
@@ -651,13 +629,6 @@ pub struct RawLine {
     /// The highlighted raw text.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<RawLine> {
-    #[typst_macros::time(name = "raw.line", span = self.span())]
-    fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone())
-    }
 }
 
 impl PlainText for Packed<RawLine> {
@@ -779,10 +750,10 @@ fn preprocess(
     styles: StyleChain,
     span: Span,
 ) -> EcoVec<(EcoString, Span)> {
-    if let RawContent::Lines(lines) = text {
-        if lines.iter().all(|(s, _)| !s.contains('\t')) {
-            return lines.clone();
-        }
+    if let RawContent::Lines(lines) = text
+        && lines.iter().all(|(s, _)| !s.contains('\t'))
+    {
+        return lines.clone();
     }
 
     let mut text = text.get();

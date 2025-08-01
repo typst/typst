@@ -2,13 +2,13 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use typst_utils::{singleton, NonZeroExt, Scalar};
+use typst_utils::{NonZeroExt, Scalar, singleton};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement,
-    Set, Smart, Value,
+    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
+    Value, cast, elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -340,7 +340,7 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// ```example
-    /// #set page(foreground: text(24pt)[🥸])
+    /// #set page(foreground: text(24pt)[🤓])
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did
@@ -397,6 +397,15 @@ impl LocalName for PageElem {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
+///
+/// Even without manual page breaks, content will be automatically paginated
+/// based on the configured page size. You can set [the page height]($page.height)
+/// to `{auto}` to let the page grow dynamically until a manual page break
+/// occurs.
+///
+/// Pagination tries to avoid single lines of text at the top or bottom of a
+/// page (these are called _widows_ and _orphans_). You can adjust the
+/// [`text.costs`]($text.costs) parameter to disable this behavior.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
@@ -530,11 +539,10 @@ cast! {
     Margin,
     self => {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
+        if !two_sided && self.sides.is_uniform()
+            && let Some(left) = self.sides.left {
                 return left.into_value();
             }
-        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {

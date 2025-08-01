@@ -1,10 +1,10 @@
 use comemo::Tracked;
 
 use crate::diag::HintedStrResult;
-use crate::foundations::{elem, func, Cast, Context};
+use crate::foundations::{Cast, Context, elem, func};
 
 /// The export target.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Target {
     /// The target that is used for paged, fully laid-out content.
     #[default]

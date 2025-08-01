@@ -3,8 +3,9 @@ use std::ops::{Deref, DerefMut, Range};
 use std::sync::Arc;
 
 use ecow::eco_format;
+use typst_library::Dir;
 use typst_library::diag::{
-    bail, At, Hint, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint,
+    At, Hint, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail,
 };
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Fold, Packed, Smart, StyleChain};
@@ -16,7 +17,6 @@ use typst_library::layout::{
 use typst_library::model::{TableCell, TableChild, TableElem, TableItem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{Paint, Stroke};
-use typst_library::Dir;
 
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
@@ -495,11 +495,7 @@ impl<T> Repeatable<T> {
     /// Returns `Some` if the value is repeated, `None` otherwise.
     #[inline]
     pub fn as_repeated(&self) -> Option<&T> {
-        if self.repeated {
-            Some(&self.inner)
-        } else {
-            None
-        }
+        if self.repeated { Some(&self.inner) } else { None }
     }
 }
 
@@ -858,22 +854,14 @@ impl<'a> CellGrid<'a> {
     /// might span if the grid has gutters.
     #[inline]
     pub fn effective_colspan_of_cell(&self, cell: &Cell) -> usize {
-        if self.has_gutter {
-            2 * cell.colspan.get() - 1
-        } else {
-            cell.colspan.get()
-        }
+        if self.has_gutter { 2 * cell.colspan.get() - 1 } else { cell.colspan.get() }
     }
 
     /// Returns the effective rowspan of a cell, considering the gutters it
     /// might span if the grid has gutters.
     #[inline]
     pub fn effective_rowspan_of_cell(&self, cell: &Cell) -> usize {
-        if self.has_gutter {
-            2 * cell.rowspan.get() - 1
-        } else {
-            cell.rowspan.get()
-        }
+        if self.has_gutter { 2 * cell.rowspan.get() - 1 } else { cell.rowspan.get() }
     }
 
     #[inline]
@@ -2098,13 +2086,14 @@ fn check_for_conflicting_cell_row(
         );
     }
 
-    if let Some((_, _, footer)) = footer {
-        if cell_y < footer.end && cell_y + rowspan > footer.start {
-            bail!(
-                "cell would conflict with footer spanning the same position";
-                hint: "try reducing the cell's rowspan or moving the footer"
-            );
-        }
+    if let Some((_, _, footer)) = footer
+        && cell_y < footer.end
+        && cell_y + rowspan > footer.start
+    {
+        bail!(
+            "cell would conflict with footer spanning the same position";
+            hint: "try reducing the cell's rowspan or moving the footer"
+        );
     }
 
     Ok(())

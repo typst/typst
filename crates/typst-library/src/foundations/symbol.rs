@@ -1,17 +1,18 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
 use codex::ModifierSet;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashMap;
 use serde::{Serialize, Serializer};
-use typst_syntax::{is_ident, Span, Spanned};
+use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
 
-use crate::diag::{bail, DeprecationSink, SourceResult, StrResult};
+use crate::diag::{DeprecationSink, SourceResult, StrResult, bail};
 use crate::foundations::{
-    cast, elem, func, scope, ty, Array, Content, Func, NativeElement, NativeFunc, Packed,
-    PlainText, Repr as _,
+    Array, Content, Func, NativeElement, NativeFunc, Packed, PlainText, Repr as _, cast,
+    elem, func, scope, ty,
 };
 
 /// A Unicode symbol.
@@ -151,7 +152,7 @@ impl Symbol {
                 modifiers.best_match_in(list.variants().map(|(m, _, d)| (m, d)))
             {
                 if let Some(message) = deprecation {
-                    sink.emit(message)
+                    sink.emit(message, None)
                 }
                 return Ok(self);
             }
@@ -221,7 +222,7 @@ impl Symbol {
 
         // Maps from canonicalized 128-bit hashes to indices of variants we've
         // seen before.
-        let mut seen = HashMap::<u128, usize>::new();
+        let mut seen = FxHashMap::<u128, usize>::default();
 
         // A list of modifiers, cleared & reused in each iteration.
         let mut modifiers = Vec::new();

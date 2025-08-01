@@ -1,16 +1,16 @@
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use ecow::EcoString;
+use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Smart};
 use typst::layout::{Abs, Margin, PageElem};
 use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
-use typst::utils::{singleton, LazyHash};
-use typst::{Feature, Library, World};
+use typst::utils::{LazyHash, singleton};
+use typst::{Feature, Library, LibraryExt, World};
 
 use crate::IdeWorld;
 
@@ -137,8 +137,8 @@ impl IdeWorld for TestWorld {
 /// Test-specific files.
 #[derive(Default, Clone)]
 struct TestFiles {
-    assets: HashMap<FileId, Bytes>,
-    sources: HashMap<FileId, Source>,
+    assets: FxHashMap<FileId, Bytes>,
+    sources: FxHashMap<FileId, Source>,
 }
 
 /// Shared foundation of all test worlds.

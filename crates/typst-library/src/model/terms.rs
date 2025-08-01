@@ -1,15 +1,9 @@
-use typst_utils::{Get, Numeric};
-
-use crate::diag::{bail, SourceResult};
-use crate::engine::Engine;
+use crate::diag::bail;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Packed, Show, Smart, StyleChain,
-    Styles, TargetElem,
+    Array, Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
 };
-use crate::html::{tag, HtmlElem};
-use crate::layout::{Em, HElem, Length, Sides, StackChild, StackElem, VElem};
-use crate::model::{ListItemLike, ListLike, ParElem, ParbreakElem};
-use crate::text::TextElem;
+use crate::layout::{Em, HElem, Length};
+use crate::model::{ListItemLike, ListLike};
 
 /// A list of terms and their descriptions.
 ///
@@ -27,7 +21,7 @@ use crate::text::TextElem;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Show)]
+#[elem(scope, title = "Term List")]
 pub struct TermsElem {
     /// Defines the default [spacing]($terms.spacing) of the term list. If it is
     /// `{false}`, the items are spaced apart with
@@ -115,94 +109,6 @@ pub struct TermsElem {
 impl TermsElem {
     #[elem]
     type TermItem;
-}
-
-impl Show for Packed<TermsElem> {
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let span = self.span();
-        let tight = self.tight.get(styles);
-
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(tag::dl)
-                .with_body(Some(Content::sequence(self.children.iter().flat_map(
-                    |item| {
-                        // Text in wide term lists shall always turn into paragraphs.
-                        let mut description = item.description.clone();
-                        if !tight {
-                            description += ParbreakElem::shared();
-                        }
-
-                        [
-                            HtmlElem::new(tag::dt)
-                                .with_body(Some(item.term.clone()))
-                                .pack()
-                                .spanned(item.term.span()),
-                            HtmlElem::new(tag::dd)
-                                .with_body(Some(description))
-                                .pack()
-                                .spanned(item.description.span()),
-                        ]
-                    },
-                ))))
-                .pack());
-        }
-
-        let separator = self.separator.get_ref(styles);
-        let indent = self.indent.get(styles);
-        let hanging_indent = self.hanging_indent.get(styles);
-        let gutter = self.spacing.get(styles).unwrap_or_else(|| {
-            if tight {
-                styles.get(ParElem::leading)
-            } else {
-                styles.get(ParElem::spacing)
-            }
-        });
-
-        let pad = hanging_indent + indent;
-        let unpad = (!hanging_indent.is_zero())
-            .then(|| HElem::new((-hanging_indent).into()).pack().spanned(span));
-
-        let mut children = vec![];
-        for child in self.children.iter() {
-            let mut seq = vec![];
-            seq.extend(unpad.clone());
-            seq.push(child.term.clone().strong());
-            seq.push((*separator).clone());
-            seq.push(child.description.clone());
-
-            // Text in wide term lists shall always turn into paragraphs.
-            if !tight {
-                seq.push(ParbreakElem::shared().clone());
-            }
-
-            children.push(StackChild::Block(Content::sequence(seq)));
-        }
-
-        let padding =
-            Sides::default().with(styles.resolve(TextElem::dir).start(), pad.into());
-
-        let mut realized = StackElem::new(children)
-            .with_spacing(Some(gutter.into()))
-            .pack()
-            .spanned(span)
-            .padded(padding)
-            .set(TermsElem::within, true);
-
-        if tight {
-            let spacing = self
-                .spacing
-                .get(styles)
-                .unwrap_or_else(|| styles.get(ParElem::leading));
-            let v = VElem::new(spacing.into())
-                .with_weak(true)
-                .with_attach(true)
-                .pack()
-                .spanned(span);
-            realized = v + realized;
-        }
-
-        Ok(realized)
-    }
 }
 
 /// A term list item.

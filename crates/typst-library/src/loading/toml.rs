@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, Str, Value};
+use crate::foundations::{Str, Value, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a TOML file.
@@ -41,7 +41,10 @@ pub fn toml(
 impl toml {
     /// Reads structured data from a TOML string/bytes.
     #[func(title = "Decode TOML")]
-    #[deprecated = "`toml.decode` is deprecated, directly pass bytes to `toml` instead"]
+    #[deprecated(
+        message = "`toml.decode` is deprecated, directly pass bytes to `toml` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// TOML data.

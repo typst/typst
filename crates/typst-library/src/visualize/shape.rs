@@ -1,9 +1,5 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, Cast, Content, NativeElement, Packed, Show, Smart, StyleChain,
-};
-use crate::layout::{Abs, BlockElem, Corners, Length, Point, Rel, Sides, Size, Sizing};
+use crate::foundations::{Cast, Content, Smart, elem};
+use crate::layout::{Abs, Corners, Length, Point, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 
 /// A rectangle with optional content.
@@ -19,7 +15,7 @@ use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(title = "Rectangle", Show)]
+#[elem(title = "Rectangle")]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -122,16 +118,6 @@ pub struct RectElem {
     pub body: Option<Content>,
 }
 
-impl Show for Packed<RectElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_rect)
-            .with_width(self.width.get(styles))
-            .with_height(self.height.get(styles))
-            .pack()
-            .spanned(self.span()))
-    }
-}
-
 /// A square with optional content.
 ///
 /// # Example
@@ -145,7 +131,7 @@ impl Show for Packed<RectElem> {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
@@ -209,16 +195,6 @@ pub struct SquareElem {
     pub body: Option<Content>,
 }
 
-impl Show for Packed<SquareElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_square)
-            .with_width(self.width.get(styles))
-            .with_height(self.height.get(styles))
-            .pack()
-            .spanned(self.span()))
-    }
-}
-
 /// An ellipse with optional content.
 ///
 /// # Example
@@ -233,7 +209,7 @@ impl Show for Packed<SquareElem> {
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -269,16 +245,6 @@ pub struct EllipseElem {
     pub body: Option<Content>,
 }
 
-impl Show for Packed<EllipseElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_ellipse)
-            .with_width(self.width.get(styles))
-            .with_height(self.height.get(styles))
-            .pack()
-            .spanned(self.span()))
-    }
-}
-
 /// A circle with optional content.
 ///
 /// # Example
@@ -293,7 +259,7 @@ impl Show for Packed<EllipseElem> {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.
@@ -352,16 +318,6 @@ pub struct CircleElem {
     /// content, keeping the 1-1 aspect ratio.
     #[positional]
     pub body: Option<Content>,
-}
-
-impl Show for Packed<CircleElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_circle)
-            .with_width(self.width.get(styles))
-            .with_height(self.height.get(styles))
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// A geometric shape with optional fill and stroke.

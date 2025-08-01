@@ -4,21 +4,21 @@ use std::sync::Arc;
 
 use az::SaturatingAs;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
-use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::Tag;
+use ttf_parser::gsub::SubstitutionSubtable;
+use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
-    families, features, is_default_ignorable, language, variant, Font, FontFamily,
-    FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds, TextElem, TextItem,
+    Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
+    TextElem, TextItem, families, features, is_default_ignorable, language, variant,
 };
-use typst_library::World;
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::{decorate, Item, Range, SpanMapper};
+use super::{Item, Range, SpanMapper, decorate};
 use crate::modifiers::FrameModifyText;
 
 /// The result of shaping text.
@@ -539,11 +539,7 @@ impl<'a> ShapedText<'a> {
         // Find any glyph with the text index.
         let found = self.glyphs.binary_search_by(|g: &ShapedGlyph| {
             let ordering = g.range.start.cmp(&text_index);
-            if ltr {
-                ordering
-            } else {
-                ordering.reverse()
-            }
+            if ltr { ordering } else { ordering.reverse() }
         });
 
         let mut idx = match found {
@@ -719,6 +715,10 @@ fn glyphs_width(glyphs: &[ShapedGlyph]) -> Abs {
 struct ShapingContext<'a, 'v> {
     engine: &'a Engine<'v>,
     glyphs: Vec<ShapedGlyph>,
+    /// Font families that have been used with unlimited coverage.
+    ///
+    /// These font families are considered exhausted and will not be used again,
+    /// even if they are declared again (e.g., during fallback after normal selection).
     used: Vec<Font>,
     styles: StyleChain<'a>,
     size: Abs,
@@ -777,7 +777,10 @@ fn shape_segment<'a>(
         return;
     };
 
-    ctx.used.push(font.clone());
+    // This font has been exhausted and will not be used again.
+    if covers.is_none() {
+        ctx.used.push(font.clone());
+    }
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();

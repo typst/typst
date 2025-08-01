@@ -29,6 +29,7 @@ typst-svg = { workspace = true }
 typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+clap_complete = { workspace = true }
 codespan-reporting = { workspace = true }
 color-print = { workspace = true }
 comemo = { workspace = true }
@@ -40,6 +41,7 @@ open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
+rustc-hash = { workspace = true }
 same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }

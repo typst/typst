@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use krilla::embed::{AssociationKind, EmbeddedFile};
 use krilla::Document;
-use typst_library::diag::{bail, SourceResult};
+use krilla::embed::{AssociationKind, EmbeddedFile};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;
 use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
@@ -47,7 +47,7 @@ pub(crate) fn embed_files(
             association_kind,
             data: data.into(),
             compress,
-            location: Some(span.into_raw().get()),
+            location: Some(span.into_raw()),
         };
 
         if document.embed_file(file).is_none() {

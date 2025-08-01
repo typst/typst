@@ -1,18 +1,11 @@
-use std::ffi::OsStr;
-
-use typst_library::diag::{warning, At, LoadedWithin, SourceResult, StrResult};
+use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Bytes, Derived, Packed, Smart, StyleChain};
+use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
 };
-use typst_library::loading::DataSource;
-use typst_library::text::families;
-use typst_library::visualize::{
-    Curve, ExchangeFormat, Image, ImageElem, ImageFit, ImageFormat, ImageKind,
-    RasterImage, SvgImage, VectorFormat,
-};
+use typst_library::visualize::{Curve, Image, ImageElem, ImageFit};
 
 /// Layout the image.
 #[typst_macros::time(span = elem.span())]
@@ -23,53 +16,7 @@ pub fn layout_image(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let span = elem.span();
-
-    // Take the format that was explicitly defined, or parse the extension,
-    // or try to detect the format.
-    let Derived { source, derived: loaded } = &elem.source;
-    let format = match elem.format.get(styles) {
-        Smart::Custom(v) => v,
-        Smart::Auto => determine_format(source, &loaded.data).at(span)?,
-    };
-
-    // Warn the user if the image contains a foreign object. Not perfect
-    // because the svg could also be encoded, but that's an edge case.
-    if format == ImageFormat::Vector(VectorFormat::Svg) {
-        let has_foreign_object =
-            memchr::memmem::find(&loaded.data, b"<foreignObject").is_some();
-
-        if has_foreign_object {
-            engine.sink.warn(warning!(
-                span,
-                "image contains foreign object";
-                hint: "SVG images with foreign objects might render incorrectly in typst";
-                hint: "see https://github.com/typst/typst/issues/1421 for more information"
-            ));
-        }
-    }
-
-    // Construct the image itself.
-    let kind = match format {
-        ImageFormat::Raster(format) => ImageKind::Raster(
-            RasterImage::new(
-                loaded.data.clone(),
-                format,
-                elem.icc.get_ref(styles).as_ref().map(|icc| icc.derived.clone()),
-            )
-            .at(span)?,
-        ),
-        ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
-            SvgImage::with_fonts(
-                loaded.data.clone(),
-                engine.world,
-                &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-            )
-            .within(loaded)?,
-        ),
-    };
-
-    let image = Image::new(kind, elem.alt.get_cloned(styles), elem.scaling.get(styles));
+    let image = elem.decode(engine, styles)?;
 
     // Determine the image's pixel aspect ratio.
     let pxw = image.width();
@@ -122,7 +69,7 @@ pub fn layout_image(
     // the frame to the target size, center aligning the image in the
     // process.
     let mut frame = Frame::soft(fitted);
-    frame.push(Point::zero(), FrameItem::Image(image, fitted, span));
+    frame.push(Point::zero(), FrameItem::Image(image, fitted, elem.span()));
     frame.resize(target, Axes::splat(FixedAlignment::Center));
 
     // Create a clipping group if only part of the image should be visible.
@@ -131,26 +78,4 @@ pub fn layout_image(
     }
 
     Ok(frame)
-}
-
-/// Try to determine the image format based on the data.
-fn determine_format(source: &DataSource, data: &Bytes) -> StrResult<ImageFormat> {
-    if let DataSource::Path(path) = source {
-        let ext = std::path::Path::new(path.as_str())
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default()
-            .to_lowercase();
-
-        match ext.as_str() {
-            "png" => return Ok(ExchangeFormat::Png.into()),
-            "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
-            "gif" => return Ok(ExchangeFormat::Gif.into()),
-            "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
-            "webp" => return Ok(ExchangeFormat::Webp.into()),
-            _ => {}
-        }
-    }
-
-    Ok(ImageFormat::detect(data).ok_or("unknown image format")?)
 }

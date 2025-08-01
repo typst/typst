@@ -64,6 +64,16 @@ impl<T: NativeElement> Packed<T> {
         self.0
     }
 
+    /// Pack back into a reference to content.
+    pub fn pack_ref(&self) -> &Content {
+        &self.0
+    }
+
+    /// Pack back into a mutable reference to content.
+    pub fn pack_mut(&mut self) -> &mut Content {
+        &mut self.0
+    }
+
     /// Extract the raw underlying element.
     pub fn unpack(self) -> T {
         // This function doesn't yet need owned self, but might in the future.
@@ -93,10 +103,6 @@ impl<T: NativeElement> Packed<T> {
     /// Sets the location of the element.
     pub fn set_location(&mut self, location: Location) {
         self.0.set_location(location);
-    }
-
-    pub fn as_content(&self) -> &Content {
-        &self.0
     }
 }
 

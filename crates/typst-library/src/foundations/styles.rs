@@ -4,7 +4,8 @@ use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
 
 use comemo::Tracked;
-use ecow::{eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_vec};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -12,8 +13,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, ty, Content, Context, Element, Field, Func, NativeElement, OneOrMultiple,
-    RefableProperty, Repr, Selector, SettableProperty,
+    Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,
+    RefableProperty, Repr, Selector, SettableProperty, Target, cast, ty,
 };
 use crate::text::{FontFamily, FontList, TextElem};
 
@@ -620,11 +621,7 @@ impl<'a> StyleChain<'a> {
             .properties(func, id)
             .map(|block| block.downcast::<T>(func, id).clone());
 
-        if let Some(folded) = iter.reduce(fold) {
-            fold(folded, default)
-        } else {
-            default
-        }
+        if let Some(folded) = iter.reduce(fold) { fold(folded, default) } else { default }
     }
 
     /// Iterate over all values for the given property in the chain.
@@ -937,4 +934,130 @@ fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
         func.field_name(id).unwrap(),
         value
     )
+}
+
+/// Holds native show rules.
+pub struct NativeRuleMap {
+    rules: FxHashMap<(Element, Target), NativeShowRule>,
+}
+
+/// The signature of a native show rule.
+pub type ShowFn<T> = fn(
+    elem: &Packed<T>,
+    engine: &mut Engine,
+    styles: StyleChain,
+) -> SourceResult<Content>;
+
+impl NativeRuleMap {
+    /// Creates a new rule map.
+    ///
+    /// Should be populated with rules for all target-element combinations that
+    /// are supported.
+    ///
+    /// Contains built-in rules for a few special elements.
+    pub fn new() -> Self {
+        let mut rules = Self { rules: FxHashMap::default() };
+
+        // ContextElem is as special as SequenceElem and StyledElem and could,
+        // in theory, also be special cased in realization.
+        rules.register_builtin(crate::foundations::CONTEXT_RULE);
+
+        // CounterDisplayElem only exists because the compiler can't currently
+        // express the equivalent of `context counter(..).display(..)` in native
+        // code (no native closures).
+        rules.register_builtin(crate::introspection::COUNTER_DISPLAY_RULE);
+
+        // These are all only for introspection and empty on all targets.
+        rules.register_empty::<crate::introspection::CounterUpdateElem>();
+        rules.register_empty::<crate::introspection::StateUpdateElem>();
+        rules.register_empty::<crate::introspection::MetadataElem>();
+        rules.register_empty::<crate::model::PrefixInfo>();
+
+        rules
+    }
+
+    /// Registers a rule for all targets.
+    fn register_empty<T: NativeElement>(&mut self) {
+        self.register_builtin::<T>(|_, _, _| Ok(Content::empty()));
+    }
+
+    /// Registers a rule for all targets.
+    fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
+        self.register(Target::Paged, f);
+        self.register(Target::Html, f);
+    }
+
+    /// Registers a rule for a target.
+    ///
+    /// Panics if a rule already exists for this target-element combination.
+    pub fn register<T: NativeElement>(&mut self, target: Target, f: ShowFn<T>) {
+        let res = self.rules.insert((T::ELEM, target), NativeShowRule::new(f));
+        if res.is_some() {
+            panic!(
+                "duplicate native show rule for `{}` on {target:?} target",
+                T::ELEM.name()
+            )
+        }
+    }
+
+    /// Retrieves the rule that applies to the `content` on the current
+    /// `target`.
+    pub fn get(&self, target: Target, content: &Content) -> Option<NativeShowRule> {
+        self.rules.get(&(content.func(), target)).copied()
+    }
+}
+
+impl Default for NativeRuleMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub use rule::NativeShowRule;
+
+mod rule {
+    use super::*;
+
+    /// The show rule for a native element.
+    #[derive(Copy, Clone)]
+    pub struct NativeShowRule {
+        /// The element to which this rule applies.
+        elem: Element,
+        /// Must only be called with content of the appropriate type.
+        f: unsafe fn(
+            elem: &Content,
+            engine: &mut Engine,
+            styles: StyleChain,
+        ) -> SourceResult<Content>,
+    }
+
+    impl NativeShowRule {
+        /// Create a new type-erased show rule.
+        pub fn new<T: NativeElement>(f: ShowFn<T>) -> Self {
+            Self {
+                elem: T::ELEM,
+                // Safety: The two function pointer types only differ in the
+                // first argument, which changes from `&Packed<T>` to
+                // `&Content`. `Packed<T>` is a transparent wrapper around
+                // `Content`. The resulting function is unsafe to call because
+                // content of the correct type must be passed to it.
+                #[allow(clippy::missing_transmute_annotations)]
+                f: unsafe { std::mem::transmute(f) },
+            }
+        }
+
+        /// Applies the rule to content. Panics if the content is of the wrong
+        /// type.
+        pub fn apply(
+            &self,
+            content: &Content,
+            engine: &mut Engine,
+            styles: StyleChain,
+        ) -> SourceResult<Content> {
+            assert_eq!(content.elem(), self.elem);
+
+            // Safety: We just checked that the element is of the correct type.
+            unsafe { (self.f)(content, engine, styles) }
+        }
+    }
 }

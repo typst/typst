@@ -1,10 +1,9 @@
 use typst_syntax::Spanned;
 
-use crate::diag::{error, At, HintedString, SourceResult};
+use crate::diag::{At, HintedString, SourceResult, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Derived, Label, Packed, Show, Smart, StyleChain,
-    Synthesize,
+    Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
@@ -153,16 +152,15 @@ pub enum CitationForm {
 ///
 /// This is automatically created from adjacent citations during show rule
 /// application.
-#[elem(Locatable, Show)]
+#[elem(Locatable)]
 pub struct CiteGroup {
     /// The citations.
     #[required]
     pub children: Vec<Packed<CiteElem>>,
 }
 
-impl Show for Packed<CiteGroup> {
-    #[typst_macros::time(name = "cite", span = self.span())]
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+impl Packed<CiteGroup> {
+    pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
         let location = self.location().unwrap();
         let span = self.span();
         Works::generate(engine)

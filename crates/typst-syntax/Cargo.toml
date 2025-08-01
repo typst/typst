@@ -15,8 +15,8 @@ readme = { workspace = true }
 [dependencies]
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
-comemo = { workspace = true }
 ecow = { workspace = true }
+rustc-hash = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
 unicode-ident = { workspace = true }

@@ -5,7 +5,7 @@
   title: Variants
   category: math
   path: ["math"]
-  filter: ["serif", "sans", "frak", "mono", "bb", "cal"]
+  filter: ["serif", "sans", "frak", "mono", "bb", "cal", "scr"]
   details: |
     Alternate typefaces within formulas.
 

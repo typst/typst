@@ -2,12 +2,13 @@ use ecow::EcoString;
 use typst_syntax::is_newline;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, HintedStrResult, StrResult};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    array, cast, dict, elem, Array, Dict, FromValue, Packed, PlainText, Smart, Str,
+    Array, Dict, FromValue, Packed, PlainText, Smart, Str, StyleChain, array, cast, dict,
+    elem,
 };
 use crate::layout::Dir;
-use crate::text::{Lang, Region};
+use crate::text::{Lang, Region, TextElem};
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -200,6 +201,16 @@ pub struct SmartQuotes<'s> {
 }
 
 impl<'s> SmartQuotes<'s> {
+    /// Retrieve the smart quotes as configured by the current styles.
+    pub fn get_in(styles: StyleChain<'s>) -> Self {
+        Self::get(
+            styles.get_ref(SmartQuoteElem::quotes),
+            styles.get(TextElem::lang),
+            styles.get(TextElem::region),
+            styles.get(SmartQuoteElem::alternative),
+        )
+    }
+
     /// Create a new `Quotes` struct with the given quotes, optionally falling
     /// back to the defaults for a language and region.
     ///
@@ -253,6 +264,7 @@ impl<'s> SmartQuotes<'s> {
             "he" => ("’", "’", "”", "”"),
             "hr" => ("‘", "’", "„", "”"),
             "bg" => ("’", "’", "„", "“"),
+            "ar" if !alternative => ("’", "‘", "«", "»"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };
@@ -286,20 +298,12 @@ impl<'s> SmartQuotes<'s> {
 
     /// The opening quote.
     pub fn open(&self, double: bool) -> &'s str {
-        if double {
-            self.double_open
-        } else {
-            self.single_open
-        }
+        if double { self.double_open } else { self.single_open }
     }
 
     /// The closing quote.
     pub fn close(&self, double: bool) -> &'s str {
-        if double {
-            self.double_close
-        } else {
-            self.single_close
-        }
+        if double { self.double_close } else { self.single_close }
     }
 }
 

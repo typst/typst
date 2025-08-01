@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::iter;
 use std::path::PathBuf;
@@ -9,13 +8,14 @@ use codespan_reporting::term::termcolor::WriteColor;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
+use rustc_hash::{FxHashMap, FxHashSet};
 use same_file::is_same_file;
-use typst::diag::{bail, warning, StrResult};
+use typst::diag::{StrResult, bail, warning};
 use typst::syntax::Span;
 use typst::utils::format_duration;
 
 use crate::args::{Input, Output, WatchCommand};
-use crate::compile::{compile_once, print_diagnostics, CompileConfig};
+use crate::compile::{CompileConfig, compile_once, print_diagnostics};
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
@@ -91,10 +91,10 @@ struct Watcher {
     /// Keeps track of which paths are watched via `watcher`. The boolean is
     /// used during updating for mark-and-sweep garbage collection of paths we
     /// should unwatch.
-    watched: HashMap<PathBuf, bool>,
+    watched: FxHashMap<PathBuf, bool>,
     /// A set of files that should be watched, but don't exist. We manually poll
     /// for those.
-    missing: HashSet<PathBuf>,
+    missing: FxHashSet<PathBuf>,
 }
 
 impl Watcher {
@@ -127,8 +127,8 @@ impl Watcher {
             output,
             rx,
             watcher,
-            watched: HashMap::new(),
-            missing: HashSet::new(),
+            watched: FxHashMap::default(),
+            missing: FxHashSet::default(),
         })
     }
 
@@ -139,6 +139,7 @@ impl Watcher {
     fn update(&mut self, iter: impl IntoIterator<Item = PathBuf>) -> StrResult<()> {
         // Mark all files as not "seen" so that we may unwatch them if they
         // aren't in the dependency list.
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
         for seen in self.watched.values_mut() {
             *seen = false;
         }

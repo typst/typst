@@ -7,6 +7,7 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use clap::builder::{TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
+use clap_complete::Shell;
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -81,6 +82,9 @@ pub enum Command {
     /// Self update the Typst CLI.
     #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
+
+    /// Generates shell completion scripts.
+    Completions(CompletionsCommand),
 }
 
 /// Compiles an input file into a supported output format.
@@ -151,6 +155,10 @@ pub struct QueryCommand {
     #[clap(long)]
     pub pretty: bool,
 
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
     /// World arguments.
     #[clap(flatten)]
     pub world: WorldArgs,
@@ -196,6 +204,14 @@ pub struct UpdateCommand {
     /// defaults to system-dependent location
     #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "FILE")]
     pub backup_path: Option<PathBuf>,
+}
+
+/// Generates shell completion scripts.
+#[derive(Debug, Clone, Parser)]
+pub struct CompletionsCommand {
+    /// The shell to generate completions for.
+    #[arg(value_enum)]
+    pub shell: Shell,
 }
 
 /// Arguments for compilation and watching.
@@ -444,6 +460,18 @@ pub enum OutputFormat {
 }
 
 display_possible_values!(OutputFormat);
+
+/// The target to compile for.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum Target {
+    /// PDF and image formats.
+    #[default]
+    Paged,
+    /// HTML.
+    Html,
+}
+
+display_possible_values!(Target);
 
 /// Which format to use for diagnostics.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]

@@ -2,13 +2,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::Spanned;
 use wasmi::Memory;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Binding, Bytes, Func, Module, Scope, Value};
+use crate::foundations::{Binding, Bytes, Func, Module, Scope, Value, cast, func, scope};
 use crate::loading::{DataSource, Load};
 
 /// Loads a WebAssembly module.
