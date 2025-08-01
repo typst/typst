@@ -1166,14 +1166,14 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // auto cells (although a fully empty header does count as having
         // auto cells, albeit empty).
         //
-        // So we use a separate auto index counter inside the header. It starts
+        // So, we use a separate auto index counter inside the header. It starts
         // below the first non-empty row. If the header only has fixed-position
         // cells, the external counter is unchanged. Otherwise (only auto cells
         // or empty), the external counter is synchronized and moved to below
         // the header. This ensures lines and cells specified below the header
         // in the source code also appear below it in the final grid/table.
         let local_auto_index = if matches!(child, ResolvableGridChild::Item(_)) {
-            // Re-borrow the original auto index so we can re-use this mutable
+            // Re-borrow the original auto index so we can reuse this mutable
             // reference later.
             &mut *auto_index
         } else {
@@ -1268,9 +1268,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             }
         };
 
-        let items = header_footer_items.into_iter().flatten().chain(simple_item);
         let mut had_any_cells = false;
         let mut had_auto_cells = false;
+        let items = header_footer_items.into_iter().flatten().chain(simple_item);
+
         for item in items {
             let cell = match item {
                 ResolvableGridItem::HLine { y, start, end, stroke, span, position } => {
