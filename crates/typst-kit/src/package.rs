@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use typst_library::diag::{PackageError, PackageResult, StrResult, bail};
+use typst_library::diag::{
+    PackageError, PackageRegistry, PackageResult, StrResult, bail,
+};
 use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::download::{Downloader, Progress};
@@ -152,7 +154,11 @@ impl PackageStorage {
         Err(PackageError::VersionNotFound(
             spec.clone(),
             latest,
-            eco_format!("{}", namespace_dir.display()),
+            PackageRegistry {
+                name: eco_format!("{}", spec.namespace),
+                path: namespace_dir.to_path_buf(),
+                url: None,
+            },
         ))
     }
 
@@ -228,7 +234,11 @@ impl PackageStorage {
                     return Err(PackageError::VersionNotFound(
                         spec.clone(),
                         Some(version),
-                        eco_format!("{namespace_url}"),
+                        PackageRegistry {
+                            name: eco_format!("{DEFAULT_REGISTRY}"),
+                            path: cache_dir.to_path_buf(),
+                            url: Some(eco_format!("{namespace_url}")),
+                        },
                     ));
                 } else {
                     return Err(PackageError::NotFound(
