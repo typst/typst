@@ -4,9 +4,10 @@ use serde::Serialize;
 use typst::diag::{bail, HintedStrResult, StrResult, Warned};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::introspection::Introspector;
 use typst::layout::PagedDocument;
 use typst::syntax::{Span, SyntaxMode};
-use typst::{Document, World};
+use typst::World;
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 
@@ -25,15 +26,15 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
 
     let Warned { output, warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
-            .map(|output| output.map(|document| retrieve(&world, command, &document))),
+            .map(|output| output.map(|document| document.introspector)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
-            .map(|output| output.map(|document| retrieve(&world, command, &document))),
+            .map(|output| output.map(|document| document.introspector)),
     };
 
     match output {
         // Retrieve and print query results.
-        Ok(data) => {
-            let data = data?;
+        Ok(introspector) => {
+            let data = retrieve(&world, command, &introspector)?;
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
@@ -57,10 +58,10 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
 }
 
 /// Retrieve the matches for the selector.
-fn retrieve<D: Document>(
+fn retrieve(
     world: &dyn World,
     command: &QueryCommand,
-    document: &D,
+    introspector: &Introspector,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
         &typst::ROUTINES,
@@ -82,11 +83,7 @@ fn retrieve<D: Document>(
     })?
     .cast::<LocatableSelector>()?;
 
-    Ok(document
-        .introspector()
-        .query(&selector.0)
-        .into_iter()
-        .collect::<Vec<_>>())
+    Ok(introspector.query(&selector.0).into_iter().collect::<Vec<_>>())
 }
 
 /// Format the query result in the output format.
