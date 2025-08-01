@@ -3,7 +3,7 @@ use krilla::tagging::{ListNumbering, Tag, TagKind};
 use crate::tags::{GroupContents, TagNode};
 
 #[derive(Clone, Debug)]
-pub(crate) struct ListCtx {
+pub struct ListCtx {
     numbering: ListNumbering,
     items: Vec<ListItem>,
 }
@@ -16,11 +16,11 @@ struct ListItem {
 }
 
 impl ListCtx {
-    pub(crate) fn new(numbering: ListNumbering) -> Self {
+    pub fn new(numbering: ListNumbering) -> Self {
         Self { numbering, items: Vec::new() }
     }
 
-    pub(crate) fn push_label(&mut self, contents: GroupContents) {
+    pub fn push_label(&mut self, contents: GroupContents) {
         self.items.push(ListItem {
             label: TagNode::group(Tag::Lbl, contents),
             body: None,
@@ -28,7 +28,7 @@ impl ListCtx {
         });
     }
 
-    pub(crate) fn push_body(&mut self, mut contents: GroupContents) {
+    pub fn push_body(&mut self, mut contents: GroupContents) {
         let item = self.items.last_mut().expect("ListItemLabel");
 
         // Nested lists are expected to have the following structure:
@@ -73,7 +73,7 @@ impl ListCtx {
         item.body = Some(TagNode::group(Tag::LBody, contents));
     }
 
-    pub(crate) fn push_bib_entry(&mut self, contents: GroupContents) {
+    pub fn push_bib_entry(&mut self, contents: GroupContents) {
         let nodes = vec![TagNode::group(Tag::BibEntry, contents)];
         // Bibliography lists cannot be nested, but may be missing labels.
         let body = TagNode::virtual_group(Tag::LBody, nodes);
@@ -88,7 +88,7 @@ impl ListCtx {
         }
     }
 
-    pub(crate) fn build_list(self, mut contents: GroupContents) -> TagNode {
+    pub fn build_list(self, mut contents: GroupContents) -> TagNode {
         for item in self.items.into_iter() {
             contents.nodes.push(TagNode::virtual_group(
                 Tag::LI,

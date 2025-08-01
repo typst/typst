@@ -40,7 +40,7 @@ mod outline;
 mod table;
 mod util;
 
-pub(crate) fn handle_start(
+pub fn handle_start(
     gc: &mut GlobalContext,
     surface: &mut Surface,
     elem: &Content,
@@ -240,7 +240,7 @@ fn push_artifact(
     gc.tags.in_artifact = Some((loc, kind));
 }
 
-pub(crate) fn handle_end(
+pub fn handle_end(
     gc: &mut GlobalContext,
     surface: &mut Surface,
     loc: Location,
@@ -452,7 +452,7 @@ fn pop_artifact(gc: &mut GlobalContext, surface: &mut Surface) {
     gc.tags.in_artifact = None;
 }
 
-pub(crate) fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
     if gc.options.disable_tags {
         return;
     }
@@ -464,7 +464,7 @@ pub(crate) fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
     }
 }
 
-pub(crate) fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
     if gc.options.disable_tags {
         return;
     }
@@ -475,7 +475,7 @@ pub(crate) fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
 }
 
 /// Add all annotations that were found in the page frame.
-pub(crate) fn add_link_annotations(
+pub fn add_link_annotations(
     gc: &mut GlobalContext,
     page: &mut Page,
     annotations: Vec<LinkAnnotation>,
@@ -499,7 +499,7 @@ pub(crate) fn add_link_annotations(
     }
 }
 
-pub(crate) fn update_bbox(
+pub fn update_bbox(
     gc: &mut GlobalContext,
     fc: &FrameContext,
     compute_bbox: impl FnOnce() -> Rect,
@@ -511,19 +511,19 @@ pub(crate) fn update_bbox(
     }
 }
 
-pub(crate) struct Tags {
+pub struct Tags {
     /// The language of the first text item that has been encountered.
-    pub(crate) doc_lang: Option<Lang>,
+    pub doc_lang: Option<Lang>,
     /// The intermediary stack of nested tag groups.
-    pub(crate) stack: TagStack,
+    pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
-    pub(crate) placeholders: Placeholders,
+    pub placeholders: Placeholders,
     /// Footnotes are inserted directly after the footenote reference in the
     /// reading order. Because of some layouting bugs, the entry might appear
     /// before the reference in the text, so we only resolve them once tags
     /// for the whole document are generated.
-    pub(crate) footnotes: HashMap<Location, FootnoteCtx>,
-    pub(crate) in_artifact: Option<(Location, ArtifactKind)>,
+    pub footnotes: HashMap<Location, FootnoteCtx>,
+    pub in_artifact: Option<(Location, ArtifactKind)>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
     /// Used to generate IDs referenced in table `Headers` attributes.
@@ -531,11 +531,11 @@ pub(crate) struct Tags {
     table_id: TableId,
 
     /// The output.
-    pub(crate) tree: Vec<TagNode>,
+    pub tree: Vec<TagNode>,
 }
 
 impl Tags {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             doc_lang: None,
             stack: TagStack::new(),
@@ -550,7 +550,7 @@ impl Tags {
         }
     }
 
-    pub(crate) fn push(&mut self, node: TagNode) {
+    pub fn push(&mut self, node: TagNode) {
         if let Some(entry) = self.stack.last_mut() {
             entry.nodes.push(node);
         } else {
@@ -558,7 +558,7 @@ impl Tags {
         }
     }
 
-    pub(crate) fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
+    pub fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
         if let Some(entry) = self.stack.last_mut() {
             entry.nodes.extend(nodes);
         } else {
@@ -566,7 +566,7 @@ impl Tags {
         }
     }
 
-    pub(crate) fn build_tree(&mut self) -> TagTree {
+    pub fn build_tree(&mut self) -> TagTree {
         let children = std::mem::take(&mut self.tree)
             .into_iter()
             .map(|node| self.resolve_node(node))
@@ -578,7 +578,7 @@ impl Tags {
     /// If the language couldn't be set and is different from the existing one,
     /// this will return `Some`, and the language should be specified on the
     /// marked content directly.
-    pub(crate) fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
+    pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
         // Discard languages within artifacts.
         if self.in_artifact.is_some() {
             return None;
@@ -622,7 +622,7 @@ impl Tags {
         true
     }
 
-    pub(crate) fn next_link_id(&mut self) -> LinkId {
+    pub fn next_link_id(&mut self) -> LinkId {
         self.link_id.0 += 1;
         self.link_id
     }
@@ -634,7 +634,7 @@ impl Tags {
 }
 
 #[derive(Debug)]
-pub(crate) struct TagStack {
+pub struct TagStack {
     items: Vec<StackEntry>,
     /// The index of the topmost stack entry that has a bbox.
     bbox_idx: Option<usize>,
@@ -657,34 +657,34 @@ impl<I: SliceIndex<[StackEntry]>> std::ops::IndexMut<I> for TagStack {
 }
 
 impl TagStack {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self { items: Vec::new(), bbox_idx: None }
     }
 
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.items.len()
     }
 
-    pub(crate) fn last(&self) -> Option<&StackEntry> {
+    pub fn last(&self) -> Option<&StackEntry> {
         self.items.last()
     }
 
-    pub(crate) fn last_mut(&mut self) -> Option<&mut StackEntry> {
+    pub fn last_mut(&mut self) -> Option<&mut StackEntry> {
         self.items.last_mut()
     }
 
-    pub(crate) fn iter(&self) -> std::slice::Iter<StackEntry> {
+    pub fn iter(&self) -> std::slice::Iter<StackEntry> {
         self.items.iter()
     }
 
-    pub(crate) fn push(&mut self, entry: StackEntry) {
+    pub fn push(&mut self, entry: StackEntry) {
         if entry.kind.bbox().is_some() {
             self.bbox_idx = Some(self.len());
         }
         self.items.push(entry);
     }
 
-    pub(crate) fn extend(&mut self, iter: impl IntoIterator<Item = StackEntry>) {
+    pub fn extend(&mut self, iter: impl IntoIterator<Item = StackEntry>) {
         let start = self.len();
         self.items.extend(iter);
         let last_bbox_offset = self.items[start..]
@@ -697,7 +697,7 @@ impl TagStack {
 
     /// Remove the last stack entry if the predicate returns true.
     /// This takes care of updating the parent bboxes.
-    pub(crate) fn pop_if(
+    pub fn pop_if(
         &mut self,
         mut predicate: impl FnMut(&mut StackEntry) -> bool,
     ) -> Option<StackEntry> {
@@ -707,7 +707,7 @@ impl TagStack {
 
     /// Remove the last stack entry.
     /// This takes care of updating the parent bboxes.
-    pub(crate) fn pop(&mut self) -> Option<StackEntry> {
+    pub fn pop(&mut self) -> Option<StackEntry> {
         let removed = self.items.pop()?;
 
         let Some(inner_bbox) = removed.kind.bbox() else { return Some(removed) };
@@ -723,32 +723,30 @@ impl TagStack {
         Some(removed)
     }
 
-    pub(crate) fn parent(&mut self) -> Option<&mut StackEntryKind> {
+    pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
         self.items.last_mut().map(|e| &mut e.kind)
     }
 
-    pub(crate) fn parent_table(&mut self) -> Option<&mut TableCtx> {
+    pub fn parent_table(&mut self) -> Option<&mut TableCtx> {
         self.parent()?.as_table_mut()
     }
 
-    pub(crate) fn parent_list(&mut self) -> Option<&mut ListCtx> {
+    pub fn parent_list(&mut self) -> Option<&mut ListCtx> {
         self.parent()?.as_list_mut()
     }
 
-    pub(crate) fn parent_figure(&mut self) -> Option<&mut FigureCtx> {
+    pub fn parent_figure(&mut self) -> Option<&mut FigureCtx> {
         self.parent()?.as_figure_mut()
     }
 
-    pub(crate) fn parent_outline(
-        &mut self,
-    ) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
+    pub fn parent_outline(&mut self) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
         self.items.last_mut().and_then(|e| {
             let ctx = e.kind.as_outline_mut()?;
             Some((ctx, &mut e.nodes))
         })
     }
 
-    pub(crate) fn find_parent_link(
+    pub fn find_parent_link(
         &mut self,
     ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
         self.items.iter_mut().rev().find_map(|e| {
@@ -758,49 +756,49 @@ impl TagStack {
     }
 
     /// Finds the first parent that has a bounding box.
-    pub(crate) fn find_parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
+    pub fn find_parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
         self.items[self.bbox_idx?].kind.bbox_mut()
     }
 }
 
-pub(crate) struct Placeholders(Vec<OnceCell<Node>>);
+pub struct Placeholders(Vec<OnceCell<Node>>);
 
 impl Placeholders {
-    pub(crate) fn reserve(&mut self) -> Placeholder {
+    pub fn reserve(&mut self) -> Placeholder {
         let idx = self.0.len();
         self.0.push(OnceCell::new());
         Placeholder(idx)
     }
 
-    pub(crate) fn init(&mut self, placeholder: Placeholder, node: Node) {
+    pub fn init(&mut self, placeholder: Placeholder, node: Node) {
         self.0[placeholder.0]
             .set(node)
             .map_err(|_| ())
             .expect("placeholder to be uninitialized");
     }
 
-    pub(crate) fn take(&mut self, placeholder: Placeholder) -> Node {
+    pub fn take(&mut self, placeholder: Placeholder) -> Node {
         self.0[placeholder.0].take().expect("initialized placeholder node")
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct TableId(u32);
+pub struct TableId(u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct LinkId(u32);
+pub struct LinkId(u32);
 
 #[derive(Debug)]
-pub(crate) struct StackEntry {
-    pub(crate) loc: Location,
-    pub(crate) span: Span,
-    pub(crate) lang: Option<Lang>,
-    pub(crate) kind: StackEntryKind,
-    pub(crate) nodes: Vec<TagNode>,
+pub struct StackEntry {
+    pub loc: Location,
+    pub span: Span,
+    pub lang: Option<Lang>,
+    pub kind: StackEntryKind,
+    pub nodes: Vec<TagNode>,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum StackEntryKind {
+pub enum StackEntryKind {
     Standard(TagKind),
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
@@ -822,27 +820,27 @@ pub(crate) enum StackEntryKind {
 }
 
 impl StackEntryKind {
-    pub(crate) fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
+    pub fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
         if let Self::Outline(v) = self { Some(v) } else { None }
     }
 
-    pub(crate) fn as_table_mut(&mut self) -> Option<&mut TableCtx> {
+    pub fn as_table_mut(&mut self) -> Option<&mut TableCtx> {
         if let Self::Table(v) = self { Some(v) } else { None }
     }
 
-    pub(crate) fn as_list_mut(&mut self) -> Option<&mut ListCtx> {
+    pub fn as_list_mut(&mut self) -> Option<&mut ListCtx> {
         if let Self::List(v) = self { Some(v) } else { None }
     }
 
-    pub(crate) fn as_figure_mut(&mut self) -> Option<&mut FigureCtx> {
+    pub fn as_figure_mut(&mut self) -> Option<&mut FigureCtx> {
         if let Self::Figure(v) = self { Some(v) } else { None }
     }
 
-    pub(crate) fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
+    pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
     }
 
-    pub(crate) fn bbox(&self) -> Option<&BBoxCtx> {
+    pub fn bbox(&self) -> Option<&BBoxCtx> {
         match self {
             Self::Table(ctx) => Some(&ctx.bbox),
             Self::Figure(ctx) => Some(&ctx.bbox),
@@ -851,7 +849,7 @@ impl StackEntryKind {
         }
     }
 
-    pub(crate) fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
+    pub fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
         match self {
             Self::Table(ctx) => Some(&mut ctx.bbox),
             Self::Figure(ctx) => Some(&mut ctx.bbox),
@@ -920,7 +918,7 @@ impl StackEntryKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct FootnoteCtx {
+pub struct FootnoteCtx {
     /// Whether this footenote has been referenced inside the document. The
     /// entry will be inserted inside the reading order after the first
     /// reference. All other references will still have links to the footnote.
@@ -937,7 +935,7 @@ impl FootnoteCtx {
 
 /// Figure/Formula context
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct FigureCtx {
+pub struct FigureCtx {
     alt: Option<String>,
     bbox: BBoxCtx,
 }
@@ -949,23 +947,23 @@ impl FigureCtx {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct BBoxCtx {
+pub struct BBoxCtx {
     rect: Option<(usize, Rect)>,
     multi_page: bool,
 }
 
 impl BBoxCtx {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self { rect: None, multi_page: false }
     }
 
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         *self = Self::new();
     }
 
     /// Expand the bounding box with a `rect` relative to the current frame
     /// context transform.
-    pub(crate) fn expand_frame(&mut self, fc: &FrameContext, rect: Rect) {
+    pub fn expand_frame(&mut self, fc: &FrameContext, rect: Rect) {
         let Some(page_idx) = fc.page_idx else { return };
         if self.multi_page {
             return;
@@ -995,7 +993,7 @@ impl BBoxCtx {
 
     /// Expand the bounding box with a rectangle that's already transformed into
     /// page coordinates.
-    pub(crate) fn expand_page(&mut self, page_idx: usize, rect: Rect) {
+    pub fn expand_page(&mut self, page_idx: usize, rect: Rect) {
         if self.multi_page {
             return;
         }
@@ -1013,7 +1011,7 @@ impl BBoxCtx {
         bbox.max = bbox.max.max(rect.max);
     }
 
-    pub(crate) fn get(&self) -> Option<BBox> {
+    pub fn get(&self) -> Option<BBox> {
         let (page_idx, rect) = self.rect?;
         let rect = kg::Rect::from_ltrb(
             rect.min.x.to_f32(),
@@ -1027,7 +1025,7 @@ impl BBoxCtx {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum TagNode {
+pub enum TagNode {
     Group(TagGroup),
     Leaf(Identifier),
     /// Allows inserting a placeholder into the tag tree.
@@ -1072,10 +1070,10 @@ pub struct GroupContents {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct Placeholder(usize);
+pub struct Placeholder(usize);
 
 /// Automatically calls [`Surface::end_tagged`] when dropped.
-pub(crate) struct TagHandle<'a, 'b> {
+pub struct TagHandle<'a, 'b> {
     surface: &'b mut Surface<'a>,
     /// Whether this tag handle started the marked content sequence, and should
     /// thus end it when it is dropped.
@@ -1091,14 +1089,14 @@ impl Drop for TagHandle<'_, '_> {
 }
 
 impl<'a> TagHandle<'a, '_> {
-    pub(crate) fn surface<'c>(&'c mut self) -> &'c mut Surface<'a> {
+    pub fn surface<'c>(&'c mut self) -> &'c mut Surface<'a> {
         self.surface
     }
 }
 
 /// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
 /// when dropped.
-pub(crate) fn start_span<'a, 'b>(
+pub fn start_span<'a, 'b>(
     gc: &mut GlobalContext,
     surface: &'b mut Surface<'a>,
     span: SpanTag,
@@ -1108,7 +1106,7 @@ pub(crate) fn start_span<'a, 'b>(
 
 /// Returns a [`TagHandle`] that automatically calls [`Surface::end_tagged`]
 /// when dropped.
-pub(crate) fn start_artifact<'a, 'b>(
+pub fn start_artifact<'a, 'b>(
     gc: &mut GlobalContext,
     surface: &'b mut Surface<'a>,
     kind: ArtifactKind,

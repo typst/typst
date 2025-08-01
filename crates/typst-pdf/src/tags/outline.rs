@@ -5,16 +5,16 @@ use typst_library::model::OutlineEntry;
 use crate::tags::{GroupContents, TagNode};
 
 #[derive(Clone, Debug)]
-pub(crate) struct OutlineCtx {
+pub struct OutlineCtx {
     stack: Vec<OutlineSection>,
 }
 
 impl OutlineCtx {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self { stack: Vec::new() }
     }
 
-    pub(crate) fn insert(
+    pub fn insert(
         &mut self,
         outline_nodes: &mut Vec<TagNode>,
         entry: Packed<OutlineEntry>,
@@ -45,7 +45,7 @@ impl OutlineCtx {
         }
     }
 
-    pub(crate) fn build_outline(mut self, mut contents: GroupContents) -> TagNode {
+    pub fn build_outline(mut self, mut contents: GroupContents) -> TagNode {
         while !self.stack.is_empty() {
             self.finish_section(&mut contents.nodes);
         }
@@ -54,7 +54,7 @@ impl OutlineCtx {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct OutlineSection {
+pub struct OutlineSection {
     entries: Vec<TagNode>,
 }
 

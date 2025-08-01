@@ -33,10 +33,7 @@ pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u
 
 /// Generate the document tag tree and display it in a human readable form.
 #[doc(hidden)]
-pub fn pdf_tags(
-    document: &PagedDocument,
-    options: &PdfOptions,
-) -> SourceResult<String> {
+pub fn pdf_tags(document: &PagedDocument, options: &PdfOptions) -> SourceResult<String> {
     convert::tag_tree(document, options)
 }
 

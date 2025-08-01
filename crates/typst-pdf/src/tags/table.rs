@@ -12,16 +12,16 @@ use crate::tags::util::PropertyValCopied;
 use crate::tags::{BBoxCtx, GroupContents, TableId, TagNode};
 
 #[derive(Clone, Debug)]
-pub(crate) struct TableCtx {
-    pub(crate) id: TableId,
-    pub(crate) summary: Option<String>,
-    pub(crate) bbox: BBoxCtx,
+pub struct TableCtx {
+    pub id: TableId,
+    pub summary: Option<String>,
+    pub bbox: BBoxCtx,
     rows: Vec<Vec<GridCell>>,
     min_width: usize,
 }
 
 impl TableCtx {
-    pub(crate) fn new(id: TableId, summary: Option<String>) -> Self {
+    pub fn new(id: TableId, summary: Option<String>) -> Self {
         Self {
             id,
             summary,
@@ -49,7 +49,7 @@ impl TableCtx {
         }
     }
 
-    pub(crate) fn contains(&self, cell: &Packed<TableCell>) -> bool {
+    pub fn contains(&self, cell: &Packed<TableCell>) -> bool {
         let x = cell.x.val().unwrap_or_else(|| unreachable!());
         let y = cell.y.val().unwrap_or_else(|| unreachable!());
         self.get(x, y).is_some()
@@ -63,7 +63,7 @@ impl TableCtx {
         }
     }
 
-    pub(crate) fn insert(&mut self, cell: &Packed<TableCell>, contents: GroupContents) {
+    pub fn insert(&mut self, cell: &Packed<TableCell>, contents: GroupContents) {
         let x = cell.x.val().unwrap_or_else(|| unreachable!());
         let y = cell.y.val().unwrap_or_else(|| unreachable!());
         let rowspan = cell.rowspan.val();
@@ -101,7 +101,7 @@ impl TableCtx {
         });
     }
 
-    pub(crate) fn build_table(mut self, mut contents: GroupContents) -> TagNode {
+    pub fn build_table(mut self, mut contents: GroupContents) -> TagNode {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         if self.rows.is_empty() {
