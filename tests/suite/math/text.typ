@@ -2,7 +2,7 @@
 
 --- math-font-fallback ---
 // Test font fallback.
-$ よ and 🏳️‍🌈 $
+$ よ and "よ" and 🏳️‍🌈 $
 
 --- math-text-color ---
 // Test text properties.
@@ -16,6 +16,21 @@ $ sum_(i in NN) 1 + i $
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
+
+--- math-font-features-switch ---
+#let scr(it) = text(features: ("ss01",), $cal(it)$)
+$cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
+$ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
+
+--- math-font-covers ---
+#show math.equation: set text(
+  font: (
+    // Ignore that this regex actually misses some of the script glyphs...
+    (name: "XITS Math", covers: regex("[\u{1D49C}-\u{1D503}]")),
+  ),
+  features: ("ss01",),
+)
+$ cal(P)_i (X) * cal(C)_1 $
 
 --- math-optical-size-nested-scripts ---
 // Test transition from script to scriptscript.
