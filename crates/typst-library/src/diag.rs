@@ -614,6 +614,27 @@ impl From<PackageError> for FileError {
 /// A result type with a package-related error.
 pub type PackageResult<T> = Result<T, PackageError>;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PackageRegistry {
+    pub name: EcoString,
+    pub path: PathBuf,
+    pub url: Option<EcoString>,
+}
+
+impl PackageRegistry {
+    pub fn short(&self) -> EcoString {
+        eco_format!("@{}", self.name)
+    }
+
+    pub fn long(&self) -> EcoString {
+        if let Some(url) = &self.url {
+            eco_format!("{url}")
+        } else {
+            eco_format!("{}", self.path.display())
+        }
+    }
+}
+
 /// An error that occurred while trying to load a package.
 ///
 /// Some variants have an optional string that can give more details, if available.
@@ -624,7 +645,7 @@ pub enum PackageError {
     NotFound(PackageSpec, EcoString),
     /// The specified package found, but the version does not exist.
     /// TODO: make the registry part of the error better typed
-    VersionNotFound(PackageSpec, Option<PackageVersion>, EcoString),
+    VersionNotFound(PackageSpec, Option<PackageVersion>, PackageRegistry),
     /// Failed to retrieve the package through the network.
     NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
@@ -648,13 +669,19 @@ impl PackageError {
                             spec.version
                         ),
                         eco_format!(
-                            "the registry at {registry} provides up to version {version}"
+                            "the registry {} provides up to version {version}",
+                            registry.short()
                         ),
+                        eco_format!("{} is at {}", registry.short(), registry.long()),
                     ]
                 } else {
-                    eco_vec![eco_format!(
-                        "the registry at {registry} contains no versions for this package"
-                    )]
+                    eco_vec![
+                        eco_format!(
+                            "no versions for this package were found in registry {}",
+                            registry.short()
+                        ),
+                        eco_format!("{} is at {}", registry.short(), registry.long())
+                    ]
                 }
             }
             Self::NetworkFailed(Some(err)) => eco_vec![eco_format!("{err}")],
