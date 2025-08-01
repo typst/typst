@@ -105,6 +105,22 @@ impl HtmlTag {
             bail!("tag name must not be empty");
         }
 
+        let mut has_hyphen = false;
+        let mut has_uppercase = false;
+
+        for c in string.chars() {
+            if c == '-' {
+                has_hyphen = true;
+            } else if !charsets::is_valid_in_tag_name(c) {
+                bail!("the character {} is not valid in a tag name", c.repr());
+            } else {
+                has_uppercase |= c.is_ascii_uppercase();
+            }
+        }
+
+        // If we encounter a hyphen, we are dealing with a custom element rather
+        // than a standard HTML element.
+        //
         // A valid custom element name must:
         // - Contain at least one hyphen (U+002D)
         // - Start with an ASCII lowercase letter (a-z)
@@ -112,47 +128,29 @@ impl HtmlTag {
         // - Not be one of the reserved names
         // - Only contain valid characters (ASCII alphanumeric and hyphens)
         //
-        // See: https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name
-        let mut maybe_custom_element = false;
-        let mut is_containing_uppercase = false;
+        // See https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name
+        if has_hyphen {
+            if !string.starts_with(|c: char| c.is_ascii_lowercase()) {
+                bail!("custom element name must start with a lowercase letter");
+            }
+            if has_uppercase {
+                bail!("custom element name must not contain uppercase letters");
+            }
 
-        for c in string.chars() {
-            // If we encounter a hyphen, we might be dealing with a custom element.
-            if c == '-' {
-                maybe_custom_element = true;
-                continue;
-            }
-            if c.is_ascii_uppercase() {
-                is_containing_uppercase = true;
-            }
-            if !charsets::is_valid_in_tag_name(c) {
-                bail!("the character {} is not valid in a tag name", c.repr());
-            }
-        }
-
-        let is_start_with_lowercase =
-            string.starts_with(|c: char| c.is_ascii_lowercase());
-        let is_reserved = matches!(
-            string,
-            "annotation-xml"
-                | "color-profile"
-                | "font-face"
-                | "font-face-src"
-                | "font-face-uri"
-                | "font-face-format"
-                | "font-face-name"
-                | "missing-glyph"
-        );
-
-        if maybe_custom_element {
-            if !is_start_with_lowercase {
-                bail!("custom element names must start with a lowercase letter");
-            }
-            if is_containing_uppercase {
-                bail!("custom element names must not contain uppercase letters");
-            }
-            if is_reserved {
-                bail!("custom element names must not be reserved names");
+            // These names are used in SVG and MathML. Since `html.elem` only
+            // supports creation of _HTML_ elements, they are forbidden.
+            if matches!(
+                string,
+                "annotation-xml"
+                    | "color-profile"
+                    | "font-face"
+                    | "font-face-src"
+                    | "font-face-uri"
+                    | "font-face-format"
+                    | "font-face-name"
+                    | "missing-glyph"
+            ) {
+                bail!("name is reserved and not valid for a custom element");
             }
         }
 
