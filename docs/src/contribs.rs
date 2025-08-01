@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
-use std::collections::HashMap;
 use std::fmt::Write;
 
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{Html, Resolver};
@@ -12,7 +12,7 @@ pub fn contributors(resolver: &dyn Resolver, from: &str, to: &str) -> Option<Htm
     let bots = ["dependabot[bot]"];
 
     // Determine number of contributions per person.
-    let mut contributors = HashMap::<String, Contributor>::new();
+    let mut contributors = FxHashMap::<String, Contributor>::default();
     for commit in resolver.commits(from, to) {
         contributors
             .entry(commit.author.login.clone())

@@ -9,10 +9,9 @@ pub use self::contribs::*;
 pub use self::html::*;
 pub use self::model::*;
 
-use std::collections::HashSet;
-
 use ecow::{EcoString, eco_format};
 use heck::ToTitleCase;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
@@ -260,7 +259,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
         shorthands = Some(ShorthandsModel { markup, math });
     }
 
-    let mut skip = HashSet::new();
+    let mut skip = FxHashSet::default();
     if category == Category::Math {
         skip = GROUPS
             .iter()

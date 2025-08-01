@@ -1,9 +1,10 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
 use codex::ModifierSet;
 use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashMap;
 use serde::{Serialize, Serializer};
 use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
@@ -221,7 +222,7 @@ impl Symbol {
 
         // Maps from canonicalized 128-bit hashes to indices of variants we've
         // seen before.
-        let mut seen = HashMap::<u128, usize>::new();
+        let mut seen = FxHashMap::<u128, usize>::default();
 
         // A list of modifiers, cleared & reused in each iteration.
         let mut modifiers = Vec::new();

@@ -132,6 +132,6 @@ impl krilla::text::Glyph for PdfGlyph {
     }
 
     fn location(&self) -> Option<Location> {
-        Some(self.0.span.0.into_raw().get())
+        Some(self.0.span.0.into_raw())
     }
 }

@@ -27,7 +27,7 @@ pub(crate) fn handle_image(
     span: Span,
 ) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform().to_krilla());
-    surface.set_location(span.into_raw().get());
+    surface.set_location(span.into_raw());
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
