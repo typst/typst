@@ -1,14 +1,13 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Em, Frame, FrameItem, Point, Size};
-use typst_library::math::{BinomElem, FracElem};
+use typst_library::math::{BinomElem, DELIM_SHORT_FALL, FracElem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    DELIM_SHORT_FALL, FrameFragment, GlyphFragment, MathContext, style_for_denominator,
-    style_for_numerator,
+    FrameFragment, GlyphFragment, MathContext, style_for_denominator, style_for_numerator,
 };
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -49,7 +48,7 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let short_fall = DELIM_SHORT_FALL.resolve(styles);
+    let short_fall = DELIM_SHORT_FALL.abs().resolve(styles);
     let axis = scaled!(ctx, styles, axis_height);
     let thickness = scaled!(ctx, styles, fraction_rule_thickness);
     let shift_up = scaled!(

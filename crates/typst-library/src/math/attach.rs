@@ -1,5 +1,4 @@
 use crate::foundations::{Content, Packed, elem};
-use crate::layout::{Length, Rel};
 use crate::math::{EquationElem, Mathy};
 
 /// A base with optional attachments.
@@ -127,31 +126,4 @@ pub struct LimitsElem {
     /// typically a good idea to disable this.
     #[default(true)]
     pub inline: bool,
-}
-
-/// Stretches a glyph.
-///
-/// This function can also be used to automatically stretch the base of an
-/// attachment, so that it fits the top and bottom attachments.
-///
-/// Note that only some glyphs can be stretched, and which ones can depend on
-/// the math font being used. However, most math fonts are the same in this
-/// regard.
-///
-/// ```example
-/// $ H stretch(=)^"define" U + p V $
-/// $ f : X stretch(->>, size: #150%)_"surjective" Y $
-/// $ x stretch(harpoons.ltrb, size: #3em) y
-///     stretch(\[, size: #150%) z $
-/// ```
-#[elem(Mathy)]
-pub struct StretchElem {
-    /// The glyph to stretch.
-    #[required]
-    pub body: Content,
-
-    /// The size to stretch to, relative to the maximum size of the glyph and
-    /// its attachments.
-    #[default(Rel::one())]
-    pub size: Rel<Length>,
 }
