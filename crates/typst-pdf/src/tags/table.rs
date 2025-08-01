@@ -312,7 +312,7 @@ fn should_group_rows(a: TableCellKind, b: TableCellKind) -> bool {
 
 fn table_cell_id(table_id: TableId, x: u32, y: u32) -> TagId {
     let mut buf = SmallVec::<[u8; 32]>::new();
-    _ = write!(&mut buf, "{}x{x}y{y}", table_id.0);
+    _ = write!(&mut buf, "{}x{x}y{y}", table_id.get());
     TagId::from(buf)
 }
 
