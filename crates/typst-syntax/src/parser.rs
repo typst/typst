@@ -384,10 +384,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
