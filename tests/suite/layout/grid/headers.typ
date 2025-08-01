@@ -137,6 +137,19 @@
   [a],
 )
 
+--- grid-header-multiple-unordered ---
+#set page(height: 4em)
+#grid(
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  grid.header([x]),
+  [a],
+  [b],
+  [c],
+  [d],
+  [e],
+  [f],
+)
+
 --- grid-header-skip ---
 #grid(
   columns: 2,
@@ -146,6 +159,16 @@
   grid.cell(x: 1)[c], [d],
   grid.header([e]),
   [f], grid.cell(x: 1)[g]
+)
+
+--- grid-header-skip-unordered ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  [b],
+  grid.header([x]),
+  [c]
 )
 
 --- grid-header-rowbreak-auto-pos ---
@@ -183,6 +206,16 @@
   grid.header([y], grid.cell(x: 0, y: 8)[d]),
   grid.hline(stroke: 3pt),
   [e]
+)
+
+--- grid-header-rowbreak-auto-and-fixed-pos ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header([x]),
+  [b],
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  [c]
 )
 
 --- grid-header-too-large-non-repeating-orphan ---
