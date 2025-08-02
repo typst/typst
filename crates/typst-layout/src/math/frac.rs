@@ -163,19 +163,17 @@ fn layout_horizontal_frac(
     num_deparen: bool,
     denom_deparen: bool,
 ) -> SourceResult<()> {
-    let num_frame = if num_deparen {
-        ctx.layout_into_frame(
-            &LrElem::new(Content::sequence(vec![
-                SymbolElem::packed('('),
-                num.clone(),
-                SymbolElem::packed(')'),
-            ]))
-            .pack(),
-            styles,
-        )?
+    let num = if num_deparen {
+        &LrElem::new(Content::sequence(vec![
+            SymbolElem::packed('('),
+            num.clone(),
+            SymbolElem::packed(')'),
+        ]))
+        .pack()
     } else {
-        ctx.layout_into_frame(num, styles)?
+        num
     };
+    let num_frame = ctx.layout_into_frame(num, styles)?;
     ctx.push(FrameFragment::new(styles, num_frame));
 
     let mut slash = GlyphFragment::new_char(ctx.font, styles, '/', span)?;
@@ -192,8 +190,8 @@ fn layout_horizontal_frac(
     } else {
         denom
     };
-    let denom = ctx.layout_into_fragment(denom, styles)?;
-    ctx.push(denom);
+    let denom_frame = ctx.layout_into_fragment(denom, styles)?;
+    ctx.push(denom_frame);
 
     Ok(())
 }
@@ -242,11 +240,28 @@ fn layout_skewed_frac(
     let slash_size = slash_frame.size();
     let vertical_offset = Abs::zero().max(slash_size.y - fraction_height) / 2.0;
     fraction_height.set_max(slash_size.y);
-    let horizontal_offset = Abs::zero().max(slash_size.x - fraction_width) / 2.0;
-    fraction_width.set_max(slash_size.x);
+    // The calculation for the horizontal offset and the width is different. It changes if:
+    // - The left of the slash extends further than the numerator start
+    // - The right of the slash extends further than the denominator
+    // Only the first of these two cases is relevant for positioning everything but the second one
+    // does influence the final width too.
+    let horizontal_offset = Abs::zero().max(slash_size.x / 2.0 - num_size.x - hgap / 2.0);
+    // Extend to the left
+    fraction_width += horizontal_offset;
+    // Extend to the right
+    fraction_width += Abs::zero().max(slash_size.x / 2.0 - denom_size.x - hgap / 2.0);
 
     // Build the final frame
     let mut fraction_frame = Frame::soft(Size::new(fraction_width, fraction_height));
+
+    // Baseline (use axis height to center slash on the axis)
+    fraction_frame.set_baseline(fraction_height / 2.0 + axis);
+
+    // Debugging help
+    // num_frame.mark_box_in_place();
+    // denom_frame.mark_box_in_place();
+    // slash_frame.mark_box_in_place();
+    // fraction_frame.mark_box_in_place();
 
     // Numerator
     fraction_frame.push_frame(Point::new(horizontal_offset, vertical_offset), num_frame);
@@ -267,11 +282,6 @@ fn layout_skewed_frac(
         ),
         slash_frame,
     );
-
-    // Baseline (use axis height to center slash on the axis)
-    fraction_frame.set_baseline(fraction_height / 2.0 + axis);
-
-    // fraction_frame.mark_box_in_place();
 
     ctx.push(FrameFragment::new(styles, fraction_frame));
 
