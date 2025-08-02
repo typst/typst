@@ -241,6 +241,15 @@ emph(hello.my().world())
 #hello.world()
 #box[]
 ```
+
+--- raw-highlight-typm-extra ---
+// Math highlighting for strings, alignments, shorthands, and named args.
+#set page(width: auto)
+```typm
+"string" - + * ::= & \
+|=> & [|define(x: #y, x::= y)|]
+```
+
 --- raw-highlight-rust ---
 #set page(width: auto)
 
