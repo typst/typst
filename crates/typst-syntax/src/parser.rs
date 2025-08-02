@@ -275,6 +275,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Dot
+        | SyntaxKind::Bang
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
         | SyntaxKind::RightParen => {
@@ -291,7 +292,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
-        SyntaxKind::Escape | SyntaxKind::Str => {
+        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
             continuable = true;
             p.eat();
         }
@@ -306,18 +307,6 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        SyntaxKind::Prime => {
-            // Means that there is nothing to attach the prime to.
-            continuable = true;
-            while p.at(SyntaxKind::Prime) {
-                let m2 = p.marker();
-                p.eat();
-                // Eat the group until the space.
-                while p.eat_if_direct(SyntaxKind::Prime) {}
-                p.wrap(m2, SyntaxKind::MathPrimes);
-            }
-        }
-
         _ => p.expected("expression"),
     }
 
@@ -329,18 +318,16 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut primed = false;
 
     while !p.end() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::MathText) && p.current_text() == "!" {
-            p.eat();
+        if p.directly_at(SyntaxKind::Bang) {
+            // Bang acts as a postfix operator with the highest possible
+            // precedence, but is purely a parse-time construct and is never
+            // output to the final `SyntaxNode`.
+            p.convert_and_eat(SyntaxKind::MathText);
             p.wrap(m, SyntaxKind::Math);
             continue;
         }
 
-        let prime_marker = p.marker();
-        if p.eat_if_direct(SyntaxKind::Prime) {
-            // Eat as many primes as possible.
-            while p.eat_if_direct(SyntaxKind::Prime) {}
-            p.wrap(prime_marker, SyntaxKind::MathPrimes);
-
+        if !p.had_trivia() && p.eat_if(SyntaxKind::MathPrimes) {
             // Will not be continued, so need to wrap the prime as attachment.
             if p.at(stop) {
                 p.wrap(m, SyntaxKind::MathAttach);
@@ -1789,16 +1776,6 @@ impl<'s> Parser<'s> {
     /// `kind`, To forbid skipping trivia, consider using `eat_if_direct`.
     fn eat_if(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
-        if at {
-            self.eat();
-        }
-        at
-    }
-
-    /// Eat the token only if at `kind` with no preceding trivia. Returns `true`
-    /// if eaten.
-    fn eat_if_direct(&mut self, kind: SyntaxKind) -> bool {
-        let at = self.directly_at(kind);
         if at {
             self.eat();
         }
