@@ -371,7 +371,13 @@ impl<'ast, 'vm, 'a> Lexer<'ast, 'vm, 'a> {
         span: Span,
     ) -> (Token, usize) {
         let value = match result {
-            Ok(value) => value.spanned(span),
+            Ok(value) => {
+                if self.vm.inspected == Some(span) {
+                    // TODO: Is this the best spot to trace the value?
+                    self.vm.trace(value.clone());
+                }
+                value.spanned(span)
+            }
             Err(err_vec) => {
                 self.errors.extend(err_vec);
                 Value::default()

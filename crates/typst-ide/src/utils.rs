@@ -112,6 +112,7 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
         leaf.parent_kind(),
         Some(SyntaxKind::Equation)
             | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathTokens)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
     ) && leaf
