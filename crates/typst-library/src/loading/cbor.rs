@@ -33,7 +33,10 @@ pub fn cbor(
 impl cbor {
     /// Reads structured data from CBOR bytes.
     #[func(title = "Decode CBOR")]
-    #[deprecated = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead"]
+    #[deprecated(
+        message = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// CBOR data.

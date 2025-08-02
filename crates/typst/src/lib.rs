@@ -38,11 +38,11 @@ pub use typst_syntax as syntax;
 #[doc(inline)]
 pub use typst_utils as utils;
 
-use std::collections::HashSet;
 use std::sync::LazyLock;
 
-use comemo::{Track, Tracked, Validate};
+use comemo::{Track, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use rustc_hash::FxHashSet;
 use typst_html::HtmlDocument;
 use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
@@ -135,7 +135,7 @@ fn compile_impl<D: Document>(
 
         subsink = Sink::new();
 
-        let constraint = <Introspector as Validate>::Constraint::new();
+        let constraint = comemo::Constraint::new();
         let mut engine = Engine {
             world,
             introspector: introspector.track_with(&constraint),
@@ -150,7 +150,7 @@ fn compile_impl<D: Document>(
         introspector = document.introspector();
         iter += 1;
 
-        if timed!("check stabilized", introspector.validate(&constraint)) {
+        if timed!("check stabilized", constraint.validate(introspector)) {
             break;
         }
 
@@ -176,7 +176,7 @@ fn compile_impl<D: Document>(
 
 /// Deduplicate diagnostics.
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-    let mut unique = HashSet::new();
+    let mut unique = FxHashSet::default();
     diags.retain(|diag| {
         let hash = typst_utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)

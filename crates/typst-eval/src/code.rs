@@ -246,7 +246,7 @@ impl Eval for ast::Dict<'_> {
     type Output = Dict;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut map = indexmap::IndexMap::new();
+        let mut map = indexmap::IndexMap::default();
         let mut invalid_keys = eco_vec![];
 
         for item in self.items() {

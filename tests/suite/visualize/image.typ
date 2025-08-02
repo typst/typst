@@ -188,26 +188,31 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-decode-svg ---
 // Test parsing from svg data
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-bad-svg ---
 // Error: 15-152 failed to parse SVG (missing root node at 1:1)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-detect-format ---
 // Test format auto detect
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), width: 80%)
 
 --- image-decode-specify-format ---
 // Test format manual
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "jpg", width: 80%)
 
 --- image-decode-specify-wrong-format ---
 // Error: 2-91 failed to decode image (Format error decoding Png: Invalid PNG signature.)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
 
 --- image-pixmap-empty ---
@@ -258,7 +263,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-png-but-pixmap-format ---
 #image(
   read("/assets/images/tiger.jpg", encoding: none),
-  // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", or auto
+  // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", "pdf", or auto
   format: "rgba8",
 )
 
@@ -289,3 +294,16 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ..rotations.map(v => raw(str(v), lang: "typc")),
   ..rotations.map(rotated)
 )
+
+--- image-pdf ---
+#image("/assets/images/matplotlib.pdf")
+
+--- image-pdf-multiple-pages ---
+#image("/assets/images/diagrams.pdf", page: 1)
+#image("/assets/images/diagrams.pdf", page: 3)
+#image("/assets/images/diagrams.pdf", page: 2)
+
+--- image-pdf-invalid-page ---
+// Error: 2-49 page 2 does not exist
+// Hint: 2-49 the document only has 1 page
+#image("/assets/images/matplotlib.pdf", page: 2)
