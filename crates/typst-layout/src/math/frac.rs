@@ -224,19 +224,19 @@ fn layout_skewed_frac(
     let fraction_width = num_size.x + denom_size.x + hgap;
 
     // Only exception: if the stretched slash is bigger than intended.
-    let mut slash_frag = GlyphFragment::new_char(ctx.font, styles, '/', span)?;
+    let mut slash_frag = GlyphFragment::new_char(ctx.font, styles, '\u{2044}', span)?;
     let pre_stretch_height = slash_frag.size.y;
     slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
     // If the standard slash was not stretchable, try the fraction slash
     if slash_frag.size.y == pre_stretch_height {
-        slash_frag = GlyphFragment::new_char(ctx.font, styles, '\u{2044}', span)?;
+        slash_frag = GlyphFragment::new_char(ctx.font, styles, '/', span)?;
         slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
     }
     slash_frag.center_on_axis();
     let slash_frame = slash_frag.into_frame();
     let slash_size = slash_frame.size();
     let vertical_offset = Abs::zero().max(slash_size.y - fraction_height) / 2.0;
-    fraction_height = fraction_height.max(slash_size.y);
+    fraction_height.set_max(slash_size.y);
 
     // Build the final frame
     let mut fraction_frame = Frame::soft(Size::new(fraction_width, fraction_height));
