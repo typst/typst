@@ -617,9 +617,14 @@ impl Lexer<'_> {
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,
             '^' => SyntaxKind::Hat,
-            '\'' => SyntaxKind::Prime,
             '&' => SyntaxKind::MathAlignPoint,
             '√' | '∛' | '∜' => SyntaxKind::Root,
+            '!' => SyntaxKind::Bang,
+
+            '\'' => {
+                self.s.eat_while('\'');
+                SyntaxKind::MathPrimes
+            }
 
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
