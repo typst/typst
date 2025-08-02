@@ -18,11 +18,12 @@ use crate::diag::{
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
-    StyleChain, Styles, Synthesize, cast, elem, scope,
+    StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
+use crate::routines::Routines;
 use crate::text::{FontFamily, FontList, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
 
@@ -300,8 +301,12 @@ impl RawElem {
 }
 
 impl Synthesize for Packed<RawElem> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let seq = self.highlight(styles);
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let seq = self.highlight(engine.routines, styles);
         self.lines = Some(seq);
         Ok(())
     }
@@ -309,7 +314,7 @@ impl Synthesize for Packed<RawElem> {
 
 impl Packed<RawElem> {
     #[comemo::memoize]
-    fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
+    fn highlight(&self, routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
         let lines = preprocess(&elem.text, styles, self.span());
 
@@ -341,6 +346,7 @@ impl Packed<RawElem> {
         };
 
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
+        let target = styles.get(TargetElem::target);
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc" | "typm")) {
@@ -363,7 +369,15 @@ impl Packed<RawElem> {
                     let span_offset = text[..range.start]
                         .rfind('\n')
                         .map_or(0, |i| range.start - (i + 1));
-                    styled(&text[range], foreground, style, span, span_offset)
+                    styled(
+                        routines,
+                        target,
+                        &text[range],
+                        foreground,
+                        style,
+                        span,
+                        span_offset,
+                    )
                 },
                 &mut |i, range, line| {
                     let span = lines.get(i).map_or_else(Span::detached, |l| l.1);
@@ -400,6 +414,8 @@ impl Packed<RawElem> {
                     .flatten()
                 {
                     line_content.push(styled(
+                        routines,
+                        target,
                         piece,
                         foreground,
                         style,
@@ -769,6 +785,8 @@ fn preprocess(
 
 /// Style a piece of text with a syntect style.
 fn styled(
+    routines: &Routines,
+    target: Target,
     piece: &str,
     foreground: synt::Color,
     style: synt::Style,
@@ -782,7 +800,11 @@ fn styled(
     }
 
     if style.foreground != foreground {
-        body = body.set(TextElem::fill, to_typst(style.foreground).into());
+        let color = to_typst(style.foreground);
+        body = match target {
+            Target::Html => (routines.html_span_filled)(body, color),
+            Target::Paged => body.set(TextElem::fill, color.into()),
+        };
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
