@@ -225,7 +225,13 @@ fn layout_skewed_frac(
 
     // Only exception: if the stretched slash is bigger than intended.
     let mut slash_frag = GlyphFragment::new_char(ctx.font, styles, '/', span)?;
+    let pre_stretch_height = slash_frag.size.y;
     slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
+    // If the standard slash was not stretchable, try the fraction slash
+    if slash_frag.size.y == pre_stretch_height {
+        slash_frag = GlyphFragment::new_char(ctx.font, styles, '\u{2044}', span)?;
+        slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
+    }
     slash_frag.center_on_axis();
     let slash_frame = slash_frag.into_frame();
     let slash_size = slash_frame.size();
