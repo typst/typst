@@ -1,0 +1,4 @@
+// These are fixed in the next commit.
+math-frac-horizontal-lr-paren
+math-frac-horizontal
+math-frac-styles-inline

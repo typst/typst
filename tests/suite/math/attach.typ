@@ -45,10 +45,6 @@ $
 // Test function call after subscripts and superscripts.
 #set page(width: auto)
 $a_1(x), a^10(x), a_f(x), a^zeta(x), a_"text"(x),
-// Warning: 22-25 function literal used as subscript
-// Hint: 22-25 wrap the entire function call in parentheses
-// Warning: 32-36 function literal used as superscript
-// Hint: 32-36 wrap the entire function call in parentheses
  a_∂(x), a^cos(x), a_abs(x), a^root(2, x), a_subset.eq(x) \
  a_(1(x)), a^(10(x)), a_(f(x)), a^(zeta(x)), a_("text"(x)),
  a_(∂(x)), a^(cos(x)), a_(abs(x)), a^(root(2, x)), a_(subset.eq(x))$
@@ -56,26 +52,17 @@ $a_1(x), a^10(x), a_f(x), a^zeta(x), a_"text"(x),
 --- math-attach-followed-by-func-call-complex ---
 // Test function call with named arguments after scripts.
 #let cross = $c$
-// Warning: 4-10 function literal used as subscript
-// Hint: 4-10 wrap the entire function call in parentheses
 $a_cancel(x, cross: #true)$
 
 --- math-attach-followed-by-func-call-error ---
-// Error: 14-19 unknown variable: cross
-// Hint: 14-19 if you meant to display multiple letters as is, try adding spaces between each letter: `c r o s s`
-// Hint: 14-19 or if you meant to display this as text, try placing it in quotes: `"cross"`
-// Warning: 4-10 function literal used as subscript
-// Hint: 4-10 wrap the entire function call in parentheses
+// No errors with runtime math parsing!
 $a_cancel(x, cross: #true)$
 
 --- math-attach-followed-by-func-call-warning ---
 // Test warning for function literal as subscripts and superscripts.
+// No warnings with runtime math parsing!
 #let myfunc(arg) = $arg$
-// Warning: 4-10 function literal used as subscript
-// Hint: 4-10 wrap the entire function call in parentheses
 $a_myfunc(x) a_(myfunc(x))$
-// Warning: 4-10 function literal used as subscript
-// Hint: 4-10 wrap the entire function call in parentheses
 $a_myfunc a_(myfunc)$
 
 --- math-attach-nested ---
@@ -224,5 +211,7 @@ $n^2, (n + 1)^2, sum_0^1, integral_0^1$
 
 --- math-attach-missing-sides ---
 // Test attachments that are missing a side.
-// Error: 23-24 unexpected underscore
+// Error: 12-13 expected a value to the right of the operator
+// Error: 18-19 expected a value to the right of the operator
+// Error: 23-24 expected a value to the left of the operator
 $ a _ b (d _) (d'_ ) (_ c) $

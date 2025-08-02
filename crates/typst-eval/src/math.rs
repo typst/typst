@@ -7,6 +7,7 @@ use typst_library::math::{
 use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode, MathTextKind, MaybeParsedMath};
 
+use crate::math_parser::{TokenStream, parse};
 use crate::{Eval, Vm};
 
 impl Eval for ast::Equation<'_> {
@@ -37,8 +38,10 @@ impl Eval for ast::Math<'_> {
 impl Eval for ast::MathTokens<'_> {
     type Output = Content;
 
-    fn eval(self, _vm: &mut Vm) -> SourceResult<Self::Output> {
-        todo!("implement runtime math parsing");
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let mut token_stream = TokenStream::new(vm, self.tokens());
+        let value = parse(&mut token_stream);
+        token_stream.finish(value, self.span())
     }
 }
 

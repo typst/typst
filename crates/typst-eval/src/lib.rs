@@ -10,6 +10,7 @@ mod flow;
 mod import;
 mod markup;
 mod math;
+mod math_parser;
 mod methods;
 mod rules;
 mod vm;

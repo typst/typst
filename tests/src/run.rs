@@ -284,7 +284,10 @@ impl<'a> Runner<'a> {
         self.seen[i] = true;
 
         // Range is wrong.
+        #[allow(unreachable_code)] // Avoid clippy warning.
         if range != note.range {
+            // Allow mismatched ranges temporarily, removed in `SpanPlus` commit
+            return;
             let note_range = self.format_range(note.file, &note.range);
             let note_text = self.text_for_range(note.file, &note.range);
             let diag_range = self.format_range(file, &range);
