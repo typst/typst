@@ -15,6 +15,7 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
 use crate::model::DocumentInfo;
+use crate::visualize::Color;
 
 /// Defines the `Routines` struct.
 macro_rules! routines {
@@ -95,6 +96,12 @@ routines! {
 
     /// Constructs the `html` module.
     fn html_module() -> Module
+
+    /// Wraps content in a span with a color.
+    ///
+    /// This is a temporary workaround until `TextElem::fill` is supported in
+    /// HTML export.
+    fn html_span_filled(content: Content, color: Color) -> Content
 }
 
 /// Defines what kind of realization we are performing.
