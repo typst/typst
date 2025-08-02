@@ -109,7 +109,7 @@ mod tests {
         fn must_be_at(&self, path: &str, expected: Range<usize>) -> &Self {
             match self.1 {
                 Some(Definition::Span(span)) => {
-                    let range = self.0.range(span);
+                    let range = self.0.range(span, None);
                     assert_eq!(
                         span.id().unwrap().vpath().as_rootless_path().to_string_lossy(),
                         path

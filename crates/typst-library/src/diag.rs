@@ -2,6 +2,8 @@
 
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
+use std::num::NonZeroUsize;
+use std::ops::{Deref, Range};
 use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
@@ -10,7 +12,7 @@ use az::SaturatingAs;
 use comemo::Tracked;
 use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{Lines, Span, Spanned, SyntaxError};
+use typst_syntax::{FileId, Lines, Span, Spanned, SyntaxError};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -167,7 +169,7 @@ pub struct SourceDiagnostic {
     /// Whether the diagnostic is an error or a warning.
     pub severity: Severity,
     /// The span of the relevant node in the source code.
-    pub span: Span,
+    pub span_plus: SpanPlus,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
@@ -175,6 +177,20 @@ pub struct SourceDiagnostic {
     /// Additional hints to the user, indicating how this problem could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
+}
+
+/// Flexible option for normal spans or spans that may come from runtime math
+/// parsing.
+///
+/// Only used in diagnostics, not for tracking source files. In that case, only
+/// the start span will be used.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SpanPlus(pub Span, pub Option<NonZeroUsize>);
+
+impl From<Span> for SpanPlus {
+    fn from(span: Span) -> Self {
+        Self(span, None)
+    }
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -191,9 +207,9 @@ impl SourceDiagnostic {
     pub fn error(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             severity: Severity::Error,
-            span,
-            trace: eco_vec![],
+            span_plus: SpanPlus(span, None),
             message: message.into(),
+            trace: eco_vec![],
             hints: eco_vec![],
         }
     }
@@ -202,9 +218,25 @@ impl SourceDiagnostic {
     pub fn warning(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             severity: Severity::Warning,
-            span,
-            trace: eco_vec![],
+            span_plus: SpanPlus(span, None),
             message: message.into(),
+            trace: eco_vec![],
+            hints: eco_vec![],
+        }
+    }
+
+    /// Create a new error starting at an initial node and spanning multiple
+    /// `SyntaxNode` siblings.
+    pub fn error_multiple_nodes(
+        start: Span,
+        n: NonZeroUsize,
+        message: impl Into<EcoString>,
+    ) -> Self {
+        Self {
+            severity: Severity::Error,
+            span_plus: SpanPlus(start, Some(n)),
+            message: message.into(),
+            trace: eco_vec![],
             hints: eco_vec![],
         }
     }
@@ -225,13 +257,23 @@ impl SourceDiagnostic {
         self.hints.extend(hints);
         self
     }
+
+    /// The file id of this diagnostic.
+    pub fn file_id(&self) -> Option<FileId> {
+        self.span_plus.0.id()
+    }
+
+    /// The byte range of this diagnostic.
+    pub fn range<T: WorldExt>(&self, world: T) -> Option<Range<usize>> {
+        world.range(self.span_plus.0, self.span_plus.1)
+    }
 }
 
 impl From<SyntaxError> for SourceDiagnostic {
     fn from(error: SyntaxError) -> Self {
         Self {
             severity: Severity::Error,
-            span: error.span,
+            span_plus: SpanPlus(error.span, None),
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
@@ -305,11 +347,12 @@ impl<T> Trace<T> for SourceResult<T> {
         F: Fn() -> Tracepoint,
     {
         self.map_err(|mut errors| {
-            let Some(trace_range) = world.range(span) else { return errors };
+            let Some(trace_range) = world.range(span, None) else { return errors };
             for error in errors.make_mut().iter_mut() {
                 // Skip traces that surround the error.
-                if let Some(error_range) = world.range(error.span)
-                    && error.span.id() == span.id()
+                // Note: changing `world.deref()` leads only to misery.
+                if let Some(error_range) = error.range(world.deref())
+                    && error.file_id() == span.id()
                     && trace_range.start <= error_range.start
                     && trace_range.end >= error_range.end
                 {

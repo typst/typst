@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use ecow::eco_vec;
 use tiny_skia as sk;
+use typst::Document;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
-use typst::{Document, WorldExt};
 use typst_html::HtmlDocument;
 use typst_pdf::PdfOptions;
 use typst_syntax::{FileId, Lines};
@@ -233,12 +233,12 @@ impl<'a> Runner<'a> {
         } else {
             &diag.message.replace("\\", "/")
         };
-        let range = self.world.range(diag.span);
-        self.validate_note(kind, diag.span.id(), range.clone(), message);
+        let range = diag.range(&self.world);
+        self.validate_note(kind, diag.file_id(), range.clone(), message);
 
         // Check hints.
         for hint in &diag.hints {
-            self.validate_note(NoteKind::Hint, diag.span.id(), range.clone(), hint);
+            self.validate_note(NoteKind::Hint, diag.file_id(), range.clone(), hint);
         }
     }
 
@@ -284,10 +284,7 @@ impl<'a> Runner<'a> {
         self.seen[i] = true;
 
         // Range is wrong.
-        #[allow(unreachable_code)] // Avoid clippy warning.
         if range != note.range {
-            // Allow mismatched ranges temporarily, removed in `SpanPlus` commit
-            return;
             let note_range = self.format_range(note.file, &note.range);
             let note_text = self.text_for_range(note.file, &note.range);
             let diag_range = self.format_range(file, &range);

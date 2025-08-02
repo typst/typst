@@ -672,7 +672,7 @@ pub fn print_diagnostics(
                 .map(|e| (eco_format!("hint: {e}")).into())
                 .collect(),
         )
-        .with_labels(label(world, diagnostic.span).into_iter().collect());
+        .with_labels(label(world, diagnostic.span_plus.0).into_iter().collect());
 
         term::emit(&mut terminal::out(), &config, world, &diag)?;
 
@@ -692,7 +692,7 @@ pub fn print_diagnostics(
 
 /// Create a label for a span.
 fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
-    Some(Label::primary(span.id()?, world.range(span)?))
+    Some(Label::primary(span.id()?, world.range(span, None)?))
 }
 
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {

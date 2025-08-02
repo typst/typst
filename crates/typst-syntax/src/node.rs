@@ -714,6 +714,18 @@ impl<'a> LinkedNode<'a> {
         }
     }
 
+    /// An iterator over this node's siblings, starting at the next sibling.
+    pub fn siblings(&self) -> Option<LinkedChildren<'a>> {
+        let parent = self.parent.as_ref()?.clone();
+        Some(LinkedChildren {
+            slice: parent.node.children().as_slice(),
+            index: self.index + 1,
+            front: self.offset + self.len(),
+            back: parent.offset + parent.len(),
+            parent,
+        })
+    }
+
     /// Find a descendant with the given span.
     pub fn find(&self, span: Span) -> Option<LinkedNode<'a>> {
         if self.span() == span {

@@ -1,8 +1,9 @@
 //! Tokenize unparsed math nodes.
+use std::num::NonZeroUsize;
 use std::ops::ControlFlow;
 
 use ecow::{EcoString, EcoVec, eco_vec};
-use typst_library::diag::{SourceDiagnostic, SourceResult};
+use typst_library::diag::{SourceDiagnostic, SourceResult, SpanPlus};
 use typst_library::foundations::{Args, Content, Func, Value};
 use typst_syntax::Span;
 use typst_syntax::ast::{MathKind, MathTokenNode, MathTokenView};
@@ -15,6 +16,9 @@ pub struct TokenStream<'ast, 'vm, 'a> {
     lexer: Lexer<'ast, 'vm, 'a>,
     mode: Mode,
     next: Option<(TokenInfo, Marker)>,
+    /// The index that precedes `next` and any of its trivia. This is easier
+    /// than keeping track of the number of trivia for each token.
+    before_next: usize,
 }
 
 /// The internal interface for lexing math tokens.
@@ -78,10 +82,13 @@ pub enum Trivia {
     HasSpaces { span: Span },
 }
 
-/// A marker with the token's initial span and overall length.
+/// A marker with the token's initial span and overall length. Note that
+/// `start_index` comes after all preceding trivia nodes.
 #[derive(Debug)]
 pub struct Marker {
     pub span: Span,
+    pub start_index: usize,
+    pub n_extra: usize,
 }
 
 impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
@@ -89,7 +96,7 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
     pub fn new(vm: &'vm mut Vm<'a>, token_view: MathTokenView<'ast>) -> Self {
         let mut lexer = Lexer { vm, errors: eco_vec![], token_view, cursor: 0 };
         let next = lexer.lex(false);
-        Self { lexer, mode: Mode::Normal, next }
+        Self { lexer, mode: Mode::Normal, next, before_next: 0 }
     }
 
     /// Finish the token stream by converting a final value into either spanned
@@ -109,12 +116,19 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
         &mut self,
         func: Func,
         args: Args,
-        (start, _end): (Marker, Marker),
+        (start, end): (Marker, Marker),
     ) -> Value {
         match call::call_func(self.lexer.vm, func, args, start.span) {
-            Ok(value) => value.spanned(start.span),
+            Ok(value) => value,
             Err(diag_vec) => {
-                self.lexer.errors.extend(diag_vec);
+                // Improve the span when just calling the function is an error.
+                for mut diag in diag_vec {
+                    if diag.span_plus.0 == start.span {
+                        let n = (end.start_index + end.n_extra) - start.start_index;
+                        diag.span_plus = SpanPlus(start.span, NonZeroUsize::new(n));
+                    };
+                    self.lexer.errors.push(diag);
+                }
                 Value::default()
             }
         }
@@ -122,15 +136,22 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
 
     /// Produce an error at the given marker.
     pub fn error_at(&mut self, mark: Marker, message: impl Into<EcoString>) {
-        let Marker { span } = mark;
-        let diag = SourceDiagnostic::error(span, message);
-        self.lexer.errors.push(diag);
+        let Marker { span, start_index: _, n_extra } = mark;
+        self.add_error(span, n_extra, message);
     }
 
     /// Produce an error from the given marker up to (excluding) the next token.
     pub fn error_from(&mut self, mark: Marker, message: impl Into<EcoString>) {
-        let Marker { span } = mark;
-        let diag = SourceDiagnostic::error(span, message);
+        let Marker { span, start_index, n_extra: _ } = mark;
+        self.add_error(span, self.before_next - start_index, message);
+    }
+
+    fn add_error(&mut self, span: Span, n: usize, message: impl Into<EcoString>) {
+        let diag = if let Some(nonzero) = NonZeroUsize::new(n) {
+            SourceDiagnostic::error_multiple_nodes(span, nonzero, message)
+        } else {
+            SourceDiagnostic::error(span, message)
+        };
         self.lexer.errors.push(diag);
     }
 
@@ -208,6 +229,7 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
             }
             _ => false,
         };
+        self.before_next = self.lexer.cursor;
         self.next = self.lexer.lex(at_arg_start);
 
         prev_mark
@@ -234,7 +256,7 @@ impl<'ast, 'vm, 'a> Lexer<'ast, 'vm, 'a> {
             self.cursor += 1;
             match self.lex_token_or_trivia(token_node, span, at_arg_start) {
                 ControlFlow::Break((token, n_extra)) => {
-                    mark = Marker { span };
+                    mark = Marker { span, start_index: self.cursor, n_extra };
                     self.cursor += n_extra;
                     break token;
                 }

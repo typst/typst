@@ -84,7 +84,7 @@ impl Timer {
 fn resolve_span(world: &SystemWorld, span: Span) -> Option<(String, u32)> {
     let id = span.id()?;
     let source = world.source(id).ok()?;
-    let range = source.range(span)?;
-    let line = source.lines().byte_to_line(range.start)?;
+    let offset = source.start_offset(span)?;
+    let line = source.lines().byte_to_line(offset)?;
     Some((format!("{id:?}"), line as u32 + 1))
 }

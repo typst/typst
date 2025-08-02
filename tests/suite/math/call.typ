@@ -10,7 +10,7 @@ $ pi(a,b,) $
 
 --- math-call-unclosed-func ---
 #let func(x) = x
-// Error: 6-7 unclosed delimiter
+// Error: 2-7 unclosed delimiter
 $func(a$
 
 --- math-call-unclosed-non-func ---
@@ -42,12 +42,12 @@ $ func(my: a, my: b) $
 
 --- math-call-named-args-shorthand-clash-1 ---
 #let func(m: none) = m
-// Error: 18-21 unexpected argument
+// Error: 18-19 unexpected argument
 $func(m: =) func(m:=)$
 
 --- math-call-named-args-shorthand-clash-2 ---
 #let func(m: none) = m
-// Error: 41-45 unexpected argument
+// Error: 41-42 unexpected argument
 $func(m::) func(m: :=) func(m:: =) func(m::=)$
 
 --- math-call-named-single-underscore ---
@@ -57,7 +57,7 @@ $ func(_: a) $
 
 --- math-call-named-single-char-error ---
 #let func(m: none) = m
-// Error: 8-13 unexpected argument
+// Error: 8-9 unexpected argument
 $ func(m : a) $
 
 --- math-call-named-args-repr ---
@@ -79,7 +79,7 @@ $args(..(a + b))$
 
 --- math-call-spread-multiple-exprs ---
 #let args(..body) = body
-// Error: 10 cannot spread content
+// Error: 7-14 cannot spread content
 $args(..a + b)$
 
 --- math-call-spread-unexpected-dots ---
@@ -268,7 +268,7 @@ $ mat(
 --- issue-2885-math-var-only-in-global ---
 // Error: 7-10 unknown variable: rgb
 // Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
-// Error: 19-20 unexpected argument
+// Error: 21-26 unexpected argument
 $text(rgb(0, 0, 0), "foo")$
 
 --- math-func-redefine ---

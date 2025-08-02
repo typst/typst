@@ -633,7 +633,7 @@ fn add_named_arg(
     args: &mut ArgParser,
     name: EcoString,
     value: Spanned<Value>,
-    mark: Marker,
+    mut mark: Marker,
 ) {
     match args.named.entry(name.into()) {
         Entry::Vacant(entry) => {
@@ -642,6 +642,7 @@ fn add_named_arg(
         Entry::Occupied(mut entry) => match entry.get().1 {
             NamedSource::Syntax => {
                 // Only error on duplicates if both came from syntax.
+                mark.n_extra -= 1; // Exclude the colon from the error span.
                 let msg = eco_format!("duplicate argument: {}", entry.key());
                 tokens.error_at(mark, msg);
             }

@@ -22,7 +22,7 @@ pub enum Jump {
 impl Jump {
     fn from_span(world: &dyn IdeWorld, span: Span) -> Option<Self> {
         let id = span.id()?;
-        let offset = world.range(span)?.start;
+        let offset = world.start_offset(span)?;
         Some(Self::File(id, offset))
     }
 }

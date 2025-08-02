@@ -258,14 +258,14 @@ $ mat(delim: #(none, "["), 1, 2; 3, 4) $
 $ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $
 
 --- math-mat-linebreaks ---
-// Warning: 20-29 linebreaks are ignored in cells
-// Hint: 20-29 use commas instead to separate each line
+// Warning: 20-21 linebreaks are ignored in cells
+// Hint: 20-21 use commas instead to separate each line
 $ mat(a; b; c) mat(a \ b \ c) $
 
 --- math-mat-vec-cases-unity ---
 // Test that matrices, vectors, and cases are all laid out the same.
 $ mat(z_(n_p); a^2)
-  vec(z_(n_p), a^2) 
+  vec(z_(n_p), a^2)
   cases(reverse: #true, delim: \(, z_(n_p), a^2)
   cases(delim: \(, z_(n_p), a^2) $
 
