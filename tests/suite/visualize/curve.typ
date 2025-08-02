@@ -130,6 +130,16 @@
   down, up, down, up, down,
 )
 
+--- curve-stroke-gradient-sharp ---
+#set page(width: auto)
+#let down = curve.line((40pt, 40pt), relative: true)
+#let up = curve.line((40pt, -40pt), relative: true)
+
+#curve(
+  stroke: 4pt + gradient.linear(red, blue).sharp(3),
+  down, up, down, up, down,
+)
+
 --- curve-fill-rule ---
 #stack(
   dir: ltr,

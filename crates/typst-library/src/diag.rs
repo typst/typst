@@ -151,6 +151,13 @@ pub struct Warned<T> {
     pub warnings: EcoVec<SourceDiagnostic>,
 }
 
+impl<T> Warned<T> {
+    /// Maps the output, keeping the same warnings.
+    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Warned<R> {
+        Warned { output: f(self.output), warnings: self.warnings }
+    }
+}
+
 /// An error or warning in a source or text file.
 ///
 /// The contained spans will only be detached if any of the input source files
@@ -234,18 +241,23 @@ impl From<SyntaxError> for SourceDiagnostic {
 
 /// Destination for a deprecation message when accessing a deprecated value.
 pub trait DeprecationSink {
-    /// Emits the given deprecation message into this sink.
-    fn emit(self, message: &str);
+    /// Emits the given deprecation message into this sink alongside a version
+    /// in which the deprecated item is planned to be removed.
+    fn emit(self, message: &str, until: Option<&str>);
 }
 
 impl DeprecationSink for () {
-    fn emit(self, _: &str) {}
+    fn emit(self, _: &str, _: Option<&str>) {}
 }
 
 impl DeprecationSink for (&mut Engine<'_>, Span) {
     /// Emits the deprecation message as a warning.
-    fn emit(self, message: &str) {
-        self.0.sink.warn(SourceDiagnostic::warning(self.1, message));
+    fn emit(self, message: &str, version: Option<&str>) {
+        self.0
+            .sink
+            .warn(SourceDiagnostic::warning(self.1, message).with_hints(
+                version.map(|v| eco_format!("it will be removed in Typst {}", v)),
+            ));
     }
 }
 

@@ -26,6 +26,7 @@ image = { workspace = true }
 infer = { workspace = true }
 krilla = { workspace = true }
 krilla-svg = { workspace = true }
+rustc-hash = { workspace = true }
 serde = { workspace = true }
 
 [lints]

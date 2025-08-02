@@ -7,13 +7,13 @@ mod distribute;
 
 pub(crate) use self::block::unbreakable_pod;
 
-use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::rc::Rc;
 
 use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
+use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
@@ -303,7 +303,7 @@ struct Work<'a, 'b> {
     /// Identifies floats and footnotes that can be skipped if visited because
     /// they were already handled and incorporated as column or page level
     /// insertions.
-    skips: Rc<HashSet<Location>>,
+    skips: Rc<FxHashSet<Location>>,
 }
 
 impl<'a, 'b> Work<'a, 'b> {
@@ -316,7 +316,7 @@ impl<'a, 'b> Work<'a, 'b> {
             footnotes: EcoVec::new(),
             footnote_spill: None,
             tags: EcoVec::new(),
-            skips: Rc::new(HashSet::new()),
+            skips: Rc::new(FxHashSet::default()),
         }
     }
 
