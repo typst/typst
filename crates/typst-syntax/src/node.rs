@@ -671,7 +671,9 @@ impl SyntaxError {
 pub struct LinkedNode<'a> {
     node: &'a SyntaxNode,
     parent: Option<Rc<Self>>,
+    // The index of this node in its parent's children array.
     index: usize,
+    // This node's byte-offset in the source file.
     offset: usize,
 }
 
@@ -705,7 +707,8 @@ impl<'a> LinkedNode<'a> {
     pub fn children(&self) -> LinkedChildren<'a> {
         LinkedChildren {
             parent: Rc::new(self.clone()),
-            iter: self.node.children().enumerate(),
+            slice: self.node.children().as_slice(),
+            index: 0,
             front: self.offset,
             back: self.offset + self.len(),
         }
@@ -753,22 +756,18 @@ impl LinkedNode<'_> {
 
     /// Get the first previous non-trivia sibling node.
     pub fn prev_sibling(&self) -> Option<Self> {
-        let parent = self.parent()?;
-        let index = self.index.checked_sub(1)?;
-        let node = parent.node.children().nth(index)?;
-        let offset = self.offset - node.len();
-        let prev = Self { node, parent: self.parent.clone(), index, offset };
-        if prev.kind().is_trivia() { prev.prev_sibling() } else { Some(prev) }
+        let mut children = self.parent()?.children();
+        children.slice = &children.slice[..self.index];
+        children.back = self.offset;
+        children.rev().find(|node| !node.kind().is_trivia())
     }
 
     /// Get the next non-trivia sibling node.
     pub fn next_sibling(&self) -> Option<Self> {
-        let parent = self.parent()?;
-        let index = self.index.checked_add(1)?;
-        let node = parent.node.children().nth(index)?;
-        let offset = self.offset + self.node.len();
-        let next = Self { node, parent: self.parent.clone(), index, offset };
-        if next.kind().is_trivia() { next.next_sibling() } else { Some(next) }
+        let mut children = self.parent()?.children();
+        children.index = self.index + 1;
+        children.front = self.offset + self.node.len();
+        children.find(|node| !node.kind().is_trivia())
     }
 
     /// Get the kind of this node's parent.
@@ -917,7 +916,8 @@ impl Debug for LinkedNode<'_> {
 /// An iterator over the children of a linked node.
 pub struct LinkedChildren<'a> {
     parent: Rc<LinkedNode<'a>>,
-    iter: std::iter::Enumerate<std::slice::Iter<'a, SyntaxNode>>,
+    slice: &'a [SyntaxNode],
+    index: usize,
     front: usize,
     back: usize,
 }
@@ -926,33 +926,34 @@ impl<'a> Iterator for LinkedChildren<'a> {
     type Item = LinkedNode<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(index, node)| {
-            let offset = self.front;
-            self.front += node.len();
-            LinkedNode {
-                node,
-                parent: Some(self.parent.clone()),
-                index,
-                offset,
-            }
-        })
+        let node = self.slice.get(self.index)?;
+        let item = LinkedNode {
+            node,
+            parent: Some(self.parent.clone()),
+            index: self.index,
+            offset: self.front,
+        };
+        self.index += 1;
+        self.front += node.len();
+        Some(item)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+        let n = self.slice.len() - self.index;
+        (n, Some(n))
     }
 }
 
 impl DoubleEndedIterator for LinkedChildren<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(|(index, node)| {
-            self.back -= node.len();
-            LinkedNode {
-                node,
-                parent: Some(self.parent.clone()),
-                index,
-                offset: self.back,
-            }
+        let node;
+        (node, self.slice) = self.slice.split_last()?;
+        self.back -= node.len();
+        Some(LinkedNode {
+            node,
+            parent: Some(self.parent.clone()),
+            index: self.slice.len(),
+            offset: self.back,
         })
     }
 }
