@@ -260,7 +260,7 @@ pub enum Expr<'a> {
     MathDelimited(MathDelimited<'a>),
     /// A base with optional attachments in math: `a_1^2`.
     MathAttach(MathAttach<'a>),
-    /// Grouped math primes
+    /// Grouped primes in math: `a'''`.
     MathPrimes(MathPrimes<'a>),
     /// A fraction in math: `x/2`.
     MathFrac(MathFrac<'a>),
@@ -1037,10 +1037,8 @@ node! {
 impl MathPrimes<'_> {
     /// The number of grouped primes.
     pub fn count(self) -> usize {
-        self.0
-            .children()
-            .filter(|node| matches!(node.kind(), SyntaxKind::Prime))
-            .count()
+        // We can use byte length since single quotes are in ASCII.
+        self.0.text().len()
     }
 }
 
