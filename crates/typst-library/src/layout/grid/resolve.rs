@@ -1204,7 +1204,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // different auto index counter and will have seen different headers,
         // so we copy the next header counter while inside a row group.
         let local_next_header = if matches!(child, ResolvableGridChild::Item(_)) {
-            next_header
+            &mut *next_header
         } else {
             &mut (*next_header).clone()
         };
@@ -1584,6 +1584,12 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
             }
 
+            if !had_any_cells || had_auto_cells {
+                // Header/footer was automatically positioned, so trigger a
+                // rowbreak. Move auto index counter below it.
+                *auto_index = group_range.end * columns;
+            }
+
             match row_group.kind {
                 RowGroupKind::Header => {
                     let data = Header {
@@ -1621,6 +1627,16 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         group_range.start,
                         Repeatable { inner: data, repeated: row_group.repeat },
                     );
+
+                    if *auto_index <= group_range.start * columns
+                        && next_header
+                            .as_ref()
+                            .is_none_or(|h| group_range.start < h.start)
+                    {
+                        // Next auto cell might collide with this header.
+                        // Ensure that is checked.
+                        *next_header = Some(group_range.clone());
+                    }
                 }
 
                 RowGroupKind::Footer => {
@@ -1644,12 +1660,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                     *repeat_footer = row_group.repeat;
                 }
-            }
-
-            if !had_any_cells || had_auto_cells {
-                // Header/footer was automatically positioned, so trigger a
-                // rowbreak. Move auto index counter below it.
-                *auto_index = group_range.end * columns;
             }
         }
 
