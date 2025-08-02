@@ -40,20 +40,21 @@ pub struct FracElem {
     /// - `"diagonal"`: numerator and denominator separated by a slash.
     /// - `"horizontal"`: numerator and denominator placed inline and
     ///   parentheses are not absorbed
-    ///
-    /// The default style is "vertical"
-    pub style: Option<FracStyle>,
+    #[default(FracStyle::Vertical)]
+    pub style: FracStyle,
 
     /// Whether the numerator was originally surrounded by parentheses
     /// that were stripped by the parser.
     #[internal]
-    #[synthesized]
+    #[parse(None)]
+    #[default(false)]
     pub num_deparenthesized: bool,
 
     /// Whether the denominator was originally surrounded by parentheses
     /// that were stripped by the parser.
     #[internal]
-    #[synthesized]
+    #[parse(None)]
+    #[default(false)]
     pub denom_deparenthesized: bool,
 }
 

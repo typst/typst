@@ -1,5 +1,7 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
+use typst_library::foundations::{
+    Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
+};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{BinomElem, FracElem, FracStyle, LrElem};
 use typst_library::text::TextElem;
@@ -21,17 +23,17 @@ pub fn layout_frac(
     styles: StyleChain,
 ) -> SourceResult<()> {
     match elem.style.get(styles) {
-        Some(FracStyle::Skewed) => {
+        FracStyle::Skewed => {
             layout_skewed_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
         }
-        Some(FracStyle::Horizontal) => layout_horizontal_frac(
+        FracStyle::Horizontal => layout_horizontal_frac(
             ctx,
             styles,
             &elem.num,
             &elem.denom,
             elem.span(),
-            elem.num_deparenthesized.unwrap_or(false),
-            elem.denom_deparenthesized.unwrap_or(false),
+            elem.num_deparenthesized.as_option().unwrap_or(false),
+            elem.denom_deparenthesized.as_option().unwrap_or(false),
         ),
         _ => layout_vertical_frac_like(
             ctx,
@@ -163,11 +165,12 @@ fn layout_horizontal_frac(
 ) -> SourceResult<()> {
     let num_frame = if num_deparen {
         ctx.layout_into_frame(
-            &Content::new(LrElem::new(Content::sequence(vec![
+            &LrElem::new(Content::sequence(vec![
                 SymbolElem::packed('('),
                 num.clone(),
                 SymbolElem::packed(')'),
-            ]))),
+            ]))
+            .pack(),
             styles,
         )?
     } else {
@@ -179,19 +182,18 @@ fn layout_horizontal_frac(
     slash.center_on_axis();
     ctx.push(slash);
 
-    let denom_frame = if denom_deparen {
-        ctx.layout_into_frame(
-            &Content::new(LrElem::new(Content::sequence(vec![
-                SymbolElem::packed('('),
-                denom.clone(),
-                SymbolElem::packed(')'),
-            ]))),
-            styles,
-        )?
+    let denom = if denom_deparen {
+        &LrElem::new(Content::sequence(vec![
+            SymbolElem::packed('('),
+            denom.clone(),
+            SymbolElem::packed(')'),
+        ]))
+        .pack()
     } else {
-        ctx.layout_into_frame(denom, styles)?
+        denom
     };
-    ctx.push(FrameFragment::new(styles, denom_frame));
+    let denom = ctx.layout_into_fragment(denom, styles)?;
+    ctx.push(denom);
 
     Ok(())
 }
@@ -219,11 +221,12 @@ fn layout_skewed_frac(
 
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
 
-    // Final size of the fraction frame, save for the one exception below
+    // Size of the fraction frame
+    // We recalculate these values below if the slash glyph overflows
     let mut fraction_height = num_size.y + denom_size.y + vgap;
-    let fraction_width = num_size.x + denom_size.x + hgap;
+    let mut fraction_width = num_size.x + denom_size.x + hgap;
 
-    // Only exception: if the stretched slash is bigger than intended.
+    // Build the slash glyph to calculate its size
     let mut slash_frag = GlyphFragment::new_char(ctx.font, styles, '\u{2044}', span)?;
     let pre_stretch_height = slash_frag.size.y;
     slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
@@ -234,25 +237,32 @@ fn layout_skewed_frac(
     }
     slash_frag.center_on_axis();
     let slash_frame = slash_frag.into_frame();
+
+    // Adjust the fraction size if the slash overflows
     let slash_size = slash_frame.size();
     let vertical_offset = Abs::zero().max(slash_size.y - fraction_height) / 2.0;
     fraction_height.set_max(slash_size.y);
+    let horizontal_offset = Abs::zero().max(slash_size.x - fraction_width) / 2.0;
+    fraction_width.set_max(slash_size.x);
 
     // Build the final frame
     let mut fraction_frame = Frame::soft(Size::new(fraction_width, fraction_height));
 
     // Numerator
-    fraction_frame.push_frame(Point::new(Abs::zero(), vertical_offset), num_frame);
+    fraction_frame.push_frame(Point::new(horizontal_offset, vertical_offset), num_frame);
     // Denominator
     fraction_frame.push_frame(
-        Point::new(num_size.x + hgap, vertical_offset + num_size.y + vgap),
+        Point::new(
+            horizontal_offset + num_size.x + hgap,
+            vertical_offset + num_size.y + vgap,
+        ),
         denom_frame,
     );
 
     // Slash
     fraction_frame.push_frame(
         Point::new(
-            num_size.x + hgap / 2.0 - slash_size.x / 2.0,
+            horizontal_offset + num_size.x + hgap / 2.0 - slash_size.x / 2.0,
             fraction_height / 2.0 - slash_size.y / 2.0,
         ),
         slash_frame,
