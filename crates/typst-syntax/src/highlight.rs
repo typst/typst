@@ -171,10 +171,13 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Equation => None,
 
         SyntaxKind::Math => None,
+        SyntaxKind::MathTokens => None,
         SyntaxKind::MathText => None,
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathShorthand => Some(Tag::Escape),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
+        SyntaxKind::MathOpening => (node.text() == "[|").then_some(Tag::Escape),
+        SyntaxKind::MathClosing => (node.text() == "|]").then_some(Tag::Escape),
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
@@ -196,14 +199,19 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
             _ => Some(Tag::Operator),
         },
         SyntaxKind::Underscore => match node.parent_kind() {
-            Some(SyntaxKind::MathAttach) => Some(Tag::MathOperator),
+            Some(SyntaxKind::MathAttach | SyntaxKind::MathTokens) => {
+                Some(Tag::MathOperator)
+            }
             _ => None,
         },
         SyntaxKind::Dollar => Some(Tag::MathDelimiter),
         SyntaxKind::Plus => Some(Tag::Operator),
-        SyntaxKind::Minus => Some(Tag::Operator),
+        SyntaxKind::Minus => Some(match node.parent_kind() {
+            Some(SyntaxKind::MathTokens) => Tag::Escape,
+            _ => Tag::Operator,
+        }),
         SyntaxKind::Slash => Some(match node.parent_kind() {
-            Some(SyntaxKind::MathFrac) => Tag::MathOperator,
+            Some(SyntaxKind::MathFrac | SyntaxKind::MathTokens) => Tag::MathOperator,
             _ => Tag::Operator,
         }),
         SyntaxKind::Hat => Some(Tag::MathOperator),
@@ -301,11 +309,20 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     // Are we directly before an argument list?
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf
-        && node.range().end == next.offset()
-        && ((next.kind() == SyntaxKind::LeftParen
-            && matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params)))
-            || (next.kind() == SyntaxKind::LeftBracket
-                && next.parent_kind() == Some(SyntaxKind::ContentBlock)))
+        && node.range().end == next.offset() // <- No trivia between the nodes.
+        && match next.kind() {
+            SyntaxKind::LeftParen => {
+                matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params))
+            }
+            SyntaxKind::LeftBracket => {
+                matches!(next.parent_kind(), Some(SyntaxKind::ContentBlock))
+            }
+            // In math we only check that an ident "looks-like" an arg list.
+            SyntaxKind::MathOpening if next.text() == "(" => {
+                matches!(next.parent_kind(), Some(SyntaxKind::MathTokens))
+            }
+            _ => false,
+        }
     {
         return Some(Tag::Function);
     }

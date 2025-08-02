@@ -1,9 +1,13 @@
 use ecow::{EcoString, eco_format};
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_math_class::MathClass;
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
+use typst_utils::default_math_class;
+
+use crate::ast::MATH_RUNTIME;
 use crate::{SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode};
 
 /// An iterator over a source code string which returns tokens.
@@ -577,7 +581,6 @@ impl Lexer<'_> {
             ':' if self.s.eat_if(":=") => SyntaxKind::MathShorthand,
             '!' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
             '.' if self.s.eat_if("..") => SyntaxKind::MathShorthand,
-            '[' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("==>") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("-->") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("--") => SyntaxKind::MathShorthand,
@@ -601,11 +604,29 @@ impl Lexer<'_> {
             '>' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
-            '|' if self.s.eat_if(']') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if("~>") => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
-            '*' | '-' | '~' => SyntaxKind::MathShorthand,
+            '*' | '~' => SyntaxKind::MathShorthand,
+
+            // Shorthands that we alter for runtime parsing.
+            '[' if !MATH_RUNTIME && self.s.eat_if('|') => SyntaxKind::MathShorthand,
+            '|' if !MATH_RUNTIME && self.s.eat_if(']') => SyntaxKind::MathShorthand,
+            '-' if !MATH_RUNTIME => SyntaxKind::MathShorthand,
+            // `[|` and `|]` are lexed as delimiter tokens for the runtime
+            // parser but are converted to their shorthand character in the ast.
+            '[' if self.s.eat_if('|') => SyntaxKind::MathOpening,
+            '|' if self.s.eat_if(']') => SyntaxKind::MathClosing,
+            '-' => SyntaxKind::Minus,
+
+            // New behavior for runtime parsing.
+            ':' if MATH_RUNTIME => SyntaxKind::Colon,
+            c if MATH_RUNTIME && default_math_class(c) == Some(MathClass::Opening) => {
+                SyntaxKind::MathOpening
+            }
+            c if MATH_RUNTIME && default_math_class(c) == Some(MathClass::Closing) => {
+                SyntaxKind::MathClosing
+            }
 
             '.' => SyntaxKind::Dot,
             ',' => SyntaxKind::Comma,

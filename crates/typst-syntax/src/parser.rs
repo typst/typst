@@ -9,6 +9,8 @@ use unicode_math_class::MathClass;
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
+use crate::ast::MATH_RUNTIME;
+
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse");
@@ -29,8 +31,13 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 pub fn parse_math(text: &str) -> SyntaxNode {
     let _scope = typst_timing::TimingScope::new("parse math");
     let mut p = Parser::new(text, 0, SyntaxMode::Math);
-    math_exprs(&mut p, syntax_set!(End));
-    p.finish_into(SyntaxKind::Math)
+    if MATH_RUNTIME {
+        math_tokens(&mut p, syntax_set!(End));
+        p.finish_into(SyntaxKind::MathTokens)
+    } else {
+        math_exprs(&mut p, syntax_set!(End));
+        p.finish_into(SyntaxKind::Math)
+    }
 }
 
 /// Parses markup expressions until a stop condition is met.
@@ -216,8 +223,33 @@ fn equation(p: &mut Parser) {
 /// Parses the contents of a mathematical equation: `x^2 + 1`.
 fn math(p: &mut Parser, stop_set: SyntaxSet) {
     let m = p.marker();
-    math_exprs(p, stop_set);
-    p.wrap(m, SyntaxKind::Math);
+    if MATH_RUNTIME {
+        math_tokens(p, stop_set);
+        p.wrap(m, SyntaxKind::MathTokens);
+    } else {
+        math_exprs(p, stop_set);
+        p.wrap(m, SyntaxKind::Math);
+    }
+}
+
+/// Parse a flat list of tokens for future runtime math parsing. Still parses
+/// embedded code and field accesses, but most tokens are merely lexed as the
+/// correct kind.
+fn math_tokens(p: &mut Parser, stop_set: SyntaxSet) {
+    while !p.at_set(stop_set) {
+        match p.current() {
+            SyntaxKind::Hash => {
+                // Group the hash and the code expression into one node.
+                let m = p.marker();
+                embedded_code_expr(p);
+                p.wrap(m, SyntaxKind::Code);
+            }
+            _ => {
+                assert!(p.at_set(set::UNPARSED_MATH));
+                p.eat()
+            }
+        }
+    }
 }
 
 /// Parses a sequence of math expressions. Returns the number of expressions

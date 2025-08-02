@@ -75,6 +75,8 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
+    /// A flat list of unparsed tokens comprising a math equation: `x^2 + 1`.
+    MathTokens,
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
     MathText,
     /// An identifier in math: `pi`.
@@ -83,6 +85,14 @@ pub enum SyntaxKind {
     MathShorthand,
     /// An alignment point in math: `&`.
     MathAlignPoint,
+    /// An opening delimiter in math: `(`, `{`.
+    ///
+    /// This also wraps the double-square-bracket shorthand: `[|`.
+    MathOpening,
+    /// A closing delimiter in math: `)`, `}`.
+    ///
+    /// This also wraps the double-square-bracket shorthand: `|]`.
+    MathClosing,
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited,
     /// A base with optional attachments in math: `a_1^2`.
@@ -410,10 +420,13 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
+            Self::MathTokens => "unparsed math tokens",
             Self::MathText => "math text",
             Self::MathIdent => "math identifier",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
+            Self::MathOpening => "math opening delimiter",
+            Self::MathClosing => "math closing delimiter",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
