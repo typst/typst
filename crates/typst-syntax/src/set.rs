@@ -68,10 +68,11 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
     MathShorthand,
     Linebreak,
     MathAlignPoint,
+    MathPrimes,
     Escape,
     Str,
     Root,
-    Prime,
+    Bang,
 );
 
 /// Syntax kinds that can start a code expression.
