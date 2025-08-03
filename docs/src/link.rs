@@ -1,5 +1,5 @@
 use typst::diag::{StrResult, bail};
-use typst::foundations::{Binding, Func};
+use typst::foundations::{Binding, Func, Type};
 
 use crate::{GROUPS, LIBRARY, get_module};
 
@@ -94,25 +94,158 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
     let mut route = format!("{}reference/{}/{name}", base, category.name());
     if let Some(next) = parts.next() {
         if let Ok(field) = value.field(next, ()) {
+            // For top-level definitions
             route.push_str("/#definitions-");
             route.push_str(next);
-            if let Some(next) = parts.next()
-                && field.cast::<Func>().is_ok_and(|func| func.param(next).is_some())
-            {
-                route.push('-');
-                route.push_str(next);
+
+            let mut focus = field;
+            // For subsequent parameters, definitions, or definitions’ parameters
+            for next in parts.by_ref() {
+                if let Ok(field) = focus.field(next, ()) {
+                    // For definitions
+                    route.push_str("-definitions-");
+                    route.push_str(next);
+                    focus = field.clone();
+                } else if focus
+                    .clone()
+                    .cast::<Func>()
+                    .is_ok_and(|func| func.param(next).is_some())
+                {
+                    // For parameters
+                    route.push('-');
+                    route.push_str(next);
+                }
             }
+        } else if let Ok(ty) = value.clone().cast::<Type>()
+            && let Ok(func) = ty.constructor()
+            && func.param(next).is_some()
+        {
+            // For parameters of a constructor function
+            route.push_str("/#constructor-");
+            route.push_str(next);
         } else if value
             .clone()
             .cast::<Func>()
             .is_ok_and(|func| func.param(next).is_some())
         {
+            // For parameters of a function (except for constructor functions)
             route.push_str("/#parameters-");
             route.push_str(next);
         } else {
             bail!("field {next} not found");
         }
+
+        if let Some(next) = parts.next() {
+            bail!("found redundant field {next}");
+        }
     }
 
     Ok(route)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_function() {
+        assert_eq!(
+            resolve_definition("$figure", "/"),
+            Ok("/reference/model/figure".into())
+        );
+        assert_eq!(
+            resolve_definition("$figure.body", "/"),
+            Ok("/reference/model/figure/#parameters-body".into())
+        );
+        assert_eq!(
+            resolve_definition("$figure.caption", "/"),
+            Ok("/reference/model/figure/#definitions-caption".into())
+        );
+        assert_eq!(
+            resolve_definition("$figure.caption.position", "/"),
+            Ok("/reference/model/figure/#definitions-caption-position".into())
+        );
+    }
+
+    #[test]
+    fn test_function_definition() {
+        assert_eq!(
+            resolve_definition("$outline", "/"),
+            Ok("/reference/model/outline".into())
+        );
+        assert_eq!(
+            resolve_definition("$outline.title", "/"),
+            Ok("/reference/model/outline/#parameters-title".into())
+        );
+
+        assert_eq!(
+            resolve_definition("$outline.entry", "/"),
+            Ok("/reference/model/outline/#definitions-entry".into())
+        );
+        assert_eq!(
+            resolve_definition("$outline.entry.fill", "/"),
+            Ok("/reference/model/outline/#definitions-entry-fill".into())
+        );
+    }
+
+    #[test]
+    fn test_function_definition_definition() {
+        assert_eq!(
+            resolve_definition("$outline.entry.indented", "/"),
+            Ok("/reference/model/outline/#definitions-entry-definitions-indented".into())
+        );
+        assert_eq!(
+            resolve_definition("$outline.entry.indented.prefix", "/"),
+            Ok("/reference/model/outline/#definitions-entry-definitions-indented-prefix"
+                .into())
+        );
+    }
+
+    #[test]
+    fn test_type() {
+        assert_eq!(
+            resolve_definition("$array", "/"),
+            Ok("/reference/foundations/array".into())
+        );
+        assert_eq!(
+            resolve_definition("$array.at", "/"),
+            Ok("/reference/foundations/array/#definitions-at".into())
+        );
+        assert_eq!(
+            resolve_definition("$array.at.index", "/"),
+            Ok("/reference/foundations/array/#definitions-at-index".into())
+        );
+    }
+
+    #[test]
+    fn test_type_constructor() {
+        assert_eq!(
+            resolve_definition("$str.base", "/"),
+            Ok("/reference/foundations/str/#constructor-base".into())
+        );
+        assert_eq!(
+            resolve_definition("$tiling.relative", "/"),
+            Ok("/reference/visualize/tiling/#constructor-relative".into())
+        );
+    }
+
+    #[test]
+    fn test_group() {
+        assert_eq!(
+            resolve_definition("$calc.abs", "/"),
+            Ok("/reference/foundations/calc/#functions-abs".into())
+        );
+        assert_eq!(
+            resolve_definition("$calc.pow.exponent", "/"),
+            Ok("/reference/foundations/calc/#functions-pow-exponent".into())
+        );
+    }
+
+    #[test]
+    fn test_redundant_field() {
+        assert_eq!(
+            resolve_definition("$figure.body.anything", "/"),
+            Err("found redundant field anything".into())
+        );
+    }
 }

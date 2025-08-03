@@ -32,6 +32,7 @@ icu_provider_blob = { workspace = true }
 icu_segmenter = { workspace = true }
 kurbo = { workspace = true }
 memchr = { workspace = true }
+rustc-hash = { workspace = true }
 rustybuzz = { workspace = true }
 smallvec = { workspace = true }
 ttf-parser = { workspace = true }
