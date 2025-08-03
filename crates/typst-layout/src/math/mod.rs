@@ -15,7 +15,7 @@ mod underover;
 
 use comemo::Tracked;
 use typst_library::World;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{SourceResult, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, NativeElement, Packed, Resolve, Style, StyleChain, SymbolElem,
@@ -30,7 +30,8 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, families, variant,
+    Font, FontFlags, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, families,
+    variant,
 };
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
@@ -55,6 +56,36 @@ fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
         .wrap()
 }
 
+/// Get the current base font.
+#[inline]
+fn get_font(
+    world: Tracked<dyn World + '_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    families(styles)
+        .find_map(|family| {
+            world
+                .book()
+                .select(family.as_str(), variant)
+                .and_then(|id| world.font(id))
+                .filter(|_| family.covers().is_none())
+        })
+        .ok_or(::ecow::eco_vec![error!(span, "no font could be found")])
+}
+
+/// Check if the top-level base font has a MATH table.
+fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
+    if !font.info().flags.contains(FontFlags::MATH) {
+        engine.sink.warn(warning!(
+            span,
+            "font is not a math font";
+            hint: "rendering may be poor"
+        ))
+    }
+}
+
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
 pub fn layout_equation_inline(
@@ -66,8 +97,9 @@ pub fn layout_equation_inline(
 ) -> SourceResult<Vec<InlineItem>> {
     assert!(!elem.block.get(styles));
 
-    // TODO: add warning if top-level font isn't a math font.
-    let font = get_font(engine.world, styles, elem.span())?;
+    let span = elem.span();
+    let font = get_font(engine.world, styles, span)?;
+    warn_non_math_font(&font, engine, span);
 
     let mut locator = locator.split();
     let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
@@ -122,8 +154,8 @@ pub fn layout_equation_block(
     assert!(elem.block.get(styles));
 
     let span = elem.span();
-    // TODO: add warning if top-level font isn't a math font.
-    let font = get_font(engine.world, styles, elem.span())?;
+    let font = get_font(engine.world, styles, span)?;
+    warn_non_math_font(&font, engine, span);
 
     let mut locator = locator.split();
     let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
@@ -361,26 +393,6 @@ fn resize_equation(
     resizing_offset + Point::with_y(excess_above)
 }
 
-fn get_font(
-    world: Tracked<dyn World + '_>,
-    styles: StyleChain,
-    span: Span,
-) -> SourceResult<Font> {
-    let variant = variant(styles);
-    let Some(font) = families(styles).find_map(|family| {
-        // Take the base font as the "main" math font.
-        world
-            .book()
-            .select(family.as_str(), variant)
-            .and_then(|id| world.font(id))
-            .filter(|_| family.covers().is_none())
-    }) else {
-        // TODO: surely this can never be triggered...?
-        bail!(span, "current font does not support math");
-    };
-    Ok(font)
-}
-
 /// The context for math layout.
 struct MathContext<'a, 'v, 'e> {
     // External.
@@ -409,6 +421,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         }
     }
 
+    /// Get the current base font.
     #[inline]
     fn font(&self) -> &Font {
         // Will always be at least one font in the stack.
@@ -490,7 +503,6 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             styles.get_ref(TextElem::weight),
         );
         for (elem, styles) in pairs {
-            // TODO: can we get away with just checking the font?
             if styles.get_ref(TextElem::font) != outer_font
                 || styles.get_ref(TextElem::style) != outer_style
                 || styles.get_ref(TextElem::weight) != outer_weight

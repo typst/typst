@@ -27,10 +27,17 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
   font: (
     // Ignore that this regex actually misses some of the script glyphs...
     (name: "XITS Math", covers: regex("[\u{1D49C}-\u{1D503}]")),
+    "New Computer Modern Math"
   ),
   features: ("ss01",),
 )
 $ cal(P)_i (X) * cal(C)_1 $
+
+--- math-font-warning ---
+#show math.equation: set text(font: "Libertinus Serif")
+// Warning: 1-14 font is not a math font
+// Hint: 1-14 rendering may be poor
+$ x + y = z $
 
 --- math-optical-size-nested-scripts ---
 // Test transition from script to scriptscript.
