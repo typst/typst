@@ -44,6 +44,17 @@ use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
 use self::shared::*;
 use self::stretch::stretch_fragment;
 
+/// Styles to add font constants to the style chain.
+#[inline]
+fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+    EquationElem::script_scale
+        .set((
+            font.math().script_percent_scale_down,
+            font.math().script_script_percent_scale_down,
+        ))
+        .wrap()
+}
+
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
 pub fn layout_equation_inline(
@@ -368,16 +379,6 @@ fn get_font(
         bail!(span, "current font does not support math");
     };
     Ok(font)
-}
-
-/// Styles to add font constants to the style chain.
-fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
-    EquationElem::script_scale
-        .set((
-            font.math().script_percent_scale_down,
-            font.math().script_script_percent_scale_down,
-        ))
-        .wrap()
 }
 
 /// The context for math layout.
