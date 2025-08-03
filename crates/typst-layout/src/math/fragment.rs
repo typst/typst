@@ -320,20 +320,14 @@ impl GlyphFragment {
     ) -> Option<Self> {
         assert!(text.graphemes(true).count() == 1);
 
-        let families = families(styles);
-        let variant = variant(styles);
-        let fallback = styles.get(TextElem::fallback);
-        let features = features(styles);
-        let language = language(styles);
-
         let (c, font, mut glyph) = shape(
             ctx.engine.world,
-            variant,
-            features,
-            language,
-            fallback,
+            variant(styles),
+            features(styles),
+            language(styles),
+            styles.get(TextElem::fallback),
             text,
-            families,
+            families(styles),
         )?;
         glyph.span.0 = span;
 
