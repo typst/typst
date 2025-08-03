@@ -30,7 +30,7 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    Font, LinebreakElem, RawElem, SpaceElem, TextEdgeBounds, TextElem, families, variant,
+    Font, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, families, variant,
 };
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
@@ -589,7 +589,7 @@ fn layout_realized(
         self::underover::layout_overshell(elem, ctx, styles)?
     } else {
         let mut frame = layout_external(elem, ctx, styles)?;
-        if !frame.has_baseline() && !elem.is::<RawElem>() {
+        if !frame.has_baseline() {
             let axis = ctx.font().math().axis_height.resolve(styles);
             frame.set_baseline(frame.height() / 2.0 + axis);
         }
