@@ -407,7 +407,7 @@ impl Counter {
     /// Create a new counter identified by a key.
     #[func(constructor)]
     pub fn construct(
-        /// The key that identifies this counter.
+        /// The key that identifies this counter globally.
         ///
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,

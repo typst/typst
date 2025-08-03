@@ -273,8 +273,30 @@ impl State {
     #[func(constructor)]
     pub fn construct(
         /// The key that identifies this state.
+        ///
+        /// Subsequent [`update`]($state.update)s to the state will be uniquely
+        /// identified by this string key, and irrelevant to the variable that carries
+        /// the `state`. That is, if you construct multiple variables with the same
+        /// `key`, then updating any one will affect all of them.
         key: Str,
         /// The initial value of the state.
+        ///
+        /// If you construct multiple variables with the same `key` but different
+        /// `init`, then each variable has its own initial value, although they
+        /// share updates.
+        ///
+        /// ```example
+        /// #let banana = state("key", "🍌")
+        /// #let broccoli = state("key", "🥦")
+        ///
+        /// #banana.update(it => it + "😋")
+        ///
+        /// #context [
+        ///   - #state("key", "🍎").get()
+        ///   - #banana.get()
+        ///   - #broccoli.get()
+        /// ]
+        /// ```
         #[default]
         init: Value,
     ) -> State {
