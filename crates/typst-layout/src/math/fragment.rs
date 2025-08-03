@@ -20,6 +20,7 @@ use typst_library::visualize::Paint;
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class, singleton};
 use unicode_math_class::MathClass;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::MathContext;
 use crate::inline::create_shape_plan;
@@ -317,6 +318,8 @@ impl GlyphFragment {
         text: &str,
         span: Span,
     ) -> Option<Self> {
+        assert!(text.graphemes(true).count() == 1);
+
         let families = families(styles);
         let variant = variant(styles);
         let fallback = styles.get(TextElem::fallback);
