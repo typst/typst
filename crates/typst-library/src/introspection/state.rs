@@ -362,9 +362,34 @@ impl State {
     pub fn update(
         self,
         span: Span,
-        /// If given a non function-value, sets the state to that value. If
-        /// given a function, that function receives the previous state and has
-        /// to return the new state.
+        /// - If given a non function-value, sets the state to that value.
+        /// - If given a function, that function receives the previous state and
+        ///   has to return the new state.
+        ///
+        /// When updating the state based on its previous value, please update
+        /// with a function instead of retrieving the previous value from the
+        /// [context]($context). This allows the compiler to resolve the final
+        /// state efficiently, minimizing the number of [iterations]($context/#compiler-iterations)
+        /// required.
+        ///
+        /// In the following example, `{fill.update(f => not f)}` will paint odd
+        /// [items in the bulletin list]($list.item) as expected. However, if it's
+        /// replaced with `{context fill.update(not fill.get())}`, then layout
+        /// will not converge within 5 attempts.
+        ///
+        /// ```example
+        /// #let fill = state("fill", false)
+        ///
+        /// #show list.item: it => {
+        ///   fill.update(f => not f)
+        ///   context {
+        ///     set text(fill: fuchsia) if fill.get()
+        ///     it
+        ///   }
+        /// }
+        ///
+        /// #lorem(5).split().map(list.item).join()
+        /// ```
         update: StateUpdate,
     ) -> Content {
         StateUpdateElem::new(self.key, update).pack().spanned(span)
