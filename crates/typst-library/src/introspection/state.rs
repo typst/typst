@@ -1,10 +1,14 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use rustc_hash::FxHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
 use typst_syntax::Span;
 
 use crate::World;
-use crate::diag::{At, SourceResult, bail};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
+use crate::foundations::Smart;
 use crate::foundations::{
     Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Repr,
     Selector, Str, Value, cast, elem, func, scope, select_where, ty,
@@ -187,14 +191,14 @@ use crate::routines::Routines;
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct State {
     /// The key that identifies the state.
-    key: Str,
+    key: StateKey,
     /// The initial value of the state.
     init: Value,
 }
 
 impl State {
     /// Create a new state identified by a key.
-    pub fn new(key: Str, init: Value) -> State {
+    pub fn new(key: StateKey, init: Value) -> State {
         Self { key, init }
     }
 
@@ -269,17 +273,30 @@ impl State {
 
 #[scope]
 impl State {
-    /// Create a new state identified by a key.
+    /// Create a new state.
     #[func(constructor)]
     pub fn construct(
-        /// The key that identifies this state.
-        key: Str,
+        span: Span,
         /// The initial value of the state.
         #[default]
         init: Value,
+        /// The key that identifies this state.
+        #[named]
+        key: Option<StateKeyArg>,
     ) -> State {
-        Self::new(key, init)
+        match key {
+            Some(StateKeyArg(key)) => Self::new(key, init),
+            None => {
+                // TODO: Don't forget documenting this (anon states always salt their id with the init value)
+                let mut hasher = FxHasher::default();
+                init.hash(&mut hasher);
+                Self::new(StateKey::Private(span, None, hasher.finish() as i32), init)
+            }
+        }
     }
+
+    #[ty]
+    type StateKey;
 
     /// Retrieves the value of the state at the current location.
     ///
@@ -351,8 +368,25 @@ impl State {
 
 impl Repr for State {
     fn repr(&self) -> EcoString {
-        eco_format!("state({}, {})", self.key.repr(), self.init.repr())
+        match &self.key {
+            StateKey::Public(k) => {
+                eco_format!("state({1}, key: {0})", k.repr(), self.init.repr())
+            }
+            StateKey::Private(_, None, _) => eco_format!("state({})", self.init.repr()),
+            key => {
+                eco_format!("state({1}, key: {0})", key.repr(), self.init.repr())
+            }
+        }
     }
+}
+
+pub struct StateKeyArg(pub StateKey);
+
+cast! {
+    StateKeyArg,
+
+    key: Str => Self(StateKey::Public(key)),
+    key: StateKey => Self(key)
 }
 
 /// An update to perform on a state.
@@ -375,7 +409,7 @@ cast! {
 pub struct StateUpdateElem {
     /// The key that identifies the state.
     #[required]
-    key: Str,
+    key: StateKey,
 
     /// The update to perform on the state.
     #[required]
@@ -386,5 +420,57 @@ pub struct StateUpdateElem {
 impl Construct for StateUpdateElem {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+#[ty(scope, name = "key", title = "State Key")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum StateKey {
+    Public(Str),
+    Private(Span, Option<Str>, i32),
+}
+
+impl Repr for StateKey {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Public(key) => eco_format!("state.key({})", key.repr()),
+            Self::Private(_, Some(key), _) => {
+                eco_format!("state.key({}, public: false)", key.repr())
+            }
+            // TODO: This should output "state.key()" (see below)
+            Self::Private(_, None, _) => "state.key(none)".into(),
+        }
+    }
+}
+
+#[scope]
+impl StateKey {
+    #[func(constructor)]
+    pub fn construct(
+        span: Span,
+        // TODO: This argument should probably be optional,
+        // but idk if there's a good way to make it so without having to resort to manual arg parsing
+        key: Option<Str>,
+        #[named]
+        #[default(Smart::Auto)]
+        public: Smart<bool>,
+    ) -> StrResult<StateKey> {
+        let public = match public {
+            Smart::Custom(b) => b,
+            Smart::Auto => key.is_some(),
+        };
+        Ok(match key {
+            Some(key) if public => StateKey::Public(key),
+            None if !public => bail!("anonymous state key can't be public"),
+            // an explicitly constructed key isn't semantically tied to an initial value,
+            // so the hash is abritrary.
+            _ => StateKey::Private(span, key, 0),
+        })
+    }
+
+    /// Obtain the underlying string if this key is public.
+    #[func]
+    pub fn as_str(&self) -> Option<Str> {
+        if let Self::Public(k) = self { Some(k.clone()) } else { None }
     }
 }
