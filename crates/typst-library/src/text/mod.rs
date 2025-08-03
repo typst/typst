@@ -942,7 +942,6 @@ pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> 
             "noto color emoji",
             "apple color emoji",
             "segoe ui emoji",
-            "new computer modern math",
         ]
         .into_iter()
         .map(FontFamily::new)
