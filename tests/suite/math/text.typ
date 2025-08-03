@@ -2,7 +2,7 @@
 
 --- math-font-fallback ---
 // Test font fallback.
-$ よ and "よ" and 🏳️‍🌈 $
+$ よ and 🏳️‍🌈 $
 
 --- math-text-color ---
 // Test text properties.

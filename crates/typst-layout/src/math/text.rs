@@ -80,7 +80,7 @@ fn layout_inline_text(
 
             // This won't panic as ASCII digits and '.' will never end up as
             // nothing after shaping.
-            let glyph = GlyphFragment::new_char(ctx, styles, c, span)?.unwrap();
+            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -144,7 +144,7 @@ pub fn layout_symbol(
     let style = MathStyle::select(unstyled_c, variant, bold, italic);
     let text: EcoString = to_style(unstyled_c, style).collect();
 
-    if let Some(mut glyph) = GlyphFragment::new(ctx, symbol_styles, &text, elem.span())? {
+    if let Some(mut glyph) = GlyphFragment::new(ctx, symbol_styles, &text, elem.span()) {
         if glyph.class == MathClass::Large {
             if styles.get(EquationElem::size) == MathSize::Display {
                 let height = glyph
