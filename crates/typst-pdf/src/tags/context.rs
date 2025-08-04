@@ -34,7 +34,7 @@ pub struct Tags {
     /// before the reference in the text, so we only resolve them once tags
     /// for the whole document are generated.
     pub footnotes: FxHashMap<Location, FootnoteCtx>,
-    pub in_artifact: Option<(Location, ArtifactKind)>,
+    pub disable: Option<Disable>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
     /// Used to generate IDs referenced in table `Headers` attributes.
@@ -53,7 +53,7 @@ impl Tags {
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             footnotes: FxHashMap::default(),
-            in_artifact: None,
+            disable: None,
 
             link_id: LinkId(0),
             table_id: TableId(0),
@@ -164,6 +164,13 @@ impl Tags {
         self.table_id.0 += 1;
         self.table_id
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Disable {
+    /// Either an artifact or a hide element.
+    Elem(Location, ArtifactKind),
+    Tiling,
 }
 
 #[derive(Debug)]

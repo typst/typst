@@ -10,7 +10,7 @@ use krilla::tagging::{
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::Content;
 use typst_library::introspection::Location;
-use typst_library::layout::{Point, Rect, RepeatElem, Size};
+use typst_library::layout::{HideElem, Point, Rect, RepeatElem, Size};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, LinkMarker,
@@ -102,20 +102,25 @@ pub fn handle_start(
         return Ok(());
     }
 
-    if gc.tags.in_artifact.is_some() {
+    if gc.tags.disable.is_some() {
         // Don't nest artifacts
         return Ok(());
     }
 
-    if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
+    #[allow(clippy::redundant_pattern_matching)]
+    if let Some(_) = elem.to_packed::<HideElem>() {
+        push_disable(gc, surface, elem, ArtifactKind::Other);
+        return Ok(());
+    } else if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         let kind = artifact.kind.val();
-        push_artifact(gc, surface, elem, kind);
+        push_disable(gc, surface, elem, kind);
         return Ok(());
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        push_artifact(gc, surface, elem, ArtifactKind::Other);
+        push_disable(gc, surface, elem, ArtifactKind::Other);
         return Ok(());
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     let tag: TagKind = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
@@ -209,7 +214,7 @@ pub fn handle_start(
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         if cell.is_repeated.val() || table_ctx.is_some_and(|ctx| ctx.contains(cell)) {
-            push_artifact(gc, surface, elem, ArtifactKind::Other);
+            push_disable(gc, surface, elem, ArtifactKind::Other);
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()));
         }
@@ -293,7 +298,7 @@ fn push_stack(gc: &mut GlobalContext, elem: &Content, kind: StackEntryKind) {
         .push(StackEntry { loc, span, lang: None, kind, nodes: Vec::new() });
 }
 
-fn push_artifact(
+fn push_disable(
     gc: &mut GlobalContext,
     surface: &mut Surface,
     elem: &Content,
@@ -302,7 +307,7 @@ fn push_artifact(
     let loc = elem.location().expect("elem to be locatable");
     let ty = artifact_type(kind);
     surface.start_tagged(ContentTag::Artifact(ty));
-    gc.tags.in_artifact = Some((loc, kind));
+    gc.tags.disable = Some(Disable::Elem(loc, kind));
 }
 
 pub fn handle_end(
@@ -314,10 +319,11 @@ pub fn handle_end(
         return Ok(());
     }
 
-    if let Some((l, _)) = gc.tags.in_artifact
+    if let Some(Disable::Elem(l, _)) = gc.tags.disable
         && l == loc
     {
-        pop_artifact(gc, surface);
+        surface.end_tagged();
+        gc.tags.disable = None;
         return Ok(());
     }
 
@@ -513,17 +519,16 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
     gc.tags.push(node);
 }
 
-fn pop_artifact(gc: &mut GlobalContext, surface: &mut Surface) {
-    surface.end_tagged();
-    gc.tags.in_artifact = None;
-}
-
 pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
     if gc.options.disable_tags {
         return;
     }
 
-    if let Some((_, kind)) = gc.tags.in_artifact {
+    if let Some(disable) = gc.tags.disable {
+        let kind = match disable {
+            Disable::Elem(_, kind) => kind,
+            Disable::Tiling => ArtifactKind::Other,
+        };
         let ty = artifact_type(kind);
         surface.start_tagged(ContentTag::Artifact(ty));
     }
@@ -534,7 +539,7 @@ pub fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
         return;
     }
 
-    if gc.tags.in_artifact.is_some() {
+    if gc.tags.disable.is_some() {
         surface.end_tagged();
     }
 }
@@ -564,6 +569,43 @@ pub fn add_link_annotations(
     }
 }
 
+pub struct DisableHandle<'a, 'b, 'c, 'd> {
+    gc: &'b mut GlobalContext<'a>,
+    surface: &'d mut Surface<'c>,
+    /// Whether this handle started the disabled range.
+    started: bool,
+}
+
+impl Drop for DisableHandle<'_, '_, '_, '_> {
+    fn drop(&mut self) {
+        if self.started {
+            self.gc.tags.disable = None;
+            self.surface.end_tagged();
+        }
+    }
+}
+
+impl<'a, 'c> DisableHandle<'a, '_, 'c, '_> {
+    pub fn reborrow<'s>(
+        &'s mut self,
+    ) -> (&'s mut GlobalContext<'a>, &'s mut Surface<'c>) {
+        (self.gc, self.surface)
+    }
+}
+
+pub fn disable<'a, 'b, 'c, 'd>(
+    gc: &'b mut GlobalContext<'a>,
+    surface: &'d mut Surface<'c>,
+    kind: Disable,
+) -> DisableHandle<'a, 'b, 'c, 'd> {
+    let started = gc.tags.disable.is_none();
+    if started {
+        gc.tags.disable = Some(kind);
+        surface.start_tagged(ContentTag::Artifact(ArtifactType::Other));
+    }
+    DisableHandle { gc, surface, started }
+}
+
 pub fn text<'a, 'b>(
     gc: &mut GlobalContext,
     fc: &FrameContext,
@@ -576,7 +618,7 @@ pub fn text<'a, 'b>(
 
     update_bbox(gc, fc, || text.bbox());
 
-    if gc.tags.in_artifact.is_some() {
+    if gc.tags.disable.is_some() {
         return TagHandle { surface, started: false };
     }
 
@@ -662,16 +704,16 @@ fn start_content<'a, 'b>(
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
-    if gc.tags.in_artifact.is_some() {
-        TagHandle { surface, started: false }
-    } else {
-        let artifact = matches!(content, ContentTag::Artifact(_));
-        let id = surface.start_tagged(content);
-        if !artifact {
-            gc.tags.push(TagNode::Leaf(id));
-        }
-        TagHandle { surface, started: true }
+    if gc.tags.disable.is_some() {
+        return TagHandle { surface, started: false };
     }
+
+    let artifact = matches!(content, ContentTag::Artifact(_));
+    let id = surface.start_tagged(content);
+    if !artifact {
+        gc.tags.push(TagNode::Leaf(id));
+    }
+    TagHandle { surface, started: true }
 }
 
 fn artifact_type(kind: ArtifactKind) -> ArtifactType {
