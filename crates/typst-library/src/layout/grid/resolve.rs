@@ -1807,6 +1807,8 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         row_amount: usize,
         at_least_one_cell: bool,
     ) -> SourceResult<Option<Repeatable<Footer>>> {
+        headers.sort_unstable_by_key(|h| h.range.start);
+
         // Mark consecutive headers:
         // (a) before a header of smaller level;
         // (b) right before the end of the table or the final footer;
