@@ -503,9 +503,9 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             styles.get_ref(TextElem::weight),
         );
         for (elem, styles) in pairs {
-            if styles.get_ref(TextElem::font) != outer_font
-                || styles.get_ref(TextElem::style) != outer_style
-                || styles.get_ref(TextElem::weight) != outer_weight
+            if *styles.get_ref(TextElem::font) != *outer_font
+                || *styles.get_ref(TextElem::style) != *outer_style
+                || *styles.get_ref(TextElem::weight) != *outer_weight
             {
                 self.fonts_stack.push(get_font(
                     self.engine.world,
