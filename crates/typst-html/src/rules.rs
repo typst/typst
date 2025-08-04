@@ -415,7 +415,14 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
+    let lang = elem.lang.get_ref(styles);
     let code = HtmlElem::new(tag::code)
+        .with_optional_attr(
+            attr::class,
+            // As proposed in
+            // https://html.spec.whatwg.org/multipage/text-level-semantics.html#the-code-element
+            lang.as_ref().map(|lang| eco_format!("language-{lang}")),
+        )
         .with_body(Some(Content::sequence(seq)))
         .pack()
         .spanned(elem.span());
