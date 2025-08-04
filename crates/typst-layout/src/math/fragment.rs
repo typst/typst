@@ -308,20 +308,21 @@ impl GlyphFragment {
         c: char,
         span: Span,
     ) -> Option<Self> {
-        Self::new(ctx, styles, c.encode_utf8(&mut [0; 4]), span)
+        Self::new(ctx.engine.world, styles, c.encode_utf8(&mut [0; 4]), span)
     }
 
     /// Selects a font to use and then shapes text.
+    #[comemo::memoize]
     pub fn new(
-        ctx: &MathContext,
+        world: Tracked<dyn World + '_>,
         styles: StyleChain,
         text: &str,
         span: Span,
-    ) -> Option<Self> {
+    ) -> Option<GlyphFragment> {
         assert!(text.graphemes(true).count() == 1);
 
         let (c, font, mut glyph) = shape(
-            ctx.engine.world,
+            world,
             variant(styles),
             features(styles),
             language(styles),

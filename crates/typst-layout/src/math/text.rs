@@ -144,7 +144,9 @@ pub fn layout_symbol(
     let style = MathStyle::select(unstyled_c, variant, bold, italic);
     let text: EcoString = to_style(unstyled_c, style).collect();
 
-    if let Some(mut glyph) = GlyphFragment::new(ctx, symbol_styles, &text, elem.span()) {
+    if let Some(mut glyph) =
+        GlyphFragment::new(ctx.engine.world, symbol_styles, &text, elem.span())
+    {
         if glyph.class == MathClass::Large {
             if styles.get(EquationElem::size) == MathSize::Display {
                 let height = glyph
