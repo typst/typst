@@ -2095,35 +2095,34 @@ fn expand_row_group(
 
 /// Check if a cell's fixed row would conflict with a header or footer.
 fn check_for_conflicting_cell_row(
-    occupied_rows: &SmallBitSet,
     headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     cell_y: usize,
     rowspan: usize,
 ) -> HintedStrResult<()> {
-    if occupied_rows.contains(cell_y) {
-        // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
-        // enters the header. For example, consider a rowspan of 1: if
-        // `y + 1 = header.start` holds, that means `y < header.start`, and it
-        // only occupies one row (`y`), so the cell is actually not in
-        // conflict.
-        if headers.iter().any(|header| {
-            cell_y < header.range.end && cell_y + rowspan > header.range.start
-        }) {
-            bail!(
-                "cell would conflict with header spanning the same position";
-                hint: "try moving the cell or the header"
-            );
-        } else {
-            debug_assert!(matches!(footer, Some((_, _, footer))
-                        if cell_y < footer.end
-                        && cell_y + rowspan > footer.start));
+    // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
+    // enters the header. For example, consider a rowspan of 1: if
+    // `y + 1 = header.start` holds, that means `y < header.start`, and it
+    // only occupies one row (`y`), so the cell is actually not in
+    // conflict.
+    if headers
+        .iter()
+        .any(|header| cell_y < header.range.end && cell_y + rowspan > header.range.start)
+    {
+        bail!(
+            "cell would conflict with header spanning the same position";
+            hint: "try moving the cell or the header"
+        );
+    }
 
-            bail!(
-                "cell would conflict with footer spanning the same position";
-                hint: "try reducing the cell's rowspan or moving the footer"
-            );
-        }
+    if let Some((_, _, footer)) = footer
+        && cell_y < footer.end
+        && cell_y + rowspan > footer.start
+    {
+        bail!(
+            "cell would conflict with footer spanning the same position";
+            hint: "try reducing the cell's rowspan or moving the footer"
+        );
     }
 
     Ok(())
@@ -2211,13 +2210,7 @@ fn resolve_cell_position(
                 // footer (but only if it isn't already in one, otherwise there
                 // will already be a separate check).
                 if !in_row_group {
-                    check_for_conflicting_cell_row(
-                        occupied_rows,
-                        headers,
-                        footer,
-                        cell_y,
-                        rowspan,
-                    )?;
+                    check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
                 }
 
                 cell_index(cell_x, cell_y)
@@ -2249,13 +2242,7 @@ fn resolve_cell_position(
             // footer (but only if it isn't already in one, otherwise there
             // will already be a separate check).
             if !in_row_group {
-                check_for_conflicting_cell_row(
-                    occupied_rows,
-                    headers,
-                    footer,
-                    cell_y,
-                    rowspan,
-                )?;
+                check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
             }
 
             // Let's find the first column which has that row available.
