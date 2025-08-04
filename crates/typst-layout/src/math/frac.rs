@@ -32,10 +32,10 @@ pub fn layout_frac(
             &elem.num,
             &elem.denom,
             elem.span(),
-            elem.num_deparenthesized.as_option().unwrap_or(false),
-            elem.denom_deparenthesized.as_option().unwrap_or(false),
+            elem.num_deparenthesized.get(styles),
+            elem.denom_deparenthesized.get(styles),
         ),
-        _ => layout_vertical_frac_like(
+        FracStyle::Vertical => layout_vertical_frac_like(
             ctx,
             styles,
             &elem.num,
@@ -173,8 +173,8 @@ fn layout_horizontal_frac(
     } else {
         num
     };
-    let num_frame = ctx.layout_into_frame(num, styles)?;
-    ctx.push(FrameFragment::new(styles, num_frame));
+    let num_frame = ctx.layout_into_fragment(num, styles)?;
+    ctx.push(num_frame);
 
     let mut slash = GlyphFragment::new_char(ctx.font, styles, '/', span)?;
     slash.center_on_axis();
@@ -285,7 +285,8 @@ fn layout_skewed_frac(
         .max(slash_center.x + slash_size.x / 2.0)
         - num_up_left.x.min(slash_up_left.x);
     // We have to shift everything right to avoid going in the negatives for the x coordinate
-    let horizontal_offset = Point::with_x(Abs::zero().max(num_up_left.x - slash_up_left.x));
+    let horizontal_offset =
+        Point::with_x(Abs::zero().max(num_up_left.x - slash_up_left.x));
     slash_up_left += horizontal_offset;
     num_up_left += horizontal_offset;
     denom_up_left += horizontal_offset;
