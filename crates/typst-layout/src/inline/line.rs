@@ -314,7 +314,8 @@ fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) 
     }
 
     if text.ends_with(END_PUNCT_PAT)
-        || (p.config.cjk_latin_spacing && text.ends_with(is_of_cj_script))
+        || (p.config.cjk_latin_spacing
+            && text.strip_suffix("\n").unwrap_or(text).ends_with(is_of_cj_script))
     {
         adjust_cj_at_line_end(p, items);
     }
