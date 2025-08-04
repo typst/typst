@@ -415,9 +415,16 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
-    Ok(HtmlElem::new(if elem.block.get(styles) { tag::pre } else { tag::code })
+    let code = HtmlElem::new(tag::code)
         .with_body(Some(Content::sequence(seq)))
-        .pack())
+        .pack()
+        .spanned(elem.span());
+
+    Ok(if elem.block.get(styles) {
+        HtmlElem::new(tag::pre).with_body(Some(code)).pack()
+    } else {
+        code
+    })
 };
 
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());
