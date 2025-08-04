@@ -1063,17 +1063,21 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             bail!(self.span, "too many cells or lines were given")
         };
 
-        // Rows in this bitset are occupied by an existing header or footer.
+        // Rows in this bitset are occupied by an existing header.
         // This allows for efficiently checking whether a cell would collide
-        // with a header or footer at a certain row.
-        let mut occupied_rows: SmallBitSet = SmallBitSet::new();
+        // with a header at a certain row. (For footers, it's easy as there is
+        // only one.)
+        //
+        // TODO(subfooters): how to add a footer here while avoiding
+        // unnecessary allocations?
+        let mut header_rows: SmallBitSet = SmallBitSet::new();
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(child_count);
         for child in children {
             self.resolve_grid_child(
                 columns,
                 &mut pending_hlines,
                 &mut pending_vlines,
-                &mut occupied_rows,
+                &mut header_rows,
                 &mut headers,
                 &mut footer,
                 &mut repeat_footer,
@@ -1129,7 +1133,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         columns: usize,
         pending_hlines: &mut Vec<(Span, Line, bool)>,
         pending_vlines: &mut Vec<(Span, Line)>,
-        occupied_rows: &mut SmallBitSet,
+        header_rows: &mut SmallBitSet,
         headers: &mut Vec<Repeatable<Header>>,
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
@@ -1371,7 +1375,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     cell_y,
                     colspan,
                     rowspan,
-                    occupied_rows,
+                    header_rows,
                     headers,
                     footer.as_ref(),
                     resolved_cells,
@@ -1581,6 +1585,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     };
 
                     headers.push(Repeatable { inner: data, repeated: row_group.repeat });
+
+                    for row in group_range {
+                        header_rows.insert(row);
+                    }
                 }
 
                 RowGroupKind::Footer => {
@@ -1604,10 +1612,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                     *repeat_footer = row_group.repeat;
                 }
-            }
-
-            for row in group_range {
-                occupied_rows.insert(row);
             }
         }
 
@@ -2117,7 +2121,7 @@ fn resolve_cell_position(
     cell_y: Smart<usize>,
     colspan: usize,
     rowspan: usize,
-    occupied_rows: &SmallBitSet,
+    header_rows: &SmallBitSet,
     headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry>],
@@ -2143,10 +2147,11 @@ fn resolve_cell_position(
             // but automatically-positioned cells will avoid conflicts by
             // simply skipping existing cells, headers and footers.
             let resolved_index = find_next_available_position(
-                occupied_rows,
+                header_rows,
                 resolved_cells,
                 columns,
                 *auto_index,
+                footer,
                 false,
             )?;
 
@@ -2201,10 +2206,11 @@ fn resolve_cell_position(
                 // ('None'), in which case we'd create a new row to place this
                 // cell in.
                 find_next_available_position(
-                    occupied_rows,
+                    header_rows,
                     resolved_cells,
                     columns,
                     initial_index,
+                    footer,
                     true,
                 )
             }
@@ -2252,10 +2258,11 @@ fn resolve_cell_position(
 /// the column. That is used to find a position for a fixed column cell.
 #[inline]
 fn find_next_available_position(
-    occupied_rows: &SmallBitSet,
+    header_rows: &SmallBitSet,
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
     initial_index: usize,
+    footer: Option<&(usize, Span, Footer)>,
     skip_rows: bool,
 ) -> HintedStrResult<usize> {
     let mut resolved_index = initial_index;
@@ -2279,7 +2286,7 @@ fn find_next_available_position(
                 // would become impractically large before this overflows.
                 resolved_index += 1;
             }
-        } else if occupied_rows.contains(resolved_index / columns) {
+        } else if header_rows.contains(resolved_index / columns) {
             // Skip header or footer (can't place a cell inside it from outside
             // it).
             //
@@ -2292,6 +2299,17 @@ fn find_next_available_position(
             if skip_rows {
                 // Ensure the cell's chosen column is kept after the
                 // header.
+                resolved_index += initial_index % columns;
+            }
+        } else if let Some((footer_end, _, _)) = footer.filter(|(end, _, footer)| {
+            resolved_index >= footer.start * columns && resolved_index < *end * columns
+        }) {
+            // Skip footer, for the same reason.
+            resolved_index = *footer_end * columns;
+
+            if skip_rows {
+                // Ensure the cell's chosen column is kept after the
+                // footer.
                 resolved_index += initial_index % columns;
             }
         } else {
