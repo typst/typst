@@ -19,7 +19,7 @@ use typst_library::text::TextElem;
 use typst_library::visualize::{Paint, Stroke};
 
 use typst_syntax::Span;
-use typst_utils::NonZeroExt;
+use typst_utils::{NonZeroExt, SmallBitSet};
 
 use crate::introspection::SplitLocator;
 
@@ -1067,12 +1067,18 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let Some(child_count) = children.len().checked_next_multiple_of(columns) else {
             bail!(self.span, "too many cells or lines were given")
         };
+
+        // Rows in this bitset are occupied by an existing header or footer.
+        // This allows for efficiently checking whether a cell would collide
+        // with a header or footer at a certain row.
+        let mut occupied_rows: SmallBitSet = SmallBitSet::new();
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(child_count);
         for child in children {
             self.resolve_grid_child(
                 columns,
                 &mut pending_hlines,
                 &mut pending_vlines,
+                &mut occupied_rows,
                 &mut headers,
                 &mut footer,
                 &mut repeat_footer,
@@ -1129,6 +1135,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         columns: usize,
         pending_hlines: &mut Vec<(Span, Line, bool)>,
         pending_vlines: &mut Vec<(Span, Line)>,
+        occupied_rows: &mut SmallBitSet,
         headers: &mut Vec<Repeatable<Header>>,
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
@@ -1389,6 +1396,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     cell_y,
                     colspan,
                     rowspan,
+                    occupied_rows,
                     headers,
                     footer.as_ref(),
                     resolved_cells,
@@ -1622,6 +1630,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                     *repeat_footer = row_group.repeat;
                 }
+            }
+
+            for row in group_range {
+                occupied_rows.insert(row);
             }
         }
 
@@ -2081,34 +2093,35 @@ fn expand_row_group(
 
 /// Check if a cell's fixed row would conflict with a header or footer.
 fn check_for_conflicting_cell_row(
+    occupied_rows: &SmallBitSet,
     headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     cell_y: usize,
     rowspan: usize,
 ) -> HintedStrResult<()> {
-    // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
-    // enters the header. For example, consider a rowspan of 1: if
-    // `y + 1 = header.start` holds, that means `y < header.start`, and it
-    // only occupies one row (`y`), so the cell is actually not in
-    // conflict.
-    if headers
-        .iter()
-        .any(|header| cell_y < header.range.end && cell_y + rowspan > header.range.start)
-    {
-        bail!(
-            "cell would conflict with header spanning the same position";
-            hint: "try moving the cell or the header"
-        );
-    }
+    if occupied_rows.contains(cell_y) {
+        // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
+        // enters the header. For example, consider a rowspan of 1: if
+        // `y + 1 = header.start` holds, that means `y < header.start`, and it
+        // only occupies one row (`y`), so the cell is actually not in
+        // conflict.
+        if headers.iter().any(|header| {
+            cell_y < header.range.end && cell_y + rowspan > header.range.start
+        }) {
+            bail!(
+                "cell would conflict with header spanning the same position";
+                hint: "try moving the cell or the header"
+            );
+        } else {
+            debug_assert!(matches!(footer, Some((_, _, footer))
+                        if cell_y < footer.end
+                        && cell_y + rowspan > footer.start));
 
-    if let Some((_, _, footer)) = footer
-        && cell_y < footer.end
-        && cell_y + rowspan > footer.start
-    {
-        bail!(
-            "cell would conflict with footer spanning the same position";
-            hint: "try reducing the cell's rowspan or moving the footer"
-        );
+            bail!(
+                "cell would conflict with footer spanning the same position";
+                hint: "try reducing the cell's rowspan or moving the footer"
+            );
+        }
     }
 
     Ok(())
@@ -2129,11 +2142,12 @@ fn resolve_cell_position(
     cell_y: Smart<usize>,
     colspan: usize,
     rowspan: usize,
+    occupied_rows: &SmallBitSet,
     headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
-    next_header: &mut usize,
+    _next_header: &mut usize,
     first_available_row: usize,
     columns: usize,
     in_row_group: bool,
@@ -2155,12 +2169,10 @@ fn resolve_cell_position(
             // but automatically-positioned cells will avoid conflicts by
             // simply skipping existing cells, headers and footers.
             let resolved_index = find_next_available_position(
-                headers,
-                footer,
+                occupied_rows,
                 resolved_cells,
                 columns,
                 *auto_index,
-                next_header,
                 false,
             )?;
 
@@ -2197,7 +2209,13 @@ fn resolve_cell_position(
                 // footer (but only if it isn't already in one, otherwise there
                 // will already be a separate check).
                 if !in_row_group {
-                    check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
+                    check_for_conflicting_cell_row(
+                        occupied_rows,
+                        headers,
+                        footer,
+                        cell_y,
+                        rowspan,
+                    )?;
                 }
 
                 cell_index(cell_x, cell_y)
@@ -2215,26 +2233,10 @@ fn resolve_cell_position(
                 // ('None'), in which case we'd create a new row to place this
                 // cell in.
                 find_next_available_position(
-                    headers,
-                    footer,
+                    occupied_rows,
                     resolved_cells,
                     columns,
                     initial_index,
-                    // Make our own copy of the 'next_header' counter, since it
-                    // should only be updated by auto cells. However, we cannot
-                    // start with the same value as we are searching from the
-                    // start, and not from 'auto_index', so auto cells might
-                    // have skipped some headers already which this cell will
-                    // also need to skip.
-                    //
-                    // We could, in theory, keep a separate 'next_header'
-                    // counter for cells with fixed columns. But then we would
-                    // need one for every column, and much like how there isn't
-                    // an index counter for each column either, the potential
-                    // speed gain seems less relevant for a less used feature.
-                    // Still, it is something to consider for the future if
-                    // this turns out to be a bottleneck in important cases.
-                    &mut 0,
                     true,
                 )
             }
@@ -2245,7 +2247,13 @@ fn resolve_cell_position(
             // footer (but only if it isn't already in one, otherwise there
             // will already be a separate check).
             if !in_row_group {
-                check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
+                check_for_conflicting_cell_row(
+                    occupied_rows,
+                    headers,
+                    footer,
+                    cell_y,
+                    rowspan,
+                )?;
             }
 
             // Let's find the first column which has that row available.
@@ -2282,12 +2290,10 @@ fn resolve_cell_position(
 /// the column. That is used to find a position for a fixed column cell.
 #[inline]
 fn find_next_available_position(
-    headers: &[Repeatable<Header>],
-    footer: Option<&(usize, Span, Footer)>,
+    occupied_rows: &SmallBitSet,
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
     initial_index: usize,
-    next_header: &mut usize,
     skip_rows: bool,
 ) -> HintedStrResult<usize> {
     let mut resolved_index = initial_index;
@@ -2311,33 +2317,19 @@ fn find_next_available_position(
                 // would become impractically large before this overflows.
                 resolved_index += 1;
             }
-        } else if let Some(header) = headers
-            .get(*next_header)
-            .filter(|header| resolved_index >= header.range.start * columns)
-        {
-            // Skip header (can't place a cell inside it from outside it).
-            // No changes needed if we already passed this header (which
-            // also triggers this branch) - in that case, we only update the
-            // counter.
-            if resolved_index < header.range.end * columns {
-                resolved_index = header.range.end * columns;
-
-                if skip_rows {
-                    // Ensure the cell's chosen column is kept after the
-                    // header.
-                    resolved_index += initial_index % columns;
-                }
-            }
-
-            // From now on, only check the headers afterwards.
-            *next_header += 1;
-        } else if let Some((footer_end, _, _)) = footer.filter(|(end, _, footer)| {
-            resolved_index >= footer.start * columns && resolved_index < *end * columns
-        }) {
-            // Skip footer, for the same reason.
-            resolved_index = *footer_end * columns;
+        } else if occupied_rows.contains(resolved_index / columns) {
+            // Skip header or footer (can't place a cell inside it from outside
+            // it).
+            //
+            // Add 1 to resolved index to force moving to the next row if this
+            // is at the start of one. At the end of one, '+ 1' already pushes
+            // to the next one and 'next_multiple_of' does not modify it, so
+            // nothing bad happens then either.
+            resolved_index = (resolved_index + 1).next_multiple_of(columns);
 
             if skip_rows {
+                // Ensure the cell's chosen column is kept after the
+                // header.
                 resolved_index += initial_index % columns;
             }
         } else {
