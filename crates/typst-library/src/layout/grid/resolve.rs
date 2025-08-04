@@ -2301,9 +2301,10 @@ fn find_next_available_position(
                 // header.
                 resolved_index += initial_index % columns;
             }
-        } else if let Some((footer_end, _, _)) = footer.filter(|(end, _, footer)| {
-            resolved_index >= footer.start * columns && resolved_index < *end * columns
-        }) {
+        } else if let Some((footer_end, _, footer)) = footer
+            && resolved_index >= footer.start * columns
+            && resolved_index < *footer_end * columns
+        {
             // Skip footer, for the same reason.
             resolved_index = *footer_end * columns;
 
