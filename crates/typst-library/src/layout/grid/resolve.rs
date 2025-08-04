@@ -1606,23 +1606,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         short_lived: false,
                     };
 
-                    // Mark consecutive headers right before this one as short
-                    // lived if they would have a higher or equal level, as
-                    // then they would immediately stop repeating during
-                    // layout.
-                    let mut consecutive_header_start = data.range.start;
-                    for conflicting_header in
-                        headers.values_mut().rev().take_while(move |h| {
-                            let conflicts = h.range.end == consecutive_header_start
-                                && h.level >= data.level;
-
-                            consecutive_header_start = h.range.start;
-                            conflicts
-                        })
-                    {
-                        conflicting_header.short_lived = true;
-                    }
-
                     headers.insert(
                         group_range.start,
                         Repeatable { inner: data, repeated: row_group.repeat },
@@ -1833,9 +1816,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         row_amount: usize,
         at_least_one_cell: bool,
     ) -> SourceResult<Option<Repeatable<Footer>>> {
-        // Mark consecutive headers right before the end of the table, or the
-        // final footer, as short lived, given that there are no normal rows
-        // after them, so repeating them is pointless.
+        // Mark consecutive headers:
+        // (a) before a header of smaller level;
+        // (b) right before the end of the table or the final footer;
+        // as short lived, given that they would stop repeating immediately,
+        // so don't even attempt to.
         //
         // It is important to do this BEFORE we update header and footer ranges
         // due to gutter below as 'row_amount' doesn't consider gutter.
@@ -1846,13 +1831,17 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // haeders to turn short-lived.
         let mut consecutive_header_start =
             footer.as_ref().map(|(_, _, f)| f.start).unwrap_or(row_amount);
-        for header_at_the_end in headers.iter_mut().rev().take_while(move |h| {
-            let at_the_end = h.range.end == consecutive_header_start;
+        let mut last_consec_level = 0;
+        for header in headers.iter_mut().rev() {
+            if header.range.end == consecutive_header_start
+                && header.level >= last_consec_level
+            {
+                header.short_lived = true;
+            } else {
+                last_consec_level = header.level;
+            }
 
-            consecutive_header_start = h.range.start;
-            at_the_end
-        }) {
-            header_at_the_end.short_lived = true;
+            consecutive_header_start = header.range.start;
         }
 
         // Repeat the gutter below a header (hence why we don't
