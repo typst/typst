@@ -11,7 +11,7 @@ use krilla::tagging::{
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, LinkMarker, Smart};
 use typst_library::introspection::Location;
-use typst_library::layout::{Point, Rect, RepeatElem, Size};
+use typst_library::layout::{HideElem, Point, Rect, RepeatElem, Size};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Destination, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
@@ -105,12 +105,15 @@ pub fn handle_start(
         return Ok(());
     }
 
-    if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
+    if let Some(_) = elem.to_packed::<HideElem>() {
+        push_disable(gc, surface, elem, ArtifactKind::Other);
+        return Ok(());
+    } else if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         let kind = artifact.kind.val();
-        push_artifact_tag(gc, surface, elem, kind);
+        push_disable(gc, surface, elem, kind);
         return Ok(());
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        push_artifact_tag(gc, surface, elem, ArtifactKind::Other);
+        push_disable(gc, surface, elem, ArtifactKind::Other);
         return Ok(());
     }
 
@@ -207,7 +210,7 @@ pub fn handle_start(
             // first page. Maybe it should be the cell on the last page, but that
             // would require more changes in the layouting code, or a pre-pass
             // on the frames to figure out if there are other footers following.
-            push_artifact_tag(gc, surface, elem, ArtifactKind::Other);
+            push_disable(gc, surface, elem, ArtifactKind::Other);
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()))?;
         }
@@ -312,7 +315,7 @@ fn push_stack(
     Ok(())
 }
 
-fn push_artifact_tag(
+fn push_disable(
     gc: &mut GlobalContext,
     surface: &mut Surface,
     elem: &Content,
@@ -321,7 +324,7 @@ fn push_artifact_tag(
     let loc = elem.location().expect("elem to be locatable");
     let ty = artifact_type(kind);
     surface.start_tagged(ContentTag::Artifact(ty));
-    gc.tags.disable = Some(Disable::ArtifactTag(loc, kind));
+    gc.tags.disable = Some(Disable::Elem(loc, kind));
 }
 
 pub fn handle_end(
@@ -333,7 +336,7 @@ pub fn handle_end(
         return Ok(());
     }
 
-    if let Some(Disable::ArtifactTag(l, _)) = gc.tags.disable
+    if let Some(Disable::Elem(l, _)) = gc.tags.disable
         && l == loc
     {
         surface.end_tagged();
@@ -541,7 +544,7 @@ pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
 
     if let Some(disable) = gc.tags.disable {
         let kind = match disable {
-            Disable::ArtifactTag(_, kind) => kind,
+            Disable::Elem(_, kind) => kind,
             Disable::Tiling => ArtifactKind::Other,
         };
         let ty = artifact_type(kind);

@@ -189,7 +189,8 @@ impl Tags {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Disable {
-    ArtifactTag(Location, ArtifactKind),
+    /// Either an artifact or a hide element.
+    Elem(Location, ArtifactKind),
     Tiling,
 }
 
