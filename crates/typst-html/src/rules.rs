@@ -27,7 +27,7 @@ use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
 use typst_utils::singleton;
 
-use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
+use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
 /// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -680,7 +680,9 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
+    let lang = elem.lang.get_ref(styles);
     let code = HtmlElem::new(tag::code)
+        .with_optional_attr(const { HtmlAttr::constant("data-lang") }, lang.clone())
         .with_body(Some(Content::sequence(seq)))
         .pack()
         .spanned(elem.span());
