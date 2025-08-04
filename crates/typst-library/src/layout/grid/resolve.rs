@@ -1048,11 +1048,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // automatically-positioned cell.
         let mut auto_index: usize = 0;
 
-        // The next header after the latest auto-positioned cell. This is used
-        // to avoid checking for collision with headers that were already
-        // skipped.
-        let mut next_header = 0;
-
         // We have to rebuild the grid to account for fixed cell positions.
         //
         // Create at least 'children.len()' positions, since there could be at
@@ -1083,7 +1078,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 &mut footer,
                 &mut repeat_footer,
                 &mut auto_index,
-                &mut next_header,
                 &mut resolved_cells,
                 &mut at_least_one_cell,
                 child,
@@ -1140,7 +1134,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
         auto_index: &mut usize,
-        next_header: &mut usize,
         resolved_cells: &mut Vec<Option<Entry<'x>>>,
         at_least_one_cell: &mut bool,
         child: ResolvableGridChild<T, I>,
@@ -1188,24 +1181,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             // aren't reborrowing the original auto index but rather making a
             // mutable copy of it using 'clone'.
             &mut (*auto_index).clone()
-        };
-
-        // NOTE: usually, if 'next_header' were to be updated inside a row
-        // group (indicating a header was skipped by a cell), that would
-        // indicate a collision between the row group and that header, which
-        // is an error. However, the exception is for the first auto cell of
-        // the row group, which may skip headers while searching for a position
-        // where to begin the row group in the first place.
-        //
-        // Therefore, we cannot safely share the counter in the row group with
-        // the counter used by auto cells outside, as it might update it in a
-        // valid situation, whereas it must not, since its auto cells use a
-        // different auto index counter and will have seen different headers,
-        // so we copy the next header counter while inside a row group.
-        let local_next_header = if matches!(child, ResolvableGridChild::Item(_)) {
-            &mut *next_header
-        } else {
-            &mut (*next_header).clone()
         };
 
         // The first row in which this table group can fit.
@@ -1401,7 +1376,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     footer.as_ref(),
                     resolved_cells,
                     local_auto_index,
-                    local_next_header,
                     first_available_row,
                     columns,
                     row_group_data.is_some(),
@@ -2148,7 +2122,6 @@ fn resolve_cell_position(
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
-    _next_header: &mut usize,
     first_available_row: usize,
     columns: usize,
     in_row_group: bool,
