@@ -494,6 +494,9 @@ This is ```typ *inline*```.
 *Hello* _world_!
 ```
 
+--- raw-html-inline-spaces html ---
+This has `double  spaces  inside`, which should be kept.
+
 --- raw-line ---
 #set page(width: 200pt)
 
