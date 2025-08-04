@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Deref, DerefMut, Range};
 use std::sync::Arc;
@@ -1022,13 +1021,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         let mut pending_vlines: Vec<(Span, Line)> = vec![];
         let has_gutter = self.gutter.any(|tracks| !tracks.is_empty());
 
-        // Headers must be sorted by top row index for two reasons:
-        // 1. Layout algorithms later assume the headers are sorted.
-        // 2. When placing cells, they must skip headers. To do this, for
-        // efficiency reasons, they must check headers in order.
-        // Therefore, we store them in a BTreeMap to keep insertion and reading
-        // reasonably efficient (O(log n)) while always keeping it sorted.
-        let mut headers: BTreeMap<usize, Repeatable<Header>> = BTreeMap::new();
+        let mut headers: Vec<Repeatable<Header>> = vec![];
 
         // Stores where the footer is supposed to end, its span, and the
         // actual footer structure.
@@ -1058,7 +1051,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // The next header after the latest auto-positioned cell. This is used
         // to avoid checking for collision with headers that were already
         // skipped.
-        let mut next_header: Option<Range<usize>> = None;
+        let mut next_header = 0;
 
         // We have to rebuild the grid to account for fixed cell positions.
         //
@@ -1102,7 +1095,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             row_amount,
         )?;
 
-        let mut headers = headers.into_values().collect::<Vec<Repeatable<Header>>>();
         let footer = self.finalize_headers_and_footers(
             has_gutter,
             &mut headers,
@@ -1137,11 +1129,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         columns: usize,
         pending_hlines: &mut Vec<(Span, Line, bool)>,
         pending_vlines: &mut Vec<(Span, Line)>,
-        headers: &mut BTreeMap<usize, Repeatable<Header>>,
+        headers: &mut Vec<Repeatable<Header>>,
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
         auto_index: &mut usize,
-        next_header: &mut Option<Range<usize>>,
+        next_header: &mut usize,
         resolved_cells: &mut Vec<Option<Entry<'x>>>,
         at_least_one_cell: &mut bool,
         child: ResolvableGridChild<T, I>,
@@ -1606,20 +1598,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                         short_lived: false,
                     };
 
-                    headers.insert(
-                        group_range.start,
-                        Repeatable { inner: data, repeated: row_group.repeat },
-                    );
-
-                    if *auto_index <= group_range.start * columns
-                        && next_header
-                            .as_ref()
-                            .is_none_or(|h| group_range.start < h.start)
-                    {
-                        // Next auto cell might collide with this header.
-                        // Ensure that is checked.
-                        *next_header = Some(group_range.clone());
-                    }
+                    headers.push(Repeatable { inner: data, repeated: row_group.repeat });
                 }
 
                 RowGroupKind::Footer => {
@@ -2102,7 +2081,7 @@ fn expand_row_group(
 
 /// Check if a cell's fixed row would conflict with a header or footer.
 fn check_for_conflicting_cell_row(
-    headers: &BTreeMap<usize, Repeatable<Header>>,
+    headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     cell_y: usize,
     rowspan: usize,
@@ -2113,7 +2092,7 @@ fn check_for_conflicting_cell_row(
     // only occupies one row (`y`), so the cell is actually not in
     // conflict.
     if headers
-        .values()
+        .iter()
         .any(|header| cell_y < header.range.end && cell_y + rowspan > header.range.start)
     {
         bail!(
@@ -2150,11 +2129,11 @@ fn resolve_cell_position(
     cell_y: Smart<usize>,
     colspan: usize,
     rowspan: usize,
-    headers: &BTreeMap<usize, Repeatable<Header>>,
+    headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
-    next_header: &mut Option<Range<usize>>,
+    next_header: &mut usize,
     first_available_row: usize,
     columns: usize,
     in_row_group: bool,
@@ -2255,7 +2234,7 @@ fn resolve_cell_position(
                     // speed gain seems less relevant for a less used feature.
                     // Still, it is something to consider for the future if
                     // this turns out to be a bottleneck in important cases.
-                    &mut headers.first_key_value().map(|(_, h)| h.range.clone()),
+                    &mut 0,
                     true,
                 )
             }
@@ -2303,16 +2282,15 @@ fn resolve_cell_position(
 /// the column. That is used to find a position for a fixed column cell.
 #[inline]
 fn find_next_available_position(
-    headers: &BTreeMap<usize, Repeatable<Header>>,
+    headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
     initial_index: usize,
-    next_header: &mut Option<Range<usize>>,
+    next_header: &mut usize,
     skip_rows: bool,
 ) -> HintedStrResult<usize> {
     let mut resolved_index = initial_index;
-    let mut next_headers = None;
 
     loop {
         if let Some(Some(_)) = resolved_cells.get(resolved_index) {
@@ -2333,16 +2311,16 @@ fn find_next_available_position(
                 // would become impractically large before this overflows.
                 resolved_index += 1;
             }
-        } else if let Some(header_range) = next_header
-            .as_ref()
-            .filter(|range| resolved_index >= range.start * columns)
+        } else if let Some(header) = headers
+            .get(*next_header)
+            .filter(|header| resolved_index >= header.range.start * columns)
         {
             // Skip header (can't place a cell inside it from outside it).
             // No changes needed if we already passed this header (which
             // also triggers this branch) - in that case, we only update the
             // counter.
-            if resolved_index < header_range.end * columns {
-                resolved_index = header_range.end * columns;
+            if resolved_index < header.range.end * columns {
+                resolved_index = header.range.end * columns;
 
                 if skip_rows {
                     // Ensure the cell's chosen column is kept after the
@@ -2352,10 +2330,7 @@ fn find_next_available_position(
             }
 
             // From now on, only check the headers afterwards.
-            *next_header = next_headers
-                .get_or_insert_with(|| headers.range(header_range.start..))
-                .next()
-                .map(|(_, h)| h.range.clone());
+            *next_header += 1;
         } else if let Some((footer_end, _, _)) = footer.filter(|(end, _, footer)| {
             resolved_index >= footer.start * columns && resolved_index < *end * columns
         }) {
