@@ -497,21 +497,14 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             styles,
         )?;
 
-        let (outer_font, outer_style, outer_weight) = (
-            styles.get_ref(TextElem::font),
-            styles.get_ref(TextElem::style),
-            styles.get_ref(TextElem::weight),
-        );
+        let outer_styles = styles;
+        let outer_font = styles.get_ref(TextElem::font);
         for (elem, styles) in pairs {
-            if *styles.get_ref(TextElem::font) != *outer_font
-                || *styles.get_ref(TextElem::style) != *outer_style
-                || *styles.get_ref(TextElem::weight) != *outer_weight
-            {
-                self.fonts_stack.push(get_font(
-                    self.engine.world,
-                    styles,
-                    content.span(),
-                )?);
+            // Whilst this check isn't exact, it more or less suffices as a
+            // change in font variant probably won't have an effect on metrics.
+            if styles != outer_styles && styles.get_ref(TextElem::font) != outer_font {
+                self.fonts_stack
+                    .push(get_font(self.engine.world, styles, elem.span())?);
                 let scale_style = style_for_script_scale(self.font());
                 layout_realized(elem, self, styles.chain(&scale_style))?;
                 self.fonts_stack.pop();

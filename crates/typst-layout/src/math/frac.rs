@@ -49,29 +49,28 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let axis = ctx.font().math().axis_height.resolve(styles);
-    let thickness = ctx.font().math().fraction_rule_thickness.resolve(styles);
+    let constants = ctx.font().math();
+    let axis = constants.axis_height.resolve(styles);
+    let thickness = constants.fraction_rule_thickness.resolve(styles);
     let size = styles.get(EquationElem::size);
     let shift_up = match size {
-        MathSize::Display => ctx.font().math().fraction_numerator_display_style_shift_up,
-        _ => ctx.font().math().fraction_numerator_shift_up,
+        MathSize::Display => constants.fraction_numerator_display_style_shift_up,
+        _ => constants.fraction_numerator_shift_up,
     }
     .resolve(styles);
     let shift_down = match size {
-        MathSize::Display => {
-            ctx.font().math().fraction_denominator_display_style_shift_down
-        }
-        _ => ctx.font().math().fraction_denominator_shift_down,
+        MathSize::Display => constants.fraction_denominator_display_style_shift_down,
+        _ => constants.fraction_denominator_shift_down,
     }
     .resolve(styles);
     let num_min = match size {
-        MathSize::Display => ctx.font().math().fraction_num_display_style_gap_min,
-        _ => ctx.font().math().fraction_numerator_gap_min,
+        MathSize::Display => constants.fraction_num_display_style_gap_min,
+        _ => constants.fraction_numerator_gap_min,
     }
     .resolve(styles);
     let denom_min = match size {
-        MathSize::Display => ctx.font().math().fraction_denom_display_style_gap_min,
-        _ => ctx.font().math().fraction_denominator_gap_min,
+        MathSize::Display => constants.fraction_denom_display_style_gap_min,
+        _ => constants.fraction_denominator_gap_min,
     }
     .resolve(styles);
 
