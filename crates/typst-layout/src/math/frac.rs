@@ -219,10 +219,9 @@ fn layout_skewed_frac(
 
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
 
-    // Size of the fraction frame
-    // We recalculate these values below if the slash glyph overflows
+    // Height of the fraction frame
+    // We recalculate this value below if the slash glyph overflows
     let mut fraction_height = num_size.y + denom_size.y + vgap;
-    let fraction_width;
 
     // Build the slash glyph to calculate its size
     let mut slash_frag = GlyphFragment::new_char(ctx.font, styles, '\u{2044}', span)?;
@@ -279,9 +278,9 @@ fn layout_skewed_frac(
     }
     denom_up_left += extra_hgap;
 
-    // Adjust final width
+    // Fraction width
     let mut slash_up_left = slash_center - slash_size.to_point() / 2.0;
-    fraction_width = (denom_up_left.x + denom_size.x)
+    let fraction_width = (denom_up_left.x + denom_size.x)
         .max(slash_center.x + slash_size.x / 2.0)
         - num_up_left.x.min(slash_up_left.x);
     // We have to shift everything right to avoid going in the negatives for the x coordinate
