@@ -468,7 +468,7 @@
     [a], [b],
     [c],
   ),
-  // Error: 3-48 cell would conflict with header spanning the same position
+  // Error: 3-48 cell would conflict with header also spanning row 1
   // Hint: 3-48 try moving the cell or the header
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
 )
@@ -481,7 +481,7 @@
     [a], [b],
     [c],
   ),
-  // Error: 3-42 cell would conflict with header spanning the same position
+  // Error: 3-42 cell would conflict with header also spanning row 1
   // Hint: 3-42 try moving the cell or the header
   table.cell(y: 1, rowspan: 2, lorem(80))
 )
@@ -686,7 +686,7 @@
   ),
 )
 
---- grid-header-collision-ordered ---
+--- grid-header-collision-multiple-ordered ---
 #grid(
   columns: 2,
   grid.cell(x: 0, y: 0)[a],
@@ -699,7 +699,7 @@
   grid.header(grid.cell(x: 0, y: 4)[y]),
 )
 
---- grid-header-collision-unordered ---
+--- grid-header-collision-multiple-unordered ---
 #grid(
   columns: 2,
   grid.cell(x: 0, y: 0)[a],
@@ -707,12 +707,12 @@
   grid.header(grid.cell(x: 0, y: 2)[y]),
   grid.header(grid.cell(x: 0, y: 3)[y]),
   grid.header(grid.cell(x: 0, y: 4)[y]),
-  // Error: 3-27 cell would conflict with header spanning the same position
+  // Error: 3-27 cell would conflict with header also spanning row 3
   // Hint: 3-27 try moving the cell or the header
   grid.cell(x: 0, y: 3)[a]
 )
 
---- grid-header-collision-rowspan ---
+--- grid-header-collision-multiple-rowspan ---
 #grid(
   columns: 2,
   grid.cell(x: 0, y: 0)[a],
@@ -720,7 +720,7 @@
   grid.header(grid.cell(x: 0, y: 2)[y]),
   grid.header(grid.cell(x: 0, y: 3)[y]),
   grid.header(grid.cell(x: 0, y: 4)[y]),
-  // Error: 3-39 cell would conflict with header spanning the same position
+  // Error: 3-39 cell would conflict with header also spanning row 2
   // Hint: 3-39 try moving the cell or the header
   grid.cell(x: 0, y: 1, rowspan: 2)[a]
 )

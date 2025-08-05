@@ -2085,21 +2085,12 @@ fn check_for_conflicting_cell_row(
     // only occupies one row (`y`), so the cell is actually not in
     // conflict.
     if !headers.is_empty()
-        && (cell_y..cell_y + rowspan).any(|row| header_rows.contains(row))
+        && let Some(row) =
+            (cell_y..cell_y + rowspan).find(|&row| header_rows.contains(row))
     {
-        debug_assert!(
-            headers.iter().any(|header| cell_y < header.range.end
-                && cell_y + rowspan > header.range.start)
-        );
-
         bail!(
-            "cell would conflict with header spanning the same position";
+            "cell would conflict with header also spanning row {row}";
             hint: "try moving the cell or the header"
-        );
-    } else {
-        debug_assert!(
-            !(headers.iter().any(|header| cell_y < header.range.end
-                && cell_y + rowspan > header.range.start))
         );
     }
 
