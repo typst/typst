@@ -39,11 +39,12 @@ impl TableCtx {
     fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut TableCtxCell> {
         let cell = self.rows.get_mut(y)?.get_mut(x)?;
         match cell {
-            GridCell::Cell(cell) => {
-                // HACK: Workaround for the second mutable borrow when resolving
-                // the spanned cell.
-                Some(unsafe { std::mem::transmute(cell) })
-            }
+            // Reborrow here, so the borrow of `cell` doesn't get returned from
+            // the function. Otherwise the borrow checker assumes `cell` borrows
+            // `self.rows` for the entirety of the function, not just this match
+            // arm, and doesn't allow the second mutable borrow in the match arm
+            // below.
+            GridCell::Cell(_) => self.rows[y][x].as_cell_mut(),
             &mut GridCell::Spanned(x, y) => self.rows[y][x].as_cell_mut(),
             GridCell::Missing => None,
         }
