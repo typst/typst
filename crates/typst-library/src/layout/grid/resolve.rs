@@ -2081,11 +2081,6 @@ fn check_for_conflicting_cell_row(
     cell_y: usize,
     rowspan: usize,
 ) -> HintedStrResult<()> {
-    // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
-    // enters the header. For example, consider a rowspan of 1: if
-    // `y + 1 = header.start` holds, that means `y < header.start`, and it
-    // only occupies one row (`y`), so the cell is actually not in
-    // conflict.
     if !headers.is_empty()
         && let Some(row) =
             (cell_y..cell_y + rowspan).find(|&row| header_rows.contains(row))
@@ -2096,6 +2091,11 @@ fn check_for_conflicting_cell_row(
         );
     }
 
+    // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
+    // enters the header. For example, consider a rowspan of 1: if
+    // `y + 1 = header.start` holds, that means `y < header.start`, and it
+    // only occupies one row (`y`), so the cell is actually not in
+    // conflict.
     if let Some((_, _, footer)) = footer
         && cell_y < footer.end
         && cell_y + rowspan > footer.start
