@@ -901,8 +901,19 @@ fn shape_glyph<'a>(
 
     // Extract the font id or shape notdef glyphs if we couldn't find any font.
     let Some(font) = selection else {
-        if let Some(_font) = used.first().cloned() {
-            // TODO: shape tofu
+        if let Some(font) = used.first().cloned() {
+            // Shape tofu.
+            let glyph = Glyph {
+                id: 0,
+                x_advance: font.x_advance(0).unwrap_or_default(),
+                x_offset: Em::zero(),
+                y_advance: Em::zero(),
+                y_offset: Em::zero(),
+                range: 0..text.len().saturating_as(),
+                span: (Span::detached(), 0),
+            };
+            let c = text.chars().next().unwrap();
+            return Some((c, font, glyph));
         }
         return None;
     };
