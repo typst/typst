@@ -2091,9 +2091,9 @@ fn check_for_conflicting_cell_row(
         );
     }
 
-    // NOTE: y + rowspan >, not >=, header.start, to check if the rowspan
-    // enters the header. For example, consider a rowspan of 1: if
-    // `y + 1 = header.start` holds, that means `y < header.start`, and it
+    // NOTE: y + rowspan >, not >=, footer.start, to check if the rowspan
+    // enters the footer. For example, consider a rowspan of 1: if
+    // `y + 1 = footer.start` holds, that means `y < footer.start`, and it
     // only occupies one row (`y`), so the cell is actually not in
     // conflict.
     if let Some((_, _, footer)) = footer
