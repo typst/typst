@@ -1,6 +1,6 @@
 use crate::foundations::{Content, Packed, ShowSet, Smart, StyleChain, Styles, elem};
 use crate::introspection::Locatable;
-use crate::layout::{AlignElem, Alignment, BlockElem, Em};
+use crate::layout::{BlockElem, Em};
 use crate::text::{FontWeight, TextElem, TextSize};
 
 /// A document title.
@@ -37,7 +37,6 @@ impl ShowSet for Packed<TitleElem> {
         out.set(BlockElem::above, Smart::Custom(ABOVE.into()));
         out.set(BlockElem::below, Smart::Custom(BELOW.into()));
         out.set(BlockElem::sticky, true);
-        out.set(AlignElem::alignment, Alignment::CENTER);
         out
     }
 }
