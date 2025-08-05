@@ -162,8 +162,11 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .pack())
 };
 
-const TITLE_RULE: ShowFn<TitleElem> =
-    |elem, _, _| Ok(HtmlElem::new(tag::h1).with_body(Some(elem.body.clone())).pack());
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::h1)
+        .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
+        .pack())
+};
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     let span = elem.span();

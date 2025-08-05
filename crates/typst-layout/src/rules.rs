@@ -217,9 +217,9 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     Ok(body.linked(dest))
 };
 
-const TITLE_RULE: ShowFn<TitleElem> = |elem, _, _| {
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(BlockElem::new()
-        .with_body(Some(BlockBody::Content(elem.body.clone())))
+        .with_body(Some(BlockBody::Content(elem.resolve_body(styles).at(elem.span())?)))
         .pack())
 };
 

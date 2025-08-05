@@ -1,6 +1,8 @@
+use crate::diag::{Hint, HintedStrResult};
 use crate::foundations::{Content, Packed, ShowSet, Smart, StyleChain, Styles, elem};
 use crate::introspection::Locatable;
 use crate::layout::{BlockElem, Em};
+use crate::model::DocumentElem;
 use crate::text::{FontWeight, TextElem, TextSize};
 
 /// A document title.
@@ -15,7 +17,11 @@ use crate::text::{FontWeight, TextElem, TextSize};
 ///
 /// # Example
 /// ```example
-/// #title[Interstellar Mail Delivery]
+/// #set document(
+///   title: [Interstellar Mail Delivery]
+/// )
+///
+/// #title()
 ///
 /// = Introduction
 /// In recent years, ...
@@ -23,8 +29,32 @@ use crate::text::{FontWeight, TextElem, TextSize};
 #[elem(Locatable, ShowSet)]
 pub struct TitleElem {
     /// The content of the title.
-    #[required]
-    pub body: Content,
+    ///
+    /// When omitted (or `{auto}`), this will default to [`document.title`]. In
+    /// this case, a document title must have been previously set with
+    /// `{set document(title: [..])}`.
+    ///
+    /// ```example
+    /// #set document(title: "Course ABC, Homework 1")
+    /// #title[Homework 1]
+    ///
+    /// ...
+    /// ```
+    #[positional]
+    pub body: Smart<Content>,
+}
+
+impl TitleElem {
+    pub fn resolve_body(&self, styles: StyleChain) -> HintedStrResult<Content> {
+        match self.body.get_cloned(styles) {
+            Smart::Auto => styles
+                .get_cloned(DocumentElem::title)
+                .ok_or("document title was not set")
+                .hint("set the title with `set document(title: [...])`")
+                .hint("or provide an explicit body with `title[..]`"),
+            Smart::Custom(body) => Ok(body),
+        }
+    }
 }
 
 impl ShowSet for Packed<TitleElem> {
