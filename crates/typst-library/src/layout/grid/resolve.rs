@@ -2307,18 +2307,18 @@ fn find_next_available_position(
                 resolved_index += 1;
             }
         } else if header_rows.contains(resolved_index / columns) {
-            // Skip header (can't place a cell inside it from outside it).
-            //
-            // Add 1 to resolved index to force moving to the next row if this
-            // is at the start of one. At the end of one, '+ 1' already pushes
-            // to the next one and 'next_multiple_of' does not modify it, so
-            // nothing bad happens then either.
-            resolved_index = (resolved_index + 1).next_multiple_of(columns);
-
+            // Skip header rows (can't place a cell inside it from outside it).
             if skip_rows {
-                // Ensure the cell's chosen column is kept after the
-                // header.
-                resolved_index += initial_index % columns;
+                // Ensure the cell's chosen column is kept after the header.
+                resolved_index += columns;
+            } else {
+                // Skip to the start of the next row.
+                //
+                // Add 1 to resolved index to force moving to the next row if
+                // this is at the start of one. At the end of one, '+ 1'
+                // already pushes to the next one and 'next_multiple_of' does
+                // not modify it, so nothing bad happens then either.
+                resolved_index = (resolved_index + 1).next_multiple_of(columns);
             }
         } else if let Some((footer_end, _, footer)) = footer
             && resolved_index >= footer.start * columns
