@@ -7,7 +7,7 @@
 
 --- title-with-body render html ---
 #set document(title: "My title")
-#title[My expanded title]
+#title[My display title]
 
 --- title-with-body-auto render ---
 #set document(title: "My title")

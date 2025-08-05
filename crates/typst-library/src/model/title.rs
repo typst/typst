@@ -62,7 +62,7 @@ impl TitleElem {
 
 impl ShowSet for Packed<TitleElem> {
     fn show_set(&self, _styles: StyleChain) -> Styles {
-        const SIZE: Em = Em::new(1.6);
+        const SIZE: Em = Em::new(1.7);
         const ABOVE: Em = Em::new(1.125);
         const BELOW: Em = Em::new(0.75);
 
