@@ -2073,6 +2073,7 @@ fn expand_row_group(
 
 /// Check if a cell's fixed row would conflict with a header or footer.
 fn check_for_conflicting_cell_row(
+    header_rows: &SmallBitSet,
     headers: &[Repeatable<Header>],
     footer: Option<&(usize, Span, Footer)>,
     cell_y: usize,
@@ -2083,13 +2084,22 @@ fn check_for_conflicting_cell_row(
     // `y + 1 = header.start` holds, that means `y < header.start`, and it
     // only occupies one row (`y`), so the cell is actually not in
     // conflict.
-    if headers
-        .iter()
-        .any(|header| cell_y < header.range.end && cell_y + rowspan > header.range.start)
+    if !headers.is_empty()
+        && (cell_y..cell_y + rowspan).any(|row| header_rows.contains(row))
     {
+        debug_assert!(
+            headers.iter().any(|header| cell_y < header.range.end
+                && cell_y + rowspan > header.range.start)
+        );
+
         bail!(
             "cell would conflict with header spanning the same position";
             hint: "try moving the cell or the header"
+        );
+    } else {
+        debug_assert!(
+            !(headers.iter().any(|header| cell_y < header.range.end
+                && cell_y + rowspan > header.range.start))
         );
     }
 
@@ -2188,7 +2198,13 @@ fn resolve_cell_position(
                 // footer (but only if it isn't already in one, otherwise there
                 // will already be a separate check).
                 if !in_row_group {
-                    check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
+                    check_for_conflicting_cell_row(
+                        header_rows,
+                        headers,
+                        footer,
+                        cell_y,
+                        rowspan,
+                    )?;
                 }
 
                 cell_index(cell_x, cell_y)
@@ -2221,7 +2237,13 @@ fn resolve_cell_position(
             // footer (but only if it isn't already in one, otherwise there
             // will already be a separate check).
             if !in_row_group {
-                check_for_conflicting_cell_row(headers, footer, cell_y, rowspan)?;
+                check_for_conflicting_cell_row(
+                    header_rows,
+                    headers,
+                    footer,
+                    cell_y,
+                    rowspan,
+                )?;
             }
 
             // Let's find the first column which has that row available.
