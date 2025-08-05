@@ -5,11 +5,13 @@ use crate::text::{FontWeight, TextElem, TextSize};
 
 /// A document title.
 ///
-/// Should be used to display the main title of the whole document, and should
-/// occur only once per document.
+/// This should be used to display the main title of the whole document and
+/// should occur only once per document. In contrast, level 1
+/// [headings]($heading) are intended to be used for the top-level sections of
+/// the document.
 ///
-/// Shows as `h1` in HTML. In contrast, a heading of level 1
-/// (created with `= Some Heading`) will show as `h2`.
+/// In HTML export, this shows as a `h1` element while level 1 headings show
+/// as `h2` elements.
 ///
 /// # Example
 /// ```example
