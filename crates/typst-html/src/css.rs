@@ -26,7 +26,6 @@ impl Properties {
     }
 
     /// Adds a new property in builder-style.
-    #[expect(unused)]
     pub fn with(mut self, property: &str, value: impl Display) -> Self {
         self.push(property, value);
         self
