@@ -1172,10 +1172,12 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         //
         // So, we use a separate auto index counter inside the header. It starts
         // below the first non-empty row. If the header only has fixed-position
-        // cells, the external counter is unchanged. Otherwise (only auto cells
-        // or empty), the external counter is synchronized and moved to below
-        // the header. This ensures lines and cells specified below the header
-        // in the source code also appear below it in the final grid/table.
+        // cells, the external counter is unchanged. Otherwise (has auto cells
+        // or is empty), the external counter is synchronized and moved to
+        // below the header.
+        //
+        // This ensures lines and cells specified below the header in the
+        // source code also appear below it in the final grid/table.
         let local_auto_index = if matches!(child, ResolvableGridChild::Item(_)) {
             // Re-borrow the original auto index so we can reuse this mutable
             // reference later.
@@ -1799,7 +1801,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         // TODO(subfooters): take the last footer if it is at the end and
         // backtrack through consecutive footers until the first one in the
         // sequence is found. If there is no footer at the end, there are no
-        // haeders to turn short-lived.
+        // headers to turn short-lived.
         let mut consecutive_header_start =
             footer.as_ref().map(|(_, _, f)| f.start).unwrap_or(row_amount);
         let mut last_consec_level = 0;
