@@ -12,6 +12,9 @@ use crate::text::{FontWeight, TextElem, TextSize};
 /// [headings]($heading) are intended to be used for the top-level sections of
 /// the document.
 ///
+/// Note that additional frontmatter (like an author list) that should appear
+/// together with the title does not belong in its body.
+///
 /// In HTML export, this shows as a `h1` element while level 1 headings show
 /// as `h2` elements.
 ///
