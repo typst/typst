@@ -24,3 +24,9 @@ blue underlined text
 #underline[underlined]\
 #overline[overlined]\
 #strike[striked]\
+
+--- deco-tags-multiple-styles pdftags ---
+#show: underline
+// Error: 2-16 PDF/UA1 error: cannot combine underline, overline, and or strike
+#show: overline
+text with a bunch of lines

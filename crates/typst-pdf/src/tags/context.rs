@@ -223,7 +223,7 @@ impl TextAttrs {
         let deco = TextDeco { kind, stroke };
 
         // TODO: can overlapping tags break this?
-        if self.decos.iter().any(|(_, d)| d.kind != deco.kind) {
+        if options.is_pdf_ua() && self.decos.iter().any(|(_, d)| d.kind != deco.kind) {
             let validator = options.standards.config.validator();
             let validator = validator.as_str();
             bail!(
