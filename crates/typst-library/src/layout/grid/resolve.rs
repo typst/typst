@@ -1787,11 +1787,11 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
     ) -> SourceResult<Option<Repeatable<Footer>>> {
         headers.sort_unstable_by_key(|h| h.range.start);
 
-        // Mark consecutive headers:
-        // (a) before a header of smaller level;
+        // Mark consecutive headers in those positions as short-lived:
+        // (a) before a header of lower level;
         // (b) right before the end of the table or the final footer;
-        // as short lived, given that they would stop repeating immediately,
-        // so don't even attempt to.
+        // That's because they would stop repeating immediately, so don't even
+        // attempt to.
         //
         // It is important to do this BEFORE we update header and footer ranges
         // due to gutter below as 'row_amount' doesn't consider gutter.
@@ -2287,8 +2287,7 @@ fn find_next_available_position(
                 resolved_index += 1;
             }
         } else if header_rows.contains(resolved_index / columns) {
-            // Skip header or footer (can't place a cell inside it from outside
-            // it).
+            // Skip header (can't place a cell inside it from outside it).
             //
             // Add 1 to resolved index to force moving to the next row if this
             // is at the start of one. At the end of one, '+ 1' already pushes
