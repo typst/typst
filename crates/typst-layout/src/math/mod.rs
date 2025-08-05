@@ -30,8 +30,7 @@ use typst_library::math::*;
 use typst_library::model::ParElem;
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::text::{
-    Font, FontFlags, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, families,
-    variant,
+    Font, FontFlags, LinebreakElem, SpaceElem, TextEdgeBounds, TextElem, variant,
 };
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};

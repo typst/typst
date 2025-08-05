@@ -18,11 +18,11 @@ use typst_library::text::{
 };
 use typst_library::visualize::Paint;
 use typst_syntax::Span;
-use typst_utils::{Get, default_math_class, singleton};
+use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::MathContext;
+use super::{MathContext, families};
 use crate::inline::create_shape_plan;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
@@ -328,7 +328,7 @@ impl GlyphFragment {
             language(styles),
             styles.get(TextElem::fallback),
             text,
-            families(styles),
+            families(styles).collect(),
         )?;
         glyph.span.0 = span;
 
@@ -836,29 +836,6 @@ pub fn has_dtls_feat(font: &Font) -> bool {
         .gsub
         .and_then(|gsub| gsub.features.index(ttf_parser::Tag::from_bytes(b"dtls")))
         .is_some()
-}
-
-fn families(styles: StyleChain) -> Vec<&FontFamily> {
-    let fallbacks = singleton!(Vec<FontFamily>, {
-        [
-            "new computer modern math",
-            "libertinus serif",
-            "twitter color emoji",
-            "noto color emoji",
-            "apple color emoji",
-            "segoe ui emoji",
-        ]
-        .into_iter()
-        .map(FontFamily::new)
-        .collect()
-    });
-
-    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
-    styles
-        .get_ref(TextElem::font)
-        .into_iter()
-        .chain(tail.iter())
-        .collect()
 }
 
 #[comemo::memoize]

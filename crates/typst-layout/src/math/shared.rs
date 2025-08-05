@@ -2,8 +2,8 @@ use ttf_parser::Tag;
 use typst_library::foundations::{Style, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{FontFeatures, TextElem};
-use typst_utils::LazyHash;
+use typst_library::text::{FontFamily, FontFeatures, TextElem};
+use typst_utils::{LazyHash, singleton};
 
 use super::{LeftRightAlternator, MathFragment, MathRun};
 
@@ -58,6 +58,26 @@ pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
 /// The style for denominators in the current style.
 pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
+}
+
+/// Resolve a prioritized iterator over the font families for math.
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> + Clone {
+    let fallbacks = singleton!(Vec<FontFamily>, {
+        [
+            "new computer modern math",
+            "libertinus serif",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
+        .into_iter()
+        .map(FontFamily::new)
+        .collect()
+    });
+
+    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
+    styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
 }
 
 /// Stack rows on top of each other.
