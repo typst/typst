@@ -1256,7 +1256,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             }
         };
 
-        let mut had_any_cells = false;
         let mut had_auto_cells = false;
         let items = header_footer_items.into_iter().flatten().chain(simple_item);
 
@@ -1362,7 +1361,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
                 ResolvableGridItem::Cell(cell) => cell,
             };
-            had_any_cells = true;
             let cell_span = cell.span();
             let colspan = cell.colspan(self.styles).get();
             let rowspan = cell.rowspan(self.styles).get();
@@ -1519,10 +1517,12 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
                 None => {
                     // Empty header/footer: consider the header/footer to be
-                    // at the next empty row after the latest auto index.
+                    // automatically positioned at the next empty row after the
+                    // latest auto index.
                     *local_auto_index = first_available_row * columns;
                     let group_start = first_available_row;
                     let group_end = group_start + 1;
+                    had_auto_cells = true;
 
                     if resolved_cells.len() <= columns * group_start {
                         // Ensure the automatically chosen row actually exists.
@@ -1564,9 +1564,10 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                 }
             }
 
-            if !had_any_cells || had_auto_cells {
-                // Header/footer was automatically positioned, so trigger a
-                // rowbreak. Move auto index counter below it.
+            if had_auto_cells {
+                // Header/footer was automatically positioned (either by having
+                // auto cells or by virtue of being empty), so trigger a
+                // rowbreak. Move auto index counter right below it.
                 *auto_index = group_range.end * columns;
             }
 
