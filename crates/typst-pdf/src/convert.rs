@@ -25,7 +25,7 @@ use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
 use crate::PdfOptions;
-use crate::embed::embed_files;
+use crate::attach::attach_files;
 use crate::image::handle_image;
 use crate::link::handle_link;
 use crate::metadata::build_metadata;
@@ -63,7 +63,7 @@ pub fn convert(
     );
 
     convert_pages(&mut gc, &mut document)?;
-    embed_files(typst_document, &mut document)?;
+    attach_files(typst_document, &mut document)?;
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
@@ -546,19 +546,19 @@ fn convert_error(
             }
         }
         ValidationError::EmbeddedFile(e, s) => {
-            // We always set the span for embedded files, so it cannot be detached.
+            // We always set the span for attached files, so it cannot be detached.
             let span = to_span(*s);
             match e {
                 EmbedError::Existence => {
                     error!(
-                        span, "{prefix} document contains an embedded file";
-                        hint: "embedded files are not supported in this export mode"
+                        span, "{prefix} document contains an attached file";
+                        hint: "file attachments are not supported in this export mode"
                     )
                 }
                 EmbedError::MissingDate => {
                     error!(
                         span, "{prefix} document date is missing";
-                        hint: "the document must have a date when embedding files";
+                        hint: "the document must have a date when attaching files";
                         hint: "`set document(date: none)` must not be used in this case"
                     )
                 }

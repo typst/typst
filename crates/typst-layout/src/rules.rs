@@ -23,7 +23,7 @@ use typst_library::model::{
     LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
     QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
 };
-use typst_library::pdf::EmbedElem;
+use typst_library::pdf::AttachElem;
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
@@ -102,7 +102,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, EQUATION_RULE);
 
     // PDF.
-    rules.register(Paged, EMBED_RULE);
+    rules.register(Paged, ATTACH_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -839,4 +839,4 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
     }
 };
 
-const EMBED_RULE: ShowFn<EmbedElem> = |_, _, _| Ok(Content::empty());
+const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());
