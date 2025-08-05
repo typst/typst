@@ -1520,9 +1520,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // automatically positioned at the next empty row after the
                     // latest auto index.
                     *local_auto_index = first_available_row * columns;
+                    had_auto_cells = true;
                     let group_start = first_available_row;
                     let group_end = group_start + 1;
-                    had_auto_cells = true;
 
                     if resolved_cells.len() <= columns * group_start {
                         // Ensure the automatically chosen row actually exists.

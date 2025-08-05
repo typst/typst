@@ -165,6 +165,15 @@
   grid.cell(x: 1, y: 1, rowspan: 2)[a],
 )
 
+--- grid-footer-rowbreak-line ---
+#grid(
+  columns: 1,
+  [a],
+  grid.hline(stroke: red),
+  grid.footer([b]),
+  grid.hline(stroke: 3pt),
+)
+
 --- grid-footer-multiple ---
 // Error: 4:3-4:19 cannot have more than one footer
 #grid(
