@@ -12,14 +12,16 @@ pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
 use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use ttf_parser::{GlyphId, name_id};
 
 use self::book::find_name;
 use crate::foundations::{Bytes, Cast};
 use crate::layout::{Abs, Em, Frame};
-use crate::text::{BottomEdge, TopEdge};
+use crate::text::{
+    BottomEdge, DEFAULT_SUBSCRIPT_METRICS, DEFAULT_SUPERSCRIPT_METRICS, TopEdge,
+};
 
 /// An OpenType font.
 ///
@@ -95,16 +97,10 @@ impl Font {
         &self.0.metrics
     }
 
-    /// Look up the width of a space.
-    #[inline]
-    pub fn space_width(&self) -> Em {
-        self.0.metrics.space_width
-    }
-
     /// The font's math constants.
     #[inline]
     pub fn math(&self) -> &MathConstants {
-        &self.0.metrics.math
+        self.0.metrics.math.get_or_init(|| FontMetrics::init_math(self))
     }
 
     /// The number of font units per one em.
@@ -217,7 +213,7 @@ impl PartialEq for Font {
 }
 
 /// Metrics of a font.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct FontMetrics {
     /// How many font units represent one em unit.
     pub units_per_em: f64,
@@ -239,10 +235,8 @@ pub struct FontMetrics {
     pub subscript: Option<ScriptMetrics>,
     /// Metrics for superscripts, if provided by the font.
     pub superscript: Option<ScriptMetrics>,
-    /// The width of a space.
-    pub space_width: Em,
     /// Metrics for math layout.
-    pub math: MathConstants,
+    pub math: OnceLock<Box<MathConstants>>,
 }
 
 impl FontMetrics {
@@ -292,177 +286,6 @@ impl FontMetrics {
             vertical_offset: to_em(metrics.y_offset),
         });
 
-        let space_width = ttf
-            .glyph_index(' ')
-            .and_then(|id| {
-                ttf.glyph_hor_advance(id)
-                    .map(|units| Em::from_units(units, units_per_em))
-            })
-            .unwrap_or(typst_library::math::THICK);
-
-        let display_operator_min_height = |constants: ttf_parser::math::Constants| {
-            Em::from_units(
-                if find_name(ttf, name_id::POST_SCRIPT_NAME)
-                    .map(|x| x == "CambriaMath")
-                    .unwrap_or(false)
-                {
-                    constants.delimited_sub_formula_min_height()
-                } else {
-                    constants.display_operator_min_height()
-                },
-                units_per_em,
-            )
-        };
-
-        let math = ttf
-            .tables()
-            .math
-            .and_then(|math| math.constants)
-            .map(|constants| MathConstants {
-                script_percent_scale_down: constants.script_percent_scale_down(),
-                script_script_percent_scale_down: constants
-                    .script_script_percent_scale_down(),
-                display_operator_min_height: display_operator_min_height(constants),
-                axis_height: to_em(constants.axis_height().value),
-                accent_base_height: to_em(constants.accent_base_height().value),
-                flattened_accent_base_height: to_em(
-                    constants.flattened_accent_base_height().value,
-                ),
-                subscript_shift_down: to_em(constants.subscript_shift_down().value),
-                subscript_top_max: to_em(constants.subscript_top_max().value),
-                subscript_baseline_drop_min: to_em(
-                    constants.subscript_baseline_drop_min().value,
-                ),
-                superscript_shift_up: to_em(constants.superscript_shift_up().value),
-                superscript_shift_up_cramped: to_em(
-                    constants.superscript_shift_up_cramped().value,
-                ),
-                superscript_bottom_min: to_em(constants.superscript_bottom_min().value),
-                superscript_baseline_drop_max: to_em(
-                    constants.superscript_baseline_drop_max().value,
-                ),
-                sub_superscript_gap_min: to_em(constants.sub_superscript_gap_min().value),
-                superscript_bottom_max_with_subscript: to_em(
-                    constants.superscript_bottom_max_with_subscript().value,
-                ),
-                space_after_script: to_em(constants.space_after_script().value),
-                upper_limit_gap_min: to_em(constants.upper_limit_gap_min().value),
-                upper_limit_baseline_rise_min: to_em(
-                    constants.upper_limit_baseline_rise_min().value,
-                ),
-                lower_limit_gap_min: to_em(constants.lower_limit_gap_min().value),
-                lower_limit_baseline_drop_min: to_em(
-                    constants.lower_limit_baseline_drop_min().value,
-                ),
-                fraction_numerator_shift_up: to_em(
-                    constants.fraction_numerator_shift_up().value,
-                ),
-                fraction_numerator_display_style_shift_up: to_em(
-                    constants.fraction_numerator_display_style_shift_up().value,
-                ),
-                fraction_denominator_shift_down: to_em(
-                    constants.fraction_denominator_shift_down().value,
-                ),
-                fraction_denominator_display_style_shift_down: to_em(
-                    constants.fraction_denominator_display_style_shift_down().value,
-                ),
-                fraction_numerator_gap_min: to_em(
-                    constants.fraction_numerator_gap_min().value,
-                ),
-                fraction_num_display_style_gap_min: to_em(
-                    constants.fraction_num_display_style_gap_min().value,
-                ),
-                fraction_rule_thickness: to_em(constants.fraction_rule_thickness().value),
-                fraction_denominator_gap_min: to_em(
-                    constants.fraction_denominator_gap_min().value,
-                ),
-                fraction_denom_display_style_gap_min: to_em(
-                    constants.fraction_denom_display_style_gap_min().value,
-                ),
-                overbar_vertical_gap: to_em(constants.overbar_vertical_gap().value),
-                overbar_rule_thickness: to_em(constants.overbar_rule_thickness().value),
-                overbar_extra_ascender: to_em(constants.overbar_extra_ascender().value),
-                underbar_vertical_gap: to_em(constants.underbar_vertical_gap().value),
-                underbar_rule_thickness: to_em(constants.underbar_rule_thickness().value),
-                underbar_extra_descender: to_em(
-                    constants.underbar_extra_descender().value,
-                ),
-                radical_vertical_gap: to_em(constants.radical_vertical_gap().value),
-                radical_display_style_vertical_gap: to_em(
-                    constants.radical_display_style_vertical_gap().value,
-                ),
-                radical_rule_thickness: to_em(constants.radical_rule_thickness().value),
-                radical_extra_ascender: to_em(constants.radical_extra_ascender().value),
-                radical_kern_before_degree: to_em(
-                    constants.radical_kern_before_degree().value,
-                ),
-                radical_kern_after_degree: to_em(
-                    constants.radical_kern_after_degree().value,
-                ),
-                radical_degree_bottom_raise_percent: constants
-                    .radical_degree_bottom_raise_percent()
-                    as f64
-                    / 100.0,
-            })
-            // https://www.w3.org/TR/mathml-core/#layout-constants-mathconstants
-            // https://github.com/notofonts/math/blob/main/documentation/building-math-fonts/index.md
-            .unwrap_or(MathConstants {
-                // The defaults given in MathML Core are problematic as they
-                // have more precision then i16. So instead of 0.71, 0.5041 we
-                // use 0.7 and 0.5.
-                script_percent_scale_down: 70,
-                script_script_percent_scale_down: 50,
-                display_operator_min_height: Em::zero(),
-                axis_height: x_height / 2.0,
-                accent_base_height: x_height,
-                // This is from Building Math Fonts.
-                flattened_accent_base_height: cap_height,
-                subscript_shift_down: subscript
-                    .map(|metrics| metrics.vertical_offset)
-                    // This is from DEFAULT_SUBSCRIPT_METRICS.
-                    .unwrap_or(Em::new(-0.2)),
-                subscript_top_max: 0.8 * x_height,
-                subscript_baseline_drop_min: Em::zero(),
-                superscript_shift_up: superscript
-                    .map(|metrics| metrics.vertical_offset)
-                    // This is from DEFAULT_SUPERSCRIPT_METRICS.
-                    .unwrap_or(Em::new(0.5)),
-                superscript_shift_up_cramped: Em::zero(),
-                superscript_bottom_min: 0.25 * x_height,
-                superscript_baseline_drop_max: Em::zero(),
-                sub_superscript_gap_min: 4.0 * underline.thickness,
-                superscript_bottom_max_with_subscript: 0.8 * x_height,
-                space_after_script: Em::new(1.0 / 24.0),
-                upper_limit_gap_min: Em::zero(),
-                upper_limit_baseline_rise_min: Em::zero(),
-                lower_limit_gap_min: Em::zero(),
-                lower_limit_baseline_drop_min: Em::zero(),
-                fraction_numerator_shift_up: Em::zero(),
-                fraction_numerator_display_style_shift_up: Em::zero(),
-                fraction_denominator_shift_down: Em::zero(),
-                fraction_denominator_display_style_shift_down: Em::zero(),
-                fraction_numerator_gap_min: underline.thickness,
-                fraction_num_display_style_gap_min: 3.0 * underline.thickness,
-                fraction_rule_thickness: underline.thickness,
-                fraction_denominator_gap_min: underline.thickness,
-                fraction_denom_display_style_gap_min: 3.0 * underline.thickness,
-                overbar_vertical_gap: 3.0 * underline.thickness,
-                // This is my best guess.
-                overbar_rule_thickness: underline.thickness,
-                overbar_extra_ascender: underline.thickness,
-                underbar_vertical_gap: 3.0 * underline.thickness,
-                // This is my best guess.
-                underbar_rule_thickness: underline.thickness,
-                underbar_extra_descender: underline.thickness,
-                radical_vertical_gap: 1.25 * underline.thickness,
-                radical_display_style_vertical_gap: underline.thickness + 0.25 * x_height,
-                radical_rule_thickness: underline.thickness,
-                radical_extra_ascender: underline.thickness,
-                radical_kern_before_degree: Em::new(5.0 / 18.0),
-                radical_kern_after_degree: Em::new(-10.0 / 18.0),
-                radical_degree_bottom_raise_percent: 0.6,
-            });
-
         Self {
             units_per_em,
             ascender,
@@ -474,9 +297,183 @@ impl FontMetrics {
             overline,
             superscript,
             subscript,
-            space_width,
-            math,
+            math: OnceLock::new(),
         }
+    }
+
+    fn init_math(font: &Font) -> Box<MathConstants> {
+        let ttf = font.ttf();
+        let metrics = font.metrics();
+
+        let space_width = ttf
+            .glyph_index(' ')
+            .and_then(|id| ttf.glyph_hor_advance(id).map(|units| font.to_em(units)))
+            .unwrap_or(typst_library::math::THICK);
+
+        let is_cambria = || {
+            font.find_name(name_id::POST_SCRIPT_NAME)
+                .is_some_and(|name| name == "CambriaMath")
+        };
+
+        Box::new(
+            ttf.tables()
+                .math
+                .and_then(|math| math.constants)
+                .map(|constants| MathConstants {
+                    space_width,
+                    script_percent_scale_down: constants.script_percent_scale_down(),
+                    script_script_percent_scale_down: constants
+                        .script_script_percent_scale_down(),
+                    display_operator_min_height: font.to_em(if is_cambria() {
+                        constants.delimited_sub_formula_min_height()
+                    } else {
+                        constants.display_operator_min_height()
+                    }),
+                    axis_height: font.to_em(constants.axis_height().value),
+                    accent_base_height: font.to_em(constants.accent_base_height().value),
+                    flattened_accent_base_height: font
+                        .to_em(constants.flattened_accent_base_height().value),
+                    subscript_shift_down: font
+                        .to_em(constants.subscript_shift_down().value),
+                    subscript_top_max: font.to_em(constants.subscript_top_max().value),
+                    subscript_baseline_drop_min: font
+                        .to_em(constants.subscript_baseline_drop_min().value),
+                    superscript_shift_up: font
+                        .to_em(constants.superscript_shift_up().value),
+                    superscript_shift_up_cramped: font
+                        .to_em(constants.superscript_shift_up_cramped().value),
+                    superscript_bottom_min: font
+                        .to_em(constants.superscript_bottom_min().value),
+                    superscript_baseline_drop_max: font
+                        .to_em(constants.superscript_baseline_drop_max().value),
+                    sub_superscript_gap_min: font
+                        .to_em(constants.sub_superscript_gap_min().value),
+                    superscript_bottom_max_with_subscript: font
+                        .to_em(constants.superscript_bottom_max_with_subscript().value),
+                    space_after_script: font.to_em(constants.space_after_script().value),
+                    upper_limit_gap_min: font
+                        .to_em(constants.upper_limit_gap_min().value),
+                    upper_limit_baseline_rise_min: font
+                        .to_em(constants.upper_limit_baseline_rise_min().value),
+                    lower_limit_gap_min: font
+                        .to_em(constants.lower_limit_gap_min().value),
+                    lower_limit_baseline_drop_min: font
+                        .to_em(constants.lower_limit_baseline_drop_min().value),
+                    fraction_numerator_shift_up: font
+                        .to_em(constants.fraction_numerator_shift_up().value),
+                    fraction_numerator_display_style_shift_up: font.to_em(
+                        constants.fraction_numerator_display_style_shift_up().value,
+                    ),
+                    fraction_denominator_shift_down: font
+                        .to_em(constants.fraction_denominator_shift_down().value),
+                    fraction_denominator_display_style_shift_down: font.to_em(
+                        constants.fraction_denominator_display_style_shift_down().value,
+                    ),
+                    fraction_numerator_gap_min: font
+                        .to_em(constants.fraction_numerator_gap_min().value),
+                    fraction_num_display_style_gap_min: font
+                        .to_em(constants.fraction_num_display_style_gap_min().value),
+                    fraction_rule_thickness: font
+                        .to_em(constants.fraction_rule_thickness().value),
+                    fraction_denominator_gap_min: font
+                        .to_em(constants.fraction_denominator_gap_min().value),
+                    fraction_denom_display_style_gap_min: font
+                        .to_em(constants.fraction_denom_display_style_gap_min().value),
+                    overbar_vertical_gap: font
+                        .to_em(constants.overbar_vertical_gap().value),
+                    overbar_rule_thickness: font
+                        .to_em(constants.overbar_rule_thickness().value),
+                    overbar_extra_ascender: font
+                        .to_em(constants.overbar_extra_ascender().value),
+                    underbar_vertical_gap: font
+                        .to_em(constants.underbar_vertical_gap().value),
+                    underbar_rule_thickness: font
+                        .to_em(constants.underbar_rule_thickness().value),
+                    underbar_extra_descender: font
+                        .to_em(constants.underbar_extra_descender().value),
+                    radical_vertical_gap: font
+                        .to_em(constants.radical_vertical_gap().value),
+                    radical_display_style_vertical_gap: font
+                        .to_em(constants.radical_display_style_vertical_gap().value),
+                    radical_rule_thickness: font
+                        .to_em(constants.radical_rule_thickness().value),
+                    radical_extra_ascender: font
+                        .to_em(constants.radical_extra_ascender().value),
+                    radical_kern_before_degree: font
+                        .to_em(constants.radical_kern_before_degree().value),
+                    radical_kern_after_degree: font
+                        .to_em(constants.radical_kern_after_degree().value),
+                    radical_degree_bottom_raise_percent: constants
+                        .radical_degree_bottom_raise_percent()
+                        as f64
+                        / 100.0,
+                })
+                // Most of these fallback constants are from the MathML Core
+                // spec, with the exceptions of
+                // - `flattened_accent_base_height` from Building Math Fonts
+                // - `overbar_rule_thickness` and `underbar_rule_thickness`
+                //   from our best guess
+                // - `script_percent_scale_down` and
+                //   `script_script_percent_scale_down` from Building Math
+                //   Fonts as the defaults given in MathML Core have more
+                //   precision than i16.
+                //
+                // https://www.w3.org/TR/mathml-core/#layout-constants-mathconstants
+                // https://github.com/notofonts/math/blob/main/documentation/building-math-fonts/index.md
+                .unwrap_or(MathConstants {
+                    space_width,
+                    script_percent_scale_down: 70,
+                    script_script_percent_scale_down: 50,
+                    display_operator_min_height: Em::zero(),
+                    axis_height: metrics.x_height / 2.0,
+                    accent_base_height: metrics.x_height,
+                    flattened_accent_base_height: metrics.cap_height,
+                    subscript_shift_down: metrics
+                        .subscript
+                        .map(|metrics| metrics.vertical_offset)
+                        .unwrap_or(DEFAULT_SUBSCRIPT_METRICS.vertical_offset),
+                    subscript_top_max: 0.8 * metrics.x_height,
+                    subscript_baseline_drop_min: Em::zero(),
+                    superscript_shift_up: metrics
+                        .superscript
+                        .map(|metrics| metrics.vertical_offset)
+                        .unwrap_or(DEFAULT_SUPERSCRIPT_METRICS.vertical_offset),
+                    superscript_shift_up_cramped: Em::zero(),
+                    superscript_bottom_min: 0.25 * metrics.x_height,
+                    superscript_baseline_drop_max: Em::zero(),
+                    sub_superscript_gap_min: 4.0 * metrics.underline.thickness,
+                    superscript_bottom_max_with_subscript: 0.8 * metrics.x_height,
+                    space_after_script: Em::new(1.0 / 24.0),
+                    upper_limit_gap_min: Em::zero(),
+                    upper_limit_baseline_rise_min: Em::zero(),
+                    lower_limit_gap_min: Em::zero(),
+                    lower_limit_baseline_drop_min: Em::zero(),
+                    fraction_numerator_shift_up: Em::zero(),
+                    fraction_numerator_display_style_shift_up: Em::zero(),
+                    fraction_denominator_shift_down: Em::zero(),
+                    fraction_denominator_display_style_shift_down: Em::zero(),
+                    fraction_numerator_gap_min: metrics.underline.thickness,
+                    fraction_num_display_style_gap_min: 3.0 * metrics.underline.thickness,
+                    fraction_rule_thickness: metrics.underline.thickness,
+                    fraction_denominator_gap_min: metrics.underline.thickness,
+                    fraction_denom_display_style_gap_min: 3.0
+                        * metrics.underline.thickness,
+                    overbar_vertical_gap: 3.0 * metrics.underline.thickness,
+                    overbar_rule_thickness: metrics.underline.thickness,
+                    overbar_extra_ascender: metrics.underline.thickness,
+                    underbar_vertical_gap: 3.0 * metrics.underline.thickness,
+                    underbar_rule_thickness: metrics.underline.thickness,
+                    underbar_extra_descender: metrics.underline.thickness,
+                    radical_vertical_gap: 1.25 * metrics.underline.thickness,
+                    radical_display_style_vertical_gap: metrics.underline.thickness
+                        + 0.25 * metrics.x_height,
+                    radical_rule_thickness: metrics.underline.thickness,
+                    radical_extra_ascender: metrics.underline.thickness,
+                    radical_kern_before_degree: Em::new(5.0 / 18.0),
+                    radical_kern_after_degree: Em::new(-10.0 / 18.0),
+                    radical_degree_bottom_raise_percent: 0.6,
+                }),
+        )
     }
 
     /// Look up a vertical metric.
@@ -524,6 +521,8 @@ pub struct ScriptMetrics {
 /// Ones not currently used are omitted.
 #[derive(Debug, Copy, Clone)]
 pub struct MathConstants {
+    // This is not from the OpenType MATH spec.
+    pub space_width: Em,
     // These are both i16 instead of f64 as they need to go on the StyleChain.
     pub script_percent_scale_down: i16,
     pub script_script_percent_scale_down: i16,
