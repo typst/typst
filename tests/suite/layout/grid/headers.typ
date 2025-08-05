@@ -686,6 +686,45 @@
   ),
 )
 
+--- grid-header-collision-ordered ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.cell(x: 0, y: 3)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  // Error: 15-39 cell would cause header to expand to non-empty row 3
+  // Hint: 15-39 try moving its cells to available rows
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+)
+
+--- grid-header-collision-unordered ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  // Error: 3-27 cell would conflict with header spanning the same position
+  // Hint: 3-27 try moving the cell or the header
+  grid.cell(x: 0, y: 3)[a]
+)
+
+--- grid-header-collision-rowspan ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  // Error: 3-39 cell would conflict with header spanning the same position
+  // Hint: 3-39 try moving the cell or the header
+  grid.cell(x: 0, y: 1, rowspan: 2)[a]
+)
+
 --- issue-5359-column-override-stays-inside-header ---
 #table(
   columns: 3,
