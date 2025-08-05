@@ -45,6 +45,12 @@ $ x + y = z $
 // Error: 1-37 no font could be found
 $ brace.double.l -1 brace.double.r $
 
+--- math-font-fallback-class ---
+// Test that math class is preserved even when the result is a tofu.
+#show math.equation: set text(font: "Fira Math", fallback: false)
+$ brace.double.l -1 brace.double.r $
+$ lr(brace.double.l -1 brace.double.r) $
+
 --- math-optical-size-nested-scripts ---
 // Test transition from script to scriptscript.
 #[
