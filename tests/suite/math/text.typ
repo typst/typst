@@ -39,6 +39,12 @@ $ cal(P)_i (X) * cal(C)_1 $
 // Hint: 1-14 rendering may be poor
 $ x + y = z $
 
+--- math-font-error ---
+// Warning: 37-54 unknown font family: libertinus math
+#show math.equation: set text(font: "Libertinus Math", fallback: false)
+// Error: 1-37 no font could be found
+$ brace.double.l -1 brace.double.r $
+
 --- math-optical-size-nested-scripts ---
 // Test transition from script to scriptscript.
 #[
