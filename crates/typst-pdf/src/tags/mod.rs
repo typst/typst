@@ -5,11 +5,10 @@ use krilla::configure::Validator;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, ListNumbering, NaiveRgbColor, Node, SpanTag,
-    Tag, TagKind,
+    ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagKind,
 };
 use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::{Content, LinkMarker, Smart};
+use typst_library::foundations::{Content, LinkMarker};
 use typst_library::introspection::Location;
 use typst_library::layout::{HideElem, Point, Rect, RepeatElem, Size};
 use typst_library::math::EquationElem;
@@ -20,9 +19,10 @@ use typst_library::model::{
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
-    Lang, OverlineElem, RawElem, StrikeElem, TextItem, UnderlineElem,
+    HighlightElem, Lang, OverlineElem, RawElem, ScriptKind, StrikeElem, SubElem,
+    SuperElem, TextItem, UnderlineElem,
 };
-use typst_library::visualize::{Image, ImageElem, Paint, Shape, Stroke};
+use typst_library::visualize::{Image, ImageElem, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
@@ -30,6 +30,7 @@ use crate::link::LinkAnnotation;
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::table::TableCtx;
+use crate::tags::text::{ResolvedTextAttrs, TextDecoKind};
 use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::*;
@@ -38,6 +39,7 @@ mod context;
 mod list;
 mod outline;
 mod table;
+mod text;
 mod util;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -248,19 +250,35 @@ pub fn handle_start(
         });
         push_stack(gc, elem, StackEntryKind::Code(desc))?;
         return Ok(());
+    } else if let Some(sub) = elem.to_packed::<SubElem>() {
+        let baseline_shift = sub.baseline.val();
+        let lineheight = sub.size.val();
+        let kind = ScriptKind::Sub;
+        gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
+        return Ok(());
+    } else if let Some(sub) = elem.to_packed::<SuperElem>() {
+        let baseline_shift = sub.baseline.val();
+        let lineheight = sub.size.val();
+        let kind = ScriptKind::Super;
+        gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
+        return Ok(());
+    } else if let Some(highlight) = elem.to_packed::<HighlightElem>() {
+        let paint = highlight.fill.opt_ref();
+        gc.tags.text_attrs.push_highlight(elem, paint);
+        return Ok(());
     } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
         let kind = TextDecoKind::Underline;
-        let stroke = deco_stroke(underline.stroke.val_cloned());
+        let stroke = underline.stroke.val_cloned();
         gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
         return Ok(());
     } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
         let kind = TextDecoKind::Overline;
-        let stroke = deco_stroke(overline.stroke.val_cloned());
+        let stroke = overline.stroke.val_cloned();
         gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
         return Ok(());
     } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
         let kind = TextDecoKind::Strike;
-        let stroke = deco_stroke(strike.stroke.val_cloned());
+        let stroke = strike.stroke.val_cloned();
         gc.tags.text_attrs.push_deco(gc.options, elem, kind, stroke)?;
         return Ok(());
     } else {
@@ -270,26 +288,6 @@ pub fn handle_start(
     push_stack(gc, elem, StackEntryKind::Standard(tag))?;
 
     Ok(())
-}
-
-fn deco_stroke(stroke: Smart<Stroke>) -> TextDecoStroke {
-    let Smart::Custom(stroke) = stroke else {
-        return TextDecoStroke::default();
-    };
-    let color = stroke.paint.custom().and_then(|paint| match paint {
-        Paint::Solid(color) => {
-            let c = color.to_rgb();
-            Some(NaiveRgbColor::new(c.red, c.green, c.blue))
-        }
-        // TODO: Don't fail silently, maybe make a best effort to convert a
-        // gradient to a single solid color?
-        Paint::Gradient(_) => None,
-        // TODO: Don't fail silently, maybe just error in PDF/UA mode?
-        Paint::Tiling(_) => None,
-    });
-
-    let thickness = stroke.thickness.custom();
-    TextDecoStroke { color, thickness }
 }
 
 fn push_stack(
@@ -350,7 +348,7 @@ pub fn handle_end(
         return Ok(());
     }
 
-    if gc.tags.text_attrs.pop_deco(loc) {
+    if gc.tags.text_attrs.pop(loc) {
         return Ok(());
     }
 
@@ -640,7 +638,7 @@ pub fn text<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    let attrs = gc.tags.text_attrs.resolve(text.size);
+    let attrs = gc.tags.text_attrs.resolve(text);
 
     // Marked content
     let lang = gc.tags.try_set_lang(text.lang);

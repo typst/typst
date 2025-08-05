@@ -16,9 +16,9 @@ blue underlined text
 
 --- deco-tags-different-stroke-thickness pdftags ---
 #show: underline.with(stroke: 2pt)
-red underlined text
+thick underlined
 #show: underline.with(stroke: 1pt)
-blue underlined text
+thin underlined
 
 --- deco-tags-different-type pdftags ---
 #underline[underlined]\
@@ -30,3 +30,20 @@ blue underlined text
 // Error: 2-16 PDF/UA1 error: cannot combine underline, overline, and or strike
 #show: overline
 text with a bunch of lines
+
+--- deco-tags-highlight-basic pdftags ---
+A #highlight[highlighted] alksjdflk asdjlkfj alskdj word.
+
+--- deco-tags-subscript-basic pdftags ---
+CO#sub[2] emissions.
+A2#sub[hex]
+
+--- deco-tags-superscript-basic pdftags ---
+CI#super[-] has a negative charge.
+
+--- deco-tags-script-custom-baseline pdftags ---
+// NOTE: the baseline shift values attribute is inverted.
+#set sub(baseline: 2.5pt)
+#set super(baseline: -9.5pt)
+#sub[sub]
+#super[super]
