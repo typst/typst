@@ -2100,8 +2100,12 @@ fn check_for_conflicting_cell_row(
         && cell_y < footer.end
         && cell_y + rowspan > footer.start
     {
+        let row = (cell_y..cell_y + rowspan)
+            .find(|row| (footer.start..footer.end).contains(row))
+            .unwrap();
+
         bail!(
-            "cell would conflict with footer spanning the same position";
+            "cell would conflict with footer also spanning row {row}";
             hint: "try reducing the cell's rowspan or moving the footer"
         );
     }

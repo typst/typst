@@ -105,7 +105,7 @@
   grid.cell(x: 1, y: 3, rowspan: 4)[b],
   grid.cell(y: 2, rowspan: 2)[a],
   grid.footer(),
-  // Error: 3-27 cell would conflict with footer spanning the same position
+  // Error: 3-27 cell would conflict with footer also spanning row 7
   // Hint: 3-27 try reducing the cell's rowspan or moving the footer
   grid.cell(x: 1, y: 7)[d],
 )
@@ -120,7 +120,7 @@
   grid.cell(x: 1, y: 3, rowspan: 4)[b],
   grid.cell(y: 2, rowspan: 2)[a],
   grid.footer(),
-  // Error: 3-33 cell would conflict with footer spanning the same position
+  // Error: 3-33 cell would conflict with footer also spanning row 7
   // Hint: 3-33 try reducing the cell's rowspan or moving the footer
   grid.cell(y: 6, rowspan: 2)[d],
 )
@@ -160,7 +160,7 @@
   columns: 2,
   grid.header(),
   grid.footer(grid.cell(y: 2)[a]),
-  // Error: 3-39 cell would conflict with footer spanning the same position
+  // Error: 3-39 cell would conflict with footer also spanning row 2
   // Hint: 3-39 try reducing the cell's rowspan or moving the footer
   grid.cell(x: 1, y: 1, rowspan: 2)[a],
 )
