@@ -519,7 +519,8 @@ pub struct ScriptMetrics {
     pub vertical_offset: Em,
 }
 
-/// Constants from the MathConstants table used in Typst.
+/// Constants from the OpenType MATH constants table used in Typst.
+///
 /// Ones not currently used are omitted.
 #[derive(Debug, Copy, Clone)]
 pub struct MathConstants {

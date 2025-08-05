@@ -15,7 +15,7 @@ mod underover;
 
 use comemo::Tracked;
 use typst_library::World;
-use typst_library::diag::{SourceResult, error, warning};
+use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, NativeElement, Packed, Resolve, Style, StyleChain, SymbolElem,
@@ -44,47 +44,6 @@ use self::fragment::{
 use self::run::{LeftRightAlternator, MathRun, MathRunFrameBuilder};
 use self::shared::*;
 use self::stretch::stretch_fragment;
-
-/// Styles to add font constants to the style chain.
-#[inline]
-fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
-    EquationElem::script_scale
-        .set((
-            font.math().script_percent_scale_down,
-            font.math().script_script_percent_scale_down,
-        ))
-        .wrap()
-}
-
-/// Get the current base font.
-#[inline]
-fn get_font(
-    world: Tracked<dyn World + '_>,
-    styles: StyleChain,
-    span: Span,
-) -> SourceResult<Font> {
-    let variant = variant(styles);
-    families(styles)
-        .find_map(|family| {
-            world
-                .book()
-                .select(family.as_str(), variant)
-                .and_then(|id| world.font(id))
-                .filter(|_| family.covers().is_none())
-        })
-        .ok_or(::ecow::eco_vec![error!(span, "no font could be found")])
-}
-
-/// Check if the top-level base font has a MATH table.
-fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
-    if !font.info().flags.contains(FontFlags::MATH) {
-        engine.sink.warn(warning!(
-            span,
-            "font is not a math font";
-            hint: "rendering may be poor"
-        ))
-    }
-}
 
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
@@ -695,4 +654,44 @@ fn layout_external(
         styles,
         ctx.region,
     )
+}
+
+/// Styles to add font constants to the style chain.
+fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+    EquationElem::script_scale
+        .set((
+            font.math().script_percent_scale_down,
+            font.math().script_script_percent_scale_down,
+        ))
+        .wrap()
+}
+
+/// Get the current base font.
+fn get_font(
+    world: Tracked<dyn World + '_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    families(styles)
+        .find_map(|family| {
+            world
+                .book()
+                .select(family.as_str(), variant)
+                .and_then(|id| world.font(id))
+                .filter(|_| family.covers().is_none())
+        })
+        .ok_or("no font could be found")
+        .at(span)
+}
+
+/// Check if the top-level base font has a MATH table.
+fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
+    if !font.info().flags.contains(FontFlags::MATH) {
+        engine.sink.warn(warning!(
+            span,
+            "current font is not designed for math";
+            hint: "rendering may be poor"
+        ))
+    }
 }
