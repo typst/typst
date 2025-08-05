@@ -2156,10 +2156,10 @@ fn resolve_cell_position(
             // simply skipping existing cells, headers and footers.
             let resolved_index = find_next_available_position(
                 header_rows,
+                footer,
                 resolved_cells,
                 columns,
                 *auto_index,
-                footer,
                 false,
             )?;
 
@@ -2221,10 +2221,10 @@ fn resolve_cell_position(
                 // cell in.
                 find_next_available_position(
                     header_rows,
+                    footer,
                     resolved_cells,
                     columns,
                     initial_index,
-                    footer,
                     true,
                 )
             }
@@ -2279,10 +2279,10 @@ fn resolve_cell_position(
 #[inline]
 fn find_next_available_position(
     header_rows: &SmallBitSet,
+    footer: Option<&(usize, Span, Footer)>,
     resolved_cells: &[Option<Entry<'_>>],
     columns: usize,
     initial_index: usize,
-    footer: Option<&(usize, Span, Footer)>,
     skip_rows: bool,
 ) -> HintedStrResult<usize> {
     let mut resolved_index = initial_index;
