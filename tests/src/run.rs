@@ -535,8 +535,10 @@ impl OutputType for Pdftags {
             Ok(doc) => doc,
             Err(errors) => return Warned { output: Err(errors), warnings },
         };
-        let mut options = PdfOptions::default();
-        options.standards = PdfStandards::new(&[PdfStandard::Ua_1]).unwrap();
+        let options = PdfOptions {
+            standards: PdfStandards::new(&[PdfStandard::Ua_1]).unwrap(),
+            ..Default::default()
+        };
         let output = typst_pdf::pdf_tags(&doc, &options).map(Pdftags);
         Warned { warnings, output }
     }

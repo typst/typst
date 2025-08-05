@@ -148,7 +148,7 @@ impl Tags {
             }
             TagNode::Text(attrs, ids) => {
                 let tag = attrs.to_tag();
-                let children = ids.into_iter().map(|id| Node::Leaf(id)).collect();
+                let children = ids.into_iter().map(Node::Leaf).collect();
                 let group = krilla::tagging::TagGroup::with_children(tag, children);
                 Node::Group(group)
             }
@@ -208,10 +208,6 @@ impl TagStack {
 
     pub fn len(&self) -> usize {
         self.items.len()
-    }
-
-    pub fn last(&self) -> Option<&StackEntry> {
-        self.items.last()
     }
 
     pub fn last_mut(&mut self) -> Option<&mut StackEntry> {

@@ -38,22 +38,6 @@ where
     }
 }
 
-pub trait PropertyValRef<E, T, const I: u8> {
-    /// Get a reference to the value.
-    fn val_ref(&self) -> &T;
-}
-
-impl<E, T, const I: u8> PropertyValRef<E, T, I> for Settable<E, I>
-where
-    E: NativeElement,
-    E: SettableProperty<I, Type = T>,
-    E: RefableProperty<I>,
-{
-    fn val_ref(&self) -> &T {
-        self.get_ref(StyleChain::default())
-    }
-}
-
 pub trait PropertyOptRef<E, T, const I: u8> {
     fn opt_ref(&self) -> Option<&T>;
 }
