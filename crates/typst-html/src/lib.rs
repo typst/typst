@@ -16,7 +16,7 @@ mod typed;
 pub use self::document::html_document;
 pub use self::dom::*;
 pub use self::encode::html;
-pub use self::rules::register;
+pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
