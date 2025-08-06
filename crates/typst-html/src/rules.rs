@@ -11,13 +11,13 @@ use typst_library::layout::{OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
     FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
-use typst_library::visualize::ImageElem;
+use typst_library::visualize::{Color, ImageElem};
 
 use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -32,6 +32,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, ENUM_RULE);
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
+    rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
@@ -158,6 +159,12 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     Ok(HtmlElem::new(tag::a)
         .with_optional_attr(attr::href, href)
         .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::h1)
+        .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
         .pack())
 };
 
@@ -415,10 +422,35 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
-    Ok(HtmlElem::new(if elem.block.get(styles) { tag::pre } else { tag::code })
+    let mut inline = css::Properties::new();
+    let block = elem.block.get(styles);
+    if !block {
+        // Without the `<pre>` tag, whitespace would be collapsed by default.
+        inline.push("white-space", "pre-wrap");
+    }
+
+    let code = HtmlElem::new(tag::code)
+        .with_styles(inline)
         .with_body(Some(Content::sequence(seq)))
-        .pack())
+        .pack()
+        .spanned(elem.span());
+
+    Ok(if block { HtmlElem::new(tag::pre).with_body(Some(code)).pack() } else { code })
 };
+
+/// This is used by `RawElem::synthesize` through a routine.
+///
+/// It's a temporary workaround until `TextElem::fill` is supported in HTML
+/// export.
+#[doc(hidden)]
+pub fn html_span_filled(content: Content, color: Color) -> Content {
+    let span = content.span();
+    HtmlElem::new(tag::span)
+        .with_styles(css::Properties::new().with("color", css::color(color)))
+        .with_body(Some(content))
+        .pack()
+        .spanned(span)
+}
 
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());
 

@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
+use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
 use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult, bail};
@@ -102,7 +103,7 @@ impl<'a> Scopes<'a> {
 /// A map from binding names to values.
 #[derive(Default, Clone)]
 pub struct Scope {
-    map: IndexMap<EcoString, Binding>,
+    map: IndexMap<EcoString, Binding, FxBuildHasher>,
     deduplicate: bool,
     category: Option<Category>,
 }

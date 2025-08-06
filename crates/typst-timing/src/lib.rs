@@ -71,6 +71,14 @@ pub fn enable() {
     ENABLED.store(true, Ordering::Relaxed);
 }
 
+/// Disable the timer.
+#[inline]
+pub fn disable() {
+    // We only need atomicity and no synchronization of other
+    // operations, so `Relaxed` is fine.
+    ENABLED.store(false, Ordering::Relaxed);
+}
+
 /// Whether the timer is enabled.
 #[inline]
 pub fn is_enabled() -> bool {

@@ -21,7 +21,7 @@ use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
     LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, EmbedElem, PdfMarkerTag};
 use typst_library::text::{
@@ -48,6 +48,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, TERMS_RULE);
     rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
+    rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
@@ -229,6 +230,12 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
         .pack()
         .spanned(span)
         .set(LinkElem::current, Some(dest)))
+};
+
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(BlockElem::new()
+        .with_body(Some(BlockBody::Content(elem.resolve_body(styles).at(elem.span())?)))
+        .pack())
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {

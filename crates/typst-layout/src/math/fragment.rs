@@ -739,7 +739,9 @@ fn assemble(
                 }
 
                 advance -= max_overlap;
-                growable += max_overlap - min_overlap;
+                // In case we have that max_overlap < min_overlap, ensure we
+                // don't decrease the value of growable.
+                growable += (max_overlap - min_overlap).max(Abs::zero());
             }
 
             full += advance;

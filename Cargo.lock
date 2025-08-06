@@ -450,38 +450,15 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
 name = "comemo"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df6916408a724339aa77b18214233355f3eb04c42eb895e5f8909215bd8a7a91"
-dependencies = [
- "comemo-macros 0.4.0",
- "once_cell",
- "parking_lot",
- "siphasher",
-]
-
-[[package]]
-name = "comemo"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "649d7b2d867b569729c03c0f6968db10bc95921182a1f2b2012b1b549492f39d"
 dependencies = [
- "comemo-macros 0.5.0",
+ "comemo-macros",
  "parking_lot",
  "rustc-hash",
  "siphasher",
  "slab",
-]
-
-[[package]]
-name = "comemo-macros"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8936e42f9b4f5bdfaf23700609ac1f11cb03ad4c1ec128a4ee4fd0903e228db"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1445,11 +1422,11 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?branch=main#1246755ed5ff18a9a8c888694e4b91f3bed1b41a"
+source = "git+https://github.com/LaurenzV/krilla?rev=1246755#1246755ed5ff18a9a8c888694e4b91f3bed1b41a"
 dependencies = [
  "base64",
  "bumpalo",
- "comemo 0.5.0",
+ "comemo",
  "flate2",
  "float-cmp 0.10.0",
  "gif",
@@ -1475,7 +1452,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?branch=main#1246755ed5ff18a9a8c888694e4b91f3bed1b41a"
+source = "git+https://github.com/LaurenzV/krilla?rev=1246755#1246755ed5ff18a9a8c888694e4b91f3bed1b41a"
 dependencies = [
  "flate2",
  "fontdb",
@@ -2941,8 +2918,9 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 name = "typst"
 version = "0.13.1"
 dependencies = [
- "comemo 0.4.0",
+ "comemo",
  "ecow",
+ "rustc-hash",
  "typst-eval",
  "typst-html",
  "typst-layout",
@@ -2969,7 +2947,7 @@ dependencies = [
  "clap_mangen",
  "codespan-reporting",
  "color-print",
- "comemo 0.4.0",
+ "comemo",
  "dirs",
  "ecow",
  "fs_extra",
@@ -2978,6 +2956,7 @@ dependencies = [
  "parking_lot",
  "pathdiff",
  "rayon",
+ "rustc-hash",
  "same-file",
  "self-replace",
  "semver",
@@ -3018,6 +2997,7 @@ dependencies = [
  "ecow",
  "heck",
  "pulldown-cmark",
+ "rustc-hash",
  "serde",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
@@ -3037,9 +3017,10 @@ dependencies = [
 name = "typst-eval"
 version = "0.13.1"
 dependencies = [
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "indexmap 2.7.1",
+ "rustc-hash",
  "stacker",
  "toml",
  "typst-library",
@@ -3054,7 +3035,7 @@ dependencies = [
 name = "typst-fuzz"
 version = "0.13.1"
 dependencies = [
- "comemo 0.4.0",
+ "comemo",
  "libfuzzer-sys",
  "typst",
  "typst-assets",
@@ -3067,9 +3048,10 @@ name = "typst-html"
 version = "0.13.1"
 dependencies = [
  "bumpalo",
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "palette",
+ "rustc-hash",
  "time",
  "typst-assets",
  "typst-library",
@@ -3084,10 +3066,11 @@ dependencies = [
 name = "typst-ide"
 version = "0.13.1"
 dependencies = [
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "once_cell",
  "pathdiff",
+ "rustc-hash",
  "serde",
  "typst",
  "typst-assets",
@@ -3127,7 +3110,7 @@ dependencies = [
  "az",
  "bumpalo",
  "codex",
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "hypher",
  "icu_properties",
@@ -3137,6 +3120,7 @@ dependencies = [
  "icu_segmenter",
  "kurbo",
  "memchr",
+ "rustc-hash",
  "rustybuzz",
  "smallvec",
  "ttf-parser",
@@ -3162,7 +3146,7 @@ dependencies = [
  "chinese-number",
  "ciborium",
  "codex",
- "comemo 0.4.0",
+ "comemo",
  "csv",
  "ecow",
  "flate2",
@@ -3188,6 +3172,7 @@ dependencies = [
  "regex-syntax",
  "roxmltree",
  "rust_decimal",
+ "rustc-hash",
  "rustybuzz",
  "serde",
  "serde_json",
@@ -3232,13 +3217,14 @@ version = "0.13.1"
 dependencies = [
  "az",
  "bytemuck",
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "image",
  "infer",
  "krilla",
  "krilla-svg",
  "pretty_assertions",
+ "rustc-hash",
  "serde",
  "smallvec",
  "typst-assets",
@@ -3255,7 +3241,7 @@ version = "0.13.1"
 dependencies = [
  "arrayvec",
  "bumpalo",
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "regex",
  "typst-library",
@@ -3270,7 +3256,7 @@ name = "typst-render"
 version = "0.13.1"
 dependencies = [
  "bytemuck",
- "comemo 0.4.0",
+ "comemo",
  "hayro",
  "image",
  "pixglyph",
@@ -3288,11 +3274,12 @@ name = "typst-svg"
 version = "0.13.1"
 dependencies = [
  "base64",
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "flate2",
  "hayro",
  "image",
+ "rustc-hash",
  "ttf-parser",
  "typst-assets",
  "typst-library",
@@ -3308,6 +3295,7 @@ name = "typst-syntax"
 version = "0.13.1"
 dependencies = [
  "ecow",
+ "rustc-hash",
  "serde",
  "toml",
  "typst-timing",
@@ -3324,12 +3312,13 @@ name = "typst-tests"
 version = "0.13.1"
 dependencies = [
  "clap",
- "comemo 0.4.0",
+ "comemo",
  "ecow",
  "oxipng",
  "parking_lot",
  "rayon",
  "regex",
+ "rustc-hash",
  "tiny-skia",
  "typst",
  "typst-assets",
@@ -3361,6 +3350,7 @@ dependencies = [
  "once_cell",
  "portable-atomic",
  "rayon",
+ "rustc-hash",
  "siphasher",
  "thin-vec",
  "unicode-math-class",
