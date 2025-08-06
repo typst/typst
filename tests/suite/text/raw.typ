@@ -487,6 +487,16 @@ test
   assert.eq(block, c.input.block, message: "in point " + c.name + ", expect " + repr(block) + ", got " + repr(c.input.block) + "")
 }
 
+--- raw-html html ---
+This is ```typ *inline*```.
+```typ
+#set text(blue)
+*Hello* _world_!
+```
+
+--- raw-html-inline-spaces html ---
+This has `double  spaces  inside`, which should be kept.
+
 --- raw-line ---
 #set page(width: 200pt)
 
