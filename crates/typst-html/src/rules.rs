@@ -11,7 +11,7 @@ use typst_library::layout::{OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
     FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -32,6 +32,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, ENUM_RULE);
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
+    rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
@@ -158,6 +159,12 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     Ok(HtmlElem::new(tag::a)
         .with_optional_attr(attr::href, href)
         .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::h1)
+        .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
         .pack())
 };
 
