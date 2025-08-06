@@ -48,6 +48,12 @@ fn handle(
                     locator.next(&elem.span()),
                     styles,
                 )?;
+
+                // Block-level elements reset the smart quoting state. This part
+                // is unfortunately untested as it's currently not possible to
+                // create inline-level content next to block-level content
+                // without a paragraph automatically appearing.
+                *quoter = SmartQuoter::new();
             } else {
                 children = html_inline_fragment(engine, body, locator, quoter, styles)?;
             }
