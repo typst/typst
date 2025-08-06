@@ -826,6 +826,10 @@ pub struct GridCell {
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
+
     /// Whether rows spanned by this cell can be placed in different pages.
     /// When equal to `{auto}`, a cell spanning only fixed-size rows is
     /// unbreakable, while a cell spanning at least one `{auto}`-sized row is

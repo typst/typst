@@ -499,11 +499,14 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         let grid = GridElem::new(cells)
             .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
             .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-            .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-            .pack()
-            .spanned(span);
+            .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]));
+        let packed = Packed::new(grid).spanned(span);
+        // Directly build the block element to avoid the show step for the grid
+        // element. This will not generate introspection tags for the element.
+        let block = BlockElem::multi_layouter(packed, crate::grid::layout_grid).pack();
+
         // TODO(accessibility): infer list numbering from style?
-        seq.push(PdfMarkerTag::Bibliography(true, grid));
+        seq.push(PdfMarkerTag::Bibliography(true, block));
     } else {
         let mut body = vec![];
         for (_, reference, loc) in references {

@@ -5,62 +5,48 @@ use az::SaturatingAs;
 use krilla::tagging::{Tag, TagId, TagKind};
 use smallvec::SmallVec;
 use typst_library::foundations::{Packed, Smart};
+use typst_library::layout::GridCell;
 use typst_library::model::TableCell;
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
 
 use crate::tags::util::PropertyValCopied;
 use crate::tags::{BBoxCtx, GroupContents, TableId, TagNode};
 
+pub trait GridType {
+    type CellData: Clone;
+}
+
 #[derive(Clone, Debug)]
-pub struct TableCtx {
+pub struct TableData {
     pub id: TableId,
     pub summary: Option<String>,
     pub bbox: BBoxCtx,
-    rows: Vec<Vec<GridCell>>,
+}
+
+impl GridType for TableData {
+    type CellData = TableCellData;
+}
+
+#[derive(Clone, Debug)]
+pub struct GridData;
+
+impl GridType for GridData {
+    type CellData = GridCellData;
+}
+
+#[derive(Clone, Debug)]
+pub struct GridCtx<T: GridType> {
+    pub data: T,
+    rows: Vec<Vec<GridField<T::CellData>>>,
     min_width: usize,
 }
 
-impl TableCtx {
+impl GridCtx<TableData> {
     pub fn new(id: TableId, summary: Option<String>) -> Self {
         Self {
-            id,
-            summary,
-            bbox: BBoxCtx::new(),
+            data: TableData { id, summary, bbox: BBoxCtx::new() },
             rows: Vec::new(),
             min_width: 0,
-        }
-    }
-
-    fn get(&self, x: usize, y: usize) -> Option<&TableCtxCell> {
-        let cell = self.rows.get(y)?.get(x)?;
-        self.resolve_cell(cell)
-    }
-
-    fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut TableCtxCell> {
-        let cell = self.rows.get_mut(y)?.get_mut(x)?;
-        match cell {
-            // Reborrow here, so the borrow of `cell` doesn't get returned from
-            // the function. Otherwise the borrow checker assumes `cell` borrows
-            // `self.rows` for the entirety of the function, not just this match
-            // arm, and doesn't allow the second mutable borrow in the match arm
-            // below.
-            GridCell::Cell(_) => self.rows[y][x].as_cell_mut(),
-            &mut GridCell::Spanned(x, y) => self.rows[y][x].as_cell_mut(),
-            GridCell::Missing => None,
-        }
-    }
-
-    pub fn contains(&self, cell: &Packed<TableCell>) -> bool {
-        let x = cell.x.val().unwrap_or_else(|| unreachable!());
-        let y = cell.y.val().unwrap_or_else(|| unreachable!());
-        self.get(x, y).is_some()
-    }
-
-    fn resolve_cell<'a>(&'a self, cell: &'a GridCell) -> Option<&'a TableCtxCell> {
-        match cell {
-            GridCell::Cell(cell) => Some(cell),
-            &GridCell::Spanned(x, y) => self.rows[y][x].as_cell(),
-            GridCell::Missing => None,
         }
     }
 
@@ -70,34 +56,12 @@ impl TableCtx {
         let rowspan = cell.rowspan.val();
         let colspan = cell.colspan.val();
         let kind = cell.kind.val();
-
-        // Extend the table grid to fit this cell.
-        let required_height = y + rowspan.get();
-        self.min_width = self.min_width.max(x + colspan.get());
-        if self.rows.len() < required_height {
-            self.rows
-                .resize(required_height, vec![GridCell::Missing; self.min_width]);
-        }
-        for row in self.rows.iter_mut() {
-            if row.len() < self.min_width {
-                row.resize_with(self.min_width, || GridCell::Missing);
-            }
-        }
-
-        // Store references to the cell for all spanned cells.
-        for i in y..y + rowspan.get() {
-            for j in x..x + colspan.get() {
-                self.rows[i][j] = GridCell::Spanned(x, y);
-            }
-        }
-
-        self.rows[y][x] = GridCell::Cell(TableCtxCell {
+        self.insert_cell(CtxCell {
+            data: TableCellData { kind, headers: SmallVec::new() },
             x: x.saturating_as(),
             y: y.saturating_as(),
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
             colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
-            kind,
-            headers: SmallVec::new(),
             contents,
         });
     }
@@ -106,7 +70,7 @@ impl TableCtx {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         if self.rows.is_empty() {
-            return TagNode::group(Tag::Table.with_summary(self.summary), contents);
+            return TagNode::group(Tag::Table.with_summary(self.data.summary), contents);
         }
         let height = self.rows.len();
         let width = self.rows[0].len();
@@ -118,7 +82,7 @@ impl TableCtx {
             .map(|row| {
                 row.iter()
                     .filter_map(|cell| self.resolve_cell(cell))
-                    .map(|cell| cell.kind)
+                    .map(|cell| cell.data.kind)
                     .fold(Smart::Auto, |a, b| {
                         if let Smart::Custom(TableCellKind::Header(_, scope)) = b {
                             gen_row_groups &= scope == TableHeaderScope::Column;
@@ -138,7 +102,7 @@ impl TableCtx {
                 if gen_row_groups { row_kind } else { TableCellKind::Data };
             for cell in row.iter_mut() {
                 let Some(cell) = cell.as_cell_mut() else { continue };
-                cell.kind = cell.kind.or(Smart::Custom(default_kind));
+                cell.data.kind = cell.data.kind.or(Smart::Custom(default_kind));
             }
         }
 
@@ -173,19 +137,19 @@ impl TableCtx {
                     let cell = cell.into_cell()?;
                     let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
                     let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
-                    let tag: TagKind = match cell.unwrap_kind() {
+                    let tag: TagKind = match cell.data.unwrap_kind() {
                         TableCellKind::Header(_, scope) => {
-                            let id = table_cell_id(self.id, cell.x, cell.y);
+                            let id = table_cell_id(self.data.id, cell.x, cell.y);
                             let scope = table_header_scope(scope);
                             Tag::TH(scope)
                                 .with_id(Some(id))
-                                .with_headers(Some(cell.headers))
+                                .with_headers(Some(cell.data.headers))
                                 .with_row_span(rowspan)
                                 .with_col_span(colspan)
                                 .into()
                         }
                         TableCellKind::Footer | TableCellKind::Data => Tag::TD
-                            .with_headers(Some(cell.headers))
+                            .with_headers(Some(cell.data.headers))
                             .with_row_span(rowspan)
                             .with_col_span(colspan)
                             .into(),
@@ -226,7 +190,9 @@ impl TableCtx {
             contents.nodes.push(TagNode::virtual_group(tag, row_chunk));
         }
 
-        let tag = Tag::Table.with_summary(self.summary).with_bbox(self.bbox.get());
+        let tag = Tag::Table
+            .with_summary(self.data.summary)
+            .with_bbox(self.data.bbox.get());
         TagNode::group(tag, contents)
     }
 
@@ -238,11 +204,11 @@ impl TableCtx {
     ) where
         F: Fn(&TableHeaderScope) -> bool,
     {
-        let table_id = self.id;
+        let table_id = self.data.id;
         let Some(cell) = self.get_mut(x, y) else { return };
 
         let mut new_header = None;
-        if let TableCellKind::Header(level, scope) = cell.unwrap_kind() {
+        if let TableCellKind::Header(level, scope) = cell.data.unwrap_kind() {
             if refers_to_dir(&scope) {
                 // Remove all headers that are the same or a lower level.
                 while current_header.pop_if(|(l, _)| *l >= level).is_some() {}
@@ -253,8 +219,8 @@ impl TableCtx {
         }
 
         if let Some((_, cell_id)) = current_header.last() {
-            if !cell.headers.contains(cell_id) {
-                cell.headers.push(cell_id.clone());
+            if !cell.data.headers.contains(cell_id) {
+                cell.data.headers.push(cell_id.clone());
             }
         }
 
@@ -262,40 +228,136 @@ impl TableCtx {
     }
 }
 
+impl GridCtx<GridData> {
+    pub fn new() -> Self {
+        Self { data: GridData, rows: Vec::new(), min_width: 0 }
+    }
+
+    pub fn insert(&mut self, cell: &Packed<GridCell>, contents: GroupContents) {
+        let x = cell.x.val().unwrap_or_else(|| unreachable!());
+        let y = cell.y.val().unwrap_or_else(|| unreachable!());
+        let rowspan = cell.rowspan.val();
+        let colspan = cell.colspan.val();
+        self.insert_cell(CtxCell {
+            data: GridCellData,
+            x: x.saturating_as(),
+            y: y.saturating_as(),
+            rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
+            colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
+            contents,
+        });
+    }
+
+    pub fn build_grid(self, mut contents: GroupContents) -> TagNode {
+        let cells = (self.rows.into_iter())
+            .flat_map(|row| row.into_iter())
+            .filter_map(GridField::into_cell)
+            .map(|cell| TagNode::group(Tag::Div, cell.contents));
+
+        contents.nodes.extend(cells);
+
+        TagNode::group(Tag::Div, contents)
+    }
+}
+
+impl<T: GridType> GridCtx<T> {
+    fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut CtxCell<T::CellData>> {
+        let cell = self.rows.get_mut(y)?.get_mut(x)?;
+        match cell {
+            // Reborrow here, so the borrow of `cell` doesn't get returned from
+            // the function. Otherwise the borrow checker assumes `cell` borrows
+            // `self.rows` for the entirety of the function, not just this match
+            // arm, and doesn't allow the second mutable borrow in the match arm
+            // below.
+            GridField::Cell(_) => self.rows[y][x].as_cell_mut(),
+            &mut GridField::Spanned(x, y) => self.rows[y][x].as_cell_mut(),
+            GridField::Missing => None,
+        }
+    }
+
+    fn resolve_cell<'a>(
+        &'a self,
+        cell: &'a GridField<T::CellData>,
+    ) -> Option<&'a CtxCell<T::CellData>> {
+        match cell {
+            GridField::Cell(cell) => Some(cell),
+            &GridField::Spanned(x, y) => self.rows[y][x].as_cell(),
+            GridField::Missing => None,
+        }
+    }
+
+    fn insert_cell(&mut self, cell: CtxCell<T::CellData>) {
+        let x = cell.x as usize;
+        let y = cell.y as usize;
+        let rowspan = cell.rowspan.get() as usize;
+        let colspan = cell.colspan.get() as usize;
+
+        // Extend the table grid to fit this cell.
+        let required_height = y + rowspan;
+        self.min_width = self.min_width.max(x + colspan);
+        if self.rows.len() < required_height {
+            self.rows
+                .resize(required_height, vec![GridField::Missing; self.min_width]);
+        }
+        for row in self.rows.iter_mut() {
+            if row.len() < self.min_width {
+                row.resize_with(self.min_width, || GridField::Missing);
+            }
+        }
+
+        // Store references to the cell for all spanned cells.
+        for i in y..y + rowspan {
+            for j in x..x + colspan {
+                self.rows[i][j] = GridField::Spanned(x, y);
+            }
+        }
+
+        self.rows[y][x] = GridField::Cell(cell);
+    }
+}
+
 #[derive(Clone, Debug, Default)]
-enum GridCell {
-    Cell(TableCtxCell),
+enum GridField<D> {
+    Cell(CtxCell<D>),
     Spanned(usize, usize),
     #[default]
     Missing,
 }
 
-impl GridCell {
-    fn as_cell(&self) -> Option<&TableCtxCell> {
+impl<D> GridField<D> {
+    fn as_cell(&self) -> Option<&CtxCell<D>> {
         if let Self::Cell(v) = self { Some(v) } else { None }
     }
 
-    fn as_cell_mut(&mut self) -> Option<&mut TableCtxCell> {
+    fn as_cell_mut(&mut self) -> Option<&mut CtxCell<D>> {
         if let Self::Cell(v) = self { Some(v) } else { None }
     }
 
-    fn into_cell(self) -> Option<TableCtxCell> {
+    fn into_cell(self) -> Option<CtxCell<D>> {
         if let Self::Cell(v) = self { Some(v) } else { None }
     }
 }
 
 #[derive(Clone, Debug)]
-struct TableCtxCell {
+struct CtxCell<D> {
+    data: D,
     x: u32,
     y: u32,
     rowspan: NonZeroU32,
     colspan: NonZeroU32,
-    kind: Smart<TableCellKind>,
-    headers: SmallVec<[TagId; 1]>,
     contents: GroupContents,
 }
 
-impl TableCtxCell {
+#[derive(Clone, Debug)]
+pub struct GridCellData;
+
+#[derive(Clone, Debug)]
+pub struct TableCellData {
+    kind: Smart<TableCellKind>,
+    headers: SmallVec<[TagId; 1]>,
+}
+
+impl TableCellData {
     fn unwrap_kind(&self) -> TableCellKind {
         self.kind.unwrap_or_else(|| unreachable!())
     }

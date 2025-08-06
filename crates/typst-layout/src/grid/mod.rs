@@ -38,15 +38,16 @@ pub fn layout_cell(
     // considered significant for layouting. This hack together with a check in
     // the grid layouter makes the test suite pass.
     let mut locator = locator.split();
-    let tags = if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
+    let mut tags = None;
+    if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
         let mut table_cell = table_cell.clone();
         table_cell.is_repeated.set(is_repeated);
-        Some(generate_tags(table_cell, &mut locator, engine))
+        tags = Some(generate_tags(table_cell, &mut locator, engine));
     } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
-        Some(generate_tags(grid_cell.clone(), &mut locator, engine))
-    } else {
-        None
-    };
+        let mut grid_cell = grid_cell.clone();
+        grid_cell.is_repeated.set(is_repeated);
+        tags = Some(generate_tags(grid_cell, &mut locator, engine));
+    }
 
     let locator = locator.next(&cell.body.span());
     let fragment = crate::layout_fragment(engine, &cell.body, locator, styles, regions)?;

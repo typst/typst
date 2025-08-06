@@ -6,16 +6,16 @@ use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
-use typst_library::layout::{Abs, Point, Rect};
+use typst_library::layout::{Abs, GridCell, Point, Rect};
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::pdf::ArtifactKind;
 use typst_library::text::Lang;
 use typst_syntax::Span;
 
 use crate::convert::FrameContext;
+use crate::tags::grid::{GridCtx, GridData, TableData};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
-use crate::tags::table::TableCtx;
 use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
 use crate::tags::{Placeholder, TagNode};
 use crate::util::AbsExt;
@@ -263,8 +263,12 @@ impl TagStack {
         self.items.last_mut().map(|e| &mut e.kind)
     }
 
-    pub fn parent_table(&mut self) -> Option<&mut TableCtx> {
+    pub fn parent_table(&mut self) -> Option<&mut GridCtx<TableData>> {
         self.parent()?.as_table_mut()
+    }
+
+    pub fn parent_grid(&mut self) -> Option<&mut GridCtx<GridData>> {
+        self.parent()?.as_grid_mut()
     }
 
     pub fn parent_list(&mut self) -> Option<&mut ListCtx> {
@@ -348,8 +352,10 @@ pub enum StackEntryKind {
     Standard(TagKind),
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
-    Table(TableCtx),
+    Table(GridCtx<TableData>),
     TableCell(Packed<TableCell>),
+    Grid(GridCtx<GridData>),
+    GridCell(Packed<GridCell>),
     List(ListCtx),
     ListItemLabel,
     ListItemBody,
@@ -375,8 +381,12 @@ impl StackEntryKind {
         if let Self::OutlineEntry(v) = self { Some(v) } else { None }
     }
 
-    pub fn as_table_mut(&mut self) -> Option<&mut TableCtx> {
+    pub fn as_table_mut(&mut self) -> Option<&mut GridCtx<TableData>> {
         if let Self::Table(v) = self { Some(v) } else { None }
+    }
+
+    pub fn as_grid_mut(&mut self) -> Option<&mut GridCtx<GridData>> {
+        if let Self::Grid(v) = self { Some(v) } else { None }
     }
 
     pub fn as_list_mut(&mut self) -> Option<&mut ListCtx> {
@@ -397,7 +407,7 @@ impl StackEntryKind {
 
     pub fn bbox(&self) -> Option<&BBoxCtx> {
         match self {
-            Self::Table(ctx) => Some(&ctx.bbox),
+            Self::Table(ctx) => Some(&ctx.data.bbox),
             Self::Figure(ctx) => Some(&ctx.bbox),
             Self::Formula(ctx) => Some(&ctx.bbox),
             _ => None,
@@ -406,7 +416,7 @@ impl StackEntryKind {
 
     pub fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
         match self {
-            Self::Table(ctx) => Some(&mut ctx.bbox),
+            Self::Table(ctx) => Some(&mut ctx.data.bbox),
             Self::Figure(ctx) => Some(&mut ctx.bbox),
             Self::Formula(ctx) => Some(&mut ctx.bbox),
             _ => None,
@@ -459,6 +469,8 @@ impl StackEntryKind {
             StackEntryKind::OutlineEntry(_) => false,
             StackEntryKind::Table(_) => false,
             StackEntryKind::TableCell(_) => false,
+            StackEntryKind::Grid(_) => false,
+            StackEntryKind::GridCell(_) => false,
             StackEntryKind::List(_) => false,
             StackEntryKind::ListItemLabel => false,
             StackEntryKind::ListItemBody => false,
