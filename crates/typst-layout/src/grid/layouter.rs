@@ -1279,13 +1279,11 @@ impl<'a> GridLayouter<'a> {
             let frames =
                 layout_cell(cell, engine, disambiguator, self.styles, pod)?.into_frames();
 
-            // HACK: reconsider if this is the right decision
+            // HACK: Also consider frames empty if they only contain tags. Table
+            // and grid cells need to be locatable for pdf accessibility, but
+            // the introspection tags interfere with the layouting.
             fn is_empty_frame(frame: &Frame) -> bool {
-                !frame.items().any(|(_, item)| match item {
-                    FrameItem::Group(group) => is_empty_frame(&group.frame),
-                    FrameItem::Tag(_) => false,
-                    _ => true,
-                })
+                frame.items().all(|(_, item)| matches!(item, FrameItem::Tag(_)))
             }
 
             // Skip the first region if one cell in it is empty. Then,
