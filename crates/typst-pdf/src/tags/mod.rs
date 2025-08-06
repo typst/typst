@@ -10,7 +10,9 @@ use krilla::tagging::{
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, LinkMarker};
 use typst_library::introspection::Location;
-use typst_library::layout::{HideElem, Point, Rect, RepeatElem, Size};
+use typst_library::layout::{
+    GridCell, GridElem, HideElem, Point, Rect, RepeatElem, Size,
+};
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Destination, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
@@ -27,18 +29,18 @@ use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::LinkAnnotation;
+use crate::tags::grid::{GridCtx, GridData, TableData};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
-use crate::tags::table::TableCtx;
 use crate::tags::text::{ResolvedTextAttrs, TextDecoKind};
 use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::*;
 
 mod context;
+mod grid;
 mod list;
 mod outline;
-mod table;
 mod text;
 mod util;
 
@@ -196,7 +198,7 @@ pub fn handle_start(
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
-        let ctx = TableCtx::new(table_id, summary);
+        let ctx = GridCtx::<TableData>::new(table_id, summary);
         push_stack(gc, elem, StackEntryKind::Table(ctx))?;
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
@@ -210,6 +212,20 @@ pub fn handle_start(
             push_disable(gc, surface, elem, ArtifactKind::Other);
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()))?;
+        }
+        return Ok(());
+    } else if let Some(_) = elem.to_packed::<GridElem>() {
+        let ctx = GridCtx::<GridData>::new();
+        push_stack(gc, elem, StackEntryKind::Grid(ctx))?;
+        return Ok(());
+    } else if let Some(cell) = elem.to_packed::<GridCell>() {
+        // If there is no grid parent, this means a grid layouter is used
+        // internally. Don't generate a stack entry.
+        if gc.tags.stack.parent_grid().is_some() {
+            // The grid cells are collected into a grid to ensure proper reading
+            // order, even when using rowspans, which may be laid out later than
+            // other cells in the same row.
+            push_stack(gc, elem, StackEntryKind::GridCell(cell.clone()))?;
         }
         return Ok(());
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
@@ -454,11 +470,20 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         }
         StackEntryKind::Table(ctx) => ctx.build_table(contents),
         StackEntryKind::TableCell(cell) => {
-            // FIXME(accessibility): disallow usage of `table.cell` and `grid.cell` outside of table/grid
+            // FIXME(accessibility): disallow usage of `table.cell` outside of table
             let table_ctx = (gc.tags.stack.parent_table())
                 .expect("table cells may only exist within a table");
 
             table_ctx.insert(&cell, contents);
+            return;
+        }
+        StackEntryKind::Grid(ctx) => ctx.build_grid(contents),
+        StackEntryKind::GridCell(cell) => {
+            // FIXME(accessibility): disallow usage of `grid.cell` outside of grid
+            let grid_ctx = (gc.tags.stack.parent_grid())
+                .expect("grid cells may only exist within a grid");
+
+            grid_ctx.insert(&cell, contents);
             return;
         }
         StackEntryKind::List(list) => list.build_list(contents),
