@@ -202,16 +202,11 @@ pub fn handle_start(
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         let table_ctx = gc.tags.stack.parent_table();
 
-        // Only repeated table headers and footer cells are layed out multiple
+        // Only repeated table headers and footer cells are laid out multiple
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if table_ctx.is_some_and(|ctx| ctx.contains(cell)) {
-            // TODO: currently the first layouted cell is picked to be part of
-            // the tag tree, for repeating footers this will be the cell on the
-            // first page. Maybe it should be the cell on the last page, but that
-            // would require more changes in the layouting code, or a pre-pass
-            // on the frames to figure out if there are other footers following.
+        if cell.is_repeated.val() || table_ctx.is_some_and(|ctx| ctx.contains(cell)) {
             push_disable(gc, surface, elem, ArtifactKind::Other);
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()))?;

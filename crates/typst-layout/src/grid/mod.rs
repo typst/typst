@@ -31,6 +31,7 @@ pub fn layout_cell(
     disambiguator: usize,
     styles: StyleChain,
     regions: Regions,
+    is_repeated: bool,
 ) -> SourceResult<Fragment> {
     let mut locator = cell.locator.relayout();
     if disambiguator > 0 {
@@ -43,7 +44,9 @@ pub fn layout_cell(
     // the grid layouter makes the tests suite pass.
     let mut locator = locator.split();
     let tags = if let Some(table_cell) = cell.body.to_packed::<TableCell>() {
-        Some(generate_tags(table_cell.clone(), &mut locator, engine))
+        let mut table_cell = table_cell.clone();
+        table_cell.is_repeated.set(is_repeated);
+        Some(generate_tags(table_cell, &mut locator, engine))
     } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
         Some(generate_tags(grid_cell.clone(), &mut locator, engine))
     } else {

@@ -178,6 +178,11 @@ pub(super) struct RowState {
     /// orphan snapshot and will flush pending headers, as there is no risk
     /// that they will be orphans anymore.
     pub(super) in_active_repeatable: bool,
+    /// This is `false` if a header row is laid out the first time, and `false`
+    /// for any other time. For footers it's the opposite, this will be `true`
+    /// the last time the footer is laid out, and `false` for all previous
+    /// occurrences.
+    pub(super) is_being_repeated: bool,
 }
 
 /// Data about laid out repeated header rows for a specific finished region.
@@ -302,7 +307,7 @@ impl<'a> GridLayouter<'a> {
                 && y >= footer.start
             {
                 if y == footer.start {
-                    self.layout_footer(footer, engine, self.finished.len())?;
+                    self.layout_footer(footer, engine, self.finished.len(), false)?;
                     self.flush_orphans();
                 }
                 y = footer.end;
@@ -1037,8 +1042,15 @@ impl<'a> GridLayouter<'a> {
 
                 let size = Size::new(available, height);
                 let pod = Region::new(size, Axes::splat(false));
-                let frame =
-                    layout_cell(cell, engine, 0, self.styles, pod.into())?.into_frame();
+                let frame = layout_cell(
+                    cell,
+                    engine,
+                    0,
+                    self.styles,
+                    pod.into(),
+                    self.row_state.is_being_repeated,
+                )?
+                .into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -1276,8 +1288,15 @@ impl<'a> GridLayouter<'a> {
                 pod
             };
 
-            let frames =
-                layout_cell(cell, engine, disambiguator, self.styles, pod)?.into_frames();
+            let frames = layout_cell(
+                cell,
+                engine,
+                disambiguator,
+                self.styles,
+                pod,
+                self.row_state.is_being_repeated,
+            )?
+            .into_frames();
 
             // HACK: Also consider frames empty if they only contain tags. Table
             // and grid cells need to be locatable for pdf accessibility, but
@@ -1441,9 +1460,15 @@ impl<'a> GridLayouter<'a> {
                         // rows.
                         pod.full = self.regions.full;
                     }
-                    let frame =
-                        layout_cell(cell, engine, disambiguator, self.styles, pod)?
-                            .into_frame();
+                    let frame = layout_cell(
+                        cell,
+                        engine,
+                        disambiguator,
+                        self.styles,
+                        pod,
+                        self.row_state.is_being_repeated,
+                    )?
+                    .into_frame();
                     let mut pos = offset;
                     if self.is_rtl {
                         // In RTL cells expand to the left, thus the position
@@ -1490,8 +1515,14 @@ impl<'a> GridLayouter<'a> {
                     pod.size.x = width;
 
                     // Push the layouted frames into the individual output frames.
-                    let fragment =
-                        layout_cell(cell, engine, disambiguator, self.styles, pod)?;
+                    let fragment = layout_cell(
+                        cell,
+                        engine,
+                        disambiguator,
+                        self.styles,
+                        pod,
+                        self.row_state.is_being_repeated,
+                    )?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = offset;
                         if self.is_rtl {
@@ -1588,7 +1619,7 @@ impl<'a> GridLayouter<'a> {
                 && self.current.lrows.iter().all(|row| row.index() < footer.start)
             {
                 laid_out_footer_start = Some(footer.start);
-                self.layout_footer(footer, engine, self.finished.len())?;
+                self.layout_footer(footer, engine, self.finished.len(), true)?;
             }
         }
 
