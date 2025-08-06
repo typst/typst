@@ -113,6 +113,16 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 "'test' statement" \
 "statement 'test'"
 
+--- smartquote-nesting-twice render html ---
+When you said _that "he_ surely meant that 'she intended to say "I'm sorry"'", I was quite confused.
+
+'#box[box]'
+
+--- smartquote-inline-block html ---
+Applies across #html.span["inline-level] elements".
+
+Does not apply across #html.div["block-level] elements".
+
 --- smartquote-with-embedding-chars ---
 #set text(lang: "fr")
 "#"\u{202A}"bonjour#"\u{202C}"" \
@@ -172,8 +182,3 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 
 --- issue-5146-smartquotes-after-equations ---
 $i$'s $i$ 's
-
---- smartquotes-html html ---
-When you said that "he surely meant that 'she intended to say "I'm sorry"'", I was quite confused.
-
-'#box[box]'

@@ -1,5 +1,3 @@
-use crate::fragment::html_fragment;
-use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, tag};
 use ecow::EcoVec;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
@@ -12,16 +10,19 @@ use typst_library::text::{
     is_default_ignorable,
 };
 
+use crate::fragment::{html_block_fragment, html_inline_fragment};
+use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, tag};
+
 /// Converts realized content into HTML nodes.
 pub fn convert_to_nodes<'a>(
     engine: &mut Engine,
     locator: &mut SplitLocator,
+    quoter: &mut SmartQuoter,
     children: impl IntoIterator<Item = Pair<'a>>,
 ) -> SourceResult<EcoVec<HtmlNode>> {
-    let mut quoter = SmartQuoter::new();
     let mut output = EcoVec::new();
     for (child, styles) in children {
-        handle(engine, child, locator, styles, &mut quoter, &mut output)?;
+        handle(engine, child, locator, styles, quoter, &mut output)?;
     }
     Ok(output)
 }
@@ -40,7 +41,16 @@ fn handle(
     } else if let Some(elem) = child.to_packed::<HtmlElem>() {
         let mut children = EcoVec::new();
         if let Some(body) = elem.body.get_ref(styles) {
-            children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
+            if tag::is_block_by_default(elem.tag) {
+                children = html_block_fragment(
+                    engine,
+                    body,
+                    locator.next(&elem.span()),
+                    styles,
+                )?;
+            } else {
+                children = html_inline_fragment(engine, body, locator, quoter, styles)?;
+            }
         }
         let element = HtmlElement {
             tag: elem.tag,
