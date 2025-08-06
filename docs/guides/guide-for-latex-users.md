@@ -482,7 +482,7 @@ allows you to create complex drawings and plots. To use CeTZ in your document,
 you can just write:
 
 ```typ
-#import "@preview/cetz:0.2.1"
+#import "@preview/cetz:0.4.1"
 ```
 
 (The `@preview` is a _namespace_ that is used while the package manager is still
