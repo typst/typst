@@ -57,7 +57,7 @@ pub struct HtmlElement {
     /// The element's attributes.
     pub attrs: HtmlAttrs,
     /// The element's children.
-    pub children: Vec<HtmlNode>,
+    pub children: EcoVec<HtmlNode>,
     /// The span from which the element originated, if any.
     pub span: Span,
 }
@@ -68,7 +68,7 @@ impl HtmlElement {
         Self {
             tag,
             attrs: HtmlAttrs::default(),
-            children: vec![],
+            children: EcoVec::new(),
             span: Span::detached(),
         }
     }
@@ -76,7 +76,7 @@ impl HtmlElement {
     /// Attach children to the element.
     ///
     /// Note: This overwrites potential previous children.
-    pub fn with_children(mut self, children: Vec<HtmlNode>) -> Self {
+    pub fn with_children(mut self, children: EcoVec<HtmlNode>) -> Self {
         self.children = children;
         self
     }
@@ -337,7 +337,7 @@ pub struct HtmlFrame {
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// IDs to assign to destination jump points within the SVG.
-    pub link_points: Vec<(Point, EcoString)>,
+    pub link_points: EcoVec<(Point, EcoString)>,
 }
 
 impl HtmlFrame {
@@ -347,7 +347,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
-            link_points: vec![],
+            link_points: EcoVec::new(),
         }
     }
 }

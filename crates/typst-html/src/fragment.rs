@@ -1,4 +1,5 @@
 use comemo::{Track, Tracked, TrackedMut};
+use ecow::EcoVec;
 use typst_library::diag::{At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
@@ -16,7 +17,7 @@ pub fn html_fragment(
     content: &Content,
     locator: Locator,
     styles: StyleChain,
-) -> SourceResult<Vec<HtmlNode>> {
+) -> SourceResult<EcoVec<HtmlNode>> {
     html_fragment_impl(
         engine.routines,
         engine.world,
@@ -43,7 +44,7 @@ fn html_fragment_impl(
     content: &Content,
     locator: Tracked<Locator>,
     styles: StyleChain,
-) -> SourceResult<Vec<HtmlNode>> {
+) -> SourceResult<EcoVec<HtmlNode>> {
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
