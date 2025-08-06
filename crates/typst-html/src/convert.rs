@@ -1,3 +1,4 @@
+use ecow::EcoVec;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
@@ -15,8 +16,8 @@ pub fn convert_to_nodes<'a>(
     engine: &mut Engine,
     locator: &mut SplitLocator,
     children: impl IntoIterator<Item = Pair<'a>>,
-) -> SourceResult<Vec<HtmlNode>> {
-    let mut output = Vec::new();
+) -> SourceResult<EcoVec<HtmlNode>> {
+    let mut output = EcoVec::new();
     for (child, styles) in children {
         handle(engine, child, locator, styles, &mut output)?;
     }
@@ -29,12 +30,12 @@ fn handle(
     child: &Content,
     locator: &mut SplitLocator,
     styles: StyleChain,
-    output: &mut Vec<HtmlNode>,
+    output: &mut EcoVec<HtmlNode>,
 ) -> SourceResult<()> {
     if let Some(elem) = child.to_packed::<TagElem>() {
         output.push(HtmlNode::Tag(elem.tag.clone()));
     } else if let Some(elem) = child.to_packed::<HtmlElem>() {
-        let mut children = vec![];
+        let mut children = EcoVec::new();
         if let Some(body) = elem.body.get_ref(styles) {
             children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
         }

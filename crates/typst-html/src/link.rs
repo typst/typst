@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use comemo::Track;
-use ecow::{EcoString, eco_format};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::foundations::{Label, NativeElement};
 use typst_library::introspection::{Introspector, Location, Tag};
@@ -75,11 +75,11 @@ fn traverse(
     work: &mut Work,
     targets: &FxHashSet<Location>,
     identificator: &mut Identificator<'_>,
-    nodes: &mut Vec<HtmlNode>,
+    nodes: &mut EcoVec<HtmlNode>,
 ) {
     let mut i = 0;
     while i < nodes.len() {
-        let node = &mut nodes[i];
+        let node = &mut nodes.make_mut()[i];
         match node {
             // When visiting a start tag, we check whether the element needs an
             // ID and if so, add it to the queue, so that its first child node
@@ -115,7 +115,7 @@ fn traverse(
             HtmlNode::Text(..) => {
                 work.drain(|label| {
                     let mut element =
-                        HtmlElement::new(tag::span).with_children(vec![node.clone()]);
+                        HtmlElement::new(tag::span).with_children(eco_vec![node.clone()]);
                     let id = identificator.assign(&mut element, label);
                     *node = HtmlNode::Element(element);
                     id
@@ -148,7 +148,7 @@ fn traverse_frame(
     targets: &FxHashSet<Location>,
     identificator: &mut Identificator<'_>,
     frame: &Frame,
-    link_points: &mut Vec<(Point, EcoString)>,
+    link_points: &mut EcoVec<(Point, EcoString)>,
 ) {
     for (_, item) in frame.items() {
         match item {
