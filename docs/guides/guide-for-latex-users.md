@@ -477,12 +477,12 @@ and their corresponding Typst functions.
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
 its own [package ecosystem]($universe) where the community share its creations
-and automations. Let's take, for instance, the _cetz_ package: This package
-allows you to create complex drawings and plots. To use cetz in your document,
+and automations. Let's take, for instance, the _CeTZ_ package: This package
+allows you to create complex drawings and plots. To use CeTZ in your document,
 you can just write:
 
 ```typ
-#import "@preview/cetz:0.2.1"
+#import "@preview/cetz:0.4.1"
 ```
 
 (The `@preview` is a _namespace_ that is used while the package manager is still
