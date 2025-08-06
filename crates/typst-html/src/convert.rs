@@ -3,13 +3,12 @@ use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, StyleChain, Target, TargetElem};
 use typst_library::introspection::{SplitLocator, TagElem};
-use typst_library::layout::{Abs, Axes, BlockBody, BlockElem, BoxElem, Region, Size};
-use typst_library::model::ParElem;
+use typst_library::layout::{Abs, Axes, Region, Size};
 use typst_library::routines::Pair;
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 
 use crate::fragment::html_fragment;
-use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, tag};
+use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, tag};
 
 /// Converts realized content into HTML nodes.
 pub fn convert_to_nodes<'a>(
@@ -46,44 +45,6 @@ fn handle(
             span: elem.span(),
         };
         output.push(element.into());
-    } else if let Some(elem) = child.to_packed::<ParElem>() {
-        let children =
-            html_fragment(engine, &elem.body, locator.next(&elem.span()), styles)?;
-        output.push(
-            HtmlElement::new(tag::p)
-                .with_children(children)
-                .spanned(elem.span())
-                .into(),
-        );
-    } else if let Some(elem) = child.to_packed::<BoxElem>() {
-        // TODO: This is rather incomplete.
-        if let Some(body) = elem.body.get_ref(styles) {
-            let children =
-                html_fragment(engine, body, locator.next(&elem.span()), styles)?;
-            output.push(
-                HtmlElement::new(tag::span)
-                    .with_attr(attr::style, "display: inline-block;")
-                    .with_children(children)
-                    .spanned(elem.span())
-                    .into(),
-            )
-        }
-    } else if let Some((elem, body)) =
-        child
-            .to_packed::<BlockElem>()
-            .and_then(|elem| match elem.body.get_ref(styles) {
-                Some(BlockBody::Content(body)) => Some((elem, body)),
-                _ => None,
-            })
-    {
-        // TODO: This is rather incomplete.
-        let children = html_fragment(engine, body, locator.next(&elem.span()), styles)?;
-        output.push(
-            HtmlElement::new(tag::div)
-                .with_children(children)
-                .spanned(elem.span())
-                .into(),
-        );
     } else if child.is::<SpaceElem>() {
         output.push(HtmlNode::text(' ', child.span()));
     } else if let Some(elem) = child.to_packed::<TextElem>() {
