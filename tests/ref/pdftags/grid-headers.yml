@@ -10,7 +10,9 @@
               /Headers: []
               /ColSpan: 5
               /K:
-                - Content: page=0 mcid=0
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=0
         - Tag: TR
           /K:
             - Tag: TH
@@ -18,31 +20,41 @@
               /Scope: Column
               /Headers: []
               /K:
-                - Content: page=0 mcid=1
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=1
             - Tag: TH
               /Id: "U1x1y1"
               /Scope: Column
               /Headers: []
               /K:
-                - Content: page=0 mcid=2
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=2
             - Tag: TH
               /Id: "U1x2y1"
               /Scope: Column
               /Headers: []
               /K:
-                - Content: page=0 mcid=3
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=3
             - Tag: TH
               /Id: "U1x3y1"
               /Scope: Column
               /Headers: []
               /K:
-                - Content: page=0 mcid=4
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=4
             - Tag: TH
               /Id: "U1x4y1"
               /Scope: Column
               /Headers: []
               /K:
-                - Content: page=0 mcid=5
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=5
     - Tag: TBody
       /K:
         - Tag: TR

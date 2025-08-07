@@ -47,3 +47,15 @@ CI#super[-] has a negative charge.
 #set super(baseline: -9.5pt)
 #sub[sub]
 #super[super]
+
+--- deco-tags-emph-basic pdftags ---
+Cats are _cute_ animals.
+
+--- deco-tags-strong-basic pdftags ---
+This *HERE* is important!
+
+--- deco-tags-strong-and-em pdftags ---
+_*strong and emph*_
+
+--- deco-tags-strong-em-and-more-attrs pdftags ---
+#underline(stroke: green)[_*strong and emph*_]

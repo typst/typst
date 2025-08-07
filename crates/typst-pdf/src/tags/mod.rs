@@ -15,9 +15,9 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, LinkMarker,
-    ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell, TableElem,
-    TermsElem,
+    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem,
+    LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, StrongElem,
+    TableCell, TableElem, TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
@@ -32,7 +32,7 @@ use crate::link::LinkAnnotation;
 use crate::tags::grid::{GridCtx, GridData, TableData};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
-use crate::tags::text::{ResolvedTextAttrs, TextDecoKind};
+use crate::tags::text::{ResolvedTextAttrs, TextAttr, TextDecoKind};
 use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::*;
@@ -272,15 +272,21 @@ pub fn handle_start(
             push_stack(gc, elem, StackEntryKind::CodeBlockLine);
         }
         return Ok(());
+    } else if let Some(_) = elem.to_packed::<StrongElem>() {
+        gc.tags.text_attrs.push(elem, TextAttr::Strong);
+        return Ok(());
+    } else if let Some(_) = elem.to_packed::<EmphElem>() {
+        gc.tags.text_attrs.push(elem, TextAttr::Emph);
+        return Ok(());
     } else if let Some(sub) = elem.to_packed::<SubElem>() {
         let baseline_shift = sub.baseline.val();
         let lineheight = sub.size.val();
         let kind = ScriptKind::Sub;
         gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
         return Ok(());
-    } else if let Some(sub) = elem.to_packed::<SuperElem>() {
-        let baseline_shift = sub.baseline.val();
-        let lineheight = sub.size.val();
+    } else if let Some(sup) = elem.to_packed::<SuperElem>() {
+        let baseline_shift = sup.baseline.val();
+        let lineheight = sup.size.val();
         let kind = ScriptKind::Super;
         gc.tags.text_attrs.push_script(elem, kind, baseline_shift, lineheight);
         return Ok(());

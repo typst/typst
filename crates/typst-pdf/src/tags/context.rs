@@ -76,8 +76,6 @@ impl Tags {
             return;
         }
 
-        // FIXME: Artifacts will force a split in the spans, and decoartions
-        // generate artifacts
         let last_node = if let Some(entry) = self.stack.last_mut() {
             entry.nodes.last_mut()
         } else {
@@ -147,10 +145,8 @@ impl Tags {
                 self.resolve_node(node)
             }
             TagNode::Text(attrs, ids) => {
-                let tag = attrs.to_tag();
                 let children = ids.into_iter().map(Node::Leaf).collect();
-                let group = krilla::tagging::TagGroup::with_children(tag, children);
-                Node::Group(group)
+                attrs.build_node(children)
             }
         }
     }
@@ -462,8 +458,8 @@ impl StackEntryKind {
                 TagKind::Datetime(_) => !is_pdf_ua,
                 TagKind::Terms(_) => !is_pdf_ua,
                 TagKind::Title(_) => !is_pdf_ua,
-                TagKind::Strong(_) => !is_pdf_ua,
-                TagKind::Em(_) => !is_pdf_ua,
+                TagKind::Strong(_) => true,
+                TagKind::Em(_) => true,
             },
             StackEntryKind::Outline(_) => false,
             StackEntryKind::OutlineEntry(_) => false,

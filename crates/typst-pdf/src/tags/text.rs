@@ -1,4 +1,4 @@
-use krilla::tagging::{LineHeight, NaiveRgbColor, Tag, TextDecorationType, kind};
+use krilla::tagging::{LineHeight, NaiveRgbColor, Node, Tag, TextDecorationType};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, Smart};
 use typst_library::introspection::Location;
@@ -30,14 +30,12 @@ impl TextAttrs {
         lineheight: Smart<TextSize>,
     ) {
         let val = Script { kind, baseline_shift, lineheight };
-        let loc = elem.location().unwrap();
-        self.push(loc, TextAttr::Script(val));
+        self.push(elem, TextAttr::Script(val));
     }
 
     pub fn push_highlight(&mut self, elem: &Content, paint: Option<&Paint>) {
         let color = paint.and_then(color_from_paint);
-        let loc = elem.location().unwrap();
-        self.push(loc, TextAttr::Highlight(color));
+        self.push(elem, TextAttr::Highlight(color));
     }
 
     pub fn push_deco(
@@ -67,12 +65,12 @@ impl TextAttrs {
             );
         }
 
-        let loc = elem.location().unwrap();
-        self.push(loc, TextAttr::Deco(deco));
+        self.push(elem, TextAttr::Deco(deco));
         Ok(())
     }
 
-    fn push(&mut self, loc: Location, attr: TextAttr) {
+    pub fn push(&mut self, elem: &Content, attr: TextAttr) {
+        let loc = elem.location().unwrap();
         self.last_resolved = None;
         self.items.push((loc, attr));
     }
@@ -105,7 +103,9 @@ impl TextAttrs {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum TextAttr {
+pub enum TextAttr {
+    Strong,
+    Emph,
     Script(Script),
     Highlight(Option<NaiveRgbColor>),
     Deco(TextDeco),
@@ -119,14 +119,14 @@ impl TextAttr {
 
 /// Sub- or super-script.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Script {
+pub struct Script {
     kind: ScriptKind,
     baseline_shift: Smart<Length>,
     lineheight: Smart<TextSize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct TextDeco {
+pub struct TextDeco {
     kind: TextDecoKind,
     stroke: TextDecoStroke,
 }
@@ -181,30 +181,81 @@ fn color_from_paint(paint: &Paint) -> Option<NaiveRgbColor> {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedTextAttrs {
+    strong: Option<bool>,
+    emph: Option<bool>,
     script: Option<ResolvedScript>,
     background: Option<Option<NaiveRgbColor>>,
     deco: Option<ResolvedTextDeco>,
 }
 
 impl ResolvedTextAttrs {
-    pub const EMPTY: Self = Self { script: None, background: None, deco: None };
+    pub const EMPTY: Self = Self {
+        strong: None,
+        emph: None,
+        script: None,
+        background: None,
+        deco: None,
+    };
 
     pub fn is_empty(&self) -> bool {
         self == &Self::EMPTY
     }
 
     pub fn all_resolved(&self) -> bool {
-        self.script.is_some() && self.background.is_some() && self.deco.is_some()
+        self.strong.is_some()
+            && self.emph.is_some()
+            && self.script.is_some()
+            && self.background.is_some()
+            && self.deco.is_some()
     }
 
-    pub fn to_tag(self) -> Tag<kind::Span> {
-        Tag::Span
-            .with_line_height(self.script.map(|s| s.lineheight))
-            .with_baseline_shift(self.script.map(|s| s.baseline_shift))
-            .with_background_color(self.background.flatten())
-            .with_text_decoration_type(self.deco.map(|d| d.kind.to_krilla()))
-            .with_text_decoration_color(self.deco.and_then(|d| d.color))
-            .with_text_decoration_thickness(self.deco.and_then(|d| d.thickness))
+    pub fn build_node(self, children: Vec<Node>) -> Node {
+        enum Prev {
+            Children(Vec<Node>),
+            Group(krilla::tagging::TagGroup),
+        }
+
+        impl Prev {
+            fn into_nodes(self) -> Vec<Node> {
+                match self {
+                    Prev::Children(nodes) => nodes,
+                    Prev::Group(group) => vec![Node::Group(group)],
+                }
+            }
+        }
+
+        let mut prev = Prev::Children(children);
+        if self.script.is_some() || self.background.is_some() || self.deco.is_some() {
+            let tag = Tag::Span
+                .with_line_height(self.script.map(|s| s.lineheight))
+                .with_baseline_shift(self.script.map(|s| s.baseline_shift))
+                .with_background_color(self.background.flatten())
+                .with_text_decoration_type(self.deco.map(|d| d.kind.to_krilla()))
+                .with_text_decoration_color(self.deco.and_then(|d| d.color))
+                .with_text_decoration_thickness(self.deco.and_then(|d| d.thickness));
+
+            let group = krilla::tagging::TagGroup::with_children(tag, prev.into_nodes());
+            prev = Prev::Group(group);
+        }
+        if self.strong == Some(true) {
+            let group =
+                krilla::tagging::TagGroup::with_children(Tag::Strong, prev.into_nodes());
+            prev = Prev::Group(group);
+        }
+        if self.emph == Some(true) {
+            let group =
+                krilla::tagging::TagGroup::with_children(Tag::Em, prev.into_nodes());
+            prev = Prev::Group(group);
+        }
+
+        match prev {
+            Prev::Group(group) => Node::Group(group),
+            Prev::Children(nodes) => {
+                // This should not happen. It can only happen if an empty set of
+                // `ResolvedTextAttrs` was pushed into a `TagNode::Text`.
+                Node::Group(krilla::tagging::TagGroup::with_children(Tag::Span, nodes))
+            }
+        }
     }
 }
 
@@ -245,6 +296,12 @@ fn resolve_attrs(
     let mut attrs = ResolvedTextAttrs::EMPTY;
     for (_, attr) in items.iter().rev() {
         match *attr {
+            TextAttr::Strong => {
+                attrs.strong.get_or_insert(true);
+            }
+            TextAttr::Emph => {
+                attrs.emph.get_or_insert(true);
+            }
             TextAttr::Script(script) => {
                 // TODO: The `typographic` setting is ignored for now.
                 // Is it better to be accurate regarding the layouting, and

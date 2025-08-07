@@ -5,7 +5,9 @@
       /K:
         - Tag: Lbl
           /K:
-            - Content: page=0 mcid=0
+            - Tag: Strong
+              /K:
+                - Content: page=0 mcid=0
         - Tag: LBody
           /K:
             - Content: page=0 mcid=1
@@ -13,7 +15,9 @@
       /K:
         - Tag: Lbl
           /K:
-            - Content: page=0 mcid=2
+            - Tag: Strong
+              /K:
+                - Content: page=0 mcid=2
         - Tag: LBody
           /K:
             - Content: page=0 mcid=3
