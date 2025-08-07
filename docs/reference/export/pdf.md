@@ -28,9 +28,9 @@ Currently, Typst supports these PDF/A output profiles:
 
 - PDF/A-3b: The basic conformance level of ISO 19005-3. This version of PDF/A is
   based on PDF 1.7 and results in archivable PDF files that can contain
-  arbitrary other related files as [attachments]($pdf.embed). The only
-  difference between it and PDF/A-2b is the capability to embed
-  non-PDF/A-conformant files within.
+  arbitrary other related files as [attachments]($pdf.attach). The only
+  difference between it and PDF/A-2b is the capability to attach
+  non-PDF/A-conformant files.
 
 When choosing between exporting PDF/A and regular PDF, keep in mind that PDF/A
 files contain additional metadata, and that some readers will prevent the user
