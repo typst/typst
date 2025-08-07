@@ -7,11 +7,12 @@ use ecow::{EcoString, eco_format};
 use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles, cast, elem,
+    Content, Label, Packed, Repr, Selector, ShowSet, Smart, StyleChain, Styles, cast,
+    elem,
 };
 use crate::introspection::{Counter, CounterKey, Introspector, Locatable, Location};
 use crate::layout::{PageElem, Position};
-use crate::model::NumberingPattern;
+use crate::model::{NumberingPattern, Refable};
 use crate::text::{LocalName, TextElem};
 
 /// Links to a URL or a location in the document.
@@ -88,9 +89,6 @@ use crate::text::{LocalName, TextElem};
 ///   generated.
 #[elem(Locatable)]
 pub struct LinkElem {
-    /// An alternative description of the link.
-    pub alt: Option<EcoString>,
-
     /// The destination the link points to.
     ///
     /// - To link to web pages, `dest` should be a valid URL string. If the URL
@@ -162,13 +160,9 @@ impl ShowSet for Packed<LinkElem> {
     }
 }
 
-fn body_from_url(url: &Url) -> Content {
-    let text = ["mailto:", "tel:"]
-        .into_iter()
-        .find_map(|prefix| url.strip_prefix(prefix))
-        .unwrap_or(url);
-    let shorter = text.len() < url.len();
-    TextElem::packed(if shorter { text.into() } else { (**url).clone() })
+pub(crate) fn body_from_url(url: &Url) -> Content {
+    let stripped = url.strip_contact_scheme().map(|(_, s)| s.into());
+    TextElem::packed(stripped.unwrap_or_else(|| url.clone().into_inner()))
 }
 
 /// A target where a link can go.
@@ -223,22 +217,59 @@ impl Destination {
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<Option<EcoString>> {
-        let alt = match self {
-            Destination::Url(url) => Some(url.clone().into_inner()),
-            Destination::Position(_) => None,
-            &Destination::Location(loc) => {
-                let numbering = loc
-                    .page_numbering(engine)
-                    .unwrap_or_else(|| NumberingPattern::from_str("1").unwrap().into());
-                let content = Counter::new(CounterKey::Page)
-                    .display_at_loc(engine, loc, styles, &numbering)?;
-                let page_nr = content.plain_text();
-                let page_str = PageElem::local_name_in(styles);
-                Some(eco_format!("{page_str} {page_nr}"))
+    ) -> SourceResult<EcoString> {
+        match self {
+            Destination::Url(url) => {
+                let contact = url.strip_contact_scheme().map(|(scheme, stripped)| {
+                    eco_format!("{} {stripped}", scheme.local_name_in(styles))
+                });
+                Ok(contact.unwrap_or_else(|| url.clone().into_inner()))
             }
-        };
-        Ok(alt)
+            Destination::Position(pos) => {
+                let page_nr = eco_format!("{}", pos.page.get());
+                let page_str = PageElem::local_name_in(styles);
+                Ok(eco_format!("{page_str} {page_nr}"))
+            }
+            &Destination::Location(loc) => {
+                let fallback = |engine: &mut Engine| {
+                    // Fall back to a generating a page reference.
+                    let numbering = loc.page_numbering(engine).unwrap_or_else(|| {
+                        NumberingPattern::from_str("1").unwrap().into()
+                    });
+                    let page_nr = Counter::new(CounterKey::Page)
+                        .display_at_loc(engine, loc, styles, &numbering)?
+                        .plain_text();
+                    let page_str = PageElem::local_name_in(styles);
+                    Ok(eco_format!("{page_str} {page_nr}"))
+                };
+
+                // Try to generate more meaningful alt text if the location is a
+                // refable element.
+                let loc_selector = Selector::Location(loc);
+                if let Some(elem) = engine.introspector.query(&loc_selector).first()
+                    && let Some(refable) = elem.with::<dyn Refable>()
+                {
+                    let counter = refable.counter();
+                    let supplement = refable.supplement().plain_text();
+
+                    if let Some(numbering) = refable.numbering() {
+                        let numbers = counter.display_at_loc(
+                            engine,
+                            loc,
+                            styles,
+                            &numbering.clone().trimmed(),
+                        )?;
+                        let numbering = numbers.plain_text();
+                        return Ok(eco_format!("{supplement} {numbering}"));
+                    } else {
+                        let page_ref = fallback(engine)?;
+                        return Ok(eco_format!("{supplement}, {page_ref}"));
+                    }
+                }
+
+                fallback(engine)
+            }
+        }
     }
 }
 
@@ -278,6 +309,15 @@ impl Url {
     pub fn into_inner(self) -> EcoString {
         self.0
     }
+
+    pub fn strip_contact_scheme(&self) -> Option<(UrlContactScheme, &str)> {
+        [UrlContactScheme::Mailto, UrlContactScheme::Tel]
+            .into_iter()
+            .find_map(|scheme| {
+                let stripped = self.strip_prefix(scheme.as_str())?;
+                Some((scheme, stripped))
+            })
+    }
 }
 
 impl Deref for Url {
@@ -292,4 +332,40 @@ cast! {
     Url,
     self => self.0.into_value(),
     v: EcoString => Self::new(v)?,
+}
+
+#[derive(Copy, Clone)]
+pub enum UrlContactScheme {
+    /// The `mailto:` prefix.
+    Mailto,
+    /// The `tel:`
+    Tel,
+}
+
+impl UrlContactScheme {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mailto => "mailto:",
+            Self::Tel => "tel:",
+        }
+    }
+
+    pub fn local_name_in(self, styles: StyleChain) -> &'static str {
+        match self {
+            UrlContactScheme::Mailto => Email::local_name_in(styles),
+            UrlContactScheme::Tel => Telephone::local_name_in(styles),
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Email;
+impl LocalName for Email {
+    const KEY: &'static str = "email";
+}
+
+#[derive(Copy, Clone)]
+pub struct Telephone;
+impl LocalName for Telephone {
+    const KEY: &'static str = "telephone";
 }

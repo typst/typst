@@ -26,13 +26,13 @@
   /K:
     - Content: page=0 mcid=6
     - Tag: Link
-      /Alt: "mailto:hi@typst.app"
+      /Alt: "Email hi@typst.app"
       /K:
         - Content: page=0 mcid=7
         - Annotation: page=0 index=3
     - Content: page=0 mcid=8
     - Tag: Link
-      /Alt: "tel:123"
+      /Alt: "Telephone 123"
       /K:
         - Content: page=0 mcid=9
         - Annotation: page=0 index=4

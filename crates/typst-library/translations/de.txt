@@ -7,3 +7,5 @@ outline = Inhaltsverzeichnis
 raw = Listing
 page = Seite
 footnote = Fußnote
+email = Email
+telephone = Telefon
