@@ -69,7 +69,7 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the curve. This can be:
+    /// How to [stroke] the curve.
     ///
     /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
