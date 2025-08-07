@@ -159,6 +159,63 @@ use crate::routines::Routines;
 /// #compute("x - 5")
 /// ```
 ///
+/// # State Keys { #keys }
+/// States are primarily identified by the location of their `state(...)` call.
+/// This location is _not_ determined when the call happens, like you might expect,
+/// but all the way at the start of compilation after typst has read your file.
+///
+/// This means that two different calls can result in an identical state,
+/// as long as they go through the same call expression in the file.
+/// ```example
+/// // All calls to `same-state` go through the same `state(...)` call here.
+/// #let same-state() = state(0)
+///
+/// #let s1 = same-state()
+/// #let s2 = same-state()
+/// #s1.update(1)
+/// #context s2.get()
+/// ```
+///
+/// To remedy this, you can specify a key; States with different keys will be
+/// different even when they go through the same `state(...)` call.
+/// ```example
+/// #let same-state(key) = state(key, 0)
+///
+/// #let s1 = same-state("a")
+/// #let s2 = same-state("b")
+/// #s1.update(1)
+/// #context s2.get()
+/// ```
+///
+/// On the other hand, states from different locations are still different even
+/// when they have the same key.
+/// ```example
+/// #let s1 = state("key", 0)
+/// #let s2 = state("key", 0)
+/// #s1.update(1)
+/// #context s2.get()
+/// ```
+///
+/// If you construct two states with identical locations and keys but different
+/// initial values, then they will each use their own initial value but share
+/// updates. Specifically, the value of a state at some location in the document
+/// will be computed from that state's initial value and all preceding updates
+/// for the state's location-key combination.
+/// ```example
+/// #let same-state(init) = state(init)
+///
+/// #let banana = same-state("🍌")
+/// #let broccoli = same-state("🥦")
+///
+/// #banana.update(it => it + "😋")
+///
+/// #context [
+///   - #same-state("🍎").get()
+///   - #banana.get()
+///   - #broccoli.get()
+/// ]
+/// ```
+///
 /// # A word of caution { #caution }
 /// To resolve the values of all states, Typst evaluates parts of your code
 /// multiple times. However, there is no guarantee that your state manipulation
@@ -274,8 +331,17 @@ impl State {
     pub fn construct(
         engine: &mut Engine,
         args: &mut Args,
-        #[external] key: Str,
-        #[external] init: Value,
+        /// The key that identifies this state.
+        ///
+        /// See {#keys} for details.
+        #[external]
+        #[default("".into())]
+        key: Str,
+        /// The initial value of the state.
+        ///
+        /// See {#keys} for details.
+        #[external]
+        init: Value,
     ) -> SourceResult<State> {
         let key: Str;
         let init: Value;
