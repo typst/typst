@@ -72,7 +72,7 @@ pub struct CurveElem {
     /// How to [stroke] the curve. This can be:
     ///
     /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and if only if no fill is given.
+    /// stroke of `{1pt}` black if and only if no fill is given.
     ///
     /// ```example
     /// #let down = curve.line((40pt, 40pt), relative: true)
