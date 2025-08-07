@@ -193,6 +193,12 @@ pub fn handle_start(
         }
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
         let alt = equation.alt.opt_ref().map(|s| s.to_string());
+        if let Some(figure_ctx) = gc.tags.stack.parent_figure() {
+            // Set alt text of outer figure tag, if not present.
+            if figure_ctx.alt.is_none() {
+                figure_ctx.alt = alt.clone();
+            }
+        }
         push_stack(gc, elem, StackEntryKind::Formula(FigureCtx::new(alt)))?;
         return Ok(());
     } else if let Some(table) = elem.to_packed::<TableElem>() {
