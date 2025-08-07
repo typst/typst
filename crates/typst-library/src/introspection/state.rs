@@ -351,9 +351,9 @@ impl State {
             init = arg.v;
             if let Value::Str(s) = &init {
                 engine.sink.warn(crate::diag::warning!(arg.span,
-                    "state behavior changed from the previous version";
-                    hint: "this now constructs an anonymous state with initial value `{}`", s.repr();
-                    hint: "use an explicit key to silence this warning: `state(\"\", {})`", s.repr()
+                    "This constructs an anonymous state with initial value `{}`", s.repr();
+                    hint: "If this was what you wanted, use `state(\"\", {})` to silence this warning.", s.repr();
+                    hint: "If you wanted a state with key {}, use `state({0}, none)`.", s.repr()
                 ))
             }
         } else {
