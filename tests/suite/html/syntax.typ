@@ -53,8 +53,8 @@
 #html.script(html.strong[Hello])
 
 --- html-raw-text-contains-frame html ---
-// Error: 2-29 HTML raw text element cannot have non-text children
-#html.script(html.frame[Ok])
+// Error: 14-31 HTML raw text element cannot have non-text children
+#html.script(html.frame[Hello])
 
 --- html-raw-text-contains-closing-tag html ---
 // Error: 2-32 HTML raw text element cannot contain its own closing tag
