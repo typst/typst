@@ -225,7 +225,9 @@ pub struct TableElem {
     #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
-    // TODO: docs
+    /// A summary of the table's purpose and structure.
+    ///
+    /// This will be available for assistive techonologies (such as screen readers).
     pub summary: Option<EcoString>,
 
     /// The contents of the table cells, plus any extra table lines specified

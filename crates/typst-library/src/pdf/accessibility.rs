@@ -12,7 +12,7 @@ use crate::introspection::{Locatable, Location};
 use crate::model::TableCell;
 
 /// Mark content as a PDF artifact.
-/// TODO: maybe generalize this and use it to mark html elements with `aria-hidden="true"`?
+// TODO: maybe generalize this and use it to mark html elements with `aria-hidden="true"`?
 #[elem(Locatable)]
 pub struct ArtifactElem {
     /// The artifact kind.
