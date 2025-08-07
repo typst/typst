@@ -6,3 +6,4 @@ heading = Kafli
 outline = Efnisyfirlit
 raw = Sýnishorn
 page = blaðsíða
+# footnote =

@@ -15,6 +15,7 @@ use typst_library::visualize::{
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
+use crate::tags;
 use crate::util::{SizeExt, TransformExt};
 
 #[typst_macros::time(name = "handle image")]
@@ -31,11 +32,10 @@ pub(crate) fn handle_image(
 
     let interpolate = image.scaling() == Smart::Custom(ImageScaling::Smooth);
 
-    if let Some(alt) = image.alt() {
-        surface.start_alt_text(alt);
-    }
-
     gc.image_spans.insert(span);
+
+    let mut handle = tags::image(gc, fc, surface, image, size);
+    let surface = handle.surface();
 
     match image.kind() {
         ImageKind::Raster(raster) => {
@@ -64,10 +64,6 @@ pub(crate) fn handle_image(
         ImageKind::Pdf(pdf) => {
             surface.draw_pdf_page(&convert_pdf(pdf), size.to_krilla(), pdf.page_index())
         }
-    }
-
-    if image.alt().is_some() {
-        surface.end_alt_text();
     }
 
     surface.pop();

@@ -1,3 +1,4 @@
+use crate::introspection::Locatable;
 use ttf_parser::Tag;
 
 use crate::foundations::{Content, Smart, elem};
@@ -12,7 +13,7 @@ use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript")]
+#[elem(title = "Subscript", Locatable)]
 pub struct SubElem {
     /// Whether to create artificial subscripts by lowering and scaling down
     /// regular glyphs.
@@ -67,7 +68,7 @@ pub struct SubElem {
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript")]
+#[elem(title = "Superscript", Locatable)]
 pub struct SuperElem {
     /// Whether to create artificial superscripts by raising and scaling down
     /// regular glyphs.

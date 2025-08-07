@@ -7,3 +7,4 @@ outline = Mục lục
 # may be wrong
 raw = Chương trình
 page = trang
+# footnote =
