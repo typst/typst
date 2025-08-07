@@ -1137,8 +1137,9 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
 /// Difference between non-breaking and normal space.
 fn nbsp_delta(font: &Font) -> Option<Em> {
+    let space = font.ttf().glyph_index(' ')?.0;
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
-    Some(font.x_advance(nbsp)? - font.space_width()?)
+    Some(font.x_advance(nbsp)? - font.x_advance(space)?)
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.

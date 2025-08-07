@@ -1,9 +1,7 @@
-use std::f64::consts::SQRT_2;
-
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Packed, StyleChain, SymbolElem};
+use typst_library::foundations::{Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Size};
 use typst_library::math::{EquationElem, MathSize};
 use typst_library::text::{
@@ -52,7 +50,7 @@ fn layout_text_lines<'a>(
         }
     }
     let mut frame = MathRun::new(fragments).into_frame(styles);
-    let axis = scaled!(ctx, styles, axis_height);
+    let axis = ctx.font().math().axis_height.resolve(styles);
     frame.set_baseline(frame.height() / 2.0 + axis);
     Ok(FrameFragment::new(styles, frame))
 }
@@ -80,7 +78,9 @@ fn layout_inline_text(
             let style = MathStyle::select(unstyled_c, variant, bold, italic);
             let c = to_style(unstyled_c, style).next().unwrap();
 
-            let glyph = GlyphFragment::new_char(ctx.font, styles, c, span)?;
+            // This won't panic as ASCII digits and '.' will never end up as
+            // nothing after shaping.
+            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -132,8 +132,8 @@ pub fn layout_symbol(
     // Switch dotless char to normal when we have the dtls OpenType feature.
     // This should happen before the main styling pass.
     let dtls = style_dtls();
-    let (unstyled_c, symbol_styles) = match try_dotless(elem.text) {
-        Some(c) if has_dtls_feat(ctx.font) => (c, styles.chain(&dtls)),
+    let (unstyled_c, symbol_styles) = match (try_dotless(elem.text), ctx.font().clone()) {
+        (Some(c), font) if has_dtls_feat(&font) => (c, styles.chain(&dtls)),
         _ => (elem.text, styles),
     };
 
@@ -144,39 +144,27 @@ pub fn layout_symbol(
     let style = MathStyle::select(unstyled_c, variant, bold, italic);
     let text: EcoString = to_style(unstyled_c, style).collect();
 
-    let fragment: MathFragment =
-        match GlyphFragment::new(ctx.font, symbol_styles, &text, elem.span()) {
-            Ok(mut glyph) => {
-                adjust_glyph_layout(&mut glyph, ctx, styles);
-                glyph.into()
-            }
-            Err(_) => {
-                // Not in the math font, fallback to normal inline text layout.
-                // TODO: Should replace this with proper fallback in [`GlyphFragment::new`].
-                layout_inline_text(&text, elem.span(), ctx, styles)?.into()
-            }
-        };
-    ctx.push(fragment);
-    Ok(())
-}
-
-/// Centers large glyphs vertically on the axis, scaling them if in display
-/// style.
-fn adjust_glyph_layout(
-    glyph: &mut GlyphFragment,
-    ctx: &mut MathContext,
-    styles: StyleChain,
-) {
-    if glyph.class == MathClass::Large {
-        if styles.get(EquationElem::size) == MathSize::Display {
-            let height = scaled!(ctx, styles, display_operator_min_height)
-                .max(SQRT_2 * glyph.size.y);
-            glyph.stretch_vertical(ctx, height);
-        };
-        // TeXbook p 155. Large operators are always vertically centered on the
-        // axis.
-        glyph.center_on_axis();
+    if let Some(mut glyph) =
+        GlyphFragment::new(ctx.engine.world, symbol_styles, &text, elem.span())
+    {
+        if glyph.class == MathClass::Large {
+            if styles.get(EquationElem::size) == MathSize::Display {
+                let height = glyph
+                    .item
+                    .font
+                    .math()
+                    .display_operator_min_height
+                    .at(glyph.item.size);
+                glyph.stretch_vertical(ctx, height);
+            };
+            // TeXbook p 155. Large operators are always vertically centered on
+            // the axis.
+            glyph.center_on_axis();
+        }
+        ctx.push(glyph);
     }
+
+    Ok(())
 }
 
 /// The non-dotless version of a dotless character that can be used with the
