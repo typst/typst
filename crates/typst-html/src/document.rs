@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
+use ecow::{EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
@@ -12,6 +13,7 @@ use typst_library::introspection::{
 use typst_library::layout::{Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
+use typst_library::text::SmartQuoter;
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
@@ -84,6 +86,7 @@ fn html_document_impl(
     let output = crate::convert::convert_to_nodes(
         &mut engine,
         &mut locator,
+        &mut SmartQuoter::new(),
         children.iter().copied(),
     )?;
 
@@ -141,19 +144,22 @@ fn introspect_html(
 
 /// Wrap the nodes in `<html>` and `<body>` if they are not yet rooted,
 /// supplying a suitable `<head>`.
-fn root_element(output: Vec<HtmlNode>, info: &DocumentInfo) -> SourceResult<HtmlElement> {
+fn root_element(
+    output: EcoVec<HtmlNode>,
+    info: &DocumentInfo,
+) -> SourceResult<HtmlElement> {
     let head = head_element(info);
     let body = match classify_output(output)? {
         OutputKind::Html(element) => return Ok(element),
         OutputKind::Body(body) => body,
         OutputKind::Leafs(leafs) => HtmlElement::new(tag::body).with_children(leafs),
     };
-    Ok(HtmlElement::new(tag::html).with_children(vec![head.into(), body.into()]))
+    Ok(HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()]))
 }
 
 /// Generate a `<head>` element.
 fn head_element(info: &DocumentInfo) -> HtmlElement {
-    let mut children = vec![];
+    let mut children = EcoVec::new();
 
     children.push(HtmlElement::new(tag::meta).with_attr(attr::charset, "utf-8").into());
 
@@ -167,7 +173,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
     if let Some(title) = &info.title {
         children.push(
             HtmlElement::new(tag::title)
-                .with_children(vec![HtmlNode::Text(title.clone(), Span::detached())])
+                .with_children(eco_vec![HtmlNode::Text(title.clone(), Span::detached())])
                 .into(),
         );
     }
@@ -203,9 +209,9 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 }
 
 /// Determine which kind of output the user generated.
-fn classify_output(mut output: Vec<HtmlNode>) -> SourceResult<OutputKind> {
+fn classify_output(mut output: EcoVec<HtmlNode>) -> SourceResult<OutputKind> {
     let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
-    for node in &mut output {
+    for node in output.make_mut() {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         let mut take = || std::mem::replace(elem, HtmlElement::new(tag::html));
@@ -232,5 +238,5 @@ enum OutputKind {
     /// one, but need supply the `<html>` element.
     Body(HtmlElement),
     /// The user generated leafs which we wrap in a `<body>` and `<html>`.
-    Leafs(Vec<HtmlNode>),
+    Leafs(EcoVec<HtmlNode>),
 }

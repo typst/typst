@@ -173,7 +173,7 @@ impl Collector {
         for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
             let path = entry.path();
-            if path.extension().is_none_or(|ext| ext != "png") {
+            if path.extension().is_none_or(|ext| ext != "png" && ext != "html") {
                 continue;
             }
 
