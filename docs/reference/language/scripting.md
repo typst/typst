@@ -14,7 +14,7 @@ provides compact syntax to embed a code expression into markup: An expression is
 introduced with a hash (`#`) and normal markup parsing resumes after the
 expression is finished. If a character would continue the expression but should
 be interpreted as text, the expression can forcibly be ended with a semicolon
-(`;`). You can [escape literal `#` or `;` with a backslash]($syntax/#escapes).
+(`;`). You can [escape a literal `#` or `;` with a backslash]($syntax/#escapes).
 
 ```example
 #emph[Hello] \
@@ -338,40 +338,6 @@ all available community packages on [Typst Universe]($universe).
 If you are using Typst locally, you can also create your own system-local
 packages. For more details on this, see the
 [package repository](https://github.com/typst/packages).
-
-## Names and identifiers { #identifiers }
-When developing modules and packages, it is recommended to use
-[kebab case](https://en.wikipedia.org/wiki/Letter_case#Kebab_case)
-for identifiers of public variables, functions, and their arguments.
-In kebab case, words are written in lowercase and separated by hyphens (`-`),
-like `cap-height`.
-
-The identifier syntax in Typst is based on the
-[Unicode Standard Annex #31](https://www.unicode.org/reports/tr31/),
-with two extensions: allowing `_` as a starting character, and allowing both `_`
-and `-` as continuing characters.
-
-Specifically:
-
-- Identifiers may start with a letter or an underscore (`_`),
-- and continue with letters, digits, underscores, and hyphen (`-`).
-
-```example
-#let kebab-case = [Using hyphen]
-#let _schön = "😊"
-#let 始料不及 = "😱"
-#let π = calc.pi
-
-#kebab-case
-#if -π < 0 { _schön } else { 始料不及 }
-// -π means -1 * π,
-// so it's not a valid identifier
-```
-
-Note that the above only applies to identifiers. [`label`]($label), however,
-is not an identifier. Therefore, [its dedicated syntax]($label/#syntax) allows
-the name to start with `-`, and also allows the use of `:` and `.`. Furthermore,
-[its constructor function]($label/#constructor) allows any non-empty string.
 
 ## Operators
 The following table lists all available unary and binary operators with effect,
