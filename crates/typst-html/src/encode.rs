@@ -215,12 +215,9 @@ fn collect_raw_text(element: &HtmlElement) -> SourceResult<String> {
         match c {
             HtmlNode::Tag(_) => continue,
             HtmlNode::Text(text, _) => output.push_str(text),
-            HtmlNode::Element(_) | HtmlNode::Frame(_) => {
-                let span = match c {
-                    HtmlNode::Element(child) => child.span,
-                    _ => element.span,
-                };
-                bail!(span, "HTML raw text element cannot have non-text children")
+            HtmlNode::Element(HtmlElement { span, .. })
+            | HtmlNode::Frame(HtmlFrame { span, .. }) => {
+                bail!(*span, "HTML raw text element cannot have non-text children")
             }
         };
     }

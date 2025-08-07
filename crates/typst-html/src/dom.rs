@@ -338,16 +338,19 @@ pub struct HtmlFrame {
     pub id: Option<EcoString>,
     /// IDs to assign to destination jump points within the SVG.
     pub link_points: EcoVec<(Point, EcoString)>,
+    /// The span from which the frame originated.
+    pub span: Span,
 }
 
 impl HtmlFrame {
     /// Wraps a laid-out frame.
-    pub fn new(inner: Frame, styles: StyleChain) -> Self {
+    pub fn new(inner: Frame, styles: StyleChain, span: Span) -> Self {
         Self {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
             link_points: EcoVec::new(),
+            span,
         }
     }
 }
