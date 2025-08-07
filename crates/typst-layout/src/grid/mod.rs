@@ -53,8 +53,7 @@ pub fn layout_cell(
         None
     };
 
-    // TODO: is this ok?
-    let locator = locator.next_inner(0);
+    let locator = locator.next(&cell.body.span());
     let fragment = crate::layout_fragment(engine, &cell.body, locator, styles, regions)?;
 
     // Manually insert frames
