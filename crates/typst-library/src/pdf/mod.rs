@@ -12,6 +12,7 @@ pub fn module() -> Module {
     pdf.start_category(crate::Category::Pdf);
     pdf.define_elem::<AttachElem>();
     pdf.define("embed", Element::of::<AttachElem>()).deprecated(
+        // Remember to remove "embed" from `path_completion` when removing this.
         Deprecation::new()
             .with_message("the name `embed` is deprecated, use `attach` instead")
             .with_until("0.15.0"),
