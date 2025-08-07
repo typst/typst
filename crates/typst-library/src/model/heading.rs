@@ -104,15 +104,17 @@ pub struct HeadingElem {
     /// ```
     pub numbering: Option<Numbering>,
 
-    /// Plain-text displayed numbering.
+    /// The resolved plain-text numbers.
     ///
-    /// This field is only necessary for creating PDF bookmarks.
-    /// The problem is that in the export stage, we don't have access to the World/Engine etc.
-    /// which is needed to resolve numbers and numbering patterns (or functions) into a concrete string/content.
-    /// Therefore, we have to save the result before the export stage.
+    /// This field is internal and only used for creating PDF bookmarks. We
+    /// don't currently have access to `World`, `Engine`, or `styles` in export,
+    /// which is needed to resolve the counter and numbering pattern into a
+    /// concrete string.
+    ///
+    /// This remains unset if `numbering` is `None`.
     #[internal]
     #[synthesized]
-    pub numbering_displayed: EcoString,
+    pub numbers: EcoString,
 
     /// A supplement for the heading.
     ///
@@ -213,23 +215,20 @@ impl Synthesize for Packed<HeadingElem> {
             }
         };
 
-        let numbering_displayed = if let (Some(numbering), Some(location)) =
-            (self.numbering.get_ref(styles).as_ref(), self.location())
+        if let Some((numbering, location)) =
+            self.numbering.get_ref(styles).as_ref().zip(self.location())
         {
-            Some(
+            self.numbers = Some(
                 self.counter()
                     .display_at_loc(engine, location, styles, numbering)?
                     .plain_text(),
-            )
-        } else {
-            None
-        };
+            );
+        }
 
         let elem = self.as_mut();
         elem.level.set(Smart::Custom(elem.resolve_level(styles)));
         elem.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
-        elem.numbering_displayed = numbering_displayed;
         Ok(())
     }
 }

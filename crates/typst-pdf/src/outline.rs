@@ -124,15 +124,14 @@ impl<'a> HeadingNode<'a> {
 
     fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
         let loc = self.element.location().unwrap();
-        let title = self.element.body.plain_text().to_string();
         let pos = gc.document.introspector.position(loc);
         let page_index = pos.page.get() - 1;
 
-        // Prepend the numbering to title if it exists
-        let title = match &self.element.numbering_displayed {
-            // The space should be a `h(0.3em)`, but only plain-texts are supported here.
-            Some(num) => format!("{num} {title}"),
-            None => title,
+        // Prepend the numbers to the title if they exist.
+        let text = self.element.body.plain_text();
+        let title = match &self.element.numbers {
+            Some(num) => format!("{num} {text}"),
+            None => text.to_string(),
         };
 
         if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
