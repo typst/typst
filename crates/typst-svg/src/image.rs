@@ -5,18 +5,24 @@ use ecow::{EcoString, eco_format};
 use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::Smart;
-use typst_library::layout::{Abs, Axes};
+use typst_library::layout::{Abs, Axes, Transform};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
-use crate::SVGRenderer;
+use crate::{SVGRenderer, SvgMatrix};
 
 impl SVGRenderer<'_> {
     /// Render an image element.
-    pub(super) fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
+    pub(super) fn render_image(
+        &mut self,
+        transform: &Transform,
+        image: &Image,
+        size: &Axes<Abs>,
+    ) {
         let url = convert_image_to_base64_url(image);
         self.xml.start_element("image");
+        self.xml.write_attribute("transform", &SvgMatrix(*transform));
         self.xml.write_attribute("xlink:href", &url);
         self.xml.write_attribute("width", &size.x.to_pt());
         self.xml.write_attribute("height", &size.y.to_pt());
