@@ -43,8 +43,8 @@ use super::FixedStroke;
 pub struct CurveElem {
     /// How to fill the curve.
     ///
-    /// When setting a fill, the default stroke disappears. To create a
-    /// rectangle with both fill and stroke, you have to configure both.
+    /// When setting a fill, the default stroke disappears. To create a curve
+    /// with both fill and stroke, you have to configure both.
     pub fill: Option<Paint>,
 
     /// The drawing rule used to fill the curve.
@@ -69,10 +69,10 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the curve. This can be:
+    /// How to [stroke] the curve.
     ///
     /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and if only if no fill is given.
+    /// stroke of `{1pt}` black if and only if no fill is given.
     ///
     /// ```example
     /// #let down = curve.line((40pt, 40pt), relative: true)

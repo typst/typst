@@ -101,7 +101,7 @@ fn handle(
             styles.chain(&style),
             Region::new(Size::splat(Abs::inf()), Axes::splat(false)),
         )?;
-        output.push(HtmlNode::Frame(HtmlFrame::new(frame, styles)));
+        output.push(HtmlNode::Frame(HtmlFrame::new(frame, styles, elem.span())));
     } else {
         engine.sink.warn(warning!(
             child.span(),

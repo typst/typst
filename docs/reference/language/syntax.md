@@ -168,6 +168,34 @@ I got an ice cream for
 \$1.50! \u{1f600}
 ```
 
+## Identifiers
+Names of variables, functions, and so on (_identifiers_) can contain letters,
+numbers, hyphens (`-`), and underscores (`_`). They must start with a letter or
+an underscore.
+
+More specifically, the identifier syntax in Typst is based on the
+[Unicode Standard Annex #31](https://www.unicode.org/reports/tr31/), with two
+extensions: Allowing `_` as a starting character, and allowing both `_` and `-`
+as continuing characters.
+
+For multi-word identifiers, the recommended case convention is
+[Kebab case](https://en.wikipedia.org/wiki/Letter_case#Kebab_case). In Kebab
+case, words are written in lowercase and separated by hyphens (as in
+`top-edge`). This is especially relevant when developing modules and packages
+for others to use, as it keeps things predictable.
+
+```example
+#let kebab-case = [Using hyphen]
+#let _schön = "😊"
+#let 始料不及 = "😱"
+#let π = calc.pi
+
+#kebab-case
+#if -π < 0 { _schön } else { 始料不及 }
+// -π means -1 * π,
+// so it's not a valid identifier
+```
+
 ## Paths
 Typst has various features that require a file path to reference external
 resources such as images, Typst files, or data files. Paths are represented as
