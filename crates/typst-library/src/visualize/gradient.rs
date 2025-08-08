@@ -1143,9 +1143,9 @@ impl Repr for ConicGradient {
 /// What is the gradient relative to.
 #[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RelativeTo {
-    /// The gradient is relative to itself (its own bounding box).
+    /// Relative to itself (its own bounding box).
     Self_,
-    /// The gradient is relative to its parent (the parent's bounding box).
+    /// Relative to its parent (the parent's bounding box).
     Parent,
 }
 
