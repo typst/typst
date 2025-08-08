@@ -41,7 +41,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// constant decimal values instead (e.g. `{decimal("3.14")}`).
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
-/// rounding the result to 15 digits with [`calc.round`]($calc.round), but there
+/// rounding the result to 15 digits with [`calc.round`], but there
 /// are still no precision guarantees for that kind of conversion.
 ///
 /// # Operations

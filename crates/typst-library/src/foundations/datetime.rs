@@ -18,7 +18,7 @@ use crate::foundations::{
 ///
 /// Can be created by either specifying a custom datetime using this type's
 /// constructor function or getting the current date with
-/// [`datetime.today`]($datetime.today).
+/// [`datetime.today`].
 ///
 /// # Example
 /// ```example

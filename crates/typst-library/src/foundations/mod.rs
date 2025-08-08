@@ -155,7 +155,7 @@ pub fn panic(
 /// produce any output in the document.
 ///
 /// If you wish to test equality between two values, see
-/// [`assert.eq`]($assert.eq) and [`assert.ne`]($assert.ne).
+/// [`assert.eq`] and [`assert.ne`].
 ///
 /// # Example
 /// ```typ

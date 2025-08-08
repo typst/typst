@@ -168,9 +168,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// consider the following:
 /// - SVG gradients are currently inefficiently encoded. This will be improved
 ///   in the future.
-/// - PDF gradients in the [`color.oklab`]($color.oklab), [`color.hsv`]($color.hsv),
-///   [`color.hsl`]($color.hsl), and [`color.oklch`]($color.oklch) color spaces
-///   are stored as a list of [`color.rgb`]($color.rgb) colors with extra stops
+/// - PDF gradients in the [`color.oklab`], [`color.hsv`],
+///   [`color.hsl`], and [`color.oklch`] color spaces
+///   are stored as a list of [`color.rgb`] colors with extra stops
 ///   in between. This avoids needing to encode these color spaces in your PDF
 ///   file, but it does add extra stops to your gradient, which can increase
 ///   the file size.
