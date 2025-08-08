@@ -62,7 +62,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options. It also
-/// shows how you can use [`grid.cell`]($grid.cell) to make an individual cell
+/// shows how you can use [`grid.cell`] to make an individual cell
 /// span two grid tracks.
 ///
 /// ```example
@@ -111,14 +111,14 @@ use crate::visualize::{Paint, Stroke};
 ///   stroke
 ///
 /// If you need to override one of the above options for a single cell, you can
-/// use the [`grid.cell`]($grid.cell) element. Likewise, you can override
-/// individual grid lines with the [`grid.hline`]($grid.hline) and
-/// [`grid.vline`]($grid.vline) elements.
+/// use the [`grid.cell`] element. Likewise, you can override
+/// individual grid lines with the [`grid.hline`] and
+/// [`grid.vline`] elements.
 ///
 /// Alternatively, if you need the appearance options to depend on a cell's
 /// position (column and row), you may specify a function to `fill` or `align`
 /// of the form `(column, row) => value`. You may also use a show rule on
-/// [`grid.cell`]($grid.cell) - see that element's examples or the examples
+/// [`grid.cell`] - see that element's examples or the examples
 /// below for more information.
 ///
 /// Locating most of your styling in set and show rules is recommended, as it
@@ -203,7 +203,7 @@ pub struct GridElem {
     /// zero. If set to `{auto}`, the outer alignment is used.
     ///
     /// You can find an example for this argument at the
-    /// [`table.align`]($table.align) parameter.
+    /// [`table.align`] parameter.
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
@@ -214,7 +214,7 @@ pub struct GridElem {
     /// If it is necessary to place lines which can cross spacing between cells
     /// produced by the `gutter` option, or to override the stroke between
     /// multiple specific cells, consider specifying one or more of
-    /// [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline) alongside
+    /// [`grid.hline`] and [`grid.vline`] alongside
     /// your grid cells.
     ///
     /// ```example
@@ -289,12 +289,12 @@ pub struct GridElem {
     /// How much to pad the cells' content.
     ///
     /// You can find an example for this argument at the
-    /// [`table.inset`]($table.inset) parameter.
+    /// [`table.inset`] parameter.
     #[fold]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the grid cells, plus any extra grid lines specified
-    /// with the [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline)
+    /// with the [`grid.hline`] and [`grid.vline`]
     /// elements.
     ///
     /// The cells are populated in row-major order.
@@ -445,8 +445,8 @@ impl TryFrom<Content> for GridItem {
 /// A repeatable grid header.
 ///
 /// If `repeat` is set to `true`, the header will be repeated across pages. For
-/// an example, refer to the [`table.header`]($table.header) element and the
-/// [`grid.stroke`]($grid.stroke) parameter.
+/// an example, refer to the [`table.header`] element and the
+/// [`grid.stroke`] parameter.
 #[elem(name = "header", title = "Grid Header")]
 pub struct GridHeader {
     /// Whether this header should be repeated across pages.
@@ -471,7 +471,7 @@ pub struct GridHeader {
 
 /// A repeatable grid footer.
 ///
-/// Just like the [`grid.header`]($grid.header) element, the footer can repeat
+/// Just like the [`grid.header`] element, the footer can repeat
 /// itself on every page of the table.
 ///
 /// No other grid cells may be placed after the footer.
@@ -493,7 +493,7 @@ pub struct GridFooter {
 /// `column-gutter` option.
 ///
 /// An example for this function can be found at the
-/// [`table.hline`]($table.hline) element.
+/// [`table.hline`] element.
 #[elem(name = "hline", title = "Grid Horizontal Line")]
 pub struct GridHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
@@ -638,7 +638,7 @@ pub struct GridVLine {
 ///
 /// You may also apply a show rule on `grid.cell` to style all cells at once,
 /// which allows you, for example, to apply styles based on a cell's position.
-/// Refer to the examples of the [`table.cell`]($table.cell) element to learn
+/// Refer to the examples of the [`table.cell`] element to learn
 /// more about this.
 #[elem(name = "cell", title = "Grid Cell")]
 pub struct GridCell {
