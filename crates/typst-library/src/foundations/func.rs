@@ -60,7 +60,7 @@ use crate::foundations::{
 /// # Function scopes
 /// Functions can hold related definitions in their own scope, similar to a
 /// [module]($scripting/#modules). Examples of this are
-/// [`assert.eq`]($assert.eq) or [`list.item`]($list.item). However, this
+/// [`assert.eq`] or [`list.item`]. However, this
 /// feature is currently only available for built-in functions.
 ///
 /// # Defining functions

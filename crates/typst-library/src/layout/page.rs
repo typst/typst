@@ -405,7 +405,7 @@ impl LocalName for PageElem {
 ///
 /// Pagination tries to avoid single lines of text at the top or bottom of a
 /// page (these are called _widows_ and _orphans_). You can adjust the
-/// [`text.costs`]($text.costs) parameter to disable this behavior.
+/// [`text.costs`] parameter to disable this behavior.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
