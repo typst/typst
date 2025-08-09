@@ -45,3 +45,19 @@ $ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
 --- math-frac-gap ---
 // Test that the gap above and below the fraction rule is correct.
 $ sqrt(n^(2/3)) $
+
+--- math-frac-horizontal ---
+// Test that horizontal fractions look identical to inline math with `slash`
+#set math.frac(style: "horizontal")
+$ (a / b) / (c / (d / e)) $
+$ (a slash b) slash (c slash (d slash e)) $
+
+--- math-frac-horizontal-lr-paren ---
+// Test that parentheses are in a left-right pair even when rebuilt by a horizontal fraction
+#set math.frac(style: "horizontal")
+$ (#v(2em)) / n $
+
+--- math-frac-skewed ---
+// Test skewed fractions
+#set math.frac(style: "skewed")
+$ a / b,  a / (b / c) $
