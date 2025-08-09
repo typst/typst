@@ -57,7 +57,7 @@ pub struct HtmlElement {
     /// The element's attributes.
     pub attrs: HtmlAttrs,
     /// The element's children.
-    pub children: Vec<HtmlNode>,
+    pub children: EcoVec<HtmlNode>,
     /// The span from which the element originated, if any.
     pub span: Span,
 }
@@ -68,7 +68,7 @@ impl HtmlElement {
         Self {
             tag,
             attrs: HtmlAttrs::default(),
-            children: vec![],
+            children: EcoVec::new(),
             span: Span::detached(),
         }
     }
@@ -76,7 +76,7 @@ impl HtmlElement {
     /// Attach children to the element.
     ///
     /// Note: This overwrites potential previous children.
-    pub fn with_children(mut self, children: Vec<HtmlNode>) -> Self {
+    pub fn with_children(mut self, children: EcoVec<HtmlNode>) -> Self {
         self.children = children;
         self
     }
@@ -105,8 +105,53 @@ impl HtmlTag {
             bail!("tag name must not be empty");
         }
 
-        if let Some(c) = string.chars().find(|&c| !charsets::is_valid_in_tag_name(c)) {
-            bail!("the character {} is not valid in a tag name", c.repr());
+        let mut has_hyphen = false;
+        let mut has_uppercase = false;
+
+        for c in string.chars() {
+            if c == '-' {
+                has_hyphen = true;
+            } else if !charsets::is_valid_in_tag_name(c) {
+                bail!("the character {} is not valid in a tag name", c.repr());
+            } else {
+                has_uppercase |= c.is_ascii_uppercase();
+            }
+        }
+
+        // If we encounter a hyphen, we are dealing with a custom element rather
+        // than a standard HTML element.
+        //
+        // A valid custom element name must:
+        // - Contain at least one hyphen (U+002D)
+        // - Start with an ASCII lowercase letter (a-z)
+        // - Not contain any ASCII uppercase letters (A-Z)
+        // - Not be one of the reserved names
+        // - Only contain valid characters (ASCII alphanumeric and hyphens)
+        //
+        // See https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name
+        if has_hyphen {
+            if !string.starts_with(|c: char| c.is_ascii_lowercase()) {
+                bail!("custom element name must start with a lowercase letter");
+            }
+            if has_uppercase {
+                bail!("custom element name must not contain uppercase letters");
+            }
+
+            // These names are used in SVG and MathML. Since `html.elem` only
+            // supports creation of _HTML_ elements, they are forbidden.
+            if matches!(
+                string,
+                "annotation-xml"
+                    | "color-profile"
+                    | "font-face"
+                    | "font-face-src"
+                    | "font-face-uri"
+                    | "font-face-format"
+                    | "font-face-name"
+                    | "missing-glyph"
+            ) {
+                bail!("name is reserved and not valid for a custom element");
+            }
         }
 
         Ok(Self(PicoStr::intern(string)))
@@ -292,17 +337,20 @@ pub struct HtmlFrame {
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// IDs to assign to destination jump points within the SVG.
-    pub link_points: Vec<(Point, EcoString)>,
+    pub link_points: EcoVec<(Point, EcoString)>,
+    /// The span from which the frame originated.
+    pub span: Span,
 }
 
 impl HtmlFrame {
     /// Wraps a laid-out frame.
-    pub fn new(inner: Frame, styles: StyleChain) -> Self {
+    pub fn new(inner: Frame, styles: StyleChain, span: Span) -> Self {
         Self {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
-            link_points: vec![],
+            link_points: EcoVec::new(),
+            span,
         }
     }
 }

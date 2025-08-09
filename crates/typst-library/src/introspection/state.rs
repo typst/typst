@@ -273,8 +273,31 @@ impl State {
     #[func(constructor)]
     pub fn construct(
         /// The key that identifies this state.
+        ///
+        /// Any [updates]($state.update) to the state will be identified with
+        /// the string key. If you construct multiple states with the same
+        /// `key`, then updating any one will affect all of them.
         key: Str,
         /// The initial value of the state.
+        ///
+        /// If you construct multiple states with the same `key` but different
+        /// `init` values, they will each use their own initial value but share
+        /// updates. Specifically, the value of a state at some location in the
+        /// document will be computed from that state's initial value and all
+        /// preceding updates for the state's key.
+        ///
+        /// ```example
+        /// #let banana = state("key", "🍌")
+        /// #let broccoli = state("key", "🥦")
+        ///
+        /// #banana.update(it => it + "😋")
+        ///
+        /// #context [
+        ///   - #state("key", "🍎").get()
+        ///   - #banana.get()
+        ///   - #broccoli.get()
+        /// ]
+        /// ```
         #[default]
         init: Value,
     ) -> State {
@@ -328,7 +351,7 @@ impl State {
         Ok(sequence.last().unwrap().clone())
     }
 
-    /// Update the value of the state.
+    /// Updates the value of the state.
     ///
     /// The update will be in effect at the position where the returned content
     /// is inserted into the document. If you don't put the output into the
@@ -336,13 +359,44 @@ impl State {
     /// write `{let _ = state("key").update(7)}`. State updates are always
     /// applied in layout order and in that case, Typst wouldn't know when to
     /// update the state.
+    ///
+    /// In contrast to [`get`]($state.get), [`at`]($state.at), and
+    /// [`final`]($state.final), this function does not require [context].
     #[func]
     pub fn update(
         self,
         span: Span,
-        /// If given a non function-value, sets the state to that value. If
-        /// given a function, that function receives the previous state and has
-        /// to return the new state.
+        /// A value to update to or a function to update with.
+        ///
+        /// - If given a non-function value, sets the state to that value.
+        /// - If given a function, that function receives the state's previous
+        ///   value and has to return the state's new value.
+        ///
+        /// When updating the state based on its previous value, you should
+        /// prefer the function form instead of retrieving the previous value
+        /// from the [context]($context). This allows the compiler to resolve
+        /// the final state efficiently, minimizing the number of
+        /// [layout iterations]($context/#compiler-iterations) required.
+        ///
+        /// In the following example, `{fill.update(f => not f)}` will paint odd
+        /// [items in the bullet list]($list.item) as expected. However, if it's
+        /// replaced with `{context fill.update(not fill.get())}`, then layout
+        /// will not converge within 5 attempts, as each update will take one
+        /// additional iteration to propagate.
+        ///
+        /// ```example
+        /// #let fill = state("fill", false)
+        ///
+        /// #show list.item: it => {
+        ///   fill.update(f => not f)
+        ///   context {
+        ///     set text(fill: fuchsia) if fill.get()
+        ///     it
+        ///   }
+        /// }
+        ///
+        /// #lorem(5).split().map(list.item).join()
+        /// ```
         update: StateUpdate,
     ) -> Content {
         StateUpdateElem::new(self.key, update).pack().spanned(span)

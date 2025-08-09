@@ -21,9 +21,9 @@ use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
     LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
-use typst_library::pdf::EmbedElem;
+use typst_library::pdf::AttachElem;
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
@@ -47,6 +47,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
     rules.register(Paged, LINK_RULE);
+    rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
@@ -102,7 +103,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, EQUATION_RULE);
 
     // PDF.
-    rules.register(Paged, EMBED_RULE);
+    rules.register(Paged, ATTACH_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -214,6 +215,12 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
     Ok(body.linked(dest))
+};
+
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(BlockElem::new()
+        .with_body(Some(BlockBody::Content(elem.resolve_body(styles).at(elem.span())?)))
+        .pack())
 };
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
@@ -839,4 +846,4 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
     }
 };
 
-const EMBED_RULE: ShowFn<EmbedElem> = |_, _, _| Ok(Content::empty());
+const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());

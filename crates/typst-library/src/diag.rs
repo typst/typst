@@ -151,6 +151,13 @@ pub struct Warned<T> {
     pub warnings: EcoVec<SourceDiagnostic>,
 }
 
+impl<T> Warned<T> {
+    /// Maps the output, keeping the same warnings.
+    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Warned<R> {
+        Warned { output: f(self.output), warnings: self.warnings }
+    }
+}
+
 /// An error or warning in a source or text file.
 ///
 /// The contained spans will only be detached if any of the input source files

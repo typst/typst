@@ -442,9 +442,35 @@ impl Reflect for CslSource {
     #[comemo::memoize]
     fn input() -> CastInfo {
         let source = std::iter::once(DataSource::input());
-        let names = ArchivedStyle::all().iter().map(|name| {
-            CastInfo::Value(name.names()[0].into_value(), name.display_name())
-        });
+
+        /// All possible names and their short documentation for `ArchivedStyle`, including aliases.
+        static ARCHIVED_STYLE_NAMES: LazyLock<Vec<(&&str, &'static str)>> =
+            LazyLock::new(|| {
+                ArchivedStyle::all()
+                    .iter()
+                    .flat_map(|name| {
+                        let (main_name, aliases) = name
+                            .names()
+                            .split_first()
+                            .expect("all ArchivedStyle should have at least one name");
+
+                        std::iter::once((main_name, name.display_name())).chain(
+                            aliases.iter().map(move |alias| {
+                                // Leaking is okay here, because we are in a `LazyLock`.
+                                let docs: &'static str = Box::leak(
+                                    format!("A short alias of `{main_name}`")
+                                        .into_boxed_str(),
+                                );
+                                (alias, docs)
+                            }),
+                        )
+                    })
+                    .collect()
+            });
+        let names = ARCHIVED_STYLE_NAMES
+            .iter()
+            .map(|(value, docs)| CastInfo::Value(value.into_value(), docs));
+
         CastInfo::Union(source.into_iter().chain(names).collect())
     }
 
@@ -1055,5 +1081,29 @@ mod tests {
         for &archived in ArchivedStyle::all() {
             let _ = CslStyle::from_archived(archived);
         }
+    }
+
+    #[test]
+    fn test_csl_source_cast_info_include_all_names() {
+        let CastInfo::Union(cast_info) = CslSource::input() else {
+            panic!("the cast info of CslSource should be a union");
+        };
+
+        let missing: Vec<_> = ArchivedStyle::all()
+            .iter()
+            .flat_map(|style| style.names())
+            .filter(|name| {
+                let found = cast_info.iter().any(|info| match info {
+                    CastInfo::Value(Value::Str(n), _) => n.as_str() == **name,
+                    _ => false,
+                });
+                !found
+            })
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "missing style names in CslSource cast info: '{missing:?}'"
+        );
     }
 }
