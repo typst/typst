@@ -379,6 +379,10 @@ impl FontMetrics {
                         .to_em(constants.fraction_denominator_gap_min().value),
                     fraction_denom_display_style_gap_min: font
                         .to_em(constants.fraction_denom_display_style_gap_min().value),
+                    skewed_fraction_vertical_gap: font
+                        .to_em(constants.skewed_fraction_vertical_gap().value),
+                    skewed_fraction_horizontal_gap: font
+                        .to_em(constants.skewed_fraction_horizontal_gap().value),
                     overbar_vertical_gap: font
                         .to_em(constants.overbar_vertical_gap().value),
                     overbar_rule_thickness: font
@@ -458,6 +462,8 @@ impl FontMetrics {
                     fraction_denominator_gap_min: metrics.underline.thickness,
                     fraction_denom_display_style_gap_min: 3.0
                         * metrics.underline.thickness,
+                    skewed_fraction_vertical_gap: Em::zero(),
+                    skewed_fraction_horizontal_gap: metrics.x_height,
                     overbar_vertical_gap: 3.0 * metrics.underline.thickness,
                     overbar_rule_thickness: metrics.underline.thickness,
                     overbar_extra_ascender: metrics.underline.thickness,
@@ -553,6 +559,8 @@ pub struct MathConstants {
     pub fraction_rule_thickness: Em,
     pub fraction_denominator_gap_min: Em,
     pub fraction_denom_display_style_gap_min: Em,
+    pub skewed_fraction_vertical_gap: Em,
+    pub skewed_fraction_horizontal_gap: Em,
     pub overbar_vertical_gap: Em,
     pub overbar_rule_thickness: Em,
     pub overbar_extra_ascender: Em,
