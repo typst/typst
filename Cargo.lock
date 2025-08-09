@@ -958,21 +958,21 @@ dependencies = [
 
 [[package]]
 name = "hayro"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a063475c55469656ada01db8d502ccafe3351f463854019aeb686c105246307b"
 dependencies = [
  "bytemuck",
  "hayro-interpret",
  "image",
  "kurbo",
- "rustc-hash",
- "smallvec",
 ]
 
 [[package]]
 name = "hayro-font"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "961d753ae00c7aaf512ed386dd4c723a18cf1c0cb2e0772e87bbe8c18ed1a6df"
 dependencies = [
  "log",
  "phf",
@@ -980,8 +980,9 @@ dependencies = [
 
 [[package]]
 name = "hayro-interpret"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b35e0d2bc380332441b45e47d52b10d05c5df74a7b1e6c8ca95254aef2be1b38"
 dependencies = [
  "bitflags 2.9.1",
  "hayro-font",
@@ -990,6 +991,8 @@ dependencies = [
  "log",
  "phf",
  "qcms",
+ "rustc-hash",
+ "siphasher",
  "skrifa",
  "smallvec",
  "yoke 0.8.0",
@@ -997,8 +1000,9 @@ dependencies = [
 
 [[package]]
 name = "hayro-syntax"
-version = "0.0.1"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1d3e06bd0f8a1861e353ed4d516751fac3c1c0a202cbe9f3ed325be9194e1cf"
 dependencies = [
  "flate2",
  "kurbo",
@@ -1010,8 +1014,9 @@ dependencies = [
 
 [[package]]
 name = "hayro-write"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d55f2b3e748993b8d87ff2e72d34f74b4c9a11d09d6c5f4eb54340f5d2aed275"
 dependencies = [
  "flate2",
  "hayro-syntax",
@@ -1416,7 +1421,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=abdf031#abdf031c9e5ba89d606f6f145fad648c75812aec"
+source = "git+https://github.com/LaurenzV/krilla?rev=747be0d#747be0db9abc14e97b1036e0ced5a069080705b6"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1446,7 +1451,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=abdf031#abdf031c9e5ba89d606f6f145fad648c75812aec"
+source = "git+https://github.com/LaurenzV/krilla?rev=747be0d#747be0db9abc14e97b1036e0ced5a069080705b6"
 dependencies = [
  "flate2",
  "fontdb",
