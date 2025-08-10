@@ -249,40 +249,9 @@ fn layout_skewed_frac(
     fraction_height.set_max(slash_size.y);
 
     // Reference points for all three objects, used to place them in the frame.
-    let mut slash_center = Point::new(num_size.x + hgap / 2.0, fraction_height / 2.0);
+    let slash_center = Point::new(num_size.x + hgap / 2.0, fraction_height / 2.0);
     let mut num_up_left = Point::with_y(vertical_offset);
     let mut denom_up_left = num_up_left + num_size.to_point() + Point::new(hgap, vgap);
-
-    // Check for overlap with the slash glyph. We assume the slash is a straight line without
-    // thickness that joins the upper right corner to the lower left corner of slash_frame.
-    // Begin with the numerator
-    let vec_num_slash = num_up_left + num_size.to_point() - slash_center;
-    let mut extra_hgap = Point::zero();
-    if vec_num_slash.x.to_raw() * slash_size.y.to_raw()
-        + vec_num_slash.y.to_raw() * slash_size.x.to_raw()
-        > 0.0
-    {
-        extra_hgap = Point::with_x(
-            vec_num_slash.x
-                + vec_num_slash.y * slash_size.x.to_raw() / slash_size.y.to_raw(),
-        )
-    }
-    // Shift slash and denom to the right so that the num no longer overlaps
-    slash_center += extra_hgap;
-    denom_up_left += extra_hgap;
-    // Same with denominator
-    let vec_denom_slash = denom_up_left - slash_center;
-    extra_hgap = Point::zero();
-    if vec_denom_slash.x.to_raw() * slash_size.y.to_raw()
-        + vec_denom_slash.y.to_raw() * slash_size.x.to_raw()
-        < 0.0
-    {
-        extra_hgap = -Point::with_x(
-            vec_denom_slash.x
-                + vec_denom_slash.y * slash_size.x.to_raw() / slash_size.y.to_raw(),
-        )
-    }
-    denom_up_left += extra_hgap;
 
     // Fraction width
     let mut slash_up_left = slash_center - slash_size.to_point() / 2.0;
