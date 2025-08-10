@@ -185,7 +185,6 @@ fn layout_horizontal_frac(
     let num_frame = ctx.layout_into_fragment(num, styles)?;
     ctx.push(num_frame);
 
-    // AI
     let mut slash =
         ctx.layout_into_fragment(&SymbolElem::packed('/').spanned(span), styles)?;
     slash.center_on_axis();
@@ -238,14 +237,7 @@ fn layout_skewed_frac(
     // Build the slash glyph to calculate its size
     let mut slash_frag =
         ctx.layout_into_fragment(&SymbolElem::packed('\u{2044}').spanned(span), styles)?;
-    let pre_stretch_height = slash_frag.size().y;
     slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
-    // If the standard slash was not stretchable, try the fraction slash
-    if slash_frag.size().y == pre_stretch_height {
-        slash_frag =
-            ctx.layout_into_fragment(&SymbolElem::packed('/').spanned(span), styles)?;
-        slash_frag.stretch_vertical(ctx, fraction_height - short_fall);
-    }
     slash_frag.center_on_axis();
     let slash_frame = slash_frag.into_frame();
 
