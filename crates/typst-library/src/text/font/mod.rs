@@ -465,7 +465,7 @@ impl FontMetrics {
                     fraction_denom_display_style_gap_min: 3.0
                         * metrics.underline.thickness,
                     skewed_fraction_vertical_gap: Em::zero(),
-                    skewed_fraction_horizontal_gap: metrics.x_height,
+                    skewed_fraction_horizontal_gap: Em::new(0.5),
                     overbar_vertical_gap: 3.0 * metrics.underline.thickness,
                     overbar_rule_thickness: metrics.underline.thickness,
                     overbar_extra_ascender: metrics.underline.thickness,

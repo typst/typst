@@ -5,10 +5,14 @@ use crate::foundations::{Cast, Content, Value, elem};
 use crate::math::Mathy;
 
 /// Fraction style
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum FracStyle {
+    /// Stacked numerator and denominator with a bar.
+    #[default]
     Vertical,
+    /// Numerator and denominator separated by a slash.
     Skewed,
+    /// Numerator and denominator placed inline and parentheses are not absorbed
     Horizontal,
 }
 
@@ -36,10 +40,6 @@ pub struct FracElem {
     pub denom: Content,
 
     /// The style of the fraction.
-    /// - `"vertical"`: stacked numerator and denominator with a bar.
-    /// - `"diagonal"`: numerator and denominator separated by a slash.
-    /// - `"horizontal"`: numerator and denominator placed inline and
-    ///   parentheses are not absorbed
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,
 
