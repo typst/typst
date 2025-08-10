@@ -417,6 +417,8 @@ impl FontMetrics {
                 // - `flattened_accent_base_height` from Building Math Fonts
                 // - `overbar_rule_thickness` and `underbar_rule_thickness`
                 //   from our best guess
+                // - `skewed_fraction_vertical_gap` and `skewed_fraction_horizontal_gap`
+                //   from our best guess
                 // - `script_percent_scale_down` and
                 //   `script_script_percent_scale_down` from Building Math
                 //   Fonts as the defaults given in MathML Core have more
