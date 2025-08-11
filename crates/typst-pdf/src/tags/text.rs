@@ -180,10 +180,7 @@ fn color_from_paint(paint: &Paint) -> Option<NaiveRgbColor> {
             let c = color.to_rgb();
             Some(NaiveRgbColor::new(c.red, c.green, c.blue))
         }
-        // TODO: Don't fail silently, maybe make a best effort to convert a
-        // gradient to a single solid color?
         Paint::Gradient(_) => None,
-        // TODO: Don't fail silently, maybe just error in PDF/UA mode?
         Paint::Tiling(_) => None,
     }
 }
