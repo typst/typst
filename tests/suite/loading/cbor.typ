@@ -22,3 +22,16 @@
     message: "failed to approximately decode " + name,
   )
 }
+
+--- cbor-encode-bytes ---
+#let value = bytes("Typst")
+#test(cbor(cbor.encode(value)), value)
+
+--- cbor-encode-any ---
+#import "edge-case.typ": special-types
+#for value in special-types {
+  test(
+    cbor.encode(value),
+    cbor.encode(repr(value)),
+  )
+}

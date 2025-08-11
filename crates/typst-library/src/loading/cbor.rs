@@ -8,15 +8,44 @@ use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a CBOR file.
 ///
-/// The file must contain a valid CBOR serialization. Mappings will be
-/// converted into Typst dictionaries, and sequences will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
-/// `{none}`, and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers.
+/// The file must contain a valid CBOR serialization. The CBOR values will be
+/// converted into corresponding Typst values listed in the
+/// [table below](#conversion).
 ///
-/// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
-/// floating point numbers, which may result in an approximative value.
+/// The function returns a dictionary, an array or, depending on the CBOR file,
+/// another CBOR data type.
+///
+/// # Conversion details { #conversion }
+/// Typst uses [ciborium](https://docs.rs/ciborium/latest/ciborium/#compatibility-with-other-implementations)
+/// to process CBOR data. The ciborium project is wire-compatible with other
+/// implementations in decoding, but not necessarily encoding.
+///
+/// | CBOR value | Converted into Typst   |
+/// | ---------- | ---------------------- |
+/// | integer    | [`int`] (or [`float`]) |
+/// | bytes      | [`bytes`]              |
+/// | float      | [`float`]              |
+/// | text       | [`str`]                |
+/// | bool       | [`bool`]               |
+/// | null       | `{none}`               |
+/// | array      | [`array`]              |
+/// | map        | [`dictionary`]         |
+///
+/// - Be aware that **CBOR integers** larger than 2<sup>63</sup>-1 or smaller than
+///   -2<sup>63</sup> will be approximated as floating-point numbers or rejected
+///   for parsing.
+///
+/// - **CBOR tags** are not supported, and an error will be thrown.
+///
+/// | Typst value                           | Converted into CBOR          |
+/// | ------------------------------------- | ---------------------------- |
+/// | types that can be converted from CBOR | corresponding CBOR value     |
+/// | [`symbol`]                            | text                         |
+/// | [`content`]                           | a map describing the content |
+/// | other types ([`length`], etc.)        | text via [`repr`]            |
+///
+/// Note that the **`repr`** function is [for debugging purposes only]($repr/#debugging-only),
+/// and its output is not guaranteed to be stable across typst versions.
 #[func(scope, title = "CBOR")]
 pub fn cbor(
     engine: &mut Engine,

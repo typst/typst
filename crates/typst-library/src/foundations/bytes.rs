@@ -276,7 +276,7 @@ impl Serialize for Bytes {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&eco_format!("{self:?}"))
+            serializer.serialize_str(&self.repr())
         } else {
             serializer.serialize_bytes(self)
         }

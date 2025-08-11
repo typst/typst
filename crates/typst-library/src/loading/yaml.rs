@@ -8,20 +8,15 @@ use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a YAML file.
 ///
-/// The file must contain a valid YAML object or array. YAML mappings will be
-/// converted into Typst dictionaries, and YAML sequences will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
-/// `{none}`, and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers. Custom YAML tags are ignored, though the
-/// loaded value will still be present.
+/// The file must contain a valid YAML object or array. The YAML values will be
+/// converted into corresponding Typst values listed in the [table below](#conversion).
 ///
-/// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
-/// floating point numbers, which may give an approximative value.
+/// The function returns a dictionary, an array or, depending on the YAML file,
+/// another YAML data type.
 ///
 /// The YAML files in the example contain objects with authors as keys,
 /// each with a sequence of their own submapping with the keys
-/// "title" and "published"
+/// "title" and "published".
 ///
 /// # Example
 /// ```example
@@ -38,6 +33,38 @@ use crate::loading::{DataSource, Load, Readable};
 ///   yaml("scifi-authors.yaml")
 /// )
 /// ```
+///
+/// # Conversion details { #conversion }
+///
+/// | YAML value                             | Converted into Typst |
+/// | -------------------------------------- | -------------------- |
+/// | null-values (`null`, `~` or empty ` `) | `{none}`             |
+/// | boolean                                | [`bool`]             |
+/// | number                                 | [`float`] or [`int`] |
+/// | string                                 | [`str`]              |
+/// | sequence                               | [`array`]            |
+/// | mapping                                | [`dictionary`]       |
+///
+/// - In most cases, **YAML numbers** will be converted to floats or integers
+///   depending on whether they are whole numbers. However, be aware that integers
+///   larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will be
+///   approximated as floating-point numbers or rejected for parsing.
+///
+/// - **Custom YAML tags** are ignored, though the loaded value will still be present.
+///
+/// | Typst value                           | Converted into YAML              |
+/// | ------------------------------------- | -------------------------------- |
+/// | types that can be converted from YAML | corresponding YAML value         |
+/// | [`bytes`]                             | string via [`repr`]              |
+/// | [`symbol`]                            | string                           |
+/// | [`content`]                           | a mapping describing the content |
+/// | other types ([`length`], etc.)        | string via [`repr`]              |
+///
+/// - **Bytes** are not encoded as YAML sequences for performance reasons.
+///   Consider using [`cbor.encode`] for binary data.
+///
+/// - The **`repr`** function is [for debugging purposes only]($repr/#debugging-only),
+///   and its output is not guaranteed to be stable across typst versions.
 #[func(scope, title = "YAML")]
 pub fn yaml(
     engine: &mut Engine,
