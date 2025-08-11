@@ -44,3 +44,30 @@
 // Warning: 15-21 `toml.decode` is deprecated, directly pass bytes to `toml` instead
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = toml.decode
+
+--- toml-encode-any ---
+// Anything can be encoded.
+// Unsupported types fall back to strings via `repr`, but the specific output can be changed.
+#let check(value) = test(
+  toml.encode((key: value)),
+  toml.encode((key: repr(value))),
+)
+
+#check(bytes("Typst"))
+#check(decimal("2.99792458"))
+#check(3.14159pt)
+#check(2.99em)
+#check(<sec:intro>)
+#check(panic)
+#check(x => x + 1)
+#check(regex("\p{Letter}"))
+#check(stroke(red + 5pt))
+#check(auto)
+
+--- toml-encode-non-table ---
+// Error: 14-15 expected dictionary, found integer
+#toml.encode(3)
+
+--- toml-decode-non-table ---
+// Error: 7-17 failed to parse TOML (expected `.`, `=` at 1:2)
+#toml(bytes("3"))
