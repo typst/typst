@@ -23,10 +23,10 @@ use crate::visualize::{LineElem, Stroke};
 /// and can break across multiple pages.
 ///
 /// To customize the appearance of the entry in the footnote listing, see
-/// [`footnote.entry`]. The footnote itself is realized as a
-/// normal superscript, so you can use a set rule on the [`super`] function to
-/// customize it. You can also apply a show rule to customize only the footnote
-/// marker (superscript number) in the running text.
+/// [`footnote.entry`]. The footnote itself is realized as a normal superscript,
+/// so you can use a set rule on the [`super`] function to customize it. You can
+/// also apply a show rule to customize only the footnote marker (superscript
+/// number) in the running text.
 ///
 /// # Example
 /// ```example

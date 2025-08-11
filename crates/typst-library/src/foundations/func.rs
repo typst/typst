@@ -59,9 +59,9 @@ use crate::foundations::{
 ///
 /// # Function scopes
 /// Functions can hold related definitions in their own scope, similar to a
-/// [module]($scripting/#modules). Examples of this are
-/// [`assert.eq`] or [`list.item`]. However, this
-/// feature is currently only available for built-in functions.
+/// [module]($scripting/#modules). Examples of this are [`assert.eq`] or
+/// [`list.item`]. However, this feature is currently only available for
+/// built-in functions.
 ///
 /// # Defining functions
 /// You can define your own function with a [let binding]($scripting/#bindings)
