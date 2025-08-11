@@ -15,9 +15,9 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Destination, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteEntry,
-    HeadingElem, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, StrongElem,
-    TableCell, TableElem, TermsElem,
+    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteEntry, HeadingElem, ListElem,
+    Outlinable, OutlineEntry, ParElem, QuoteElem, StrongElem, TableCell, TableElem,
+    TermsElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
@@ -526,8 +526,8 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
             let alt = link.alt.as_ref().map(EcoString::to_string);
             let tag = Tag::Link.with_alt_text(alt);
             let mut node = TagNode::group(tag, contents);
-            // Wrap link in reference tag, if it's not a url.
-            if let Destination::Position(_) | Destination::Location(_) = link.dest {
+            // Wrap link in reference tag if inside an outline entry.
+            if gc.tags.stack.parent_outline_entry().is_some() {
                 node = TagNode::virtual_group(Tag::Reference, vec![node]);
             }
             node

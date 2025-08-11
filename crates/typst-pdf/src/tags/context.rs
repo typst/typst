@@ -287,6 +287,10 @@ impl TagStack {
         })
     }
 
+    pub fn parent_outline_entry(&mut self) -> Option<&mut OutlineEntry> {
+        self.parent()?.as_outline_entry_mut()
+    }
+
     pub fn find_parent_link(
         &mut self,
     ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
@@ -371,6 +375,10 @@ pub enum StackEntryKind {
 impl StackEntryKind {
     pub fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
         if let Self::Outline(v) = self { Some(v) } else { None }
+    }
+
+    pub fn as_outline_entry_mut(&mut self) -> Option<&mut OutlineEntry> {
+        if let Self::OutlineEntry(v) = self { Some(v) } else { None }
     }
 
     pub fn as_table_mut(&mut self) -> Option<&mut GridCtx<TableData>> {
