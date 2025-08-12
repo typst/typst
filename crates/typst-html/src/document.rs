@@ -17,7 +17,7 @@ use typst_library::text::SmartQuoter;
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, tag};
+use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -72,10 +72,7 @@ fn html_document_impl(
     let arenas = Arenas::default();
     let mut info = DocumentInfo::default();
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument {
-            info: &mut info,
-            is_inline: crate::convert::is_inline,
-        },
+        RealizationKind::HtmlDocument { info: &mut info, is_inline: HtmlElem::is_inline },
         &mut engine,
         &mut locator,
         &arenas,
