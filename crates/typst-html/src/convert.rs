@@ -89,7 +89,7 @@ fn handle(
             let quote = quoter.quote(before, &quotes, double);
             output.push(HtmlNode::text(quote, child.span()));
         } else {
-            output.push(HtmlNode::text(if double { '"' } else { '\'' }, child.span()));
+            output.push(HtmlNode::text(SmartQuotes::fallback(double), child.span()));
         }
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = locator.next(&elem.span());
