@@ -1,21 +1,17 @@
 - Tag: P
   /K:
     - Content: page=0 mcid=0
-    - Tag: Reference
+    - Tag: Link
+      /Alt: "Figure I"
       /K:
-        - Tag: Link
-          /Alt: "Figure I"
-          /K:
-            - Content: page=0 mcid=1
-            - Annotation: page=0 index=0
+        - Content: page=0 mcid=1
+        - Annotation: page=0 index=0
     - Content: page=0 mcid=2
-    - Tag: Reference
+    - Tag: Link
+      /Alt: "Table II"
       /K:
-        - Tag: Link
-          /Alt: "Table II"
-          /K:
-            - Content: page=0 mcid=3
-            - Annotation: page=0 index=1
+        - Content: page=0 mcid=3
+        - Annotation: page=0 index=1
     - Content: page=0 mcid=4
     - Content: page=0 mcid=5
 - Tag: NonStruct

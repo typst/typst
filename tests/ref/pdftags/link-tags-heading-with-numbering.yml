@@ -5,12 +5,10 @@
       /K:
         - Content: page=0 mcid=0
     - Content: page=0 mcid=1
-- Tag: Reference
+- Tag: Link
+  /Alt: "Section 1"
   /K:
-    - Tag: Link
-      /Alt: "Section 1"
+    - Annotation: page=0 index=0
+    - Tag: P
       /K:
-        - Annotation: page=0 index=0
-        - Tag: P
-          /K:
-            - Content: page=0 mcid=2
+        - Content: page=0 mcid=2

@@ -1,12 +1,10 @@
 - Tag: P
   /K:
     - Content: page=0 mcid=0
-- Tag: Reference
+- Tag: Link
+  /Alt: "page 1"
   /K:
-    - Tag: Link
-      /Alt: "page 1"
+    - Annotation: page=0 index=0
+    - Tag: P
       /K:
-        - Annotation: page=0 index=0
-        - Tag: P
-          /K:
-            - Content: page=0 mcid=1
+        - Content: page=0 mcid=1
