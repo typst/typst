@@ -83,9 +83,9 @@ equivalents. You can also check out the [full syntax cheat sheet]($syntax).
 | Label                  | `\label{intro}`           | `[<intro>]`            | [`label`]  |
 | Reference              | `\ref{intro}`             | `[@intro]`             | [`ref`]    |
 | Citation               | `\cite{humphrey97}`       | `[@humphrey97]`        | [`cite`]   |
-| Verbatim / code        | `\verb|print(f"{x}")|`, `verbatim` / `listing` environments | ``[`print(f"{x}")`]`` | [`raw`] |
-| Monospace / typewriter | `\texttt{mono}` | ``[`mono`]`` or `text` function | [`raw`], [`text`] |
-| Verbatim               | `verbatim` environment    | ``[`#typst-code()`]``  | [`raw`]    |
+| Monospace (typewriter) | `\texttt{mono}` | `text` or `mono` functions | [`text`], [`mono`]($math.mono) |
+| Code                   | `lstlisting` environment  | ``[`print(f"{x}")`]``  | [`raw`]  |
+| Verbatim               | `verbatim` environment    | ``[`#typst-code()`]``  | [`raw`]  |
 | Bullet list            | `itemize` environment     | `[- List]`             | [`list`]   |
 | Numbered list          | `enumerate` environment   | `[+ List]`             | [`enum`]   |
 | Term list              | `description` environment | `[/ Term: List]`       | [`terms`]  |
