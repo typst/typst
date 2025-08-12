@@ -190,7 +190,7 @@ fn handle_html_elem(
         attrs: elem.attrs.get_cloned(styles),
         children,
         span: elem.span(),
-        pre_wrap: false,
+        pre_span: false,
     });
 
     Ok(())
@@ -401,7 +401,7 @@ impl<'a> Protector<'a> {
                 HtmlNode::Element(element) => {
                     if tag::is_block_by_default(element.tag) || element.tag == tag::br {
                         self.collapsing();
-                    } else if !element.pre_wrap {
+                    } else if !element.pre_span {
                         // Recursively visit the children of inline-level
                         // elements while making sure to not revisit pre-wrapped
                         // spans that we've generated ourselves.
@@ -442,7 +442,7 @@ fn pre_wrap(nodes: EcoVec<HtmlNode>) -> HtmlElement {
         .with_styles(css::Properties::new().with("white-space", "pre-wrap"))
         .with_children(nodes)
         .spanned(span);
-    elem.pre_wrap = true;
+    elem.pre_span = true;
     elem
 }
 
