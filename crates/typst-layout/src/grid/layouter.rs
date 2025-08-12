@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
 };
@@ -23,9 +24,11 @@ use super::{
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The grid of cells.
-    pub(super) grid: &'a CellGrid<'a>,
+    pub(super) grid: &'a CellGrid,
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
+    /// The locator for the grid.
+    pub(super) locator: Locator<'a>,
     /// The inherited styles.
     pub(super) styles: StyleChain<'a>,
     /// Resolved column sizes.
@@ -228,8 +231,9 @@ impl<'a> GridLayouter<'a> {
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
-        grid: &'a CellGrid<'a>,
+        grid: &'a CellGrid,
         regions: Regions<'a>,
+        locator: Locator<'a>,
         styles: StyleChain<'a>,
         span: Span,
     ) -> Self {
@@ -241,6 +245,7 @@ impl<'a> GridLayouter<'a> {
         Self {
             grid,
             regions,
+            locator,
             styles,
             rcols: vec![Abs::zero(); grid.cols.len()],
             width: Abs::zero(),
@@ -268,6 +273,18 @@ impl<'a> GridLayouter<'a> {
             },
             span,
         }
+    }
+
+    pub(super) fn cell_locator(
+        &self,
+        pos: Axes<usize>,
+        disambiguator: usize,
+    ) -> Locator<'a> {
+        let mut locator = self.locator.relayout().split().next(&pos);
+        if disambiguator > 0 {
+            locator = locator.split().next_inner(disambiguator as u128);
+        }
+        locator
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
@@ -1037,8 +1054,9 @@ impl<'a> GridLayouter<'a> {
 
                 let size = Size::new(available, height);
                 let pod = Region::new(size, Axes::splat(false));
-                let frame =
-                    layout_cell(cell, engine, 0, self.styles, pod.into())?.into_frame();
+                let locator = self.cell_locator(parent, 0);
+                let frame = layout_cell(cell, engine, locator, self.styles, pod.into())?
+                    .into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -1276,8 +1294,9 @@ impl<'a> GridLayouter<'a> {
                 pod
             };
 
+            let locator = self.cell_locator(parent, disambiguator);
             let frames =
-                layout_cell(cell, engine, disambiguator, self.styles, pod)?.into_frames();
+                layout_cell(cell, engine, locator, self.styles, pod)?.into_frames();
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
@@ -1434,9 +1453,9 @@ impl<'a> GridLayouter<'a> {
                         // rows.
                         pod.full = self.regions.full;
                     }
-                    let frame =
-                        layout_cell(cell, engine, disambiguator, self.styles, pod)?
-                            .into_frame();
+                    let locator = self.cell_locator(Axes::new(x, y), disambiguator);
+                    let frame = layout_cell(cell, engine, locator, self.styles, pod)?
+                        .into_frame();
                     let mut pos = offset;
                     if self.is_rtl {
                         // In RTL cells expand to the left, thus the position
@@ -1483,8 +1502,8 @@ impl<'a> GridLayouter<'a> {
                     pod.size.x = width;
 
                     // Push the layouted frames into the individual output frames.
-                    let fragment =
-                        layout_cell(cell, engine, disambiguator, self.styles, pod)?;
+                    let locator = self.cell_locator(Axes::new(x, y), disambiguator);
+                    let fragment = layout_cell(cell, engine, locator, self.styles, pod)?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = offset;
                         if self.is_rtl {

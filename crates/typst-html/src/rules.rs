@@ -5,7 +5,7 @@ use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
-use typst_library::introspection::{Counter, Locator};
+use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
 use typst_library::layout::{BlockBody, BlockElem, BoxElem, OuterVAlignment, Sizing};
 use typst_library::model::{
@@ -278,9 +278,7 @@ const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, st
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
-    // The locator is not used by HTML export, so we can just fabricate one.
-    let locator = Locator::root();
-    Ok(show_cellgrid(table_to_cellgrid(elem, engine, locator, styles)?, styles))
+    Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
 };
 
 fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
