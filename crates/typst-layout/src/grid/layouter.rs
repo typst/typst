@@ -275,16 +275,23 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
+    /// Create a [`Locator`] for use in [`layout_cell`].
     pub(super) fn cell_locator(
         &self,
         pos: Axes<usize>,
         disambiguator: usize,
     ) -> Locator<'a> {
-        let mut locator = self.locator.relayout().split().next(&pos);
+        // This key is unique for each cell position, so the split locator can
+        // be side-stepped.
+        let key = ((pos.x as u128) << 64) | (pos.y as u128);
+        let mut cell_locator = self.locator.relayout().split().next_inner(key);
+
+        // The disambiguator is used for repeated cells, e.g. in repeated headers.
         if disambiguator > 0 {
-            locator = locator.split().next_inner(disambiguator as u128);
+            cell_locator = cell_locator.split().next_inner(disambiguator as u128);
         }
-        locator
+
+        cell_locator
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
