@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body>
+    <h2>Single spaces</h2>
+    <p>A B</p>
+    <p>A B</p>
+    <p><span>A</span> B</p>
+    <p>A<span style="white-space: pre-wrap"> </span><span></span> B</p>
+    <p>A<span style="white-space: pre-wrap">  </span>B</p>
+    <p><span>A </span>B</p>
+    <h2>Consecutive whitespace</h2>
+    <p>A<span style="white-space: pre-wrap">  </span>B<span style="white-space: pre-wrap">   </span>C</p>
+    <p>A<span style="white-space: pre-wrap">  </span>B<span style="white-space: pre-wrap">   </span>C</p>
+    <p><span>A<span style="white-space: pre-wrap"> </span></span> B</p>
+    <p><span>A </span><span style="white-space: pre-wrap">  </span>B</p>
+    <p><span>A<span style="white-space: pre-wrap">  </span></span> B</p>
+    <p><span>A<span style="white-space: pre-wrap">  </span></span><span style="white-space: pre-wrap">  </span>B</p>
+    <p>A<span style="white-space: pre-wrap">  </span><span></span><span style="white-space: pre-wrap">  </span>B</p>
+    <p>A<span style="white-space: pre-wrap">   </span>B</p>
+    <h2>Leading whitespace</h2>
+    <p><span style="white-space: pre-wrap"> </span>A</p>
+    <p><span><span style="white-space: pre-wrap"> </span></span>A</p>
+    <p><span></span><span style="white-space: pre-wrap"> </span>A</p>
+    <h2>Trailing whitespace</h2>
+    <p>A<span style="white-space: pre-wrap"> </span></p>
+    <p><span>A<span style="white-space: pre-wrap"> </span></span></p>
+    <p><span>A<span style="white-space: pre-wrap"> </span></span><span></span></p>
+    <h2>Tabs</h2>
+    <p>A<span style="white-space: pre-wrap">	</span>B</p>
+    <p>A<span style="white-space: pre-wrap">	</span>B</p>
+    <p>A<span style="white-space: pre-wrap"> 	 </span>B</p>
+    <h2>Newlines</h2>
+    <p>A<br>B</p>
+    <p>A<br>B</p>
+    <p>A<span style="white-space: pre-wrap"> </span><br><span style="white-space: pre-wrap"> </span>B</p>
+    <p>A<span style="white-space: pre-wrap"> </span><br><span style="white-space: pre-wrap"> </span>B</p>
+    <p>A<span style="white-space: pre-wrap"> </span><span><br></span><span style="white-space: pre-wrap"> </span>B</p>
+    <h2>With default ignorables</h2>
+    <p>A<span style="white-space: pre-wrap"> </span>‍ B</p>
+    <p>A<span style="white-space: pre-wrap">  </span>‍<span style="white-space: pre-wrap">  </span>B</p>
+    <h2>Everything</h2>
+    <p><span><span style="white-space: pre-wrap">  </span>A<span style="white-space: pre-wrap"> </span></span><br><span style="white-space: pre-wrap">	</span>B<span style="white-space: pre-wrap"> </span><span></span></p>
+    <h2>Special</h2>
+    <textarea>A  B</textarea>
+    <pre>A  B</pre>
+  </body>
+</html>

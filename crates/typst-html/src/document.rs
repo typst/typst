@@ -13,10 +13,10 @@ use typst_library::introspection::{
 use typst_library::layout::{Point, Position, Transform};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, RealizationKind, Routines};
-use typst_library::text::SmartQuoter;
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
+use crate::convert::{ConversionLevel, Whitespace};
 use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
@@ -83,8 +83,9 @@ fn html_document_impl(
     let output = crate::convert::convert_to_nodes(
         &mut engine,
         &mut locator,
-        &mut SmartQuoter::new(),
         children.iter().copied(),
+        ConversionLevel::Block,
+        Whitespace::Normal,
     )?;
 
     let mut link_targets = FxHashSet::default();
