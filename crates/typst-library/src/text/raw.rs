@@ -62,9 +62,30 @@ use crate::World;
 /// #raw("fn " + "main() {}", lang: "rust")
 /// ```
 ///
+/// # Syntax
+/// This function also has dedicated syntax. You can enclose text in 1 or 3+
+/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
+/// This works both in markup and code.
+///
+/// When you use three or more backticks, you can additionally specify a
+/// language tag for syntax highlighting directly after the opening backticks.
+/// Within raw blocks, everything (except for the language tag, if applicable)
+/// is rendered as is, in particular, there are no escape sequences.
+///
+/// The language tag is an identifier that directly follows the opening
+/// backticks only if there are three or more backticks. If your text starts
+/// with something that looks like an identifier, but no syntax highlighting is
+/// needed, start the text with a single space (which will be trimmed) or use
+/// the single backtick syntax. If your text should start or end with a
+/// backtick, put a space before or after it (it will be trimmed).
+///
+/// If no syntax highlighting is available by default for your specified
+/// language tag, you may provide a custom syntax specification file to the
+/// [`syntaxes`]($raw.syntaxes) field.
+///
 /// # Styling
-/// By default, the `raw` element uses the `DejaVu Sans Mono` font, available
-/// by default in Typst, with a smaller font size of `0.8em` (that is, 80% of
+/// By default, the `raw` element uses the `DejaVu Sans Mono` font (included
+/// with Typst), with a smaller font size of `{0.8em}` (that is, 80% of
 /// the global font size). This is because monospace fonts tend to be visually
 /// larger than non-monospace fonts.
 ///
@@ -93,27 +114,6 @@ use crate::World;
 ///
 /// For complete customization of the appearance of a raw block, a show rule
 /// on [`raw.line`]($raw.line) could be helpful, such as to add line numbers.
-///
-/// # Syntax
-/// This function also has dedicated syntax. You can enclose text in 1 or 3+
-/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
-/// This works both in markup and code.
-///
-/// When you use three or more backticks, you can additionally specify a
-/// language tag for syntax highlighting directly after the opening backticks.
-/// Within raw blocks, everything (except for the language tag, if applicable)
-/// is rendered as is, in particular, there are no escape sequences.
-///
-/// The language tag is an identifier that directly follows the opening
-/// backticks only if there are three or more backticks. If your text starts
-/// with something that looks like an identifier, but no syntax highlighting is
-/// needed, start the text with a single space (which will be trimmed) or use
-/// the single backtick syntax. If your text should start or end with a
-/// backtick, put a space before or after it (it will be trimmed).
-///
-/// If no syntax highlighting is available by default for your specified
-/// language tag, you may provide a custom syntax specification file to the
-/// [`syntaxes`]($raw.syntaxes) field.
 #[elem(
     scope,
     title = "Raw Text / Code",
