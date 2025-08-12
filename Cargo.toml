@@ -94,6 +94,7 @@ phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.6"
 png = "0.17"
 portable-atomic = "1.6"
+pretty_assertions = "1.4.1"
 proc-macro2 = "1"
 pulldown-cmark = "0.9"
 qcms = "0.3.0"

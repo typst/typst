@@ -6,3 +6,4 @@ heading = Peatükk
 outline = Sisukord
 raw = List
 page = lk.
+# footnote =
