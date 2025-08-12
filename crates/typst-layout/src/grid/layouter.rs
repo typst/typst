@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 
+use rustc_hash::FxHashMap;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
@@ -30,7 +30,7 @@ pub struct GridLayouter<'a> {
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
     /// The locators for the each cell in the cell grid.
-    pub(super) cell_locators: HashMap<Axes<usize>, Locator<'a>>,
+    pub(super) cell_locators: FxHashMap<Axes<usize>, Locator<'a>>,
     /// The inherited styles.
     pub(super) styles: StyleChain<'a>,
     /// Resolved column sizes.
@@ -246,7 +246,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare the locators for each cell in the cell grid.
         let mut locator = locator.split();
-        let mut cell_locators = HashMap::new();
+        let mut cell_locators = FxHashMap::default();
         for y in 0..grid.rows.len() {
             for x in 0..grid.cols.len() {
                 let Some(Entry::Cell(cell)) = grid.entry(x, y) else {
