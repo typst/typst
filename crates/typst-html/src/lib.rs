@@ -97,6 +97,12 @@ impl HtmlElem {
             self
         }
     }
+
+    /// Checks whether the given element is an inline-level HTML element.
+    fn is_inline(elem: &Content) -> bool {
+        elem.to_packed::<HtmlElem>()
+            .is_some_and(|elem| tag::is_inline_by_default(elem.tag))
+    }
 }
 
 /// An element that lays out its content as an inline SVG.
