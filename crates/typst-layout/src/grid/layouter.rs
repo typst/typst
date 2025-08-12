@@ -29,7 +29,7 @@ pub struct GridLayouter<'a> {
     pub(super) grid: &'a CellGrid,
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
-    /// The locator for the grid.
+    /// The locators for the each cell in the cell grid.
     pub(super) cell_locators: HashMap<Axes<usize>, Locator<'a>>,
     /// The inherited styles.
     pub(super) styles: StyleChain<'a>,
