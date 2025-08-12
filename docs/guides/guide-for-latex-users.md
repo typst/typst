@@ -123,15 +123,19 @@ To get a [numbered list]($enum) (`enumerate`) instead, use a `+` instead of the
 hyphen. For a [term list]($terms) (`description`), write `[/ Term: Description]`
 instead.
 
-Regarding the usage of monospace fonts (also known as "typewriter" font style
-in LaTeX), it should be noted that using [`raw`] such as in
-``[`monospace`]`` (where you'd use `\texttt{monospace}` in LaTeX) works for
-most cases where you only have simple text. If you need to use formatting, such
-as in `\texttt{monospace \textbf{bold}}`, you will need to replicate its look by
-switch to changing the text font to a monospace font with
-`#text(font: "DejaVu Sans Mono", size: 0.8em)[monospace *bold*]`, for example,
-since `raw` only supports verbatim (unformatted) text. See its documentation
-for more details.
+Regarding monospaced fonts (or "typewriter" style in LaTeX), the [`raw`]
+function treats all input as verbatim and thus does not support formatting
+such as bold or italics within, unlike `\texttt{monospace}` in LaTeX, which
+does. To replicate only the look of [`raw`] within markup, use the
+[`text`]($text) function with a monospaced font. When in math mode, use the
+provided [`mono`]($math.mono) function. The default font family and size for
+[`raw`] can be found on its reference page.
+
+For example, the LaTeX text snippet `\texttt{monospace \textbf{made bold}}`
+could be replicated as follows with Typst:
+```typst
+#text(font: "DejaVu Sans Mono", size: 0.8em)[monospace *made bold*]
+```
 
 ## How do I use a command? { #commands }
 LaTeX heavily relies on commands (prefixed by backslashes). It uses these
