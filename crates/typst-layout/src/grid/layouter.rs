@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use typst_library::diag::{SourceResult, bail};
@@ -7,6 +8,7 @@ use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
 };
+use typst_library::layout::resolve::Entry;
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,
@@ -28,7 +30,7 @@ pub struct GridLayouter<'a> {
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
     /// The locator for the grid.
-    pub(super) locator: Locator<'a>,
+    pub(super) cell_locators: HashMap<Axes<usize>, Locator<'a>>,
     /// The inherited styles.
     pub(super) styles: StyleChain<'a>,
     /// Resolved column sizes.
@@ -242,10 +244,22 @@ impl<'a> GridLayouter<'a> {
         let mut regions = regions;
         regions.expand = Axes::new(true, false);
 
+        // Prepare the locators for each cell in the cell grid.
+        let mut locator = locator.split();
+        let mut cell_locators = HashMap::new();
+        for y in 0..grid.rows.len() {
+            for x in 0..grid.cols.len() {
+                let Some(Entry::Cell(cell)) = grid.entry(x, y) else {
+                    continue;
+                };
+                cell_locators.insert(Axes::new(x, y), locator.next(&cell.body.span()));
+            }
+        }
+
         Self {
             grid,
             regions,
-            locator,
+            cell_locators,
             styles,
             rcols: vec![Abs::zero(); grid.cols.len()],
             width: Abs::zero(),
@@ -281,10 +295,7 @@ impl<'a> GridLayouter<'a> {
         pos: Axes<usize>,
         disambiguator: usize,
     ) -> Locator<'a> {
-        // This key is unique for each cell position, so the split locator can
-        // be side-stepped.
-        let key = ((pos.x as u128) << 64) | (pos.y as u128);
-        let mut cell_locator = self.locator.relayout().split().next_inner(key);
+        let mut cell_locator = self.cell_locators[&pos].relayout();
 
         // The disambiguator is used for repeated cells, e.g. in repeated headers.
         if disambiguator > 0 {
