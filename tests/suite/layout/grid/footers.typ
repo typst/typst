@@ -105,7 +105,7 @@
   grid.cell(x: 1, y: 3, rowspan: 4)[b],
   grid.cell(y: 2, rowspan: 2)[a],
   grid.footer(),
-  // Error: 3-27 cell would conflict with footer spanning the same position
+  // Error: 3-27 cell would conflict with footer also spanning row 7
   // Hint: 3-27 try reducing the cell's rowspan or moving the footer
   grid.cell(x: 1, y: 7)[d],
 )
@@ -120,7 +120,7 @@
   grid.cell(x: 1, y: 3, rowspan: 4)[b],
   grid.cell(y: 2, rowspan: 2)[a],
   grid.footer(),
-  // Error: 3-33 cell would conflict with footer spanning the same position
+  // Error: 3-33 cell would conflict with footer also spanning row 7
   // Hint: 3-33 try reducing the cell's rowspan or moving the footer
   grid.cell(y: 6, rowspan: 2)[d],
 )
@@ -160,9 +160,18 @@
   columns: 2,
   grid.header(),
   grid.footer(grid.cell(y: 2)[a]),
-  // Error: 3-39 cell would conflict with footer spanning the same position
+  // Error: 3-39 cell would conflict with footer also spanning row 2
   // Hint: 3-39 try reducing the cell's rowspan or moving the footer
   grid.cell(x: 1, y: 1, rowspan: 2)[a],
+)
+
+--- grid-footer-rowbreak-line ---
+#grid(
+  columns: 1,
+  [a],
+  grid.hline(stroke: red),
+  grid.footer([b]),
+  grid.hline(stroke: 3pt),
 )
 
 --- grid-footer-multiple ---
@@ -569,4 +578,12 @@
     [A], table.cell(x: 1)[B], [C],
     table.cell(x: 1)[D],
   ),
+)
+
+--- issue-6666-auto-hlines-around-footer ---
+#table(
+	columns: 2,
+	table.hline(stroke: 2pt + blue),
+	table.footer([*foo*], [*bar*]),
+	table.hline(stroke: 8pt),
 )

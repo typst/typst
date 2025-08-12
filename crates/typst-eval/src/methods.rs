@@ -1,5 +1,6 @@
 //! Handles special built-in methods on values.
 
+use ecow::{EcoString, eco_format};
 use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Args, Str, Type, Value};
 use typst_syntax::Span;
@@ -86,6 +87,6 @@ pub(crate) fn call_method_access<'a>(
 
 /// The missing method error message.
 #[cold]
-fn missing_method(ty: Type, method: &str) -> String {
-    format!("type {ty} has no method `{method}`")
+fn missing_method(ty: Type, method: &str) -> EcoString {
+    eco_format!("type {ty} has no method `{method}`")
 }

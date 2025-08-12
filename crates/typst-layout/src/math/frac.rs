@@ -1,13 +1,13 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{Em, Frame, FrameItem, Point, Size};
-use typst_library::math::{BinomElem, FracElem};
+use typst_library::math::{BinomElem, EquationElem, FracElem, MathSize};
 use typst_library::text::TextElem;
 use typst_library::visualize::{FixedStroke, Geometry};
 use typst_syntax::Span;
 
 use super::{
-    DELIM_SHORT_FALL, FrameFragment, GlyphFragment, MathContext, style_for_denominator,
+    DELIM_SHORT_FALL, FrameFragment, MathContext, style_for_denominator,
     style_for_numerator,
 };
 
@@ -49,29 +49,30 @@ fn layout_frac_like(
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let short_fall = DELIM_SHORT_FALL.resolve(styles);
-    let axis = scaled!(ctx, styles, axis_height);
-    let thickness = scaled!(ctx, styles, fraction_rule_thickness);
-    let shift_up = scaled!(
-        ctx, styles,
-        text: fraction_numerator_shift_up,
-        display: fraction_numerator_display_style_shift_up,
-    );
-    let shift_down = scaled!(
-        ctx, styles,
-        text: fraction_denominator_shift_down,
-        display: fraction_denominator_display_style_shift_down,
-    );
-    let num_min = scaled!(
-        ctx, styles,
-        text: fraction_numerator_gap_min,
-        display: fraction_num_display_style_gap_min,
-    );
-    let denom_min = scaled!(
-        ctx, styles,
-        text: fraction_denominator_gap_min,
-        display: fraction_denom_display_style_gap_min,
-    );
+    let constants = ctx.font().math();
+    let axis = constants.axis_height.resolve(styles);
+    let thickness = constants.fraction_rule_thickness.resolve(styles);
+    let size = styles.get(EquationElem::size);
+    let shift_up = match size {
+        MathSize::Display => constants.fraction_numerator_display_style_shift_up,
+        _ => constants.fraction_numerator_shift_up,
+    }
+    .resolve(styles);
+    let shift_down = match size {
+        MathSize::Display => constants.fraction_denominator_display_style_shift_down,
+        _ => constants.fraction_denominator_shift_down,
+    }
+    .resolve(styles);
+    let num_min = match size {
+        MathSize::Display => constants.fraction_num_display_style_gap_min,
+        _ => constants.fraction_numerator_gap_min,
+    }
+    .resolve(styles);
+    let denom_min = match size {
+        MathSize::Display => constants.fraction_denom_display_style_gap_min,
+        _ => constants.fraction_denominator_gap_min,
+    }
+    .resolve(styles);
 
     let num_style = style_for_numerator(styles);
     let num = ctx.layout_into_frame(num, styles.chain(&num_style))?;
@@ -82,7 +83,7 @@ fn layout_frac_like(
             // Add a comma between each element.
             denom
                 .iter()
-                .flat_map(|a| [SymbolElem::packed(','), a.clone()])
+                .flat_map(|a| [SymbolElem::packed(',').spanned(span), a.clone()])
                 .skip(1),
         ),
         styles.chain(&denom_style),
@@ -109,12 +110,18 @@ fn layout_frac_like(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        let mut left = GlyphFragment::new_char(ctx.font, styles, '(', span)?;
+        let short_fall = DELIM_SHORT_FALL.resolve(styles);
+
+        let mut left =
+            ctx.layout_into_fragment(&SymbolElem::packed('(').spanned(span), styles)?;
         left.stretch_vertical(ctx, height - short_fall);
         left.center_on_axis();
         ctx.push(left);
+
         ctx.push(FrameFragment::new(styles, frame));
-        let mut right = GlyphFragment::new_char(ctx.font, styles, ')', span)?;
+
+        let mut right =
+            ctx.layout_into_fragment(&SymbolElem::packed(')').spanned(span), styles)?;
         right.stretch_vertical(ctx, height - short_fall);
         right.center_on_axis();
         ctx.push(right);

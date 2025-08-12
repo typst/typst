@@ -60,7 +60,7 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
 ///
 /// Typst supports:
 /// - sRGB through the [`rgb` function]($color.rgb)
-/// - Device CMYK through [`cmyk` function]($color.cmyk)
+/// - Device CMYK through the [`cmyk` function]($color.cmyk)
 /// - D65 Gray through the [`luma` function]($color.luma)
 /// - Oklab through the [`oklab` function]($color.oklab)
 /// - Oklch through the [`oklch` function]($color.oklch)
