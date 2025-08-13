@@ -89,7 +89,7 @@ fn handle(
             let quote = quoter.quote(before, &quotes, double);
             output.push(HtmlNode::text(quote, child.span()));
         } else {
-            output.push(HtmlNode::text(if double { '"' } else { '\'' }, child.span()));
+            output.push(HtmlNode::text(SmartQuotes::fallback(double), child.span()));
         }
     } else if let Some(elem) = child.to_packed::<FrameElem>() {
         let locator = locator.next(&elem.span());
@@ -124,10 +124,4 @@ fn last_char(nodes: &[HtmlNode]) -> Option<char> {
         }
     }
     None
-}
-
-/// Checks whether the given element is an inline-level HTML element.
-pub fn is_inline(elem: &Content) -> bool {
-    elem.to_packed::<HtmlElem>()
-        .is_some_and(|elem| tag::is_inline_by_default(elem.tag))
 }
