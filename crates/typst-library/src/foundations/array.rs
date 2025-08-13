@@ -828,11 +828,12 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
-        /// If given, applies this function to the elements in the array to
+        /// If given, applies this function to each element in the array to
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
-        /// If given, uses this function to compare elements in the array.
+        /// If given, uses this function to compare every two elements in the
+        /// array.
         ///
         /// This function should return a boolean: `{true}` indicates that the
         /// elements are in order, while `{false}` indicates that they should be
@@ -975,8 +976,12 @@ impl Array {
         self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        /// If given, applies this function to the elements in the array to
+        /// If given, applies this function to each element in the array to
         /// determine the keys to deduplicate by.
+        ///
+        /// ```example
+        /// #("apple", "banana", " apple ").dedup(key: s => s.trim())
+        /// ```
         #[named]
         key: Option<Func>,
     ) -> SourceResult<Array> {
