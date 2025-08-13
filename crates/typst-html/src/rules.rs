@@ -428,20 +428,16 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
-    let mut inline = css::Properties::new();
-    let block = elem.block.get(styles);
-    if !block {
-        // Without the `<pre>` tag, whitespace would be collapsed by default.
-        inline.push("white-space", "pre-wrap");
-    }
-
     let code = HtmlElem::new(tag::code)
-        .with_styles(inline)
         .with_body(Some(Content::sequence(seq)))
         .pack()
         .spanned(elem.span());
 
-    Ok(if block { HtmlElem::new(tag::pre).with_body(Some(code)).pack() } else { code })
+    Ok(if elem.block.get(styles) {
+        HtmlElem::new(tag::pre).with_body(Some(code)).pack()
+    } else {
+        code
+    })
 };
 
 /// This is used by `RawElem::synthesize` through a routine.
