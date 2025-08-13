@@ -299,7 +299,7 @@ fn compute_post_script_widths(
     (tr_shift, br_shift): (Abs, Abs),
     space_after_post_script: Abs,
 ) -> ((Abs, Abs), (Abs, Abs)) {
-    let tr_values = tr.map_or_default(|tr| {
+    let tr_values = OptionExt::map_or_default(tr, |tr| {
         let kern = math_kern(base, tr, tr_shift, Corner::TopRight);
         (space_after_post_script + tr.width() + kern, kern)
     });
@@ -307,7 +307,7 @@ fn compute_post_script_widths(
     // The base's bounding box already accounts for its italic correction, so we
     // need to shift the post-subscript left by the base's italic correction
     // (see the kerning algorithm as described in the OpenType MATH spec).
-    let br_values = br.map_or_default(|br| {
+    let br_values = OptionExt::map_or_default(br, |br| {
         let kern = math_kern(base, br, br_shift, Corner::BottomRight)
             - base.italics_correction();
         (space_after_post_script + br.width() + kern, kern)
@@ -328,12 +328,12 @@ fn compute_pre_script_widths(
     (tl_shift, bl_shift): (Abs, Abs),
     space_before_pre_script: Abs,
 ) -> (Abs, Abs) {
-    let tl_pre_width = tl.map_or_default(|tl| {
+    let tl_pre_width = OptionExt::map_or_default(tl, |tl| {
         let kern = math_kern(base, tl, tl_shift, Corner::TopLeft);
         space_before_pre_script + tl.width() + kern
     });
 
-    let bl_pre_width = bl.map_or_default(|bl| {
+    let bl_pre_width = OptionExt::map_or_default(bl, |bl| {
         let kern = math_kern(base, bl, bl_shift, Corner::BottomLeft);
         space_before_pre_script + bl.width() + kern
     });
@@ -356,12 +356,12 @@ fn compute_limit_widths(
     // center by half the base's italic correction.
     let delta = base.italics_correction() / 2.0;
 
-    let t_widths = t.map_or_default(|t| {
+    let t_widths = OptionExt::map_or_default(t, |t| {
         let half = (t.width() - base.width()) / 2.0;
         (half - delta, half + delta)
     });
 
-    let b_widths = b.map_or_default(|b| {
+    let b_widths = OptionExt::map_or_default(b, |b| {
         let half = (b.width() - base.width()) / 2.0;
         (half + delta, half - delta)
     });
@@ -382,13 +382,13 @@ fn compute_limit_shifts(
     // ascender of the limits respectively, whereas `upper_rise_min` and
     // `lower_drop_min` give gaps to each limit's baseline (see the
     // MathConstants table in the OpenType MATH spec).
-    let t_shift = t.map_or_default(|t| {
+    let t_shift = OptionExt::map_or_default(t, |t| {
         let upper_gap_min = font.math().upper_limit_gap_min.at(font_size);
         let upper_rise_min = font.math().upper_limit_baseline_rise_min.at(font_size);
         base.ascent() + upper_rise_min.max(upper_gap_min + t.descent())
     });
 
-    let b_shift = b.map_or_default(|b| {
+    let b_shift = OptionExt::map_or_default(b, |b| {
         let lower_gap_min = font.math().lower_limit_gap_min.at(font_size);
         let lower_drop_min = font.math().lower_limit_baseline_drop_min.at(font_size);
         base.descent() + lower_drop_min.max(lower_gap_min + b.ascent())
