@@ -9,7 +9,6 @@ use typst_library::diag::{
 };
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Fold, Packed, Smart, StyleChain};
-use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Alignment, Axes, Celled, GridCell, GridChild, GridElem, GridItem, Length,
     OuterHAlignment, OuterVAlignment, Rel, ResolvedCelled, Sides, Sizing,
@@ -21,16 +20,13 @@ use typst_library::visualize::{Paint, Stroke};
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, SmallBitSet};
 
-use crate::introspection::SplitLocator;
-
 /// Convert a grid to a cell grid.
 #[typst_macros::time(span = elem.span())]
-pub fn grid_to_cellgrid<'a>(
+pub fn grid_to_cellgrid(
     elem: &Packed<GridElem>,
     engine: &mut Engine,
-    locator: Locator<'a>,
     styles: StyleChain,
-) -> SourceResult<CellGrid<'a>> {
+) -> SourceResult<CellGrid> {
     let inset = elem.inset.get_cloned(styles);
     let align = elem.align.get_ref(styles);
     let columns = elem.columns.get_ref(styles);
@@ -64,7 +60,6 @@ pub fn grid_to_cellgrid<'a>(
     resolve_cellgrid(
         tracks,
         gutter,
-        locator,
         children,
         fill,
         align,
@@ -79,12 +74,11 @@ pub fn grid_to_cellgrid<'a>(
 
 /// Convert a table to a cell grid.
 #[typst_macros::time(span = elem.span())]
-pub fn table_to_cellgrid<'a>(
+pub fn table_to_cellgrid(
     elem: &Packed<TableElem>,
     engine: &mut Engine,
-    locator: Locator<'a>,
     styles: StyleChain,
-) -> SourceResult<CellGrid<'a>> {
+) -> SourceResult<CellGrid> {
     let inset = elem.inset.get_cloned(styles);
     let align = elem.align.get_ref(styles);
     let columns = elem.columns.get_ref(styles);
@@ -118,7 +112,6 @@ pub fn table_to_cellgrid<'a>(
     resolve_cellgrid(
         tracks,
         gutter,
-        locator,
         children,
         fill,
         align,
@@ -206,7 +199,7 @@ fn table_item_to_resolvable(
 }
 
 impl ResolvableCell for Packed<TableCell> {
-    fn resolve_cell<'a>(
+    fn resolve_cell(
         mut self,
         x: usize,
         y: usize,
@@ -215,9 +208,8 @@ impl ResolvableCell for Packed<TableCell> {
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
-        locator: Locator<'a>,
         styles: StyleChain,
-    ) -> Cell<'a> {
+    ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan.get(styles);
         let rowspan = cell.rowspan.get(styles);
@@ -269,7 +261,6 @@ impl ResolvableCell for Packed<TableCell> {
         cell.breakable.set(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
-            locator,
             fill,
             colspan,
             rowspan,
@@ -301,7 +292,7 @@ impl ResolvableCell for Packed<TableCell> {
 }
 
 impl ResolvableCell for Packed<GridCell> {
-    fn resolve_cell<'a>(
+    fn resolve_cell(
         mut self,
         x: usize,
         y: usize,
@@ -310,9 +301,8 @@ impl ResolvableCell for Packed<GridCell> {
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
-        locator: Locator<'a>,
         styles: StyleChain,
-    ) -> Cell<'a> {
+    ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan.get(styles);
         let rowspan = cell.rowspan.get(styles);
@@ -364,7 +354,6 @@ impl ResolvableCell for Packed<GridCell> {
         cell.breakable.set(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
-            locator,
             fill,
             colspan,
             rowspan,
@@ -507,7 +496,7 @@ pub trait ResolvableCell {
     /// the `breakable` field.
     /// Returns a final Cell.
     #[allow(clippy::too_many_arguments)]
-    fn resolve_cell<'a>(
+    fn resolve_cell(
         self,
         x: usize,
         y: usize,
@@ -516,9 +505,8 @@ pub trait ResolvableCell {
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         breakable: bool,
-        locator: Locator<'a>,
         styles: StyleChain,
-    ) -> Cell<'a>;
+    ) -> Cell;
 
     /// Returns this cell's column override.
     fn x(&self, styles: StyleChain) -> Smart<usize>;
@@ -570,11 +558,9 @@ pub enum ResolvableGridItem<T: ResolvableCell> {
 }
 
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
-pub struct Cell<'a> {
+pub struct Cell {
     /// The cell's body.
     pub body: Content,
-    /// The cell's locator.
-    pub locator: Locator<'a>,
     /// The cell's fill.
     pub fill: Option<Paint>,
     /// The amount of columns spanned by the cell.
@@ -600,12 +586,11 @@ pub struct Cell<'a> {
     pub breakable: bool,
 }
 
-impl<'a> Cell<'a> {
-    /// Create a simple cell given its body and its locator.
-    pub fn new(body: Content, locator: Locator<'a>) -> Self {
+impl Cell {
+    /// Create a simple cell given its body.
+    pub fn new(body: Content) -> Self {
         Self {
             body,
-            locator,
             fill: None,
             colspan: NonZeroUsize::ONE,
             rowspan: NonZeroUsize::ONE,
@@ -629,9 +614,9 @@ pub enum LinePosition {
 }
 
 /// A grid entry.
-pub enum Entry<'a> {
+pub enum Entry {
     /// An entry which holds a cell.
-    Cell(Cell<'a>),
+    Cell(Cell),
     /// An entry which is merged with another cell.
     Merged {
         /// The index of the cell this entry is merged with.
@@ -639,9 +624,9 @@ pub enum Entry<'a> {
     },
 }
 
-impl<'a> Entry<'a> {
+impl Entry {
     /// Obtains the cell inside this entry, if this is not a merged cell.
-    pub fn as_cell(&self) -> Option<&Cell<'a>> {
+    pub fn as_cell(&self) -> Option<&Cell> {
         match self {
             Self::Cell(cell) => Some(cell),
             Self::Merged { .. } => None,
@@ -657,9 +642,9 @@ pub enum ResolvableGridChild<T: ResolvableCell, I> {
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
-pub struct CellGrid<'a> {
+pub struct CellGrid {
     /// The grid cells.
-    pub entries: Vec<Entry<'a>>,
+    pub entries: Vec<Entry>,
     /// The column tracks including gutter tracks.
     pub cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
@@ -680,12 +665,12 @@ pub struct CellGrid<'a> {
     pub has_gutter: bool,
 }
 
-impl<'a> CellGrid<'a> {
+impl CellGrid {
     /// Generates the cell grid, given the tracks and cells.
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: impl IntoIterator<Item = Cell<'a>>,
+        cells: impl IntoIterator<Item = Cell>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
         Self::new_internal(tracks, gutter, vec![], vec![], vec![], None, entries)
@@ -699,7 +684,7 @@ impl<'a> CellGrid<'a> {
         hlines: Vec<Vec<Line>>,
         headers: Vec<Repeatable<Header>>,
         footer: Option<Repeatable<Footer>>,
-        entries: Vec<Entry<'a>>,
+        entries: Vec<Entry>,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -761,7 +746,7 @@ impl<'a> CellGrid<'a> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    pub fn entry(&self, x: usize, y: usize) -> Option<&Entry<'a>> {
+    pub fn entry(&self, x: usize, y: usize) -> Option<&Entry> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
@@ -783,7 +768,7 @@ impl<'a> CellGrid<'a> {
     ///
     /// Returns `None` if it's a gutter cell or merged position.
     #[track_caller]
-    pub fn cell(&self, x: usize, y: usize) -> Option<&Cell<'a>> {
+    pub fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
         self.entry(x, y).and_then(Entry::as_cell)
     }
 
@@ -892,10 +877,9 @@ impl<'a> CellGrid<'a> {
 /// must implement Default in order to fill positions in the grid which
 /// weren't explicitly specified by the user with empty cells.
 #[allow(clippy::too_many_arguments)]
-pub fn resolve_cellgrid<'a, 'x, T, C, I>(
+pub fn resolve_cellgrid<'a, T, C, I>(
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
-    locator: Locator<'x>,
     children: C,
     fill: &'a Celled<Option<Paint>>,
     align: &'a Celled<Smart<Alignment>>,
@@ -904,7 +888,7 @@ pub fn resolve_cellgrid<'a, 'x, T, C, I>(
     engine: &'a mut Engine,
     styles: StyleChain<'a>,
     span: Span,
-) -> SourceResult<CellGrid<'x>>
+) -> SourceResult<CellGrid>
 where
     T: ResolvableCell + Default,
     I: Iterator<Item = ResolvableGridItem<T>>,
@@ -914,7 +898,6 @@ where
     CellGridResolver {
         tracks,
         gutter,
-        locator: locator.split(),
         fill,
         align,
         inset,
@@ -926,10 +909,9 @@ where
     .resolve(children)
 }
 
-struct CellGridResolver<'a, 'b, 'x> {
+struct CellGridResolver<'a, 'b> {
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
-    locator: SplitLocator<'x>,
     fill: &'a Celled<Option<Paint>>,
     align: &'a Celled<Smart<Alignment>>,
     inset: &'a Celled<Sides<Option<Rel<Length>>>>,
@@ -996,8 +978,8 @@ struct RowGroupData {
     top_hlines_end: Option<usize>,
 }
 
-impl<'x> CellGridResolver<'_, '_, 'x> {
-    fn resolve<T, C, I>(mut self, children: C) -> SourceResult<CellGrid<'x>>
+impl CellGridResolver<'_, '_> {
+    fn resolve<T, C, I>(mut self, children: C) -> SourceResult<CellGrid>
     where
         T: ResolvableCell + Default,
         I: Iterator<Item = ResolvableGridItem<T>>,
@@ -1138,7 +1120,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         footer: &mut Option<(usize, Span, Footer)>,
         repeat_footer: &mut bool,
         auto_index: &mut usize,
-        resolved_cells: &mut Vec<Option<Entry<'x>>>,
+        resolved_cells: &mut Vec<Option<Entry>>,
         at_least_one_cell: &mut bool,
         child: ResolvableGridChild<T, I>,
     ) -> SourceResult<()>
@@ -1441,7 +1423,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
-            let cell = self.resolve_cell(cell, x, y, rowspan, cell_span)?;
+            let cell = self.resolve_cell(cell, x, y, rowspan)?;
 
             if largest_index >= resolved_cells.len() {
                 // Ensure the length of the vector of resolved cells is
@@ -1538,14 +1520,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     // and footers without having to loop through them each time.
                     // Cells themselves, unfortunately, still have to.
                     assert!(resolved_cells[*local_auto_index].is_none());
-                    resolved_cells[*local_auto_index] =
-                        Some(Entry::Cell(self.resolve_cell(
-                            T::default(),
-                            0,
-                            first_available_row,
-                            1,
-                            Span::detached(),
-                        )?));
+                    resolved_cells[*local_auto_index] = Some(Entry::Cell(
+                        self.resolve_cell(T::default(), 0, first_available_row, 1)?,
+                    ));
 
                     group_start..group_end
                 }
@@ -1635,9 +1612,9 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
     ///    can be affected by show rules and grid-wide styling.
     fn fixup_cells<T>(
         &mut self,
-        resolved_cells: Vec<Option<Entry<'x>>>,
+        resolved_cells: Vec<Option<Entry>>,
         columns: usize,
-    ) -> SourceResult<Vec<Entry<'x>>>
+    ) -> SourceResult<Vec<Entry>>
     where
         T: ResolvableCell + Default,
     {
@@ -1657,13 +1634,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
                     let x = i % columns;
                     let y = i / columns;
 
-                    Ok(Entry::Cell(self.resolve_cell(
-                        T::default(),
-                        x,
-                        y,
-                        1,
-                        Span::detached(),
-                    )?))
+                    Ok(Entry::Cell(self.resolve_cell(T::default(), x, y, 1)?))
                 }
             })
             .collect::<SourceResult<Vec<Entry>>>()
@@ -1915,8 +1886,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
         x: usize,
         y: usize,
         rowspan: usize,
-        cell_span: Span,
-    ) -> SourceResult<Cell<'x>>
+    ) -> SourceResult<Cell>
     where
         T: ResolvableCell + Default,
     {
@@ -1950,7 +1920,6 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
             self.inset.resolve(self.engine, self.styles, x, y)?,
             self.stroke.resolve(self.engine, self.styles, x, y)?,
             breakable,
-            self.locator.next(&cell_span),
             self.styles,
         ))
     }
@@ -1962,7 +1931,7 @@ impl<'x> CellGridResolver<'_, '_, 'x> {
 /// returned. Otherwise, the new `start..end` range of rows in the row group is
 /// returned.
 fn expand_row_group(
-    resolved_cells: &[Option<Entry<'_>>],
+    resolved_cells: &[Option<Entry>],
     group_range: Option<&Range<usize>>,
     group_kind: RowGroupKind,
     first_available_row: usize,
@@ -2280,7 +2249,7 @@ fn resolve_cell_position(
 fn find_next_available_position(
     header_rows: &SmallBitSet,
     footer: Option<&(usize, Span, Footer)>,
-    resolved_cells: &[Option<Entry<'_>>],
+    resolved_cells: &[Option<Entry>],
     columns: usize,
     initial_index: usize,
     skip_rows: bool,
