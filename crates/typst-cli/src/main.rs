@@ -4,6 +4,7 @@ mod completions;
 mod download;
 mod fonts;
 mod greet;
+mod info;
 mod init;
 mod package;
 mod query;
@@ -75,6 +76,7 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command)?,
         Command::Completions(command) => crate::completions::completions(command),
+        Command::Info(command) => crate::info::info(command)?,
     }
 
     Ok(())

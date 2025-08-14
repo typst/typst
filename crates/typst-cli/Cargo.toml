@@ -65,6 +65,7 @@ clap_complete = { workspace = true }
 clap_mangen = { workspace = true }
 color-print = { workspace = true }
 semver = { workspace = true }
+serde = { workspace = true }
 
 [features]
 default = ["embed-fonts", "http-server"]
