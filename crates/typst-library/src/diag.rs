@@ -5,7 +5,6 @@ use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
-use std::string::FromUtf8Error;
 
 use az::SaturatingAs;
 use comemo::Tracked;
@@ -512,7 +511,7 @@ pub enum FileError {
     /// The file is not a Typst source file, but should have been.
     NotSource(PathBuf),
     /// The file was not valid UTF-8, but should have been.
-    InvalidUtf8(Option<PathBuf>),
+    InvalidUtf8(PathBuf),
     /// The package the file is part of could not be loaded.
     Package(PackageError),
     /// Another error.
@@ -530,7 +529,7 @@ impl FileError {
             io::ErrorKind::InvalidData
                 if err.to_string().contains("stream did not contain valid UTF-8") =>
             {
-                Self::InvalidUtf8(Some(path.into()))
+                Self::InvalidUtf8(path.into())
             }
             _ => Self::Other(Some(eco_format!("{err}"))),
         }
@@ -549,10 +548,9 @@ impl FileError {
             }
             Self::IsDirectory(_) => eco_vec![],
             Self::NotSource(_) => eco_vec![],
-            Self::InvalidUtf8(Some(path)) => {
+            Self::InvalidUtf8(path) => {
                 eco_vec![eco_format!("tried to read {}", path.display())]
             }
-            Self::InvalidUtf8(None) => eco_vec![],
             Self::Package(error) => error.write_hints(),
             Self::Other(Some(err)) => eco_vec![eco_format!("{err}")],
             Self::Other(None) => eco_vec![],
@@ -590,18 +588,6 @@ impl ErrAt for FileError {
     fn err_at(self, span: Span) -> SourceDiagnostic {
         let hints = self.write_hints();
         SourceDiagnostic::error(span, eco_format!("{}", self)).with_hints(hints)
-    }
-}
-
-impl From<Utf8Error> for FileError {
-    fn from(_: Utf8Error) -> Self {
-        Self::InvalidUtf8(None)
-    }
-}
-
-impl From<FromUtf8Error> for FileError {
-    fn from(_: FromUtf8Error) -> Self {
-        Self::InvalidUtf8(None)
     }
 }
 
