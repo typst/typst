@@ -14,7 +14,7 @@ provides compact syntax to embed a code expression into markup: An expression is
 introduced with a hash (`#`) and normal markup parsing resumes after the
 expression is finished. If a character would continue the expression but should
 be interpreted as text, the expression can forcibly be ended with a semicolon
-(`;`).
+(`;`). You can [escape a literal `#` or `;` with a backslash]($syntax/#escapes).
 
 ```example
 #emph[Hello] \
@@ -66,6 +66,7 @@ Content and code blocks can be nested arbitrarily. In the example below,
 ## Bindings and Destructuring { #bindings }
 As already demonstrated above, variables can be defined with `{let}` bindings.
 The variable is assigned the value of the expression that follows the `=` sign.
+A [valid variable name](#identifiers) may contain `-`, but cannot start with `-`.
 The assignment of a value is optional, if no value is assigned, the variable
 will be initialized as `{none}`. The `{let}` keyword can also be used to create
 a [custom named function]($function/#defining-functions). Variables can be
@@ -77,8 +78,8 @@ is no containing block).
 This is #name's documentation.
 It explains #name.
 
-#let add(x, y) = x + y
-Sum is #add(2, 3).
+#let my-add(x, y) = x + y
+Sum is #my-add(2, 3).
 ```
 
 Let bindings can also be used to destructure [arrays]($array) and

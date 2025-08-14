@@ -1,23 +1,23 @@
 use std::num::NonZeroUsize;
 
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, warning};
+use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
-use typst_library::introspection::{Counter, Locator};
+use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
-use typst_library::layout::{OuterVAlignment, Sizing};
+use typst_library::layout::{BlockBody, BlockElem, BoxElem, OuterVAlignment, Sizing};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
-use typst_library::visualize::ImageElem;
+use typst_library::visualize::{Color, ImageElem};
 
 use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -26,12 +26,14 @@ pub fn register(rules: &mut NativeRuleMap) {
     use Target::{Html, Paged};
 
     // Model.
+    rules.register(Html, PAR_RULE);
     rules.register(Html, STRONG_RULE);
     rules.register(Html, EMPH_RULE);
     rules.register(Html, LIST_RULE);
     rules.register(Html, ENUM_RULE);
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
+    rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
@@ -51,6 +53,10 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, RAW_RULE);
     rules.register(Html, RAW_LINE_RULE);
 
+    // Layout.
+    rules.register(Html, BLOCK_RULE);
+    rules.register(Html, BOX_RULE);
+
     // Visualize.
     rules.register(Html, IMAGE_RULE);
 
@@ -59,6 +65,9 @@ pub fn register(rules: &mut NativeRuleMap) {
     // math.equation: html.frame` can result in nested ones).
     rules.register::<FrameElem>(Paged, |elem, _, _| Ok(elem.body.clone()));
 }
+
+const PAR_RULE: ShowFn<ParElem> =
+    |elem, _, _| Ok(HtmlElem::new(tag::p).with_body(Some(elem.body.clone())).pack());
 
 const STRONG_RULE: ShowFn<StrongElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::strong).with_body(Some(elem.body.clone())).pack());
@@ -158,6 +167,12 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     Ok(HtmlElem::new(tag::a)
         .with_optional_attr(attr::href, href)
         .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::h1)
+        .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
         .pack())
 };
 
@@ -263,9 +278,7 @@ const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, st
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
-    // The locator is not used by HTML export, so we can just fabricate one.
-    let locator = Locator::root();
-    Ok(show_cellgrid(table_to_cellgrid(elem, engine, locator, styles)?, styles))
+    Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
 };
 
 fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
@@ -415,12 +428,59 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
-    Ok(HtmlElem::new(if elem.block.get(styles) { tag::pre } else { tag::code })
+    let code = HtmlElem::new(tag::code)
         .with_body(Some(Content::sequence(seq)))
-        .pack())
+        .pack()
+        .spanned(elem.span());
+
+    Ok(if elem.block.get(styles) {
+        HtmlElem::new(tag::pre).with_body(Some(code)).pack()
+    } else {
+        code
+    })
 };
 
+/// This is used by `RawElem::synthesize` through a routine.
+///
+/// It's a temporary workaround until `TextElem::fill` is supported in HTML
+/// export.
+#[doc(hidden)]
+pub fn html_span_filled(content: Content, color: Color) -> Content {
+    let span = content.span();
+    HtmlElem::new(tag::span)
+        .with_styles(css::Properties::new().with("color", css::color(color)))
+        .with_body(Some(content))
+        .pack()
+        .spanned(span)
+}
+
 const RAW_LINE_RULE: ShowFn<RawLine> = |elem, _, _| Ok(elem.body.clone());
+
+// TODO: This is rather incomplete.
+const BLOCK_RULE: ShowFn<BlockElem> = |elem, _, styles| {
+    let body = match elem.body.get_cloned(styles) {
+        None => None,
+        Some(BlockBody::Content(body)) => Some(body),
+        // These are only generated by native `typst-layout` show rules.
+        Some(BlockBody::SingleLayouter(_) | BlockBody::MultiLayouter(_)) => {
+            bail!(
+                elem.span(),
+                "blocks with layout routines should not occur in \
+                 HTML export – this is a bug"
+            )
+        }
+    };
+
+    Ok(HtmlElem::new(tag::div).with_body(body).pack())
+};
+
+// TODO: This is rather incomplete.
+const BOX_RULE: ShowFn<BoxElem> = |elem, _, styles| {
+    Ok(HtmlElem::new(tag::span)
+        .with_styles(css::Properties::new().with("display", "inline-block"))
+        .with_body(elem.body.get_cloned(styles))
+        .pack())
+};
 
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     let image = elem.decode(engine, styles)?;

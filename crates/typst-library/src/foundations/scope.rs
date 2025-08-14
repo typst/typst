@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
+use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
 use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult, bail};
@@ -102,7 +103,7 @@ impl<'a> Scopes<'a> {
 /// A map from binding names to values.
 #[derive(Default, Clone)]
 pub struct Scope {
-    map: IndexMap<EcoString, Binding>,
+    map: IndexMap<EcoString, Binding, FxBuildHasher>,
     deduplicate: bool,
     category: Option<Category>,
 }
@@ -253,8 +254,8 @@ pub struct Binding {
     span: Span,
     /// The category of the binding.
     category: Option<Category>,
-    /// A deprecation message for the definition.
-    deprecation: Option<&'static str>,
+    /// The deprecation information if this item is deprecated.
+    deprecation: Option<Box<Deprecation>>,
 }
 
 /// The different kinds of slots.
@@ -284,8 +285,8 @@ impl Binding {
     }
 
     /// Marks this binding as deprecated, with the given `message`.
-    pub fn deprecated(&mut self, message: &'static str) -> &mut Self {
-        self.deprecation = Some(message);
+    pub fn deprecated(&mut self, deprecation: Deprecation) -> &mut Self {
+        self.deprecation = Some(Box::new(deprecation));
         self
     }
 
@@ -300,8 +301,8 @@ impl Binding {
     /// - pass `()` to ignore the message.
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
     pub fn read_checked(&self, sink: impl DeprecationSink) -> &Value {
-        if let Some(message) = self.deprecation {
-            sink.emit(message);
+        if let Some(info) = &self.deprecation {
+            sink.emit(info.message, info.until);
         }
         &self.value
     }
@@ -337,8 +338,8 @@ impl Binding {
     }
 
     /// A deprecation message for the value, if any.
-    pub fn deprecation(&self) -> Option<&'static str> {
-        self.deprecation
+    pub fn deprecation(&self) -> Option<&Deprecation> {
+        self.deprecation.as_deref()
     }
 
     /// The category of the value, if any.
@@ -354,6 +355,51 @@ pub enum Capturer {
     Function,
     /// Captured by a context expression.
     Context,
+}
+
+/// Information about a deprecated binding.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Deprecation {
+    /// A deprecation message for the definition.
+    message: &'static str,
+    /// A version in which the deprecated binding is planned to be removed.
+    until: Option<&'static str>,
+}
+
+impl Deprecation {
+    /// Creates new deprecation info with a default message to display when
+    /// emitting the deprecation warning.
+    pub fn new() -> Self {
+        Self { message: "item is deprecated", until: None }
+    }
+
+    /// Set the message to display when emitting the deprecation warning.
+    pub fn with_message(mut self, message: &'static str) -> Self {
+        self.message = message;
+        self
+    }
+
+    /// Set the version in which the binding is planned to be removed.
+    pub fn with_until(mut self, version: &'static str) -> Self {
+        self.until = Some(version);
+        self
+    }
+
+    /// The message to display when emitting the deprecation warning.
+    pub fn message(&self) -> &'static str {
+        self.message
+    }
+
+    /// The version in which the binding is planned to be removed.
+    pub fn until(&self) -> Option<&'static str> {
+        self.until
+    }
+}
+
+impl Default for Deprecation {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// The error message when trying to mutate a variable from the standard

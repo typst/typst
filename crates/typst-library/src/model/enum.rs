@@ -41,8 +41,8 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 /// + Don't forget step two
 /// ```
 ///
-/// You can also use [`enum.item`]($enum.item) to programmatically customize the
-/// number of each item in the enumeration:
+/// You can also use [`enum.item`] to programmatically customize the number of
+/// each item in the enumeration:
 ///
 /// ```example
 /// #enum(

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashMap;
 
 use crate::diag::Hint;
 use crate::foundations::{StyleChain, cast};
@@ -278,13 +278,13 @@ pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static 
 fn parse_language_bundle(
     lang: Lang,
     region: Option<Region>,
-) -> Result<HashMap<&'static str, &'static str>, &'static str> {
+) -> Result<FxHashMap<&'static str, &'static str>, &'static str> {
     let language_tuple = TRANSLATIONS.iter().find(|it| it.0 == lang_str(lang, region));
     let Some((_lang_name, language_file)) = language_tuple else {
-        return Ok(HashMap::new());
+        return Ok(FxHashMap::default());
     };
 
-    let mut bundle = HashMap::new();
+    let mut bundle = FxHashMap::default();
     let lines = language_file.trim().lines();
     for line in lines {
         if line.trim().starts_with('#') {
@@ -313,9 +313,9 @@ fn lang_str(lang: Lang, region: Option<Region>) -> EcoString {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use std::path::PathBuf;
 
+    use rustc_hash::FxHashSet;
     use typst_utils::option_eq;
 
     use super::*;
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn test_all_translations_included() {
         let defined_keys =
-            HashSet::<&str>::from_iter(TRANSLATIONS.iter().map(|(lang, _)| *lang));
+            FxHashSet::<&str>::from_iter(TRANSLATIONS.iter().map(|(lang, _)| *lang));
         let mut checked = 0;
         for file in translation_files_iter() {
             assert!(

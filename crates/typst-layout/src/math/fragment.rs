@@ -1,22 +1,28 @@
 use std::fmt::{self, Debug, Formatter};
 
 use az::SaturatingAs;
+use comemo::Tracked;
 use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
-use typst_library::diag::{SourceResult, bail, warning};
+use typst_library::World;
+use typst_library::diag::warning;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
 };
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language};
+use typst_library::text::{
+    Font, FontFamily, FontVariant, Glyph, TextElem, TextItem, features, language, variant,
+};
+use typst_library::visualize::Paint;
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
+use unicode_segmentation::UnicodeSegmentation;
 
-use super::MathContext;
+use super::{MathContext, families};
 use crate::inline::create_shape_plan;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
@@ -108,6 +114,17 @@ impl MathFragment {
         }
     }
 
+    #[inline]
+    pub fn font(&self, ctx: &MathContext, styles: StyleChain) -> (Font, Abs) {
+        (
+            match self {
+                Self::Glyph(glyph) => glyph.item.font.clone(),
+                _ => ctx.font().clone(),
+            },
+            self.font_size().unwrap_or_else(|| styles.resolve(TextElem::size)),
+        )
+    }
+
     pub fn font_size(&self) -> Option<Abs> {
         match self {
             Self::Glyph(glyph) => Some(glyph.item.size),
@@ -192,6 +209,31 @@ impl MathFragment {
         }
     }
 
+    pub fn fill(&self) -> Option<Paint> {
+        match self {
+            Self::Glyph(glyph) => Some(glyph.item.fill.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn stretch_vertical(&mut self, ctx: &mut MathContext, height: Abs) {
+        if let Self::Glyph(glyph) = self {
+            glyph.stretch_vertical(ctx, height)
+        }
+    }
+
+    pub fn stretch_horizontal(&mut self, ctx: &mut MathContext, width: Abs) {
+        if let Self::Glyph(glyph) = self {
+            glyph.stretch_horizontal(ctx, width)
+        }
+    }
+
+    pub fn center_on_axis(&mut self) {
+        if let Self::Glyph(glyph) = self {
+            glyph.center_on_axis()
+        }
+    }
+
     /// If no kern table is provided for a corner, a kerning amount of zero is
     /// assumed.
     pub fn kern_at_height(&self, corner: Corner, height: Abs) -> Abs {
@@ -261,77 +303,43 @@ pub struct GlyphFragment {
 impl GlyphFragment {
     /// Calls `new` with the given character.
     pub fn new_char(
-        font: &Font,
+        ctx: &MathContext,
         styles: StyleChain,
         c: char,
         span: Span,
-    ) -> SourceResult<Self> {
-        Self::new(font, styles, c.encode_utf8(&mut [0; 4]), span)
+    ) -> Option<Self> {
+        Self::new(ctx.engine.world, styles, c.encode_utf8(&mut [0; 4]), span)
     }
 
-    /// Try to create a new glyph out of the given string. Will bail if the
-    /// result from shaping the string is not a single glyph or is a tofu.
+    /// Selects a font to use and then shapes text.
     #[comemo::memoize]
     pub fn new(
-        font: &Font,
+        world: Tracked<dyn World + '_>,
         styles: StyleChain,
         text: &str,
         span: Span,
-    ) -> SourceResult<GlyphFragment> {
-        let mut buffer = UnicodeBuffer::new();
-        buffer.push_str(text);
-        buffer.set_language(language(styles));
-        // TODO: Use `rustybuzz::script::MATH` once
-        // https://github.com/harfbuzz/rustybuzz/pull/165 is released.
-        buffer.set_script(
-            rustybuzz::Script::from_iso15924_tag(ttf_parser::Tag::from_bytes(b"math"))
-                .unwrap(),
-        );
-        buffer.set_direction(rustybuzz::Direction::LeftToRight);
-        buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
+    ) -> Option<GlyphFragment> {
+        assert!(text.graphemes(true).count() == 1);
 
-        let features = features(styles);
-        let plan = create_shape_plan(
-            font,
-            buffer.direction(),
-            buffer.script(),
-            buffer.language().as_ref(),
-            &features,
-        );
+        let (c, font, mut glyph) = shape(
+            world,
+            variant(styles),
+            features(styles),
+            language(styles),
+            styles.get(TextElem::fallback),
+            text,
+            families(styles).collect(),
+        )?;
+        glyph.span.0 = span;
 
-        let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
-        if buffer.len() != 1 {
-            bail!(span, "did not get a single glyph after shaping {}", text);
-        }
-
-        let info = buffer.glyph_infos()[0];
-        let pos = buffer.glyph_positions()[0];
-
-        // TODO: add support for coverage and fallback, like in normal text shaping.
-        if info.glyph_id == 0 {
-            bail!(span, "current font is missing a glyph for {}", text);
-        }
-
-        let cluster = info.cluster as usize;
-        let c = text[cluster..].chars().next().unwrap();
         let limits = Limits::for_char(c);
         let class = styles
             .get(EquationElem::class)
             .or_else(|| default_math_class(c))
             .unwrap_or(MathClass::Normal);
 
-        let glyph = Glyph {
-            id: info.glyph_id as u16,
-            x_advance: font.to_em(pos.x_advance),
-            x_offset: font.to_em(pos.x_offset),
-            y_advance: font.to_em(pos.y_advance),
-            y_offset: font.to_em(pos.y_offset),
-            range: 0..text.len().saturating_as(),
-            span: (span, 0),
-        };
-
         let item = TextItem {
-            font: font.clone(),
+            font,
             size: styles.resolve(TextElem::size),
             fill: styles.get_ref(TextElem::fill).as_decoration(),
             stroke: styles.resolve(TextElem::stroke).map(|s| s.unwrap_or_default()),
@@ -361,7 +369,7 @@ impl GlyphFragment {
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
-        Ok(fragment)
+        Some(fragment)
     }
 
     /// Sets element id and boxes in appropriate way without changing other
@@ -506,7 +514,7 @@ impl GlyphFragment {
     /// to the given alignment on the axis.
     pub fn align_on_axis(&mut self, align: VAlignment) {
         let h = self.size.y;
-        let axis = axis_height(&self.item.font).unwrap().at(self.item.size);
+        let axis = self.item.font.math().axis_height.at(self.item.size);
         self.align += self.baseline();
         self.baseline = Some(align.inv().position(h + axis * 2.0));
         self.align -= self.baseline();
@@ -649,10 +657,6 @@ fn kern_at_height(font: &Font, id: GlyphId, corner: Corner, height: Em) -> Optio
     Some(font.to_em(kern.kern(i)?.value))
 }
 
-fn axis_height(font: &Font) -> Option<Em> {
-    Some(font.to_em(font.ttf().tables().math?.constants?.axis_height().value))
-}
-
 pub fn stretch_axes(font: &Font, id: u16) -> Axes<bool> {
     let id = GlyphId(id);
     let horizontal = font
@@ -739,7 +743,9 @@ fn assemble(
                 }
 
                 advance -= max_overlap;
-                growable += max_overlap - min_overlap;
+                // In case we have that max_overlap < min_overlap, ensure we
+                // don't decrease the value of growable.
+                growable += (max_overlap - min_overlap).max(Abs::zero());
             }
 
             full += advance;
@@ -830,6 +836,153 @@ pub fn has_dtls_feat(font: &Font) -> bool {
         .gsub
         .and_then(|gsub| gsub.features.index(ttf_parser::Tag::from_bytes(b"dtls")))
         .is_some()
+}
+
+#[comemo::memoize]
+fn shape(
+    world: Tracked<dyn World + '_>,
+    variant: FontVariant,
+    features: Vec<rustybuzz::Feature>,
+    language: rustybuzz::Language,
+    fallback: bool,
+    text: &str,
+    families: Vec<&FontFamily>,
+) -> Option<(char, Font, Glyph)> {
+    let mut used = vec![];
+    let buffer = UnicodeBuffer::new();
+    shape_glyph(
+        world,
+        &mut used,
+        buffer,
+        variant,
+        features,
+        language,
+        fallback,
+        text,
+        families.into_iter(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn shape_glyph<'a>(
+    world: Tracked<'a, dyn World + 'a>,
+    used: &mut Vec<Font>,
+    mut buffer: rustybuzz::UnicodeBuffer,
+    variant: FontVariant,
+    features: Vec<rustybuzz::Feature>,
+    language: rustybuzz::Language,
+    fallback: bool,
+    text: &str,
+    mut families: impl Iterator<Item = &'a FontFamily> + Clone,
+) -> Option<(char, Font, Glyph)> {
+    // Find the next available family.
+    let book = world.book();
+    let mut selection = None;
+    let mut covers = None;
+    for family in families.by_ref() {
+        selection = book
+            .select(family.as_str(), variant)
+            .and_then(|id| world.font(id))
+            .filter(|font| !used.contains(font));
+        if selection.is_some() {
+            covers = family.covers();
+            break;
+        }
+    }
+
+    // Do font fallback if the families are exhausted and fallback is enabled.
+    if selection.is_none() && fallback {
+        let first = used.first().map(Font::info);
+        selection = book
+            .select_fallback(first, variant, text)
+            .and_then(|id| world.font(id))
+            .filter(|font| !used.contains(font))
+    }
+
+    // Extract the font id or shape notdef glyphs if we couldn't find any font.
+    let Some(font) = selection else {
+        if let Some(font) = used.first().cloned() {
+            // Shape tofu.
+            let glyph = Glyph {
+                id: 0,
+                x_advance: font.x_advance(0).unwrap_or_default(),
+                x_offset: Em::zero(),
+                y_advance: Em::zero(),
+                y_offset: Em::zero(),
+                range: 0..text.len().saturating_as(),
+                span: (Span::detached(), 0),
+            };
+            let c = text.chars().next().unwrap();
+            return Some((c, font, glyph));
+        }
+        return None;
+    };
+
+    // This font has been exhausted and will not be used again.
+    if covers.is_none() {
+        used.push(font.clone());
+    }
+
+    buffer.push_str(text);
+    buffer.set_language(language.clone());
+    // TODO: Use `rustybuzz::script::MATH` once
+    // https://github.com/harfbuzz/rustybuzz/pull/165 is released.
+    buffer.set_script(
+        rustybuzz::Script::from_iso15924_tag(ttf_parser::Tag::from_bytes(b"math"))
+            .unwrap(),
+    );
+    buffer.set_direction(rustybuzz::Direction::LeftToRight);
+    buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
+
+    let plan = create_shape_plan(
+        &font,
+        buffer.direction(),
+        buffer.script(),
+        buffer.language().as_ref(),
+        &features,
+    );
+
+    let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
+    match buffer.len() {
+        0 => return None,
+        1 => {}
+        _ => unreachable!(),
+    }
+
+    let info = buffer.glyph_infos()[0];
+    let pos = buffer.glyph_positions()[0];
+    let cluster = info.cluster as usize;
+    let end = text[cluster..]
+        .char_indices()
+        .nth(1)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len());
+
+    if info.glyph_id != 0 && covers.is_none_or(|cov| cov.is_match(&text[cluster..end])) {
+        let glyph = Glyph {
+            id: info.glyph_id as u16,
+            x_advance: font.to_em(pos.x_advance),
+            x_offset: font.to_em(pos.x_offset),
+            y_advance: font.to_em(pos.y_advance),
+            y_offset: font.to_em(pos.y_offset),
+            range: 0..text.len().saturating_as(),
+            span: (Span::detached(), 0),
+        };
+        let c = text[cluster..].chars().next().unwrap();
+        Some((c, font, glyph))
+    } else {
+        shape_glyph(
+            world,
+            used,
+            buffer.clear(),
+            variant,
+            features,
+            language,
+            fallback,
+            text,
+            families,
+        )
+    }
 }
 
 /// Describes in which situation a frame should use limits for attachments.

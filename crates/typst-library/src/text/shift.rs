@@ -176,14 +176,14 @@ impl ScriptKind {
         }
     }
 }
-static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+pub static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
     width: Em::new(0.6),
     height: Em::new(0.6),
     horizontal_offset: Em::zero(),
     vertical_offset: Em::new(-0.2),
 };
 
-static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+pub static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
     width: Em::new(0.6),
     height: Em::new(0.6),
     horizontal_offset: Em::zero(),

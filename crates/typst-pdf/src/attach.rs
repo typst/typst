@@ -5,40 +5,40 @@ use krilla::embed::{AssociationKind, EmbeddedFile};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;
-use typst_library::pdf::{EmbedElem, EmbeddedFileRelationship};
+use typst_library::pdf::{AttachElem, AttachedFileRelationship};
 
-pub(crate) fn embed_files(
+pub(crate) fn attach_files(
     typst_doc: &PagedDocument,
     document: &mut Document,
 ) -> SourceResult<()> {
-    let elements = typst_doc.introspector.query(&EmbedElem::ELEM.select());
+    let elements = typst_doc.introspector.query(&AttachElem::ELEM.select());
 
     for elem in &elements {
-        let embed = elem.to_packed::<EmbedElem>().unwrap();
-        let span = embed.span();
-        let derived_path = &embed.path.derived;
+        let elem = elem.to_packed::<AttachElem>().unwrap();
+        let span = elem.span();
+        let derived_path = &elem.path.derived;
         let path = derived_path.to_string();
-        let mime_type = embed
+        let mime_type = elem
             .mime_type
             .get_ref(StyleChain::default())
             .as_ref()
             .map(|s| s.to_string());
-        let description = embed
+        let description = elem
             .description
             .get_ref(StyleChain::default())
             .as_ref()
             .map(|s| s.to_string());
-        let association_kind = match embed.relationship.get(StyleChain::default()) {
+        let association_kind = match elem.relationship.get(StyleChain::default()) {
             None => AssociationKind::Unspecified,
             Some(e) => match e {
-                EmbeddedFileRelationship::Source => AssociationKind::Source,
-                EmbeddedFileRelationship::Data => AssociationKind::Data,
-                EmbeddedFileRelationship::Alternative => AssociationKind::Alternative,
-                EmbeddedFileRelationship::Supplement => AssociationKind::Supplement,
+                AttachedFileRelationship::Source => AssociationKind::Source,
+                AttachedFileRelationship::Data => AssociationKind::Data,
+                AttachedFileRelationship::Alternative => AssociationKind::Alternative,
+                AttachedFileRelationship::Supplement => AssociationKind::Supplement,
             },
         };
-        let data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(embed.data.clone());
-        let compress = should_compress(&embed.data);
+        let data: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(elem.data.clone());
+        let compress = should_compress(&elem.data);
 
         let file = EmbeddedFile {
             path,
@@ -47,11 +47,11 @@ pub(crate) fn embed_files(
             association_kind,
             data: data.into(),
             compress,
-            location: Some(span.into_raw().get()),
+            location: Some(span.into_raw()),
         };
 
         if document.embed_file(file).is_none() {
-            bail!(span, "attempted to embed file {derived_path} twice");
+            bail!(span, "attempted to attach file {derived_path} twice");
         }
     }
 

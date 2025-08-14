@@ -89,11 +89,7 @@ pub struct SmartQuoteElem {
 
 impl PlainText for Packed<SmartQuoteElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        if self.double.as_option().unwrap_or(true) {
-            text.push_str("\"");
-        } else {
-            text.push_str("'");
-        }
+        text.push_str(SmartQuotes::fallback(self.double.as_option().unwrap_or(true)));
     }
 }
 
@@ -264,6 +260,7 @@ impl<'s> SmartQuotes<'s> {
             "he" => ("’", "’", "”", "”"),
             "hr" => ("‘", "’", "„", "”"),
             "bg" => ("’", "’", "„", "“"),
+            "ar" if !alternative => ("’", "‘", "«", "»"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };
@@ -303,6 +300,11 @@ impl<'s> SmartQuotes<'s> {
     /// The closing quote.
     pub fn close(&self, double: bool) -> &'s str {
         if double { self.double_close } else { self.single_close }
+    }
+
+    /// Get the fallback "dumb" quotes for when smart quotes are disabled.
+    pub fn fallback(double: bool) -> &'static str {
+        if double { "\"" } else { "'" }
     }
 }
 

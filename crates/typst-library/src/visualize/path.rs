@@ -47,10 +47,10 @@ pub struct PathElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the path. This can be:
+    /// How to [stroke] the path.
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and if only if no fill is given.
+    /// stroke of `{1pt}` black if and only if no fill is given.
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 

@@ -24,6 +24,7 @@ bumpalo = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 palette = { workspace = true }
+rustc-hash = { workspace = true }
 time = { workspace = true }
 
 [lints]

@@ -196,7 +196,7 @@ pub fn collect<'a>(
                 let quote = quoter.quote(before, &quotes, double);
                 collector.push_text(quote, styles);
             } else {
-                collector.push_text(if double { "\"" } else { "'" }, styles);
+                collector.push_text(SmartQuotes::fallback(double), styles);
             }
         } else if let Some(elem) = child.to_packed::<InlineElem>() {
             collector.push_item(Item::Skip(LTR_ISOLATE));

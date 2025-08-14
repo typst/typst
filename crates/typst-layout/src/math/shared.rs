@@ -1,60 +1,14 @@
 use ttf_parser::Tag;
-use ttf_parser::math::MathValue;
 use typst_library::foundations::{Style, StyleChain};
 use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{FontFeatures, TextElem};
-use typst_utils::LazyHash;
+use typst_library::text::{FontFamily, FontFeatures, TextElem};
+use typst_utils::{LazyHash, singleton};
 
-use super::{LeftRightAlternator, MathContext, MathFragment, MathRun};
-
-macro_rules! scaled {
-    ($ctx:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
-        match $styles.get(typst_library::math::EquationElem::size) {
-            typst_library::math::MathSize::Display => scaled!($ctx, $styles, $display),
-            _ => scaled!($ctx, $styles, $text),
-        }
-    };
-    ($ctx:expr, $styles:expr, $name:ident) => {
-        $crate::math::Scaled::scaled(
-            $ctx.constants.$name(),
-            $ctx,
-            $styles.resolve(typst_library::text::TextElem::size),
-        )
-    };
-}
-
-macro_rules! percent {
-    ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name() as f64 / 100.0
-    };
-}
+use super::{LeftRightAlternator, MathFragment, MathRun};
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
-
-/// Converts some unit to an absolute length with the current font & font size.
-pub trait Scaled {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs;
-}
-
-impl Scaled for i16 {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        ctx.font.to_em(self).at(font_size)
-    }
-}
-
-impl Scaled for u16 {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        ctx.font.to_em(self).at(font_size)
-    }
-}
-
-impl Scaled for MathValue<'_> {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        self.value.scaled(ctx, font_size)
-    }
-}
 
 /// Styles something as cramped.
 pub fn style_cramped() -> LazyHash<Style> {
@@ -106,14 +60,24 @@ pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
 }
 
-/// Styles to add font constants to the style chain.
-pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
-    EquationElem::script_scale
-        .set((
-            ctx.constants.script_percent_scale_down(),
-            ctx.constants.script_script_percent_scale_down(),
-        ))
-        .wrap()
+/// Resolve a prioritized iterator over the font families for math.
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> + Clone {
+    let fallbacks = singleton!(Vec<FontFamily>, {
+        [
+            "new computer modern math",
+            "libertinus serif",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
+        .into_iter()
+        .map(FontFamily::new)
+        .collect()
+    });
+
+    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
+    styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
 }
 
 /// Stack rows on top of each other.

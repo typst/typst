@@ -16,7 +16,7 @@ mod typed;
 pub use self::document::html_document;
 pub use self::dom::*;
 pub use self::encode::html;
-pub use self::rules::register;
+pub use self::rules::{html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
@@ -96,6 +96,12 @@ impl HtmlElem {
         } else {
             self
         }
+    }
+
+    /// Checks whether the given element is an inline-level HTML element.
+    fn is_inline(elem: &Content) -> bool {
+        elem.to_packed::<HtmlElem>()
+            .is_some_and(|elem| tag::is_inline_by_default(elem.tag))
     }
 }
 
