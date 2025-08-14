@@ -1,6 +1,5 @@
 use comemo::Track;
 use ecow::{EcoString, eco_format};
-use serde::Serialize;
 use typst::World;
 use typst::diag::{HintedStrResult, StrResult, Warned, bail};
 use typst::engine::Sink;
@@ -11,7 +10,7 @@ use typst::syntax::{Span, SyntaxMode};
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 
-use crate::args::{QueryCommand, SerializationFormat, Target};
+use crate::args::{QueryCommand, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -104,28 +103,8 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         let Some(value) = mapped.first() else {
             bail!("no such field found for element");
         };
-        serialize(value, command.format, command.pretty)
+        crate::serialize(value, command.format, command.pretty)
     } else {
-        serialize(&mapped, command.format, command.pretty)
-    }
-}
-
-/// Serialize data to the output format.
-fn serialize(
-    data: &impl Serialize,
-    format: SerializationFormat,
-    pretty: bool,
-) -> StrResult<String> {
-    match format {
-        SerializationFormat::Json => {
-            if pretty {
-                serde_json::to_string_pretty(data).map_err(|e| eco_format!("{e}"))
-            } else {
-                serde_json::to_string(data).map_err(|e| eco_format!("{e}"))
-            }
-        }
-        SerializationFormat::Yaml => {
-            serde_yaml::to_string(data).map_err(|e| eco_format!("{e}"))
-        }
+        crate::serialize(&mapped, command.format, command.pretty)
     }
 }
