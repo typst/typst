@@ -1,15 +1,15 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
+use typst_library::World;
 use typst_library::diag::{At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
-
-use typst_library::World;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
 use typst_library::text::SmartQuoter;
 
-use crate::HtmlNode;
+use crate::convert::{ConversionLevel, Whitespace};
+use crate::{HtmlElem, HtmlNode};
 
 /// Produces HTML nodes from content contained in an HTML element that is
 /// block-level by default.
@@ -19,6 +19,7 @@ pub fn html_block_fragment(
     content: &Content,
     locator: Locator,
     styles: StyleChain,
+    whitespace: Whitespace,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     html_block_fragment_impl(
         engine.routines,
@@ -30,6 +31,7 @@ pub fn html_block_fragment(
         content,
         locator.track(),
         styles,
+        whitespace,
     )
 }
 
@@ -46,6 +48,7 @@ fn html_block_fragment_impl(
     content: &Content,
     locator: Tracked<Locator>,
     styles: StyleChain,
+    whitespace: Whitespace,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
@@ -65,8 +68,9 @@ fn html_block_fragment_impl(
     crate::convert::convert_to_nodes(
         &mut engine,
         &mut locator,
-        &mut SmartQuoter::new(),
         children.iter().copied(),
+        ConversionLevel::Block,
+        whitespace,
     )
 }
 
@@ -85,6 +89,7 @@ pub fn html_inline_fragment(
     locator: &mut SplitLocator,
     quoter: &mut SmartQuoter,
     styles: StyleChain,
+    whitespace: Whitespace,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     engine.route.increase();
     engine.route.check_html_depth().at(content.span())?;
@@ -94,8 +99,9 @@ pub fn html_inline_fragment(
     let result = crate::convert::convert_to_nodes(
         engine,
         locator,
-        quoter,
         children.iter().copied(),
+        ConversionLevel::Inline(quoter),
+        whitespace,
     );
 
     engine.route.decrease();
@@ -114,7 +120,7 @@ fn realize_fragment<'a>(
         RealizationKind::HtmlFragment {
             // We ignore the `FragmentKind` because we handle both uniformly.
             kind: &mut FragmentKind::Block,
-            is_inline: crate::convert::is_inline,
+            is_inline: HtmlElem::is_inline,
         },
         engine,
         locator,
