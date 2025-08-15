@@ -60,7 +60,8 @@ pub enum FracStyle {
     Vertical,
     /// Numerator and denominator separated by a slash.
     Skewed,
-    /// Numerator and denominator placed inline and parentheses are not absorbed
+    /// Numerator and denominator placed inline and parentheses are not
+    /// absorbed.
     Horizontal,
 }
 

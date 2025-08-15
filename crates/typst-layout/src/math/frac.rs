@@ -241,25 +241,23 @@ fn layout_skewed_frac(
     let slash_frame = slash_frag.into_frame();
 
     // Adjust the fraction height if the slash overflows
-    // Fraction width will be re-calculated later on after we adjusted the x values to avoid
-    // overlap with the slash.
     let slash_size = slash_frame.size();
     let vertical_offset = Abs::zero().max(slash_size.y - fraction_height) / 2.0;
     fraction_height.set_max(slash_size.y);
 
     // Reference points for all three objects, used to place them in the frame.
-    let slash_center = Point::new(num_size.x + hgap / 2.0, fraction_height / 2.0);
+    let mut slash_up_left = Point::new(num_size.x + hgap / 2.0, fraction_height / 2.0)
+        - slash_size.to_point() / 2.0;
     let mut num_up_left = Point::with_y(vertical_offset);
     let mut denom_up_left = num_up_left + num_size.to_point() + Point::new(hgap, vgap);
 
     // Fraction width
-    let mut slash_up_left = slash_center - slash_size.to_point() / 2.0;
     let fraction_width = (denom_up_left.x + denom_size.x)
-        .max(slash_center.x + slash_size.x / 2.0)
-        - num_up_left.x.min(slash_up_left.x);
-    // We have to shift everything right to avoid going in the negatives for the x coordinate
-    let horizontal_offset =
-        Point::with_x(Abs::zero().max(num_up_left.x - slash_up_left.x));
+        .max(slash_up_left.x + slash_size.x)
+        + Abs::zero().max(-slash_up_left.x);
+    // We have to shift everything right to avoid going in the negatives for
+    // the x coordinate
+    let horizontal_offset = Point::with_x(Abs::zero().max(-slash_up_left.x));
     slash_up_left += horizontal_offset;
     num_up_left += horizontal_offset;
     denom_up_left += horizontal_offset;
