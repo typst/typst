@@ -430,11 +430,9 @@ impl Str {
     /// ```
     ///
     /// ```example
-    /// #let pat = regex(
-    ///   `not (an?) ([\p{Letter}\s]+)\p{Punctuation}`.text,
-    /// )
-    /// #"I'm a doctor, not an escalator.".match(pat) \
-    /// #"I am not a merry man!".match(pat)
+    /// #let pat = regex("not (an?) (apple|cat)")
+    /// #"I'm a doctor, not an apple.".match(pat) \
+    /// #"I am not a cat!".match(pat)
     /// ```
     #[func]
     pub fn match_(
