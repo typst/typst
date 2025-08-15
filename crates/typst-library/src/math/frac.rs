@@ -4,18 +4,6 @@ use crate::diag::bail;
 use crate::foundations::{Cast, Content, Value, elem};
 use crate::math::Mathy;
 
-/// Fraction style
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum FracStyle {
-    /// Stacked numerator and denominator with a bar.
-    #[default]
-    Vertical,
-    /// Numerator and denominator separated by a slash.
-    Skewed,
-    /// Numerator and denominator placed inline and parentheses are not absorbed
-    Horizontal,
-}
-
 /// A mathematical fraction.
 ///
 /// # Example
@@ -39,7 +27,14 @@ pub struct FracElem {
     #[required]
     pub denom: Content,
 
-    /// The style of the fraction.
+    /// How the fraction shoud be laid out.
+    ///
+    /// # Example
+    /// ```example
+    /// #set math.frac(style: "skewed")
+    /// $ a / b $
+    /// $ frac(x, y, style: "vertical") $
+    /// ```
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,
 
@@ -56,6 +51,18 @@ pub struct FracElem {
     #[parse(None)]
     #[default(false)]
     pub denom_deparenthesized: bool,
+}
+
+/// Fraction style
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum FracStyle {
+    /// Stacked numerator and denominator with a bar.
+    #[default]
+    Vertical,
+    /// Numerator and denominator separated by a slash.
+    Skewed,
+    /// Numerator and denominator placed inline and parentheses are not absorbed
+    Horizontal,
 }
 
 /// A binomial expression.

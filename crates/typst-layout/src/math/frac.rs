@@ -219,7 +219,6 @@ fn layout_skewed_frac(
     let vgap = constants.skewed_fraction_vertical_gap.resolve(styles);
     let hgap = constants.skewed_fraction_horizontal_gap.resolve(styles);
     let axis = constants.axis_height.resolve(styles);
-    // let vgap = vgap + axis / 2.0; // LuaTeX behavior
 
     let num_style = style_for_numerator(styles);
     let num_frame = ctx.layout_into_frame(num, styles.chain(&num_style))?;
@@ -270,12 +269,6 @@ fn layout_skewed_frac(
 
     // Baseline (use axis height to center slash on the axis)
     fraction_frame.set_baseline(fraction_height / 2.0 + axis);
-
-    // Debugging help
-    // num_frame.mark_box_in_place();
-    // denom_frame.mark_box_in_place();
-    // slash_frame.mark_box_in_place();
-    // fraction_frame.mark_box_in_place();
 
     // Numerator, Denominator, Slash
     fraction_frame.push_frame(num_up_left, num_frame);

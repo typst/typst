@@ -845,7 +845,10 @@ impl<'a> Math<'a> {
     pub fn was_deparenthesized(self) -> bool {
         let mut iter = self.0.children();
         matches!(iter.next().map(SyntaxNode::kind), Some(SyntaxKind::LeftParen))
-            && matches!(iter.last().map(SyntaxNode::kind), Some(SyntaxKind::RightParen))
+            && matches!(
+                iter.next_back().map(SyntaxNode::kind),
+                Some(SyntaxKind::RightParen)
+            )
     }
 }
 
