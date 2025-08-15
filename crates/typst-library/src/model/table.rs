@@ -142,77 +142,6 @@ pub struct TableElem {
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
-    /// How to fill the cells.
-    ///
-    /// This can be a color, a [function that returns a color]($grid/#styling), or an
-    /// array of colors corresponding to each column. When set to a function,
-    /// it receives the cell's column and row indices (both zero-indexed) as
-    /// arguments and should return a color or `{none}`. This can be used to
-    /// [implement striped tables]($guides/table-guide/#fills).
-    ///
-    /// For more styling options, see the [table guide]($guides/table-guide/).
-    ///
-    /// ```example
-    /// #table(
-    ///   fill: (x, _) =>
-    ///     if calc.odd(x) { luma(240) }
-    ///     else { white },
-    ///   align: (x, y) =>
-    ///     if y == 0 { center }
-    ///     else if x == 0 { left }
-    ///     else { right },
-    ///   columns: 4,
-    ///   [], [*Q1*], [*Q2*], [*Q3*],
-    ///   [Revenue:], [1000 €], [2000 €], [3000 €],
-    ///   [Expenses:], [500 €], [1000 €], [1500 €],
-    ///   [Profit:], [500 €], [1000 €], [1500 €],
-    /// )
-    /// ```
-    pub fill: Celled<Option<Paint>>,
-
-    /// How to align the cells' content.
-    ///
-    /// This can be a single alignment, an array of alignments (corresponding
-    /// to each column), or a [function that returns an alignment]($grid/#styling).
-    /// When set to a function, it receives the cell's column and row indices
-    /// (both zero-indexed) as arguments and should return an alignment. If set
-    /// to `{auto}`, the outer alignment is used.
-    ///
-    /// The table guide has a
-    /// [dedicated section on alignment]($guides/table-guide/#alignment).
-    ///
-    /// ```example
-    /// #table(
-    ///   columns: 3,
-    ///   align: (left, center, right),
-    ///   [Hello], [Hello], [Hello],
-    ///   [A], [B], [C],
-    /// )
-    /// ```
-    pub align: Celled<Smart<Alignment>>,
-
-    /// How to [stroke] the cells.
-    ///
-    /// This can be a stroke, a dictionary of strokes for individual sides, a
-    /// [function that returns a stroke]($grid/#styling), or an array of strokes
-    /// corresponding to each column. When set to a function, it receives the
-    /// cell's column and row indices (both zero-indexed) as arguments and
-    /// should return a stroke or `{none}`.
-    ///
-    /// Strokes can be disabled by setting this to `{none}`.
-    ///
-    /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the `gutter` option, or to override the stroke between
-    /// multiple specific cells, consider specifying one or more of
-    /// [`table.hline`] and [`table.vline`] alongside your table cells.
-    ///
-    /// See the [grid documentation]($grid.stroke) for more information on
-    /// strokes, or the [table guide]($guides/table-guide/#strokes) for
-    /// practical usages.
-    #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
-    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
-
     /// How much to pad the cells' content.
     ///
     /// This can be a length, a dictionary of lengths for individual sides, a
@@ -243,6 +172,77 @@ pub struct TableElem {
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
+
+    /// How to align the cells' content.
+    ///
+    /// This can be a single alignment, an array of alignments (corresponding
+    /// to each column), or a [function that returns an alignment]($grid/#styling).
+    /// When set to a function, it receives the cell's column and row indices
+    /// (both zero-indexed) as arguments and should return an alignment. If set
+    /// to `{auto}`, the outer alignment is used.
+    ///
+    /// The table guide has a
+    /// [dedicated section on alignment]($guides/table-guide/#alignment).
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (left, center, right),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
+    pub align: Celled<Smart<Alignment>>,
+
+    /// How to fill the cells.
+    ///
+    /// This can be a color, a [function that returns a color]($grid/#styling), or an
+    /// array of colors corresponding to each column. When set to a function,
+    /// it receives the cell's column and row indices (both zero-indexed) as
+    /// arguments and should return a color or `{none}`. This can be used to
+    /// [implement striped tables]($guides/table-guide/#fills).
+    ///
+    /// For more styling options, see the [table guide]($guides/table-guide/).
+    ///
+    /// ```example
+    /// #table(
+    ///   fill: (x, _) =>
+    ///     if calc.odd(x) { luma(240) }
+    ///     else { white },
+    ///   align: (x, y) =>
+    ///     if y == 0 { center }
+    ///     else if x == 0 { left }
+    ///     else { right },
+    ///   columns: 4,
+    ///   [], [*Q1*], [*Q2*], [*Q3*],
+    ///   [Revenue:], [1000 €], [2000 €], [3000 €],
+    ///   [Expenses:], [500 €], [1000 €], [1500 €],
+    ///   [Profit:], [500 €], [1000 €], [1500 €],
+    /// )
+    /// ```
+    pub fill: Celled<Option<Paint>>,
+
+    /// How to [stroke] the cells.
+    ///
+    /// This can be a stroke, a dictionary of strokes for individual sides, a
+    /// [function that returns a stroke]($grid/#styling), or an array of strokes
+    /// corresponding to each column. When set to a function, it receives the
+    /// cell's column and row indices (both zero-indexed) as arguments and
+    /// should return a stroke or `{none}`.
+    ///
+    /// Strokes can be disabled by setting this to `{none}`.
+    ///
+    /// If it is necessary to place lines which can cross spacing between cells
+    /// produced by the `gutter` option, or to override the stroke between
+    /// multiple specific cells, consider specifying one or more of
+    /// [`table.hline`] and [`table.vline`] alongside your table cells.
+    ///
+    /// See the [grid documentation]($grid.stroke) for more information on
+    /// strokes, or the [table guide]($guides/table-guide/#strokes) for
+    /// practical usages.
+    #[fold]
+    #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
+    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
@@ -689,14 +689,14 @@ pub struct TableCell {
     #[default(NonZeroUsize::ONE)]
     pub rowspan: NonZeroUsize,
 
-    /// The cell's [fill]($table.fill) override.
-    pub fill: Smart<Option<Paint>>,
+    /// The cell's [inset]($table.inset) override.
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [alignment]($table.align) override.
     pub align: Smart<Alignment>,
 
-    /// The cell's [inset]($table.inset) override.
-    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+    /// The cell's [fill]($table.fill) override.
+    pub fill: Smart<Option<Paint>>,
 
     /// The cell's [stroke]($table.stroke) override.
     #[fold]

@@ -198,6 +198,37 @@ pub struct GridElem {
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
+    /// How much to pad the cells' content.
+    ///
+    /// This can be a length, a dictionary of lengths for individual sides, a
+    /// [function that returns padding]($grid/#styling), or an array of padding
+    /// values corresponding to each column. When set to a function, it receives
+    /// the cell's column and row indices (both zero-indexed) as arguments and
+    /// should return padding.
+    ///
+    /// For more information on styling grids, see the
+    /// [styling section]($grid/#styling) above.
+    ///
+    /// You can find an example for this argument at the [`table.inset`]
+    /// parameter.
+    #[fold]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+
+    /// How to align the cells' content.
+    ///
+    /// This can be a single alignment, an array of alignments (corresponding
+    /// to each column), or a [function that returns an alignment]($grid/#styling).
+    /// When set to a function, it receives the cell's column and row indices
+    /// (both zero-indexed) as arguments and should return an alignment. If set
+    /// to `{auto}`, the outer alignment is used.
+    ///
+    /// For more information on styling grids, see the
+    /// [styling section]($grid/#styling) above.
+    ///
+    /// You can find an example for this argument at the [`table.align`]
+    /// parameter.
+    pub align: Celled<Smart<Alignment>>,
+
     /// How to fill the cells.
     ///
     /// This can be a color, a [function that returns a color]($grid/#styling), or an
@@ -223,21 +254,6 @@ pub struct GridElem {
     /// )
     /// ```
     pub fill: Celled<Option<Paint>>,
-
-    /// How to align the cells' content.
-    ///
-    /// This can be a single alignment, an array of alignments (corresponding
-    /// to each column), or a [function that returns an alignment]($grid/#styling).
-    /// When set to a function, it receives the cell's column and row indices
-    /// (both zero-indexed) as arguments and should return an alignment. If set
-    /// to `{auto}`, the outer alignment is used.
-    ///
-    /// For more information on styling grids, see the
-    /// [styling section]($grid/#styling) above.
-    ///
-    /// You can find an example for this argument at the [`table.align`]
-    /// parameter.
-    pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
     ///
@@ -326,22 +342,6 @@ pub struct GridElem {
     /// ```
     #[fold]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
-
-    /// How much to pad the cells' content.
-    ///
-    /// This can be a length, a dictionary of lengths for individual sides, a
-    /// [function that returns padding]($grid/#styling), or an array of padding
-    /// values corresponding to each column. When set to a function, it receives
-    /// the cell's column and row indices (both zero-indexed) as arguments and
-    /// should return padding.
-    ///
-    /// For more information on styling grids, see the
-    /// [styling section]($grid/#styling) above.
-    ///
-    /// You can find an example for this argument at the [`table.inset`]
-    /// parameter.
-    #[fold]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the grid cells, plus any extra grid lines specified with
     /// the [`grid.hline`] and [`grid.vline`] elements.
@@ -763,14 +763,14 @@ pub struct GridCell {
     #[default(NonZeroUsize::ONE)]
     pub rowspan: NonZeroUsize,
 
-    /// The cell's [fill]($grid.fill) override.
-    pub fill: Smart<Option<Paint>>,
+    /// The cell's [inset]($grid.inset) override.
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [alignment]($grid.align) override.
     pub align: Smart<Alignment>,
 
-    /// The cell's [inset]($grid.inset) override.
-    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+    /// The cell's [fill]($grid.fill) override.
+    pub fill: Smart<Option<Paint>>,
 
     /// The cell's [stroke]($grid.stroke) override.
     #[fold]
