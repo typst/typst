@@ -91,13 +91,13 @@ pub fn cal(
 /// in Typst, however only a few math fonts currently support this.
 ///
 /// The other way is using [font features]($text.features). For example, the
-/// roundhand style might be available in a font through the `ss01` feature.
-/// To use it in Typst, you could then define your own version of `scr` like
-/// this:
+/// roundhand style might be available in a font through the
+/// _[stylistic set]($text.stylistic-set) 1_ (`ss01`) feature. To use it in
+/// Typst, you could then define your own version of `scr` like this:
 ///
 /// ```example
 /// #let scr(it) = text(
-///   features: ("ss01",),
+///   stylistic-set: 1,
 ///   $cal(it)$,
 /// )
 ///
