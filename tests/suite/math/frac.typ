@@ -61,3 +61,18 @@ $ (#v(2em)) / n $
 // Test skewed fractions
 #set math.frac(style: "skewed")
 $ a / b,  a / (b / c) $
+
+--- math-frac-horizontal-explicit ---
+// Test that explicit fractions don't change parentheses
+#set math.frac(style: "horizontal")
+$ frac(a, (b + c)), frac(a, b + c) $
+
+--- math-frac-horizontal-nonparen-brackets ---
+// Test that non-parentheses left-right pairs remain untouched
+#set math.frac(style: "horizontal")
+$ [x+y] / {z} $
+
+--- math-frac-styles-inline ---
+// Test inline layout of styled fractions
+#set math.frac(style: "horizontal")
+$a/(b+c), frac(a, b+c, style: "skewed"), frac(a, b+c, style: "vertical")$
