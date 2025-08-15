@@ -105,22 +105,27 @@ use crate::visualize::{Paint, Stroke};
 /// are the most important ones:
 ///
 /// - [`align`]($grid.align) to change how cells are aligned
-/// - [`inset`]($grid.inset) to optionally add internal padding to each cell
-/// - [`fill`]($grid.fill) to give all cells a background
+/// - [`inset`]($grid.inset) to optionally add internal padding to cells
+/// - [`fill`]($grid.fill) to give cells a background
 /// - [`stroke`]($grid.stroke) to optionally enable grid lines with a certain
 ///   stroke
 ///
-/// If you need to override one of the above options for a single cell, you can
-/// use the [`grid.cell`] element. Likewise, you can override individual grid
-/// lines with the [`grid.hline`] and [`grid.vline`] elements.
+/// To meet different needs, there are various ways to set them.
 ///
-/// - [`grid.cell`]($grid.cell) to override options for individual cells
-/// Many of these styling parameters accept three types of values:
-/// - A single value that applies to all cells
+/// Basically, if you need to override the above options for individual cells,
+/// you can use the [`grid.cell`] element. Likewise, you can override individual
+/// grid lines with the [`grid.hline`] and [`grid.vline`] elements. See that
+/// element's examples or the examples below for more information.
+///
+/// Additionally, if you need to use an overall style for a grid, you may
+/// specify the option in any of the following fashions:
+///
+/// - A single value that applies to all cells.
 /// - An array of values corresponding to each column. The array will be
-///   repeated If there are more columns than the array.
-/// - A function that receives the cell's column and row indices (both
-///   zero-indexed) as arguments and returns a value
+///   repeated if there are more columns than the array.
+/// - A function in the form of `(x, y) => value`. It receives the cell's column
+///   and row indices (both zero-indexed) and should return the value to apply
+///   to that cell.
 ///
 /// ```example
 /// #grid(
@@ -139,20 +144,19 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// When using functions for styling, they provide powerful customization
-/// capabilities, allowing you to create striped patterns, conditional styling
-/// based on cell position, or complex designs.
+/// On top of that, you may [apply styling rules]($styling) to [`grid`] and
+/// [`grid.cell`]. Especially, the [`x`]($grid.cell.x) and [`y`]($grid.cell.y)
+/// fields of `grid.cell` can be used in a [`where`]($function.where) selector,
+/// making it possible to style cells at individual columns and/or rows.
 ///
-/// You may also use a show rule on [`grid.cell`] - see that element's examples
-/// or the examples below for more information.
-///
-/// Locating most of your styling in set and show rules is recommended, as it
-/// keeps the grid's or table's actual usages clean and easy to read. It also
-/// allows you to easily change the grid's appearance in one place.
+/// Locating most of your styling in set and show rules is
+/// recommended, as it keeps the grid's or table's actual usages clean and easy
+/// to read. It also allows you to easily change the grid's appearance in one
+/// place.
 ///
 /// ## Stroke styling precedence
-/// There are three ways to set the stroke of a grid cell: through
-/// [`{grid.cell}`'s `stroke` field]($grid.cell.stroke), by using
+/// As explained above, there are three ways to set the stroke of a grid cell:
+/// through [`{grid.cell}`'s `stroke` field]($grid.cell.stroke), by using
 /// [`{grid.hline}`]($grid.hline) and [`{grid.vline}`]($grid.vline), or by
 /// setting the [`{grid}`'s `stroke` field]($grid.stroke). When multiple of
 /// these settings are present and conflict, the `hline` and `vline` settings
