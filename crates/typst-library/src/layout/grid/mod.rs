@@ -104,9 +104,9 @@ use crate::visualize::{Paint, Stroke};
 /// The grid's appearance can be customized through different parameters. These
 /// are the most important ones:
 ///
-/// - [`fill`]($grid.fill) to give all cells a background
 /// - [`align`]($grid.align) to change how cells are aligned
 /// - [`inset`]($grid.inset) to optionally add internal padding to each cell
+/// - [`fill`]($grid.fill) to give all cells a background
 /// - [`stroke`]($grid.stroke) to optionally enable grid lines with a certain
 ///   stroke
 ///
@@ -114,12 +114,30 @@ use crate::visualize::{Paint, Stroke};
 /// use the [`grid.cell`] element. Likewise, you can override individual grid
 /// lines with the [`grid.hline`] and [`grid.vline`] elements.
 ///
-/// Many of these styling parameters accept three types of values:
 /// - [`grid.cell`]($grid.cell) to override options for individual cells
+/// Many of these styling parameters accept three types of values:
 /// - A single value that applies to all cells
-/// - An array of values corresponding to each column
-/// - A function that receives the cell's column and row indices (both 
+/// - An array of values corresponding to each column. The array will be
+///   repeated If there are more columns than the array.
+/// - A function that receives the cell's column and row indices (both
 ///   zero-indexed) as arguments and returns a value
+///
+/// ```example
+/// #grid(
+///   columns: 5,
+///
+///   // By a single value
+///   align: center,
+///   // By a single but more complicated value
+///   inset: (x: 2pt, y: 3pt),
+///   // By an array of values
+///   fill: (rgb("#239dad50"), none),
+///   // By a function that returns a value
+///   stroke: (x, y) => if calc.rem(x + y, 3) == 0 { 0.5pt },
+///
+///   ..range(5 * 3).map(n => numbering("A", n + 1))
+/// )
+/// ```
 ///
 /// When using functions for styling, they provide powerful customization
 /// capabilities, allowing you to create striped patterns, conditional styling
@@ -797,7 +815,8 @@ pub enum Celled<T> {
     Value(T),
     /// A closure mapping from cell coordinates to a value.
     Func(Func),
-    /// An array of alignment values corresponding to each column.
+    /// An array of values corresponding to each column. The array will be
+    /// repeated If there are more columns than the array.
     Array(Vec<T>),
 }
 
