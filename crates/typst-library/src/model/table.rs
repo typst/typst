@@ -146,7 +146,7 @@ pub struct TableElem {
     ///
     /// This can be a color or a function that returns a color. The function
     /// receives the cells' column and row indices, starting from zero. This can
-    /// be used to implement striped tables.
+    /// be used to [implement striped tables]($guides/table-guide/#fills).
     ///
     /// ```example
     /// #table(
@@ -173,6 +173,9 @@ pub struct TableElem {
     /// The function receives the cells' column and row indices, starting from
     /// zero. If set to `{auto}`, the outer alignment is used.
     ///
+    /// The table guide has a
+    /// [dedicated section on alignment]($guides/table-guide/#alignment).
+    ///
     /// ```example
     /// #table(
     ///   columns: 3,
@@ -193,7 +196,8 @@ pub struct TableElem {
     /// [`table.hline`] and [`table.vline`] alongside your table cells.
     ///
     /// See the [grid documentation]($grid.stroke) for more information on
-    /// strokes.
+    /// strokes, or the [table guide]($guides/table-guide/#strokes) for
+    /// practical usages.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,

@@ -100,7 +100,7 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// # Styling the grid
+/// # Styling the grid { #styling }
 /// The grid's appearance can be customized through different parameters. These
 /// are the most important ones:
 ///
@@ -174,9 +174,9 @@ pub struct GridElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function
-    /// receives the cells' column and row indices, starting from zero. This can
-    /// be used to implement striped grids.
+    /// This can be a color or a [function that returns a color]($styling). The
+    /// function receives the cells' column and row indices, starting from zero.
+    /// This can be used to implement striped grids.
     ///
     /// ```example
     /// #grid(
