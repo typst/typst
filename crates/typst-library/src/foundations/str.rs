@@ -425,18 +425,16 @@ impl Str {
     ///   a regex with capturing groups.
     ///
     /// ```example
-    /// #(
-    ///   "Is there a".match("for this?"),
-    ///   "The time of my life.".match(regex("[mit]+e")),
-    /// )
+    /// #assert.eq("Is there a".match("for this?"), none)
+    /// #"The time of my life.".match(regex("[mit]+e"))
     /// ```
     ///
     /// ```example
-    /// #let pattern = regex(
+    /// #let pat = regex(
     ///   `not (an?) ([\p{Letter}\s]+)\p{Punctuation}`.text,
     /// )
-    /// #"I'm a doctor, not an escalator.".match(pattern) \
-    /// #"I am not a merry man!".match(pattern)
+    /// #"I'm a doctor, not an escalator.".match(pat) \
+    /// #"I am not a merry man!".match(pat)
     /// ```
     #[func]
     pub fn match_(
@@ -494,8 +492,8 @@ impl Str {
         /// dictionary for each match and can return individual replacement
         /// strings.
         ///
-        /// The dictionary would be the same as the returned dictionary of
-        /// [`match`]($str.match).
+        /// The dictionary passed to the function has the same shape as the
+        /// dictionary returned by [`match`]($str.match).
         replacement: Replacement,
         ///  If given, only the first `count` matches of the pattern are placed.
         #[named]
