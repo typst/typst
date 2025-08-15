@@ -379,6 +379,10 @@ impl FontMetrics {
                         .to_em(constants.fraction_denominator_gap_min().value),
                     fraction_denom_display_style_gap_min: font
                         .to_em(constants.fraction_denom_display_style_gap_min().value),
+                    skewed_fraction_vertical_gap: font
+                        .to_em(constants.skewed_fraction_vertical_gap().value),
+                    skewed_fraction_horizontal_gap: font
+                        .to_em(constants.skewed_fraction_horizontal_gap().value),
                     overbar_vertical_gap: font
                         .to_em(constants.overbar_vertical_gap().value),
                     overbar_rule_thickness: font
@@ -412,6 +416,8 @@ impl FontMetrics {
                 // spec, with the exceptions of
                 // - `flattened_accent_base_height` from Building Math Fonts
                 // - `overbar_rule_thickness` and `underbar_rule_thickness`
+                //   from our best guess
+                // - `skewed_fraction_vertical_gap` and `skewed_fraction_horizontal_gap`
                 //   from our best guess
                 // - `script_percent_scale_down` and
                 //   `script_script_percent_scale_down` from Building Math
@@ -458,6 +464,8 @@ impl FontMetrics {
                     fraction_denominator_gap_min: metrics.underline.thickness,
                     fraction_denom_display_style_gap_min: 3.0
                         * metrics.underline.thickness,
+                    skewed_fraction_vertical_gap: Em::zero(),
+                    skewed_fraction_horizontal_gap: Em::new(0.5),
                     overbar_vertical_gap: 3.0 * metrics.underline.thickness,
                     overbar_rule_thickness: metrics.underline.thickness,
                     overbar_extra_ascender: metrics.underline.thickness,
@@ -553,6 +561,8 @@ pub struct MathConstants {
     pub fraction_rule_thickness: Em,
     pub fraction_denominator_gap_min: Em,
     pub fraction_denom_display_style_gap_min: Em,
+    pub skewed_fraction_vertical_gap: Em,
+    pub skewed_fraction_horizontal_gap: Em,
     pub overbar_vertical_gap: Em,
     pub overbar_rule_thickness: Em,
     pub overbar_extra_ascender: Em,
