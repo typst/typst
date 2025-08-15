@@ -144,9 +144,13 @@ pub struct TableElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function
-    /// receives the cells' column and row indices, starting from zero. This can
-    /// be used to [implement striped tables]($guides/table-guide/#fills).
+    /// This can be a color, a [function that returns a color]($grid/#styling), or an
+    /// array of colors corresponding to each column. When set to a function,
+    /// it receives the cell's column and row indices (both zero-indexed) as
+    /// arguments and should return a color or `{none}`. This can be used to
+    /// [implement striped tables]($guides/table-guide/#fills).
+    ///
+    /// For more styling options, see the [table guide]($guides/table-guide/).
     ///
     /// ```example
     /// #table(
@@ -168,10 +172,11 @@ pub struct TableElem {
 
     /// How to align the cells' content.
     ///
-    /// This can either be a single alignment, an array of alignments
-    /// (corresponding to each column) or a function that returns an alignment.
-    /// The function receives the cells' column and row indices, starting from
-    /// zero. If set to `{auto}`, the outer alignment is used.
+    /// This can be a single alignment, an array of alignments (corresponding
+    /// to each column), or a [function that returns an alignment]($grid/#styling).
+    /// When set to a function, it receives the cell's column and row indices
+    /// (both zero-indexed) as arguments and should return an alignment. If set
+    /// to `{auto}`, the outer alignment is used.
     ///
     /// The table guide has a
     /// [dedicated section on alignment]($guides/table-guide/#alignment).
@@ -188,6 +193,12 @@ pub struct TableElem {
 
     /// How to [stroke] the cells.
     ///
+    /// This can be a stroke, a dictionary of strokes for individual sides, a
+    /// [function that returns a stroke]($grid/#styling), or an array of strokes
+    /// corresponding to each column. When set to a function, it receives the
+    /// cell's column and row indices (both zero-indexed) as arguments and
+    /// should return a stroke or `{none}`.
+    ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
@@ -203,6 +214,14 @@ pub struct TableElem {
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// How much to pad the cells' content.
+    ///
+    /// This can be a length, a dictionary of lengths for individual sides, a
+    /// [function that returns padding]($grid/#styling), or an array of padding
+    /// values corresponding to each column. When set to a function, it receives
+    /// the cell's column and row indices (both zero-indexed) as arguments and
+    /// should return padding.
+    ///
+    /// For more styling options, see the [table guide]($guides/table-guide/).
     ///
     /// ```example
     /// #table(

@@ -114,11 +114,19 @@ use crate::visualize::{Paint, Stroke};
 /// use the [`grid.cell`] element. Likewise, you can override individual grid
 /// lines with the [`grid.hline`] and [`grid.vline`] elements.
 ///
-/// Alternatively, if you need the appearance options to depend on a cell's
-/// position (column and row), you may specify a function to `fill` or `align`
-/// of the form `(column, row) => value`. You may also use a show rule on
-/// [`grid.cell`] - see that element's examples or the examples below for more
-/// information.
+/// Many of these styling parameters accept three types of values:
+/// - [`grid.cell`]($grid.cell) to override options for individual cells
+/// - A single value that applies to all cells
+/// - An array of values corresponding to each column
+/// - A function that receives the cell's column and row indices (both 
+///   zero-indexed) as arguments and returns a value
+///
+/// When using functions for styling, they provide powerful customization
+/// capabilities, allowing you to create striped patterns, conditional styling
+/// based on cell position, or complex designs.
+///
+/// You may also use a show rule on [`grid.cell`] - see that element's examples
+/// or the examples below for more information.
 ///
 /// Locating most of your styling in set and show rules is recommended, as it
 /// keeps the grid's or table's actual usages clean and easy to read. It also
@@ -174,9 +182,13 @@ pub struct GridElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a [function that returns a color]($styling). The
-    /// function receives the cells' column and row indices, starting from zero.
-    /// This can be used to implement striped grids.
+    /// This can be a color, a [function that returns a color]($grid/#styling), or an
+    /// array of colors corresponding to each column. When set to a function,
+    /// it receives the cell's column and row indices (both zero-indexed) as
+    /// arguments and should return a color or `{none}`.
+    ///
+    /// For more information on styling grids, see the
+    /// [styling section]($grid/#styling) above.
     ///
     /// ```example
     /// #grid(
@@ -196,16 +208,26 @@ pub struct GridElem {
 
     /// How to align the cells' content.
     ///
-    /// This can either be a single alignment, an array of alignments
-    /// (corresponding to each column) or a function that returns an alignment.
-    /// The function receives the cells' column and row indices, starting from
-    /// zero. If set to `{auto}`, the outer alignment is used.
+    /// This can be a single alignment, an array of alignments (corresponding
+    /// to each column), or a [function that returns an alignment]($grid/#styling).
+    /// When set to a function, it receives the cell's column and row indices
+    /// (both zero-indexed) as arguments and should return an alignment. If set
+    /// to `{auto}`, the outer alignment is used.
+    ///
+    /// For more information on styling grids, see the
+    /// [styling section]($grid/#styling) above.
     ///
     /// You can find an example for this argument at the [`table.align`]
     /// parameter.
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
+    ///
+    /// This can be a stroke, a dictionary of strokes for individual sides, a
+    /// [function that returns a stroke]($grid/#styling), or an array of strokes
+    /// corresponding to each column. When set to a function, it receives the
+    /// cell's column and row indices (both zero-indexed) as arguments and
+    /// should return a stroke or `{none}`.
     ///
     /// Grids have no strokes by default, which can be changed by setting this
     /// option to the desired stroke.
@@ -214,6 +236,9 @@ pub struct GridElem {
     /// produced by the `gutter` option, or to override the stroke between
     /// multiple specific cells, consider specifying one or more of
     /// [`grid.hline`] and [`grid.vline`] alongside your grid cells.
+    ///
+    /// For more information on styling grids, see the
+    /// [styling section]($grid/#styling) above.
     ///
     /// ```example
     /// #set page(height: 13em, width: 26em)
@@ -285,6 +310,15 @@ pub struct GridElem {
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// How much to pad the cells' content.
+    ///
+    /// This can be a length, a dictionary of lengths for individual sides, a
+    /// [function that returns padding]($grid/#styling), or an array of padding
+    /// values corresponding to each column. When set to a function, it receives
+    /// the cell's column and row indices (both zero-indexed) as arguments and
+    /// should return padding.
+    ///
+    /// For more information on styling grids, see the
+    /// [styling section]($grid/#styling) above.
     ///
     /// You can find an example for this argument at the [`table.inset`]
     /// parameter.
