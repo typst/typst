@@ -51,7 +51,8 @@ pub struct EquationElem {
     #[default(false)]
     pub block: bool,
 
-    /// How to [number]($numbering) block-level equations.
+    /// How to number block-level equations. Accepts a
+    /// [numbering pattern or function]($numbering) taking a single number.
     ///
     /// ```example
     /// #set math.equation(numbering: "(1)")
