@@ -29,7 +29,6 @@ pub struct FracElem {
 
     /// How the fraction shoud be laid out.
     ///
-    /// # Example
     /// ```example
     /// #set math.frac(style: "skewed")
     /// $ a / b $
