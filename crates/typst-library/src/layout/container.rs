@@ -69,6 +69,13 @@ pub struct BoxElem {
 
     /// How much to pad the box's content.
     ///
+    /// This can be:
+    /// - a single length for all sides
+    /// - a dictionary of lengths for individual sides, which can contain
+    ///   the following keys in order of precedence: `top`, `right`, `bottom`,
+    ///   `left`, `x` (horizontal padding), `y` (vertical padding), `rest`
+    ///   (padding at all unset sides).
+    ///
     /// _Note:_ When the box contains text, its exact size depends on the
     /// current [text edges]($text.top-edge).
     ///
