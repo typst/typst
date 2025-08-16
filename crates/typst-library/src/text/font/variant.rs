@@ -1,20 +1,107 @@
 use std::fmt::{self, Debug, Formatter};
-
+use std::ops::RangeInclusive;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 
 use crate::foundations::{Cast, IntoValue, Repr, cast};
 use crate::layout::Ratio;
 
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct StaticField<T>(T);
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct DynamicField<T> {
+    range: RangeInclusive<T>,
+    default: T
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+pub enum Field<T> {
+    Static(StaticField<T>),
+    Variable(DynamicField<T>),
+}
+
+impl<T> Field<T> {
+    fn default(&self) -> &T {
+        match self {
+            Field::Static(s) => &s.0,
+            Field::Variable(d) => &d.default,
+        }
+    }
+}
+
+impl<T: Default> Default for Field<T> {
+    fn default() -> Self {
+        Self::Static(StaticField::<T>::default())
+    }
+}
+
 /// Properties that distinguish a font from other fonts in the same family.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct FontVariantCoverage {
+    pub style: FontStyle,
+    pub weight: Field<FontWeight>,
+    pub stretch: Field<FontStretch>,
+}
+
+impl FontVariantCoverage {
+    /// Create a variant from its three components.
+    pub fn new(style: FontStyle, weight: FontWeight, stretch: FontStretch) -> Self {
+        Self { style, weight: Field::Static(StaticField(weight)), stretch: Field::Static(StaticField(stretch)) }
+    }
+    
+    pub fn distance(&self, instance: &FontVariant) -> (u16, u16, Ratio) {
+        let k1 = self.style.distance(instance.style);
+        
+        let k2 = match &self.weight {
+            Field::Static(s) => s.0.distance(instance.weight),
+            Field::Variable(d) => {
+                if d.range.contains(&instance.weight) {
+                    0
+                }   else {
+                    d.range.start().distance(instance.weight).min(d.range.end().distance(instance.weight))
+                }
+            }
+        };
+
+        let k3 = match &self.stretch {
+            Field::Static(s) => s.0.distance(instance.stretch),
+            Field::Variable(d) => {
+                if d.range.contains(&instance.stretch) {
+                    Ratio::zero()
+                }   else {
+                    d.range.start().distance(instance.stretch).min(d.range.end().distance(instance.stretch))
+                }
+            }
+        };
+
+        (k1, k2, k3)
+    }
+    
+    pub fn default_variant(&self) -> FontVariant {
+        FontVariant {
+            style: self.style,
+            weight: *self.weight.default(),
+            stretch: *self.stretch.default(),
+        }
+    }
+}
+
+impl Debug for FontVariantCoverage {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}-{:?}-{:?}", self.style, self.weight, self.stretch)
+    }
+}
+
+#[derive(Default, Clone, Copy, Eq, PartialEq, Hash)]
 #[derive(Serialize, Deserialize)]
 pub struct FontVariant {
-    /// The style of the font (normal / italic / oblique).
     pub style: FontStyle,
-    /// How heavy the font is (100 - 900).
     pub weight: FontWeight,
-    /// How condensed or expanded the font is (0.5 - 2.0).
     pub stretch: FontStretch,
 }
 

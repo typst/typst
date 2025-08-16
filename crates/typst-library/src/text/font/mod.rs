@@ -7,7 +7,7 @@ mod exceptions;
 mod variant;
 
 pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
-pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
+pub use self::variant::{FontStretch, FontStyle, FontVariant, FontVariantCoverage, FontWeight};
 
 use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
@@ -200,7 +200,7 @@ impl Hash for Font {
 
 impl Debug for Font {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Font({}, {:?})", self.info().family, self.info().variant)
+        write!(f, "Font({}, {:?})", self.info().family, self.info().variant_coverage)
     }
 }
 

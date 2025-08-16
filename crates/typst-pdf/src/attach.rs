@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use krilla::Document;
-use krilla::embed::{AssociationKind, EmbeddedFile};
+use krilla::embed::{AssociationKind, EmbeddedFile, MimeType};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;
@@ -42,7 +42,8 @@ pub(crate) fn attach_files(
 
         let file = EmbeddedFile {
             path,
-            mime_type,
+            mime_type: mime_type.map(|m| MimeType::new(&m).unwrap()),
+            modification_date: None,
             description,
             association_kind,
             data: data.into(),

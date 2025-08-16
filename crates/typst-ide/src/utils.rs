@@ -78,14 +78,14 @@ pub fn plain_docs_sentence(docs: &str) -> EcoString {
 
 /// Create a short description of a font family.
 pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
-    variants.sort_by_key(|info| info.variant);
+    variants.sort_by_key(|info| info.variant_coverage);
 
     let mut has_italic = false;
     let mut min_weight = u16::MAX;
     let mut max_weight = 0;
     for info in &variants {
-        let weight = info.variant.weight.to_number();
-        has_italic |= info.variant.style == FontStyle::Italic;
+        let weight = info.variant_coverage.weight.to_number();
+        has_italic |= info.variant_coverage.style == FontStyle::Italic;
         min_weight = min_weight.min(weight);
         max_weight = min_weight.max(weight);
     }

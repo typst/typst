@@ -8,6 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
 use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::text::font::variant::FontVariantCoverage;
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -155,9 +156,8 @@ impl FontBook {
                         current.family.len(),
                     )
                 }),
-                current.variant.style.distance(variant.style),
-                current.variant.stretch.distance(variant.stretch),
-                current.variant.weight.distance(variant.weight),
+                
+                current.variant_coverage.distance(&variant)
             );
 
             if best_key.is_none_or(|b| key < b) {
@@ -177,7 +177,7 @@ pub struct FontInfo {
     pub family: String,
     /// Properties that distinguish this font from other fonts in the same
     /// family.
-    pub variant: FontVariant,
+    pub variant_coverage: FontVariantCoverage,
     /// Properties of the font.
     pub flags: FontFlags,
     /// The unicode coverage of the font.
@@ -263,7 +263,7 @@ impl FontInfo {
                 .and_then(|c| c.stretch)
                 .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
 
-            FontVariant { style, weight, stretch }
+            FontVariantCoverage::new(style, weight, stretch)
         };
 
         // Determine the unicode coverage.
@@ -291,7 +291,7 @@ impl FontInfo {
 
         Some(FontInfo {
             family,
-            variant,
+            variant_coverage: variant,
             flags,
             coverage: Coverage::from_vec(codepoints),
         })

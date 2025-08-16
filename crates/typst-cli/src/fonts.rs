@@ -1,4 +1,4 @@
-use typst::text::FontVariant;
+use typst::text::FontVariantCoverage;
 use typst_kit::fonts::Fonts;
 
 use crate::args::FontsCommand;
@@ -13,7 +13,7 @@ pub fn fonts(command: &FontsCommand) {
         println!("{name}");
         if command.variants {
             for info in infos {
-                let FontVariant { style, weight, stretch } = info.variant;
+                let FontVariantCoverage { style, weight, stretch } = info.variant_coverage.clone();
                 println!("- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}");
             }
         }

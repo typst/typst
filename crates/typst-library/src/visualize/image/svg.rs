@@ -217,11 +217,11 @@ impl FontResolver<'_> {
         // `exclude_fonts` is actually never empty in practice. Still, we
         // prefer to fall back to the default variant rather than panicking
         // in case that changes in the future.
-        let variant = like.map(|info| info.variant).unwrap_or_default();
+        let variant = like.map(|info| info.variant_coverage.clone()).unwrap_or_default();
 
         // Select the font.
         let index =
-            self.book.select_fallback(like, variant, c.encode_utf8(&mut [0; 4]))?;
+            self.book.select_fallback(like, variant.default_variant(), c.encode_utf8(&mut [0; 4]))?;
 
         self.get_or_load(index, db)
     }
@@ -248,7 +248,7 @@ impl FontResolver<'_> {
     ) -> Option<fontdb::ID> {
         let font = self.world.font(index)?;
         let info = font.info();
-        let variant = info.variant;
+        let variant = info.variant_coverage.default_variant();
         let id = Arc::make_mut(db).push_face_info(fontdb::FaceInfo {
             id: fontdb::ID::dummy(),
             source: fontdb::Source::Binary(Arc::new(font.data().clone())),

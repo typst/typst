@@ -958,21 +958,19 @@ dependencies = [
 
 [[package]]
 name = "hayro"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "git+https://github.com/LaurenzV/hayro?rev=cbebe75#cbebe75cbd131b97349a2f78507c508c0d01390d"
 dependencies = [
  "bytemuck",
  "hayro-interpret",
  "image",
  "kurbo",
- "rustc-hash",
- "smallvec",
 ]
 
 [[package]]
 name = "hayro-font"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+source = "git+https://github.com/LaurenzV/hayro?rev=cbebe75#cbebe75cbd131b97349a2f78507c508c0d01390d"
 dependencies = [
  "log",
  "phf",
@@ -980,8 +978,8 @@ dependencies = [
 
 [[package]]
 name = "hayro-interpret"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "git+https://github.com/LaurenzV/hayro?rev=cbebe75#cbebe75cbd131b97349a2f78507c508c0d01390d"
 dependencies = [
  "bitflags 2.9.1",
  "hayro-font",
@@ -990,15 +988,17 @@ dependencies = [
  "log",
  "phf",
  "qcms",
- "skrifa",
+ "rustc-hash",
+ "siphasher",
+ "skrifa 0.32.0",
  "smallvec",
  "yoke 0.8.0",
 ]
 
 [[package]]
 name = "hayro-syntax"
-version = "0.0.1"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "git+https://github.com/LaurenzV/hayro?rev=cbebe75#cbebe75cbd131b97349a2f78507c508c0d01390d"
 dependencies = [
  "flate2",
  "kurbo",
@@ -1010,8 +1010,8 @@ dependencies = [
 
 [[package]]
 name = "hayro-write"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=e701f95#e701f9569157a2fe4ade68930dc9e9283782dcca"
+version = "0.2.0"
+source = "git+https://github.com/LaurenzV/hayro?rev=cbebe75#cbebe75cbd131b97349a2f78507c508c0d01390d"
 dependencies = [
  "flate2",
  "hayro-syntax",
@@ -1416,7 +1416,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=abdf031#abdf031c9e5ba89d606f6f145fad648c75812aec"
+source = "git+https://github.com/LaurenzV/krilla?rev=e856746#e856746be51fce7709ddc746fc16e389fbfa2daf"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1434,7 +1434,7 @@ dependencies = [
  "rustc-hash",
  "rustybuzz",
  "siphasher",
- "skrifa",
+ "skrifa 0.33.2",
  "smallvec",
  "subsetter",
  "tiny-skia-path",
@@ -1446,7 +1446,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=abdf031#abdf031c9e5ba89d606f6f145fad648c75812aec"
+source = "git+https://github.com/LaurenzV/krilla?rev=e856746#e856746be51fce7709ddc746fc16e389fbfa2daf"
 dependencies = [
  "flate2",
  "fontdb",
@@ -1895,8 +1895,7 @@ checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 [[package]]
 name = "pdf-writer"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ea27c5015ab81753fc61e49f8cde74999346605ee148bb20008ef3d3150e0dc"
+source = "git+https://github.com/typst/pdf-writer?rev=143a1c3#143a1c3543a1422a22bda40a68022d0d9ad3a40e"
 dependencies = [
  "bitflags 2.9.1",
  "itoa",
@@ -2158,6 +2157,16 @@ name = "read-fonts"
 version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "192735ef611aac958468e670cb98432c925426f3cb71521fda202130f7388d91"
+dependencies = [
+ "bytemuck",
+ "font-types",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b8250b8f09ed4b9ba9271e06f10e7b1f03e8f8e3619e2368a991ecb25efa204"
 dependencies = [
  "bytemuck",
  "font-types",
@@ -2488,7 +2497,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d632b5a73f566303dbeabd344dc3e716fd4ddc9a70d6fc8ea8e6f06617da97"
 dependencies = [
  "bytemuck",
- "read-fonts",
+ "read-fonts 0.30.1",
+]
+
+[[package]]
+name = "skrifa"
+version = "0.33.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78cc1f79e5624f166718224ef883095bea315801aca75b62c64f3937755a586d"
+dependencies = [
+ "bytemuck",
+ "read-fonts 0.31.3",
 ]
 
 [[package]]
@@ -2587,10 +2606,12 @@ dependencies = [
 [[package]]
 name = "subsetter"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35725d9d2d056905865f8a36146e45be43691b15fc5d973bd7f79dd438288544"
+source = "git+https://github.com/typst/subsetter?rev=02ad2a4#02ad2a43e9f1fce02a194018ec5687c107e87ce4"
 dependencies = [
+ "kurbo",
  "rustc-hash",
+ "skrifa 0.33.2",
+ "write-fonts",
 ]
 
 [[package]]
@@ -3797,6 +3818,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3268f3d866458b787f390cf61f4bbb563b922d091359f9608842999eaee3943c"
 dependencies = [
  "bitflags 2.9.1",
+]
+
+[[package]]
+name = "write-fonts"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cac89848aeba9b7e1877f1e89e3f9c95adb8771f640e1ef23c605aa734748c2b"
+dependencies = [
+ "font-types",
+ "indexmap 2.7.1",
+ "kurbo",
+ "log",
+ "read-fonts 0.31.3",
 ]
 
 [[package]]
