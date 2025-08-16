@@ -424,9 +424,13 @@ impl Debug for Func {
 
 impl repr::Repr for Func {
     fn repr(&self) -> EcoString {
-        match self.name() {
-            Some(name) => name.into(),
-            None => "(..) => ..".into(),
+        const DEFAULT: &str = "(..) => ..";
+        match &self.repr {
+            Repr::Native(native) => native.name.into(),
+            Repr::Element(elem) => elem.name().into(),
+            Repr::Closure(closure) => closure.name().unwrap_or(DEFAULT).into(),
+            Repr::Plugin(func) => func.name().clone(),
+            Repr::With(_) => DEFAULT.into(),
         }
     }
 }
