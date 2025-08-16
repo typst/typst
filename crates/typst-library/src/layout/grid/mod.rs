@@ -147,7 +147,8 @@ use crate::visualize::{Paint, Stroke};
 /// On top of that, you may [apply styling rules]($styling) to [`grid`] and
 /// [`grid.cell`]. Especially, the [`x`]($grid.cell.x) and [`y`]($grid.cell.y)
 /// fields of `grid.cell` can be used in a [`where`]($function.where) selector,
-/// making it possible to style cells at individual columns and/or rows.
+/// making it possible to style cells at specific columns or rows, or individual
+/// positions.
 ///
 /// Locating most of your styling in set and show rules is
 /// recommended, as it keeps the grid's or table's actual usages clean and easy
@@ -204,44 +205,41 @@ pub struct GridElem {
 
     /// How much to pad the cells' content.
     ///
-    /// This can be a length, a dictionary of lengths for individual sides, a
-    /// [function that returns padding]($grid/#styling), or an array of padding
-    /// values corresponding to each column. When set to a function, it receives
-    /// the cell's column and row indices (both zero-indexed) as arguments and
-    /// should return padding.
+    /// To specify a cell's inset, you can use a single length for all sides, or
+    /// a dictionary of lengths for individual sides. See the
+    /// [box's documentation]($box.inset) for more details.
     ///
-    /// For more information on styling grids, see the
-    /// [styling section]($grid/#styling) above.
+    /// To specify it for the entire grid, you can:
+    /// - use a single inset for all cells
+    /// - use an array of insets corresponding to each column
+    /// - use a function that maps a cell's position to its inset
+    /// See the [styling section](#styling) above for details.
     ///
-    /// You can find an example for this argument at the [`table.inset`]
-    /// parameter.
+    /// In addition, you can find an example at the [`table.inset`] parameter.
     #[fold]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// How to align the cells' content.
     ///
-    /// This can be a single alignment, an array of alignments (corresponding
-    /// to each column), or a [function that returns an alignment]($grid/#styling).
-    /// When set to a function, it receives the cell's column and row indices
-    /// (both zero-indexed) as arguments and should return an alignment. If set
-    /// to `{auto}`, the outer alignment is used.
+    /// If set to `{auto}`, the outer alignment is used.
     ///
-    /// For more information on styling grids, see the
-    /// [styling section]($grid/#styling) above.
+    /// You can specify the alignment in any of the following fashions:
+    /// - use a single alignment for all cells
+    /// - use an array of alignments corresponding to each column
+    /// - use a function that maps a cell's position to its alignment
+    /// See the [styling section](#styling) above for details.
     ///
-    /// You can find an example for this argument at the [`table.align`]
-    /// parameter.
+    /// In addition, you can find an example at the [`table.align`] parameter.
     pub align: Celled<Smart<Alignment>>,
 
     /// How to fill the cells.
     ///
-    /// This can be a color, a [function that returns a color]($grid/#styling), or an
-    /// array of colors corresponding to each column. When set to a function,
-    /// it receives the cell's column and row indices (both zero-indexed) as
-    /// arguments and should return a color or `{none}`.
-    ///
-    /// For more information on styling grids, see the
-    /// [styling section]($grid/#styling) above.
+    /// This can be:
+    /// - a single color for all cells
+    /// - an array of colors corresponding to each column
+    /// - a function that maps a cell's position to its color
+    /// Most notably, arrays and functions are useful for creating striped grids.
+    /// See the [styling section](#styling) above for details.
     ///
     /// ```example
     /// #grid(
