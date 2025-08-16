@@ -1,3 +1,6 @@
+// Can be re-enabled once `Option::map_or_default` is stabilized
+#![allow(unstable_name_collisions)]
+
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};

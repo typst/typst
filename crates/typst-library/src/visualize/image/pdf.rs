@@ -70,7 +70,7 @@ impl PdfImage {
     }
 
     /// Returns the PDF page of the image.
-    pub fn page(&self) -> &Page {
+    pub fn page(&self) -> &Page<'_> {
         &self.document().pdf().pages()[self.0.page_index]
     }
 
