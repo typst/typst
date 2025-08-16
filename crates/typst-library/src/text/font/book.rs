@@ -84,12 +84,8 @@ impl FontBook {
     ///
     /// The `family` should be all lowercase.
     pub fn select(&self, family: &str, variant: FontVariant) -> Option<FontKey> {
-        println!("searching {}, {:?}", family, variant);
         let ids = self.families.get(family)?;
-        let res = self.find_best_variant(None, variant, ids.iter().copied());
-
-        println!("res: {:?}", res);
-        res
+        self.find_best_variant(None, variant, ids.iter().copied())
     }
 
     /// Iterate over all variants of a family.

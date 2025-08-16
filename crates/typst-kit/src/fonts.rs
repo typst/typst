@@ -54,6 +54,7 @@ impl FontSlot {
                 let data = fs::read(
                     self.path
                         .as_ref()
+                        // TODO: Ths causes a crash if I run `cargo r -- c --ignore-system-fonts  test.typ`
                         .expect("`path` is not `None` if `font` is uninitialized"),
                 )
                 .ok()?;

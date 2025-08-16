@@ -17,7 +17,7 @@ use crate::layout::{Abs, Em, Frame};
 use crate::text::{
     BottomEdge, DEFAULT_SUBSCRIPT_METRICS, DEFAULT_SUPERSCRIPT_METRICS, TopEdge,
 };
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};

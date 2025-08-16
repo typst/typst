@@ -88,9 +88,7 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
         .coordinates()
         .map(|i| (krilla::text::Tag::new(i.0), i.1))
         .collect::<Vec<_>>();
-
-    println!("pdf instance parameters: {:?}", instance_parameters);
-
+    
     match krilla::text::Font::new_variable(
         font_data.into(),
         typst_font.index(),
