@@ -8,13 +8,13 @@
 //! - For math: New Computer Modern Math
 //! - For code: Deja Vu Sans Mono
 
+use fontdb::{Database, Source};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
-
-use fontdb::{Database, Source};
+use std::sync::Mutex;
 use typst_library::foundations::Bytes;
-use typst_library::text::{Font, FontBook, FontInfo};
+use typst_library::text::{Font, FontBook, FontInfo, InstanceParameters};
 use typst_timing::TimingScope;
 
 /// Holds details about the location of a font and lazily the font itself.
@@ -26,7 +26,7 @@ pub struct FontSlot {
     /// to a collection.
     index: u32,
     /// The lazily loaded font.
-    font: OnceLock<Option<Font>>,
+    fonts: Mutex<HashMap<InstanceParameters, Option<Font>>>,
 }
 
 impl FontSlot {
@@ -44,9 +44,12 @@ impl FontSlot {
 
     /// Get the font for this slot. This loads the font into memory on first
     /// access.
-    pub fn get(&self) -> Option<Font> {
-        self.font
-            .get_or_init(|| {
+    pub fn get(&self, instance_parameters: InstanceParameters) -> Option<Font> {
+        let mut borrowed = self.fonts.lock().unwrap();
+
+        borrowed
+            .entry(instance_parameters.clone())
+            .or_insert_with(|| {
                 let _scope = TimingScope::new("load font");
                 let data = fs::read(
                     self.path
@@ -54,7 +57,7 @@ impl FontSlot {
                         .expect("`path` is not `None` if `font` is uninitialized"),
                 )
                 .ok()?;
-                Font::new(Bytes::new(data), self.index)
+                Font::new(Bytes::new(data), self.index, instance_parameters)
             })
             .clone()
     }
@@ -175,7 +178,7 @@ impl FontSearcher {
                 self.fonts.push(FontSlot {
                     path: Some(path.clone()),
                     index: face.index,
-                    font: OnceLock::new(),
+                    fonts: Mutex::new(HashMap::new()),
                 });
             }
         }
@@ -202,7 +205,7 @@ impl FontSearcher {
                 self.fonts.push(FontSlot {
                     path: None,
                     index: i as u32,
-                    font: OnceLock::from(Some(font)),
+                    fonts: Mutex::new(HashMap::new()),
                 });
             }
         }

@@ -10,7 +10,7 @@ use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Lines, Source, VirtualPath};
-use typst::text::{Font, FontBook};
+use typst::text::{Font, FontBook, FontKey};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::{FontSlot, Fonts};
@@ -220,10 +220,10 @@ impl World for SystemWorld {
         self.slot(id, |slot| slot.file(&self.root, &self.package_storage))
     }
 
-    fn font(&self, index: usize) -> Option<Font> {
+    fn font(&self, key: FontKey) -> Option<Font> {
         // comemo's validation may invoke this function with an invalid index. This is
         // impossible in typst-cli but possible if a custom tool mutates the fonts.
-        self.fonts.get(index)?.get()
+        self.fonts.get(key.index)?.get(key.instance_params)
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {

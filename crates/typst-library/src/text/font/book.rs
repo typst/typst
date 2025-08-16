@@ -2,13 +2,21 @@ use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 
+use super::exceptions::find_exception;
+use crate::text::font::variant::{Field, FontVariantCoverage};
+use crate::text::{
+    Font, FontStretch, FontStyle, FontVariant, FontWeight, InstanceParameters,
+};
 use serde::{Deserialize, Serialize};
 use ttf_parser::{PlatformId, Tag, name_id};
+use typst_library::text::font::variant::{StaticField, VariableField};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::exceptions::find_exception;
-use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
-use crate::text::font::variant::FontVariantCoverage;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct FontKey {
+    pub index: usize,
+    pub instance_params: InstanceParameters,
+}
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -75,9 +83,13 @@ impl FontBook {
     /// `variant` as closely as possible.
     ///
     /// The `family` should be all lowercase.
-    pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
+    pub fn select(&self, family: &str, variant: FontVariant) -> Option<FontKey> {
+        println!("searching {}, {:?}", family, variant);
         let ids = self.families.get(family)?;
-        self.find_best_variant(None, variant, ids.iter().copied())
+        let res = self.find_best_variant(None, variant, ids.iter().copied());
+
+        println!("res: {:?}", res);
+        res
     }
 
     /// Iterate over all variants of a family.
@@ -99,7 +111,7 @@ impl FontBook {
         like: Option<&FontInfo>,
         variant: FontVariant,
         text: &str,
-    ) -> Option<usize> {
+    ) -> Option<FontKey> {
         // Find the fonts that contain the text's first non-space char ...
         let c = text.chars().find(|c| !c.is_whitespace())?;
         let ids = self
@@ -139,13 +151,14 @@ impl FontBook {
         like: Option<&FontInfo>,
         variant: FontVariant,
         ids: impl IntoIterator<Item = usize>,
-    ) -> Option<usize> {
+    ) -> Option<FontKey> {
         let mut best = None;
+        let mut best_instance_params = InstanceParameters::new();
         let mut best_key = None;
 
         for id in ids {
             let current = &self.infos[id];
-            let key = (
+            let (likeness, (distance, instance_params)) = (
                 like.map(|like| {
                     (
                         current.flags.contains(FontFlags::MONOSPACE)
@@ -156,17 +169,19 @@ impl FontBook {
                         current.family.len(),
                     )
                 }),
-                
-                current.variant_coverage.distance(&variant)
+                current.variant_coverage.distance(&variant),
             );
+
+            let key = (likeness, distance);
 
             if best_key.is_none_or(|b| key < b) {
                 best = Some(id);
+                best_instance_params = instance_params;
                 best_key = Some(key);
             }
         }
 
-        best
+        best.map(|id| FontKey { index: id, instance_params: best_instance_params })
     }
 }
 
@@ -262,6 +277,22 @@ impl FontInfo {
             let stretch = exception
                 .and_then(|c| c.stretch)
                 .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
+
+            let mut weight = Field::Static(StaticField(weight));
+            let stretch = Field::Static(StaticField(stretch));
+
+            if ttf.is_variable() {
+                for axis in ttf.variation_axes() {
+                    if axis.tag == Tag::from_bytes(b"wght") {
+                        let min = FontWeight::from_number(axis.min_value.floor() as u16);
+                        let max = FontWeight::from_number(axis.max_value.ceil() as u16);
+                        let default =
+                            FontWeight::from_number(axis.def_value.round() as u16);
+                        weight =
+                            Field::Variable(VariableField { range: min..=max, default })
+                    }
+                }
+            }
 
             FontVariantCoverage::new(style, weight, stretch)
         };

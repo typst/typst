@@ -36,7 +36,7 @@ use crate::diag::FileResult;
 use crate::foundations::{Array, Binding, Bytes, Datetime, Dict, Module, Scope, Styles};
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
-use crate::text::{Font, FontBook};
+use crate::text::{Font, FontBook, FontKey};
 use crate::visualize::Color;
 
 /// The environment in which typesetting occurs.
@@ -74,7 +74,7 @@ pub trait World: Send + Sync {
     fn file(&self, id: FileId) -> FileResult<Bytes>;
 
     /// Try to access the font with the given index in the font book.
-    fn font(&self, index: usize) -> Option<Font>;
+    fn font(&self, key: FontKey) -> Option<Font>;
 
     /// Get the current date.
     ///
@@ -109,7 +109,7 @@ macro_rules! world_impl {
                 self.deref().file(id)
             }
 
-            fn font(&self, index: usize) -> Option<Font> {
+            fn font(&self, index: FontKey) -> Option<Font> {
                 self.deref().font(index)
             }
 

@@ -1,27 +1,27 @@
-use std::fmt::{self, Debug, Formatter};
-use std::ops::RangeInclusive;
-use ecow::EcoString;
-use serde::{Deserialize, Serialize};
-
 use crate::foundations::{Cast, IntoValue, Repr, cast};
 use crate::layout::Ratio;
+use ecow::EcoString;
+use serde::{Deserialize, Serialize};
+use std::fmt::{self, Debug, Formatter};
+use std::ops::RangeInclusive;
+use typst_library::text::InstanceParameters;
 
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
-pub struct StaticField<T>(T);
+pub struct StaticField<T>(pub T);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[derive(Serialize, Deserialize)]
-pub struct DynamicField<T> {
-    range: RangeInclusive<T>,
-    default: T
+pub struct VariableField<T> {
+    pub range: RangeInclusive<T>,
+    pub default: T,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[derive(Serialize, Deserialize)]
 pub enum Field<T> {
     Static(StaticField<T>),
-    Variable(DynamicField<T>),
+    Variable(VariableField<T>),
 }
 
 impl<T> Field<T> {
@@ -50,20 +50,33 @@ pub struct FontVariantCoverage {
 
 impl FontVariantCoverage {
     /// Create a variant from its three components.
-    pub fn new(style: FontStyle, weight: FontWeight, stretch: FontStretch) -> Self {
-        Self { style, weight: Field::Static(StaticField(weight)), stretch: Field::Static(StaticField(stretch)) }
+    pub fn new(
+        style: FontStyle,
+        weight: Field<FontWeight>,
+        stretch: Field<FontStretch>,
+    ) -> Self {
+        Self { style, weight, stretch }
     }
-    
-    pub fn distance(&self, instance: &FontVariant) -> (u16, u16, Ratio) {
+
+    pub fn distance(
+        &self,
+        instance: &FontVariant,
+    ) -> ((u16, u16, Ratio), InstanceParameters) {
+        let mut instance_parameters = InstanceParameters::new();
         let k1 = self.style.distance(instance.style);
-        
+
         let k2 = match &self.weight {
             Field::Static(s) => s.0.distance(instance.weight),
             Field::Variable(d) => {
+                instance_parameters.set_weight(instance.weight);
+
                 if d.range.contains(&instance.weight) {
                     0
-                }   else {
-                    d.range.start().distance(instance.weight).min(d.range.end().distance(instance.weight))
+                } else {
+                    d.range
+                        .start()
+                        .distance(instance.weight)
+                        .min(d.range.end().distance(instance.weight))
                 }
             }
         };
@@ -71,17 +84,22 @@ impl FontVariantCoverage {
         let k3 = match &self.stretch {
             Field::Static(s) => s.0.distance(instance.stretch),
             Field::Variable(d) => {
+                instance_parameters.set_stretch(instance.stretch);
+
                 if d.range.contains(&instance.stretch) {
                     Ratio::zero()
-                }   else {
-                    d.range.start().distance(instance.stretch).min(d.range.end().distance(instance.stretch))
+                } else {
+                    d.range
+                        .start()
+                        .distance(instance.stretch)
+                        .min(d.range.end().distance(instance.stretch))
                 }
             }
         };
 
-        (k1, k2, k3)
+        ((k1, k2, k3), instance_parameters)
     }
-    
+
     pub fn default_variant(&self) -> FontVariant {
         FontVariant {
             style: self.style,

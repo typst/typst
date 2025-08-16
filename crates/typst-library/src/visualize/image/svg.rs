@@ -1,17 +1,17 @@
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-use comemo::Tracked;
-use rustc_hash::FxHashMap;
-use siphasher::sip128::{Hasher128, SipHasher13};
-
 use crate::World;
 use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
-    Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
+    Font, FontBook, FontFlags, FontKey, FontStretch, FontStyle, FontVariant, FontWeight,
 };
+use comemo::Tracked;
+use rustc_hash::FxHashMap;
+use siphasher::sip128::{Hasher128, SipHasher13};
+use typst_library::text::InstanceParameters;
 
 /// A decoded SVG.
 #[derive(Clone, Hash)]
@@ -197,7 +197,7 @@ impl FontResolver<'_> {
             })
             .chain(self.families.iter().copied())
             .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
-            .find_map(|index| self.get_or_load(index, db))
+            .find_map(|font_key| self.get_or_load(font_key.index, db))
     }
 
     /// Select a fallback font.
@@ -220,10 +220,13 @@ impl FontResolver<'_> {
         let variant = like.map(|info| info.variant_coverage.clone()).unwrap_or_default();
 
         // Select the font.
-        let index =
-            self.book.select_fallback(like, variant.default_variant(), c.encode_utf8(&mut [0; 4]))?;
+        let font_key = self.book.select_fallback(
+            like,
+            variant.default_variant(),
+            c.encode_utf8(&mut [0; 4]),
+        )?;
 
-        self.get_or_load(index, db)
+        self.get_or_load(font_key.index, db)
     }
 
     /// Tries to retrieve the ID for the index or loads the font, allocating
@@ -246,7 +249,9 @@ impl FontResolver<'_> {
         index: usize,
         db: &mut Arc<fontdb::Database>,
     ) -> Option<fontdb::ID> {
-        let font = self.world.font(index)?;
+        let font = self
+            .world
+            .font(FontKey { index, instance_params: InstanceParameters::new() })?;
         let info = font.info();
         let variant = info.variant_coverage.default_variant();
         let id = Arc::make_mut(db).push_face_info(fontdb::FaceInfo {

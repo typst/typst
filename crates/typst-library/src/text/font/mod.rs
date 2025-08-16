@@ -6,15 +6,10 @@ mod book;
 mod exceptions;
 mod variant;
 
-pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
-pub use self::variant::{FontStretch, FontStyle, FontVariant, FontVariantCoverage, FontWeight};
-
-use std::cell::OnceCell;
-use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
-use std::sync::{Arc, OnceLock};
-
-use ttf_parser::{GlyphId, name_id};
+pub use self::book::{Coverage, FontBook, FontFlags, FontInfo, FontKey};
+pub use self::variant::{
+    FontStretch, FontStyle, FontVariant, FontVariantCoverage, FontWeight,
+};
 
 use self::book::find_name;
 use crate::foundations::{Bytes, Cast};
@@ -22,6 +17,13 @@ use crate::layout::{Abs, Em, Frame};
 use crate::text::{
     BottomEdge, DEFAULT_SUBSCRIPT_METRICS, DEFAULT_SUPERSCRIPT_METRICS, TopEdge,
 };
+use smallvec::{SmallVec, smallvec};
+use std::cell::OnceCell;
+use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, OnceLock};
+use ttf_parser::{GlyphId, Tag, name_id};
+use usvg::strict_num::FiniteF32;
 
 /// An OpenType font.
 ///
@@ -37,6 +39,8 @@ struct Repr {
     info: FontInfo,
     /// The font's metrics.
     metrics: FontMetrics,
+    /// The instantiation parameters for variable fonts.
+    instance_parameters: InstanceParameters,
     /// The underlying ttf-parser face.
     ttf: ttf_parser::Face<'static>,
     /// The underlying rustybuzz face.
@@ -53,7 +57,11 @@ struct Repr {
 
 impl Font {
     /// Parse a font from data and collection index.
-    pub fn new(data: Bytes, index: u32) -> Option<Self> {
+    pub fn new(
+        data: Bytes,
+        index: u32,
+        instance_parameters: InstanceParameters,
+    ) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
@@ -63,18 +71,33 @@ impl Font {
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
-        let ttf = ttf_parser::Face::parse(slice, index).ok()?;
-        let rusty = rustybuzz::Face::from_slice(slice, index)?;
+        let mut ttf = ttf_parser::Face::parse(slice, index).ok()?;
+        let mut rusty = rustybuzz::Face::from_slice(slice, index)?;
+
+        for (tag, value) in instance_parameters.coordinates() {
+            ttf.set_variation(Tag::from_bytes(tag), value);
+            rusty.set_variation(Tag::from_bytes(tag), value);
+        }
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(Repr { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(Repr {
+            data,
+            index,
+            info,
+            metrics,
+            ttf,
+            rusty,
+            instance_parameters,
+        })))
     }
 
     /// Parse all fonts in the given data.
     pub fn iter(data: Bytes) -> impl Iterator<Item = Self> {
         let count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
-        (0..count).filter_map(move |index| Self::new(data.clone(), index))
+        (0..count).filter_map(move |index| {
+            Self::new(data.clone(), index, InstanceParameters::new())
+        })
     }
 
     /// The underlying buffer.
@@ -101,6 +124,10 @@ impl Font {
     #[inline]
     pub fn math(&self) -> &MathConstants {
         self.0.metrics.math.get_or_init(|| FontMetrics::init_math(self))
+    }
+
+    pub fn instance_parameters(&self) -> &InstanceParameters {
+        &self.0.instance_parameters
     }
 
     /// The number of font units per one em.
@@ -195,6 +222,7 @@ impl Hash for Font {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.data.hash(state);
         self.0.index.hash(state);
+        self.0.instance_parameters.hash(state);
     }
 }
 
@@ -485,6 +513,31 @@ impl FontMetrics {
             VerticalFontMetric::Baseline => Em::zero(),
             VerticalFontMetric::Descender => self.descender,
         }
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+pub struct InstanceParameters(SmallVec<[(&'static [u8; 4], FiniteF32); 2]>);
+
+impl InstanceParameters {
+    pub fn new() -> Self {
+        Self(SmallVec::new())
+    }
+
+    pub fn set_weight(&mut self, weight: FontWeight) {
+        self.0
+            .push((b"wght", FiniteF32::new(weight.0 as f32).unwrap_or_default()));
+    }
+
+    pub fn set_stretch(&mut self, stretch: FontStretch) {
+        self.0.push((
+            b"wdth",
+            FiniteF32::new(stretch.0 as f32 / 1000.0).unwrap_or_default(),
+        ))
+    }
+
+    pub fn coordinates(&self) -> impl Iterator<Item = (&[u8; 4], f32)> {
+        self.0.iter().map(|i| (i.0, i.1.get()))
     }
 }
 

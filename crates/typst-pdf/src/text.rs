@@ -83,7 +83,19 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
     let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
         Arc::new(typst_font.data().clone());
 
-    match krilla::text::Font::new(font_data.into(), typst_font.index()) {
+    let instance_parameters = typst_font
+        .instance_parameters()
+        .coordinates()
+        .map(|i| (krilla::text::Tag::new(i.0), i.1))
+        .collect::<Vec<_>>();
+
+    println!("pdf instance parameters: {:?}", instance_parameters);
+
+    match krilla::text::Font::new_variable(
+        font_data.into(),
+        typst_font.index(),
+        &instance_parameters,
+    ) {
         None => {
             let font_str = display_font(&typst_font);
             bail!(Span::detached(), "failed to process font {font_str}");
