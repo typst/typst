@@ -937,7 +937,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.8.1"
-source = "git+https://github.com/wkordalski/hayagriva.git?branch=transparent-locator-payload-with-discrimination-ids#470dcbf1857c624b2ab5452e6ad6356a86193a11"
+source = "git+https://github.com/wkordalski/hayagriva.git?branch=transparent-locator-payload-with-discrimination-ids#119d3f0910beccb8887caff24eecd558d77f7287"
 dependencies = [
  "biblatex",
  "ciborium",
