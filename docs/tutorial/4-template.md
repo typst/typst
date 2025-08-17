@@ -239,36 +239,38 @@ The resulting template function looks like this:
 >>> // (skipped)
 <<<   ...
 
->>> place(
->>>   top + center,
->>>   float: true,
->>>   scope: "parent",
->>>   clearance: 2em,
->>> )[
-<<<   place(...)[
-    #text(
-      17pt,
-      weight: "bold",
-      title,
-    )
+  place(
+>>> top + center,
+>>> float: true,
+>>> scope: "parent",
+>>> clearance: 2em,
+<<<     ...,
+    {
+      text(
+        17pt,
+        weight: "bold",
+        title,
+      )
 
-    #let count = authors.len()
-    #let ncols = calc.min(count, 3)
-    #grid(
-      columns: (1fr,) * ncols,
-      row-gutter: 24pt,
-      ..authors.map(author => [
-        #author.name \
-        #author.affiliation \
-        #link("mailto:" + author.email)
-      ]),
-    )
+      let count = authors.len()
+      let ncols = calc.min(count, 3)
+      grid(
+        columns: (1fr,) * ncols,
+        row-gutter: 24pt,
+        ..authors.map(author => [
+          #author.name \
+          #author.affiliation \
+          #link("mailto:" + author.email)
+        ]),
+      )
 
-    #par(justify: false)[
-      *Abstract* \
-      #abstract
-    ]
-  ]
+      par(justify: false)[
+        *Abstract* \
+        #abstract
+      ]
+
+    }
+  )
 
   doc
 }
@@ -332,30 +334,31 @@ call.
 >>>     float: true,
 >>>     scope: "parent",
 >>>     clearance: 2em,
->>>   )[
->>>     #text(
->>>       17pt,
->>>       weight: "bold",
->>>       title,
->>>     )
+>>>     {
+>>>       text(
+>>>         17pt,
+>>>         weight: "bold",
+>>>         title,
+>>>       )
 >>>
->>>     #let count = authors.len()
->>>     #let ncols = calc.min(count, 3)
->>>     #grid(
->>>       columns: (1fr,) * ncols,
->>>       row-gutter: 24pt,
->>>       ..authors.map(author => [
->>>         #author.name \
->>>         #author.affiliation \
->>>         #link("mailto:" + author.email)
->>>       ]),
->>>     )
+>>>       let count = authors.len()
+>>>       let ncols = calc.min(count, 3)
+>>>       grid(
+>>>         columns: (1fr,) * ncols,
+>>>         row-gutter: 24pt,
+>>>         ..authors.map(author => [
+>>>           #author.name \
+>>>           #author.affiliation \
+>>>           #link("mailto:" + author.email)
+>>>         ]),
+>>>       )
 >>>
->>>     #par(justify: false)[
->>>       *Abstract* \
->>>       #abstract
->>>     ]
->>>   ]
+>>>       par(justify: false)[
+>>>         *Abstract* \
+>>>         #abstract
+>>>       ]
+>>>     }
+>>>   )
 >>>
 >>>   doc
 >>> }
