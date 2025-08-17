@@ -25,7 +25,7 @@
 #bignum
 
 --- json-default ---
-// Use the default balue
+// Doesn't produce file not found and use the default value
 #let data_def = json("nope_default.json", default: none)
 #test(data_def, none)
 
