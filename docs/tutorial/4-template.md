@@ -99,6 +99,7 @@ previous chapter.
       right + horizon,
       title
     ),
+>>> numbering: "1",
     columns: 2,
 <<<     ...
   )
@@ -112,24 +113,19 @@ previous chapter.
 <<<   ...
 >>> show heading.where(
 >>>   level: 1
->>> ): it => block(
->>>   align(center,
->>>     text(
->>>       13pt,
->>>       weight: "regular",
->>>       smallcaps(it.body),
->>>     )
->>>   ),
->>> )
+>>> ): it => block(width: 100%)[
+>>>   #set align(center)
+>>>   #set text(13pt, weight: "regular")
+>>>   #smallcaps(it.body)
+>>> ]
+>>>
 >>> show heading.where(
 >>>   level: 2
->>> ): it => box(
->>>   text(
->>>     11pt,
->>>     weight: "regular",
->>>     style: "italic",
->>>     it.body + [.],
->>>   )
+>>> ): it => text(
+>>>   size: 11pt,
+>>>   weight: "regular",
+>>>   style: "italic",
+>>>   it.body + [.],
 >>> )
 
   doc
@@ -240,30 +236,40 @@ The resulting template function looks like this:
   doc,
 ) = {
   // Set and show rules from before.
->>> set page(columns: 2)
+>>> // (skipped)
 <<<   ...
 
-  set align(center)
-  text(17pt, title)
+>>> place(
+>>>   top + center,
+>>>   float: true,
+>>>   scope: "parent",
+>>>   clearance: 2em,
+>>> )[
+<<<   place(...)[
+    #text(
+      17pt,
+      weight: "bold",
+      title,
+    )
 
-  let count = authors.len()
-  let ncols = calc.min(count, 3)
-  grid(
-    columns: (1fr,) * ncols,
-    row-gutter: 24pt,
-    ..authors.map(author => [
-      #author.name \
-      #author.affiliation \
-      #link("mailto:" + author.email)
-    ]),
-  )
+    #let count = authors.len()
+    #let ncols = calc.min(count, 3)
+    #grid(
+      columns: (1fr,) * ncols,
+      row-gutter: 24pt,
+      ..authors.map(author => [
+        #author.name \
+        #author.affiliation \
+        #link("mailto:" + author.email)
+      ]),
+    )
 
-  par(justify: false)[
-    *Abstract* \
-    #abstract
+    #par(justify: false)[
+      *Abstract* \
+      #abstract
+    ]
   ]
 
-  set align(left)
   doc
 }
 ```
@@ -306,50 +312,51 @@ call.
 >>>
 >>>   show heading.where(
 >>>     level: 1
->>>   ): it => block(
->>>     align(center,
->>>       text(
->>>         13pt,
->>>         weight: "regular",
->>>         smallcaps(it.body),
->>>       )
->>>     ),
->>>   )
+>>>   ): it => block(width: 100%)[
+>>>     #set align(center)
+>>>     #set text(13pt, weight: "regular")
+>>>     #smallcaps(it.body)
+>>>   ]
+>>>
 >>>   show heading.where(
 >>>     level: 2
->>>   ): it => box(
->>>     text(
->>>       11pt,
->>>       weight: "regular",
->>>       style: "italic",
->>>       it.body + [.],
->>>     )
+>>>   ): it => text(
+>>>     size: 11pt,
+>>>     weight: "regular",
+>>>     style: "italic",
+>>>     it.body + [.],
 >>>   )
 >>>
 >>>   place(
->>>     top,
+>>>     top + center,
 >>>     float: true,
 >>>     scope: "parent",
 >>>     clearance: 2em,
->>>     {
->>>       set align(center)
->>>       text(17pt, title)
->>>       let count = calc.min(authors.len(), 3)
->>>       grid(
->>>         columns: (1fr,) * count,
->>>         row-gutter: 24pt,
->>>         ..authors.map(author => [
->>>           #author.name \
->>>           #author.affiliation \
->>>           #link("mailto:" + author.email)
->>>         ]),
->>>       )
->>>       par(justify: false)[
->>>         *Abstract* \
->>>         #abstract
->>>       ]
->>>     },
->>>   )
+>>>   )[
+>>>     #text(
+>>>       17pt,
+>>>       weight: "bold",
+>>>       title,
+>>>     )
+>>>
+>>>     #let count = authors.len()
+>>>     #let ncols = calc.min(count, 3)
+>>>     #grid(
+>>>       columns: (1fr,) * ncols,
+>>>       row-gutter: 24pt,
+>>>       ..authors.map(author => [
+>>>         #author.name \
+>>>         #author.affiliation \
+>>>         #link("mailto:" + author.email)
+>>>       ]),
+>>>     )
+>>>
+>>>     #par(justify: false)[
+>>>       *Abstract* \
+>>>       #abstract
+>>>     ]
+>>>   ]
+>>>
 >>>   doc
 >>> }
 <<< #import "conf.typ": conf
