@@ -259,22 +259,74 @@ pub struct GridElem {
 
     /// How to [stroke]($stroke) the cells.
     ///
-    /// This can be a stroke, a dictionary of strokes for individual sides, a
-    /// [function that returns a stroke]($grid/#styling), or an array of strokes
-    /// corresponding to each column. When set to a function, it receives the
-    /// cell's column and row indices (both zero-indexed) as arguments and
-    /// should return a stroke or `{none}`.
-    ///
     /// Grids have no strokes by default, which can be changed by setting this
     /// option to the desired stroke.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the `gutter` option, or to override the stroke between
-    /// multiple specific cells, consider specifying one or more of
-    /// [`grid.hline`] and [`grid.vline`] alongside your grid cells.
+    /// produced by the [`gutter`]($grid.gutter) option, or to override the
+    /// stroke between multiple specific cells, consider specifying one or more
+    /// of [`grid.hline`] and [`grid.vline`] alongside your grid cells.
     ///
-    /// For more information on styling grids, see the
-    /// [styling section]($grid/#styling) above.
+    /// To specify a cell's stroke, you can use a single [stroke] for all sides,
+    /// or a dictionary of [strokes]($stroke) for individual sides. See the
+    /// [rectangle's documentation]($rect.stroke) for more details.
+    ///
+    /// To specify it for the entire grid, you can:
+    /// - use a single stroke for all cells
+    /// - use an array of strokes corresponding to each column
+    /// - use a function that maps a cell's position to its stroke
+    /// See the [styling section](#styling) above for details.
+    ///
+    /// ```example
+    /// #set grid(columns: 4, inset: 3pt, align: center + horizon)
+    /// #let placeholder = range(4 * 3).map(n => numbering("A", n + 1))
+    ///
+    /// #grid(
+    ///   stroke: 0.5pt,
+    ///   ..placeholder
+    /// )
+    ///
+    /// #grid(
+    ///   stroke: (y: 0.8pt + gray),
+    ///   ..placeholder
+    /// )
+    /// #grid(
+    ///   columns: (1em, 2em) * 2,
+    ///   stroke: (blue, none),
+    ///   ..placeholder
+    /// )
+    ///
+    /// #grid(
+    ///   stroke: (x, y) => if x == 0 { (right: green) },
+    ///   ..placeholder
+    /// )
+    ///
+    /// #grid(
+    ///   stroke: (x, y) => if x >= 1 { (left: purple) },
+    ///   ..placeholder
+    /// )
+    /// ```
+    ///
+    /// ```example
+    /// // If there is a gutter, then result of `stroke` will be
+    /// // different from that of `hline` and `vline`.
+    /// >>> #set grid(inset: 3pt, align: center + horizon)
+    /// #set grid(
+    ///   columns: 2,
+    ///   row-gutter: 5pt,
+    /// )
+    ///
+    /// #grid(
+    ///   stroke: (x, y) => if x == 0 { (right: green) },
+    ///   [A], [B],
+    ///   [C], [D],
+    /// )
+    ///
+    /// #grid(
+    ///   [A], grid.vline(stroke: green), [B],
+    ///   [C], [D],
+    /// )
+    /// ```
     ///
     /// ```example
     /// #set page(height: 13em, width: 26em)

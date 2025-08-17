@@ -224,18 +224,12 @@ pub struct TableElem {
 
     /// How to [stroke] the cells.
     ///
-    /// This can be a stroke, a dictionary of strokes for individual sides, a
-    /// [function that returns a stroke]($grid/#styling), or an array of strokes
-    /// corresponding to each column. When set to a function, it receives the
-    /// cell's column and row indices (both zero-indexed) as arguments and
-    /// should return a stroke or `{none}`.
-    ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the `gutter` option, or to override the stroke between
-    /// multiple specific cells, consider specifying one or more of
-    /// [`table.hline`] and [`table.vline`] alongside your table cells.
+    /// produced by the [`gutter`]($table.gutter) option, or to override the
+    /// stroke between multiple specific cells, consider specifying one or more
+    /// of [`table.hline`] and [`table.vline`] alongside your table cells.
     ///
     /// See the [grid documentation]($grid.stroke) for more information on
     /// strokes, or the [table guide]($guides/table-guide/#strokes) for
