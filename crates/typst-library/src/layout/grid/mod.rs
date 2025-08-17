@@ -101,6 +101,10 @@ use crate::visualize::{Paint, Stroke};
 /// ```
 ///
 /// # Styling the grid { #styling }
+/// The grid and table elements work similarly. For a hands-on explanation,
+/// refer to the [table guide]($guides/table-guide/#fills); for a quick overview,
+/// continue reading.
+///
 /// The grid's appearance can be customized through different parameters. These
 /// are the most important ones:
 ///
@@ -122,7 +126,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// - A single value that applies to all cells.
 /// - An array of values corresponding to each column. The array will be
-///   repeated if there are more columns than the array.
+///   cycled if there are more columns than the array.
 /// - A function in the form of `(x, y) => value`. It receives the cell's column
 ///   and row indices (both zero-indexed) and should return the value to apply
 ///   to that cell.
@@ -870,7 +874,7 @@ pub enum Celled<T> {
     /// A closure mapping from cell coordinates to a value.
     Func(Func),
     /// An array of values corresponding to each column. The array will be
-    /// repeated If there are more columns than the array.
+    /// cycled if there are more columns than the array.
     Array(Vec<T>),
 }
 
