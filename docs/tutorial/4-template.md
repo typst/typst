@@ -178,7 +178,10 @@ to work like this:
 
 ```typ
 #show: doc => conf(
-  title: [Towards Improved Modelling],
+  title: [
+    A fluid dynamic model for
+    glacier flow
+  ],
   authors: (
     (
       name: "Theresa Tungsten",
@@ -365,7 +368,8 @@ call.
 <<< #import "conf.typ": conf
 #show: conf.with(
   title: [
-    Towards Improved Modelling
+    A fluid dynamic model for
+    glacier flow
   ],
   authors: (
     (
