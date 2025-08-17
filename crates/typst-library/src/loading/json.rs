@@ -53,14 +53,27 @@ pub fn json(
     engine: &mut Engine,
     /// A [path]($syntax/#paths) to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
+    /// A default value to return if the key is not part of the dictionary.
+    #[named]
+    default: Option<Value>,
 ) -> SourceResult<Value> {
-    let loaded = source.load(engine.world)?;
-    serde_json::from_slice(loaded.data.as_slice())
-        .map_err(|err| {
-            let pos = LineCol::one_based(err.line(), err.column());
-            LoadError::new(pos, "failed to parse JSON", err)
-        })
-        .within(&loaded)
+    let loaded = match source.load(engine.world) {
+        Ok(load) => Ok(load),
+        Err(err) => match default {
+            Some(v) => return Ok(v),
+            None => Err(err),
+        },
+    }?;
+    match serde_json::from_slice::<Value>(loaded.data.as_slice()) {
+        Ok(v) => Ok(v),
+        Err(err) => match default {
+            Some(v) => Ok(v),
+            None => {
+                let pos = LineCol::one_based(err.line(), err.column());
+                Err(LoadError::new(pos, "failed to parse JSON", err)).within(&loaded)
+            }
+        },
+    }
 }
 
 #[scope]
@@ -76,7 +89,7 @@ impl json {
         /// JSON data.
         data: Spanned<Readable>,
     ) -> SourceResult<Value> {
-        json(engine, data.map(Readable::into_source))
+        json(engine, data.map(Readable::into_source), None)
     }
 
     /// Encodes structured data into a JSON string.
