@@ -404,10 +404,12 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   ]
 >>> ]
 >>>
->>> = Introduction
+= Introduction
+<<< ...
 >>> #lorem(35)
->>>
->>> == Motivation
+
+== Motivation
+<<< ...
 >>> #lorem(45)
 ```
 
