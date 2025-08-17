@@ -53,7 +53,7 @@ pub fn json(
     engine: &mut Engine,
     /// A [path]($syntax/#paths) to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
-    /// A default value to return if the key is not part of the dictionary.
+    /// A default value to return if the file is not found or there is a error during parsing
     #[named]
     default: Option<Value>,
 ) -> SourceResult<Value> {
