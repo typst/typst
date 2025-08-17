@@ -430,7 +430,7 @@ impl Str {
     /// ```
     ///
     /// ```example
-    /// #let pat = regex("not (an?) (apple|cat)")
+    /// #let pat = regex("not (a|an) (apple|cat)")
     /// #"I'm a doctor, not an apple.".match(pat) \
     /// #"I am not a cat!".match(pat)
     /// ```
