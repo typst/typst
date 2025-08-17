@@ -141,8 +141,6 @@ Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
 
 ```example:0,0,612,317.5
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
@@ -152,6 +150,8 @@ be set ragged and centered.
 >>>   ],
 >>>   numbering: "1",
 >>> )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 >>> #align(center, text(17pt)[
 >>>   *A fluid dynamic model
@@ -200,8 +200,6 @@ keyword:
 
 <<< ...
 
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 #set page(
 >>> "us-letter",
 >>> margin: auto,
@@ -212,6 +210,8 @@ keyword:
 <<<   ...
 >>> numbering: "1",
 )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 
 #align(center, text(17pt)[
   *#title*
@@ -283,9 +283,6 @@ or bottom of the page is not occupied by any other content.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
->>>
 #set page(
 >>> margin: auto,
   paper: "us-letter",
@@ -296,6 +293,8 @@ or bottom of the page is not occupied by any other content.
   numbering: "1",
   columns: 2,
 )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 
 #place(
   top + center,
@@ -352,8 +351,6 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
@@ -364,6 +361,8 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 #show heading: it => [
   #set align(center)
   #set text(13pt, weight: "regular")
@@ -434,8 +433,6 @@ differentiate between section and subsection headings:
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
@@ -446,6 +443,8 @@ differentiate between section and subsection headings:
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 #show heading.where(
   level: 1

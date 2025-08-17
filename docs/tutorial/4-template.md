@@ -291,8 +291,6 @@ call.
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>   set text(font: "Libertinus Serif", 11pt)
->>>   set par(justify: true)
 >>>   set page(
 >>>     "us-letter",
 >>>     margin: auto,
@@ -303,6 +301,8 @@ call.
 >>>     numbering: "1",
 >>>     columns: 2,
 >>>   )
+>>>   set par(justify: true)
+>>>   set text(font: "Libertinus Serif", 11pt)
 >>>
 >>>   show heading.where(
 >>>     level: 1
