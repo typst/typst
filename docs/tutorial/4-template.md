@@ -240,7 +240,7 @@ The resulting template function looks like this:
   doc,
 ) = {
   // Set and show rules from before.
->>> #set page(columns: 2)
+>>> set page(columns: 2)
 <<<   ...
 
   set align(center)
