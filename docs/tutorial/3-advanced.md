@@ -51,7 +51,7 @@ Let's start by writing some set rules for the document.
 
 ```example
 #set page(
->>>  margin: auto,
+>>> margin: auto,
   paper: "us-letter",
   header: align(right)[
     A fluid dynamic model for
@@ -203,14 +203,14 @@ keyword:
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>> #set par(justify: true)
 #set page(
->>>   "us-letter",
->>>   margin: auto,
+>>> "us-letter",
+>>> margin: auto,
   header: align(
     right + horizon,
     title
   ),
 <<<   ...
->>>   numbering: "1",
+>>> numbering: "1",
 )
 
 #align(center, text(17pt)[
@@ -303,25 +303,25 @@ or bottom of the page is not occupied by any other content.
   scope: "parent",
   clearance: 2em,
 )[
->>>  #text(
->>>    17pt,
->>>    weight: "bold",
->>>    title,
->>>  )
+>>> #text(
+>>>   17pt,
+>>>   weight: "bold",
+>>>   title,
+>>> )
 >>>
->>>  #grid(
->>>    columns: (1fr, 1fr),
->>>    [
->>>      Therese Tungsten \
->>>      Artos Institute \
->>>      #link("mailto:tung@artos.edu")
->>>    ],
->>>    [
->>>      Dr. John Doe \
->>>      Artos Institute \
->>>      #link("mailto:doe@artos.edu")
->>>    ]
->>>  )
+>>> #grid(
+>>>   columns: (1fr, 1fr),
+>>>   [
+>>>     Therese Tungsten \
+>>>     Artos Institute \
+>>>     #link("mailto:tung@artos.edu")
+>>>   ],
+>>>   [
+>>>     Dr. John Doe \
+>>>     Artos Institute \
+>>>     #link("mailto:doe@artos.edu")
+>>>   ]
+>>> )
 <<<   ...
 
   #par(justify: false)[
@@ -474,19 +474,19 @@ differentiate between section and subsection headings:
 >>>     title,
 >>>   )
 >>>
->>>  #grid(
->>>    columns: (1fr, 1fr),
->>>    [
->>>      Therese Tungsten \
->>>      Artos Institute \
->>>      #link("mailto:tung@artos.edu")
->>>    ],
->>>    [
->>>      Dr. John Doe \
->>>      Artos Institute \
->>>      #link("mailto:doe@artos.edu")
->>>    ]
->>>  )
+>>>   #grid(
+>>>     columns: (1fr, 1fr),
+>>>     [
+>>>       Therese Tungsten \
+>>>       Artos Institute \
+>>>       #link("mailto:tung@artos.edu")
+>>>     ],
+>>>     [
+>>>       Dr. John Doe \
+>>>       Artos Institute \
+>>>       #link("mailto:doe@artos.edu")
+>>>     ]
+>>>   )
 >>>
 >>>   #par(justify: false)[
 >>>     *Abstract* \
