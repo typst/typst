@@ -137,9 +137,9 @@ previous chapter.
 )
 
 = Introduction
-#lorem(90)
-
 <<< ...
+>>> #lorem(90)
+>>>
 >>> == Motivation
 >>> #lorem(140)
 >>>
