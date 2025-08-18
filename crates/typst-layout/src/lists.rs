@@ -37,8 +37,6 @@ pub fn layout_list(
         .aligned(HAlignment::Start + VAlignment::Top);
 
     let mut cells = vec![];
-    let mut locator = locator.split();
-
     for item in &elem.children {
         // Text in wide lists shall always turn into paragraphs.
         let mut body = item.body.clone();
@@ -47,16 +45,10 @@ pub fn layout_list(
         }
         let body = body.set(ListElem::depth, Depth(1));
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            PdfMarkerTag::ListItemLabel(marker.clone()),
-            locator.next(&marker.span()),
-        ));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            PdfMarkerTag::ListItemBody(body),
-            locator.next(&item.body.span()),
-        ));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(marker.clone())));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
     }
 
     let grid = CellGrid::new(
@@ -69,7 +61,7 @@ pub fn layout_list(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
 
     layouter.layout(engine)
 }
@@ -93,7 +85,6 @@ pub fn layout_enum(
     });
 
     let mut cells = vec![];
-    let mut locator = locator.split();
     let mut number = elem
         .start
         .get(styles)
@@ -138,13 +129,10 @@ pub fn layout_enum(
 
         let body = body.set(EnumElem::parents, smallvec![number]);
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved), locator.next(&())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            PdfMarkerTag::ListItemBody(body),
-            locator.next(&item.body.span()),
-        ));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved)));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
@@ -159,7 +147,7 @@ pub fn layout_enum(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
 
     layouter.layout(engine)
 }

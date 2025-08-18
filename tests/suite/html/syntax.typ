@@ -2,6 +2,150 @@
 // Error: 2-27 HTML void elements must not have children
 #html.elem("img", [Hello])
 
+--- html-space-collapsing html ---
+// Note: <s>..</s> = <span style="white-space: pre-wrap">..</span>
+#import html: span
+
+= Single spaces
+// No collapsing.
+#"A B"
+// -> A B
+
+// No collapsing, multiple text elements.
+#"A"#" "#"B"
+// -> A B
+
+// Across span boundaries: 0-1.
+#span[A] B
+// -> <span>A</span> B
+
+// With span in between.
+#"A "#span()#" B"
+// -> A<s> </s><span></span> B
+
+// With metadata in between.
+#"A "#metadata(none)#" B"
+// -> A<s>  </s>B
+
+// Within span.
+#span("A ")B
+// -> <span>A </span>B
+
+= Consecutive whitespace
+// Single text element.
+#"A  B   C"
+// -> A<s>  </s>B<s>   </s>C
+
+// Multiple text elements.
+A#"  "B#"   C"
+// -> A<s>  </s>B<s>   </s>C
+
+// Across span boundaries: 1-1.
+#span("A ") B
+// -> <span>A<s> </s></span> B
+
+// Across span boundaries: 1-2.
+#span("A ")#"  B"
+// -> <span>A </span><s>  </s>B
+
+// Across span boundaries: 2-1.
+#span("A  ") B
+// -> <span>A<s>  </s></span> B
+
+// Across span boundaries: 2-2.
+#span("A  ")#"  B"
+// -> <span>A<s>  </s></span><s>  </s>B
+
+// With span in between.
+#"A  "#span()#"  B"
+// -> A<s>  </s><span></span><s>  </s>B
+
+// With metadata in between.
+#"A "#metadata(none)#"  B"
+// -> A<s>   </s>B
+
+= Leading whitespace
+// Leading space.
+#" A"
+// -> <s> </s>A
+
+// Leading space in span.
+#span(" ")A
+// -> <span><s> </s></span>A
+
+// Leading space with preceding empty element.
+#span()#" "A
+// -> <span></span><s> </s>A
+
+= Trailing whitespace
+// Trailing space.
+#"A "
+// -> A<s> </s>
+
+// Trailing space in element.
+#span("A ")
+// -> A<span><s> </s></span>
+
+// Trailing space in element with following empty element.
+#span("A ")#span()
+// -> <span>A<s> </s></span><span></span>
+
+= Tabs
+// Single text element.
+#"A\tB"
+// -> A<s>&#9;</s>B
+
+// Multiple text elements.
+#"A"#"\t"#"B"
+// -> A<s>&#9;</s>B
+
+// Spaces + Tab.
+#"A \t B"
+// -> A<s> &#9; </s>B
+
+= Newlines
+// Normal line feed.
+#"A\nB"
+// -> A<br>B
+
+// CLRF.
+#"A\r\nB"
+// -> A<br>B
+
+// Spaces + newline.
+#"A \n B"
+// -> A<s> </s><br><s> </s>B
+
+// Explicit `<br>` element.
+#"A "#html.br()#" B"
+// -> A<s> </s><br><s> </s>B
+
+// Newline in span.
+#"A "#span("\n")#" B"
+// -> A<s> </s><span><br></span><s> </s>B
+
+= With default ignorables
+// With default ignorable in between.
+#"A \u{200D} B"
+// -> A<s> </s>&#x200D; B
+
+#"A  \u{200D}  B"
+// -> A<s>  </s>&#x200D;<s>  </s>B
+
+= Everything
+// Everything at once.
+#span("  A ")#"\r\n\t"B#" "#span()
+// -> <span><s>  </s>A<s> </s></span><br><s>&#9;</s>B<s> </s><span></span>
+
+= Special
+// Escapable raw.
+#html.textarea("A  B")
+// -> <textarea>A  B</textarea>
+
+// Preformatted.
+#html.pre("A  B")
+// -> <pre>A  B</pre>
+
 --- html-pre-starting-with-newline html ---
 #html.pre("hello")
 #html.pre("\nhello")

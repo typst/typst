@@ -560,17 +560,15 @@ pub fn hline_stroke_at_column(
 mod test {
     use std::num::NonZeroUsize;
     use typst_library::foundations::Content;
-    use typst_library::introspection::Locator;
     use typst_library::layout::grid::resolve::{Cell, Entry, LinePosition};
     use typst_library::layout::{Axes, Sides, Sizing};
     use typst_utils::NonZeroExt;
 
     use super::*;
 
-    fn sample_cell() -> Cell<'static> {
+    fn sample_cell() -> Cell {
         Cell {
             body: Content::default(),
-            locator: Locator::root(),
             fill: None,
             colspan: NonZeroUsize::ONE,
             rowspan: NonZeroUsize::ONE,
@@ -580,10 +578,9 @@ mod test {
         }
     }
 
-    fn cell_with_colspan_rowspan(colspan: usize, rowspan: usize) -> Cell<'static> {
+    fn cell_with_colspan_rowspan(colspan: usize, rowspan: usize) -> Cell {
         Cell {
             body: Content::default(),
-            locator: Locator::root(),
             fill: None,
             colspan: NonZeroUsize::try_from(colspan).unwrap(),
             rowspan: NonZeroUsize::try_from(rowspan).unwrap(),
@@ -593,7 +590,7 @@ mod test {
         }
     }
 
-    fn sample_grid_for_vlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_vlines(gutters: bool) -> CellGrid {
         const COLS: usize = 4;
         const ROWS: usize = 6;
         let entries = vec![
@@ -1116,7 +1113,7 @@ mod test {
         }
     }
 
-    fn sample_grid_for_hlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_hlines(gutters: bool) -> CellGrid {
         const COLS: usize = 4;
         const ROWS: usize = 9;
         let entries = vec![

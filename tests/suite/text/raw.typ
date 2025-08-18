@@ -490,8 +490,10 @@ test
 --- raw-html html ---
 This is ```typ *inline*```.
 ```typ
-#set text(blue)
-*Hello* _world_!
+#[
+  #set text(blue)
+  *Hello* _world_!
+]
 ```
 
 --- raw-html-inline-spaces html ---
