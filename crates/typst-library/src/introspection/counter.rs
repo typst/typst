@@ -469,6 +469,39 @@ impl Counter {
         self.display_impl(engine, loc, numbering, both, context.styles().ok())
     }
 
+    /// Displays the value of the counter with a numbering at the given location
+    /// and returns the formatted output.
+    #[func(contextual)]
+    pub fn display_at(
+        self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        span: Span,
+        /// The place at which the counter should be displayed.
+        selector: LocatableSelector,
+        /// A [numbering pattern or a function]($numbering), which specifies how
+        /// to display the counter. If given a function, that function receives
+        /// each number of the counter as a separate argument. If the amount of
+        /// numbers varies, e.g. for the heading argument, you can use an
+        /// [argument sink]($arguments).
+        ///
+        /// If this is omitted or set to `{auto}`, displays the counter with the
+        /// numbering style for the counted element or with the pattern
+        /// `{"1.1"}` if no such style exists.
+        #[default]
+        numbering: Smart<Numbering>,
+        /// If enabled, displays the current and final top-level count together.
+        /// Both can be styled through a single numbering pattern. This is used
+        /// by the page numbering property to display the current and total
+        /// number of pages when a pattern like `{"1 / 1"}` is given.
+        #[named]
+        #[default(false)]
+        both: bool,
+    ) -> SourceResult<Value> {
+        let loc = selector.resolve_unique(engine.introspector, context).at(span)?;
+        self.display_impl(engine, loc, numbering, both, context.styles().ok())
+    }
+
     /// Retrieves the value of the counter at the given location. Always returns
     /// an array of integers, even if the counter has just one number.
     ///

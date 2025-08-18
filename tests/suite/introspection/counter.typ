@@ -174,3 +174,25 @@ B
 #context test(c.get(), (100000000002,))
 #c.update(n => n + 2)
 #context test(c.get(), (100000000004,))
+
+--- counter-display-at ---
+// Test displaying counter at a given location.
+#set heading(numbering: "1.1")
+
+= One
+#figure(
+  kind: "fig",
+  numbering: (..nums) => numbering(
+    "1.1",
+    ..((counter(heading).get().first(),) + nums.pos()),
+  ),
+  supplement: [Fig],
+)[blah] <blah>
+
+= Two
+#context [
+  #let fig = query(<blah>).first()
+  #fig.counter.display(fig.numbering) \
+  #numbering(fig.numbering, ..fig.counter.at(fig.location())) \
+  #fig.counter.display-at(fig.location(), fig.numbering) \
+]
