@@ -1,15 +1,17 @@
 use comemo::Track;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::Serialize;
-use typst::diag::{bail, HintedStrResult, StrResult, Warned};
+use typst::World;
+use typst::diag::{HintedStrResult, StrResult, Warned, bail};
 use typst::engine::Sink;
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::introspection::Introspector;
 use typst::layout::PagedDocument;
-use typst::syntax::Span;
-use typst::World;
-use typst_eval::{eval_string, EvalMode};
+use typst::syntax::{Span, SyntaxMode};
+use typst_eval::eval_string;
+use typst_html::HtmlDocument;
 
-use crate::args::{QueryCommand, SerializationFormat};
+use crate::args::{QueryCommand, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -22,12 +24,17 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let Warned { output, warnings } = typst::compile(&world);
+    let Warned { output, warnings } = match command.target {
+        Target::Paged => typst::compile::<PagedDocument>(&world)
+            .map(|output| output.map(|document| document.introspector)),
+        Target::Html => typst::compile::<HtmlDocument>(&world)
+            .map(|output| output.map(|document| document.introspector)),
+    };
 
     match output {
         // Retrieve and print query results.
-        Ok(document) => {
-            let data = retrieve(&world, command, &document)?;
+        Ok(introspector) => {
+            let data = retrieve(&world, command, &introspector)?;
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
@@ -54,7 +61,7 @@ pub fn query(command: &QueryCommand) -> HintedStrResult<()> {
 fn retrieve(
     world: &dyn World,
     command: &QueryCommand,
-    document: &PagedDocument,
+    introspector: &Introspector,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
         &typst::ROUTINES,
@@ -63,7 +70,7 @@ fn retrieve(
         Sink::new().track_mut(),
         &command.selector,
         Span::detached(),
-        EvalMode::Code,
+        SyntaxMode::Code,
         Scope::default(),
     )
     .map_err(|errors| {
@@ -76,11 +83,7 @@ fn retrieve(
     })?
     .cast::<LocatableSelector>()?;
 
-    Ok(document
-        .introspector
-        .query(&selector.0)
-        .into_iter()
-        .collect::<Vec<_>>())
+    Ok(introspector.query(&selector.0).into_iter().collect::<Vec<_>>())
 }
 
 /// Format the query result in the output format.

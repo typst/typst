@@ -1,6 +1,6 @@
 use std::cell::LazyCell;
 
-use typst_library::diag::{bail, SourceResult};
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::Locator;
@@ -20,7 +20,7 @@ pub fn layout_move(
     region: Region,
 ) -> SourceResult<Frame> {
     let mut frame = crate::layout_frame(engine, &elem.body, locator, styles, region)?;
-    let delta = Axes::new(elem.dx(styles), elem.dy(styles)).resolve(styles);
+    let delta = Axes::new(elem.dx.resolve(styles), elem.dy.resolve(styles));
     let delta = delta.zip_map(region.size, Rel::relative_to);
     frame.translate(delta.to_point());
     Ok(frame)
@@ -35,8 +35,8 @@ pub fn layout_rotate(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let angle = elem.angle(styles);
-    let align = elem.origin(styles).resolve(styles);
+    let angle = elem.angle.get(styles);
+    let align = elem.origin.resolve(styles);
 
     // Compute the new region's approximate size.
     let is_finite = region.size.is_finite();
@@ -55,7 +55,7 @@ pub fn layout_rotate(
         &elem.body,
         Transform::rotate(angle),
         align,
-        elem.reflow(styles),
+        elem.reflow.get(styles),
     )
 }
 
@@ -83,8 +83,8 @@ pub fn layout_scale(
         styles,
         &elem.body,
         Transform::scale(scale.x, scale.y),
-        elem.origin(styles).resolve(styles),
-        elem.reflow(styles),
+        elem.origin.resolve(styles),
+        elem.reflow.get(styles),
     )
 }
 
@@ -121,13 +121,13 @@ fn resolve_scale(
     });
 
     let x = resolve_axis(
-        elem.x(styles),
+        elem.x.get(styles),
         || size.as_ref().map(|size| size.x).map_err(Clone::clone),
         styles,
     )?;
 
     let y = resolve_axis(
-        elem.y(styles),
+        elem.y.get(styles),
         || size.as_ref().map(|size| size.y).map_err(Clone::clone),
         styles,
     )?;
@@ -152,9 +152,9 @@ pub fn layout_skew(
     styles: StyleChain,
     region: Region,
 ) -> SourceResult<Frame> {
-    let ax = elem.ax(styles);
-    let ay = elem.ay(styles);
-    let align = elem.origin(styles).resolve(styles);
+    let ax = elem.ax.get(styles);
+    let ay = elem.ay.get(styles);
+    let align = elem.origin.resolve(styles);
 
     // Compute the new region's approximate size.
     let size = if region.size.is_finite() {
@@ -172,7 +172,7 @@ pub fn layout_skew(
         &elem.body,
         Transform::skew(ax, ay),
         align,
-        elem.reflow(styles),
+        elem.reflow.get(styles),
     )
 }
 

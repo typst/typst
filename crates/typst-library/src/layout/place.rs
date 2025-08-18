@@ -1,4 +1,4 @@
-use crate::foundations::{elem, scope, Cast, Content, Packed, Smart};
+use crate::foundations::{Cast, Content, Packed, Smart, elem, scope};
 use crate::introspection::{Locatable, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 
@@ -19,8 +19,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// [`alignment`]($place.alignment), the offsets `dx` and `dy` will set the
 /// position of the element's top left corner relatively to the top left corner
 /// of the text area. For absolute positioning on the full page including
-/// margins, you can use `place` in [`page.foreground`]($page.foreground) or
-/// [`page.background`]($page.background).
+/// margins, you can use `place` in [`page.foreground`] or [`page.background`].
 ///
 /// # Examples
 /// ```example
@@ -134,7 +133,6 @@ pub struct PlaceElem {
     ///
     /// Has no effect if `float` is `{false}`.
     #[default(Em::new(1.5).into())]
-    #[resolve]
     pub clearance: Length,
 
     /// The horizontal displacement of the placed content.

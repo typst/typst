@@ -1,11 +1,5 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, Content, NativeElement, Packed, Show, Smart, StyleChain,
-};
-use crate::layout::{
-    Abs, Alignment, Angle, BlockElem, HAlignment, Length, Ratio, Rel, VAlignment,
-};
+use crate::foundations::{Content, Smart, cast, elem};
+use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlignment};
 
 /// Moves content without affecting layout.
 ///
@@ -25,7 +19,7 @@ use crate::layout::{
 ///   )
 /// ))
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -36,14 +30,6 @@ pub struct MoveElem {
     /// The content to move.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<MoveElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_move)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// Rotates content without affecting layout.
@@ -60,7 +46,7 @@ impl Show for Packed<MoveElem> {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -107,14 +93,6 @@ pub struct RotateElem {
     pub body: Content,
 }
 
-impl Show for Packed<RotateElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_rotate)
-            .pack()
-            .spanned(self.span()))
-    }
-}
-
 /// Scales content without affecting layout.
 ///
 /// Lets you mirror content by specifying a negative scale on a single axis.
@@ -125,7 +103,7 @@ impl Show for Packed<RotateElem> {
 /// #scale(x: -100%)[This is mirrored.]
 /// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct ScaleElem {
     /// The scaling factor for both axes, as a positional argument. This is just
     /// an optional shorthand notation for setting `x` and `y` to the same
@@ -179,14 +157,6 @@ pub struct ScaleElem {
     pub body: Content,
 }
 
-impl Show for Packed<ScaleElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_scale)
-            .pack()
-            .spanned(self.span()))
-    }
-}
-
 /// To what size something shall be scaled.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ScaleAmount {
@@ -215,7 +185,7 @@ cast! {
 ///   This is some fake italic text.
 /// ]
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct SkewElem {
     /// The horizontal skewing angle.
     ///
@@ -263,14 +233,6 @@ pub struct SkewElem {
     /// The content to skew.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<SkewElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_skew)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// A scale-skew-translate transformation.

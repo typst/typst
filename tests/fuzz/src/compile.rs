@@ -7,7 +7,7 @@ use typst::layout::PagedDocument;
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, World};
+use typst::{Library, LibraryExt, World};
 
 struct FuzzWorld {
     library: LazyHash<Library>,
@@ -66,10 +66,10 @@ impl World for FuzzWorld {
 
 fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(text);
-    if let Ok(document) = typst::compile::<PagedDocument>(&world).output {
-        if let Some(page) = document.pages.first() {
-            std::hint::black_box(typst_render::render(page, 1.0));
-        }
+    if let Ok(document) = typst::compile::<PagedDocument>(&world).output
+        && let Some(page) = document.pages.first()
+    {
+        std::hint::black_box(typst_render::render(page, 1.0));
     }
     comemo::evict(10);
 });

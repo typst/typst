@@ -11,6 +11,6 @@
 #show smallcaps: set text(fill: red)
 #smallcaps[Smallcaps]
 
---- smallcaps-all ---
+--- smallcaps-all render html ---
 #smallcaps(all: false)[Test 012] \
 #smallcaps(all: true)[Test 012]

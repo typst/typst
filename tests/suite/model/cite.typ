@@ -147,3 +147,16 @@ B #cite(<netwok>) #cite(<arrgh>).
 // Error: 7-17 expected label, found string
 // Hint: 7-17 use `label("%@&#*!\\")` to create a label
 #cite("%@&#*!\\")
+
+--- issue-5775-cite-order-rtl ---
+// Test citation order in RTL text.
+#set page(width: 300pt)
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
+@netwok
+aaa
+این است
+@tolkien54
+و این یکی هست
+@arrgh
+
+#bibliography("/assets/bib/works.bib")

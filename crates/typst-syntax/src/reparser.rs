@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    is_newline, parse, reparse_block, reparse_markup, Span, SyntaxKind, SyntaxNode,
+    Span, SyntaxKind, SyntaxNode, is_newline, parse, reparse_block, reparse_markup,
 };
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -70,13 +70,13 @@ fn try_reparse(
             }
 
             // If the child is a block, try to reparse the block.
-            if child.kind().is_block() {
-                if let Some(newborn) = reparse_block(text, new_range.clone()) {
-                    return node
-                        .replace_children(i..i + 1, vec![newborn])
-                        .is_ok()
-                        .then_some(new_range);
-                }
+            if child.kind().is_block()
+                && let Some(newborn) = reparse_block(text, new_range.clone())
+            {
+                return node
+                    .replace_children(i..i + 1, vec![newborn])
+                    .is_ok()
+                    .then_some(new_range);
             }
         }
 
@@ -240,7 +240,7 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 mod tests {
     use std::ops::Range;
 
-    use crate::{parse, Source, Span};
+    use crate::{Source, Span, parse};
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, incremental: bool) {
@@ -259,10 +259,10 @@ mod tests {
             panic!("test failed");
         }
         if incremental {
-            assert_ne!(source.len_bytes(), range.len(), "should have been incremental");
+            assert_ne!(source.text().len(), range.len(), "should have been incremental");
         } else {
             assert_eq!(
-                source.len_bytes(),
+                source.text().len(),
                 range.len(),
                 "shouldn't have been incremental"
             );

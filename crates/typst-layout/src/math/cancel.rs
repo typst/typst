@@ -27,16 +27,16 @@ pub fn layout_cancel(
     let mut body = body.into_frame();
     let body_size = body.size();
     let span = elem.span();
-    let length = elem.length(styles);
+    let length = elem.length.resolve(styles);
 
-    let stroke = elem.stroke(styles).unwrap_or(FixedStroke {
-        paint: TextElem::fill_in(styles).as_decoration(),
+    let stroke = elem.stroke.resolve(styles).unwrap_or(FixedStroke {
+        paint: styles.get_ref(TextElem::fill).as_decoration(),
         ..Default::default()
     });
 
-    let invert = elem.inverted(styles);
-    let cross = elem.cross(styles);
-    let angle = elem.angle(styles);
+    let invert = elem.inverted.get(styles);
+    let cross = elem.cross.get(styles);
+    let angle = elem.angle.get_ref(styles);
 
     let invert_first_line = !cross && invert;
     let first_line = draw_cancel_line(
@@ -44,7 +44,7 @@ pub fn layout_cancel(
         length,
         stroke.clone(),
         invert_first_line,
-        &angle,
+        angle,
         body_size,
         styles,
         span,
@@ -57,7 +57,7 @@ pub fn layout_cancel(
     if cross {
         // Draw the second line.
         let second_line =
-            draw_cancel_line(ctx, length, stroke, true, &angle, body_size, styles, span)?;
+            draw_cancel_line(ctx, length, stroke, true, angle, body_size, styles, span)?;
 
         body.push_frame(center, second_line);
     }

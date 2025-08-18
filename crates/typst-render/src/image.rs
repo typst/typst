@@ -1,11 +1,12 @@
-use std::sync::Arc;
-
+use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
+use std::sync::Arc;
 use tiny_skia as sk;
+use tiny_skia::IntSize;
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;
-use typst_library::visualize::{Image, ImageKind, ImageScaling};
+use typst_library::visualize::{Image, ImageKind, ImageScaling, PdfImage};
 
 use crate::{AbsExt, State};
 
@@ -59,9 +60,9 @@ pub fn render_image(
 /// Prepare a texture for an image at a scaled size.
 #[comemo::memoize]
 fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
-    let mut texture = sk::Pixmap::new(w, h)?;
-    match image.kind() {
+    let texture = match image.kind() {
         ImageKind::Raster(raster) => {
+            let mut texture = sk::Pixmap::new(w, h)?;
             let w = texture.width();
             let h = texture.height();
 
@@ -85,15 +86,63 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
                 let Rgba([r, g, b, a]) = src;
                 *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
             }
+
+            texture
         }
         ImageKind::Svg(svg) => {
+            let mut texture = sk::Pixmap::new(w, h)?;
             let tree = svg.tree();
             let ts = tiny_skia::Transform::from_scale(
                 w as f32 / tree.size().width(),
                 h as f32 / tree.size().height(),
             );
             resvg::render(tree, ts, &mut texture.as_mut());
+            texture
         }
-    }
+        ImageKind::Pdf(pdf) => build_pdf_texture(pdf, w, h)?,
+    };
+
     Some(Arc::new(texture))
+}
+
+// Keep this in sync with `typst-svg`!
+fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
+    let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
+        let bytes = match font {
+            StandardFont::Helvetica => typst_assets::pdf::SANS,
+            StandardFont::HelveticaBold => typst_assets::pdf::SANS_BOLD,
+            StandardFont::HelveticaOblique => typst_assets::pdf::SANS_ITALIC,
+            StandardFont::HelveticaBoldOblique => typst_assets::pdf::SANS_BOLD_ITALIC,
+            StandardFont::Courier => typst_assets::pdf::FIXED,
+            StandardFont::CourierBold => typst_assets::pdf::FIXED_BOLD,
+            StandardFont::CourierOblique => typst_assets::pdf::FIXED_ITALIC,
+            StandardFont::CourierBoldOblique => typst_assets::pdf::FIXED_BOLD_ITALIC,
+            StandardFont::TimesRoman => typst_assets::pdf::SERIF,
+            StandardFont::TimesBold => typst_assets::pdf::SERIF_BOLD,
+            StandardFont::TimesItalic => typst_assets::pdf::SERIF_ITALIC,
+            StandardFont::TimesBoldItalic => typst_assets::pdf::SERIF_BOLD_ITALIC,
+            StandardFont::ZapfDingBats => typst_assets::pdf::DING_BATS,
+            StandardFont::Symbol => typst_assets::pdf::SYMBOL,
+        };
+        Some((Arc::new(bytes), 0))
+    };
+
+    let interpreter_settings = InterpreterSettings {
+        font_resolver: Arc::new(move |query| match query {
+            FontQuery::Standard(s) => select_standard_font(*s),
+            FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
+        }),
+        warning_sink: Arc::new(|_| {}),
+    };
+
+    let render_settings = RenderSettings {
+        x_scale: w as f32 / pdf.width(),
+        y_scale: h as f32 / pdf.height(),
+        width: Some(w as u16),
+        height: Some(h as u16),
+    };
+
+    let hayro_pix = hayro::render(pdf.page(), &interpreter_settings, &render_settings);
+
+    sk::Pixmap::from_vec(hayro_pix.take_u8(), IntSize::from_wh(w, h)?)
 }

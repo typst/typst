@@ -1,9 +1,9 @@
-use ecow::{eco_format, EcoString};
+use az::SaturatingAs;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{LineCol, LoadError, LoadedWithin, ReportPos, SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
+use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a CSV file.
@@ -44,7 +44,7 @@ pub fn csv(
     #[default(RowType::Array)]
     row_type: RowType,
 ) -> SourceResult<Array> {
-    let data = source.load(engine.world)?;
+    let loaded = source.load(engine.world)?;
 
     let mut builder = ::csv::ReaderBuilder::new();
     let has_headers = row_type == RowType::Dict;
@@ -53,7 +53,7 @@ pub fn csv(
 
     // Counting lines from 1 by default.
     let mut line_offset: usize = 1;
-    let mut reader = builder.from_reader(data.as_slice());
+    let mut reader = builder.from_reader(loaded.data.as_slice());
     let mut headers: Option<::csv::StringRecord> = None;
 
     if has_headers {
@@ -62,9 +62,9 @@ pub fn csv(
         headers = Some(
             reader
                 .headers()
+                .cloned()
                 .map_err(|err| format_csv_error(err, 1))
-                .at(source.span)?
-                .clone(),
+                .within(&loaded)?,
         );
     }
 
@@ -74,7 +74,7 @@ pub fn csv(
         // incorrect with `has_headers` set to `false`. See issue:
         // https://github.com/BurntSushi/rust-csv/issues/184
         let line = line + line_offset;
-        let row = result.map_err(|err| format_csv_error(err, line)).at(source.span)?;
+        let row = result.map_err(|err| format_csv_error(err, line)).within(&loaded)?;
         let item = if let Some(headers) = &headers {
             let mut dict = Dict::new();
             for (field, value) in headers.iter().zip(&row) {
@@ -95,7 +95,10 @@ pub fn csv(
 impl csv {
     /// Reads structured data from a CSV string/bytes.
     #[func(title = "Decode CSV")]
-    #[deprecated = "`csv.decode` is deprecated, directly pass bytes to `csv` instead"]
+    #[deprecated(
+        message = "`csv.decode` is deprecated, directly pass bytes to `csv` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// CSV data.
@@ -164,15 +167,23 @@ cast! {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(err: ::csv::Error, line: usize) -> EcoString {
+fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
+    let msg = "failed to parse CSV";
+    let pos = (err.kind().position())
+        .map(|pos| {
+            let start = pos.byte().saturating_as();
+            ReportPos::from(start..start)
+        })
+        .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
-        ::csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
-        ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-            eco_format!(
-                "failed to parse CSV (found {len} instead of \
-                 {expected_len} fields in line {line})"
-            )
+        ::csv::ErrorKind::Utf8 { .. } => {
+            LoadError::new(pos, msg, "file is not valid utf-8")
         }
-        _ => eco_format!("failed to parse CSV ({err})"),
+        ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
+            let err =
+                format!("found {len} instead of {expected_len} fields in line {line}");
+            LoadError::new(pos, msg, err)
+        }
+        _ => LoadError::new(pos, "failed to parse CSV", err),
     }
 }

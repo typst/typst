@@ -5,12 +5,13 @@ use std::ops::{Add, AddAssign, Deref};
 use std::str::Utf8Error;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
+use typst_syntax::Lines;
 use typst_utils::LazyHash;
 
-use crate::diag::{bail, StrResult};
-use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty};
 
 /// A sequence of bytes.
 ///
@@ -283,6 +284,16 @@ impl Serialize for Bytes {
         } else {
             serializer.serialize_bytes(self)
         }
+    }
+}
+
+impl TryFrom<&Bytes> for Lines<String> {
+    type Error = Utf8Error;
+
+    #[comemo::memoize]
+    fn try_from(value: &Bytes) -> Result<Lines<String>, Utf8Error> {
+        let text = value.as_str()?;
+        Ok(Lines::new(text.to_string()))
     }
 }
 

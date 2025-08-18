@@ -1,6 +1,6 @@
 use typst_utils::singleton;
 
-use crate::foundations::{elem, Content, NativeElement};
+use crate::foundations::{Content, NativeElement, elem};
 
 /// Inserts a line break.
 ///

@@ -6,11 +6,12 @@
 #test(data.at(2).weight, 150)
 
 --- json-invalid ---
-// Error: 7-30 failed to parse JSON (expected value at line 3 column 14)
+// Error: "/assets/data/bad.json" 3:14 failed to parse JSON (expected value at line 3 column 14)
 #json("/assets/data/bad.json")
 
 --- json-decode-deprecated ---
 // Warning: 15-21 `json.decode` is deprecated, directly pass bytes to `json` instead
+// Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = json.decode
 
 --- issue-3363-json-large-number ---

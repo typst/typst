@@ -4,7 +4,7 @@ use std::path::Path;
 use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
 use ecow::eco_format;
 use fs_extra::dir::CopyOptions;
-use typst::diag::{bail, FileError, StrResult};
+use typst::diag::{FileError, StrResult, bail};
 use typst::syntax::package::{
     PackageManifest, PackageSpec, TemplateInfo, VersionlessPackageSpec,
 };

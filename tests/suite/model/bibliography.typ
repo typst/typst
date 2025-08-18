@@ -71,6 +71,18 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 #bibliography("/assets/bib/works_too.bib", style: "mla")
 
+--- bibliography-style-not-suitable ---
+// Error: 2-62 CSL style "Alphanumeric" is not suitable for bibliographies
+#bibliography("/assets/bib/works.bib", style: "alphanumeric")
+
+--- bibliography-empty-key ---
+#let src = ```yaml
+"":
+  type: Book
+```
+// Error: 15-30 bibliography contains entry with empty key
+#bibliography(bytes(src.text))
+
 --- issue-4618-bibliography-set-heading-level ---
 // Test that the bibliography block's heading is set to 2 by the show rule,
 // and therefore should be rendered like a level-2 heading. Notably, this

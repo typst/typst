@@ -135,6 +135,34 @@ I
 
 The number 123.
 
+--- text-font-covers-repeat ---
+// Repeatedly use the same font.
+#set text(font: (
+  (name: "Libertinus Serif", covers: regex("[0-9]")),
+  "Libertinus Serif"
+))
+
+The number 123.
+
+--- text-font-covers-riffle ---
+// Repeatedly use two fonts alternately.
+#set text(font: (
+  (name: "Noto Color Emoji", covers: regex("[🔗⛓‍💥]")),
+  (name: "Twitter Color Emoji", covers: regex("[^🖥️]")),
+  "Noto Color Emoji",
+))
+
+🔗⛓‍💥🖥️🔑
+
+// The above should be the same as:
+#{
+  text(font: "Noto Color Emoji", "🔗⛓‍💥🖥️")
+  text(font: "Twitter Color Emoji", "🔑")
+}
+
+// but not:
+#text(font: "Twitter Color Emoji", "🔗⛓‍💥🖥️🔑")
+
 --- text-font-covers-bad-1 ---
 // Error: 17-59 coverage regex may only use dot, letters, and character classes
 // Hint: 17-59 the regex is applied to each letter individually

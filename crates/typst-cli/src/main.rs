@@ -1,5 +1,6 @@
 mod args;
 mod compile;
+mod completions;
 mod download;
 mod fonts;
 mod greet;
@@ -20,8 +21,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 use std::sync::LazyLock;
 
-use clap::error::ErrorKind;
 use clap::Parser;
+use clap::error::ErrorKind;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
 use typst::diag::HintedStrResult;
@@ -71,6 +72,7 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Query(command) => crate::query::query(command)?,
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command)?,
+        Command::Completions(command) => crate::completions::completions(command),
     }
 
     Ok(())
@@ -100,7 +102,7 @@ fn print_error(msg: &str) -> io::Result<()> {
 
 #[cfg(not(feature = "self-update"))]
 mod update {
-    use typst::diag::{bail, StrResult};
+    use typst::diag::{StrResult, bail};
 
     use crate::args::UpdateCommand;
 

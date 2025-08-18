@@ -1,9 +1,9 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Construct, Content, NativeElement, Packed, Unlabellable,
+    Args, Construct, Content, NativeElement, Packed, Unlabellable, elem,
 };
 use crate::introspection::Location;
 

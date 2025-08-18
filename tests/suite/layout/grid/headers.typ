@@ -118,28 +118,149 @@
 )
 
 --- grid-header-not-at-first-row ---
-// Error: 3:3-3:19 header must start at the first row
-// Hint: 3:3-3:19 remove any rows before the header
 #grid(
   [a],
   grid.header([b])
 )
 
 --- grid-header-not-at-first-row-two-columns ---
-// Error: 4:3-4:19 header must start at the first row
-// Hint: 4:3-4:19 remove any rows before the header
 #grid(
   columns: 2,
   [a],
   grid.header([b])
 )
 
---- grow-header-multiple ---
-// Error: 3:3-3:19 cannot have more than one header
+--- grid-header-multiple ---
 #grid(
   grid.header([a]),
   grid.header([b]),
   [a],
+)
+
+--- grid-header-multiple-unordered ---
+#set page(height: 4em)
+#grid(
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  grid.header([x]),
+  [a],
+  [b],
+  [c],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-skip ---
+#grid(
+  columns: 2,
+  [x], [y],
+  grid.header([a]),
+  grid.header([b]),
+  grid.cell(x: 1)[c], [d],
+  grid.header([e]),
+  [f], grid.cell(x: 1)[g]
+)
+
+--- grid-header-skip-unordered ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  [b],
+  grid.header([x]),
+  [c]
+)
+
+--- grid-header-rowbreak-auto-pos ---
+#grid(
+  columns: 2,
+  [x],
+  grid.hline(stroke: red),
+  grid.header([a]),
+  grid.hline(stroke: 3pt),
+  [y],
+  grid.header(),
+  [z],
+)
+
+--- grid-header-rowbreak-fixed-pos ---
+#grid(
+  columns: 2,
+  [z],
+  grid.hline(stroke: red),
+  grid.header(grid.cell(x: 0)[b]),
+  grid.hline(stroke: 3pt),
+  [w],
+  [j],
+  grid.header(grid.cell(x: 0, y: 9)[c]),
+  [k]
+)
+
+--- grid-header-rowbreak-mixed-pos ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header([x], grid.cell(x: 0)[b]),
+  [c],
+  grid.hline(stroke: red),
+  grid.header([y], grid.cell(x: 0, y: 8)[d]),
+  grid.hline(stroke: 3pt),
+  [e]
+)
+
+--- grid-header-rowbreak-auto-and-fixed-pos ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header([x]),
+  [b],
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  [c]
+)
+
+--- grid-header-too-large-non-repeating-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a\ ] * 5,
+    repeat: false,
+  ),
+  [b]
+)
+
+--- grid-header-too-large-repeating-orphan ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a\ ] * 5,
+    repeat: true,
+  ),
+  [b]
+)
+
+--- grid-header-too-large-repeating-orphan-with-footer ---
+#set page(height: 8em)
+#grid(
+  grid.header(
+    [a\ ] * 5,
+    repeat: true,
+  ),
+  [b],
+  grid.footer(
+    [c],
+    repeat: true,
+  )
+)
+
+--- grid-header-too-large-repeating-orphan-not-at-first-row ---
+#set page(height: 8em)
+#grid(
+  [b],
+  grid.header(
+    [a\ ] * 5,
+    repeat: true,
+  ),
+  [c],
 )
 
 --- table-header-in-grid ---
@@ -228,6 +349,51 @@
   table.cell(rowspan: 3, lines(15))
 )
 
+--- grid-header-and-rowspan-contiguous-1 ---
+// Block should occupy all space
+#set page(height: 15em)
+
+#table(
+  rows: (auto, 2.5em, 2em, auto),
+  gutter: 3pt,
+  inset: 0pt,
+  table.header(
+    [*H*],
+    [*W*]
+  ),
+  table.cell(rowspan: 3, block(height: 2.5em + 2em + 20em, width: 100%, fill: red))
+)
+
+--- grid-header-and-rowspan-contiguous-2 ---
+// Block should occupy all space
+#set page(height: 15em)
+
+#table(
+  rows: (auto, 2.5em, 10em, 5em, auto),
+  gutter: 3pt,
+  inset: 0pt,
+  table.header(
+    [*H*],
+    [*W*]
+  ),
+  table.cell(rowspan: 3, block(height: 2.5em + 2em + 20em, width: 100%, fill: red))
+)
+
+--- grid-header-and-large-auto-contiguous ---
+// Block should occupy all space
+#set page(height: 15em)
+
+#table(
+  rows: (auto, 4.5em, auto),
+  gutter: 3pt,
+  inset: 0pt,
+  table.header(
+    [*H*],
+    [*W*]
+  ),
+  block(height: 2.5em + 2em + 20em, width: 100%, fill: red)
+)
+
 --- grid-header-lack-of-space ---
 // Test lack of space for header + text.
 #set page(height: 8em)
@@ -253,6 +419,17 @@
     [*Header*], [*Header* #v(0.1em)]
   ),
   ..([Test], [Test], [Test]) * 20
+)
+
+--- grid-header-non-repeating-orphan-prevention ---
+#set page(height: 5em)
+#v(2em)
+#grid(
+  grid.header(repeat: false)[*Abc*],
+  [a],
+  [b],
+  [c],
+  [d]
 )
 
 --- grid-header-empty ---
@@ -291,7 +468,7 @@
     [a], [b],
     [c],
   ),
-  // Error: 3-48 cell would conflict with header spanning the same position
+  // Error: 3-48 cell would conflict with header also spanning row 1
   // Hint: 3-48 try moving the cell or the header
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
 )
@@ -304,7 +481,7 @@
     [a], [b],
     [c],
   ),
-  // Error: 3-42 cell would conflict with header spanning the same position
+  // Error: 3-42 cell would conflict with header also spanning row 1
   // Hint: 3-42 try moving the cell or the header
   table.cell(y: 1, rowspan: 2, lorem(80))
 )
@@ -337,6 +514,56 @@
     )
   ),
   [a\ b]
+)
+
+--- grid-header-not-at-the-top ---
+#set page(height: 5em)
+#v(2em)
+#grid(
+  [a],
+  [b],
+  grid.header[*Abc*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace ---
+#set page(height: 5em)
+#v(1.5em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace-orphan ---
+#set page(height: 5em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
+)
+
+--- grid-header-replace-doesnt-fit ---
+#set page(height: 5em)
+#v(0.8em)
+#grid(
+  grid.header[*Abc*],
+  [a],
+  [b],
+  grid.header[*Def*],
+  [d],
+  [e],
+  [f],
 )
 
 --- grid-header-stroke-edge-cases ---
@@ -459,14 +686,63 @@
   ),
 )
 
+--- grid-header-collision-multiple-ordered ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.cell(x: 0, y: 3)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  // Error: 15-39 cell would cause header to expand to non-empty row 3
+  // Hint: 15-39 try moving its cells to available rows
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+)
+
+--- grid-header-collision-multiple-unordered ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  // Error: 3-27 cell would conflict with header also spanning row 3
+  // Hint: 3-27 try moving the cell or the header
+  grid.cell(x: 0, y: 3)[a]
+)
+
+--- grid-header-collision-multiple-rowspan ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  // Error: 3-39 cell would conflict with header also spanning row 2
+  // Hint: 3-39 try moving the cell or the header
+  grid.cell(x: 0, y: 1, rowspan: 2)[a]
+)
+
 --- issue-5359-column-override-stays-inside-header ---
 #table(
   columns: 3,
   [Outside],
-  // Error: 1:3-4:4 header must start at the first row
-  // Hint: 1:3-4:4 remove any rows before the header
   table.header(
     [A], table.cell(x: 1)[B], [C],
     table.cell(x: 1)[D],
   ),
+)
+
+--- issue-6666-auto-hlines-around-header ---
+#table(
+	columns: 2,
+	table.hline(stroke: 2pt + blue),
+	table.header([*foo*], [*bar*]),
+	table.hline(stroke: 1.5pt + red),
+	table.cell(colspan: 2)[_asdf_],
+	table.hline(stroke: 1.5pt + red),
+	[a], [b],
+	[c], [d],
 )

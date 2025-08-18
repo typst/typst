@@ -1,10 +1,10 @@
 use std::num::ParseFloatError;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    cast, func, repr, scope, ty, Bytes, Decimal, Endianness, Repr, Str,
+    Bytes, Decimal, Endianness, Repr, Str, cast, func, repr, scope, ty,
 };
 use crate::layout::Ratio;
 
@@ -209,4 +209,26 @@ cast! {
 
 fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {
     s.replace(repr::MINUS_SIGN, "-").parse()
+}
+
+/// A floating-point number that must be positive (strictly larger than zero).
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct PositiveF64(f64);
+
+impl PositiveF64 {
+    /// Wrap a float if it is positive.
+    pub fn new(value: f64) -> Option<Self> {
+        (value > 0.0).then_some(Self(value))
+    }
+
+    /// Get the underlying value.
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+cast! {
+    PositiveF64,
+    self => self.get().into_value(),
+    v: f64 => Self::new(v).ok_or("number must be positive")?,
 }

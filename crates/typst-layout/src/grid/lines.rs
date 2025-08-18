@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use typst_library::foundations::{AlternativeFold, Fold};
-use typst_library::layout::grid::resolve::{CellGrid, Line, Repeatable};
 use typst_library::layout::Abs;
+use typst_library::layout::grid::resolve::{CellGrid, Line, Repeatable};
 use typst_library::visualize::Stroke;
 
 use super::RowPiece;
@@ -291,12 +291,12 @@ pub fn vline_stroke_at_row(
         // We would then analyze the cell one column after (if at a gutter
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the vline.
-        if let Some(parent) = grid.effective_parent_cell_position(x, y) {
-            if parent.x < x {
-                // There is a colspan cell going through this vline's position,
-                // so don't draw it here.
-                return None;
-            }
+        if let Some(parent) = grid.effective_parent_cell_position(x, y)
+            && parent.x < x
+        {
+            // There is a colspan cell going through this vline's position,
+            // so don't draw it here.
+            return None;
         }
     }
 
@@ -391,10 +391,12 @@ pub fn vline_stroke_at_row(
 ///
 /// This function assumes columns are sorted by increasing `x`, and rows are
 /// sorted by increasing `y`.
+#[allow(clippy::too_many_arguments)]
 pub fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
+    header_end_above: Option<usize>,
     in_last_region: bool,
     y: usize,
     x: usize,
@@ -414,26 +416,26 @@ pub fn hline_stroke_at_column(
         // We would then analyze the cell one column after (if at a gutter
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the hline.
-        if let Some(parent) = grid.effective_parent_cell_position(x, y) {
-            if parent.y < y {
-                // Get the first 'y' spanned by the possible rowspan in this region.
-                // The 'parent.y' row and any other spanned rows above 'y' could be
-                // missing from this region, which could have lead the check above
-                // to be triggered, even though there is no spanned row above the
-                // hline in the final layout of this region, and thus no overlap
-                // with the hline, allowing it to be drawn regardless of the
-                // theoretical presence of a rowspan going across its position.
-                let local_parent_y = rows
-                    .iter()
-                    .find(|row| row.y >= parent.y)
-                    .map(|row| row.y)
-                    .unwrap_or(y);
+        if let Some(parent) = grid.effective_parent_cell_position(x, y)
+            && parent.y < y
+        {
+            // Get the first 'y' spanned by the possible rowspan in this region.
+            // The 'parent.y' row and any other spanned rows above 'y' could be
+            // missing from this region, which could have lead the check above
+            // to be triggered, even though there is no spanned row above the
+            // hline in the final layout of this region, and thus no overlap
+            // with the hline, allowing it to be drawn regardless of the
+            // theoretical presence of a rowspan going across its position.
+            let local_parent_y = rows
+                .iter()
+                .find(|row| row.y >= parent.y)
+                .map(|row| row.y)
+                .unwrap_or(y);
 
-                if local_parent_y < y {
-                    // There is a rowspan cell going through this hline's
-                    // position, so don't draw it here.
-                    return None;
-                }
+            if local_parent_y < y {
+                // There is a rowspan cell going through this hline's
+                // position, so don't draw it here.
+                return None;
             }
         }
     }
@@ -499,17 +501,15 @@ pub fn hline_stroke_at_column(
     // Top border stroke and header stroke are generally prioritized, unless
     // they don't have explicit hline overrides and one or more user-provided
     // hlines would appear at the same position, which then are prioritized.
-    let top_stroke_comes_from_header = grid
-        .header
-        .as_ref()
-        .and_then(Repeatable::as_repeated)
-        .zip(local_top_y)
-        .is_some_and(|(header, local_top_y)| {
-            // Ensure the row above us is a repeated header.
-            // FIXME: Make this check more robust when headers at arbitrary
-            // positions are added.
-            local_top_y < header.end && y > header.end
-        });
+    let top_stroke_comes_from_header = header_end_above.zip(local_top_y).is_some_and(
+        |(last_repeated_header_end, local_top_y)| {
+            // Check if the last repeated header row is above this line.
+            //
+            // Note that `y == last_repeated_header_end` is impossible for a
+            // strictly repeated header (not in its original position).
+            local_top_y < last_repeated_header_end && y > last_repeated_header_end
+        },
+    );
 
     // Prioritize the footer's top stroke as well where applicable.
     let bottom_stroke_comes_from_footer = grid
@@ -560,17 +560,15 @@ pub fn hline_stroke_at_column(
 mod test {
     use std::num::NonZeroUsize;
     use typst_library::foundations::Content;
-    use typst_library::introspection::Locator;
     use typst_library::layout::grid::resolve::{Cell, Entry, LinePosition};
     use typst_library::layout::{Axes, Sides, Sizing};
     use typst_utils::NonZeroExt;
 
     use super::*;
 
-    fn sample_cell() -> Cell<'static> {
+    fn sample_cell() -> Cell {
         Cell {
             body: Content::default(),
-            locator: Locator::root(),
             fill: None,
             colspan: NonZeroUsize::ONE,
             rowspan: NonZeroUsize::ONE,
@@ -580,10 +578,9 @@ mod test {
         }
     }
 
-    fn cell_with_colspan_rowspan(colspan: usize, rowspan: usize) -> Cell<'static> {
+    fn cell_with_colspan_rowspan(colspan: usize, rowspan: usize) -> Cell {
         Cell {
             body: Content::default(),
-            locator: Locator::root(),
             fill: None,
             colspan: NonZeroUsize::try_from(colspan).unwrap(),
             rowspan: NonZeroUsize::try_from(rowspan).unwrap(),
@@ -593,7 +590,7 @@ mod test {
         }
     }
 
-    fn sample_grid_for_vlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_vlines(gutters: bool) -> CellGrid {
         const COLS: usize = 4;
         const ROWS: usize = 6;
         let entries = vec![
@@ -637,7 +634,7 @@ mod test {
             },
             vec![],
             vec![],
-            None,
+            vec![],
             None,
             entries,
         )
@@ -1116,7 +1113,7 @@ mod test {
         }
     }
 
-    fn sample_grid_for_hlines(gutters: bool) -> CellGrid<'static> {
+    fn sample_grid_for_hlines(gutters: bool) -> CellGrid {
         const COLS: usize = 4;
         const ROWS: usize = 9;
         let entries = vec![
@@ -1175,7 +1172,7 @@ mod test {
             },
             vec![],
             vec![],
-            None,
+            vec![],
             None,
             entries,
         )
@@ -1268,6 +1265,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        None,
                         true,
                         y,
                         x,
@@ -1461,6 +1459,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        None,
                         true,
                         y,
                         x,
@@ -1506,6 +1505,7 @@ mod test {
                     grid,
                     &rows,
                     if y == 4 { Some(2) } else { y.checked_sub(1) },
+                    None,
                     true,
                     y,
                     x,

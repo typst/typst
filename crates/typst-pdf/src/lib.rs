@@ -1,7 +1,7 @@
 //! Exporting Typst documents to PDF.
 
+mod attach;
 mod convert;
-mod embed;
 mod image;
 mod link;
 mod metadata;
@@ -18,7 +18,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::eco_format;
 use serde::{Deserialize, Serialize};
-use typst_library::diag::{bail, SourceResult, StrResult};
+use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
 use typst_library::layout::{PageRanges, PagedDocument};
 
@@ -172,7 +172,7 @@ pub enum PdfStandard {
     /// PDF/A-2u.
     #[serde(rename = "a-2u")]
     A_2u,
-    /// PDF/A-3u.
+    /// PDF/A-3b.
     #[serde(rename = "a-3b")]
     A_3b,
     /// PDF/A-3u.

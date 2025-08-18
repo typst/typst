@@ -35,6 +35,6 @@ around the parser and AST.
 The reparsing algorithm is explained in Section 4 of [Martin's thesis][thesis]
 (though it changed a bit since).
 
-[ra]: https://github.com/rust-lang/rust-analyzer/blob/master/docs/dev/syntax.md
+[ra]: https://github.com/rust-lang/rust-analyzer/blob/master/docs/book/src/contributing/syntax.md
 [thesis]:
     https://www.researchgate.net/publication/364622490_Fast_Typesetting_with_Incremental_Compilation

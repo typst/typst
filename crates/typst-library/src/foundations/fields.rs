@@ -1,6 +1,6 @@
 //! Fields on values.
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
 use crate::diag::StrResult;
 use crate::foundations::{IntoValue, Type, Value, Version};

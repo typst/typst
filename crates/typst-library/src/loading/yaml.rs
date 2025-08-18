@@ -1,9 +1,9 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, Str, Value};
+use crate::foundations::{Str, Value, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a YAML file.
@@ -44,17 +44,20 @@ pub fn yaml(
     /// A [path]($syntax/#paths) to a YAML file or raw YAML bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Value> {
-    let data = source.load(engine.world)?;
-    serde_yaml::from_slice(data.as_slice())
-        .map_err(|err| eco_format!("failed to parse YAML ({err})"))
-        .at(source.span)
+    let loaded = source.load(engine.world)?;
+    serde_yaml::from_slice(loaded.data.as_slice())
+        .map_err(format_yaml_error)
+        .within(&loaded)
 }
 
 #[scope]
 impl yaml {
     /// Reads structured data from a YAML string/bytes.
     #[func(title = "Decode YAML")]
-    #[deprecated = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead"]
+    #[deprecated(
+        message = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// YAML data.
@@ -75,4 +78,17 @@ impl yaml {
             .map_err(|err| eco_format!("failed to encode value as YAML ({err})"))
             .at(span)
     }
+}
+
+/// Format the user-facing YAML error message.
+pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
+    let pos = error
+        .location()
+        .map(|loc| {
+            let line_col = LineCol::one_based(loc.line(), loc.column());
+            let range = loc.index()..loc.index();
+            ReportPos::full(range, line_col)
+        })
+        .unwrap_or_default();
+    LoadError::new(pos, "failed to parse YAML", error)
 }

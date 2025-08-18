@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 use ecow::eco_format;
-use typst_library::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use rustc_hash::FxHashSet;
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{Array, Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 
@@ -137,7 +136,7 @@ where
     F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     let mut sink = None;
-    let mut used = HashSet::new();
+    let mut used = FxHashSet::default();
 
     for p in destruct.items() {
         match p {

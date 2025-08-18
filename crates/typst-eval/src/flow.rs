@@ -1,10 +1,10 @@
-use typst_library::diag::{bail, error, At, SourceDiagnostic, SourceResult};
-use typst_library::foundations::{ops, IntoValue, Value};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
+use typst_library::foundations::{IntoValue, Value, ops};
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, SyntaxKind, SyntaxNode};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{destructure, Eval, Vm};
+use crate::{Eval, Vm, destructure};
 
 /// The maximum number of loop iterations.
 const MAX_ITERATIONS: usize = 10_000;

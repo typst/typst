@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 
-use crate::foundations::{cast, Cast, IntoValue, Repr};
+use crate::foundations::{Cast, IntoValue, Repr, cast};
 use crate::layout::Ratio;
 
 /// Properties that distinguish a font from other fonts in the same family.

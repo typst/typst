@@ -2,11 +2,11 @@ use std::iter::once;
 
 use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{Abs, AlignElem, Em, Frame, InlineItem, Point, Size};
-use typst_library::math::{EquationElem, MathSize, MEDIUM, THICK, THIN};
+use typst_library::math::{EquationElem, MEDIUM, MathSize, THICK, THIN};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
 
-use super::{alignments, FrameFragment, MathFragment};
+use super::{FrameFragment, MathFragment, alignments};
 
 const TIGHT_LEADING: Em = Em::new(0.25);
 
@@ -87,10 +87,10 @@ impl MathRun {
 
             // Insert spacing between the last and this non-ignorant item.
             if !fragment.is_ignorant() {
-                if let Some(i) = last {
-                    if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
-                        resolved.insert(i + 1, s);
-                    }
+                if let Some(i) = last
+                    && let Some(s) = spacing(&resolved[i], space.take(), &fragment)
+                {
+                    resolved.insert(i + 1, s);
                 }
 
                 last = Some(resolved.len());
@@ -123,10 +123,10 @@ impl MathRun {
             1 + self.0.iter().filter(|f| matches!(f, MathFragment::Linebreak)).count();
 
         // A linebreak at the very end does not introduce an extra row.
-        if let Some(f) = self.0.last() {
-            if matches!(f, MathFragment::Linebreak) {
-                count -= 1
-            }
+        if let Some(f) = self.0.last()
+            && matches!(f, MathFragment::Linebreak)
+        {
+            count -= 1
         }
         count
     }
@@ -194,13 +194,13 @@ impl MathRun {
         let row_count = rows.len();
         let alignments = alignments(&rows);
 
-        let leading = if EquationElem::size_in(styles) >= MathSize::Text {
-            ParElem::leading_in(styles)
+        let leading = if styles.get(EquationElem::size) >= MathSize::Text {
+            styles.resolve(ParElem::leading)
         } else {
             TIGHT_LEADING.resolve(styles)
         };
 
-        let align = AlignElem::alignment_in(styles).resolve(styles).x;
+        let align = styles.resolve(AlignElem::alignment).x;
         let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
         for (i, row) in rows.into_iter().enumerate() {
@@ -278,6 +278,9 @@ impl MathRun {
         frame
     }
 
+    /// Convert this run of math fragments into a vector of inline items for
+    /// paragraph layout. Creates multiple fragments when relation or binary
+    /// operators are present to allow for line-breaking opportunities later.
     pub fn into_par_items(self) -> Vec<InlineItem> {
         let mut items = vec![];
 
@@ -295,21 +298,24 @@ impl MathRun {
 
         let mut space_is_visible = false;
 
-        let is_relation = |f: &MathFragment| matches!(f.class(), MathClass::Relation);
         let is_space = |f: &MathFragment| {
             matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_, _))
+        };
+        let is_line_break_opportunity = |class, next_fragment| match class {
+            // Don't split when two relations are in a row or when preceding a
+            // closing parenthesis.
+            MathClass::Binary => next_fragment != Some(MathClass::Closing),
+            MathClass::Relation => {
+                !matches!(next_fragment, Some(MathClass::Relation | MathClass::Closing))
+            }
+            _ => false,
         };
 
         let mut iter = self.0.into_iter().peekable();
         while let Some(fragment) = iter.next() {
-            if space_is_visible {
-                match fragment {
-                    MathFragment::Space(width) | MathFragment::Spacing(width, _) => {
-                        items.push(InlineItem::Space(width, true));
-                        continue;
-                    }
-                    _ => {}
-                }
+            if space_is_visible && is_space(&fragment) {
+                items.push(InlineItem::Space(fragment.width(), true));
+                continue;
             }
 
             let class = fragment.class();
@@ -323,10 +329,9 @@ impl MathRun {
             frame.push_frame(pos, fragment.into_frame());
             empty = false;
 
-            if class == MathClass::Binary
-                || (class == MathClass::Relation
-                    && !iter.peek().map(is_relation).unwrap_or_default())
-            {
+            // Split our current frame when we encounter a binary operator or
+            // relation so that there is a line-breaking opportunity.
+            if is_line_break_opportunity(class, iter.peek().map(|f| f.class())) {
                 let mut frame_prev =
                     std::mem::replace(&mut frame, Frame::soft(Size::zero()));
 
@@ -339,10 +344,10 @@ impl MathRun {
                 descent = Abs::zero();
 
                 space_is_visible = true;
-                if let Some(f_next) = iter.peek() {
-                    if !is_space(f_next) {
-                        items.push(InlineItem::Space(Abs::zero(), true));
-                    }
+                if let Some(f_next) = iter.peek()
+                    && !is_space(f_next)
+                {
+                    items.push(InlineItem::Space(Abs::zero(), true));
                 }
             } else {
                 space_is_visible = false;

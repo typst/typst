@@ -1,8 +1,8 @@
 figure = Figur
 table = Tabell
 equation = Ekvation
-bibliography = Bibliografi
-heading = Kapitel
+bibliography = Referenser
+heading = Avsnitt
 outline = Innehåll
-raw = Listing
+raw = Kodlistning
 page = sida

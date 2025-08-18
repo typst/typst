@@ -206,7 +206,6 @@ label exists on the current page:
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
 #set page(header: context {
-  let page-counter =
   let matches = query(<big-table>)
   let current = counter(page).get()
   let has-table = matches.any(m =>
@@ -218,7 +217,7 @@ label exists on the current page:
     #h(1fr)
     National Academy of Sciences
   ]
-}))
+})
 
 #lorem(100)
 #pagebreak()
