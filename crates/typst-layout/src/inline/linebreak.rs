@@ -11,7 +11,7 @@ use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{Lang, TextElem, is_default_ignorable};
+use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -72,9 +72,6 @@ pub enum Breakpoint {
 impl Breakpoint {
     /// Trim a line before this breakpoint.
     pub fn trim(self, line: &str) -> &str {
-        // Trim default ignorables.
-        let line = line.trim_end_matches(is_default_ignorable);
-
         match self {
             // Trim whitespace.
             Self::Normal => line.trim_end_matches(char::is_whitespace),
