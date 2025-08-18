@@ -139,7 +139,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "biblatex"
 version = "0.10.0"
-source = "git+https://github.com/typst/biblatex.git#d6a0dc3b84412b6ac2e66516f4d434a971c540df"
+source = "git+https://github.com/typst/biblatex.git#b9d3a7d5c0f1fb1c1fc768fa3a95c2f4c7743248"
 dependencies = [
  "numerals",
  "paste",
@@ -327,9 +327,9 @@ dependencies = [
 [[package]]
 name = "citationberg"
 version = "0.5.0"
-source = "git+https://github.com/typst/citationberg.git?rev=35cc83fb325d22c9b5bd5c7fc1d8e79897308076#35cc83fb325d22c9b5bd5c7fc1d8e79897308076"
+source = "git+https://github.com/typst/citationberg.git?rev=4962719138554757f890086660a05862f0b8a0c6#4962719138554757f890086660a05862f0b8a0c6"
 dependencies = [
- "quick-xml 0.38.3",
+ "quick-xml 0.38.1",
  "serde",
 ]
 
@@ -2094,9 +2094,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.38.3"
+version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42a232e7487fc2ef313d96dde7948e7a3c05101870d8985e4fd8d26aedd27b89"
+checksum = "9845d9dccf565065824e69f9f235fafba1587031eda353c1f1561cd6a6be78f4"
 dependencies = [
  "memchr",
  "serde",
