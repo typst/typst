@@ -4,9 +4,13 @@ use std::sync::Arc;
 use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{HintedStrResult, HintedString, bail};
-use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
+use crate::engine::Engine;
+use crate::foundations::{
+    Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
+};
 use crate::introspection::Locatable;
+use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
@@ -119,7 +123,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, Locatable, LocalName, Figurable)]
+#[elem(scope, Synthesize, Locatable, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
     /// more information on track sizing.
@@ -260,6 +264,10 @@ pub struct TableElem {
     /// This will be available for assistive techonologies (such as screen readers).
     pub summary: Option<EcoString>,
 
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
+
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
     #[variadic]
@@ -282,6 +290,18 @@ impl TableElem {
 
     #[elem]
     type TableFooter;
+}
+
+impl Synthesize for Packed<TableElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = table_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
+    }
 }
 
 impl LocalName for Packed<TableElem> {

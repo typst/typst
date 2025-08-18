@@ -8,7 +8,7 @@ use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
-use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
+use typst_library::layout::resolve::{Cell, CellGrid, Entry};
 use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
@@ -529,11 +529,12 @@ const CSL_INDENT_RULE: ShowFn<CslIndentElem> = |elem, _, _| {
         .pack())
 };
 
-const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
-    Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
+const TABLE_RULE: ShowFn<TableElem> = |elem, _, styles| {
+    let grid = elem.grid.as_ref().unwrap();
+    Ok(show_cellgrid(grid, styles))
 };
 
-fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
+fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
     let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
 
@@ -547,7 +548,7 @@ fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
 
     // TODO(subfooters): similarly to headers, take consecutive footers from
     // the end for 'tfoot'.
-    let footer = grid.footer.map(|ft| {
+    let footer = grid.footer.as_ref().map(|ft| {
         let rows = rows.drain(ft.start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });

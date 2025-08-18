@@ -393,6 +393,7 @@ impl ResolvableCell for Packed<GridCell> {
 
 /// Represents an explicit grid line (horizontal or vertical) specified by the
 /// user.
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Line {
     /// The index of the track after this line. This will be the index of the
     /// row a horizontal line is above of, or of the column right after a
@@ -422,7 +423,7 @@ pub struct Line {
 }
 
 /// A repeatable grid header. Starts at the first row.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Header {
     /// The range of rows included in this header.
     pub range: Range<usize>,
@@ -431,7 +432,7 @@ pub struct Header {
     /// Higher level headers repeat together with lower level headers. If a
     /// lower level header stops repeating, all higher level headers do as
     /// well.
-    pub level: u32,
+    pub level: NonZeroU32,
     /// Whether this header cannot be repeated nor should have orphan
     /// prevention because it would be about to cease repetition, either
     /// because it is followed by headers of conflicting levels, or because
@@ -441,7 +442,7 @@ pub struct Header {
 }
 
 /// A repeatable grid footer. Stops at the last row.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Footer {
     /// The first row included in this footer.
     pub start: usize,
@@ -466,6 +467,7 @@ impl Footer {
 /// It still exists even when not repeatable, but must not have additional
 /// considerations by grid layout, other than for consistency (such as making
 /// a certain group of rows unbreakable).
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Repeatable<T> {
     inner: T,
 
@@ -566,6 +568,7 @@ pub enum ResolvableGridItem<T: ResolvableCell> {
 }
 
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
+#[derive(Debug, PartialEq, Hash)]
 pub struct Cell {
     /// The cell's body.
     pub body: Content,
@@ -613,7 +616,7 @@ impl Cell {
 /// its index. This is mostly only relevant when gutter is used, since, then,
 /// the position after a track is not the same as before the next
 /// non-gutter track.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LinePosition {
     /// The line should be drawn before its track (e.g. hline on top of a row).
     Before,
@@ -622,6 +625,7 @@ pub enum LinePosition {
 }
 
 /// A grid entry.
+#[derive(Debug, PartialEq, Hash)]
 pub enum Entry {
     /// An entry which holds a cell.
     Cell(Cell),
@@ -650,6 +654,7 @@ pub enum ResolvableGridChild<T: ResolvableCell, I> {
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
+#[derive(Debug, PartialEq, Hash)]
 pub struct CellGrid {
     /// The grid cells.
     pub entries: Vec<Entry>,
@@ -869,6 +874,21 @@ impl CellGrid {
             1 + self.cols.len() / 2
         } else {
             self.cols.len()
+        }
+    }
+
+    #[inline]
+    pub fn non_gutter_row_count(&self) -> usize {
+        if self.has_gutter {
+            // Calculation: With gutters, we have
+            // 'rows = 2 * (non-gutter rows) - 1', since there is a gutter
+            // row between each regular row. Therefore,
+            // 'floor(rows / 2)' will be equal to
+            // 'floor(non-gutter rows - 1/2) = non-gutter-rows - 1',
+            // so 'non-gutter rows = 1 + floor(rows / 2)'.
+            1 + self.rows.len() / 2
+        } else {
+            self.rows.len()
         }
     }
 
@@ -1587,7 +1607,7 @@ impl CellGridResolver<'_, '_> {
                         // below.
                         range: group_range.clone(),
 
-                        level: row_group.repeatable_level.get(),
+                        level: row_group.repeatable_level,
 
                         // This can only change at a later iteration, if we
                         // find a conflicting header or footer right away.
@@ -1815,11 +1835,11 @@ impl CellGridResolver<'_, '_> {
         let mut last_consec_level = 0;
         for header in headers.iter_mut().rev() {
             if header.range.end == consecutive_header_start
-                && header.level >= last_consec_level
+                && header.level.get() >= last_consec_level
             {
                 header.short_lived = true;
             } else {
-                last_consec_level = header.level;
+                last_consec_level = header.level.get();
             }
 
             consecutive_header_start = header.range.start;

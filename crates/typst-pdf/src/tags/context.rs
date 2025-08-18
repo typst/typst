@@ -13,7 +13,7 @@ use typst_library::text::Lang;
 use typst_syntax::Span;
 
 use crate::convert::FrameContext;
-use crate::tags::grid::{GridCtx, GridData, TableData};
+use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
@@ -259,11 +259,11 @@ impl TagStack {
         self.items.last_mut().map(|e| &mut e.kind)
     }
 
-    pub fn parent_table(&mut self) -> Option<&mut GridCtx<TableData>> {
+    pub fn parent_table(&mut self) -> Option<&mut TableCtx> {
         self.parent()?.as_table_mut()
     }
 
-    pub fn parent_grid(&mut self) -> Option<&mut GridCtx<GridData>> {
+    pub fn parent_grid(&mut self) -> Option<&mut GridCtx> {
         self.parent()?.as_grid_mut()
     }
 
@@ -348,9 +348,9 @@ pub enum StackEntryKind {
     Standard(TagKind),
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
-    Table(GridCtx<TableData>),
+    Table(TableCtx),
     TableCell(Packed<TableCell>),
-    Grid(GridCtx<GridData>),
+    Grid(GridCtx),
     GridCell(Packed<GridCell>),
     List(ListCtx),
     ListItemLabel,
@@ -377,11 +377,11 @@ impl StackEntryKind {
         if let Self::OutlineEntry(v) = self { Some(v) } else { None }
     }
 
-    pub fn as_table_mut(&mut self) -> Option<&mut GridCtx<TableData>> {
+    pub fn as_table_mut(&mut self) -> Option<&mut TableCtx> {
         if let Self::Table(v) = self { Some(v) } else { None }
     }
 
-    pub fn as_grid_mut(&mut self) -> Option<&mut GridCtx<GridData>> {
+    pub fn as_grid_mut(&mut self) -> Option<&mut GridCtx> {
         if let Self::Grid(v) = self { Some(v) } else { None }
     }
 
@@ -403,7 +403,7 @@ impl StackEntryKind {
 
     pub fn bbox(&self) -> Option<&BBoxCtx> {
         match self {
-            Self::Table(ctx) => Some(&ctx.data.bbox),
+            Self::Table(ctx) => Some(&ctx.bbox),
             Self::Figure(ctx) => Some(&ctx.bbox),
             Self::Formula(ctx) => Some(&ctx.bbox),
             _ => None,
@@ -412,7 +412,7 @@ impl StackEntryKind {
 
     pub fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
         match self {
-            Self::Table(ctx) => Some(&mut ctx.data.bbox),
+            Self::Table(ctx) => Some(&mut ctx.bbox),
             Self::Figure(ctx) => Some(&mut ctx.bbox),
             Self::Formula(ctx) => Some(&mut ctx.bbox),
             _ => None,

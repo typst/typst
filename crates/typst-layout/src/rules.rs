@@ -4,7 +4,7 @@ use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Target, dict,
+    StyleChain, Synthesize, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -500,7 +500,8 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
             .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
             .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
             .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]));
-        let packed = Packed::new(grid).spanned(span);
+        let mut packed = Packed::new(grid).spanned(span);
+        packed.synthesize(engine, styles)?;
         // Directly build the block element to avoid the show step for the grid
         // element. This will not generate introspection tags for the element.
         let block = BlockElem::multi_layouter(packed, crate::grid::layout_grid).pack();

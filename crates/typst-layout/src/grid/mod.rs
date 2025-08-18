@@ -9,7 +9,7 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::introspection::{Locator, SplitLocator, Tag};
-use typst_library::layout::grid::resolve::{Cell, grid_to_cellgrid, table_to_cellgrid};
+use typst_library::layout::grid::resolve::Cell;
 use typst_library::layout::{Fragment, FrameItem, GridCell, GridElem, Point, Regions};
 use typst_library::model::{TableCell, TableElem};
 
@@ -86,8 +86,8 @@ pub fn layout_grid(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let grid = grid_to_cellgrid(elem, engine, styles)?;
-    GridLayouter::new(&grid, regions, locator, styles, elem.span()).layout(engine)
+    let grid = elem.grid.as_ref().unwrap();
+    GridLayouter::new(grid, regions, locator, styles, elem.span()).layout(engine)
 }
 
 /// Layout the table.
@@ -99,6 +99,6 @@ pub fn layout_table(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let grid = table_to_cellgrid(elem, engine, styles)?;
-    GridLayouter::new(&grid, regions, locator, styles, elem.span()).layout(engine)
+    let grid = elem.grid.as_ref().unwrap();
+    GridLayouter::new(grid, regions, locator, styles, elem.span()).layout(engine)
 }

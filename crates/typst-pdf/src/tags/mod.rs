@@ -29,7 +29,7 @@ use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::LinkAnnotation;
-use crate::tags::grid::{GridCtx, GridData, TableData};
+use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::text::{ResolvedTextAttrs, TextAttr, TextDecoKind};
@@ -205,7 +205,8 @@ pub fn handle_start(
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
-        let ctx = GridCtx::<TableData>::new(table_id, summary);
+        let grid = table.grid.clone().unwrap();
+        let ctx = TableCtx::new(grid, table_id, summary);
         push_stack(gc, elem, StackEntryKind::Table(ctx));
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
@@ -219,8 +220,9 @@ pub fn handle_start(
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()));
         }
         return Ok(());
-    } else if let Some(_) = elem.to_packed::<GridElem>() {
-        let ctx = GridCtx::<GridData>::new();
+    } else if let Some(grid) = elem.to_packed::<GridElem>() {
+        let grid = grid.grid.clone().unwrap();
+        let ctx = GridCtx::new(grid);
         push_stack(gc, elem, StackEntryKind::Grid(ctx));
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
