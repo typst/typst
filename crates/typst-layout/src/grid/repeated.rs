@@ -406,7 +406,8 @@ impl<'a> GridLayouter<'a> {
             total_header_row_count(headers.iter().map(Repeatable::deref));
 
         for header in headers {
-            let header_height = self.layout_header_rows(header, engine, 0, false, false)?;
+            let header_height =
+                self.layout_header_rows(header, engine, 0, false, false)?;
 
             // Only store this header height if it is actually going to
             // become a pending header. Otherwise, pretend it's not a
