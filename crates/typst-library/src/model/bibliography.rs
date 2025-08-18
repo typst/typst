@@ -642,9 +642,9 @@ impl<'a> Generator<'a> {
                 let locator = supplement.as_ref().map(|c| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent(hayagriva::TransparentLocator::new(
-                            c.clone(),
-                        )),
+                        hayagriva::LocatorPayload::Transparent(
+                            hayagriva::TransparentLocator::new(c.clone()),
+                        ),
                     )
                 });
 
