@@ -63,7 +63,7 @@ pub fn convert(
     );
 
     convert_pages(&mut gc, &mut document)?;
-    attach_files(typst_document, &mut document)?;
+    attach_files(&gc, &mut document)?;
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
@@ -503,6 +503,14 @@ fn convert_error(
                        forbidden in this export mode",
             )
         }
+        ValidationError::RestrictedLicense(f) => error!(
+            Span::detached(),
+            "{prefix} license of font {} is too restrictive",
+            display_font(gc.fonts_backward.get(f).unwrap()).repr();
+            hint: "the font has specified \"Restricted License embedding\" in its metadata";
+            hint: "restrictive font licenses are prohibited by {} because they limit the suitability for archival",
+            validator.as_str()
+        ),
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
             let hint1 = "try exporting with a different standard that \

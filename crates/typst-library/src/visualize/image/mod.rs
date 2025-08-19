@@ -291,7 +291,8 @@ impl Packed<ImageElem> {
                 let document = match PdfDocument::new(loaded.data.clone()) {
                     Ok(doc) => doc,
                     Err(e) => match e {
-                        LoadPdfError::Encryption => {
+                        // TODO: the `DecyptionError` is currently not public
+                        LoadPdfError::Decryption(_) => {
                             bail!(
                                 span,
                                 "the PDF is encrypted or password-protected";

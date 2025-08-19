@@ -38,19 +38,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
         metadata = metadata.document_id(ident.to_string());
     }
 
-    // (1) If the `document.date` is set to specific `datetime` or `none`, use it.
-    // (2) If the `document.date` is set to `auto` or not set, try to use the
-    //     date from the options.
-    // (3) Otherwise, we don't write date metadata.
-    let (date, tz) = match (gc.document.info.date, gc.options.timestamp) {
-        (Smart::Custom(date), _) => (date, None),
-        (Smart::Auto, Some(timestamp)) => {
-            (Some(timestamp.datetime), Some(timestamp.timezone))
-        }
-        _ => (None, None),
-    };
-
-    if let Some(date) = date.and_then(|d| convert_date(d, tz)) {
+    if let Some(date) = creation_date(gc) {
         metadata = metadata.creation_date(date);
     }
 
@@ -59,10 +47,17 @@ pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
     metadata
 }
 
-fn convert_date(
-    datetime: Datetime,
-    tz: Option<Timezone>,
-) -> Option<krilla::metadata::DateTime> {
+/// (1) If the `document.date` is set to specific `datetime` or `none`, use it.
+/// (2) If the `document.date` is set to `auto` or not set, try to use the
+///     date from the options.
+/// (3) Otherwise, we don't write date metadata.
+pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
+    let (datetime, tz) = match (gc.document.info.date, gc.options.timestamp) {
+        (Smart::Custom(Some(date)), _) => (date, None),
+        (Smart::Auto, Some(timestamp)) => (timestamp.datetime, Some(timestamp.timezone)),
+        _ => return None,
+    };
+
     let year = datetime.year().filter(|&y| y >= 0)? as u16;
 
     let mut kd = krilla::metadata::DateTime::new(year);
