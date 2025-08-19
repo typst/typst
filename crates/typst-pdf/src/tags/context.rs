@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::slice::SliceIndex;
 
 use krilla::geom as kg;
+use krilla::tagging as kt;
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
@@ -133,7 +134,7 @@ impl Tags {
                 let nodes = (group.nodes.into_iter())
                     .map(|node| self.resolve_node(node))
                     .collect();
-                let group = krilla::tagging::TagGroup::with_children(group.tag, nodes);
+                let group = kt::TagGroup::with_children(group.tag, nodes);
                 Node::Group(group)
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
@@ -576,7 +577,7 @@ impl BBoxCtx {
         bbox.max = bbox.max.max(rect.max);
     }
 
-    pub fn get(&self) -> Option<BBox> {
+    pub fn to_krilla(&self) -> Option<BBox> {
         let (page_idx, rect) = self.rect?;
         let rect = kg::Rect::from_ltrb(
             rect.min.x.to_f32(),

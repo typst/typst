@@ -31,6 +31,8 @@
             top:     54.240
             right:   90.250
             bottom:  71.820
+          /BorderColor: #000000
+          /BorderThickness:   1.000
           /K:
             - Tag: TBody
               /K:
@@ -38,10 +40,12 @@
                   /K:
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=6
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=7
     - Tag: Caption
@@ -78,6 +82,8 @@
             top:    165.673
             right:   97.635
             bottom: 199.833
+          /BorderColor: #000000
+          /BorderThickness:   1.000
           /K:
             - Tag: TBody
               /K:
@@ -85,28 +91,34 @@
                   /K:
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=11
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=12
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=13
                 - Tag: TR
                   /K:
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=14
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=15
                     - Tag: TD
                       /Headers: []
+                      /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=16
     - Tag: Caption

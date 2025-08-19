@@ -35,3 +35,31 @@
     table.cell(x: 2)[F],
   ),
 )
+
+--- table-tags-explicit-lines pdftags ---
+#table(
+  columns: 2,
+  [a], table.vline(stroke: green), [b],
+  table.hline(stroke: red),
+  [c], [d],
+  table.hline(stroke: blue),
+)
+
+--- table-tags-unset-bottom-line pdftags ---
+#table(
+  columns: 2,
+  [a], [b],
+  [c], [d],
+  table.hline(stroke: none),
+)
+
+--- table-tags-different-default-border pdftags ---
+#table(
+  columns: 2,
+  stroke: red + 2pt,
+  table.hline(stroke: black),
+  [a], [b],
+  [c], [d],
+  [e], [f],
+  table.hline(stroke: black),
+)
