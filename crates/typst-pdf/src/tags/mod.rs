@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::num::NonZeroU16;
 
 use ecow::EcoString;
 use krilla::configure::Validator;
@@ -237,7 +237,7 @@ pub fn handle_start(
         }
         return Ok(());
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
-        let level = heading.level().try_into().unwrap_or(NonZeroU32::MAX);
+        let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
         Tag::Hn(level, Some(name)).into()
     } else if let Some(_) = elem.to_packed::<ParElem>() {
