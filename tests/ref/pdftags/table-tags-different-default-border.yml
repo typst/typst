@@ -1,0 +1,87 @@
+- Tag: Table
+  /BBox:
+    page: 0
+    left:     9.000
+    top:      9.000
+    right:   40.630
+    bottom:  60.740
+  /BorderColor: #ff4136
+  /K:
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #000000
+            after:  #ff4136
+            start:  #ff4136
+            end:    #ff4136
+          /BorderStyle: Solid
+          /BorderThickness:
+            before:   1.000
+            after:    2.000
+            start:    2.000
+            end:      2.000
+          /K:
+            - Content: page=0 mcid=0
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #000000
+            after:  #ff4136
+            start:  #ff4136
+            end:    #ff4136
+          /BorderStyle: Solid
+          /BorderThickness:
+            before:   1.000
+            after:    2.000
+            start:    2.000
+            end:      2.000
+          /K:
+            - Content: page=0 mcid=1
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /BorderThickness:   2.000
+          /K:
+            - Content: page=0 mcid=2
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /BorderThickness:   2.000
+          /K:
+            - Content: page=0 mcid=3
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #ff4136
+            after:  #000000
+            start:  #ff4136
+            end:    #ff4136
+          /BorderStyle: Solid
+          /BorderThickness:
+            before:   2.000
+            after:    1.000
+            start:    2.000
+            end:      2.000
+          /K:
+            - Content: page=0 mcid=4
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #ff4136
+            after:  #000000
+            start:  #ff4136
+            end:    #ff4136
+          /BorderStyle: Solid
+          /BorderThickness:
+            before:   2.000
+            after:    1.000
+            start:    2.000
+            end:      2.000
+          /K:
+            - Content: page=0 mcid=5

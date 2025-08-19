@@ -5,6 +5,8 @@
     top:      9.500
     right:   85.360
     bottom:  60.240
+  /BorderColor: #000000
+  /BorderThickness:   1.000
   /K:
     - Tag: TR
       /K:
@@ -12,18 +14,21 @@
           /Id: "U1x0y0"
           /Scope: Column
           /Headers: []
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=0
         - Tag: TH
           /Id: "U1x1y0"
           /Scope: Column
           /Headers: []
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=1
         - Tag: TH
           /Id: "U1x2y0"
           /Scope: Column
           /Headers: []
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=2
     - Tag: TR
@@ -32,14 +37,17 @@
           /Id: "U1x0y1"
           /Scope: Row
           /Headers: ["U1x0y0"]
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=3
         - Tag: TD
           /Headers: ["U1x1y0", "U1x0y1"]
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=4
         - Tag: TD
           /Headers: ["U1x2y0", "U1x0y1"]
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=5
     - Tag: TR
@@ -48,13 +56,16 @@
           /Id: "U1x0y2"
           /Scope: Row
           /Headers: ["U1x0y0"]
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=6
         - Tag: TD
           /Headers: ["U1x1y0", "U1x0y2"]
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=7
         - Tag: TD
           /Headers: ["U1x2y0", "U1x0y2"]
+          /BorderStyle: Solid
           /K:
             - Content: page=0 mcid=8

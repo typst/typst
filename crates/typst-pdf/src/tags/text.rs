@@ -1,3 +1,4 @@
+use krilla::tagging as kt;
 use krilla::tagging::{LineHeight, NaiveRgbColor, Node, Tag, TextDecorationType};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, Smart};
@@ -7,6 +8,7 @@ use typst_library::text::{Font, ScriptKind, TextItem, TextSize};
 use typst_library::visualize::{Paint, Stroke};
 
 use crate::PdfOptions;
+use crate::tags::convert;
 use crate::util::AbsExt;
 
 #[derive(Clone, Debug)]
@@ -34,7 +36,7 @@ impl TextAttrs {
     }
 
     pub fn push_highlight(&mut self, elem: &Content, paint: Option<&Paint>) {
-        let color = paint.and_then(color_from_paint);
+        let color = paint.and_then(convert::paint_to_color);
         self.push(elem, TextAttr::Highlight(color));
     }
 
@@ -159,23 +161,9 @@ impl TextDecoStroke {
         let Smart::Custom(stroke) = stroke else {
             return TextDecoStroke::default();
         };
-        let color = match stroke.paint.custom() {
-            Some(paint) => color_from_paint(&paint),
-            None => None,
-        };
+        let color = stroke.paint.custom().as_ref().and_then(convert::paint_to_color);
         let thickness = stroke.thickness.custom();
         TextDecoStroke { color, thickness }
-    }
-}
-
-fn color_from_paint(paint: &Paint) -> Option<NaiveRgbColor> {
-    match paint {
-        Paint::Solid(color) => {
-            let c = color.to_rgb();
-            Some(NaiveRgbColor::new_f32(c.red, c.green, c.blue))
-        }
-        Paint::Gradient(_) => None,
-        Paint::Tiling(_) => None,
     }
 }
 
@@ -212,7 +200,7 @@ impl ResolvedTextAttrs {
     pub fn build_node(self, children: Vec<Node>) -> Node {
         enum Prev {
             Children(Vec<Node>),
-            Group(krilla::tagging::TagGroup),
+            Group(kt::TagGroup),
         }
 
         impl Prev {
@@ -234,17 +222,15 @@ impl ResolvedTextAttrs {
                 .with_text_decoration_color(self.deco.and_then(|d| d.color))
                 .with_text_decoration_thickness(self.deco.and_then(|d| d.thickness));
 
-            let group = krilla::tagging::TagGroup::with_children(tag, prev.into_nodes());
+            let group = kt::TagGroup::with_children(tag, prev.into_nodes());
             prev = Prev::Group(group);
         }
         if self.strong == Some(true) {
-            let group =
-                krilla::tagging::TagGroup::with_children(Tag::Strong, prev.into_nodes());
+            let group = kt::TagGroup::with_children(Tag::Strong, prev.into_nodes());
             prev = Prev::Group(group);
         }
         if self.emph == Some(true) {
-            let group =
-                krilla::tagging::TagGroup::with_children(Tag::Em, prev.into_nodes());
+            let group = kt::TagGroup::with_children(Tag::Em, prev.into_nodes());
             prev = Prev::Group(group);
         }
 
@@ -253,7 +239,7 @@ impl ResolvedTextAttrs {
             Prev::Children(nodes) => {
                 // This should not happen. It can only happen if an empty set of
                 // `ResolvedTextAttrs` was pushed into a `TagNode::Text`.
-                Node::Group(krilla::tagging::TagGroup::with_children(Tag::Span, nodes))
+                Node::Group(kt::TagGroup::with_children(Tag::Span, nodes))
             }
         }
     }

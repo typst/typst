@@ -4,16 +4,43 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use az::SaturatingAs;
+use krilla::tagging::{self as kt, NaiveRgbColor};
 use krilla::tagging::{Tag, TagId, TagKind};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_library::foundations::Packed;
-use typst_library::layout::GridCell;
-use typst_library::layout::resolve::CellGrid;
+use typst_library::layout::resolve::{CellGrid, Line, LinePosition};
+use typst_library::layout::{Abs, GridCell, Sides};
 use typst_library::model::TableCell;
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
+use typst_library::visualize::{FixedStroke, Stroke};
 
+use crate::tags::convert::TableHeaderScopeExt;
 use crate::tags::util::PropertyValCopied;
-use crate::tags::{BBoxCtx, GroupContents, TableId, TagNode};
+use crate::tags::{BBoxCtx, GroupContents, TableId, TagNode, convert};
+use crate::util::{AbsExt, SidesExt};
+
+trait GridExt {
+    /// Convert from "effective" positions inside the cell grid, which may
+    /// include gutter tracks in addition to the cells, to conventional
+    /// positions.
+    #[allow(clippy::wrong_self_convention)]
+    fn from_effective(&self, i: usize) -> u32;
+
+    /// Convert from conventional positions to "effective" positions inside the
+    /// cell grid, which may include gutter tracks in addition to the cells.
+    fn to_effective(&self, i: u32) -> usize;
+}
+
+impl GridExt for CellGrid {
+    fn from_effective(&self, i: usize) -> u32 {
+        if self.has_gutter { (i / 2) as u32 } else { i as u32 }
+    }
+
+    fn to_effective(&self, i: u32) -> usize {
+        if self.has_gutter { 2 * i as usize } else { i as usize }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct TableCtx {
@@ -29,6 +56,20 @@ pub struct TableCtx {
 pub struct TableCellData {
     kind: TableCellKind,
     headers: SmallVec<[TagId; 1]>,
+    stroke: Sides<PrioritzedStroke>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PrioritzedStroke {
+    stroke: Option<Arc<Stroke<Abs>>>,
+    priority: StrokePriority,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum StrokePriority {
+    GridStroke = 0,
+    CellStroke = 1,
+    ExplicitLine = 2,
 }
 
 impl TableCtx {
@@ -37,8 +78,8 @@ impl TableCtx {
         let height = grid.non_gutter_row_count();
 
         let mut grid_headers = grid.headers.iter().peekable();
-        let row_kinds = (0..height).map(|y| {
-            let grid_y = if grid.has_gutter { 2 * y + 1 } else { y };
+        let row_kinds = (0..height as u32).map(|y| {
+            let grid_y = grid.to_effective(y);
 
             // Find current header
             while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
@@ -73,8 +114,21 @@ impl TableCtx {
         let rowspan = cell.rowspan.val();
         let colspan = cell.colspan.val();
         let kind = cell.kind.val().unwrap_or_else(|| self.default_row_kinds[y as usize]);
+
+        let [grid_x, grid_y] = [x, y].map(|i| self.grid.to_effective(i));
+        let grid_cell = self.grid.cell(grid_x, grid_y).unwrap();
+        let stroke = grid_cell.stroke.clone().zip(grid_cell.stroke_overridden).map(
+            |(stroke, overriden)| {
+                let priority = if overriden {
+                    StrokePriority::CellStroke
+                } else {
+                    StrokePriority::GridStroke
+                };
+                PrioritzedStroke { stroke, priority }
+            },
+        );
         self.cells.insert(CtxCell {
-            data: TableCellData { kind, headers: SmallVec::new() },
+            data: TableCellData { kind, headers: SmallVec::new(), stroke },
             x,
             y,
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
@@ -86,7 +140,10 @@ impl TableCtx {
     pub fn build_table(mut self, mut contents: GroupContents) -> TagNode {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
-        if self.cells.entries.is_empty() {
+        // A show rule, can prevent the table from being layed out, in which case
+        // all cells will be missing, in that case just return whatever contents
+        // that were generated in the show rule.
+        if self.cells.entries.iter().all(GridEntry::is_missing) {
             return TagNode::group(Tag::Table.with_summary(self.summary), contents);
         }
 
@@ -127,8 +184,7 @@ impl TableCtx {
             let mut grid_headers = self.grid.headers.iter().peekable();
             for y in 0..height {
                 // Find current header region
-                let grid_y =
-                    if self.grid.has_gutter { 2 * y as usize + 1 } else { y as usize };
+                let grid_y = self.grid.to_effective(y);
                 while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
                 let region_range = grid_headers.peek().and_then(|header| {
                     if !header.range.contains(&grid_y) {
@@ -136,10 +192,8 @@ impl TableCtx {
                     }
 
                     // Convert from the `CellGrid` coordinates to normal ones.
-                    let from_effective =
-                        |i: usize| if self.grid.has_gutter { i / 2 } else { i } as u32;
-                    let start = from_effective(header.range.start);
-                    let end = from_effective(header.range.end);
+                    let start = self.grid.from_effective(header.range.start);
+                    let end = self.grid.from_effective(header.range.end);
                     Some(start..end)
                 });
 
@@ -168,20 +222,68 @@ impl TableCtx {
             }
         }
 
-        let mut chunk_kind = self.cells.get(0, 0).unwrap().data.kind;
+        // Place h-lines, overwriting the cells stroke.
+        place_explicit_lines(
+            &mut self.cells,
+            &self.grid.hlines,
+            height,
+            width,
+            |cells, (y, x), pos| {
+                let cell = cells.cell_mut(x, y)?;
+                Some(match pos {
+                    LinePosition::Before => &mut cell.data.stroke.bottom,
+                    LinePosition::After => &mut cell.data.stroke.top,
+                })
+            },
+        );
+        // Place v-lines, overwriting the cells stroke.
+        place_explicit_lines(
+            &mut self.cells,
+            &self.grid.vlines,
+            width,
+            height,
+            |cells, (x, y), pos| {
+                let cell = cells.cell_mut(x, y)?;
+                Some(match pos {
+                    LinePosition::Before => &mut cell.data.stroke.right,
+                    LinePosition::After => &mut cell.data.stroke.left,
+                })
+            },
+        );
+
+        // Remove overlapping border strokes between cells.
+        for y in 0..self.cells.height() {
+            for x in 0..self.cells.width().saturating_sub(1) {
+                prioritize_strokes(&mut self.cells, (x, y), (x + 1, y), |a, b| {
+                    (&mut a.stroke.right, &mut b.stroke.left)
+                });
+            }
+        }
+        for x in 0..self.cells.width() {
+            for y in 0..self.cells.height().saturating_sub(1) {
+                prioritize_strokes(&mut self.cells, (x, y), (x, y + 1), |a, b| {
+                    (&mut a.stroke.bottom, &mut b.stroke.top)
+                });
+            }
+        }
+
+        let (parent_border_thickness, parent_border_color) =
+            try_resolve_table_stroke(&self.cells);
+
+        let mut chunk_kind = self.cells.cell(0, 0).unwrap().data.kind;
         let mut row_chunk = Vec::new();
         let mut row_iter = self.cells.into_rows();
+
         while let Some((y, row)) = row_iter.row() {
             let row_nodes = row
                 .filter_map(|entry| {
                     let cell = entry.into_cell()?;
                     let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
                     let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
-                    let tag: TagKind = match cell.data.kind {
+                    let mut tag: TagKind = match cell.data.kind {
                         TableCellKind::Header(_, scope) => {
                             let id = table_cell_id(self.id, cell.x, cell.y);
-                            let scope = table_header_scope(scope);
-                            Tag::TH(scope)
+                            Tag::TH(scope.to_krilla())
                                 .with_id(Some(id))
                                 .with_headers(Some(cell.data.headers))
                                 .with_row_span(rowspan)
@@ -194,6 +296,16 @@ impl TableCtx {
                             .with_col_span(colspan)
                             .into(),
                     };
+
+                    resolve_cell_border_and_background(
+                        &self.grid,
+                        parent_border_thickness,
+                        parent_border_color,
+                        [cell.x, cell.y],
+                        cell.data.stroke,
+                        &mut tag,
+                    );
+
                     Some(TagNode::group(tag, cell.contents))
                 })
                 .collect();
@@ -231,8 +343,21 @@ impl TableCtx {
             contents.nodes.push(TagNode::virtual_group(tag, row_chunk));
         }
 
-        let tag = Tag::Table.with_summary(self.summary).with_bbox(self.bbox.get());
+        let tag = Tag::Table
+            .with_summary(self.summary)
+            .with_bbox(self.bbox.to_krilla())
+            .with_border_thickness(parent_border_thickness.map(kt::Sides::uniform))
+            .with_border_color(parent_border_color.map(kt::Sides::uniform));
         TagNode::group(tag, contents)
+    }
+}
+
+fn should_group_rows(a: TableCellKind, b: TableCellKind) -> bool {
+    match (a, b) {
+        (TableCellKind::Header(..), TableCellKind::Header(..)) => true,
+        (TableCellKind::Footer, TableCellKind::Footer) => true,
+        (TableCellKind::Data, TableCellKind::Data) => true,
+        (_, _) => false,
     }
 }
 
@@ -255,7 +380,7 @@ fn resolve_cell_headers<F>(
 ) where
     F: Fn(&TableHeaderScope) -> bool,
 {
-    let Some(cell) = cells.get_mut(x, y) else { return };
+    let Some(cell) = cells.cell_mut(x, y) else { return };
 
     let cell_ids = resolve_cell_header_ids(
         table_id,
@@ -324,27 +449,198 @@ where
     header_stack.iter().rev().nth(1)
 }
 
-fn should_group_rows(a: TableCellKind, b: TableCellKind) -> bool {
-    match (a, b) {
-        (TableCellKind::Header(..), TableCellKind::Header(..)) => true,
-        (TableCellKind::Footer, TableCellKind::Footer) => true,
-        (TableCellKind::Data, TableCellKind::Data) => true,
-        (_, _) => false,
-    }
-}
-
 fn table_cell_id(table_id: TableId, x: u32, y: u32) -> TagId {
     let mut buf = SmallVec::<[u8; 32]>::new();
     _ = write!(&mut buf, "{}x{x}y{y}", table_id.get());
     TagId::from(buf)
 }
 
-fn table_header_scope(scope: TableHeaderScope) -> krilla::tagging::TableHeaderScope {
-    match scope {
-        TableHeaderScope::Both => krilla::tagging::TableHeaderScope::Both,
-        TableHeaderScope::Column => krilla::tagging::TableHeaderScope::Column,
-        TableHeaderScope::Row => krilla::tagging::TableHeaderScope::Row,
+fn place_explicit_lines<F>(
+    cells: &mut GridCells<TableCellData>,
+    lines: &[Vec<Line>],
+    block_end: u32,
+    inline_end: u32,
+    get_side: F,
+) where
+    F: Fn(
+        &mut GridCells<TableCellData>,
+        (u32, u32),
+        LinePosition,
+    ) -> Option<&mut PrioritzedStroke>,
+{
+    for line in lines.iter().flat_map(|lines| lines.iter()) {
+        let end = line.end.map(|n| n.get() as u32).unwrap_or(inline_end);
+        let explicit_stroke = || PrioritzedStroke {
+            stroke: line.stroke.clone(),
+            priority: StrokePriority::ExplicitLine,
+        };
+
+        // Fixup line positions before the first, or after the last cell.
+        let mut pos = line.position;
+        if line.index == 0 {
+            pos = LinePosition::After;
+        } else if line.index + 1 == block_end as usize {
+            pos = LinePosition::Before;
+        };
+
+        let block_idx = match pos {
+            LinePosition::Before => (line.index - 1) as u32,
+            LinePosition::After => line.index as u32,
+        };
+        for inline_idx in line.start as u32..end {
+            if let Some(side) = get_side(cells, (block_idx, inline_idx), pos) {
+                *side = explicit_stroke();
+            }
+        }
     }
+}
+
+/// PDF tables don't support gutters, remove all overlapping strokes,
+/// that aren't equal. Leave strokes that would overlap but are the same
+/// because then only a single value has to be written for `BorderStyle`,
+/// `BorderThickness`, and `BorderColor` instead of an array for each.
+fn prioritize_strokes<F>(
+    cells: &mut GridCells<TableCellData>,
+    a: (u32, u32),
+    b: (u32, u32),
+    get_sides: F,
+) where
+    F: for<'a> Fn(
+        &'a mut TableCellData,
+        &'a mut TableCellData,
+    ) -> (&'a mut PrioritzedStroke, &'a mut PrioritzedStroke),
+{
+    let Some([a, b]) = cells.cells_disjoint_mut([a, b]) else { return };
+
+    let (a, b) = get_sides(&mut a.data, &mut b.data);
+
+    // Only remove contesting (different) edge strokes.
+    if a.stroke != b.stroke {
+        // Prefer the right stroke on same priorities.
+        if a.priority <= b.priority {
+            a.stroke = b.stroke.clone();
+        } else {
+            b.stroke = a.stroke.clone();
+        }
+    }
+}
+
+/// Try to resolve a table border stroke color and thickness that is inherited
+/// by the cells. In acrobat cells cannot override the border thickness or color
+/// of the outer border around the table if the thickness is set.
+fn try_resolve_table_stroke(
+    cells: &GridCells<TableCellData>,
+) -> (Option<f32>, Option<NaiveRgbColor>) {
+    // Omitted strokes are counted too for reasons explained above.
+    let mut strokes = FxHashMap::<_, usize>::default();
+    for cell in cells.entries.iter().filter_map(GridEntry::as_cell) {
+        for stroke in cell.data.stroke.iter() {
+            *strokes.entry(stroke.stroke.as_ref()).or_default() += 1;
+        }
+    }
+
+    let uniform_stroke = strokes.len() == 1;
+
+    // Find the most used stroke and convert it to a fixed stroke.
+    let stroke = strokes.into_iter().max_by_key(|(_, num)| *num).and_then(|(s, _)| {
+        let s = (**s?).clone();
+        Some(s.unwrap_or_default())
+    });
+    let Some(stroke) = stroke else { return (None, None) };
+
+    // Only set a parent stroke width if the table uses one uniform stroke.
+    let thickness = uniform_stroke.then_some(stroke.thickness.to_f32());
+    let color = convert::paint_to_color(&stroke.paint);
+
+    (thickness, color)
+}
+
+fn resolve_cell_border_and_background(
+    grid: &CellGrid,
+    parent_border_thickness: Option<f32>,
+    parent_border_color: Option<NaiveRgbColor>,
+    pos: [u32; 2],
+    stroke: Sides<PrioritzedStroke>,
+    tag: &mut TagKind,
+) {
+    // Resolve border attributes.
+    let fixed = stroke
+        .as_ref()
+        .map(|s| s.stroke.as_ref().map(|s| (**s).clone().unwrap_or_default()));
+
+    // Acrobat completely ignores the border style attribute, but the spec
+    // defines `BorderStyle::None` as the default. So make sure to write
+    // the correct border styles.
+    let border_style = resolve_sides(&fixed, None, Some(kt::BorderStyle::None), |s| {
+        s.map(|s| match s.dash {
+            Some(_) => kt::BorderStyle::Dashed,
+            None => kt::BorderStyle::Solid,
+        })
+    });
+
+    // In acrobat `BorderThickness` takes precedence over `BorderStyle`. If
+    // A `BorderThickness != 0` is specified for a side the border is drawn
+    // even if `BorderStyle::None` is set. So explicitly write zeros for
+    // sides that should be omitted.
+    let border_thickness =
+        resolve_sides(&fixed, parent_border_thickness, Some(0.0), |s| {
+            s.map(|s| s.thickness.to_f32())
+        });
+
+    let border_color = resolve_sides(&fixed, parent_border_color, None, |s| {
+        s.and_then(|s| convert::paint_to_color(&s.paint))
+    });
+
+    tag.set_border_style(border_style);
+    tag.set_border_thickness(border_thickness);
+    tag.set_border_color(border_color);
+
+    let [grid_x, grid_y] = pos.map(|i| grid.to_effective(i));
+    let grid_cell = grid.cell(grid_x, grid_y).unwrap();
+    let background_color = grid_cell.fill.as_ref().and_then(convert::paint_to_color);
+    tag.set_background_color(background_color);
+}
+
+/// Try to minimize the attributes written per cell.
+/// The parent value will be set on the table tag and is inherited by all table
+/// cells. If all present values match the parent or all are missing, the
+/// attribute can be omitted, and thus `None` is returned.
+/// If one of the present values differs from the parent value, the the cell
+/// attribute needs to override the parent attribute, fill up the remaining
+/// sides with a `default` value if provided, or any other present value.
+///
+/// Using an already present value has the benefit of saving storage space in
+/// the resulting PDF, if all sides have the same value, because then a
+/// [kt::Sides::uniform] value can be written instead of an 4-element array.
+fn resolve_sides<F, T>(
+    sides: &Sides<Option<FixedStroke>>,
+    parent: Option<T>,
+    default: Option<T>,
+    map: F,
+) -> Option<kt::Sides<T>>
+where
+    T: Copy + PartialEq,
+    F: Copy + Fn(Option<&FixedStroke>) -> Option<T>,
+{
+    let mapped = sides.as_ref().map(|s| map(s.as_ref()));
+
+    if mapped.iter().flatten().all(|v| Some(*v) == parent) {
+        // All present values are equal to the parent value.
+        return None;
+    }
+
+    let Some(first) = mapped.iter().flatten().next() else {
+        // All values are missing
+        return None;
+    };
+
+    // At least one value is different from the parent, fill up the remaining
+    // sides with a replacement value.
+    let replacement = default.unwrap_or(*first);
+    let sides = mapped.unwrap_or(replacement);
+
+    // TODO(accessibility): handle `text(dir: rtl)`
+    Some(sides.to_lrtb_krilla())
 }
 
 #[derive(Clone, Debug)]
@@ -464,12 +760,12 @@ impl<T: Clone> GridCells<T> {
         }
     }
 
-    fn get(&self, x: u32, y: u32) -> Option<&CtxCell<T>> {
+    fn cell(&self, x: u32, y: u32) -> Option<&CtxCell<T>> {
         let cell = &self.entries[self.cell_idx(x, y)];
         self.resolve(cell)
     }
 
-    fn get_mut(&mut self, x: u32, y: u32) -> Option<&mut CtxCell<T>> {
+    fn cell_mut(&mut self, x: u32, y: u32) -> Option<&mut CtxCell<T>> {
         let idx = self.cell_idx(x, y);
         let cell = &mut self.entries[idx];
         match cell {
@@ -482,6 +778,31 @@ impl<T: Clone> GridCells<T> {
             &mut GridEntry::Spanned(idx) => self.entries[idx].as_cell_mut(),
             GridEntry::Missing => None,
         }
+    }
+
+    /// Mutably borrows disjoint cells. Cells are considered disjoint if their
+    /// positions don't resolve to the same parent cell in case of a
+    /// [`GridEntry::Cell`] or indirectly through a [`GridEntry::Spanned`].
+    ///
+    /// # Panics
+    ///
+    /// If one of the positions points to a [`GridEntry::Missing`].
+    fn cells_disjoint_mut<const N: usize>(
+        &mut self,
+        positions: [(u32, u32); N],
+    ) -> Option<[&mut CtxCell<T>; N]> {
+        let indices = positions.map(|(x, y)| {
+            let idx = self.cell_idx(x, y);
+            let cell = &self.entries[idx];
+            match cell {
+                GridEntry::Cell(_) => idx,
+                &GridEntry::Spanned(idx) => idx,
+                GridEntry::Missing => unreachable!(""),
+            }
+        });
+
+        let entries = self.entries.get_disjoint_mut(indices).ok()?;
+        Some(entries.map(|entry| entry.as_cell_mut().unwrap()))
     }
 
     fn resolve<'a>(&'a self, cell: &'a GridEntry<T>) -> Option<&'a CtxCell<T>> {

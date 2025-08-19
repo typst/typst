@@ -29,6 +29,7 @@ use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::LinkAnnotation;
+use crate::tags::convert::ArtifactKindExt;
 use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
@@ -38,6 +39,7 @@ use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 pub use context::*;
 
 mod context;
+mod convert;
 mod grid;
 mod list;
 mod outline;
@@ -336,8 +338,7 @@ fn push_disable(
     kind: ArtifactKind,
 ) {
     let loc = elem.location().expect("elem to be locatable");
-    let ty = artifact_type(kind);
-    surface.start_tagged(ContentTag::Artifact(ty));
+    surface.start_tagged(ContentTag::Artifact(kind.to_krilla()));
     gc.tags.disable = Some(Disable::Elem(loc, kind));
 }
 
@@ -511,11 +512,11 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
             return;
         }
         StackEntryKind::Figure(ctx) => {
-            let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.get());
+            let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.to_krilla());
             TagNode::group(tag, contents)
         }
         StackEntryKind::Formula(ctx) => {
-            let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.get());
+            let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.to_krilla());
             TagNode::group(tag, contents)
         }
         StackEntryKind::Link(_, _) => {
@@ -570,8 +571,7 @@ pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
             Disable::Elem(_, kind) => kind,
             Disable::Tiling => ArtifactKind::Other,
         };
-        let ty = artifact_type(kind);
-        surface.start_tagged(ContentTag::Artifact(ty));
+        surface.start_tagged(ContentTag::Artifact(kind.to_krilla()));
     }
 }
 
@@ -755,13 +755,4 @@ fn start_content<'a, 'b>(
         gc.tags.push(TagNode::Leaf(id));
     }
     TagHandle { surface, started: true }
-}
-
-fn artifact_type(kind: ArtifactKind) -> ArtifactType {
-    match kind {
-        ArtifactKind::Header => ArtifactType::Header,
-        ArtifactKind::Footer => ArtifactType::Footer,
-        ArtifactKind::Page => ArtifactType::Page,
-        ArtifactKind::Other => ArtifactType::Other,
-    }
 }
