@@ -133,7 +133,7 @@ pub fn layout_symbol(
     let bold = styles.get(EquationElem::bold);
     let italic = styles.get(EquationElem::italic);
     let dtls = style_dtls();
-    let has_dtls_feat = has_dtls_feat(ctx.font);
+    let has_dtls_feat = has_dtls_feat(ctx.font());
     for cluster in elem.text.graphemes(true) {
         // Switch dotless char to normal when we have the dtls OpenType feature.
         // This should happen before the main styling pass.
@@ -151,7 +151,7 @@ pub fn layout_symbol(
         let styles = if enable_dtls { styles.chain(&dtls) } else { styles };
 
         if let Some(mut glyph) =
-            GlyphFragment::new(ctx.engine.world, symbol_styles, &text, elem.span())
+            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())
         {
             if glyph.class == MathClass::Large {
                 if styles.get(EquationElem::size) == MathSize::Display {
