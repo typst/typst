@@ -3,8 +3,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
-use rustc_hash::FxHashMap;
 use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst_syntax::{FileId, Span};
 
@@ -329,7 +329,8 @@ impl<'a> ImageResolver<'a> {
         match self.span.resolve_path(href) {
             Err(e) => {
                 if self.error.is_empty() {
-                    self.error = eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
+                    self.error =
+                        eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
                 }
                 None
             }
@@ -363,8 +364,11 @@ impl<'a> ImageResolver<'a> {
                     }
                     Err(e) => {
                         if self.error.is_empty() {
-                            self.error =
-                                eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
+                            self.error = eco_format!(
+                                "Cannot use linked image: {}; Cause: {:?}",
+                                href,
+                                e
+                            );
                         };
                         None
                     }
