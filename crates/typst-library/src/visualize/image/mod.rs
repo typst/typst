@@ -267,6 +267,7 @@ impl Packed<ImageElem> {
             ),
             ImageFormat::Vector(VectorFormat::Svg) => ImageKind::Svg(
                 SvgImage::with_fonts(
+                    &span,
                     loaded.data.clone(),
                     engine.world,
                     &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
