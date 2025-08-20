@@ -1,12 +1,13 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
 use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr, StyleChain, Styles,
-    Type, Value, fields_on, repr,
+    AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, ParamInfo, Repr,
+    StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
@@ -709,9 +710,11 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Parameters: "func(|)", "func(hi|)", "func(12,|)".
+    // Parameters: "func(|)", "func(hi|)", "func(12, |)", "func(12,|)" [explicit mode only]
     if let SyntaxKind::LeftParen | SyntaxKind::Comma = deciding.kind()
-        && (deciding.kind() != SyntaxKind::Comma || deciding.range().end < ctx.cursor)
+        && (deciding.kind() != SyntaxKind::Comma
+            || deciding.range().end < ctx.cursor
+            || ctx.explicit)
     {
         if let Some(next) = deciding.next_leaf() {
             ctx.from = ctx.cursor.min(next.offset());
@@ -737,7 +740,7 @@ fn param_completions<'a>(
 
     // Determine which arguments are already present.
     let mut existing_positional = 0;
-    let mut existing_named = HashSet::new();
+    let mut existing_named = FxHashSet::default();
     for arg in args.items() {
         match arg {
             ast::Arg::Pos(_) => {
@@ -849,6 +852,7 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
         (Some("embed"), "path") => &[],
+        (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
         (None, "path") => &[],
         _ => return None,
     })
@@ -891,7 +895,10 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     }
 
     // An existing identifier: "{ pa| }".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
+    // Ignores named pair keys as they are not variables (as in "(pa|: 23)").
+    if ctx.leaf.kind() == SyntaxKind::Ident
+        && (ctx.leaf.index() > 0 || ctx.leaf.parent_kind() != Some(SyntaxKind::Named))
+    {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, false);
         return true;
@@ -904,11 +911,19 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Anywhere: "{ | }".
-    // But not within or after an expression.
+    // Anywhere: "{ | }", "(|)", "(1,|)", "(a:|)".
+    // But not within or after an expression, and also not part of a dictionary
+    // key (as in "(pa: |,)")
     if ctx.explicit
+        && ctx.leaf.parent_kind() != Some(SyntaxKind::Dict)
         && (ctx.leaf.kind().is_trivia()
-            || matches!(ctx.leaf.kind(), SyntaxKind::LeftParen | SyntaxKind::LeftBrace))
+            || matches!(
+                ctx.leaf.kind(),
+                SyntaxKind::LeftParen
+                    | SyntaxKind::LeftBrace
+                    | SyntaxKind::Comma
+                    | SyntaxKind::Colon
+            ))
     {
         ctx.from = ctx.cursor;
         code_completions(ctx, false);
@@ -1103,7 +1118,7 @@ struct CompletionContext<'a> {
     explicit: bool,
     from: usize,
     completions: Vec<Completion>,
-    seen_casts: HashSet<u128>,
+    seen_casts: FxHashSet<u128>,
 }
 
 impl<'a> CompletionContext<'a> {
@@ -1128,7 +1143,7 @@ impl<'a> CompletionContext<'a> {
             explicit,
             from: cursor,
             completions: vec![],
-            seen_casts: HashSet::new(),
+            seen_casts: FxHashSet::default(),
         })
     }
 
@@ -1560,6 +1575,7 @@ mod tests {
     trait ResponseExt {
         fn completions(&self) -> &[Completion];
         fn labels(&self) -> BTreeSet<&str>;
+        fn must_be_empty(&self) -> &Self;
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_apply<'a>(&self, label: &str, apply: impl Into<Option<&'a str>>)
@@ -1576,6 +1592,16 @@ mod tests {
 
         fn labels(&self) -> BTreeSet<&str> {
             self.completions().iter().map(|c| c.label.as_str()).collect()
+        }
+
+        #[track_caller]
+        fn must_be_empty(&self) -> &Self {
+            let labels = self.labels();
+            assert!(
+                labels.is_empty(),
+                "expected no suggestions (got {labels:?} instead)"
+            );
+            self
         }
 
         #[track_caller]
@@ -1622,7 +1648,15 @@ mod tests {
         let world = world.acquire();
         let world = world.borrow();
         let doc = typst::compile(world).output.ok();
-        test_with_doc(world, pos, doc.as_ref())
+        test_with_doc(world, pos, doc.as_ref(), true)
+    }
+
+    #[track_caller]
+    fn test_implicit(world: impl WorldLike, pos: impl FilePos) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc = typst::compile(world).output.ok();
+        test_with_doc(world, pos, doc.as_ref(), false)
     }
 
     #[track_caller]
@@ -1635,7 +1669,7 @@ mod tests {
         let doc = typst::compile(&world).output.ok();
         let end = world.main.text().len();
         world.main.edit(end..end, addition);
-        test_with_doc(&world, pos, doc.as_ref())
+        test_with_doc(&world, pos, doc.as_ref(), true)
     }
 
     #[track_caller]
@@ -1643,11 +1677,12 @@ mod tests {
         world: impl WorldLike,
         pos: impl FilePos,
         doc: Option<&PagedDocument>,
+        explicit: bool,
     ) -> Response {
         let world = world.acquire();
         let world = world.borrow();
         let (source, cursor) = pos.resolve(world);
-        autocomplete(world, doc, &source, cursor, true)
+        autocomplete(world, doc, &source, cursor, explicit)
     }
 
     #[test]
@@ -1698,7 +1733,7 @@ mod tests {
         let end = world.main.text().len();
         world.main.edit(end..end, " #cite()");
 
-        test_with_doc(&world, -2, doc.as_ref())
+        test_with_doc(&world, -2, doc.as_ref(), true)
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
     }
@@ -1786,6 +1821,8 @@ mod tests {
             .with_source("content/a.typ", "#image()")
             .with_source("content/b.typ", "#csv(\"\")")
             .with_source("content/c.typ", "#include \"\"")
+            .with_source("content/d.typ", "#pdf.attach(\"\")")
+            .with_source("content/e.typ", "#math.attach(\"\")")
             .with_asset_at("assets/tiger.jpg", "tiger.jpg")
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
@@ -1794,15 +1831,20 @@ mod tests {
             .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
             .must_exclude([q!("assets/tiger.jpg")]);
 
-        test(&world, ("content/c.typ", -2))
-            .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
-            .must_exclude([q!("c.typ")]);
-
         test(&world, ("content/a.typ", -2))
             .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
             .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
 
         test(&world, ("content/b.typ", -3)).must_include([q!("../data/example.csv")]);
+
+        test(&world, ("content/c.typ", -2))
+            .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
+            .must_exclude([q!("c.typ")]);
+
+        test(&world, ("content/d.typ", -2))
+            .must_include([q!("../assets/tiger.jpg"), q!("../data/example.csv")]);
+
+        test(&world, ("content/e.typ", -2)).must_exclude([q!("data/example.csv")]);
     }
 
     #[test]
@@ -1853,26 +1895,105 @@ mod tests {
     #[test]
     fn test_autocomplete_fonts() {
         test("#text(font:)", -2)
-            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+            .must_include([q!("Libertinus Serif"), q!("New Computer Modern Math")]);
 
         test("#show link: set text(font: )", -2)
-            .must_include(["\"Libertinus Serif\"", "\"New Computer Modern Math\""]);
+            .must_include([q!("Libertinus Serif"), q!("New Computer Modern Math")]);
 
         test("#show math.equation: set text(font: )", -2)
-            .must_include(["\"New Computer Modern Math\""])
-            .must_exclude(["\"Libertinus Serif\""]);
+            .must_include([q!("New Computer Modern Math")])
+            .must_exclude([q!("Libertinus Serif")]);
 
         test("#show math.equation: it => { set text(font: )\nit }", -7)
-            .must_include(["\"New Computer Modern Math\""])
-            .must_exclude(["\"Libertinus Serif\""]);
+            .must_include([q!("New Computer Modern Math")])
+            .must_exclude([q!("Libertinus Serif")]);
     }
 
     #[test]
     fn test_autocomplete_typed_html() {
         test("#html.div(translate: )", -2)
             .must_include(["true", "false"])
-            .must_exclude(["\"yes\"", "\"no\""]);
+            .must_exclude([q!("yes"), q!("no")]);
         test("#html.input(value: )", -2).must_include(["float", "string", "red", "blue"]);
-        test("#html.div(role: )", -2).must_include(["\"alertdialog\""]);
+        test("#html.div(role: )", -2).must_include([q!("alertdialog")]);
+    }
+
+    #[test]
+    fn test_autocomplete_in_function_params_after_comma_and_colon() {
+        let document = "#text(size: 12pt, [])";
+
+        // After colon
+        test(document, 11).must_include(["length"]);
+        test_implicit(document, 11).must_include(["length"]);
+
+        test(document, 12).must_include(["length"]);
+        test_implicit(document, 12).must_include(["length"]);
+
+        // After comma
+        test(document, 17).must_include(["font"]);
+        test_implicit(document, 17).must_be_empty();
+
+        test(document, 18).must_include(["font"]);
+        test_implicit(document, 18).must_include(["font"]);
+    }
+
+    #[test]
+    fn test_autocomplete_in_list_literal() {
+        let document = "#let val = 0\n#(1, \"one\")";
+
+        // After opening paren
+        test(document, 15).must_include(["color", "val"]);
+        test_implicit(document, 15).must_be_empty();
+
+        // After first element
+        test(document, 16).must_be_empty();
+        test_implicit(document, 16).must_be_empty();
+
+        // After comma
+        test(document, 17).must_include(["color", "val"]);
+        test_implicit(document, 17).must_be_empty();
+
+        test(document, 18).must_include(["color", "val"]);
+        test_implicit(document, 18).must_be_empty();
+    }
+
+    #[test]
+    fn test_autocomplete_in_dict_literal() {
+        let document = "#let first = 0\n#(first: 1, second: one)";
+
+        // After opening paren
+        test(document, 17).must_be_empty();
+        test_implicit(document, 17).must_be_empty();
+
+        // After first key
+        test(document, 22).must_be_empty();
+        test_implicit(document, 22).must_be_empty();
+
+        // After colon
+        test(document, 23).must_include(["align", "first"]);
+        test_implicit(document, 23).must_be_empty();
+
+        test(document, 24).must_include(["align", "first"]);
+        test_implicit(document, 24).must_be_empty();
+
+        // After first value
+        test(document, 25).must_be_empty();
+        test_implicit(document, 25).must_be_empty();
+
+        // After comma
+        test(document, 26).must_be_empty();
+        test_implicit(document, 26).must_be_empty();
+
+        test(document, 27).must_be_empty();
+        test_implicit(document, 27).must_be_empty();
+    }
+
+    #[test]
+    fn test_autocomplete_in_destructuring() {
+        let document = "#let value = 20\n#let (va: value) = (va: 10)";
+
+        // At destructuring rename pattern source
+        test(document, 24).must_be_empty();
+        test_implicit(document, 24).must_be_empty();
     }
 }

@@ -43,8 +43,8 @@ use super::FixedStroke;
 pub struct CurveElem {
     /// How to fill the curve.
     ///
-    /// When setting a fill, the default stroke disappears. To create a
-    /// rectangle with both fill and stroke, you have to configure both.
+    /// When setting a fill, the default stroke disappears. To create a curve
+    /// with both fill and stroke, you have to configure both.
     pub fill: Option<Paint>,
 
     /// The drawing rule used to fill the curve.
@@ -69,10 +69,10 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the curve. This can be:
+    /// How to [stroke] the curve.
     ///
     /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and if only if no fill is given.
+    /// stroke of `{1pt}` black if and only if no fill is given.
     ///
     /// ```example
     /// #let down = curve.line((40pt, 40pt), relative: true)
@@ -476,26 +476,18 @@ impl Curve {
 
     /// Computes the size of the bounding box of this curve.
     pub fn bbox_size(&self) -> Size {
-        let mut min_x = Abs::inf();
-        let mut min_y = Abs::inf();
-        let mut max_x = -Abs::inf();
-        let mut max_y = -Abs::inf();
+        let mut min = Point::splat(Abs::inf());
+        let mut max = Point::splat(-Abs::inf());
 
         let mut cursor = Point::zero();
         for item in self.0.iter() {
             match item {
                 CurveItem::Move(to) => {
-                    min_x = min_x.min(cursor.x);
-                    min_y = min_y.min(cursor.y);
-                    max_x = max_x.max(cursor.x);
-                    max_y = max_y.max(cursor.y);
                     cursor = *to;
                 }
                 CurveItem::Line(to) => {
-                    min_x = min_x.min(cursor.x);
-                    min_y = min_y.min(cursor.y);
-                    max_x = max_x.max(cursor.x);
-                    max_y = max_y.max(cursor.y);
+                    min = min.min(cursor).min(*to);
+                    max = max.max(cursor).max(*to);
                     cursor = *to;
                 }
                 CurveItem::Cubic(c0, c1, end) => {
@@ -507,17 +499,17 @@ impl Curve {
                     );
 
                     let bbox = cubic.bounding_box();
-                    min_x = min_x.min(Abs::pt(bbox.x0)).min(Abs::pt(bbox.x1));
-                    min_y = min_y.min(Abs::pt(bbox.y0)).min(Abs::pt(bbox.y1));
-                    max_x = max_x.max(Abs::pt(bbox.x0)).max(Abs::pt(bbox.x1));
-                    max_y = max_y.max(Abs::pt(bbox.y0)).max(Abs::pt(bbox.y1));
+                    min.x = min.x.min(Abs::pt(bbox.x0)).min(Abs::pt(bbox.x1));
+                    min.y = min.y.min(Abs::pt(bbox.y0)).min(Abs::pt(bbox.y1));
+                    max.x = max.x.max(Abs::pt(bbox.x0)).max(Abs::pt(bbox.x1));
+                    max.y = max.y.max(Abs::pt(bbox.y0)).max(Abs::pt(bbox.y1));
                     cursor = *end;
                 }
                 CurveItem::Close => (),
             }
         }
 
-        Size::new(max_x - min_x, max_y - min_y)
+        Size::new(max.x - min.x, max.y - min.y)
     }
 }
 

@@ -1,7 +1,8 @@
-use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use comemo::{Tracked, TrackedMut};
+use ecow::{EcoVec, eco_vec};
+use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
@@ -15,7 +16,8 @@ use typst_library::routines::{Arenas, RealizationKind, Routines};
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, tag};
+use crate::convert::{ConversionLevel, Whitespace};
+use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
 ///
@@ -70,10 +72,7 @@ fn html_document_impl(
     let arenas = Arenas::default();
     let mut info = DocumentInfo::default();
     let children = (engine.routines.realize)(
-        RealizationKind::HtmlDocument {
-            info: &mut info,
-            is_inline: crate::convert::is_inline,
-        },
+        RealizationKind::HtmlDocument { info: &mut info, is_inline: HtmlElem::is_inline },
         &mut engine,
         &mut locator,
         &arenas,
@@ -85,9 +84,11 @@ fn html_document_impl(
         &mut engine,
         &mut locator,
         children.iter().copied(),
+        ConversionLevel::Block,
+        Whitespace::Normal,
     )?;
 
-    let mut link_targets = HashSet::new();
+    let mut link_targets = FxHashSet::default();
     let mut introspector = introspect_html(&output, &mut link_targets);
     let mut root = root_element(output, &info)?;
     crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
@@ -99,12 +100,12 @@ fn html_document_impl(
 #[typst_macros::time(name = "introspect html")]
 fn introspect_html(
     output: &[HtmlNode],
-    link_targets: &mut HashSet<Location>,
+    link_targets: &mut FxHashSet<Location>,
 ) -> Introspector {
     fn discover(
         builder: &mut IntrospectorBuilder,
         sink: &mut Vec<(Content, Position)>,
-        link_targets: &mut HashSet<Location>,
+        link_targets: &mut FxHashSet<Location>,
         nodes: &[HtmlNode],
     ) {
         for node in nodes {
@@ -141,19 +142,22 @@ fn introspect_html(
 
 /// Wrap the nodes in `<html>` and `<body>` if they are not yet rooted,
 /// supplying a suitable `<head>`.
-fn root_element(output: Vec<HtmlNode>, info: &DocumentInfo) -> SourceResult<HtmlElement> {
+fn root_element(
+    output: EcoVec<HtmlNode>,
+    info: &DocumentInfo,
+) -> SourceResult<HtmlElement> {
     let head = head_element(info);
     let body = match classify_output(output)? {
         OutputKind::Html(element) => return Ok(element),
         OutputKind::Body(body) => body,
         OutputKind::Leafs(leafs) => HtmlElement::new(tag::body).with_children(leafs),
     };
-    Ok(HtmlElement::new(tag::html).with_children(vec![head.into(), body.into()]))
+    Ok(HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()]))
 }
 
 /// Generate a `<head>` element.
 fn head_element(info: &DocumentInfo) -> HtmlElement {
-    let mut children = vec![];
+    let mut children = EcoVec::new();
 
     children.push(HtmlElement::new(tag::meta).with_attr(attr::charset, "utf-8").into());
 
@@ -167,7 +171,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
     if let Some(title) = &info.title {
         children.push(
             HtmlElement::new(tag::title)
-                .with_children(vec![HtmlNode::Text(title.clone(), Span::detached())])
+                .with_children(eco_vec![HtmlNode::Text(title.clone(), Span::detached())])
                 .into(),
         );
     }
@@ -203,9 +207,9 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 }
 
 /// Determine which kind of output the user generated.
-fn classify_output(mut output: Vec<HtmlNode>) -> SourceResult<OutputKind> {
+fn classify_output(mut output: EcoVec<HtmlNode>) -> SourceResult<OutputKind> {
     let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
-    for node in &mut output {
+    for node in output.make_mut() {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
         let mut take = || std::mem::replace(elem, HtmlElement::new(tag::html));
@@ -232,5 +236,5 @@ enum OutputKind {
     /// one, but need supply the `<html>` element.
     Body(HtmlElement),
     /// The user generated leafs which we wrap in a `<body>` and `<html>`.
-    Leafs(Vec<HtmlNode>),
+    Leafs(EcoVec<HtmlNode>),
 }

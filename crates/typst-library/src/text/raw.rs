@@ -18,11 +18,12 @@ use crate::diag::{
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
-    StyleChain, Styles, Synthesize, cast, elem, scope,
+    StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
+use crate::routines::Routines;
 use crate::text::{FontFamily, FontList, LocalName, TextElem, TextSize};
 use crate::visualize::Color;
 
@@ -300,8 +301,12 @@ impl RawElem {
 }
 
 impl Synthesize for Packed<RawElem> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let seq = self.highlight(styles);
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let seq = self.highlight(engine.routines, styles);
         self.lines = Some(seq);
         Ok(())
     }
@@ -309,7 +314,7 @@ impl Synthesize for Packed<RawElem> {
 
 impl Packed<RawElem> {
     #[comemo::memoize]
-    fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
+    fn highlight(&self, routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
         let lines = preprocess(&elem.text, styles, self.span());
 
@@ -341,6 +346,7 @@ impl Packed<RawElem> {
         };
 
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
+        let target = styles.get(TargetElem::target);
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc" | "typm")) {
@@ -363,7 +369,15 @@ impl Packed<RawElem> {
                     let span_offset = text[..range.start]
                         .rfind('\n')
                         .map_or(0, |i| range.start - (i + 1));
-                    styled(&text[range], foreground, style, span, span_offset)
+                    styled(
+                        routines,
+                        target,
+                        &text[range],
+                        foreground,
+                        style,
+                        span,
+                        span_offset,
+                    )
                 },
                 &mut |i, range, line| {
                     let span = lines.get(i).map_or_else(Span::detached, |l| l.1);
@@ -400,6 +414,8 @@ impl Packed<RawElem> {
                     .flatten()
                 {
                     line_content.push(styled(
+                        routines,
+                        target,
                         piece,
                         foreground,
                         style,
@@ -769,6 +785,8 @@ fn preprocess(
 
 /// Style a piece of text with a syntect style.
 fn styled(
+    routines: &Routines,
+    target: Target,
     piece: &str,
     foreground: synt::Color,
     style: synt::Style,
@@ -782,7 +800,11 @@ fn styled(
     }
 
     if style.foreground != foreground {
-        body = body.set(TextElem::fill, to_typst(style.foreground).into());
+        let color = to_typst(style.foreground);
+        body = match target {
+            Target::Html => (routines.html_span_filled)(body, color),
+            Target::Paged => body.set(TextElem::fill, color.into()),
+        };
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
@@ -868,14 +890,14 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
     author: Some("The Typst Project Developers".into()),
     settings: synt::ThemeSettings::default(),
     scopes: vec![
-        item("comment", Some("#8a8a8a"), None),
+        item("comment", Some("#74747c"), None),
         item("constant.character.escape", Some("#1d6c76"), None),
         item("markup.bold", None, Some(synt::FontStyle::BOLD)),
         item("markup.italic", None, Some(synt::FontStyle::ITALIC)),
         item("markup.underline", None, Some(synt::FontStyle::UNDERLINE)),
-        item("markup.raw", Some("#818181"), None),
+        item("markup.raw", Some("#6b6b6f"), None),
         item("string.other.math.typst", None, None),
-        item("punctuation.definition.math", Some("#298e0d"), None),
+        item("punctuation.definition.math", Some("#198810"), None),
         item("keyword.operator.math", Some("#1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
         item(
@@ -886,16 +908,16 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("punctuation.definition.list", Some("#8b41b1"), None),
         item("markup.list.term", None, Some(synt::FontStyle::BOLD)),
         item("entity.name.label, markup.other.reference", Some("#1d6c76"), None),
-        item("keyword, constant.language, variable.language", Some("#d73a49"), None),
-        item("storage.type, storage.modifier", Some("#d73a49"), None),
+        item("keyword, constant.language, variable.language", Some("#d73948"), None),
+        item("storage.type, storage.modifier", Some("#d73948"), None),
         item("constant", Some("#b60157"), None),
-        item("string", Some("#298e0d"), None),
+        item("string", Some("#198810"), None),
         item("entity.name, variable.function, support", Some("#4b69c6"), None),
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
         item("entity.other, meta.interpolation", Some("#8b41b1"), None),
         item("meta.diff.range", Some("#8b41b1"), None),
-        item("markup.inserted, meta.diff.header.to-file", Some("#298e0d"), None),
-        item("markup.deleted, meta.diff.header.from-file", Some("#d73a49"), None),
+        item("markup.inserted, meta.diff.header.to-file", Some("#198810"), None),
+        item("markup.deleted, meta.diff.header.from-file", Some("#d73948"), None),
     ],
 });

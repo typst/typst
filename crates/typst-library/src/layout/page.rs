@@ -340,7 +340,7 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// ```example
-    /// #set page(foreground: text(24pt)[🥸])
+    /// #set page(foreground: text(24pt)[🤓])
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did
@@ -397,6 +397,15 @@ impl LocalName for PageElem {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
+///
+/// Even without manual page breaks, content will be automatically paginated
+/// based on the configured page size. You can set [the page height]($page.height)
+/// to `{auto}` to let the page grow dynamically until a manual page break
+/// occurs.
+///
+/// Pagination tries to avoid single lines of text at the top or bottom of a
+/// page (these are called _widows_ and _orphans_). You can adjust the
+/// [`text.costs`] parameter to disable this behavior.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
