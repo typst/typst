@@ -71,7 +71,7 @@ pub struct SmartQuoteElem {
     ///     opening and closing double quotes (characters here refer to Unicode
     ///     grapheme clusters)
     ///   - [array]: an array containing the opening and closing double quotes
-    ///   - [dictionary]: an array containing the double and single quotes, each
+    ///   - [dictionary]: a dictionary containing the double and single quotes, each
     ///     specified as either `{auto}`, string, or array
     ///
     /// ```example
