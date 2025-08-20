@@ -71,10 +71,14 @@ pub struct BoxElem {
     ///
     /// This can be:
     /// - a single length for all sides
-    /// - a dictionary of lengths for individual sides, which can contain
-    ///   the following keys in order of precedence: `top`, `right`, `bottom`,
-    ///   `left`, `x` (horizontal padding), `y` (vertical padding), `rest`
-    ///   (padding at all unset sides).
+    /// - a dictionary of lengths for individual sides
+    ///
+    /// When passing a dictionary, it can contain the following keys in order of
+    /// precedence: `top`, `right`, `bottom`, `left` (controlling the respective
+    /// cell sides), `x`, `y` (controlling vertical and horizontal insets), and
+    /// `rest` (covers all insets not styled by other dictionary entries). All
+    /// keys are optional; omitted keys will be treated as if their value was
+    /// the default value.
     ///
     /// _Note:_ When the box contains text, its exact size depends on the
     /// current [text edges]($text.top-edge).
