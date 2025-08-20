@@ -77,7 +77,7 @@ impl SvgImage {
         .map_err(format_usvg_error)?;
         let font_hash = font_resolver.into_inner().unwrap().finish();
         let image_error = image_resolver.lock().unwrap().error.clone();
-        if image_error.len() > 0 {
+        if !image_error.is_empty() {
             return Err(LoadError::new(
                 ReportPos::None,
                 "Failed to load linked images in SVG",
@@ -328,7 +328,7 @@ impl<'a> ImageResolver<'a> {
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
         match self.span.resolve_path(href) {
             Err(e) => {
-                if self.error.len() == 0 {
+                if self.error.is_empty() {
                     self.error = eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
                 }
                 return None;
@@ -351,8 +351,7 @@ impl<'a> ImageResolver<'a> {
                             // The function load_sub_svg is not public in the usvg crate.
                             // "svg" | "svgz" => usvg::load_sub_svg(arc_data, opts),
                             _ => {
-                                println!("Extension not supported: {}", href);
-                                if self.error.len() == 0 {
+                                if self.error.is_empty() {
                                     self.error = eco_format!(
                                         "Linked image extension not supported: {}",
                                         href
@@ -363,7 +362,7 @@ impl<'a> ImageResolver<'a> {
                         }
                     }
                     Err(e) => {
-                        if self.error.len() == 0 {
+                        if self.error.is_empty() {
                             self.error =
                                 eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
                         };
