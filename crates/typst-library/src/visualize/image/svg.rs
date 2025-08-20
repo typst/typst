@@ -331,7 +331,7 @@ impl<'a> ImageResolver<'a> {
                 if self.error.is_empty() {
                     self.error = eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
                 }
-                return None;
+                None
             }
             Ok(path) => {
                 let imgfile = FileId::new(None, path.vpath().clone());
