@@ -168,6 +168,9 @@ pub fn line<'a>(
         shaped.push_hyphen(engine, p.config.fallback);
     }
 
+    // Ensure that there is no weak spacing at the start and end of the line.
+    trim_weak_spacing(&mut items);
+
     // Deal with CJ characters at line boundaries.
     adjust_cj_at_line_boundaries(p, full, &mut items);
 
@@ -203,6 +206,18 @@ fn collect_items<'a>(
         }
     });
 
+    // Add fallback text to expand the line height, if necessary.
+    if !items.iter().any(|item| matches!(item, Item::Text(_)))
+        && let Some(fallback) = fallback
+    {
+        items.push(fallback, usize::MAX);
+    }
+
+    items
+}
+
+/// Trims weak spacing from the start and end of the line.
+fn trim_weak_spacing(items: &mut Items) {
     // Trim weak spacing at the start of the line.
     let prefix = items
         .iter()
@@ -216,15 +231,6 @@ fn collect_items<'a>(
     while matches!(items.last(), Some(Item::Absolute(_, true))) {
         items.pop();
     }
-
-    // Add fallback text to expand the line height, if necessary.
-    if !items.iter().any(|item| matches!(item, Item::Text(_)))
-        && let Some(fallback) = fallback
-    {
-        items.push(fallback, usize::MAX);
-    }
-
-    items
 }
 
 /// Calls `f` for the BiDi-reordered ranges of a line.
