@@ -6,7 +6,7 @@ use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst_syntax::{FileId, Span};
+use typst_syntax::FileId;
 
 use crate::World;
 use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
@@ -42,14 +42,14 @@ impl SvgImage {
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
     pub fn with_fonts(
-        span: &Span,
+        svg_parent_file: FileId,
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
     ) -> LoadResult<SvgImage> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
-        let image_resolver = Mutex::new(ImageResolver::new(world, span));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_parent_file));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
@@ -314,65 +314,51 @@ impl FontResolver<'_> {
 struct ImageResolver<'a> {
     /// The world we use to check if resolved images in the SVG are within the project root.
     world: Tracked<'a, dyn World + 'a>,
-    /// The span of the SVG file, used to resolve relative paths to images in the SVG.
-    span: &'a Span,
+    /// The SVG file or a file in which the SVG file is used as bytes.
+    svg_parent_file: FileId,
     /// The first error message when loading a string
     error: EcoString,
 }
 
 impl<'a> ImageResolver<'a> {
-    fn new(world: Tracked<'a, dyn World + 'a>, span: &'a Span) -> Self {
-        Self { world, span, error: EcoString::new() }
+    fn new(world: Tracked<'a, dyn World + 'a>, svg_parent_file: FileId) -> Self {
+        Self { world, svg_parent_file, error: EcoString::new() }
     }
 
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
-        match self.span.resolve_path(href) {
-            Err(e) => {
-                if self.error.is_empty() {
-                    self.error =
-                        eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
-                }
-                None
-            }
-            Ok(path) => {
-                let imgfile = FileId::new(None, path.vpath().clone());
-                match self.world.file(imgfile) {
-                    Ok(bytes) => {
-                        let arc_data = Arc::new(bytes.to_vec());
-                        let ext = std::path::Path::new(href)
-                            .extension()
-                            .and_then(OsStr::to_str)
-                            .unwrap_or_default()
-                            .to_lowercase();
-                        match ext.as_str() {
-                            "jpg" | "jpeg" => Some(usvg::ImageKind::JPEG(arc_data)),
-                            "png" => Some(usvg::ImageKind::PNG(arc_data)),
-                            "gif" => Some(usvg::ImageKind::GIF(arc_data)),
-                            "webp" => Some(usvg::ImageKind::WEBP(arc_data)),
-                            // The function load_sub_svg is not public in the usvg crate.
-                            // "svg" | "svgz" => usvg::load_sub_svg(arc_data, opts),
-                            _ => {
-                                if self.error.is_empty() {
-                                    self.error = eco_format!(
-                                        "Linked image extension not supported: {}",
-                                        href
-                                    );
-                                };
-                                None
-                            }
-                        }
-                    }
-                    Err(e) => {
+        let href_file = self.svg_parent_file.join(href);
+        match self.world.file(href_file) {
+            Ok(bytes) => {
+                let arc_data = Arc::new(bytes.to_vec());
+                let ext = std::path::Path::new(href)
+                    .extension()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or_default()
+                    .to_lowercase();
+                match ext.as_str() {
+                    "jpg" | "jpeg" => Some(usvg::ImageKind::JPEG(arc_data)),
+                    "png" => Some(usvg::ImageKind::PNG(arc_data)),
+                    "gif" => Some(usvg::ImageKind::GIF(arc_data)),
+                    "webp" => Some(usvg::ImageKind::WEBP(arc_data)),
+                    // The function load_sub_svg is not public in the usvg crate.
+                    // "svg" | "svgz" => usvg::load_sub_svg(arc_data, opts),
+                    _ => {
                         if self.error.is_empty() {
                             self.error = eco_format!(
-                                "Cannot use linked image: {}; Cause: {:?}",
-                                href,
-                                e
+                                "Linked image extension not supported: {}",
+                                href
                             );
                         };
                         None
                     }
                 }
+            }
+            Err(e) => {
+                if self.error.is_empty() {
+                    self.error =
+                        eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
+                };
+                None
             }
         }
     }
