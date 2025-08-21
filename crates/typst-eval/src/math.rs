@@ -1,4 +1,4 @@
-use ecow::eco_format;
+use ecow::{eco_format, eco_vec};
 use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
@@ -12,11 +12,21 @@ use crate::{Eval, Vm};
 impl Eval for ast::Math<'_> {
     type Output = Content;
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::sequence(
-            self.exprs()
-                .map(|expr| expr.eval_display(vm))
-                .collect::<SourceResult<Vec<_>>>()?,
-        ))
+        let mut errors = eco_vec![];
+        let mut out = Vec::new();
+
+        for expr in self.exprs() {
+            match expr.eval_display(vm) {
+                Ok(value) => out.push(value),
+                Err(errs) => errors.extend(errs),
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(Content::sequence(out))
     }
 }
 
