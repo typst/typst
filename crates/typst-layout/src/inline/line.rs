@@ -271,7 +271,7 @@ fn collect_range<'a>(
     items: &mut Items<'a>,
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
-    for (idx, (subrange, item)) in p.slice(range.clone()).enumerate() {
+    for (idx, (subrange, item)) in p.slice(range.clone()) {
         // All non-text items are just kept, they can't be split.
         let Item::Text(shaped) = item else {
             items.push(item, idx);

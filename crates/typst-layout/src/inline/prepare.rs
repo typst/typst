@@ -34,8 +34,12 @@ impl<'a> Preparation<'a> {
         &self.items[idx]
     }
 
-    /// Iterate over the items that intersect the given `sliced` range.
-    pub fn slice(&self, sliced: Range) -> impl Iterator<Item = &(Range, Item<'a>)> {
+    /// Iterate over the items that intersect the given `sliced` range alongside
+    /// their indices in `self.items` and their ranges in the paragraph's text.
+    pub fn slice(
+        &self,
+        sliced: Range,
+    ) -> impl Iterator<Item = (usize, &(Range, Item<'a>))> {
         // Usually, we don't want empty-range items at the start of the line
         // (because they will be part of the previous line), but for the first
         // line, we need to keep them.
@@ -43,9 +47,13 @@ impl<'a> Preparation<'a> {
             0 => 0,
             n => self.indices.get(n).copied().unwrap_or(0),
         };
-        self.items[start..].iter().take_while(move |(range, _)| {
-            range.start < sliced.end || range.end <= sliced.end
-        })
+        self.items
+            .iter()
+            .enumerate()
+            .skip(start)
+            .take_while(move |(_, (range, _))| {
+                range.start < sliced.end || range.end <= sliced.end
+            })
     }
 }
 
