@@ -196,14 +196,6 @@ impl ShapedGlyph {
     }
 }
 
-/// A side you can go toward.
-enum Side {
-    /// To the left-hand side.
-    Left,
-    /// To the right-hand side.
-    Right,
-}
-
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
     ///
@@ -448,27 +440,23 @@ impl<'a> ShapedText<'a> {
         }
     }
 
-    /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, engine: &Engine, fallback: bool) {
-        self.insert_hyphen(engine, fallback, Side::Right)
-    }
-
-    /// Prepend a hyphen to start of the text.
-    pub fn prepend_hyphen(&mut self, engine: &Engine, fallback: bool) {
-        self.insert_hyphen(engine, fallback, Side::Left)
-    }
-
-    fn insert_hyphen(&mut self, engine: &Engine, fallback: bool, side: Side) {
+    /// Creates shaped text containing a hyphen.
+    pub fn hyphen(
+        engine: &Engine,
+        fallback: bool,
+        base: &ShapedText<'a>,
+        pos: usize,
+    ) -> Option<Self> {
         let world = engine.world;
         let book = world.book();
         let fallback_func = if fallback {
-            Some(|| book.select_fallback(None, self.variant, "-"))
+            Some(|| book.select_fallback(None, base.variant, "-"))
         } else {
             None
         };
-        let mut chain = families(self.styles)
+        let mut chain = families(base.styles)
             .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
-            .map(|family| book.select(family.as_str(), self.variant))
+            .map(|family| book.select(family.as_str(), base.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
@@ -477,37 +465,33 @@ impl<'a> ShapedText<'a> {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            let range = match side {
-                Side::Left => self.glyphs.first().map(|g| g.range.start..g.range.start),
-                Side::Right => self.glyphs.last().map(|g| g.range.end..g.range.end),
-            }
-            // In the unlikely chance that we hyphenate after an empty line,
-            // ensure that the glyph range still falls after self.base so
-            // that subtracting either of the endpoints by self.base doesn't
-            // underflow. See <https://github.com/typst/typst/issues/2283>.
-            .unwrap_or_else(|| self.base..self.base);
-            let size = self.styles.resolve(TextElem::size);
-            self.width += x_advance.at(size);
-            let glyph = ShapedGlyph {
-                font,
-                glyph_id: glyph_id.0,
-                x_advance,
-                x_offset: Em::zero(),
-                y_offset: Em::zero(),
-                size,
-                adjustability: Adjustability::default(),
-                range,
-                safe_to_break: true,
-                c: '-',
-                is_justifiable: false,
-                script: Script::Common,
-            };
-            match side {
-                Side::Left => self.glyphs.to_mut().insert(0, glyph),
-                Side::Right => self.glyphs.to_mut().push(glyph),
-            }
-            Some(())
-        });
+            let size = base.styles.resolve(TextElem::size);
+
+            Some(ShapedText {
+                base: pos,
+                text: "",
+                dir: base.dir,
+                lang: base.lang,
+                region: base.region,
+                styles: base.styles,
+                variant: base.variant,
+                width: x_advance.at(size),
+                glyphs: Cow::Owned(vec![ShapedGlyph {
+                    font,
+                    glyph_id: glyph_id.0,
+                    x_advance,
+                    x_offset: Em::zero(),
+                    y_offset: Em::zero(),
+                    size,
+                    adjustability: Adjustability::default(),
+                    range: pos..pos,
+                    safe_to_break: true,
+                    c: '-',
+                    is_justifiable: false,
+                    script: Script::Common,
+                }]),
+            })
+        })
     }
 
     /// Find the subslice of glyphs that represent the given text range if both
