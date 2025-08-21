@@ -21,6 +21,11 @@ use unicode_script::{Script, UnicodeScript};
 use super::{Item, Range, SpanMapper, decorate};
 use crate::modifiers::FrameModifyText;
 
+const SHY: char = '\u{ad}';
+const SHY_STR: &str = "\u{ad}";
+const HYPHEN: char = '-';
+const HYPHEN_STR: &str = "-";
+
 /// The result of shaping text.
 ///
 /// This type contains owned or borrowed shaped text runs, which can be
@@ -441,11 +446,15 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Creates shaped text containing a hyphen.
+    ///
+    /// If `soft` is true, the item will map to plain text as a soft hyphen.
+    /// Otherwise, it will map to a normal hyphen.
     pub fn hyphen(
         engine: &Engine,
         fallback: bool,
         base: &ShapedText<'a>,
         pos: usize,
+        soft: bool,
     ) -> Option<Self> {
         let world = engine.world;
         let book = world.book();
@@ -466,10 +475,11 @@ impl<'a> ShapedText<'a> {
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
             let size = base.styles.resolve(TextElem::size);
+            let (c, text) = if soft { (SHY, SHY_STR) } else { (HYPHEN, HYPHEN_STR) };
 
             Some(ShapedText {
                 base: pos,
-                text: "",
+                text,
                 dir: base.dir,
                 lang: base.lang,
                 region: base.region,
@@ -484,9 +494,9 @@ impl<'a> ShapedText<'a> {
                     y_offset: Em::zero(),
                     size,
                     adjustability: Adjustability::default(),
-                    range: pos..pos,
+                    range: pos..pos + text.len(),
                     safe_to_break: true,
-                    c: '-',
+                    c,
                     is_justifiable: false,
                     script: Script::Common,
                 }]),

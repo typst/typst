@@ -178,7 +178,8 @@ pub fn line<'a>(
         && pred.dash == Some(Dash::Hard)
         && let Some(base) = pred.items.last_text()
         && should_repeat_hyphen(base.lang, full)
-        && let Some(hyphen) = ShapedText::hyphen(engine, p.config.fallback, base, trim)
+        && let Some(hyphen) =
+            ShapedText::hyphen(engine, p.config.fallback, base, trim, false)
     {
         items.push(Item::Text(hyphen), START_HYPHEN_IDX);
     }
@@ -188,7 +189,8 @@ pub fn line<'a>(
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
         && let Some(base) = items.last_text()
-        && let Some(hyphen) = ShapedText::hyphen(engine, p.config.fallback, base, trim)
+        && let Some(hyphen) =
+            ShapedText::hyphen(engine, p.config.fallback, base, trim, true)
     {
         items.push(Item::Text(hyphen), END_HYPHEN_IDX);
     }
@@ -659,7 +661,7 @@ fn overhang(c: char) -> f64 {
     match c {
         // Dashes.
         '–' | '—' => 0.2,
-        '-' => 0.55,
+        '-' | '\u{ad}' => 0.55,
 
         // Punctuation.
         '.' | ',' => 0.8,
