@@ -112,6 +112,12 @@ Tras el estallido de la contienda Ruiz-Giménez fue detenido junto a sus
 dos hermanos y puesto bajo custodia por las autoridades republicanas, con
 el objetivo de protegerle de las patrullas de milicianos.
 
+--- hyphenate-repeat-style ---
+// Ensure that a repeated hard hyphen keeps its styles.
+#set page(width: 2cm)
+#set text(lang: "es")
+Hello-#text(red)[world]
+
 --- costs-widow-orphan ---
 #set page(height: 60pt)
 
