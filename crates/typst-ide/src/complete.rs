@@ -98,7 +98,7 @@ pub enum CompletionKind {
     /// A font family.
     Font,
     /// A symbol.
-    Symbol(char),
+    Symbol(EcoString),
 }
 
 /// Complete in comments. Or rather, don't!
@@ -450,7 +450,7 @@ fn field_access_completions(
             for modifier in symbol.modifiers() {
                 if let Ok(modified) = symbol.clone().modified((), modifier) {
                     ctx.completions.push(Completion {
-                        kind: CompletionKind::Symbol(modified.get()),
+                        kind: CompletionKind::Symbol(modified.get().into()),
                         label: modifier.into(),
                         apply: None,
                         detail: None,
@@ -1381,7 +1381,7 @@ impl<'a> CompletionContext<'a> {
             kind: kind.unwrap_or_else(|| match value {
                 Value::Func(_) => CompletionKind::Func,
                 Value::Type(_) => CompletionKind::Type,
-                Value::Symbol(s) => CompletionKind::Symbol(s.get()),
+                Value::Symbol(s) => CompletionKind::Symbol(s.get().into()),
                 _ => CompletionKind::Constant,
             }),
             label,
