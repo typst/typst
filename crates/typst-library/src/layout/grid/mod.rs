@@ -39,8 +39,8 @@ use crate::visualize::{Paint, Stroke};
 /// # Sizing the tracks { #track-size }
 ///
 /// A grid's sizing is determined by the track sizes specified in the arguments.
-/// There are many such sizing parameters: [`columns`]($grid.columns),
-/// [`rows`]($grid.rows), [`gutter`]($grid.gutter), etc. and those of [table].
+/// There are multiple sizing parameters: [`columns`]($grid.columns),
+/// [`rows`]($grid.rows) and [`gutter`]($grid.gutter).
 /// Because each of the sizing parameters accepts the same values, we will
 /// explain them just once, here. Each sizing argument accepts an array of
 /// individual track sizes. A track size is either:
