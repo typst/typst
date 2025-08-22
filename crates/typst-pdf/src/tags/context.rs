@@ -370,7 +370,8 @@ pub enum StackEntryKind {
     /// The footnote entry at the end of the page. Contains the [`Location`] of
     /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
     FootnoteEntry(Location),
-    Code(Option<String>),
+    CodeBlock,
+    CodeBlockLine,
 }
 
 impl StackEntryKind {
@@ -400,6 +401,10 @@ impl StackEntryKind {
 
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+    }
+
+    pub fn is_code_block(&self) -> bool {
+        matches!(self, Self::CodeBlock)
     }
 
     pub fn bbox(&self) -> Option<&BBoxCtx> {
@@ -478,7 +483,8 @@ impl StackEntryKind {
             StackEntryKind::Link(..) => !is_pdf_ua,
             StackEntryKind::FootnoteRef(_) => false,
             StackEntryKind::FootnoteEntry(_) => false,
-            StackEntryKind::Code(_) => false,
+            StackEntryKind::CodeBlock => false,
+            StackEntryKind::CodeBlockLine => false,
         }
     }
 }

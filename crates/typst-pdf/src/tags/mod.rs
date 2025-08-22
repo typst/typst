@@ -4,6 +4,7 @@ use ecow::EcoString;
 use krilla::configure::Validator;
 use krilla::page::Page;
 use krilla::surface::Surface;
+use krilla::tagging as kt;
 use krilla::tagging::{
     ArtifactType, ContentTag, Identifier, ListNumbering, Node, SpanTag, Tag, TagKind,
 };
@@ -21,7 +22,7 @@ use typst_library::model::{
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
-    HighlightElem, Lang, OverlineElem, RawElem, ScriptKind, StrikeElem, SubElem,
+    HighlightElem, Lang, OverlineElem, RawElem, RawLine, ScriptKind, StrikeElem, SubElem,
     SuperElem, TextItem, UnderlineElem,
 };
 use typst_library::visualize::{Image, ImageElem, Shape};
@@ -256,20 +257,17 @@ pub fn handle_start(
         // TODO: should the attribution be handled somehow?
         if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
     } else if let Some(raw) = elem.to_packed::<RawElem>() {
-        let desc = raw.lang.opt_ref().and_then(|lang_token| {
-            let lower = lang_token.to_lowercase();
-            let (lang, _) = RawElem::languages()
-                .into_iter()
-                .find(|(_, tokens)| tokens.contains(&lower.as_str()))?;
-
-            // TODO: localization
-            Some(if raw.block.val() {
-                format!("code block {lang}")
-            } else {
-                format!("inline code {lang}")
-            })
-        });
-        push_stack(gc, elem, StackEntryKind::Code(desc))?;
+        if raw.block.val() {
+            push_stack(gc, elem, StackEntryKind::CodeBlock)?;
+            return Ok(());
+        } else {
+            Tag::Code.into()
+        }
+    } else if let Some(_) = elem.to_packed::<RawLine>() {
+        // If the raw element is inline, the content can be inserted directly.
+        if gc.tags.stack.parent().is_some_and(|p| p.is_code_block()) {
+            push_stack(gc, elem, StackEntryKind::CodeBlockLine)?;
+        }
         return Ok(());
     } else if let Some(_) = elem.to_packed::<StrongElem>() {
         gc.tags.text_attrs.push(elem, TextAttr::Strong);
@@ -556,14 +554,14 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
             ctx.entry = Some(tag);
             return;
         }
-        StackEntryKind::Code(desc) => {
-            let code = TagNode::group(Tag::Code, contents);
-            if desc.is_some() {
-                let desc = TagNode::empty_group(Tag::Span.with_alt_text(desc));
-                TagNode::virtual_group(Tag::NonStruct, vec![desc, code])
-            } else {
-                code
-            }
+        StackEntryKind::CodeBlock => {
+            TagNode::group(Tag::Code.with_placement(Some(kt::Placement::Block)), contents)
+        }
+        StackEntryKind::CodeBlockLine => {
+            // If the raw element is a block, wrap each line in a BLSE, so the
+            // individual lines are properly wrapped and indented when reflowed.
+            let text = TagNode::group(Tag::Span, contents);
+            TagNode::virtual_group(Tag::P, vec![text])
         }
     };
 
