@@ -457,11 +457,11 @@ fn place_explicit_lines<F>(
     inline_end: u32,
     get_side: F,
 ) where
-    F: for<'a> Fn(
-        &'a mut GridCells<TableCellData>,
+    F: Fn(
+        &mut GridCells<TableCellData>,
         (u32, u32),
         LinePosition,
-    ) -> Option<&'a mut PrioritzedStroke>,
+    ) -> Option<&mut PrioritzedStroke>,
 {
     for line in lines.iter().flat_map(|lines| lines.iter()) {
         let end = line.end.map(|n| n.get() as u32).unwrap_or(inline_end);
