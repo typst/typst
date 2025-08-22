@@ -191,6 +191,7 @@ impl Lexer<'_> {
             '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('-') => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('?') => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if('!') => SyntaxKind::Shorthand,
             '-' if self.s.at(char::is_numeric) => SyntaxKind::Shorthand,
             '*' if !self.in_word() => SyntaxKind::Star,
             '_' if !self.in_word() => SyntaxKind::Underscore,
@@ -524,7 +525,7 @@ impl Lexer<'_> {
             match s.eat() {
                 Some(' ') if s.at(char::is_alphanumeric) => {}
                 Some('/') if !s.at(['/', '*']) => {}
-                Some('-') if !s.at(['-', '?']) => {}
+                Some('-') if !s.at(['-', '?', '!']) => {}
                 Some('.') if !s.at("..") => {}
                 Some('h') if !s.at("ttp://") && !s.at("ttps://") => {}
                 Some('@') if !s.at(is_valid_in_label_literal) => {}
