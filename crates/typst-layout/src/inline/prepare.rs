@@ -152,7 +152,6 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
                 // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
                 glyph.adjustability.shrinkability.1 += Em::new(0.125);
-                text.width += Em::new(0.25).at(glyph.size);
             }
 
             // Case 2: Latin followed by a CJ character
@@ -160,7 +159,6 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
-                text.width += Em::new(0.25).at(glyph.size);
             }
 
             prev = Some(glyph);
