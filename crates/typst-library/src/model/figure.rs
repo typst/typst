@@ -246,7 +246,7 @@ pub struct FigureElem {
     pub supplement: Smart<Option<Supplement>>,
 
     /// How to number the figure. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking a single number.
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
