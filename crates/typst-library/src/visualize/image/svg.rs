@@ -6,10 +6,10 @@ use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst_syntax::FileId;
+use typst_syntax::{Span, VirtualPath};
 
 use crate::World;
-use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
+use crate::diag::{At, LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
@@ -42,14 +42,15 @@ impl SvgImage {
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
     pub fn with_fonts(
-        svg_parent_file: FileId,
+        span: &Span,
+        svg_path: &EcoString,
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
     ) -> LoadResult<SvgImage> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
-        let image_resolver = Mutex::new(ImageResolver::new(world, svg_parent_file));
+        let image_resolver = Mutex::new(ImageResolver::new(world, span, svg_path));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
@@ -76,12 +77,13 @@ impl SvgImage {
         )
         .map_err(format_usvg_error)?;
         let font_hash = font_resolver.into_inner().unwrap().finish();
-        let image_error = image_resolver.lock().unwrap().error.clone();
-        if !image_error.is_empty() {
+        let image_error_msg = image_resolver.lock().unwrap().error_msg.clone();
+        if !image_error_msg.is_empty() {
+            let image_error_href = image_resolver.lock().unwrap().error_href.clone();
             return Err(LoadError::new(
                 ReportPos::None,
-                "Failed to load linked images in SVG",
-                image_error,
+                eco_format!("failed to load linked image {}", image_error_href),
+                image_error_msg,
             ));
         }
         Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
@@ -314,19 +316,49 @@ impl FontResolver<'_> {
 struct ImageResolver<'a> {
     /// The world we use to check if resolved images in the SVG are within the project root.
     world: Tracked<'a, dyn World + 'a>,
-    /// The SVG file or a file in which the SVG file is used as bytes.
-    svg_parent_file: FileId,
-    /// The first error message when loading a string
-    error: EcoString,
+    /// The span of the file loading the SVG.
+    span: &'a Span,
+    /// Path to the SVG file or an empty string if the SVG is given as bytes.
+    svg_path: &'a EcoString,
+    /// The first error message when loading a linked image.
+    error_msg: EcoString,
+    /// The linked image causing the error
+    error_href: EcoString,
 }
 
 impl<'a> ImageResolver<'a> {
-    fn new(world: Tracked<'a, dyn World + 'a>, svg_parent_file: FileId) -> Self {
-        Self { world, svg_parent_file, error: EcoString::new() }
+    fn new(
+        world: Tracked<'a, dyn World + 'a>,
+        span: &'a Span,
+        svg_path: &'a EcoString,
+    ) -> Self {
+        Self {
+            world,
+            span,
+            svg_path,
+            error_msg: EcoString::new(),
+            error_href: EcoString::new(),
+        }
     }
 
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
-        let href_file = self.svg_parent_file.join(href);
+        // Don't load more linked images if there's already an error.
+        if !self.error_msg.is_empty() {
+            return None;
+        }
+
+        // Resolve the path to the linked image.
+        let href_path = VirtualPath::new(self.svg_path.as_str()).join(href);
+        let href_full = href_path.as_rooted_path().to_str().unwrap();
+        let href_file_result = self.span.resolve_path(href_full).at(*self.span);
+        if let Err(err) = href_file_result {
+            self.error_msg = eco_format!("TODO {:?}", err);
+            self.error_href = EcoString::from(href);
+            return None;
+        }
+        let href_file = href_file_result.unwrap();
+
+        // Load image file if it exists.
         match self.world.file(href_file) {
             Ok(bytes) => {
                 let arc_data = Arc::new(bytes.to_vec());
@@ -343,20 +375,16 @@ impl<'a> ImageResolver<'a> {
                     // The function load_sub_svg is not public in the usvg crate.
                     // "svg" | "svgz" => usvg::load_sub_svg(arc_data, opts),
                     _ => {
-                        if self.error.is_empty() {
-                            self.error = eco_format!(
-                                "Linked image extension not supported: {}",
-                                href
-                            );
-                        };
+                        self.error_msg = eco_format!("extension not supported");
+                        self.error_href = EcoString::from(href);
                         None
                     }
                 }
             }
-            Err(e) => {
-                if self.error.is_empty() {
-                    self.error =
-                        eco_format!("Cannot use linked image: {}; Cause: {:?}", href, e);
+            Err(err) => {
+                if self.error_msg.is_empty() {
+                    self.error_msg = EcoString::from(err);
+                    self.error_href = EcoString::from(href);
                 };
                 None
             }
