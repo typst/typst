@@ -159,15 +159,14 @@ pub struct GridElem {
     /// See the [track size section](#track-size) above for more details.
     pub rows: TrackSizings,
 
-    /// The gaps between rows and columns.
+    /// The gaps between rows and columns. This is a shorthand to set
+    /// [`column-gutter`]($grid.column-gutter) and [`row-gutter`]($grid.row-gutter)
+    /// to the same value.
     ///
     /// If there are more gutters than defined sizes, the last gutter is
     /// repeated.
     ///
     /// See the [track size section](#track-size) above for more details.
-    ///
-    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
-    /// value.
     #[external]
     pub gutter: TrackSizings,
 
