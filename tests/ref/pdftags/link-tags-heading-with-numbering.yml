@@ -1,9 +1,7 @@
 - Tag: H1
   /T: "Heading"
   /K:
-    - Tag: Lbl
-      /K:
-        - Content: page=0 mcid=0
+    - Content: page=0 mcid=0
     - Content: page=0 mcid=1
 - Tag: Link
   /Alt: "Section 1"

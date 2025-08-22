@@ -273,7 +273,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
         let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
 
-        realized = PdfMarkerTag::Label(numbering) + spacing + realized;
+        realized = numbering + spacing + realized;
     }
 
     let block = if indent != Abs::zero() {
