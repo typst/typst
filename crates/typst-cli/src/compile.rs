@@ -380,7 +380,7 @@ fn export_image(
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
                     if config.watching
-                        && config.export_cache.is_cached(*i, &page)
+                        && config.export_cache.is_cached(*i, page)
                         && path.exists()
                     {
                         return Ok(Output::Path(path.to_path_buf()));
