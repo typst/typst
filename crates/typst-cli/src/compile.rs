@@ -15,7 +15,7 @@ use typst::diag::{
     At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::layout::{Frame, Page, PageRanges, PagedDocument};
+use typst::layout::{Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Lines, Span};
 use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
@@ -380,7 +380,7 @@ fn export_image(
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
                     if config.watching
-                        && config.export_cache.is_cached(*i, &page.frame)
+                        && config.export_cache.is_cached(*i, &page)
                         && path.exists()
                     {
                         return Ok(Output::Path(path.to_path_buf()));
@@ -483,8 +483,8 @@ impl ExportCache {
 
     /// Returns true if the entry is cached and appends the new hash to the
     /// cache (for the next compilation).
-    pub fn is_cached(&self, i: usize, frame: &Frame) -> bool {
-        let hash = typst::utils::hash128(frame);
+    pub fn is_cached(&self, i: usize, page: &Page) -> bool {
+        let hash = typst::utils::hash128(page);
 
         let mut cache = self.cache.upgradable_read();
         if i >= cache.len() {
