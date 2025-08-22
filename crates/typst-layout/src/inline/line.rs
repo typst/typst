@@ -364,7 +364,6 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().first_mut().unwrap();
         let shrink = glyph.shrinkability().0;
         glyph.shrink_left(shrink);
-        shaped.width -= shrink.at(glyph.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && glyph.x_offset > Em::zero()
@@ -376,7 +375,6 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         glyph.x_advance -= shrink;
         glyph.x_offset = Em::zero();
         glyph.adjustability.shrinkability.0 = Em::zero();
-        shaped.width -= shrink.at(glyph.size);
     }
 }
 
@@ -394,7 +392,6 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let shrink = glyph.shrinkability().1;
         let punct = shaped.glyphs.to_mut().last_mut().unwrap();
         punct.shrink_right(shrink);
-        shaped.width -= shrink.at(punct.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && (glyph.x_advance - glyph.x_offset) > Em::one()
@@ -405,7 +402,6 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
         glyph.x_advance -= shrink;
         glyph.adjustability.shrinkability.1 = Em::zero();
-        shaped.width -= shrink.at(glyph.size);
     }
 }
 

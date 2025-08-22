@@ -47,8 +47,6 @@ pub struct ShapedText<'a> {
     pub styles: StyleChain<'a>,
     /// The font variant.
     pub variant: FontVariant,
-    /// The width of the text's bounding box.
-    pub width: Abs,
     /// The shaped glyphs.
     pub glyphs: Cow<'a, [ShapedGlyph]>,
 }
@@ -214,7 +212,7 @@ impl<'a> ShapedText<'a> {
         extra_justification: Abs,
     ) -> Frame {
         let (top, bottom) = self.measure(engine);
-        let size = Size::new(self.width, top + bottom);
+        let size = Size::new(self.width(), top + bottom);
 
         let mut offset = Abs::zero();
         let mut frame = Frame::soft(size);
@@ -332,6 +330,12 @@ impl<'a> ShapedText<'a> {
         frame
     }
 
+    /// Computes the width of a run of glyphs relative to the font size,
+    /// accounting for their individual scaling factors and other font metrics.
+    pub fn width(&self) -> Abs {
+        self.glyphs.iter().map(|g| g.x_advance.at(g.size)).sum()
+    }
+
     /// Measure the top and bottom extent of this text.
     pub fn measure(&self, engine: &Engine) -> (Abs, Abs) {
         let mut top = Abs::zero();
@@ -419,7 +423,6 @@ impl<'a> ShapedText<'a> {
                 region: self.region,
                 styles: self.styles,
                 variant: self.variant,
-                width: glyphs_width(glyphs),
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
@@ -437,12 +440,7 @@ impl<'a> ShapedText<'a> {
 
     /// Derive an empty text run with the same properties as this one.
     pub fn empty(&self) -> Self {
-        Self {
-            text: "",
-            width: Abs::zero(),
-            glyphs: Cow::Borrowed(&[]),
-            ..*self
-        }
+        Self { text: "", glyphs: Cow::Borrowed(&[]), ..*self }
     }
 
     /// Creates shaped text containing a hyphen.
@@ -485,7 +483,6 @@ impl<'a> ShapedText<'a> {
                 region: base.region,
                 styles: base.styles,
                 variant: base.variant,
-                width: x_advance.at(size),
                 glyphs: Cow::Owned(vec![ShapedGlyph {
                     font,
                     glyph_id: glyph_id.0,
@@ -694,15 +691,8 @@ fn shape<'a>(
         region,
         styles,
         variant: ctx.variant,
-        width: glyphs_width(&ctx.glyphs),
         glyphs: Cow::Owned(ctx.glyphs),
     }
-}
-
-/// Computes the width of a run of glyphs relative to the font size, accounting
-/// for their individual scaling factors and other font metrics.
-fn glyphs_width(glyphs: &[ShapedGlyph]) -> Abs {
-    glyphs.iter().map(|g| g.x_advance.at(g.size)).sum()
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
