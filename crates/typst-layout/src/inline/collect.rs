@@ -46,6 +46,11 @@ pub enum Item<'a> {
 }
 
 impl<'a> Item<'a> {
+    /// Whether this is a tag item.
+    pub fn is_tag(&self) -> bool {
+        matches!(self, Self::Tag(_))
+    }
+
     /// If this a text item, return it.
     pub fn text(&self) -> Option<&ShapedText<'a>> {
         match self {
