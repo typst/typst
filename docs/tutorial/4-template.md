@@ -243,11 +243,10 @@ The resulting template function looks like this:
 <<<   ...
 
   place(
->>> top + center,
->>> float: true,
->>> scope: "parent",
->>> clearance: 2em,
-<<<     ...,
+    top + center,
+    float: true,
+    scope: "parent",
+    clearance: 2em,
     {
       text(
         17pt,
