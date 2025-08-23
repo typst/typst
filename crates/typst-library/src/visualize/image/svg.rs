@@ -9,7 +9,7 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 use typst_syntax::{Span, VirtualPath};
 
 use crate::World;
-use crate::diag::{At, LoadError, LoadResult, ReportPos, format_xml_like_error};
+use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
@@ -350,9 +350,9 @@ impl<'a> ImageResolver<'a> {
         // Resolve the path to the linked image.
         let href_path = VirtualPath::new(self.svg_path.as_str()).join(href);
         let href_full = href_path.as_rooted_path().to_str().unwrap();
-        let href_file_result = self.span.resolve_path(href_full).at(*self.span);
+        let href_file_result = self.span.resolve_path(href_full);
         if let Err(err) = href_file_result {
-            self.error_msg = eco_format!("TODO {:?}", err);
+            self.error_msg = err;
             self.error_href = EcoString::from(href);
             return None;
         }
