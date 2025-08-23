@@ -370,7 +370,6 @@ a way to set any of that, we need to write our own heading show rule.
 ]
 
 <<< ...
->>>
 >>> #place(
 >>>   top + center,
 >>>   float: true,
@@ -402,7 +401,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>>     #lorem(80)
 >>>   ]
 >>> ]
->>>
+
 = Introduction
 <<< ...
 >>> #lorem(35)
