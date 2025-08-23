@@ -382,10 +382,8 @@ impl<'a> ImageResolver<'a> {
                 }
             }
             Err(err) => {
-                if self.error_msg.is_empty() {
-                    self.error_msg = EcoString::from(err);
-                    self.error_href = EcoString::from(href);
-                };
+                self.error_msg = EcoString::from(err);
+                self.error_href = EcoString::from(href);
                 None
             }
         }
