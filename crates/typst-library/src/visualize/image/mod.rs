@@ -335,25 +335,34 @@ impl Packed<ImageElem> {
         };
 
         let Derived { source, derived: loaded } = &self.source;
-        if let DataSource::Path(path) = source {
-            let ext = std::path::Path::new(path.as_str())
-                .extension()
-                .and_then(OsStr::to_str)
-                .unwrap_or_default()
-                .to_lowercase();
-
-            match ext.as_str() {
-                "png" => return Ok(ExchangeFormat::Png.into()),
-                "jpg" | "jpeg" => return Ok(ExchangeFormat::Jpg.into()),
-                "gif" => return Ok(ExchangeFormat::Gif.into()),
-                "svg" | "svgz" => return Ok(VectorFormat::Svg.into()),
-                "pdf" => return Ok(VectorFormat::Pdf.into()),
-                "webp" => return Ok(ExchangeFormat::Webp.into()),
-                _ => {}
-            }
+        if let DataSource::Path(path) = source
+            && let Some(format) = determine_format_from_path(path.as_str())
+        {
+            return Ok(format);
         }
 
         Ok(ImageFormat::detect(&loaded.data).ok_or("unknown image format")?)
+    }
+}
+
+/// Derive the image format from the file extension of a path.
+fn determine_format_from_path(path: &str) -> Option<ImageFormat> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .unwrap_or_default()
+        .to_lowercase();
+
+    match ext.as_str() {
+        // Raster formats
+        "png" => Some(ExchangeFormat::Png.into()),
+        "jpg" | "jpeg" => Some(ExchangeFormat::Jpg.into()),
+        "gif" => Some(ExchangeFormat::Gif.into()),
+        "webp" => Some(ExchangeFormat::Webp.into()),
+        // Vector formats
+        "svg" | "svgz" => Some(VectorFormat::Svg.into()),
+        "pdf" => Some(VectorFormat::Pdf.into()),
+        _ => None,
     }
 }
 

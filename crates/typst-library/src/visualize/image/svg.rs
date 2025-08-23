@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
@@ -12,6 +11,10 @@ use crate::World;
 use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
+use crate::visualize::VectorFormat;
+use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
+use crate::visualize::image::{ImageFormat, determine_format_from_path};
+
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
@@ -313,6 +316,8 @@ impl FontResolver<'_> {
     }
 }
 
+/// Resolves linked images in an SVG.
+/// (Linked SVG images from an SVG are not supported yet.)
 struct ImageResolver<'a> {
     /// The world we use to check if resolved images in the SVG are within the project root.
     world: Tracked<'a, dyn World + 'a>,
@@ -322,7 +327,7 @@ struct ImageResolver<'a> {
     svg_path: &'a EcoString,
     /// The first error message when loading a linked image.
     error_msg: EcoString,
-    /// The linked image causing the error
+    /// The linked image causing the error.
     error_href: EcoString,
 }
 
@@ -341,60 +346,77 @@ impl<'a> ImageResolver<'a> {
         }
     }
 
+    /// Load a linked image or return None if a previous image caused an error.
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
-        // Don't load more linked images if there's already an error.
-        if !self.error_msg.is_empty() {
-            return None;
+        if self.error_msg.is_empty() {
+            match self.load_or_error(href) {
+                Ok(image) => Some(image),
+                Err(err) => {
+                    self.error_msg = err;
+                    self.error_href = EcoString::from(href);
+                    None
+                }
+            }
+        } else {
+            None
         }
+    }
 
+    /// Load a linked image or return an error message string.
+    fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
         // Resolve the path to the linked image.
         let href_path = VirtualPath::new(self.svg_path.as_str()).join(href);
-        let href_full = href_path.as_rooted_path().to_str().unwrap();
-        let href_file_result = self.span.resolve_path(href_full);
-        if let Err(err) = href_file_result {
-            self.error_msg = err;
-            self.error_href = EcoString::from(href);
-            return None;
-        }
-        let href_file = href_file_result.unwrap();
+        let href_file = self
+            .span
+            .resolve_path(&href_path.as_rooted_path().to_string_lossy())?;
 
-        // Load image file if it exists.
+        // Load image if file can be accessed.
         match self.world.file(href_file) {
             Ok(bytes) => {
                 let arc_data = Arc::new(bytes.to_vec());
-                let ext = std::path::Path::new(href)
-                    .extension()
-                    .and_then(OsStr::to_str)
-                    .unwrap_or_default()
-                    .to_lowercase();
-                match ext.as_str() {
-                    "jpg" | "jpeg" => Some(usvg::ImageKind::JPEG(arc_data)),
-                    "png" => Some(usvg::ImageKind::PNG(arc_data)),
-                    "gif" => Some(usvg::ImageKind::GIF(arc_data)),
-                    "webp" => Some(usvg::ImageKind::WEBP(arc_data)),
-                    // The function load_sub_svg is not public in the usvg crate.
-                    // "svg" | "svgz" => usvg::load_sub_svg(arc_data, opts),
-                    _ => {
-                        self.error_msg = EcoString::from("extension not supported");
-                        self.error_href = EcoString::from(href);
-                        None
-                    }
+                let format = match determine_format_from_path(href) {
+                    Some(format) => Some(format),
+                    None => ImageFormat::detect(&arc_data),
+                };
+                match format {
+                    None => Err(EcoString::from("could not determine image format")),
+                    Some(ImageFormat::Vector(vector_format)) => match vector_format {
+                        VectorFormat::Svg => {
+                            Err(EcoString::from("SVG images are not supported yet"))
+                        }
+                        VectorFormat::Pdf => {
+                            Err(EcoString::from("PDF documents are not supported"))
+                        }
+                    },
+                    Some(ImageFormat::Raster(raster_format)) => match raster_format {
+                        RasterFormat::Exchange(exchange_format) => {
+                            match exchange_format {
+                                ExchangeFormat::Gif => Ok(usvg::ImageKind::GIF(arc_data)),
+                                ExchangeFormat::Jpg => {
+                                    Ok(usvg::ImageKind::JPEG(arc_data))
+                                }
+                                ExchangeFormat::Png => Ok(usvg::ImageKind::PNG(arc_data)),
+                                ExchangeFormat::Webp => {
+                                    Ok(usvg::ImageKind::WEBP(arc_data))
+                                }
+                            }
+                        }
+                        RasterFormat::Pixel(_) => {
+                            Err(EcoString::from("pixel formats are not supported"))
+                        }
+                    },
                 }
             }
-            Err(err) => {
-                self.error_msg = match err {
-                    FileError::NotFound(path) => {
-                        eco_format!("file not found, search at {}", path.display())
-                    }
-                    FileError::AccessDenied => EcoString::from("access denied"),
-                    FileError::IsDirectory => EcoString::from("is a directory"),
-                    FileError::Other(Some(msg)) => msg,
-                    FileError::Other(None) => EcoString::from("unspecified error"),
-                    _ => EcoString::from("unexpected error"),
-                };
-                self.error_href = EcoString::from(href);
-                None
-            }
+            Err(err) => Err(match err {
+                FileError::NotFound(path) => {
+                    eco_format!("file not found, search at {}", path.display())
+                }
+                FileError::AccessDenied => EcoString::from("access denied"),
+                FileError::IsDirectory => EcoString::from("is a directory"),
+                FileError::Other(Some(msg)) => msg,
+                FileError::Other(None) => EcoString::from("unspecified error"),
+                _ => EcoString::from("unexpected error"),
+            }),
         }
     }
 }
