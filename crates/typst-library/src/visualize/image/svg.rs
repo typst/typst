@@ -80,16 +80,13 @@ impl SvgImage {
         )
         .map_err(format_usvg_error)?;
         let font_hash = font_resolver.into_inner().unwrap().finish();
-        let image_error_msg = image_resolver.lock().unwrap().error_msg.clone();
-        if !image_error_msg.is_empty() {
-            let image_error_href = image_resolver.lock().unwrap().error_href.clone();
-            return Err(LoadError::new(
-                ReportPos::None,
-                eco_format!("failed to load linked image {}", image_error_href),
-                image_error_msg,
-            ));
+        let image_resolve_error = image_resolver.lock().unwrap().error.clone();
+        match image_resolve_error {
+            Some(err) => Err(err),
+            None => {
+                Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
+            }
         }
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -325,10 +322,8 @@ struct ImageResolver<'a> {
     span: &'a Span,
     /// Path to the SVG file or an empty string if the SVG is given as bytes.
     svg_path: &'a EcoString,
-    /// The first error message when loading a linked image.
-    error_msg: EcoString,
-    /// The linked image causing the error.
-    error_href: EcoString,
+    /// The first error that occurred when loading a linked image, if any.
+    error: Option<LoadError>,
 }
 
 impl<'a> ImageResolver<'a> {
@@ -337,23 +332,20 @@ impl<'a> ImageResolver<'a> {
         span: &'a Span,
         svg_path: &'a EcoString,
     ) -> Self {
-        Self {
-            world,
-            span,
-            svg_path,
-            error_msg: EcoString::new(),
-            error_href: EcoString::new(),
-        }
+        Self { world, span, svg_path, error: None }
     }
 
     /// Load a linked image or return None if a previous image caused an error.
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
-        if self.error_msg.is_empty() {
+        if self.error.is_none() {
             match self.load_or_error(href) {
                 Ok(image) => Some(image),
                 Err(err) => {
-                    self.error_msg = err;
-                    self.error_href = EcoString::from(href);
+                    self.error = Some(LoadError::new(
+                        ReportPos::None,
+                        eco_format!("failed to load linked image {} in SVG", href),
+                        err,
+                    ));
                     None
                 }
             }
@@ -409,7 +401,7 @@ impl<'a> ImageResolver<'a> {
             }
             Err(err) => Err(match err {
                 FileError::NotFound(path) => {
-                    eco_format!("file not found, search at {}", path.display())
+                    eco_format!("file not found, searched at {}", path.display())
                 }
                 FileError::AccessDenied => EcoString::from("access denied"),
                 FileError::IsDirectory => EcoString::from("is a directory"),
