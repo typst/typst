@@ -9,7 +9,7 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 use typst_syntax::{Span, VirtualPath};
 
 use crate::World;
-use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
+use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
@@ -375,14 +375,23 @@ impl<'a> ImageResolver<'a> {
                     // The function load_sub_svg is not public in the usvg crate.
                     // "svg" | "svgz" => usvg::load_sub_svg(arc_data, opts),
                     _ => {
-                        self.error_msg = eco_format!("extension not supported");
+                        self.error_msg = EcoString::from("extension not supported");
                         self.error_href = EcoString::from(href);
                         None
                     }
                 }
             }
             Err(err) => {
-                self.error_msg = EcoString::from(err);
+                self.error_msg = match err {
+                    FileError::NotFound(path) => {
+                        eco_format!("file not found, search at {}", path.display())
+                    }
+                    FileError::AccessDenied => EcoString::from("access denied"),
+                    FileError::IsDirectory => EcoString::from("is a directory"),
+                    FileError::Other(Some(msg)) => msg,
+                    FileError::Other(None) => EcoString::from("unspecified error"),
+                    _ => EcoString::from("unexpected error"),
+                };
                 self.error_href = EcoString::from(href);
                 None
             }
