@@ -20,7 +20,6 @@ use hayro_syntax::LoadPdfError;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, NonZeroExt};
 
-use crate::World;
 use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
