@@ -30,13 +30,7 @@ impl SVGRenderer<'_> {
                             };
                             self.xml.write_attribute(&name, &value)
                         }
-                        // Ok(Token::Cdata { .. }) => {}
                         Ok(Token::Comment { text, .. }) => self.xml.write_comment(&text),
-                        // Ok(Token::Declaration { .. }) => {
-                        //     self.xml.write_declaration();
-                        // }
-                        // Ok(Token::DtdEnd { .. }) => {}
-                        // Ok(Token::DtdStart { .. }) => {}
                         Ok(Token::ElementEnd { end, .. }) => {
                             if matches!(end, xmlparser::ElementEnd::Close(..)) {
                                 self.xml.end_element();
@@ -45,9 +39,6 @@ impl SVGRenderer<'_> {
                         Ok(Token::ElementStart { local, .. }) => {
                             self.xml.start_element(&local)
                         }
-                        // Ok(Token::EmptyDtd { .. }) => {}
-                        // Ok(Token::EntityDeclaration { .. }) => {}
-                        // Ok(Token::ProcessingInstruction { .. }) => {}
                         Ok(Token::Text { text }) => self.xml.write_text(&text),
                         Err(e) => {
                             eprintln!("The SVG Image have Element can't parse: {e}")
