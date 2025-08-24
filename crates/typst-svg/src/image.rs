@@ -49,7 +49,9 @@ impl SVGRenderer<'_> {
                         // Ok(Token::EntityDeclaration { .. }) => {}
                         // Ok(Token::ProcessingInstruction { .. }) => {}
                         Ok(Token::Text { text }) => self.xml.write_text(&text),
-                        Err(e) => eprintln!("The SVG Image have Element can't parse: {e}" ),
+                        Err(e) => {
+                            eprintln!("The SVG Image have Element can't parse: {e}")
+                        }
                         _ => {}
                     }
                 }
