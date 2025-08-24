@@ -9,12 +9,52 @@ use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
+use xmlparser::{Token, Tokenizer};
 
 use crate::SVGRenderer;
 
 impl SVGRenderer<'_> {
     /// Render an image element.
     pub(super) fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
+        if let ImageKind::Svg(svg) = image.kind() {
+            let svg_raw = std::str::from_utf8(svg.data()).unwrap();
+            let svg_tokenizer = Tokenizer::from(svg_raw);
+            for token in svg_tokenizer {
+                match token {
+                    Ok(Token::Attribute { prefix, local, value, .. }) => {
+                        let name = if prefix.as_str().is_empty() {
+                            local.as_str().to_string()
+                        } else {
+                            format!("{}:{}", prefix, local)
+                        };
+                        self.xml.write_attribute(&name, &value)
+                    }
+                    // Ok(Token::Cdata { .. }) => {}
+                    Ok(Token::Comment { text, .. }) => self.xml.write_comment(&text),
+                    Ok(Token::Declaration { .. }) => {
+                        self.xml.write_declaration();
+                    }
+                    // Ok(Token::DtdEnd { .. }) => {}
+                    // Ok(Token::DtdStart { .. }) => {}
+                    Ok(Token::ElementEnd { end, .. }) => {
+                        if matches!(end, xmlparser::ElementEnd::Close(..)) {
+                            self.xml.end_element();
+                        }
+                    }
+                    Ok(Token::ElementStart { local, .. }) => {
+                        self.xml.start_element(&local)
+                    }
+                    // Ok(Token::EmptyDtd { .. }) => {}
+                    // Ok(Token::EntityDeclaration { .. }) => {}
+                    // Ok(Token::ProcessingInstruction { .. }) => {}
+                    Ok(Token::Text { text }) => self.xml.write_text(&text),
+                    // Err(e) => eprintln!("Error: {}", e),
+                    _ => panic!("Error"),
+                }
+            }
+            return;
+        }
+
         let url = convert_image_to_base64_url(image);
         self.xml.start_element("image");
         self.xml.write_attribute("xlink:href", &url);
