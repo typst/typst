@@ -94,8 +94,38 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at do-not-add-image-with-this-name.png)
 #image(bytes(
   ```
-  <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
+  <svg xmlns="http://www.w3.org/2000/svg">
     <image href="do-not-add-image-with-this-name.png" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-url ---
+// Error: 8-7:2 failed to load linked image https://somedomain.com/image.png in SVG (URLs are not allowed)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="https://somedomain.com/image.png" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-pdf ---
+// Error: 8-7:2 failed to load linked image /assets/images/diagrams.pdf in SVG (PDF documents are not supported)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="/assets/images/diagrams.pdf" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-csv ---
+// Error: 8-7:2 failed to load linked image /assets/data/bad.csv in SVG (could not determine image format)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="/assets/data/bad.csv" />
   </svg>
   ```.text
 ))

@@ -356,6 +356,17 @@ impl<'a> ImageResolver<'a> {
 
     /// Load a linked image or return an error message string.
     fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
+        // Exit early if the href is an URL.
+        if let Some(pos) = href.find("://") {
+            let scheme = &href[..pos];
+            if scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
+            {
+                return Err(EcoString::from("URLs are not allowed"));
+            }
+        }
+
         // Resolve the path to the linked image.
         let href_path = VirtualPath::new(self.svg_path.as_str()).join(href);
         let href_file = self
