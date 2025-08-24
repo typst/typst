@@ -48,8 +48,8 @@ impl SVGRenderer<'_> {
                     // Ok(Token::EntityDeclaration { .. }) => {}
                     // Ok(Token::ProcessingInstruction { .. }) => {}
                     Ok(Token::Text { text }) => self.xml.write_text(&text),
-                    // Err(e) => eprintln!("Error: {}", e),
-                    _ => panic!("Error"),
+                    Err(e) => eprintln!("Error: {}", e),
+                    _ => {},
                 }
             }
             return;
