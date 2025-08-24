@@ -25,7 +25,7 @@ impl SVGRenderer<'_> {
                         let name = if prefix.as_str().is_empty() {
                             local.as_str().to_string()
                         } else {
-                            format!("{}:{}", prefix, local)
+                            format!("{prefix}:{local}")
                         };
                         self.xml.write_attribute(&name, &value)
                     }
