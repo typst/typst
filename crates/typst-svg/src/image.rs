@@ -31,9 +31,9 @@ impl SVGRenderer<'_> {
                     }
                     // Ok(Token::Cdata { .. }) => {}
                     Ok(Token::Comment { text, .. }) => self.xml.write_comment(&text),
-                    Ok(Token::Declaration { .. }) => {
-                        self.xml.write_declaration();
-                    }
+                    // Ok(Token::Declaration { .. }) => {
+                    //     self.xml.write_declaration();
+                    // }
                     // Ok(Token::DtdEnd { .. }) => {}
                     // Ok(Token::DtdStart { .. }) => {}
                     Ok(Token::ElementEnd { end, .. }) => {
