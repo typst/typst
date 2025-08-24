@@ -79,6 +79,27 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
+--- image-svg-linked-jpg ---
+#set page(fill: gray)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
+    <image href="/assets/images/f2t.jpg" />
+    <circle r="32" cx="24" cy="40" fill="none" stroke="red" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-file-not-found ---
+// Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at do-not-add-image-with-this-name.png)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
+    <image href="do-not-add-image-with-this-name.png" />
+  </svg>
+  ```.text
+))
+
 --- image-pixmap-rgb8 ---
 #image(
   bytes((
