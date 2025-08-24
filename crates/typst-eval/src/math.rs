@@ -68,7 +68,7 @@ impl Eval for ast::MathDelimited<'_> {
         let open = self.open().eval_display(vm)?;
         let body = self.body().eval(vm)?;
         let close = self.close().eval_display(vm)?;
-        Ok(LrElem::new(open + body + close).pack())
+        Ok(LrElem::new(open + body + close).with_explicit(false).pack())
     }
 }
 

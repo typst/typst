@@ -1,4 +1,6 @@
-use crate::foundations::{Content, NativeElement, SymbolElem, elem, func};
+use crate::foundations::{
+    Content, NativeElement, Packed, SymbolElem, Synthesize, elem, func,
+};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 
@@ -6,7 +8,7 @@ use crate::math::Mathy;
 ///
 /// While matched delimiters scale by default, this can be used to scale
 /// unmatched delimiters and to control the delimiter scaling more precisely.
-#[elem(title = "Left/Right", Mathy)]
+#[elem(title = "Left/Right", Mathy, Synthesize)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
     #[default(Rel::one())]
@@ -21,6 +23,23 @@ pub struct LrElem {
         body
     )]
     pub body: Content,
+
+    /// Whether this Left/Right pair was explicitely built with lr()
+    #[synthesized]
+    pub explicit: bool,
+}
+
+impl Synthesize for Packed<LrElem> {
+    fn synthesize(
+        &mut self,
+        _engine: &mut crate::engine::Engine,
+        _styles: crate::foundations::StyleChain,
+    ) -> crate::diag::SourceResult<()> {
+        let elem = self.as_mut();
+        // Unless set to false during eval, this is explicit
+        elem.explicit = Some(elem.explicit.unwrap_or(true));
+        Ok(())
+    }
 }
 
 /// Scales delimiters vertically to the nearest surrounding `{lr()}` group.
@@ -126,7 +145,8 @@ fn delimited(
         SymbolElem::packed(left),
         body,
         SymbolElem::packed(right),
-    ]));
+    ]))
+    .with_explicit(true);
     // Push size only if size is provided
     if let Some(size) = size {
         elem.size.set(size);
