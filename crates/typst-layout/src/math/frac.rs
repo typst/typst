@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{
-    Content, NativeElement, Packed, Resolve, StyleChain, SymbolElem,
+    Content, NativeElement, Packed, Resolve, SequenceElem, StyleChain, SymbolElem,
 };
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::{
@@ -24,24 +24,53 @@ pub fn layout_frac(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    match elem.style.get(styles) {
-        FracStyle::Skewed => {
-            layout_skewed_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
+    // Should the fraction operands be deparenthesized ?
+    let fraction_style = elem.style.get(styles);
+    let deparen = fraction_style != FracStyle::Horizontal;
+
+    // If we are deparenthesizing, do it only if the outer lr pair is implicit
+    // and is indeed a pair of parentheses.
+    let mut num = elem.num.clone();
+    if deparen
+        && let Some(lr_num) = elem.num.to_packed::<LrElem>()
+        && !lr_num.explicit.unwrap_or(true)
+        && let Some(seq_num) = lr_num.body.to_packed::<SequenceElem>()
+        && let [first_num_delim, content @ .., last_num_delim] =
+            seq_num.children.as_slice()
+        && let Some(first_num_delim_symbol) = first_num_delim.to_packed::<SymbolElem>()
+        && let Some(last_num_delim_symbol) = last_num_delim.to_packed::<SymbolElem>()
+        && first_num_delim_symbol.text == '('
+        && last_num_delim_symbol.text == ')'
+    {
+        num = SequenceElem::new(content.to_vec().clone()).pack();
+    }
+
+    let mut denom = elem.denom.clone();
+    if deparen
+        && let Some(lr_denom) = elem.denom.to_packed::<LrElem>()
+        && !lr_denom.explicit.unwrap_or(true)
+        && let Some(seq_denom) = lr_denom.body.to_packed::<SequenceElem>()
+        && let [first_denom_delim, content @ .., last_denom_delim] =
+            seq_denom.children.as_slice()
+        && let Some(first_denom_delim_symbol) =
+            first_denom_delim.to_packed::<SymbolElem>()
+        && let Some(last_denom_delim_symbol) = last_denom_delim.to_packed::<SymbolElem>()
+        && first_denom_delim_symbol.text == '('
+        && last_denom_delim_symbol.text == ')'
+    {
+        denom = SequenceElem::new(content.to_vec().clone()).pack();
+    }
+
+    match fraction_style {
+        FracStyle::Skewed => layout_skewed_frac(ctx, styles, &num, &denom, elem.span()),
+        FracStyle::Horizontal => {
+            layout_horizontal_frac(ctx, styles, &num, &denom, elem.span())
         }
-        FracStyle::Horizontal => layout_horizontal_frac(
-            ctx,
-            styles,
-            &elem.num,
-            &elem.denom,
-            elem.span(),
-            elem.num_deparenthesized.get(styles),
-            elem.denom_deparenthesized.get(styles),
-        ),
         FracStyle::Vertical => layout_vertical_frac_like(
             ctx,
             styles,
-            &elem.num,
-            std::slice::from_ref(&elem.denom),
+            &num,
+            std::slice::from_ref(&denom),
             false,
             elem.span(),
         ),
@@ -169,19 +198,7 @@ fn layout_horizontal_frac(
     num: &Content,
     denom: &Content,
     span: Span,
-    num_deparen: bool,
-    denom_deparen: bool,
 ) -> SourceResult<()> {
-    let num = if num_deparen {
-        &LrElem::new(Content::sequence(vec![
-            SymbolElem::packed('('),
-            num.clone(),
-            SymbolElem::packed(')'),
-        ]))
-        .pack()
-    } else {
-        num
-    };
     let num_frame = ctx.layout_into_fragment(num, styles)?;
     ctx.push(num_frame);
 
@@ -190,16 +207,6 @@ fn layout_horizontal_frac(
     slash.center_on_axis();
     ctx.push(slash);
 
-    let denom = if denom_deparen {
-        &LrElem::new(Content::sequence(vec![
-            SymbolElem::packed('('),
-            denom.clone(),
-            SymbolElem::packed(')'),
-        ]))
-        .pack()
-    } else {
-        denom
-    };
     let denom_frame = ctx.layout_into_fragment(denom, styles)?;
     ctx.push(denom_frame);
 
