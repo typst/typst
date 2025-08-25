@@ -146,7 +146,10 @@ impl TableCtx {
     pub fn build_table(mut self, mut contents: GroupContents) -> TagNode {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
-        if self.cells.entries.is_empty() {
+        // A show rule, can prevent the table from being layed out, in which case
+        // all cells will be missing, in that case just return whatever contents
+        // that were generated in the show rule.
+        if self.cells.entries.iter().all(GridEntry::is_missing) {
             return TagNode::group(Tag::Table.with_summary(self.summary), contents);
         }
 
@@ -851,6 +854,10 @@ impl<D> GridEntry<D> {
 
     fn into_cell(self) -> Option<CtxCell<D>> {
         if let Self::Cell(v) = self { Some(v) } else { None }
+    }
+
+    fn is_missing(&self) -> bool {
+        matches!(self, Self::Missing)
     }
 }
 

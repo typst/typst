@@ -63,3 +63,9 @@
   [e], [f],
   table.hline(stroke: black),
 )
+
+--- table-tags-show-rule pdftags ---
+// The table contents are transformed by a show rule.
+#set table(columns: (10pt, auto))
+#show table: it => it.columns
+#table[A][B][C][D]
