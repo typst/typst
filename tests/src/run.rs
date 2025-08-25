@@ -170,7 +170,18 @@ impl<'a> Runner<'a> {
         }
 
         // Render and save live version.
-        document.save_live(&self.test.name, &live);
+        if let Err(errors) = document.save_live(&self.test.name, &live) {
+            log!(self, "failed to save live version:");
+            for e in errors {
+                if let Some(file) = e.span.id() {
+                    let range = self.world.range(e.span);
+                    let diag_range = self.format_range(file, &range);
+                    log!(self, "  Error: {diag_range} {}", e.message);
+                } else {
+                    log!(self, "  Error: {}", e.message);
+                }
+            }
+        }
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
@@ -382,7 +393,7 @@ trait OutputType: Sized {
     fn make_live(&self) -> SourceResult<Self::Live>;
 
     /// Saves the live output.
-    fn save_live(&self, name: &str, live: &Self::Live);
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()>;
 
     /// Produces the reference output from the live output.
     fn make_ref(live: Self::Live) -> Vec<u8>;
@@ -434,7 +445,7 @@ impl OutputType for PagedDocument {
         Ok(render(self, 1.0))
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()> {
         // Save live version, possibly rerendering if different scale is
         // requested.
         let mut pixmap_live = live;
@@ -450,7 +461,7 @@ impl OutputType for PagedDocument {
         // Write PDF if requested.
         if crate::ARGS.pdf() {
             let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, name);
-            let pdf = typst_pdf::pdf(self, &PdfOptions::default()).unwrap();
+            let pdf = typst_pdf::pdf(self, &PdfOptions::default())?;
             std::fs::write(pdf_path, pdf).unwrap();
         }
 
@@ -460,6 +471,8 @@ impl OutputType for PagedDocument {
             let svg = typst_svg::svg_merged(self, Abs::pt(5.0));
             std::fs::write(svg_path, svg).unwrap();
         }
+
+        Ok(())
     }
 
     fn make_ref(live: Self::Live) -> Vec<u8> {
@@ -503,8 +516,9 @@ impl OutputType for HtmlDocument {
         typst_html::html(self)
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()> {
         std::fs::write(Self::live_path(name), live).unwrap();
+        Ok(())
     }
 
     fn make_ref(live: Self::Live) -> Vec<u8> {
@@ -551,8 +565,9 @@ impl OutputType for Pdftags {
         Ok(self.0.clone())
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()> {
         std::fs::write(Self::live_path(name), live).unwrap();
+        Ok(())
     }
 
     fn make_ref(live: Self::Live) -> Vec<u8> {
