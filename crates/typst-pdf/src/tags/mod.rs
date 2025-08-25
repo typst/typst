@@ -476,30 +476,33 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         StackEntryKind::Standard(tag) => TagNode::group(tag, contents),
         StackEntryKind::Outline(ctx) => ctx.build_outline(contents),
         StackEntryKind::OutlineEntry(outline_entry) => {
-            // FIXME(accessibility): disallow usage of `outline.entry` outside of `outline`
-            let (outline_ctx, outline_nodes) = (gc.tags.stack.parent_outline())
-                .expect("outline entries may only exist within an outline");
-
-            outline_ctx.insert(outline_nodes, outline_entry, contents);
-            return;
+            if let Some((outline_ctx, outline_nodes)) = gc.tags.stack.parent_outline() {
+                outline_ctx.insert(outline_nodes, outline_entry, contents);
+                return;
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                TagNode::group(Tag::TOCI, contents)
+            }
         }
         StackEntryKind::Table(ctx) => ctx.build_table(contents),
         StackEntryKind::TableCell(cell) => {
-            // FIXME(accessibility): disallow usage of `table.cell` outside of table
-            let table_ctx = (gc.tags.stack.parent_table())
-                .expect("table cells may only exist within a table");
-
-            table_ctx.insert(&cell, contents);
-            return;
+            if let Some(table_ctx) = gc.tags.stack.parent_table() {
+                table_ctx.insert(&cell, contents);
+                return;
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                TagNode::group(Tag::TD, contents)
+            }
         }
         StackEntryKind::Grid(ctx) => ctx.build_grid(contents),
         StackEntryKind::GridCell(cell) => {
-            // FIXME(accessibility): disallow usage of `grid.cell` outside of grid
-            let grid_ctx = (gc.tags.stack.parent_grid())
-                .expect("grid cells may only exist within a grid");
-
-            grid_ctx.insert(&cell, contents);
-            return;
+            if let Some(grid_ctx) = gc.tags.stack.parent_grid() {
+                grid_ctx.insert(&cell, contents);
+                return;
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                TagNode::group(Tag::Div, contents)
+            }
         }
         StackEntryKind::List(list) => list.build_list(contents),
         StackEntryKind::ListItemLabel => {
