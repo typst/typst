@@ -1,0 +1,50 @@
+- Tag: Table
+  /BorderColor: #000000
+  /BorderThickness:   1.000
+  /K:
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=0
+            - Tag: TD
+              /Headers: []
+              /RowSpan: 2
+              /BorderStyle: Solid
+              /K:
+                - Tag: NonStruct
+                  /K:
+                    - Content: page=0 mcid=2
+                - Tag: NonStruct
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=1
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=1 mcid=0
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Content: page=1 mcid=1
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid
+            - Tag: TD
+              /Headers: []
+              /BorderStyle: Solid

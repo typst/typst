@@ -55,11 +55,10 @@ pub fn layout_cell(
     // Manually insert frames
     let mut frames = fragment.into_frames();
     if let Some((start, end)) = tags {
-        if let Some(first) = frames.first_mut() {
-            first.prepend(Point::zero(), FrameItem::Tag(start));
-        }
-        if let Some(last) = frames.last_mut() {
-            last.push(Point::zero(), FrameItem::Tag(end));
+        // TODO: should all tag pairs have the same location?
+        for frame in frames.iter_mut() {
+            frame.prepend(Point::zero(), FrameItem::Tag(start.clone()));
+            frame.push(Point::zero(), FrameItem::Tag(end.clone()));
         }
     }
 

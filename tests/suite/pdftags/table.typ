@@ -69,3 +69,21 @@
 #set table(columns: (10pt, auto))
 #show table: it => it.columns
 #table[A][B][C][D]
+
+--- table-tags-rowspan-split-1 pdftags ---
+#set page(height: 6em)
+#table(
+  rows: (4em, auto, 4em),
+  columns: 2,
+  table.cell(rowspan: 3, [a]),
+  [b], [c], [d],
+)
+
+--- table-tags-rowspan-split-2 pdftags ---
+#set page(height: 6em)
+#table(
+  rows: (4em, auto, 4em),
+  columns: 3,
+  [a1], table.cell(rowspan: 2, [b]), [c1],
+  [a2], [c2],
+)
