@@ -6,3 +6,4 @@ heading = Bölüm
 outline = İçindekiler
 raw = Liste
 page = sayfa
+# footnote =
