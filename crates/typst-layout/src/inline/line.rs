@@ -80,8 +80,7 @@ impl Line<'_> {
         // CJK character at line end should not be adjusted.
         if self
             .items
-            .last()
-            .and_then(Item::text)
+            .trailing_text()
             .map(|s| s.cjk_justifiable_at_last())
             .unwrap_or(false)
         {
@@ -176,7 +175,7 @@ pub fn line<'a>(
     // Add a hyphen at the line start, if a previous dash should be repeated.
     if let Some(pred) = pred
         && pred.dash == Some(Dash::Hard)
-        && let Some(base) = pred.items.last_text()
+        && let Some(base) = pred.items.trailing_text()
         && should_repeat_hyphen(base.lang, full)
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim, false)
@@ -188,7 +187,7 @@ pub fn line<'a>(
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
-        && let Some(base) = items.last_text()
+        && let Some(base) = items.trailing_text()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim, true)
     {
@@ -253,7 +252,7 @@ fn trim_weak_spacing(items: &mut Items) {
     }
 
     // Trim weak spacing at the end of the line.
-    while matches!(items.last(), Some(Item::Absolute(_, true))) {
+    while matches!(items.iter().next_back(), Some(Item::Absolute(_, true))) {
         items.pop();
     }
 }
@@ -355,7 +354,7 @@ fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) 
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.
 fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
-    let Some(shaped) = items.first_text_mut() else { return };
+    let Some(shaped) = items.leading_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.first() else { return };
 
     if glyph.is_cjk_right_aligned_punctuation() {
@@ -364,7 +363,6 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().first_mut().unwrap();
         let shrink = glyph.shrinkability().0;
         glyph.shrink_left(shrink);
-        shaped.width -= shrink.at(glyph.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && glyph.x_offset > Em::zero()
@@ -376,13 +374,12 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         glyph.x_advance -= shrink;
         glyph.x_offset = Em::zero();
         glyph.adjustability.shrinkability.0 = Em::zero();
-        shaped.width -= shrink.at(glyph.size);
     }
 }
 
 /// Add spacing around punctuation marks for CJ glyphs at the line end.
 fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
-    let Some(shaped) = items.last_text_mut() else { return };
+    let Some(shaped) = items.trailing_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.last() else { return };
 
     // Deal with CJK punctuation at line ends.
@@ -394,7 +391,6 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let shrink = glyph.shrinkability().1;
         let punct = shaped.glyphs.to_mut().last_mut().unwrap();
         punct.shrink_right(shrink);
-        shaped.width -= shrink.at(punct.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && (glyph.x_advance - glyph.x_offset) > Em::one()
@@ -405,7 +401,6 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
         glyph.x_advance -= shrink;
         glyph.adjustability.shrinkability.1 = Em::zero();
-        shaped.width -= shrink.at(glyph.size);
     }
 }
 
@@ -485,7 +480,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the left.
-    if let Some(Item::Text(text)) = line.items.first()
+    if let Some(text) = line.items.leading_text()
         && let Some(glyph) = text.glyphs.first()
         && !text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
@@ -497,7 +492,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the right.
-    if let Some(Item::Text(text)) = line.items.last()
+    if let Some(text) = line.items.trailing_text()
         && let Some(glyph) = text.glyphs.last()
         && text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
@@ -689,7 +684,7 @@ impl<'a> Items<'a> {
     }
 
     /// Iterate over the items.
-    pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Item<'a>> {
         self.0.iter().map(|(_, item)| &**item)
     }
 
@@ -698,33 +693,30 @@ impl<'a> Items<'a> {
     ///
     /// Note that this is different from `.iter().enumerate()` which would
     /// provide the indices in visual order!
-    pub fn indexed_iter(&self) -> impl Iterator<Item = &(usize, ItemEntry<'a>)> {
+    pub fn indexed_iter(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &(usize, ItemEntry<'a>)> {
         self.0.iter()
     }
 
-    /// Access the first item.
-    pub fn first(&self) -> Option<&Item<'a>> {
-        self.0.first().map(|(_, item)| &**item)
+    /// Access the first item (skipping tags), if it is text.
+    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
+        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
     }
 
-    /// Access the last item.
-    pub fn last(&self) -> Option<&Item<'a>> {
-        self.0.last().map(|(_, item)| &**item)
+    /// Access the first item (skipping tags) mutably, if it is text.
+    pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
+        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
     }
 
-    /// Access the last item, if it is text.
-    pub fn last_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.last()?.1.text()
+    /// Access the last item (skipping tags), if it is text.
+    pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
+        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
     }
 
-    /// Access the first item mutably, if it is text.
-    pub fn first_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.first_mut()?.1.text_mut()
-    }
-
-    /// Access the last item mutably, if it is text.
-    pub fn last_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.last_mut()?.1.text_mut()
+    /// Access the last item (skipping tags) mutably, if it is text.
+    pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
+        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
