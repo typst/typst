@@ -24,6 +24,7 @@ trait GridExt {
     /// Convert from "effective" positions inside the cell grid, which may
     /// include gutter tracks in addition to the cells, to conventional
     /// positions.
+    #[allow(clippy::wrong_self_convention)]
     fn from_effective(&self, i: usize) -> u32;
 
     /// Convert from conventional positions to "effective" positions inside the
@@ -341,8 +342,8 @@ impl TableCtx {
         let tag = Tag::Table
             .with_summary(self.summary)
             .with_bbox(self.bbox.to_krilla())
-            .with_border_thickness(parent_border_thickness.map(|t| kt::Sides::uniform(t)))
-            .with_border_color(parent_border_color.map(|c| kt::Sides::uniform(c)));
+            .with_border_thickness(parent_border_thickness.map(kt::Sides::uniform))
+            .with_border_color(parent_border_color.map(kt::Sides::uniform));
         TagNode::group(tag, contents)
     }
 }
@@ -746,7 +747,7 @@ impl<T: Clone> GridCells<T> {
         self.entries.chunks(self.width)
     }
 
-    fn into_rows<'a>(self) -> RowIter<GridEntry<T>> {
+    fn into_rows(self) -> RowIter<GridEntry<T>> {
         RowIter {
             width: self.width(),
             height: self.height(),

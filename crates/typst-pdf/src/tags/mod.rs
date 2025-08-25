@@ -112,6 +112,7 @@ pub fn handle_start(
         return Ok(());
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     if let Some(_) = elem.to_packed::<HideElem>() {
         push_disable(gc, surface, elem, ArtifactKind::Other);
         return Ok(());
@@ -124,6 +125,7 @@ pub fn handle_start(
         return Ok(());
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     let tag = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {

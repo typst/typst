@@ -211,7 +211,7 @@ impl TagStack {
         self.items.last_mut()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<StackEntry> {
+    pub fn iter(&self) -> std::slice::Iter<'_, StackEntry> {
         self.items.iter()
     }
 
