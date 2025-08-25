@@ -36,20 +36,6 @@ pub struct FracElem {
     /// ```
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,
-
-    /// Whether the numerator was originally surrounded by parentheses
-    /// that were stripped by the parser.
-    #[internal]
-    #[parse(None)]
-    #[default(false)]
-    pub num_deparenthesized: bool,
-
-    /// Whether the denominator was originally surrounded by parentheses
-    /// that were stripped by the parser.
-    #[internal]
-    #[parse(None)]
-    #[default(false)]
-    pub denom_deparenthesized: bool,
 }
 
 /// Fraction style
