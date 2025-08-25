@@ -44,7 +44,9 @@ pub fn layout_cell(
         table_cell.is_repeated.set(is_repeated);
         tags = Some(generate_tags(table_cell, &mut locator, engine));
     } else if let Some(grid_cell) = cell.body.to_packed::<GridCell>() {
-        tags = Some(generate_tags(grid_cell.clone(), &mut locator, engine));
+        let mut grid_cell = grid_cell.clone();
+        grid_cell.is_repeated.set(is_repeated);
+        tags = Some(generate_tags(grid_cell, &mut locator, engine));
     }
 
     let locator = locator.next(&cell.body.span());

@@ -108,12 +108,6 @@ impl TableCtx {
         }
     }
 
-    pub fn contains(&self, cell: &Packed<TableCell>) -> bool {
-        let x = cell.x.val().unwrap_or_else(|| unreachable!()) as u32;
-        let y = cell.y.val().unwrap_or_else(|| unreachable!()) as u32;
-        self.cells.cell(x, y).is_some()
-    }
-
     pub fn insert(&mut self, cell: &Packed<TableCell>, contents: GroupContents) {
         let x = cell.x.val().unwrap_or_else(|| unreachable!()).saturating_as();
         let y = cell.y.val().unwrap_or_else(|| unreachable!()).saturating_as();
@@ -817,9 +811,13 @@ impl<T: Clone> GridCells<T> {
         let y = cell.y;
         let rowspan = cell.rowspan.get();
         let colspan = cell.colspan.get();
+        let parent_idx = self.cell_idx(x, y);
+
+        // Repeated cells should have their `is_repeated` flag set and be marked
+        // as artifacts.
+        debug_assert!(self.entries[parent_idx].is_missing());
 
         // Store references to the cell for all spanned cells.
-        let parent_idx = self.cell_idx(x, y);
         for j in y..y + rowspan {
             for i in x..x + colspan {
                 let idx = self.cell_idx(i, j);

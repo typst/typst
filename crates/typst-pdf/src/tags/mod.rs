@@ -214,13 +214,11 @@ pub fn handle_start(
         push_stack(gc, elem, StackEntryKind::Table(ctx))?;
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
-        let table_ctx = gc.tags.stack.parent_table();
-
         // Only repeated table headers and footer cells are laid out multiple
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if cell.is_repeated.val() || table_ctx.is_some_and(|ctx| ctx.contains(cell)) {
+        if cell.is_repeated.val() {
             push_disable(gc, surface, elem, ArtifactKind::Other);
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()))?;
@@ -238,7 +236,16 @@ pub fn handle_start(
             // The grid cells are collected into a grid to ensure proper reading
             // order, even when using rowspans, which may be laid out later than
             // other cells in the same row.
-            push_stack(gc, elem, StackEntryKind::GridCell(cell.clone()))?;
+
+            // Only repeated grid headers and footer cells are laid out multiple
+            // times. Mark duplicate headers as artifacts, since they have no
+            // semantic meaning in the tag tree, which doesn't use page breaks for
+            // it's semantic structure.
+            if cell.is_repeated.val() {
+                push_disable(gc, surface, elem, ArtifactKind::Other);
+            } else {
+                push_stack(gc, elem, StackEntryKind::GridCell(cell.clone()))?;
+            }
         }
         return Ok(());
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
