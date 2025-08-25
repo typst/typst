@@ -17,7 +17,7 @@ use typst_library::visualize::{FixedStroke, Stroke};
 
 use crate::tags::convert::TableHeaderScopeExt;
 use crate::tags::util::PropertyValCopied;
-use crate::tags::{BBoxCtx, GroupContents, TableId, TagNode, convert};
+use crate::tags::{BBoxCtx, GroupContents, Groups, TableId, TagNode, convert};
 use crate::util::{AbsExt, SidesExt};
 
 trait GridExt {
@@ -137,14 +137,18 @@ impl TableCtx {
         });
     }
 
-    pub fn build_table(mut self, mut contents: GroupContents) -> TagNode {
+    pub fn build_table(
+        mut self,
+        groups: &mut Groups,
+        contents: GroupContents,
+    ) -> TagNode {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         // A show rule, can prevent the table from being layed out, in which case
         // all cells will be missing, in that case just return whatever contents
         // that were generated in the show rule.
         if self.cells.entries.iter().all(GridEntry::is_missing) {
-            return TagNode::group(Tag::Table.with_summary(self.summary), contents);
+            return groups.init_tag(Tag::Table.with_summary(self.summary), contents);
         }
 
         let width = self.cells.width();
@@ -306,15 +310,15 @@ impl TableCtx {
                         &mut tag,
                     );
 
-                    Some(TagNode::group(tag, cell.contents))
+                    Some(groups.init_tag(tag, cell.contents))
                 })
                 .collect();
 
-            let row = TagNode::virtual_group(Tag::TR, row_nodes);
+            let row = groups.new_virtual(Tag::TR, row_nodes);
 
             // Push the `TR` tags directly.
             if !gen_row_groups {
-                contents.nodes.push(row);
+                groups.get_mut(contents.id).nodes.push(row);
                 continue;
             }
 
@@ -327,7 +331,8 @@ impl TableCtx {
                     TableCellKind::Data => Tag::TBody.into(),
                 };
                 let chunk_nodes = std::mem::take(&mut row_chunk);
-                contents.nodes.push(TagNode::virtual_group(tag, chunk_nodes));
+                let node = groups.new_virtual(tag, chunk_nodes);
+                groups.get_mut(contents.id).nodes.push(node);
 
                 chunk_kind = row_kind;
             }
@@ -340,7 +345,8 @@ impl TableCtx {
                 TableCellKind::Footer => Tag::TFoot.into(),
                 TableCellKind::Data => Tag::TBody.into(),
             };
-            contents.nodes.push(TagNode::virtual_group(tag, row_chunk));
+            let node = groups.new_virtual(tag, row_chunk);
+            groups.get_mut(contents.id).nodes.push(node);
         }
 
         let tag = Tag::Table
@@ -348,7 +354,7 @@ impl TableCtx {
             .with_bbox(self.bbox.to_krilla())
             .with_border_thickness(parent_border_thickness.map(kt::Sides::uniform))
             .with_border_color(parent_border_color.map(kt::Sides::uniform));
-        TagNode::group(tag, contents)
+        groups.init_tag(tag, contents)
     }
 }
 
@@ -670,14 +676,13 @@ impl GridCtx {
         });
     }
 
-    pub fn build_grid(self, mut contents: GroupContents) -> TagNode {
-        let cells = (self.cells.entries.into_iter())
-            .filter_map(GridEntry::into_cell)
-            .map(|cell| TagNode::group(Tag::Div, cell.contents));
+    pub fn build_grid(self, groups: &mut Groups, contents: GroupContents) -> TagNode {
+        for cell in self.cells.entries.into_iter().filter_map(GridEntry::into_cell) {
+            let node = groups.init_tag(Tag::Div, cell.contents);
+            groups.get_mut(contents.id).nodes.push(node);
+        }
 
-        contents.nodes.extend(cells);
-
-        TagNode::group(Tag::Div, contents)
+        groups.init_tag(Tag::Div, contents)
     }
 }
 
@@ -820,9 +825,7 @@ impl<T: Clone> GridCells<T> {
         let colspan = cell.colspan.get();
         let parent_idx = self.cell_idx(x, y);
 
-        // Repeated cells should have their `is_repeated` flag set and be marked
-        // as artifacts.
-        debug_assert!(self.entries[parent_idx].is_missing());
+        assert!(self.entries[parent_idx].is_missing());
 
         // Store references to the cell for all spanned cells.
         for j in y..y + rowspan {

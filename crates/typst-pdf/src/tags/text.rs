@@ -197,16 +197,16 @@ impl ResolvedTextAttrs {
             && self.deco.is_some()
     }
 
-    pub fn build_node(self, children: Vec<Node>) -> Node {
+    pub fn resolve_nodes(self, accum: &mut Vec<Node>, children: Vec<kt::Identifier>) {
         enum Prev {
-            Children(Vec<Node>),
+            Children(Vec<kt::Identifier>),
             Group(kt::TagGroup),
         }
 
         impl Prev {
             fn into_nodes(self) -> Vec<Node> {
                 match self {
-                    Prev::Children(nodes) => nodes,
+                    Prev::Children(ids) => ids.into_iter().map(Node::Leaf).collect(),
                     Prev::Group(group) => vec![Node::Group(group)],
                 }
             }
@@ -235,12 +235,8 @@ impl ResolvedTextAttrs {
         }
 
         match prev {
-            Prev::Group(group) => Node::Group(group),
-            Prev::Children(nodes) => {
-                // This should not happen. It can only happen if an empty set of
-                // `ResolvedTextAttrs` was pushed into a `TagNode::Text`.
-                Node::Group(kt::TagGroup::with_children(Tag::Span, nodes))
-            }
+            Prev::Group(group) => accum.push(Node::Group(group)),
+            Prev::Children(ids) => accum.extend(ids.into_iter().map(Node::Leaf)),
         }
     }
 }

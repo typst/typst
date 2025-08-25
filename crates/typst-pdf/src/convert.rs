@@ -44,9 +44,11 @@ pub fn convert(
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
 
+    let tree = gc.tags.finish();
+
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc));
-    document.set_tag_tree(gc.tags.build_tree());
+    document.set_tag_tree(tree);
 
     finish(document, gc, options.standards.config)
 }
@@ -59,7 +61,8 @@ pub fn tag_tree(
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
 
-    let tree = gc.tags.build_tree();
+    let tree = gc.tags.finish();
+
     let mut output = String::new();
     if let Some(lang) = gc.tags.doc_lang
         && lang != Lang::ENGLISH
@@ -351,6 +354,9 @@ pub(crate) fn handle_group(
 ) -> SourceResult<()> {
     fc.push();
     fc.state_mut().pre_concat(group.transform);
+
+    let mut handle = tags::logical_child(gc, group.parent)?;
+    let gc = handle.gc();
 
     let clip_path = group
         .clip

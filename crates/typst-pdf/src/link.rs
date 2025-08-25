@@ -75,7 +75,8 @@ pub(crate) fn handle_link(
         Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
             let placeholder = gc.tags.placeholders.reserve();
-            let (alt, span) = if let Some((link, nodes)) = tagging_ctx {
+            let (alt, span) = if let Some((link, id)) = tagging_ctx {
+                let nodes = &mut gc.tags.groups.get_mut(id).nodes;
                 nodes.push(TagNode::Placeholder(placeholder));
                 let alt = link.alt.as_ref().map(EcoString::to_string);
                 (alt, link.span())

@@ -1,6 +1,6 @@
 use krilla::tagging::{ListNumbering, Tag, TagKind};
 
-use crate::tags::{GroupContents, TagNode};
+use crate::tags::{GroupContents, Groups, TagNode};
 
 #[derive(Clone, Debug)]
 pub struct ListCtx {
@@ -20,15 +20,12 @@ impl ListCtx {
         Self { numbering, items: Vec::new() }
     }
 
-    pub fn push_label(&mut self, contents: GroupContents) {
-        self.items.push(ListItem {
-            label: TagNode::group(Tag::Lbl, contents),
-            body: None,
-            sub_list: None,
-        });
+    pub fn push_label(&mut self, groups: &mut Groups, contents: GroupContents) {
+        let label = groups.init_tag(Tag::Lbl, contents);
+        self.items.push(ListItem { label, body: None, sub_list: None });
     }
 
-    pub fn push_body(&mut self, mut contents: GroupContents) {
+    pub fn push_body(&mut self, groups: &mut Groups, contents: GroupContents) {
         let item = self.items.last_mut().expect("ListItemLabel");
 
         // Nested lists are expected to have the following structure:
@@ -64,43 +61,42 @@ impl ListCtx {
         // ```
         //
         // So move the nested list out of the list item.
-        if let [.., TagNode::Group(group)] = contents.nodes.as_slice()
-            && let TagKind::L(_) = group.tag
+        if let [.., TagNode::Group(id)] = groups.get(contents.id).nodes.as_slice()
+            && let Some(TagKind::L(_)) = groups.get(*id).state.tag()
         {
-            item.sub_list = contents.nodes.pop();
+            item.sub_list = groups.get_mut(contents.id).nodes.pop();
         }
 
-        item.body = Some(TagNode::group(Tag::LBody, contents));
+        item.body = Some(groups.init_tag(Tag::LBody, contents));
     }
 
-    pub fn push_bib_entry(&mut self, contents: GroupContents) {
-        let nodes = vec![TagNode::group(Tag::BibEntry, contents)];
+    pub fn push_bib_entry(&mut self, groups: &mut Groups, contents: GroupContents) {
+        let nodes = vec![groups.init_tag(Tag::BibEntry, contents)];
         // Bibliography lists cannot be nested, but may be missing labels.
-        let body = TagNode::virtual_group(Tag::LBody, nodes);
+        let body = groups.new_virtual(Tag::LBody, nodes);
         if let Some(item) = self.items.last_mut().filter(|item| item.body.is_none()) {
             item.body = Some(body);
         } else {
             self.items.push(ListItem {
-                label: TagNode::empty_group(Tag::Lbl),
+                label: groups.new_empty(Tag::Lbl),
                 body: Some(body),
                 sub_list: None,
             });
         }
     }
 
-    pub fn build_list(self, mut contents: GroupContents) -> TagNode {
+    pub fn build_list(self, groups: &mut Groups, contents: GroupContents) -> TagNode {
         for item in self.items.into_iter() {
-            contents.nodes.push(TagNode::virtual_group(
-                Tag::LI,
-                vec![
-                    item.label,
-                    item.body.unwrap_or_else(|| TagNode::empty_group(Tag::LBody)),
-                ],
-            ));
+            let nodes = vec![
+                item.label,
+                item.body.unwrap_or_else(|| groups.new_empty(Tag::LBody)),
+            ];
+            let node = groups.new_virtual(Tag::LI, nodes);
+            groups.get_mut(contents.id).nodes.push(node);
             if let Some(sub_list) = item.sub_list {
-                contents.nodes.push(sub_list);
+                groups.get_mut(contents.id).nodes.push(sub_list);
             }
         }
-        TagNode::group(Tag::L(self.numbering), contents)
+        groups.init_tag(Tag::L(self.numbering), contents)
     }
 }

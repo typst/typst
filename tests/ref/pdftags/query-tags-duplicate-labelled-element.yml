@@ -1,0 +1,24 @@
+- Tag: P
+  /K:
+    - Tag: Figure
+      /Alt: "Text saying: hello there"
+      /BBox:
+        page: 0
+        left:    38.225
+        top:      9.600
+        right:   81.495
+        bottom:  16.680
+      /K:
+        - Content: page=0 mcid=0
+- Tag: P
+  /K:
+    - Tag: Figure
+      /Alt: "Text saying: hello there"
+      /BBox:
+        page: 0
+        left:    38.225
+        top:     28.180
+        right:   81.495
+        bottom:  35.260
+      /K:
+        - Content: page=0 mcid=1

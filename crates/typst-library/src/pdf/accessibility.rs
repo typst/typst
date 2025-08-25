@@ -8,7 +8,7 @@ use crate::diag::SourceResult;
 use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
-use crate::introspection::{Locatable, Location};
+use crate::introspection::Locatable;
 use crate::model::TableCell;
 
 /// Mark content as a PDF artifact.
@@ -150,8 +150,6 @@ pdf_marker_tag! {
     OutlineBody,
     /// `Figure`
     FigureBody(alt: Option<EcoString>),
-    /// `Note` footnote reference
-    FootnoteRef(decl_loc: Location),
     /// `L` bibliography list
     Bibliography(numbered: bool),
     /// `LBody` wrapping `BibEntry`
