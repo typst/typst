@@ -91,7 +91,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-file-not-found ---
-// Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at do-not-add-image-with-this-name.png)
+// Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">

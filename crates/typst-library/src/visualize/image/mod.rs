@@ -266,19 +266,18 @@ impl Packed<ImageElem> {
                 .at(span)?,
             ),
             ImageFormat::Vector(VectorFormat::Svg) => {
-                // Keep track of the relative path from which file images are linked.
-                // If SVG source is bytes, paths are relative to the typst file containing #image.
-                let svg_path = match self.source.source {
-                    DataSource::Path(ref path) => path,
-                    DataSource::Bytes(_) => &EcoString::new(),
+                // Try to identify the SVG file,
+                // in case hrefs inside the SVG need to be resolved.
+                let svg_file = match self.source.source {
+                    DataSource::Path(ref path) => span.resolve_path(path).ok(),
+                    DataSource::Bytes(_) => span.id(),
                 };
                 ImageKind::Svg(
                     SvgImage::with_fonts(
-                        &span,
-                        svg_path,
                         loaded.data.clone(),
                         engine.world,
                         &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+                        svg_file,
                     )
                     .within(loaded)?,
                 )

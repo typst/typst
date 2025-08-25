@@ -5,7 +5,7 @@ use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst_syntax::{Span, VirtualPath};
+use typst_syntax::FileId;
 
 use crate::World;
 use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
@@ -45,15 +45,14 @@ impl SvgImage {
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
     pub fn with_fonts(
-        span: &Span,
-        svg_path: &EcoString,
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
+        svg_file: Option<FileId>,
     ) -> LoadResult<SvgImage> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
-        let image_resolver = Mutex::new(ImageResolver::new(world, span, svg_path));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
@@ -316,26 +315,22 @@ impl FontResolver<'_> {
 /// Resolves linked images in an SVG.
 /// (Linked SVG images from an SVG are not supported yet.)
 struct ImageResolver<'a> {
-    /// The world we use to check if resolved images in the SVG are within the project root.
+    /// The world used to load linked images.
     world: Tracked<'a, dyn World + 'a>,
-    /// The span of the file loading the SVG.
-    span: &'a Span,
-    /// Path to the SVG file or an empty string if the SVG is given as bytes.
-    svg_path: &'a EcoString,
+    /// SVG file, used to resolve hrefs to linked images.
+    svg_file: Option<FileId>,
     /// The first error that occurred when loading a linked image, if any.
     error: Option<LoadError>,
 }
 
 impl<'a> ImageResolver<'a> {
-    fn new(
-        world: Tracked<'a, dyn World + 'a>,
-        span: &'a Span,
-        svg_path: &'a EcoString,
-    ) -> Self {
-        Self { world, span, svg_path, error: None }
+    fn new(world: Tracked<'a, dyn World + 'a>, svg_file: Option<FileId>) -> Self {
+        Self { world, svg_file, error: None }
     }
 
-    /// Load a linked image or return None if a previous image caused an error.
+    /// Load a linked image or return None if a previous image caused an error,
+    /// or if the linked image failed to load.
+    /// Only the first error message is retained.
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
         if self.error.is_none() {
             match self.load_or_error(href) {
@@ -368,10 +363,10 @@ impl<'a> ImageResolver<'a> {
         }
 
         // Resolve the path to the linked image.
-        let href_path = VirtualPath::new(self.svg_path.as_str()).join(href);
-        let href_file = self
-            .span
-            .resolve_path(&href_path.as_rooted_path().to_string_lossy())?;
+        if self.svg_file.is_none() {
+            return Err(EcoString::from("cannot access file system from here"));
+        }
+        let href_file = self.svg_file.unwrap().join(href);
 
         // Load image if file can be accessed.
         match self.world.file(href_file) {
