@@ -212,7 +212,7 @@ pub struct PluginFunc {
 
 impl PluginFunc {
     /// The name of the plugin function.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &EcoString {
         &self.name
     }
 
