@@ -245,15 +245,15 @@ impl TableCtx {
         );
 
         // Remove overlapping border strokes between cells.
-        for y in 0..self.cells.height() {
-            for x in 0..self.cells.width().saturating_sub(1) {
+        for y in 0..height {
+            for x in 0..width.saturating_sub(1) {
                 prioritize_strokes(&mut self.cells, (x, y), (x + 1, y), |a, b| {
                     (&mut a.stroke.right, &mut b.stroke.left)
                 });
             }
         }
-        for x in 0..self.cells.width() {
-            for y in 0..self.cells.height().saturating_sub(1) {
+        for x in 0..width {
+            for y in 0..height.saturating_sub(1) {
                 prioritize_strokes(&mut self.cells, (x, y), (x, y + 1), |a, b| {
                     (&mut a.stroke.bottom, &mut b.stroke.top)
                 });
