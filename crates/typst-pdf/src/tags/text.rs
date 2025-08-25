@@ -36,11 +36,7 @@ impl TextAttrs {
     }
 
     pub fn push_highlight(&mut self, elem: &Content, paint: Option<&Paint>) {
-        let color = match paint {
-            // TODO: don't fail silently
-            Some(paint) => convert::paint_to_color(paint),
-            None => None,
-        };
+        let color = paint.and_then(convert::paint_to_color);
         self.push(elem, TextAttr::Highlight(color));
     }
 
