@@ -257,7 +257,7 @@ Let's start with an example of a horizontally striped table:
 
 #set table(
   fill: (rgb("EAF2F5"), none),
-  stroke: frame(rgb("21222C")),
+  stroke: frame(1pt + rgb("21222C")),
 )
 
 #table(
@@ -303,7 +303,7 @@ horizontal stripes instead:
 >>>
 #set table(
   fill: (_, y) => if calc.odd(y) { rgb("EAF2F5") },
-  stroke: frame(rgb("21222C")),
+  stroke: frame(1pt + rgb("21222C")),
 )
 >>>
 >>> #table(
@@ -346,7 +346,7 @@ something like this:
 >>>
 #set table(
   fill: (_, y) => (none, rgb("EAF2F5"), rgb("DDEAEF")).at(calc.rem(y, 3)),
-  stroke: frame(rgb("21222C")),
+  stroke: frame(1pt + rgb("21222C")),
 )
 >>>
 >>> #table(
@@ -671,7 +671,7 @@ one intersection highlighted.
   columns: 3,
   stroke: (x: none),
 
-  [], [*High Neuroticism*], [*Low Neuroticism*],
+  table.header[][*High Neuroticism*][*Low Neuroticism*],
 
   [*High Agreeableness*],
   table.cell(stroke: orange + 2pt)[

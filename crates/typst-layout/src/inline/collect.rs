@@ -46,6 +46,11 @@ pub enum Item<'a> {
 }
 
 impl<'a> Item<'a> {
+    /// Whether this is a tag item.
+    pub fn is_tag(&self) -> bool {
+        matches!(self, Self::Tag(_))
+    }
+
     /// If this a text item, return it.
     pub fn text(&self) -> Option<&ShapedText<'a>> {
         match self {
@@ -82,7 +87,7 @@ impl<'a> Item<'a> {
     /// The natural layouted width of the item.
     pub fn natural_width(&self) -> Abs {
         match self {
-            Self::Text(shaped) => shaped.width,
+            Self::Text(shaped) => shaped.width(),
             Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
