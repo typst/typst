@@ -97,7 +97,7 @@
         });
       in
       {
-        formatter = pkgs.nixpkgs-fmt;
+        formatter = pkgs.nixfmt-tree;
 
         packages = {
           default = typst;
