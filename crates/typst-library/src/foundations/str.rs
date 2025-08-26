@@ -42,9 +42,10 @@ pub use crate::__format_str as format_str;
 /// [joined together]($scripting/#blocks) and multiplied with integers.
 ///
 /// Typst provides utility methods for string manipulation. Many of these
-/// methods (e.g., `split`, `trim` and `replace`) operate on _patterns:_ A
-/// pattern can be either a string or a [regular expression]($regex). This makes
-/// the methods quite versatile.
+/// methods (e.g., [`split`]($str.split), [`trim`]($str.trim) and
+/// [`replace`]($str.replace)) operate on _patterns:_ A pattern can be either a
+/// string or a [regular expression]($regex). This makes the methods quite
+/// versatile.
 ///
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
 /// zero-based and negative indices wrap around to the end of the string.
@@ -422,6 +423,17 @@ impl Str {
     ///   group. The first item of the array contains the first matched
     ///   capturing, not the whole match! This is empty unless the `pattern` was
     ///   a regex with capturing groups.
+    ///
+    /// ```example
+    /// #assert.eq("Is there a".match("for this?"), none)
+    /// #"The time of my life.".match(regex("[mit]+e"))
+    /// ```
+    ///
+    /// ```example
+    /// #let pat = regex("not (a|an) (apple|cat)")
+    /// #"I'm a doctor, not an apple.".match(pat) \
+    /// #"I am not a cat!".match(pat)
+    /// ```
     #[func]
     pub fn match_(
         &self,
@@ -438,7 +450,11 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns an array of
     /// dictionaries with details about all matches. For details about the
-    /// returned dictionaries, see above.
+    /// returned dictionaries, see [above]($str.match).
+    ///
+    /// ```example
+    /// #"Day by Day.".matches("Day")
+    /// ```
     #[func]
     pub fn matches(
         &self,
@@ -473,6 +489,9 @@ impl Str {
         /// The string to replace the matches with or a function that gets a
         /// dictionary for each match and can return individual replacement
         /// strings.
+        ///
+        /// The dictionary passed to the function has the same shape as the
+        /// dictionary returned by [`match`]($str.match).
         replacement: Replacement,
         ///  If given, only the first `count` matches of the pattern are placed.
         #[named]

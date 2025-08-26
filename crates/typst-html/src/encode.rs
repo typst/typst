@@ -52,10 +52,10 @@ fn write_indent(w: &mut Writer) {
 }
 
 /// Encodes an HTML node into the writer.
-fn write_node(w: &mut Writer, node: &HtmlNode) -> SourceResult<()> {
+fn write_node(w: &mut Writer, node: &HtmlNode, escape_text: bool) -> SourceResult<()> {
     match node {
         HtmlNode::Tag(_) => {}
-        HtmlNode::Text(text, span) => write_text(w, text, *span)?,
+        HtmlNode::Text(text, span) => write_text(w, text, *span, escape_text)?,
         HtmlNode::Element(element) => write_element(w, element)?,
         HtmlNode::Frame(frame) => write_frame(w, frame),
     }
@@ -63,12 +63,12 @@ fn write_node(w: &mut Writer, node: &HtmlNode) -> SourceResult<()> {
 }
 
 /// Encodes plain text into the writer.
-fn write_text(w: &mut Writer, text: &str, span: Span) -> SourceResult<()> {
+fn write_text(w: &mut Writer, text: &str, span: Span, escape: bool) -> SourceResult<()> {
     for c in text.chars() {
-        if charsets::is_valid_in_normal_element_text(c) {
-            w.buf.push(c);
-        } else {
+        if escape || !charsets::is_valid_in_normal_element_text(c) {
             write_escape(w, c).at(span)?;
+        } else {
+            w.buf.push(c);
         }
     }
     Ok(())
@@ -152,7 +152,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         if core::mem::take(&mut indent) || pretty_around {
             write_indent(w);
         }
-        write_node(w, c)?;
+        write_node(w, c, element.pre_span)?;
         indent = pretty_around;
     }
     w.level -= 1;
@@ -213,7 +213,7 @@ fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 
 /// Encodes the contents of an escapable raw text element.
 fn write_escapable_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
-    walk_raw_text(element, |piece, span| write_text(w, piece, span))
+    walk_raw_text(element, |piece, span| write_text(w, piece, span, false))
 }
 
 /// Collects the textual contents of a raw text element.

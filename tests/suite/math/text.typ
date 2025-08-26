@@ -18,7 +18,7 @@ $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
 
 --- math-font-features-switch ---
-#let scr(it) = text(features: ("ss01",), $cal(it)$)
+#let scr(it) = text(stylistic-set: 1, $cal(it)$)
 $cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
 $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 
@@ -29,7 +29,7 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
     (name: "XITS Math", covers: regex("[\u{1D49C}-\u{1D503}]")),
     "New Computer Modern Math"
   ),
-  features: ("ss01",),
+  stylistic-set: 1,
 )
 $ cal(P)_i (X) * cal(C)_1 $
 

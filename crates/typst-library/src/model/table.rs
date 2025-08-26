@@ -22,8 +22,8 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Because tables are just grids with different defaults for some cell
 /// properties (notably `stroke` and `inset`), refer to the [grid
-/// documentation]($grid) for more information on how to size the table tracks
-/// and specify the cell appearance properties.
+/// documentation]($grid/#track-size) for more information on how to size the
+/// table tracks and specify the cell appearance properties.
 ///
 /// If you are unsure whether you should be using a table or a grid, consider
 /// whether the content you are arranging semantically belongs together as a set
@@ -115,22 +115,22 @@ use crate::visualize::{Paint, Stroke};
 /// ```
 #[elem(scope, LocalName, Figurable)]
 pub struct TableElem {
-    /// The column sizes. See the [grid documentation]($grid) for more
-    /// information on track sizing.
+    /// The column sizes. See the [grid documentation]($grid/#track-size) for
+    /// more information on track sizing.
     pub columns: TrackSizings,
 
-    /// The row sizes. See the [grid documentation]($grid) for more information
-    /// on track sizing.
+    /// The row sizes. See the [grid documentation]($grid/#track-size) for more
+    /// information on track sizing.
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand for setting
     /// `column-gutter` and `row-gutter` to the same value. See the [grid
-    /// documentation]($grid) for more information on gutters.
+    /// documentation]($grid.gutter) for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid) for more information on gutters.
+    /// [grid documentation]($grid.gutter) for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -138,7 +138,7 @@ pub struct TableElem {
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid) for more information on gutters.
+    /// [grid documentation]($grid.gutter) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 

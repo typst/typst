@@ -28,14 +28,10 @@ use self::rowspans::{Rowspan, UnbreakableRowGroup};
 pub fn layout_cell(
     cell: &Cell,
     engine: &mut Engine,
-    disambiguator: usize,
+    locator: Locator,
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let mut locator = cell.locator.relayout();
-    if disambiguator > 0 {
-        locator = locator.split().next_inner(disambiguator as u128);
-    }
     crate::layout_fragment(engine, &cell.body, locator, styles, regions)
 }
 
@@ -48,8 +44,8 @@ pub fn layout_grid(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let grid = grid_to_cellgrid(elem, engine, locator, styles)?;
-    GridLayouter::new(&grid, regions, styles, elem.span()).layout(engine)
+    let grid = grid_to_cellgrid(elem, engine, styles)?;
+    GridLayouter::new(&grid, regions, locator, styles, elem.span()).layout(engine)
 }
 
 /// Layout the table.
@@ -61,6 +57,6 @@ pub fn layout_table(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let grid = table_to_cellgrid(elem, engine, locator, styles)?;
-    GridLayouter::new(&grid, regions, styles, elem.span()).layout(engine)
+    let grid = table_to_cellgrid(elem, engine, styles)?;
+    GridLayouter::new(&grid, regions, locator, styles, elem.span()).layout(engine)
 }

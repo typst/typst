@@ -36,8 +36,6 @@ pub fn layout_list(
         .aligned(HAlignment::Start + VAlignment::Top);
 
     let mut cells = vec![];
-    let mut locator = locator.split();
-
     for item in &elem.children {
         // Text in wide lists shall always turn into paragraphs.
         let mut body = item.body.clone();
@@ -45,13 +43,10 @@ pub fn layout_list(
             body += ParbreakElem::shared();
         }
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            body.set(ListElem::depth, Depth(1)),
-            locator.next(&item.body.span()),
-        ));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(marker.clone()));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(body.set(ListElem::depth, Depth(1))));
     }
 
     let grid = CellGrid::new(
@@ -64,7 +59,7 @@ pub fn layout_list(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
 
     layouter.layout(engine)
 }
@@ -88,7 +83,6 @@ pub fn layout_enum(
     });
 
     let mut cells = vec![];
-    let mut locator = locator.split();
     let mut number = elem
         .start
         .get(styles)
@@ -131,13 +125,10 @@ pub fn layout_enum(
             body += ParbreakElem::shared();
         }
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(resolved, locator.next(&())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            body.set(EnumElem::parents, smallvec![number]),
-            locator.next(&item.body.span()),
-        ));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(resolved));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(body.set(EnumElem::parents, smallvec![number])));
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
@@ -152,7 +143,7 @@ pub fn layout_enum(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
 
     layouter.layout(engine)
 }

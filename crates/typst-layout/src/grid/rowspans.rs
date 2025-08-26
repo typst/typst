@@ -145,7 +145,8 @@ impl GridLayouter<'_> {
         }
 
         // Push the layouted frames directly into the finished frames.
-        let fragment = layout_cell(cell, engine, disambiguator, self.styles, pod)?;
+        let locator = self.cell_locator(Axes::new(x, y), disambiguator);
+        let fragment = layout_cell(cell, engine, locator, self.styles, pod)?;
         let (current_region, current_header_row_height) = current_region_data.unzip();
 
         // Clever trick to process finished header rows:

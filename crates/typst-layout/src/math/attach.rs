@@ -1,3 +1,10 @@
+// Can be re-enabled once `Option::map_or_default` is stable in our MSRV.
+#![allow(unstable_name_collisions)]
+
+// Is unused in compiler versions where `Option::map_or_default` is stable.
+#[allow(unused_imports)]
+use typst_utils::OptionExt;
+
 use typst_library::diag::SourceResult;
 use typst_library::foundations::{Packed, StyleChain, SymbolElem};
 use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Rel, Size};
@@ -5,7 +12,6 @@ use typst_library::math::{
     AttachElem, EquationElem, LimitsElem, PrimesElem, ScriptsElem, StretchElem,
 };
 use typst_library::text::Font;
-use typst_utils::OptionExt;
 
 use super::{
     FrameFragment, Limits, MathContext, MathFragment, stretch_fragment,
