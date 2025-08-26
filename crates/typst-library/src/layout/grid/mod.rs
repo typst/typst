@@ -36,7 +36,11 @@ use crate::visualize::{Paint, Stroke};
 /// in the document flow. Set and show rules on one of these elements do not
 /// affect the other.
 ///
+/// # Sizing the tracks { #track-size }
+///
 /// A grid's sizing is determined by the track sizes specified in the arguments.
+/// There are multiple sizing parameters: [`columns`]($grid.columns),
+/// [`rows`]($grid.rows) and [`gutter`]($grid.gutter).
 /// Because each of the sizing parameters accepts the same values, we will
 /// explain them just once, here. Each sizing argument accepts an array of
 /// individual track sizes. A track size is either:
@@ -178,21 +182,26 @@ pub struct GridElem {
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
+    ///
+    /// See the [track size section](#track-size) above for more details.
     pub columns: TrackSizings,
 
     /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
+    ///
+    /// See the [track size section](#track-size) above for more details.
     pub rows: TrackSizings,
 
-    /// The gaps between rows and columns.
+    /// The gaps between rows and columns. This is a shorthand to set
+    /// [`column-gutter`]($grid.column-gutter) and [`row-gutter`]($grid.row-gutter)
+    /// to the same value.
     ///
     /// If there are more gutters than defined sizes, the last gutter is
     /// repeated.
     ///
-    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
-    /// value.
+    /// See the [track size section](#track-size) above for more details.
     #[external]
     pub gutter: TrackSizings,
 
