@@ -1,10 +1,10 @@
 use std::cell::OnceCell;
-use std::collections::HashMap;
 use std::slice::SliceIndex;
 
 use krilla::geom as kg;
 use krilla::tagging as kt;
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
+use rustc_hash::FxHashMap;
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, GridCell, Point, Rect};
@@ -18,7 +18,6 @@ use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
 use crate::tags::outline::OutlineCtx;
 use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
-use crate::tags::{Placeholder, TagNode};
 use crate::util::AbsExt;
 
 pub struct Tags {
@@ -30,11 +29,7 @@ pub struct Tags {
     pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
-    /// Footnotes are inserted directly after the footenote reference in the
-    /// reading order. Because of some layouting bugs, the entry might appear
-    /// before the reference in the text, so we only resolve them once tags
-    /// for the whole document are generated.
-    pub footnotes: HashMap<Location, FootnoteCtx>,
+    pub groups: Groups,
     pub disable: Option<Disable>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
@@ -53,7 +48,7 @@ impl Tags {
             text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
-            footnotes: HashMap::new(),
+            groups: Groups::default(),
             disable: None,
 
             link_id: LinkId(0),
@@ -65,7 +60,7 @@ impl Tags {
 
     pub fn push(&mut self, node: TagNode) {
         if let Some(entry) = self.stack.last_mut() {
-            entry.nodes.push(node);
+            self.groups.get_mut(entry.id).nodes.push(node);
         } else {
             self.tree.push(node);
         }
@@ -78,7 +73,7 @@ impl Tags {
         }
 
         let last_node = if let Some(entry) = self.stack.last_mut() {
-            entry.nodes.last_mut()
+            self.groups.get_mut(entry.id).nodes.last_mut()
         } else {
             self.tree.last_mut()
         };
@@ -91,25 +86,25 @@ impl Tags {
         }
     }
 
-    pub fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
-        if let Some(entry) = self.stack.last_mut() {
-            entry.nodes.extend(nodes);
-        } else {
-            self.tree.extend(nodes);
-        }
-    }
-
     pub fn build_tree(&mut self) -> TagTree {
         assert!(self.stack.items.is_empty(), "tags weren't properly closed");
 
-        let children = std::mem::take(&mut self.tree)
-            .into_iter()
-            .map(|node| self.resolve_node(node))
-            .collect::<Vec<_>>();
+        let mut children = Vec::with_capacity(self.tree.len());
+
+        for child in std::mem::take(&mut self.tree) {
+            resolve_node(
+                &mut self.groups,
+                &mut self.placeholders,
+                &mut self.doc_lang,
+                &mut children,
+                child,
+            );
+        }
+
         TagTree::from(children)
     }
 
-    /// Try to set the language of a parent tag, or the entire document.
+    /// Try to set the language of the direct parent tag, or the entire document.
     /// If the language couldn't be set and is different from the existing one,
     /// this will return `Some`, and the language should be specified on the
     /// marked content directly.
@@ -119,42 +114,13 @@ impl Tags {
             return None;
         }
         if let Some(last) = self.stack.last_mut()
+            && let last = &mut self.groups.get_mut(last.id)
             && last.lang.is_none_or(|l| l == lang)
         {
             last.lang = Some(lang);
             return None;
         }
         Some(lang)
-    }
-
-    /// Resolves nodes into an accumulator.
-    fn resolve_node(&mut self, node: TagNode) -> Node {
-        match node {
-            TagNode::Group(group) => {
-                let nodes = (group.nodes.into_iter())
-                    .map(|node| self.resolve_node(node))
-                    .collect();
-                let group = kt::TagGroup::with_children(group.tag, nodes);
-                Node::Group(group)
-            }
-            TagNode::Leaf(identifier) => Node::Leaf(identifier),
-            TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
-            TagNode::FootnoteEntry(loc) => {
-                let node = (self.footnotes.remove(&loc))
-                    .and_then(|ctx| ctx.entry)
-                    .expect("footnote");
-                self.resolve_node(node)
-            }
-            TagNode::Text(attrs, ids) => {
-                let children = ids.into_iter().map(Node::Leaf).collect();
-                attrs.build_node(children)
-            }
-        }
-    }
-
-    pub fn context_supports(&self, _tag: &StackEntryKind) -> bool {
-        // TODO: generate using: https://pdfa.org/resource/iso-ts-32005-hierarchical-inclusion-rules/
-        true
     }
 
     pub fn next_link_id(&mut self) -> LinkId {
@@ -165,6 +131,64 @@ impl Tags {
     pub fn next_table_id(&mut self) -> TableId {
         self.table_id.0 += 1;
         self.table_id
+    }
+}
+
+/// Resolves nodes into an accumulator.
+fn resolve_node(
+    groups: &mut Groups,
+    placeholders: &mut Placeholders,
+    mut parent_lang: &mut Option<Lang>,
+    accum: &mut Vec<Node>,
+    node: TagNode,
+) {
+    match node {
+        TagNode::Group(id) => {
+            let mut group = groups.take(id);
+
+            let mut nodes = Vec::with_capacity(group.nodes.len());
+            let lang =
+                if group.tag.is_some() { &mut group.lang } else { &mut parent_lang };
+            for child in group.nodes.into_iter() {
+                resolve_node(groups, placeholders, lang, &mut nodes, child);
+            }
+
+            // Try to propagate the groups language to the parent tag.
+            group.lang = group.lang.and_then(|lang| {
+                if parent_lang.is_none_or(|l| l == lang) {
+                    *parent_lang = Some(lang);
+                    return None;
+                }
+                Some(lang)
+            });
+
+            if let Some(mut tag) = group.tag {
+                tag.set_lang(group.lang.map(|l| l.as_str().to_string()));
+                let group = kt::TagGroup::with_children(tag, nodes);
+                accum.push(Node::Group(group));
+            } else if let Some(lang) = group.lang {
+                // HACK: This should never happen. This group has a language
+                // attribute associated with it, that couldn't be propagated to
+                // the parent group, but also it doesn't have a tag because it
+                // is a transparent group. This will only happen if a transparent
+                // group has direct children that are marked content sequences,
+                // which currently cannot happen.
+                let tag = kt::Tag::NonStruct.with_lang(Some(lang.as_str().to_string()));
+                let group = kt::TagGroup::with_children(tag, nodes);
+                accum.push(Node::Group(group));
+            } else {
+                accum.extend(nodes);
+            }
+        }
+        TagNode::Leaf(identifier) => {
+            accum.push(Node::Leaf(identifier));
+        }
+        TagNode::Placeholder(placeholder) => {
+            accum.push(placeholders.take(placeholder));
+        }
+        TagNode::Text(attrs, ids) => {
+            attrs.resolve_nodes(accum, ids);
+        }
     }
 }
 
@@ -281,10 +305,10 @@ impl TagStack {
         self.parent()?.as_figure_mut()
     }
 
-    pub fn parent_outline(&mut self) -> Option<(&mut OutlineCtx, &mut Vec<TagNode>)> {
+    pub fn parent_outline(&mut self) -> Option<(&mut OutlineCtx, GroupId)> {
         self.items.last_mut().and_then(|e| {
             let ctx = e.kind.as_outline_mut()?;
-            Some((ctx, &mut e.nodes))
+            Some((ctx, e.id))
         })
     }
 
@@ -292,12 +316,10 @@ impl TagStack {
         self.parent()?.as_outline_entry_mut()
     }
 
-    pub fn find_parent_link(
-        &mut self,
-    ) -> Option<(LinkId, &Packed<LinkMarker>, &mut Vec<TagNode>)> {
+    pub fn find_parent_link(&mut self) -> Option<(LinkId, &Packed<LinkMarker>, GroupId)> {
         self.items.iter_mut().rev().find_map(|e| {
             let (link_id, link) = e.kind.as_link()?;
-            Some((link_id, link, &mut e.nodes))
+            Some((link_id, link, e.id))
         })
     }
 
@@ -328,6 +350,9 @@ impl Placeholders {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Placeholder(usize);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TableId(u32);
 
@@ -342,16 +367,19 @@ pub struct LinkId(u32);
 
 #[derive(Debug)]
 pub struct StackEntry {
-    pub loc: Location,
+    /// The location of the stack entry. If this is `None` the stack entry has
+    /// to be manually popped.
+    pub loc: Option<Location>,
     pub span: Span,
-    pub lang: Option<Lang>,
+    pub id: GroupId,
     pub kind: StackEntryKind,
-    pub nodes: Vec<TagNode>,
 }
 
 #[derive(Clone, Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
+    LogicalParent,
+    LogicalChild,
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
     Table(TableCtx),
@@ -365,11 +393,6 @@ pub enum StackEntryKind {
     Figure(FigureCtx),
     Formula(FigureCtx),
     Link(LinkId, Packed<LinkMarker>),
-    /// The footnote reference in the text, contains the declaration location.
-    FootnoteRef(Location),
-    /// The footnote entry at the end of the page. Contains the [`Location`] of
-    /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
-    FootnoteEntry(Location),
     CodeBlock,
     CodeBlockLine,
 }
@@ -468,6 +491,8 @@ impl StackEntryKind {
                 TagKind::Strong(_) => true,
                 TagKind::Em(_) => true,
             },
+            StackEntryKind::LogicalParent => false,
+            StackEntryKind::LogicalChild => false,
             StackEntryKind::Outline(_) => false,
             StackEntryKind::OutlineEntry(_) => false,
             StackEntryKind::Table(_) => false,
@@ -481,27 +506,9 @@ impl StackEntryKind {
             StackEntryKind::Figure(_) => false,
             StackEntryKind::Formula(_) => false,
             StackEntryKind::Link(..) => !is_pdf_ua,
-            StackEntryKind::FootnoteRef(_) => false,
-            StackEntryKind::FootnoteEntry(_) => false,
             StackEntryKind::CodeBlock => false,
             StackEntryKind::CodeBlockLine => false,
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FootnoteCtx {
-    /// Whether this footenote has been referenced inside the document. The
-    /// entry will be inserted inside the reading order after the first
-    /// reference. All other references will still have links to the footnote.
-    pub is_referenced: bool,
-    /// The nodes that make up the footnote entry.
-    pub entry: Option<TagNode>,
-}
-
-impl FootnoteCtx {
-    pub const fn new() -> Self {
-        Self { is_referenced: false, entry: None }
     }
 }
 
@@ -594,4 +601,104 @@ impl BBoxCtx {
         .unwrap();
         Some(BBox::new(page_idx, rect))
     }
+}
+
+#[derive(Debug, Default)]
+pub struct Groups {
+    locations: FxHashMap<Location, GroupId>,
+    list: Vec<Group>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GroupId(u32);
+
+impl Groups {
+    pub fn get(&self, id: GroupId) -> &Group {
+        &self.list[id.0 as usize]
+    }
+
+    pub fn get_mut(&mut self, id: GroupId) -> &mut Group {
+        &mut self.list[id.0 as usize]
+    }
+
+    pub fn take(&mut self, id: GroupId) -> Group {
+        std::mem::take(&mut self.list[id.0 as usize])
+    }
+
+    /// Reserves a located group, if the location hasn't already been reserved,
+    /// otherwise returns the already reserved id.
+    pub fn reserve_located(&mut self, loc: Location) -> GroupId {
+        *self.locations.entry(loc).or_insert_with(|| {
+            let id = GroupId(self.list.len() as u32);
+            self.list.push(Group { tag: None, lang: None, nodes: Vec::new() });
+            id
+        })
+    }
+
+    /// Reserves a virtual group not associated with any [`Location`].
+    pub fn reserve_virtual(&mut self) -> GroupId {
+        let id = GroupId(self.list.len() as u32);
+        self.list.push(Group { tag: None, lang: None, nodes: Vec::new() });
+        id
+    }
+
+    /// Directly create a virtual group, which didn't originate directly from a
+    /// typst element. It has [`Location`] associated with it, and thus cannot
+    /// be found by logical children.
+    pub fn new_virtual(
+        &mut self,
+        tag: impl Into<TagKind>,
+        nodes: Vec<TagNode>,
+    ) -> TagNode {
+        let id = GroupId(self.list.len() as u32);
+        self.list.push(Group { tag: Some(tag.into()), lang: None, nodes });
+        TagNode::Group(id)
+    }
+
+    /// Creaate an empty virtual group. See [`Self::new_virtual`].
+    pub fn new_empty(&mut self, tag: impl Into<TagKind>) -> TagNode {
+        self.new_virtual(tag, Vec::new())
+    }
+
+    /// Initialize a group that has been reserved using either
+    /// [`Self::reserve_located`] or [`Self::reserve_virtual`].
+    pub fn init_tag(
+        &mut self,
+        tag: impl Into<TagKind>,
+        contents: GroupContents,
+    ) -> TagNode {
+        let tag = tag.into().with_location(Some(contents.span.into_raw()));
+        let group = self.get_mut(contents.id);
+        assert!(group.tag.is_none());
+        group.tag = Some(tag);
+        TagNode::Group(contents.id)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Group {
+    /// The optional parent tag of this group. If not present, either there is
+    /// no parent tag for these children and they will be added directly to the
+    /// tag tree, or it hasn't been found yet.
+    pub tag: Option<TagKind>,
+    pub lang: Option<Lang>,
+    pub nodes: Vec<TagNode>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupContents {
+    pub id: GroupId,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TagNode {
+    Group(GroupId),
+    Leaf(Identifier),
+    /// Allows inserting a placeholder into the tag tree.
+    /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
+    Placeholder(Placeholder),
+    /// If the attributes are non-empty this will resolve to a [`Tag::Span`],
+    /// otherwise the items are inserted directly.
+    Text(ResolvedTextAttrs, Vec<Identifier>),
 }

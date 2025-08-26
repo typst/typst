@@ -344,6 +344,9 @@ pub(crate) fn handle_group(
     fc.push();
     fc.state_mut().pre_concat(group.transform);
 
+    let mut handle = tags::logical_child(gc, group.parent);
+    let gc = handle.gc();
+
     let clip_path = group
         .clip
         .as_ref()

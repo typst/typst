@@ -397,7 +397,7 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let loc = decl_loc.variant(1);
     // Add zero-width weak spacing to make the footnote "sticky".
     let link = sup.linked(Destination::Location(loc), Some(alt));
-    Ok(PdfMarkerTag::FootnoteRef(decl_loc, HElem::hole().pack() + link))
+    Ok(HElem::hole().pack() + link)
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
