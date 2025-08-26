@@ -351,6 +351,19 @@ impl<'a> ImageResolver<'a> {
 
     /// Load a linked image or return an error message string.
     fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
+        // If the href starts with "file://", strip this prefix to construct an ordinary path.
+        let href = if let Some(stripped) = href.strip_prefix("file://") {
+            stripped
+        } else {
+            href
+        };
+
+        // Do not accept absolute hrefs. They would be parsed in typst in a way
+        // that is not compatible with their interpretation in the SVG standard.
+        if href.starts_with("/") {
+            return Err(EcoString::from("absolute paths are not allowed"));
+        }
+
         // Exit early if the href is an URL.
         if let Some(pos) = href.find("://") {
             let scheme = &href[..pos];

@@ -79,13 +79,24 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
---- image-svg-linked-jpg ---
+--- image-svg-linked-jpg1 ---
 #set page(fill: gray)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
-    <image href="/assets/images/f2t.jpg" />
+    <image href="../../../assets/images/f2t.jpg" />
     <circle r="32" cx="24" cy="40" fill="none" stroke="red" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-jpg2 ---
+#set page(fill: gray)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
+    <image href="file://../../../assets/images/f2t.jpg" />
+    <circle r="32" cx="24" cy="40" fill="none" stroke="blue" />
   </svg>
   ```.text
 ))
@@ -111,21 +122,41 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-pdf ---
-// Error: 8-7:2 failed to load linked image /assets/images/diagrams.pdf in SVG (PDF documents are not supported)
+// Error: 8-7:2 failed to load linked image ../../../assets/images/diagrams.pdf in SVG (PDF documents are not supported)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
-    <image href="/assets/images/diagrams.pdf" />
+    <image href="../../../assets/images/diagrams.pdf" />
   </svg>
   ```.text
 ))
 
 --- image-svg-linked-csv ---
-// Error: 8-7:2 failed to load linked image /assets/data/bad.csv in SVG (could not determine image format)
+// Error: 8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (could not determine image format)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
-    <image href="/assets/data/bad.csv" />
+    <image href="../../../assets/data/bad.csv" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-absolute1 ---
+// Error: 8-7:2 failed to load linked image /home/user/foo.svg in SVG (absolute paths are not allowed)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="/home/user/foo.svg" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-absolute2 ---
+// Error: 8-7:2 failed to load linked image file:///home/user/foo.svg in SVG (absolute paths are not allowed)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="file:///home/user/foo.svg" />
   </svg>
   ```.text
 ))
