@@ -73,10 +73,7 @@
 
             buildInputs = [
               pkgs.openssl
-            ]
-            ++ (lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.libiconv
-            ]);
+            ];
 
             nativeBuildInputs = [
               pkgs.pkg-config
