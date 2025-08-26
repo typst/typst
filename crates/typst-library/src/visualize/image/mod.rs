@@ -266,18 +266,24 @@ impl Packed<ImageElem> {
                 .at(span)?,
             ),
             ImageFormat::Vector(VectorFormat::Svg) => {
-                // Try to identify the SVG file,
+                // Try to identify the parent directory of the SVG file,
                 // in case hrefs inside the SVG need to be resolved.
                 let svg_file = match self.source.source {
                     DataSource::Path(ref path) => span.resolve_path(path).ok(),
                     DataSource::Bytes(_) => span.id(),
                 };
+                // The following is a workaround to for the fact that FileID::join
+                // takes the parent directory before joining.
+                // The result is a FileId object that can be used to resolve hrefs,
+                // yet it only contains relevant information about the directory,
+                // not the filename, to avoid incorrect cache misses.
+                let svg_parent = svg_file.map(|file| file.join("_"));
                 ImageKind::Svg(
                     SvgImage::with_fonts(
                         loaded.data.clone(),
                         engine.world,
                         &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-                        svg_file,
+                        svg_parent,
                     )
                     .within(loaded)?,
                 )
