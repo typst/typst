@@ -1,10 +1,11 @@
 use std::cell::OnceCell;
-use std::collections::HashMap;
 use std::slice::SliceIndex;
 
 use krilla::geom as kg;
-use krilla::tagging as kt;
+use krilla::tagging::{self as kt, Tag};
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
+use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, GridCell, Point, Rect};
@@ -30,11 +31,9 @@ pub struct Tags {
     pub stack: TagStack,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
-    /// Footnotes are inserted directly after the footenote reference in the
-    /// reading order. Because of some layouting bugs, the entry might appear
-    /// before the reference in the text, so we only resolve them once tags
-    /// for the whole document are generated.
-    pub footnotes: HashMap<Location, FootnoteCtx>,
+    /// A map of logical children that belogn to a parent tag. This is the
+    /// reverse maping of [typst_library::layout::GroupItem::parent].
+    pub logical_children: FxHashMap<Location, LogicalChildren>,
     pub disable: Option<Disable>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
@@ -53,7 +52,7 @@ impl Tags {
             text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
-            footnotes: HashMap::new(),
+            logical_children: FxHashMap::default(),
             disable: None,
 
             link_id: LinkId(0),
@@ -91,14 +90,6 @@ impl Tags {
         }
     }
 
-    pub fn extend(&mut self, nodes: impl IntoIterator<Item = TagNode>) {
-        if let Some(entry) = self.stack.last_mut() {
-            entry.nodes.extend(nodes);
-        } else {
-            self.tree.extend(nodes);
-        }
-    }
-
     pub fn build_tree(&mut self) -> TagTree {
         assert!(self.stack.items.is_empty(), "tags weren't properly closed");
 
@@ -106,6 +97,12 @@ impl Tags {
             .into_iter()
             .map(|node| self.resolve_node(node))
             .collect::<Vec<_>>();
+
+        assert!(
+            self.logical_children.is_empty(),
+            "not all logical children were resolved"
+        );
+
         TagTree::from(children)
     }
 
@@ -131,20 +128,20 @@ impl Tags {
     fn resolve_node(&mut self, node: TagNode) -> Node {
         match node {
             TagNode::Group(group) => {
-                let nodes = (group.nodes.into_iter())
+                let mut tag = group.tag;
+                let mut nodes = (group.nodes.into_iter())
                     .map(|node| self.resolve_node(node))
                     .collect();
-                let group = kt::TagGroup::with_children(group.tag, nodes);
+
+                if let Some(loc) = group.loc {
+                    self.resolve_logical_children(&mut tag, &mut nodes, loc);
+                }
+
+                let group = kt::TagGroup::with_children(tag, nodes);
                 Node::Group(group)
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
             TagNode::Placeholder(placeholder) => self.placeholders.take(placeholder),
-            TagNode::FootnoteEntry(loc) => {
-                let node = (self.footnotes.remove(&loc))
-                    .and_then(|ctx| ctx.entry)
-                    .expect("footnote");
-                self.resolve_node(node)
-            }
             TagNode::Text(attrs, ids) => {
                 let children = ids.into_iter().map(Node::Leaf).collect();
                 attrs.build_node(children)
@@ -152,9 +149,42 @@ impl Tags {
         }
     }
 
-    pub fn context_supports(&self, _tag: &StackEntryKind) -> bool {
-        // TODO: generate using: https://pdfa.org/resource/iso-ts-32005-hierarchical-inclusion-rules/
-        true
+    /// Resolve children logically belonging to the parent tag, because
+    /// [typst_library::layout::GroupItem::parent] has been set.
+    fn resolve_logical_children(
+        &mut self,
+        parent_tag: &mut TagKind,
+        parent_nodes: &mut Vec<Node>,
+        loc: Location,
+    ) {
+        let Some(children) = self.logical_children.remove(&loc) else {
+            return;
+        };
+
+        for (lang, child_nodes) in children.into_iter() {
+            // Try to propagate the language attribute to the parent.
+            let lang = lang.and_then(|lang| {
+                let Some(parent_lang) = parent_tag.lang() else {
+                    parent_tag.set_lang(Some(lang.as_str().to_string()));
+                    return None;
+                };
+                if parent_lang == lang.as_str() {
+                    return None;
+                }
+                Some(lang)
+            });
+
+            let child_nodes = child_nodes.into_iter().map(|node| self.resolve_node(node));
+
+            // TODO: Try to avoid inserting a group here.
+            if let Some(lang) = lang {
+                let tag = Tag::NonStruct.with_lang(Some(lang.as_str().to_string()));
+                let group = kt::TagGroup::with_children(tag, child_nodes.collect());
+                parent_nodes.push(kt::Node::Group(group));
+            } else {
+                parent_nodes.extend(child_nodes);
+            }
+        }
     }
 
     pub fn next_link_id(&mut self) -> LinkId {
@@ -167,6 +197,8 @@ impl Tags {
         self.table_id
     }
 }
+
+pub type LogicalChildren = SmallVec<[(Option<Lang>, Vec<TagNode>); 1]>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Disable {
@@ -342,7 +374,9 @@ pub struct LinkId(u32);
 
 #[derive(Debug)]
 pub struct StackEntry {
-    pub loc: Location,
+    /// The location of the stack entry. If this is `None` the stack entry has
+    /// to be manually popped.
+    pub loc: Option<Location>,
     pub span: Span,
     pub lang: Option<Lang>,
     pub kind: StackEntryKind,
@@ -365,11 +399,6 @@ pub enum StackEntryKind {
     Figure(FigureCtx),
     Formula(FigureCtx),
     Link(LinkId, Packed<LinkMarker>),
-    /// The footnote reference in the text, contains the declaration location.
-    FootnoteRef(Location),
-    /// The footnote entry at the end of the page. Contains the [`Location`] of
-    /// the [`FootnoteElem`](typst_library::model::FootnoteElem).
-    FootnoteEntry(Location),
     CodeBlock,
     CodeBlockLine,
 }
@@ -481,27 +510,9 @@ impl StackEntryKind {
             StackEntryKind::Figure(_) => false,
             StackEntryKind::Formula(_) => false,
             StackEntryKind::Link(..) => !is_pdf_ua,
-            StackEntryKind::FootnoteRef(_) => false,
-            StackEntryKind::FootnoteEntry(_) => false,
             StackEntryKind::CodeBlock => false,
             StackEntryKind::CodeBlockLine => false,
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FootnoteCtx {
-    /// Whether this footenote has been referenced inside the document. The
-    /// entry will be inserted inside the reading order after the first
-    /// reference. All other references will still have links to the footnote.
-    pub is_referenced: bool,
-    /// The nodes that make up the footnote entry.
-    pub entry: Option<TagNode>,
-}
-
-impl FootnoteCtx {
-    pub const fn new() -> Self {
-        Self { is_referenced: false, entry: None }
     }
 }
 

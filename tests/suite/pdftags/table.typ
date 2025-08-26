@@ -75,7 +75,7 @@
 #table(
   rows: (4em, auto, 4em),
   columns: 2,
-  table.cell(rowspan: 3, [a]),
+  table.cell(rowspan: 3, [a\ ] * 4),
   [b], [c], [d],
 )
 
@@ -84,6 +84,7 @@
 #table(
   rows: (4em, auto, 4em),
   columns: 3,
-  [a1], table.cell(rowspan: 2, [b]), [c1],
+  [a1], table.cell(rowspan: 3, [b\ ] * 5), [c1],
   [a2], [c2],
+  [a3], [c3],
 )

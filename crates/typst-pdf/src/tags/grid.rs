@@ -133,7 +133,6 @@ impl TableCtx {
             y,
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
             colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
-            multi_region: false,
             contents,
         });
     }
@@ -660,7 +659,6 @@ impl GridCtx {
             y: y.saturating_as(),
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
             colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
-            multi_region: false,
             contents,
         });
     }
@@ -808,50 +806,14 @@ impl<T: Clone> GridCells<T> {
         }
     }
 
-    fn insert(&mut self, mut cell: CtxCell<T>) {
+    fn insert(&mut self, cell: CtxCell<T>) {
         let x = cell.x;
         let y = cell.y;
         let rowspan = cell.rowspan.get();
         let colspan = cell.colspan.get();
         let parent_idx = self.cell_idx(x, y);
 
-        let prev = &mut self.entries[parent_idx];
-        if !prev.is_missing() {
-            // There should only ever be multiple introspection tag pairs that
-            // refer to the same cell if the cell is spans multiple regions.
-            let prev = prev.as_cell_mut().unwrap();
-
-            // The tags should originate from the same span.
-            assert_eq!(prev.contents.span, cell.contents.span);
-
-            // Generate sub groups for each region, and try to propagate the
-            // language attribute to the parent.
-            cell.contents.lang = cell.contents.lang.and_then(|lang| {
-                if prev.contents.lang.is_none_or(|l| l == lang) {
-                    prev.contents.lang = Some(lang);
-                    return None;
-                }
-                Some(lang)
-            });
-            let new = TagNode::group(Tag::NonStruct, cell.contents);
-
-            if !prev.multi_region {
-                let first = TagNode::group(
-                    Tag::NonStruct,
-                    GroupContents {
-                        span: prev.contents.span,
-                        lang: None, // The language will already be set on the parent.
-                        nodes: std::mem::take(&mut prev.contents.nodes),
-                    },
-                );
-                prev.contents.nodes = vec![first, new];
-                prev.multi_region = true;
-            } else {
-                prev.contents.nodes.push(new);
-            }
-
-            return;
-        }
+        assert!(self.entries[parent_idx].is_missing());
 
         // Store references to the cell for all spanned cells.
         for j in y..y + rowspan {
@@ -902,8 +864,5 @@ struct CtxCell<D> {
     y: u32,
     rowspan: NonZeroU32,
     colspan: NonZeroU32,
-    /// Whether this is a cell that spans multiple regions and thus has multiple
-    /// pairs of introspection tags that are merged into this cell.
-    multi_region: bool,
     contents: GroupContents,
 }
