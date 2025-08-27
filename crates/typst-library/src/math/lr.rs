@@ -56,7 +56,7 @@ impl Packed<LrElem> {
         {
             return Some((left.text, content, right.text));
         }
-        return None;
+        None
     }
 }
 
