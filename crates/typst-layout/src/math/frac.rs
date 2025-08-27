@@ -33,14 +33,9 @@ pub fn layout_frac(
     let mut num = elem.num.clone();
     if deparen
         && let Some(lr_num) = elem.num.to_packed::<LrElem>()
-        && !lr_num.explicit.unwrap_or(true)
-        && let Some(seq_num) = lr_num.body.to_packed::<SequenceElem>()
-        && let [first_num_delim, content @ .., last_num_delim] =
-            seq_num.children.as_slice()
-        && let Some(first_num_delim_symbol) = first_num_delim.to_packed::<SymbolElem>()
-        && let Some(last_num_delim_symbol) = last_num_delim.to_packed::<SymbolElem>()
-        && first_num_delim_symbol.text == '('
-        && last_num_delim_symbol.text == ')'
+        && let Some((left, content, right)) = lr_num.deconstruct()
+        && left == '('
+        && right == ')'
     {
         num = SequenceElem::new(content.to_vec().clone()).pack();
     }
@@ -48,15 +43,9 @@ pub fn layout_frac(
     let mut denom = elem.denom.clone();
     if deparen
         && let Some(lr_denom) = elem.denom.to_packed::<LrElem>()
-        && !lr_denom.explicit.unwrap_or(true)
-        && let Some(seq_denom) = lr_denom.body.to_packed::<SequenceElem>()
-        && let [first_denom_delim, content @ .., last_denom_delim] =
-            seq_denom.children.as_slice()
-        && let Some(first_denom_delim_symbol) =
-            first_denom_delim.to_packed::<SymbolElem>()
-        && let Some(last_denom_delim_symbol) = last_denom_delim.to_packed::<SymbolElem>()
-        && first_denom_delim_symbol.text == '('
-        && last_denom_delim_symbol.text == ')'
+        && let Some((left, content, right)) = lr_denom.deconstruct()
+        && left == '('
+        && right == ')'
     {
         denom = SequenceElem::new(content.to_vec().clone()).pack();
     }
