@@ -23,7 +23,7 @@ impl SVGRenderer<'_> {
 
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
-        self.xml.write_attribute("transform", "scale(1, -1)");
+        self.xml.write_attribute("transform", &format!("skewX({}) scale(1, -1)", text.font.ttf().italic_angle()));
 
         let mut x: f64 = 0.0;
         let mut y: f64 = 0.0;
