@@ -170,9 +170,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes fractional spacing.
     fn fr(&mut self, fr: Fr, weakness: u8) {
         if weakness > 0 {
-            let has_previous = self.items.iter().any(|item| {
-                !matches!(item, Item::Abs(_, _) | Item::Fr(_, _))
-            });
+            let has_previous = self
+                .items
+                .iter()
+                .any(|item| !matches!(item, Item::Abs(_, _) | Item::Fr(_, _)));
             if !has_previous {
                 return;
             }
