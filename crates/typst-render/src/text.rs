@@ -66,14 +66,17 @@ fn render_outline_glyph(
 
         let scale = text.size.to_f32() / text.font.units_per_em() as f32;
 
+        let italic_skew = text.font.ttf().italic_angle().to_radians().tan();
+
         let mut pixmap = None;
 
         let rule = sk::FillRule::default();
 
         // Flip vertically because font design coordinate
         // system is Y-up.
-        let ts = ts.pre_scale(scale, -scale);
-        let state_ts = state.pre_concat(sk::Transform::from_scale(scale, -scale));
+        let state_ts = state.pre_concat(sk::Transform::from_skew(italic_skew, 0.0));
+        let state_ts = state_ts.pre_concat(sk::Transform::from_scale(scale, -scale));
+        let ts = state_ts.transform;
         let paint = paint::to_sk_paint(
             &text.fill,
             state_ts,
