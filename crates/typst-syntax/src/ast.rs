@@ -595,6 +595,7 @@ impl Shorthand<'_> {
         ("--", '\u{2013}'),
         ("---", '\u{2014}'),
         ("-?", '\u{00AD}'),
+        ("-!", '\u{2011}'),
     ];
 
     /// Get the shorthanded character.
