@@ -131,7 +131,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         match child {
             Child::Tag(tag) => self.tag(tag),
             Child::Rel(amount, weakness) => self.rel(*amount, *weakness),
-            Child::Fr(fr) => self.fr(*fr),
+            Child::Fr(fr, weakness) => self.fr(*fr, *weakness),
             Child::Line(line) => self.line(line)?,
             Child::Single(single) => self.single(single)?,
             Child::Multi(multi) => self.multi(multi)?,
@@ -168,7 +168,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes fractional spacing.
-    fn fr(&mut self, fr: Fr) {
+    fn fr(&mut self, fr: Fr, weakness: u8) {
+        if weakness > 0 {
+            let has_previous = self.items.iter().any(|item| {
+                !matches!(item, Item::Abs(_, _) | Item::Fr(_, _))
+            });
+            if !has_previous {return;}
+        }
+
         self.trim_spacing();
         self.items.push(Item::Fr(fr, None));
     }
