@@ -173,7 +173,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             let has_previous = self.items.iter().any(|item| {
                 !matches!(item, Item::Abs(_, _) | Item::Fr(_, _))
             });
-            if !has_previous {return;}
+            if !has_previous {
+                return;
+            }
         }
 
         self.trim_spacing();
