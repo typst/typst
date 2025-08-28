@@ -639,10 +639,12 @@ impl<'a> Generator<'a> {
                 };
 
                 let supplement = child.supplement.get_cloned(StyleChain::default());
-                let locator = supplement.as_ref().map(|_| {
+                let locator = supplement.as_ref().map(|c| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent,
+                        hayagriva::LocatorPayload::Transparent(
+                            hayagriva::TransparentLocator::new(c.clone()),
+                        ),
                     )
                 });
 
