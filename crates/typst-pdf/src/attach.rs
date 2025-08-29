@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use krilla::Document;
-use krilla::embed::{AssociationKind, EmbeddedFile};
+use krilla::embed::{AssociationKind, EmbeddedFile, MimeType};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{NativeElement, StyleChain};
 use typst_library::layout::PagedDocument;
@@ -22,7 +22,11 @@ pub(crate) fn attach_files(
             .mime_type
             .get_ref(StyleChain::default())
             .as_ref()
-            .map(|s| s.to_string());
+            .map(|s| match MimeType::new(s) {
+                Some(mime_type) => Ok(mime_type),
+                None => bail!(elem.span(), "invalid mime-type"),
+            })
+            .transpose()?;
         let description = elem
             .description
             .get_ref(StyleChain::default())
@@ -48,6 +52,7 @@ pub(crate) fn attach_files(
             data: data.into(),
             compress,
             location: Some(span.into_raw()),
+            modification_date: None,
         };
 
         if document.embed_file(file).is_none() {

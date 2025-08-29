@@ -1,6 +1,6 @@
 // Test citations and bibliographies.
 
---- bibliography-basic ---
+--- bibliography-basic render pdftags ---
 #set page(width: 200pt)
 
 = Details

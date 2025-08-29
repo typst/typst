@@ -7,6 +7,7 @@ use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{Cell, CellGrid};
 use typst_library::layout::{Axes, Fragment, HAlignment, Regions, Sizing, VAlignment};
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
+use typst_library::pdf::PdfMarkerTag;
 use typst_library::text::TextElem;
 
 use crate::grid::GridLayouter;
@@ -42,11 +43,12 @@ pub fn layout_list(
         if !tight {
             body += ParbreakElem::shared();
         }
+        let body = body.set(ListElem::depth, Depth(1));
 
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(marker.clone()));
+        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(marker.clone())));
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(body.set(ListElem::depth, Depth(1))));
+        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
     }
 
     let grid = CellGrid::new(
@@ -125,10 +127,12 @@ pub fn layout_enum(
             body += ParbreakElem::shared();
         }
 
+        let body = body.set(EnumElem::parents, smallvec![number]);
+
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(resolved));
+        cells.push(Cell::new(PdfMarkerTag::ListItemLabel(resolved)));
         cells.push(Cell::new(Content::empty()));
-        cells.push(Cell::new(body.set(EnumElem::parents, smallvec![number])));
+        cells.push(Cell::new(PdfMarkerTag::ListItemBody(body)));
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }

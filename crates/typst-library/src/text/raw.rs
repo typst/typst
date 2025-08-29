@@ -20,6 +20,7 @@ use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
     StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
+use crate::introspection::Locatable;
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
@@ -127,6 +128,7 @@ use crate::visualize::Color;
     scope,
     title = "Raw Text / Code",
     Synthesize,
+    Locatable,
     ShowSet,
     LocalName,
     Figurable,
@@ -677,7 +679,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", Locatable, PlainText)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]

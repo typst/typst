@@ -7,3 +7,4 @@ outline = Cuprins
 # may be wrong
 raw = Listă
 page = pagina
+# footnote =
