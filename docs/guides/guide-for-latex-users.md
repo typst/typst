@@ -124,18 +124,17 @@ To get a [numbered list]($enum) (`enumerate`) instead, use a `+` instead of the
 hyphen. For a [term list]($terms) (`description`), write `[/ Term: Description]`
 instead.
 
-Regarding monospaced fonts (or "typewriter" style in LaTeX), using the [`raw`]
-function, such as in ``[`monospace`]`` (where you'd use `\texttt{monospace}` in
-LaTeX), only works for verbatim (unformatted) text. If you need to use
-formatting, such as bold in `\texttt{monospace \textbf{bold}}`, you will need
-to replicate its look by selecting a monospaced font with the [`text`]
-function. For example, to apply the default [`raw`] look:
+Note that the [`raw` function]($raw) and syntax (e.g. ``[`raw`]``) only work for
+verbatim (unformatted) text. If you require formatting, you can use the
+[`text` function]($text) with a monospace font instead, like in the example
+below:
 
 ```example
-#text(font: "DejaVu Sans Mono", size: 0.8em)[monospace *bold*]
+#text(
+  font: "DejaVu Sans Mono",
+  size: 0.8em,
+)[monospace *bold*]
 ```
-
-See the documentation for [`raw`] and [`text`] for more details.
 
 ## How do I use a command? { #commands }
 LaTeX heavily relies on commands (prefixed by backslashes). It uses these

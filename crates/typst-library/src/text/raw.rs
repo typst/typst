@@ -82,7 +82,8 @@ use crate::visualize::Color;
 /// backtick, put a space before or after it (it will be trimmed).
 ///
 /// If no syntax highlighting is available by default for your specified
-/// language tag, you may provide a custom syntax specification file to the
+/// language tag (or if you want to override the built-in definition), you may
+/// provide a custom syntax specification file to the
 /// [`syntaxes`]($raw.syntaxes) field.
 ///
 /// # Styling
@@ -94,13 +95,13 @@ use crate::visualize::Color;
 /// You can customize these properties with show-set rules:
 ///
 /// ````example
-/// // Switch to Cascadia Code for
-/// // both inline and block raw.
+/// // Switch to Cascadia Code for both
+/// // inline and block raw.
 /// #show raw: set text(font: "Cascadia Code")
 ///
-/// // Make raw blocks 20% larger than their default size.
-/// // Keep inline raw at the same size.
-/// #show raw.where(block: true): set text(1.2em)
+/// // Reset raw blocks to the same size as normal text,
+/// // but keep inline raw at the reduced size.
+/// #show raw.where(block: true): set text(1em / 0.8)
 ///
 /// Now using the `Cascadia Code` font for raw text.
 /// Here's some Python code. It looks larger now:
@@ -116,6 +117,12 @@ use crate::visualize::Color;
 ///
 /// For complete customization of the appearance of a raw block, a show rule
 /// on [`raw.line`]($raw.line) could be helpful, such as to add line numbers.
+///
+/// Note that, in raw text, typesetting features like
+/// [hyphenation]($text.hyphenate), [overhang]($text.overhang),
+/// [CJK-Latin spacing]($text.cjk-latin-spacing) (and
+/// [justification]($par.justify) for [raw blocks]($raw.block)) will be
+/// disabled by default.
 #[elem(
     scope,
     title = "Raw Text / Code",
