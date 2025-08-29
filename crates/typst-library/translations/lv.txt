@@ -1,7 +1,7 @@
-figure = Zīm.
+figure = Attēls
 table = Tabula
 equation = Vienādojums
-bibliography = Bibliogrāfija
+bibliography = Literatūra
 heading = Sadaļa
 outline = Saturs
 raw = Saraksts

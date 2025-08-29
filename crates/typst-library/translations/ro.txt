@@ -1,5 +1,5 @@
 figure = Figura
-table = Tabela
+table = Tabelul
 equation = Ecuația
 bibliography = Bibliografie
 heading = Secțiunea

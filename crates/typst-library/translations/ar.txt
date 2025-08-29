@@ -1,7 +1,7 @@
 figure = شكل
 table = جدول
 equation = معادلة
-bibliography = المصادر
+bibliography = المراجع
 heading = الفصل
 outline = المحتويات
 raw = قائمة

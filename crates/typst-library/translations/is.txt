@@ -1,7 +1,7 @@
 figure = Mynd
 table = Tafla
 equation = Jafna
-bibliography = Heimildir
+bibliography = Heimildaskrá
 heading = Kafli
 outline = Efnisyfirlit
 raw = Sýnishorn

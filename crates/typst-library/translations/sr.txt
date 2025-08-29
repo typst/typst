@@ -1,7 +1,7 @@
 figure = Слика
 table = Табела
 equation = Једначина
-bibliography = Библиографиjа
+bibliography = Литература
 heading = Поглавље
 outline = Садржај
 raw = Програм

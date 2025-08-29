@@ -1,8 +1,8 @@
 figure = Figura
-table = Cuadro
+table = Tabla
 equation = Ecuación
 bibliography = Bibliografía
-heading = Apartado
+heading = Sección
 outline = Índice
 raw = Listado
 page = página
