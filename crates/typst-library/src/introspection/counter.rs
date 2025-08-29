@@ -4,7 +4,7 @@ use std::str::FromStr;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::NonZeroExt;
 
 use crate::World;
@@ -407,6 +407,7 @@ impl Counter {
     /// Create a new counter identified by a key.
     #[func(constructor)]
     pub fn construct(
+        args: &mut Args,
         /// The key that identifies this counter globally.
         ///
         /// - If it is a string, creates a custom counter that is only affected
@@ -418,9 +419,21 @@ impl Counter {
         ///   - provide a [`where`]($function.where) selector:
         ///     counts a type of element with specific fields,
         ///   - provide a [`{<label>}`]($label): counts elements with that label.
-        key: CounterKey,
-    ) -> Counter {
-        Self::new(key)
+        ///
+        /// See {#state.key} for more information on how string keys work.
+        #[external]
+        #[default(CounterArg::Str("".into()))]
+        key: CounterArg,
+    ) -> SourceResult<Counter> {
+        let key: Option<CounterArg> = args.eat()?;
+
+        Ok(Self::new(match key {
+            Some(CounterArg::Key(k)) => k,
+            Some(CounterArg::Str(key)) => {
+                CounterKey::Str(Spanned { span: args.span, v: key })
+            }
+            None => CounterKey::Str(Spanned { span: args.span, v: "".into() }),
+        }))
     }
 
     /// Retrieves the value of the counter at the current location. Always
@@ -551,6 +564,23 @@ impl Repr for Counter {
     }
 }
 
+/// The argument passed to a counter
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum CounterArg {
+    Key(CounterKey),
+    Str(Str),
+}
+
+cast! {
+    CounterArg,
+    self => match self {
+        Self::Key(k) => k.into_value(),
+        Self::Str(s) => s.into_value(),
+    },
+    v: Str => Self::Str(v),
+    k: CounterKey => Self::Key(k)
+}
+
 /// Identifies a counter.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterKey {
@@ -560,8 +590,8 @@ pub enum CounterKey {
     /// [locatable]($location/#locatable)
     /// elements or labels.
     Selector(Selector),
-    /// Counts through manual counters with the same key.
-    Str(Str),
+    /// Counts through manual counters with the same creation span and key.
+    Str(Spanned<Str>),
 }
 
 cast! {
@@ -569,9 +599,8 @@ cast! {
     self => match self {
         Self::Page => PageElem::ELEM.into_value(),
         Self::Selector(v) => v.into_value(),
-        Self::Str(v) => v.into_value(),
+        Self::Str(v) => v.v.into_value(),
     },
-    v: Str => Self::Str(v),
     v: Label => Self::Selector(Selector::Label(v)),
     v: Element => {
         if v == PageElem::ELEM {
@@ -588,7 +617,7 @@ impl Repr for CounterKey {
         match self {
             Self::Page => "page".into(),
             Self::Selector(selector) => selector.repr(),
-            Self::Str(str) => str.repr(),
+            Self::Str(s) => s.v.repr(),
         }
     }
 }
