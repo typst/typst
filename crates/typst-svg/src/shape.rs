@@ -8,7 +8,7 @@ use typst_library::visualize::{
 use crate::paint::ColorEncode;
 use crate::{SVGRenderer, State, SvgPathBuilder};
 
-impl SVGRenderer {
+impl SVGRenderer<'_> {
     /// Render a shape element.
     pub(super) fn render_shape(&mut self, state: State, shape: &Shape) {
         self.xml.start_element("path");

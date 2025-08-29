@@ -34,8 +34,12 @@ impl<'a> Preparation<'a> {
         &self.items[idx]
     }
 
-    /// Iterate over the items that intersect the given `sliced` range.
-    pub fn slice(&self, sliced: Range) -> impl Iterator<Item = &(Range, Item<'a>)> {
+    /// Iterate over the items that intersect the given `sliced` range alongside
+    /// their indices in `self.items` and their ranges in the paragraph's text.
+    pub fn slice(
+        &self,
+        sliced: Range,
+    ) -> impl Iterator<Item = (usize, &(Range, Item<'a>))> {
         // Usually, we don't want empty-range items at the start of the line
         // (because they will be part of the previous line), but for the first
         // line, we need to keep them.
@@ -43,9 +47,13 @@ impl<'a> Preparation<'a> {
             0 => 0,
             n => self.indices.get(n).copied().unwrap_or(0),
         };
-        self.items[start..].iter().take_while(move |(range, _)| {
-            range.start < sliced.end || range.end <= sliced.end
-        })
+        self.items
+            .iter()
+            .enumerate()
+            .skip(start)
+            .take_while(move |(_, (range, _))| {
+                range.start < sliced.end || range.end <= sliced.end
+            })
     }
 }
 
@@ -144,7 +152,6 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
                 // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
                 glyph.adjustability.shrinkability.1 += Em::new(0.125);
-                text.width += Em::new(0.25).at(text.size);
             }
 
             // Case 2: Latin followed by a CJ character
@@ -152,7 +159,6 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
-                text.width += Em::new(0.25).at(text.size);
             }
 
             prev = Some(glyph);

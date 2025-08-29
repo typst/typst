@@ -18,7 +18,7 @@ use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
 use super::{
-    distribute, Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work,
+    Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,
 };
 
 /// Composes the contents of a single page/region. A region can have multiple
@@ -115,7 +115,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let column_height = regions.size.y;
         let backlog: Vec<_> = std::iter::once(&column_height)
             .chain(regions.backlog)
-            .flat_map(|&h| std::iter::repeat(h).take(self.config.columns.count))
+            .flat_map(|&h| std::iter::repeat_n(h, self.config.columns.count))
             .skip(1)
             .collect();
 
@@ -319,11 +319,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             let used = base.y - remaining;
             let half = need / 2.0;
             let ratio = (used + half) / base.y;
-            if ratio <= 0.5 {
-                FixedAlignment::Start
-            } else {
-                FixedAlignment::End
-            }
+            if ratio <= 0.5 { FixedAlignment::Start } else { FixedAlignment::End }
         });
 
         // Select the insertion area where we'll put this float.
@@ -851,7 +847,7 @@ fn layout_line_number_reset(
     config: &Config,
     locator: &mut SplitLocator,
 ) -> SourceResult<Frame> {
-    let counter = Counter::of(ParLineMarker::elem());
+    let counter = Counter::of(ParLineMarker::ELEM);
     let update = CounterUpdate::Set(CounterState::init(false));
     let content = counter.update(Span::detached(), update);
     crate::layout_frame(
@@ -879,7 +875,7 @@ fn layout_line_number(
     locator: &mut SplitLocator,
     numbering: &Numbering,
 ) -> SourceResult<Frame> {
-    let counter = Counter::of(ParLineMarker::elem());
+    let counter = Counter::of(ParLineMarker::ELEM);
     let update = CounterUpdate::Step(NonZeroUsize::ONE);
     let numbering = Smart::Custom(numbering.clone());
 

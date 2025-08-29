@@ -16,7 +16,7 @@ use typst::{Library, World};
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
-use crate::{contributors, OutlineItem, Resolver, FONTS, LIBRARY};
+use crate::{FONTS, LIBRARY, OutlineItem, Resolver, contributors};
 
 /// HTML documentation.
 #[derive(Serialize)]
@@ -84,14 +84,16 @@ impl Html {
             md::Parser::new_with_broken_link_callback(text, options, Some(&mut link))
                 .peekable();
 
-        let iter = std::iter::from_fn(|| loop {
-            let mut event = events.next()?;
-            handler.peeked = events.peek().and_then(|event| match event {
-                md::Event::Text(text) => Some(text.clone()),
-                _ => None,
-            });
-            if handler.handle(&mut event) {
-                return Some(event);
+        let iter = std::iter::from_fn(|| {
+            loop {
+                let mut event = events.next()?;
+                handler.peeked = events.peek().and_then(|event| match event {
+                    md::Event::Text(text) => Some(text.clone()),
+                    _ => None,
+                });
+                if handler.handle(&mut event) {
+                    return Some(event);
+                }
             }
         });
 
@@ -498,7 +500,7 @@ impl World for DocWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        Some(FONTS.1[index].clone())
+        FONTS.1.get(index).cloned()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {

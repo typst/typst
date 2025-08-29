@@ -1,9 +1,9 @@
 //! Debug representation of values.
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::round_with_precision;
 
-use crate::foundations::{func, Str, Value};
+use crate::foundations::{Str, Value, func};
 
 /// The Unicode minus sign.
 pub const MINUS_SIGN: &str = "\u{2212}";

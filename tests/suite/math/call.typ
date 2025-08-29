@@ -221,6 +221,15 @@ $
 // Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
 $ 5ab $
 
+--- math-call-symbol ---
+$ phi(x) $
+$ phi(x, y) $
+$ phi(1,2,,3,) $
+
+--- math-call-symbol-named-argument ---
+// Error: 10-18 unexpected argument: alpha
+$ phi(x, alpha: y) $
+
 --- issue-3774-math-call-empty-2d-args ---
 $ mat(;,) $
 // Add some whitespace/trivia:

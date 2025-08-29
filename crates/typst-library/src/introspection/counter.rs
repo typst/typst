@@ -2,24 +2,24 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
-use smallvec::{smallvec, SmallVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, HintedStrResult, SourceResult};
+use crate::World;
+use crate::diag::{At, HintedStrResult, SourceResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
-    Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
-    Selector, Show, Smart, Str, StyleChain, Value,
+    Args, Array, Construct, Content, Context, Element, Func, IntoValue, Label,
+    LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
+    StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::routines::Routines;
-use crate::World;
 
 /// Counts through pages, elements, and more.
 ///
@@ -229,10 +229,10 @@ impl Counter {
         if self.is_page() {
             let at_delta =
                 engine.introspector.page(location).get().saturating_sub(at_page.get());
-            at_state.step(NonZeroUsize::ONE, at_delta);
+            at_state.step(NonZeroUsize::ONE, at_delta as u64);
             let final_delta =
                 engine.introspector.pages().get().saturating_sub(final_page.get());
-            final_state.step(NonZeroUsize::ONE, final_delta);
+            final_state.step(NonZeroUsize::ONE, final_delta as u64);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
     }
@@ -250,7 +250,7 @@ impl Counter {
         if self.is_page() {
             let delta =
                 engine.introspector.page(location).get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta);
+            state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
     }
@@ -319,7 +319,7 @@ impl Counter {
 
                 let delta = page.get() - prev.get();
                 if delta > 0 {
-                    state.step(NonZeroUsize::ONE, delta);
+                    state.step(NonZeroUsize::ONE, delta as u64);
                 }
             }
 
@@ -338,7 +338,7 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = select_where!(CounterUpdateElem, Key => self.0.clone());
+        let mut selector = select_where!(CounterUpdateElem, key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -367,16 +367,16 @@ impl Counter {
             .or_else(|| {
                 let styles = styles?;
                 match self.0 {
-                    CounterKey::Page => PageElem::numbering_in(styles).clone(),
+                    CounterKey::Page => styles.get_cloned(PageElem::numbering),
                     CounterKey::Selector(Selector::Elem(func, _)) => {
-                        if func == HeadingElem::elem() {
-                            HeadingElem::numbering_in(styles).clone()
-                        } else if func == FigureElem::elem() {
-                            FigureElem::numbering_in(styles).clone()
-                        } else if func == EquationElem::elem() {
-                            EquationElem::numbering_in(styles).clone()
-                        } else if func == FootnoteElem::elem() {
-                            Some(FootnoteElem::numbering_in(styles).clone())
+                        if func == HeadingElem::ELEM {
+                            styles.get_cloned(HeadingElem::numbering)
+                        } else if func == FigureElem::ELEM {
+                            styles.get_cloned(FigureElem::numbering)
+                        } else if func == EquationElem::ELEM {
+                            styles.get_cloned(EquationElem::numbering)
+                        } else if func == FootnoteElem::ELEM {
+                            Some(styles.get_cloned(FootnoteElem::numbering))
                         } else {
                             None
                         }
@@ -398,7 +398,7 @@ impl Counter {
 
     /// Selects all state updates.
     pub fn select_any() -> Selector {
-        CounterUpdateElem::elem().select()
+        CounterUpdateElem::ELEM.select()
     }
 }
 
@@ -407,14 +407,16 @@ impl Counter {
     /// Create a new counter identified by a key.
     #[func(constructor)]
     pub fn construct(
-        /// The key that identifies this counter.
+        /// The key that identifies this counter globally.
         ///
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
         /// - If it is the [`page`] function, counts through pages,
-        /// - If it is a [selector], counts through elements that matches with the
+        /// - If it is a [selector], counts through elements that match the
         ///   selector. For example,
         ///   - provide an element function: counts elements of that type,
+        ///   - provide a [`where`]($function.where) selector:
+        ///     counts a type of element with specific fields,
         ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
@@ -500,7 +502,7 @@ impl Counter {
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
             let delta = engine.introspector.pages().get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta);
+            state.step(NonZeroUsize::ONE, delta as u64);
         }
         Ok(state)
     }
@@ -565,14 +567,14 @@ pub enum CounterKey {
 cast! {
     CounterKey,
     self => match self {
-        Self::Page => PageElem::elem().into_value(),
+        Self::Page => PageElem::ELEM.into_value(),
         Self::Selector(v) => v.into_value(),
         Self::Str(v) => v.into_value(),
     },
     v: Str => Self::Str(v),
     v: Label => Self::Selector(Selector::Label(v)),
     v: Element => {
-        if v == PageElem::elem() {
+        if v == PageElem::ELEM {
             Self::Page
         } else {
             Self::Selector(LocatableSelector::from_value(v.into_value())?.0)
@@ -616,13 +618,13 @@ pub trait Count {
 
 /// Counts through elements with different levels.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct CounterState(pub SmallVec<[usize; 3]>);
+pub struct CounterState(pub SmallVec<[u64; 3]>);
 
 impl CounterState {
     /// Get the initial counter state for the key.
     pub fn init(page: bool) -> Self {
         // Special case, because pages always start at one.
-        Self(smallvec![usize::from(page)])
+        Self(smallvec![u64::from(page)])
     }
 
     /// Advance the counter and return the numbers for the given heading.
@@ -645,7 +647,7 @@ impl CounterState {
     }
 
     /// Advance the number of the given level by the specified amount.
-    pub fn step(&mut self, level: NonZeroUsize, by: usize) {
+    pub fn step(&mut self, level: NonZeroUsize, by: u64) {
         let level = level.get();
 
         while self.0.len() < level {
@@ -657,7 +659,7 @@ impl CounterState {
     }
 
     /// Get the first number of the state.
-    pub fn first(&self) -> usize {
+    pub fn first(&self) -> u64 {
         self.0.first().copied().unwrap_or(1)
     }
 
@@ -675,7 +677,7 @@ impl CounterState {
 cast! {
     CounterState,
     self => Value::Array(self.0.into_iter().map(IntoValue::into_value).collect()),
-    num: usize => Self(smallvec![num]),
+    num: u64 => Self(smallvec![num]),
     array: Array => Self(array
         .into_iter()
         .map(Value::cast)
@@ -683,8 +685,8 @@ cast! {
 }
 
 /// Executes an update of a counter.
-#[elem(Construct, Locatable, Show, Count)]
-struct CounterUpdateElem {
+#[elem(Construct, Locatable, Count)]
+pub struct CounterUpdateElem {
     /// The key that identifies the counter.
     #[required]
     key: CounterKey,
@@ -701,12 +703,6 @@ impl Construct for CounterUpdateElem {
     }
 }
 
-impl Show for Packed<CounterUpdateElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
-    }
-}
-
 impl Count for Packed<CounterUpdateElem> {
     fn update(&self) -> Option<CounterUpdate> {
         Some(self.update.clone())
@@ -714,7 +710,7 @@ impl Count for Packed<CounterUpdateElem> {
 }
 
 /// Executes a display of a counter.
-#[elem(Construct, Locatable, Show)]
+#[elem(Construct, Locatable)]
 pub struct CounterDisplayElem {
     /// The counter.
     #[required]
@@ -738,27 +734,25 @@ impl Construct for CounterDisplayElem {
     }
 }
 
-impl Show for Packed<CounterDisplayElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self
-            .counter
-            .display_impl(
-                engine,
-                self.location().unwrap(),
-                self.numbering.clone(),
-                self.both,
-                Some(styles),
-            )?
-            .display())
-    }
-}
+pub const COUNTER_DISPLAY_RULE: ShowFn<CounterDisplayElem> = |elem, engine, styles| {
+    Ok(elem
+        .counter
+        .display_impl(
+            engine,
+            elem.location().unwrap(),
+            elem.numbering.clone(),
+            elem.both,
+            Some(styles),
+        )?
+        .display())
+};
 
 /// An specialized handler of the page counter that tracks both the physical
 /// and the logical page counter.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ManualPageCounter {
     physical: NonZeroUsize,
-    logical: usize,
+    logical: u64,
 }
 
 impl ManualPageCounter {
@@ -773,7 +767,7 @@ impl ManualPageCounter {
     }
 
     /// Get the current logical page counter state.
-    pub fn logical(&self) -> usize {
+    pub fn logical(&self) -> u64 {
         self.logical
     }
 

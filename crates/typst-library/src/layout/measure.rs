@@ -3,7 +3,7 @@ use typst_syntax::Span;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{dict, func, Content, Context, Dict, Resolve, Smart};
+use crate::foundations::{Content, Context, Dict, Resolve, Smart, dict, func};
 use crate::introspection::{Locator, LocatorLink};
 use crate::layout::{Abs, Axes, Length, Region, Size};
 

@@ -1,12 +1,13 @@
 //! Download and unpack packages and package indices.
 
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
+use typst_library::diag::{PackageError, PackageResult, StrResult, bail};
 use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::download::{Downloader, Progress};
@@ -77,7 +78,8 @@ impl PackageStorage {
         self.package_path.as_deref()
     }
 
-    /// Make a package available in the on-disk.
+    /// Makes a package available on-disk and returns the path at which it is
+    /// located (will be either in the cache or package directory).
     pub fn prepare_package(
         &self,
         spec: &PackageSpec,
@@ -100,7 +102,7 @@ impl PackageStorage {
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == DEFAULT_NAMESPACE {
-                self.download_package(spec, &dir, progress)?;
+                self.download_package(spec, cache_dir, progress)?;
                 if dir.exists() {
                     return Ok(dir);
                 }
@@ -110,7 +112,7 @@ impl PackageStorage {
         Err(PackageError::NotFound(spec.clone()))
     }
 
-    /// Try to determine the latest version of a package.
+    /// Tries to determine the latest version of a package.
     pub fn determine_latest_version(
         &self,
         spec: &VersionlessPackageSpec,
@@ -143,7 +145,7 @@ impl PackageStorage {
     }
 
     /// Download the package index. The result of this is cached for efficiency.
-    pub fn download_index(&self) -> StrResult<&[serde_json::Value]> {
+    fn download_index(&self) -> StrResult<&[serde_json::Value]> {
         self.index
             .get_or_try_init(|| {
                 let url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/index.json");
@@ -164,10 +166,10 @@ impl PackageStorage {
     ///
     /// # Panics
     /// Panics if the package spec namespace isn't `DEFAULT_NAMESPACE`.
-    pub fn download_package(
+    fn download_package(
         &self,
         spec: &PackageSpec,
-        package_dir: &Path,
+        cache_dir: &Path,
         progress: &mut dyn Progress,
     ) -> PackageResult<()> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
@@ -187,15 +189,56 @@ impl PackageStorage {
                 }
             }
             Err(err) => {
-                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))))
+                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))));
             }
         };
 
+        // The directory in which the package's version lives.
+        let base_dir = cache_dir.join(format!("{}/{}", spec.namespace, spec.name));
+
+        // The place at which the specific package version will live in the end.
+        let package_dir = base_dir.join(format!("{}", spec.version));
+
+        // To prevent multiple Typst instances from interfering, we download
+        // into a temporary directory first and then move this directory to
+        // its final destination.
+        //
+        // In the `rename` function's documentation it is stated:
+        // > This will not work if the new name is on a different mount point.
+        //
+        // By locating the temporary directory directly next to where the
+        // package directory will live, we are (trying our best) making sure
+        // that `tempdir` and `package_dir` are on the same mount point.
+        let tempdir = Tempdir::create(base_dir.join(format!(
+            ".tmp-{}-{}",
+            spec.version,
+            fastrand::u32(..),
+        )))
+        .map_err(|err| error("failed to create temporary package directory", err))?;
+
+        // Decompress the archive into the temporary directory.
         let decompressed = flate2::read::GzDecoder::new(data.as_slice());
-        tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
-            fs::remove_dir_all(package_dir).ok();
-            PackageError::MalformedArchive(Some(eco_format!("{err}")))
-        })
+        tar::Archive::new(decompressed)
+            .unpack(&tempdir)
+            .map_err(|err| PackageError::MalformedArchive(Some(eco_format!("{err}"))))?;
+
+        // When trying to move (i.e., `rename`) the directory from one place to
+        // another and the target/destination directory is empty, then the
+        // operation will succeed (if it's atomic, or hardware doesn't fail, or
+        // power doesn't go off, etc.). If however the target directory is not
+        // empty, i.e., another instance already successfully moved the package,
+        // then we can safely ignore the `DirectoryNotEmpty` error.
+        //
+        // This means that we do not check the integrity of an existing moved
+        // package, just like we don't check the integrity if the package
+        // directory already existed in the first place. If situations with
+        // broken packages still occur even with the rename safeguard, we might
+        // consider more complex solutions like file locking or checksums.
+        match fs::rename(&tempdir, &package_dir) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
+            Err(err) => Err(error("failed to move downloaded package directory", err)),
+        }
     }
 }
 
@@ -205,6 +248,36 @@ impl PackageStorage {
 struct MinimalPackageInfo {
     name: String,
     version: PackageVersion,
+}
+
+/// A temporary directory that is a automatically cleaned up.
+struct Tempdir(PathBuf);
+
+impl Tempdir {
+    /// Creates a directory at the path and auto-cleans it.
+    fn create(path: PathBuf) -> io::Result<Self> {
+        std::fs::create_dir_all(&path)?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for Tempdir {
+    fn drop(&mut self) {
+        _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+impl AsRef<Path> for Tempdir {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+/// Enriches an I/O error with a message and turns it into a
+/// `PackageError::Other`.
+#[cold]
+fn error(message: &str, err: io::Error) -> PackageError {
+    PackageError::Other(Some(eco_format!("{message}: {err}")))
 }
 
 #[cfg(test)]

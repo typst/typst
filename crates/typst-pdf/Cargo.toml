@@ -19,20 +19,15 @@ typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
-arrayvec = { workspace = true }
-base64 = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
-indexmap = { workspace = true }
-miniz_oxide = { workspace = true }
-pdf-writer = { workspace = true }
+infer = { workspace = true }
+krilla = { workspace = true }
+krilla-svg = { workspace = true }
+rustc-hash = { workspace = true }
 serde = { workspace = true }
-subsetter = { workspace = true }
-svg2pdf = { workspace = true }
-ttf-parser = { workspace = true }
-xmp-writer = { workspace = true }
 
 [lints]
 workspace = true

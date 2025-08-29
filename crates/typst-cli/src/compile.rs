@@ -10,14 +10,14 @@ use ecow::eco_format;
 use parking_lot::RwLock;
 use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use typst::WorldExt;
 use typst::diag::{
-    bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+    At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::html::HtmlDocument;
-use typst::layout::{Frame, Page, PageRanges, PagedDocument};
-use typst::syntax::{FileId, Source, Span};
-use typst::WorldExt;
+use typst::layout::{Page, PageRanges, PagedDocument};
+use typst::syntax::{FileId, Lines, Span};
+use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
@@ -63,8 +63,7 @@ pub struct CompileConfig {
     /// Opens the output file with the default viewer or a specific program after
     /// compilation.
     pub open: Option<Option<String>>,
-    /// One (or multiple comma-separated) PDF standards that Typst will enforce
-    /// conformance with.
+    /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
@@ -130,18 +129,9 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let pdf_standards = {
-            let list = args
-                .pdf_standard
-                .iter()
-                .map(|standard| match standard {
-                    PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-                    PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-                    PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
-                })
-                .collect::<Vec<_>>();
-            PdfStandards::new(&list)?
-        };
+        let pdf_standards = PdfStandards::new(
+            &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
+        )?;
 
         #[cfg(feature = "http-server")]
         let server = match watch {
@@ -295,6 +285,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
             })
         }
     };
+
     let options = PdfOptions {
         ident: Smart::Auto,
         timestamp,
@@ -389,7 +380,7 @@ fn export_image(
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
                     if config.watching
-                        && config.export_cache.is_cached(*i, &page.frame)
+                        && config.export_cache.is_cached(*i, page)
                         && path.exists()
                     {
                         return Ok(Output::Path(path.to_path_buf()));
@@ -492,8 +483,8 @@ impl ExportCache {
 
     /// Returns true if the entry is cached and appends the new hash to the
     /// cache (for the next compilation).
-    pub fn is_cached(&self, i: usize, frame: &Frame) -> bool {
-        let hash = typst::utils::hash128(frame);
+    pub fn is_cached(&self, i: usize, page: &Page) -> bool {
+        let hash = typst::utils::hash128(page);
 
         let mut cache = self.cache.upgradable_read();
         if i >= cache.len() {
@@ -522,7 +513,9 @@ fn write_make_deps(
         })
         .collect::<Result<Vec<_>, _>>()
     else {
-        bail!("failed to create make dependencies file because output path was not valid unicode")
+        bail!(
+            "failed to create make dependencies file because output path was not valid unicode"
+        )
     };
     if output_paths.is_empty() {
         bail!("failed to create make dependencies file because output was stdout")
@@ -705,7 +698,7 @@ fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
     type Name = String;
-    type Source = Source;
+    type Source = Lines<String>;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
         let vpath = id.vpath();
@@ -763,5 +756,25 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
                 CodespanError::IndexTooLarge { given, max }
             }
         })
+    }
+}
+
+impl From<PdfStandard> for typst_pdf::PdfStandard {
+    fn from(standard: PdfStandard) -> Self {
+        match standard {
+            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
+            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
+            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
+            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
+            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
+            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
+            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
+            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
+            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
+            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
+            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+        }
     }
 }

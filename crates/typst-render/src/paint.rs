@@ -255,13 +255,13 @@ pub fn to_sk_paint<'a>(
 }
 
 pub fn to_sk_color(color: Color) -> sk::Color {
-    let [r, g, b, a] = color.to_rgb().to_vec4();
+    let (r, g, b, a) = color.to_rgb().into_components();
     sk::Color::from_rgba(r, g, b, a)
         .expect("components must always be in the range [0..=1]")
 }
 
 pub fn to_sk_color_u8(color: Color) -> sk::ColorU8 {
-    let [r, g, b, a] = color.to_rgb().to_vec4_u8();
+    let (r, g, b, a) = color.to_rgb().into_format::<u8, u8>().into_components();
     sk::ColorU8::from_rgba(r, g, b, a)
 }
 

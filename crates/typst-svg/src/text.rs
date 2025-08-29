@@ -5,6 +5,7 @@ use ecow::EcoString;
 use ttf_parser::GlyphId;
 use typst_library::foundations::Bytes;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
+use typst_library::text::color::colr_glyph_to_svg;
 use typst_library::text::{Font, TextItem};
 use typst_library::visualize::{
     ExchangeFormat, FillRule, Image, Paint, RasterImage, RelativeTo,
@@ -13,7 +14,7 @@ use typst_utils::hash128;
 
 use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
-impl SVGRenderer {
+impl SVGRenderer<'_> {
     /// Render a text item. The text is rendered as a group of glyphs. We will
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
@@ -25,25 +26,33 @@ impl SVGRenderer {
         self.xml.write_attribute("transform", "scale(1, -1)");
 
         let mut x: f64 = 0.0;
+        let mut y: f64 = 0.0;
         for glyph in &text.glyphs {
             let id = GlyphId(glyph.id);
-            let offset = x + glyph.x_offset.at(text.size).to_pt();
+            let x_offset = x + glyph.x_offset.at(text.size).to_pt();
+            let y_offset = y + glyph.y_offset.at(text.size).to_pt();
 
-            self.render_svg_glyph(text, id, offset, scale)
-                .or_else(|| self.render_bitmap_glyph(text, id, offset))
+            self.render_colr_glyph(text, id, x_offset, y_offset, scale)
+                .or_else(|| self.render_svg_glyph(text, id, x_offset, y_offset, scale))
+                .or_else(|| self.render_bitmap_glyph(text, id, x_offset, y_offset))
                 .or_else(|| {
                     self.render_outline_glyph(
                         state
                             .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
-                            .pre_translate(Point::new(Abs::pt(offset), Abs::zero())),
+                            .pre_translate(Point::new(
+                                Abs::pt(x_offset),
+                                Abs::pt(y_offset),
+                            )),
                         text,
                         id,
-                        offset,
+                        x_offset,
+                        y_offset,
                         scale,
                     )
                 });
 
             x += glyph.x_advance.at(text.size).to_pt();
+            y += glyph.y_advance.at(text.size).to_pt();
         }
 
         self.xml.end_element();
@@ -55,6 +64,7 @@ impl SVGRenderer {
         text: &TextItem,
         id: GlyphId,
         x_offset: f64,
+        y_offset: f64,
         scale: f64,
     ) -> Option<()> {
         let data_url = convert_svg_glyph_to_base64_url(&text.font, id)?;
@@ -73,6 +83,43 @@ impl SVGRenderer {
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
         self.xml.write_attribute("x", &x_offset);
+        self.xml.write_attribute("y", &y_offset);
+        self.xml.end_element();
+
+        Some(())
+    }
+
+    /// Render a glyph defined by COLR glyph descriptions.
+    fn render_colr_glyph(
+        &mut self,
+        text: &TextItem,
+        id: GlyphId,
+        x_offset: f64,
+        y_offset: f64,
+        scale: f64,
+    ) -> Option<()> {
+        let ttf = text.font.ttf();
+        let converted = colr_glyph_to_svg(&text.font, id)?;
+        let width = ttf.global_bounding_box().width() as f64;
+        let height = ttf.global_bounding_box().height() as f64;
+        let data_url = svg_to_base64(&converted);
+
+        let x_min = ttf.global_bounding_box().x_min as f64;
+        let y_max = ttf.global_bounding_box().y_max as f64;
+
+        let glyph_hash = hash128(&(&text.font, id));
+        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
+            url: data_url,
+            width,
+            height,
+            ts: Transform::scale(Ratio::new(scale), Ratio::new(-scale))
+                .pre_concat(Transform::translate(Abs::pt(x_min), -Abs::pt(y_max))),
+        });
+
+        self.xml.start_element("use");
+        self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
+        self.xml.write_attribute("x", &(x_offset));
+        self.xml.write_attribute("y", &(y_offset));
         self.xml.end_element();
 
         Some(())
@@ -84,6 +131,7 @@ impl SVGRenderer {
         text: &TextItem,
         id: GlyphId,
         x_offset: f64,
+        y_offset: f64,
     ) -> Option<()> {
         let (image, bitmap_x_offset, bitmap_y_offset) =
             convert_bitmap_glyph_to_image(&text.font, id)?;
@@ -109,6 +157,7 @@ impl SVGRenderer {
         // it.
         let scale_factor = target_height / image.height();
         self.xml.write_attribute("x", &(x_offset / scale_factor));
+        self.xml.write_attribute("y", &(y_offset / scale_factor));
         self.xml.write_attribute_fmt(
             "transform",
             format_args!("scale({scale_factor} -{scale_factor})",),
@@ -125,6 +174,7 @@ impl SVGRenderer {
         text: &TextItem,
         glyph_id: GlyphId,
         x_offset: f64,
+        y_offset: f64,
         scale: f64,
     ) -> Option<()> {
         let scale = Ratio::new(scale);
@@ -139,6 +189,7 @@ impl SVGRenderer {
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
         self.xml.write_attribute_fmt("x", format_args!("{x_offset}"));
+        self.xml.write_attribute_fmt("y", format_args!("{y_offset}"));
         self.write_fill(
             &text.fill,
             FillRule::default(),
@@ -307,10 +358,14 @@ fn convert_svg_glyph_to_base64_url(font: &Font, id: GlyphId) -> Option<EcoString
         );
     }
 
+    Some(svg_to_base64(&svg_str))
+}
+
+fn svg_to_base64(svg_str: &str) -> EcoString {
     let mut url: EcoString = "data:image/svg+xml;base64,".into();
     let b64_encoded =
         base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
     url.push_str(&b64_encoded);
 
-    Some(url)
+    url
 }

@@ -1,109 +1,83 @@
-use ttf_parser::math::MathValue;
+use ttf_parser::Tag;
 use typst_library::foundations::{Style, StyleChain};
-use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size, VAlignment};
+use typst_library::layout::{Abs, Em, FixedAlignment, Frame, Point, Size};
 use typst_library::math::{EquationElem, MathSize};
-use typst_utils::LazyHash;
+use typst_library::text::{FontFamily, FontFeatures, TextElem};
+use typst_utils::{LazyHash, singleton};
 
-use super::{LeftRightAlternator, MathContext, MathFragment, MathRun};
-
-macro_rules! scaled {
-    ($ctx:expr, $styles:expr, text: $text:ident, display: $display:ident $(,)?) => {
-        match typst_library::math::EquationElem::size_in($styles) {
-            typst_library::math::MathSize::Display => scaled!($ctx, $styles, $display),
-            _ => scaled!($ctx, $styles, $text),
-        }
-    };
-    ($ctx:expr, $styles:expr, $name:ident) => {
-        $crate::math::Scaled::scaled(
-            $ctx.constants.$name(),
-            $ctx,
-            typst_library::text::TextElem::size_in($styles),
-        )
-    };
-}
-
-macro_rules! percent {
-    ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name() as f64 / 100.0
-    };
-}
+use super::{LeftRightAlternator, MathFragment, MathRun};
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
-/// Converts some unit to an absolute length with the current font & font size.
-pub trait Scaled {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs;
-}
-
-impl Scaled for i16 {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        ctx.font.to_em(self).at(font_size)
-    }
-}
-
-impl Scaled for u16 {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        ctx.font.to_em(self).at(font_size)
-    }
-}
-
-impl Scaled for MathValue<'_> {
-    fn scaled(self, ctx: &MathContext, font_size: Abs) -> Abs {
-        self.value.scaled(ctx, font_size)
-    }
-}
-
 /// Styles something as cramped.
 pub fn style_cramped() -> LazyHash<Style> {
-    EquationElem::set_cramped(true).wrap()
+    EquationElem::cramped.set(true).wrap()
+}
+
+/// Sets flac OpenType feature.
+pub fn style_flac() -> LazyHash<Style> {
+    TextElem::features
+        .set(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)]))
+        .wrap()
+}
+
+/// Sets dtls OpenType feature.
+pub fn style_dtls() -> LazyHash<Style> {
+    TextElem::features
+        .set(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)]))
+        .wrap()
 }
 
 /// The style for subscripts in the current style.
 pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
-    [style_for_superscript(styles), EquationElem::set_cramped(true).wrap()]
+    [style_for_superscript(styles), EquationElem::cramped.set(true).wrap()]
 }
 
 /// The style for superscripts in the current style.
 pub fn style_for_superscript(styles: StyleChain) -> LazyHash<Style> {
-    EquationElem::set_size(match EquationElem::size_in(styles) {
-        MathSize::Display | MathSize::Text => MathSize::Script,
-        MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-    })
-    .wrap()
+    EquationElem::size
+        .set(match styles.get(EquationElem::size) {
+            MathSize::Display | MathSize::Text => MathSize::Script,
+            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+        })
+        .wrap()
 }
 
 /// The style for numerators in the current style.
 pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
-    EquationElem::set_size(match EquationElem::size_in(styles) {
-        MathSize::Display => MathSize::Text,
-        MathSize::Text => MathSize::Script,
-        MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-    })
-    .wrap()
+    EquationElem::size
+        .set(match styles.get(EquationElem::size) {
+            MathSize::Display => MathSize::Text,
+            MathSize::Text => MathSize::Script,
+            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+        })
+        .wrap()
 }
 
 /// The style for denominators in the current style.
 pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
-    [style_for_numerator(styles), EquationElem::set_cramped(true).wrap()]
+    [style_for_numerator(styles), EquationElem::cramped.set(true).wrap()]
 }
 
-/// Styles to add font constants to the style chain.
-pub fn style_for_script_scale(ctx: &MathContext) -> LazyHash<Style> {
-    EquationElem::set_script_scale((
-        ctx.constants.script_percent_scale_down(),
-        ctx.constants.script_script_percent_scale_down(),
-    ))
-    .wrap()
-}
+/// Resolve a prioritized iterator over the font families for math.
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> + Clone {
+    let fallbacks = singleton!(Vec<FontFamily>, {
+        [
+            "new computer modern math",
+            "libertinus serif",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
+        .into_iter()
+        .map(FontFamily::new)
+        .collect()
+    });
 
-/// How a delimieter should be aligned when scaling.
-pub fn delimiter_alignment(delimiter: char) -> VAlignment {
-    match delimiter {
-        '⌜' | '⌝' => VAlignment::Top,
-        '⌞' | '⌟' => VAlignment::Bottom,
-        _ => VAlignment::Horizon,
-    }
+    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
+    styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
 }
 
 /// Stack rows on top of each other.
@@ -117,7 +91,6 @@ pub fn stack(
     gap: Abs,
     baseline: usize,
     alternator: LeftRightAlternator,
-    minimum_ascent_descent: Option<(Abs, Abs)>,
 ) -> Frame {
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
@@ -125,13 +98,9 @@ pub fn stack(
         .map(|row| row.into_line_frame(&points, alternator))
         .collect();
 
-    let padded_height = |height: Abs| {
-        height.max(minimum_ascent_descent.map_or(Abs::zero(), |(a, d)| a + d))
-    };
-
     let mut frame = Frame::soft(Size::new(
         width,
-        rows.iter().map(|row| padded_height(row.height())).sum::<Abs>()
+        rows.iter().map(|row| row.height()).sum::<Abs>()
             + rows.len().saturating_sub(1) as f64 * gap,
     ));
 
@@ -142,14 +111,11 @@ pub fn stack(
         } else {
             Abs::zero()
         };
-        let ascent_padded_part = minimum_ascent_descent
-            .map_or(Abs::zero(), |(a, _)| (a - row.ascent()))
-            .max(Abs::zero());
-        let pos = Point::new(x, y + ascent_padded_part);
+        let pos = Point::new(x, y);
         if i == baseline {
-            frame.set_baseline(y + row.baseline() + ascent_padded_part);
+            frame.set_baseline(y + row.baseline());
         }
-        y += padded_height(row.height()) + gap;
+        y += row.height() + gap;
         frame.push_frame(pos, row);
     }
 

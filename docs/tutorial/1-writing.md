@@ -69,7 +69,7 @@ the first item of the list above by indenting it.
 
 ## Adding a figure { #figure }
 You think that your report would benefit from a figure. Let's add one. Typst
-supports images in the formats PNG, JPEG, GIF, and SVG. To add an image file to
+supports images in the formats PNG, JPEG, GIF, SVG, and WebP. To add an image file to
 your project, first open the _file panel_ by clicking the box icon in the left
 sidebar. Here, you can see a list of all files in your project. Currently, there
 is only one: The main Typst file you are writing in. To upload another file,
@@ -172,7 +172,7 @@ nothing else.
 For example, the image function expects a path to an image file.
 It would not make sense to pass, e.g., a paragraph of text or another image as
 the image's path parameter. That's why only strings are allowed here.
-On the contrary, strings work wherever content is expected because text is a
+In contrast, strings work wherever content is expected because text is a
 valid kind of content.
 </div>
 

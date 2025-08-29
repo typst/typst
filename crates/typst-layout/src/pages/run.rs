@@ -1,4 +1,5 @@
 use comemo::{Track, Tracked, TrackedMut};
+use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
@@ -16,10 +17,9 @@ use typst_library::model::Numbering;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
-use typst_library::World;
 use typst_utils::Numeric;
 
-use crate::flow::{layout_flow, FlowMode};
+use crate::flow::{FlowMode, layout_flow};
 
 /// A mostly finished layout for one page. Needs only knowledge of its exact
 /// page number to be finalized into a `Page`. (Because the margins can depend
@@ -101,10 +101,10 @@ fn layout_page_run_impl(
 
     // When one of the lengths is infinite the page fits its content along
     // that axis.
-    let width = PageElem::width_in(styles).unwrap_or(Abs::inf());
-    let height = PageElem::height_in(styles).unwrap_or(Abs::inf());
+    let width = styles.resolve(PageElem::width).unwrap_or(Abs::inf());
+    let height = styles.resolve(PageElem::height).unwrap_or(Abs::inf());
     let mut size = Size::new(width, height);
-    if PageElem::flipped_in(styles) {
+    if styles.get(PageElem::flipped) {
         std::mem::swap(&mut size.x, &mut size.y);
     }
 
@@ -115,7 +115,7 @@ fn layout_page_run_impl(
 
     // Determine the margins.
     let default = Rel::<Length>::from((2.5 / 21.0) * min);
-    let margin = PageElem::margin_in(styles);
+    let margin = styles.get(PageElem::margin);
     let two_sided = margin.two_sided.unwrap_or(false);
     let margin = margin
         .sides
@@ -123,22 +123,24 @@ fn layout_page_run_impl(
         .resolve(styles)
         .relative_to(size);
 
-    let fill = PageElem::fill_in(styles);
-    let foreground = PageElem::foreground_in(styles);
-    let background = PageElem::background_in(styles);
-    let header_ascent = PageElem::header_ascent_in(styles).relative_to(margin.top);
-    let footer_descent = PageElem::footer_descent_in(styles).relative_to(margin.bottom);
-    let numbering = PageElem::numbering_in(styles);
-    let supplement = match PageElem::supplement_in(styles) {
+    let fill = styles.get_cloned(PageElem::fill);
+    let foreground = styles.get_ref(PageElem::foreground);
+    let background = styles.get_ref(PageElem::background);
+    let header_ascent = styles.resolve(PageElem::header_ascent).relative_to(margin.top);
+    let footer_descent =
+        styles.resolve(PageElem::footer_descent).relative_to(margin.bottom);
+    let numbering = styles.get_ref(PageElem::numbering);
+    let supplement = match styles.get_cloned(PageElem::supplement) {
         Smart::Auto => TextElem::packed(PageElem::local_name_in(styles)),
         Smart::Custom(content) => content.unwrap_or_default(),
     };
-    let number_align = PageElem::number_align_in(styles);
-    let binding =
-        PageElem::binding_in(styles).unwrap_or_else(|| match TextElem::dir_in(styles) {
+    let number_align = styles.get(PageElem::number_align);
+    let binding = styles.get(PageElem::binding).unwrap_or_else(|| {
+        match styles.resolve(TextElem::dir) {
             Dir::LTR => Binding::Left,
             _ => Binding::Right,
-        });
+        }
+    });
 
     // Construct the numbering (for header or footer).
     let numbering_marginal = numbering.as_ref().map(|numbering| {
@@ -163,8 +165,8 @@ fn layout_page_run_impl(
         counter
     });
 
-    let header = PageElem::header_in(styles);
-    let footer = PageElem::footer_in(styles);
+    let header = styles.get_ref(PageElem::header);
+    let footer = styles.get_ref(PageElem::footer);
     let (header, footer) = if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
         (header.as_ref().unwrap_or(&numbering_marginal), footer.as_ref().unwrap_or(&None))
     } else {
@@ -179,15 +181,15 @@ fn layout_page_run_impl(
         &mut locator,
         styles,
         Regions::repeat(area, area.map(Abs::is_finite)),
-        PageElem::columns_in(styles),
-        ColumnsElem::gutter_in(styles),
+        styles.get(PageElem::columns),
+        styles.get(ColumnsElem::gutter).resolve(styles),
         FlowMode::Root,
     )?;
 
     // Layouts a single marginal.
     let mut layout_marginal = |content: &Option<Content>, area, align| {
         let Some(content) = content else { return Ok(None) };
-        let aligned = content.clone().styled(AlignElem::set_alignment(align));
+        let aligned = content.clone().set(AlignElem::alignment, align);
         crate::layout_frame(
             &mut engine,
             &aligned,

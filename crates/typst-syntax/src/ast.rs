@@ -86,7 +86,7 @@ use ecow::EcoString;
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;
-use crate::{is_ident, is_newline, Span, SyntaxKind, SyntaxNode};
+use crate::{Span, SyntaxKind, SyntaxNode, is_ident, is_newline};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -724,6 +724,8 @@ node! {
 
 impl<'a> Ref<'a> {
     /// Get the target.
+    ///
+    /// Will not be empty.
     pub fn target(self) -> &'a str {
         self.0
             .children()
@@ -778,7 +780,7 @@ node! {
 
 impl<'a> EnumItem<'a> {
     /// The explicit numbering, if any: `23.`.
-    pub fn number(self) -> Option<usize> {
+    pub fn number(self) -> Option<u64> {
         self.0.children().find_map(|node| match node.kind() {
             SyntaxKind::EnumMarker => node.text().trim_end_matches('.').parse().ok(),
             _ => Option::None,
@@ -837,6 +839,16 @@ impl<'a> Math<'a> {
     /// The expressions the mathematical content consists of.
     pub fn exprs(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
         self.0.children().filter_map(Expr::cast_with_space)
+    }
+
+    /// Whether this `Math` node was originally parenthesized.
+    pub fn was_deparenthesized(self) -> bool {
+        let mut iter = self.0.children();
+        matches!(iter.next().map(SyntaxNode::kind), Some(SyntaxKind::LeftParen))
+            && matches!(
+                iter.next_back().map(SyntaxNode::kind),
+                Some(SyntaxKind::RightParen)
+            )
     }
 }
 

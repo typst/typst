@@ -56,6 +56,10 @@ a + 0.
    enum.item(5)[Fifth]
 )
 
+--- enum-item-number-optional ---
+#enum.item[First]
+#enum.item[Second]
+
 --- enum-numbering-pattern ---
 // Test numbering pattern.
 #set enum(numbering: "(1.a.*)")
@@ -133,6 +137,11 @@ a + 0.
 --- enum-numbering-pattern-invalid ---
 // Error: 22-28 invalid numbering pattern
 #set enum(numbering: "(())")
+
+--- enum-numbering-huge ---
+// Test values greater than 32-bits
+100000000001. A
++             B
 
 --- enum-number-align-unaffected ---
 // Alignment shouldn't affect number
@@ -212,7 +221,7 @@ a + 0.
 
 --- issue-2530-enum-item-panic ---
 // Enum item (pre-emptive)
-#enum.item(none)[Hello]
+#enum.item(auto)[Hello]
 #enum.item(17)[Hello]
 
 --- issue-5503-enum-in-align ---

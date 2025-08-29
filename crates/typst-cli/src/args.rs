@@ -7,6 +7,7 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use clap::builder::{TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
+use clap_complete::Shell;
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -81,6 +82,9 @@ pub enum Command {
     /// Self update the Typst CLI.
     #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
     Update(UpdateCommand),
+
+    /// Generates shell completion scripts.
+    Completions(CompletionsCommand),
 }
 
 /// Compiles an input file into a supported output format.
@@ -151,6 +155,10 @@ pub struct QueryCommand {
     #[clap(long)]
     pub pretty: bool,
 
+    /// The target to compile for.
+    #[clap(long, default_value_t)]
+    pub target: Target,
+
     /// World arguments.
     #[clap(flatten)]
     pub world: WorldArgs,
@@ -196,6 +204,14 @@ pub struct UpdateCommand {
     /// defaults to system-dependent location
     #[clap(long = "backup-path", env = "TYPST_UPDATE_BACKUP_PATH", value_name = "FILE")]
     pub backup_path: Option<PathBuf>,
+}
+
+/// Generates shell completion scripts.
+#[derive(Debug, Clone, Parser)]
+pub struct CompletionsCommand {
+    /// The shell to generate completions for.
+    #[arg(value_enum)]
+    pub shell: Shell,
 }
 
 /// Arguments for compilation and watching.
@@ -361,7 +377,7 @@ pub struct FontArgs {
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
-    #[arg(long)]
+    #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
     pub ignore_system_fonts: bool,
 }
 
@@ -445,6 +461,18 @@ pub enum OutputFormat {
 
 display_possible_values!(OutputFormat);
 
+/// The target to compile for.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum Target {
+    /// PDF and image formats.
+    #[default]
+    Paged,
+    /// HTML.
+    Html,
+}
+
+display_possible_values!(Target);
+
 /// Which format to use for diagnostics.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum DiagnosticFormat {
@@ -467,15 +495,45 @@ display_possible_values!(Feature);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum PdfStandard {
+    /// PDF 1.4.
+    #[value(name = "1.4")]
+    V_1_4,
+    /// PDF 1.5.
+    #[value(name = "1.5")]
+    V_1_5,
+    /// PDF 1.5.
+    #[value(name = "1.6")]
+    V_1_6,
     /// PDF 1.7.
     #[value(name = "1.7")]
     V_1_7,
+    /// PDF 2.0.
+    #[value(name = "2.0")]
+    V_2_0,
+    /// PDF/A-1b.
+    #[value(name = "a-1b")]
+    A_1b,
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
+    /// PDF/A-2u.
+    #[value(name = "a-2u")]
+    A_2u,
     /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
+    /// PDF/A-3u.
+    #[value(name = "a-3u")]
+    A_3u,
+    /// PDF/A-4.
+    #[value(name = "a-4")]
+    A_4,
+    /// PDF/A-4f.
+    #[value(name = "a-4f")]
+    A_4f,
+    /// PDF/A-4e.
+    #[value(name = "a-4e")]
+    A_4e,
 }
 
 display_possible_values!(PdfStandard);

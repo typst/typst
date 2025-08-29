@@ -325,3 +325,10 @@ b
 a
 #block(height: -25pt)[b]
 c
+
+--- issue-6267-clip-anti-alias ---
+#block(
+  clip: true,
+  radius: 100%,
+  rect(fill: gray, height: 1cm, width: 1cm),
+)

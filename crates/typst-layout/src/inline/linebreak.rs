@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::LineBreak;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -11,7 +11,7 @@ use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{is_default_ignorable, Lang, TextElem};
+use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -136,12 +136,12 @@ fn linebreak_simple<'a>(
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
-        if !width.fits(attempt.width) {
-            if let Some((last_attempt, last_end)) = last.take() {
-                lines.push(last_attempt);
-                start = last_end;
-                attempt = line(engine, p, start..end, breakpoint, lines.last());
-            }
+        if !width.fits(attempt.width)
+            && let Some((last_attempt, last_end)) = last.take()
+        {
+            lines.push(last_attempt);
+            start = last_end;
+            attempt = line(engine, p, start..end, breakpoint, lines.last());
         }
 
         // Finish the current line if there is a mandatory line break (i.e. due
@@ -690,13 +690,34 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         let breakpoint = if point == text.len() {
             Breakpoint::Mandatory
         } else {
+            const OBJ_REPLACE: char = '\u{FFFC}';
             match lb.get(c) {
-                // Fix for: https://github.com/unicode-org/icu4x/issues/4146
-                LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
                 | LineBreak::LineFeed
                 | LineBreak::NextLine => Breakpoint::Mandatory,
+
+                // https://github.com/typst/typst/issues/5489
+                //
+                // OBJECT-REPLACEMENT-CHARACTERs provide Contingent Break
+                // opportunities before and after by default. This behaviour
+                // is however tailorable, see:
+                // https://www.unicode.org/reports/tr14/#CB
+                // https://www.unicode.org/reports/tr14/#TailorableBreakingRules
+                // https://www.unicode.org/reports/tr14/#LB20
+                //
+                // Don't provide a line breaking opportunity between a LTR-
+                // ISOLATE (or any other Combining Mark) and an OBJECT-
+                // REPLACEMENT-CHARACTER representing an inline item, if the
+                // LTR-ISOLATE could end up as the only character on the
+                // previous line.
+                LineBreak::CombiningMark
+                    if text[point..].starts_with(OBJ_REPLACE)
+                        && last + c.len_utf8() == point =>
+                {
+                    continue;
+                }
+
                 _ => Breakpoint::Normal,
             }
         };
@@ -825,7 +846,9 @@ fn hyphenate_at(p: &Preparation, offset: usize) -> bool {
     p.config.hyphenate.unwrap_or_else(|| {
         let (_, item) = p.get(offset);
         match item.text() {
-            Some(text) => TextElem::hyphenate_in(text.styles).unwrap_or(p.config.justify),
+            Some(text) => {
+                text.styles.get(TextElem::hyphenate).unwrap_or(p.config.justify)
+            }
             None => false,
         }
     })
@@ -836,7 +859,7 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
     let lang = p.config.lang.or_else(|| {
         let (_, item) = p.get(offset);
         let styles = item.text()?.styles;
-        Some(TextElem::lang_in(styles))
+        Some(styles.get(TextElem::lang))
     })?;
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;
@@ -871,11 +894,7 @@ impl CostMetrics {
     /// we allow less because otherwise we get an invalid layout fairly often,
     /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
-        if approx {
-            self.min_approx_ratio
-        } else {
-            self.min_ratio
-        }
+        if approx { self.min_approx_ratio } else { self.min_ratio }
     }
 }
 
@@ -906,9 +925,9 @@ impl Estimates {
                     let byte_len = g.range.len();
                     let stretch = g.stretchability().0 + g.stretchability().1;
                     let shrink = g.shrinkability().0 + g.shrinkability().1;
-                    widths.push(byte_len, g.x_advance.at(shaped.size));
-                    stretchability.push(byte_len, stretch.at(shaped.size));
-                    shrinkability.push(byte_len, shrink.at(shaped.size));
+                    widths.push(byte_len, g.x_advance.at(g.size));
+                    stretchability.push(byte_len, stretch.at(g.size));
+                    shrinkability.push(byte_len, shrink.at(g.size));
                     justifiables.push(byte_len, g.is_justifiable() as usize);
                 }
             } else {

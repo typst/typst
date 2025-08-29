@@ -49,7 +49,8 @@
 )
 
 --- polygon-bad-point-array ---
-// Error: 10-17 point array must contain exactly two entries
+// Error: 10-17 array must contain exactly two items
+// Hint: 10-17 the first item determines the value for the X axis and the second item the value for the Y axis
 #polygon((50pt,))
 
 --- polygon-infinite-size ---

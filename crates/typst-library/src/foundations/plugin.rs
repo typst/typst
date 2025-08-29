@@ -2,13 +2,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_syntax::Spanned;
 use wasmi::Memory;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Binding, Bytes, Func, Module, Scope, Value};
+use crate::foundations::{Binding, Bytes, Func, Module, Scope, Value, cast, func, scope};
 use crate::loading::{DataSource, Load};
 
 /// Loads a WebAssembly module.
@@ -151,8 +151,8 @@ pub fn plugin(
     /// A [path]($syntax/#paths) to a WebAssembly file or raw WebAssembly bytes.
     source: Spanned<DataSource>,
 ) -> SourceResult<Module> {
-    let data = source.load(engine.world)?;
-    Plugin::module(data).at(source.span)
+    let loaded = source.load(engine.world)?;
+    Plugin::module(loaded.data).at(source.span)
 }
 
 #[scope]
@@ -212,7 +212,7 @@ pub struct PluginFunc {
 
 impl PluginFunc {
     /// The name of the plugin function.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &EcoString {
         &self.name
     }
 
