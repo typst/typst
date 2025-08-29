@@ -18,7 +18,7 @@ use typst_library::text::{Font, FontBook, FontInfo};
 use typst_timing::TimingScope;
 
 /// Holds details about the location of a font and lazily the font itself.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FontSlot {
     /// The path at which the font can be found on the system.
     path: Option<PathBuf>,
@@ -61,7 +61,7 @@ impl FontSlot {
 }
 
 /// The result of a font search, created by calling [`FontSearcher::search`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Fonts {
     /// Metadata about all discovered fonts.
     pub book: FontBook,
