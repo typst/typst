@@ -2,13 +2,19 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
+use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
+use typst_syntax::FileId;
 
 use crate::World;
-use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
+use crate::diag::{FileError, LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
+use crate::visualize::VectorFormat;
+use crate::visualize::image::raster::{ExchangeFormat, RasterFormat};
+use crate::visualize::image::{ImageFormat, determine_format_from_path};
+
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
@@ -42,26 +48,44 @@ impl SvgImage {
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
+        svg_parent: Option<FileId>,
     ) -> LoadResult<SvgImage> {
         let book = world.book();
-        let resolver = Mutex::new(FontResolver::new(world, book, families));
+        let font_resolver = Mutex::new(FontResolver::new(world, book, families));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_parent));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
                 font_resolver: usvg::FontResolver {
                     select_font: Box::new(|font, db| {
-                        resolver.lock().unwrap().select_font(font, db)
+                        font_resolver.lock().unwrap().select_font(font, db)
                     }),
                     select_fallback: Box::new(|c, exclude_fonts, db| {
-                        resolver.lock().unwrap().select_fallback(c, exclude_fonts, db)
+                        font_resolver.lock().unwrap().select_fallback(
+                            c,
+                            exclude_fonts,
+                            db,
+                        )
+                    }),
+                },
+                image_href_resolver: usvg::ImageHrefResolver {
+                    resolve_data: usvg::ImageHrefResolver::default_data_resolver(),
+                    resolve_string: Box::new(|href, _opts| {
+                        image_resolver.lock().unwrap().load(href)
                     }),
                 },
                 ..base_options()
             },
         )
         .map_err(format_usvg_error)?;
-        let font_hash = resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
+        let font_hash = font_resolver.into_inner().unwrap().finish();
+        let image_resolve_error = image_resolver.lock().unwrap().error.clone();
+        match image_resolve_error {
+            Some(err) => Err(err),
+            None => {
+                Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
+            }
+        }
     }
 
     /// The raw image data.
@@ -285,5 +309,126 @@ impl FontResolver<'_> {
         self.from_id.insert(id, font);
 
         Some(id)
+    }
+}
+
+/// Resolves linked images in an SVG.
+/// (Linked SVG images from an SVG are not supported yet.)
+struct ImageResolver<'a> {
+    /// The world used to load linked images.
+    world: Tracked<'a, dyn World + 'a>,
+    /// Parent folder of the SVG file, used to resolve hrefs to linked images, if any.
+    svg_parent: Option<FileId>,
+    /// The first error that occurred when loading a linked image, if any.
+    error: Option<LoadError>,
+}
+
+impl<'a> ImageResolver<'a> {
+    fn new(world: Tracked<'a, dyn World + 'a>, svg_parent: Option<FileId>) -> Self {
+        Self { world, svg_parent, error: None }
+    }
+
+    /// Load a linked image or return None if a previous image caused an error,
+    /// or if the linked image failed to load.
+    /// Only the first error message is retained.
+    fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
+        if self.error.is_none() {
+            match self.load_or_error(href) {
+                Ok(image) => Some(image),
+                Err(err) => {
+                    self.error = Some(LoadError::new(
+                        ReportPos::None,
+                        eco_format!("failed to load linked image {} in SVG", href),
+                        err,
+                    ));
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Load a linked image or return an error message string.
+    fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
+        // If the href starts with "file://", strip this prefix to construct an ordinary path.
+        let href = if let Some(stripped) = href.strip_prefix("file://") {
+            stripped
+        } else {
+            href
+        };
+
+        // Do not accept absolute hrefs. They would be parsed in typst in a way
+        // that is not compatible with their interpretation in the SVG standard.
+        if href.starts_with("/") {
+            return Err(EcoString::from("absolute paths are not allowed"));
+        }
+
+        // Exit early if the href is an URL.
+        if let Some(pos) = href.find("://") {
+            let scheme = &href[..pos];
+            if scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
+            {
+                return Err(EcoString::from("URLs are not allowed"));
+            }
+        }
+
+        // Resolve the path to the linked image.
+        if self.svg_parent.is_none() {
+            return Err(EcoString::from("cannot access file system from here"));
+        }
+        // Replace the final underscore in svg_parent by the href.
+        let href_file = self.svg_parent.unwrap().join(href);
+
+        // Load image if file can be accessed.
+        match self.world.file(href_file) {
+            Ok(bytes) => {
+                let arc_data = Arc::new(bytes.to_vec());
+                let format = match determine_format_from_path(href) {
+                    Some(format) => Some(format),
+                    None => ImageFormat::detect(&arc_data),
+                };
+                match format {
+                    None => Err(EcoString::from("could not determine image format")),
+                    Some(ImageFormat::Vector(vector_format)) => match vector_format {
+                        VectorFormat::Svg => {
+                            Err(EcoString::from("SVG images are not supported yet"))
+                        }
+                        VectorFormat::Pdf => {
+                            Err(EcoString::from("PDF documents are not supported"))
+                        }
+                    },
+                    Some(ImageFormat::Raster(raster_format)) => match raster_format {
+                        RasterFormat::Exchange(exchange_format) => {
+                            match exchange_format {
+                                ExchangeFormat::Gif => Ok(usvg::ImageKind::GIF(arc_data)),
+                                ExchangeFormat::Jpg => {
+                                    Ok(usvg::ImageKind::JPEG(arc_data))
+                                }
+                                ExchangeFormat::Png => Ok(usvg::ImageKind::PNG(arc_data)),
+                                ExchangeFormat::Webp => {
+                                    Ok(usvg::ImageKind::WEBP(arc_data))
+                                }
+                            }
+                        }
+                        RasterFormat::Pixel(_) => {
+                            Err(EcoString::from("pixel formats are not supported"))
+                        }
+                    },
+                }
+            }
+            Err(err) => Err(match err {
+                FileError::NotFound(path) => {
+                    eco_format!("file not found, searched at {}", path.display())
+                }
+                FileError::AccessDenied => EcoString::from("access denied"),
+                FileError::IsDirectory => EcoString::from("is a directory"),
+                FileError::Other(Some(msg)) => msg,
+                FileError::Other(None) => EcoString::from("unspecified error"),
+                _ => EcoString::from("unexpected error"),
+            }),
+        }
     }
 }
