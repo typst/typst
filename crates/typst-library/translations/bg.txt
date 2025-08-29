@@ -1,4 +1,4 @@
-figure = Фиг.
+figure = Фигура
 table = Таблица
 equation = Уравнение
 bibliography = Библиография

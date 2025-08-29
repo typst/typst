@@ -1,7 +1,7 @@
-figure = Рисунок
-table = Таблиця
+figure = Рис.
+table = Табл.
 equation = Рівняння
-bibliography = Бібліографія
+bibliography = Бібліоґрафія
 heading = Розділ
 outline = Зміст
 raw = Лістинг

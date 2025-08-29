@@ -1,5 +1,5 @@
 figure = Rysunek
-table = Tabela
+table = Tablica
 equation = Równanie
 bibliography = Bibliografia
 heading = Sekcja

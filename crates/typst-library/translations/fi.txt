@@ -1,7 +1,7 @@
 figure = Kuva
 table = Taulukko
 equation = Yhtälö
-bibliography = Viitteet
+bibliography = Kirjallisuutta
 heading = Osio
 outline = Sisällys
 raw = Esimerkki

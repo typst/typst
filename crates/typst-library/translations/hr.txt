@@ -1,8 +1,8 @@
 figure = Slika
 table = Tablica
 equation = Jednadžba
-bibliography = Literatura
+bibliography = Bibliografija
 heading = Odjeljak
 outline = Sadržaj
 raw = Kôd
-page = str.
+page = stranica

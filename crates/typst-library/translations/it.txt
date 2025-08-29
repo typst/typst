@@ -4,5 +4,5 @@ equation = Equazione
 bibliography = Bibliografia
 heading = Sezione
 outline = Indice
-raw = Codice
+raw = Elenco
 page = pag.

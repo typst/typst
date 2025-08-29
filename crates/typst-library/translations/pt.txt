@@ -3,6 +3,6 @@ table = Tabela
 equation = Equação
 bibliography = Bibliografia
 heading = Seção
-outline = Sumário
+outline = Conteúdo
 raw = Listagem
 page = página

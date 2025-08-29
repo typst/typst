@@ -1,7 +1,7 @@
 figure = Joonis
 table = Tabel
 equation = Valem
-bibliography = Viited
+bibliography = Kirjandus
 heading = Peatükk
 outline = Sisukord
 raw = List

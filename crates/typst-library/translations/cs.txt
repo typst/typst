@@ -1,7 +1,7 @@
 figure = Obrázek
 table = Tabulka
 equation = Rovnice
-bibliography = Bibliografie
+bibliography = Literatura
 heading = Kapitola
 outline = Obsah
 raw = Výpis
