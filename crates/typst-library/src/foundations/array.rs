@@ -835,10 +835,11 @@ impl Array {
         /// If given, uses this function to compare every two elements in the
         /// array.
         ///
-        /// This function should return a boolean: `{true}` indicates that the
-        /// elements are in order, while `{false}` indicates that they should be
-        /// swapped. To keep the sort stable, if the two elements are equal, the
-        /// function should return `{true}`.
+        /// The function will receive two elements in the array for comparison,
+        /// and should return a boolean indicating their order: `{true}`
+        /// indicates that the elements are in order, while `{false}` indicates
+        /// that they should be swapped. To keep the sort stable, if the two
+        /// elements are equal, the function should return `{true}`.
         ///
         /// If this function does not order the elements properly (e.g., by
         /// returning `{false}` for both `{(x, y)}` and `{(y, x)}`, or for
