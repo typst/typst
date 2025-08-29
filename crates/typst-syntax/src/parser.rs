@@ -361,14 +361,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             ast::Assoc::Right => {}
         }
 
-        if kind == SyntaxKind::MathFrac {
-            math_unparen(p, m);
-        }
-
         p.eat();
         let m2 = p.marker();
         math_expr_prec(p, prec, stop);
-        math_unparen(p, m2);
+        if kind != SyntaxKind::MathFrac {
+            math_unparen(p, m2);
+        }
 
         if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
             let m3 = p.marker();

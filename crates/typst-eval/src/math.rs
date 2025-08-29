@@ -68,7 +68,7 @@ impl Eval for ast::MathDelimited<'_> {
         let open = self.open().eval_display(vm)?;
         let body = self.body().eval(vm)?;
         let close = self.close().eval_display(vm)?;
-        Ok(LrElem::new(open + body + close).pack())
+        Ok(LrElem::new(open + body + close).with_explicit(false).pack())
     }
 }
 
@@ -128,15 +128,7 @@ impl Eval for ast::MathFrac<'_> {
         let denom_expr = self.denom();
         let denom = denom_expr.eval_display(vm)?;
 
-        let num_depar =
-            matches!(num_expr, ast::Expr::Math(math) if math.was_deparenthesized());
-        let denom_depar =
-            matches!(denom_expr, ast::Expr::Math(math) if math.was_deparenthesized());
-
-        Ok(FracElem::new(num, denom)
-            .with_num_deparenthesized(num_depar)
-            .with_denom_deparenthesized(denom_depar)
-            .pack())
+        Ok(FracElem::new(num, denom).pack())
     }
 }
 
