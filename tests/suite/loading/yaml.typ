@@ -20,3 +20,22 @@
 // Warning: 15-21 `yaml.decode` is deprecated, directly pass bytes to `yaml` instead
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = yaml.decode
+
+--- yaml-encode-any ---
+// Anything can be encoded.
+// Unsupported types fall back to strings via `repr`, but the specific output can be changed.
+#let check(value) = test(
+  yaml.encode(value),
+  yaml.encode(repr(value)),
+)
+
+#check(bytes("Typst"))
+#check(decimal("2.99792458"))
+#check(3.14159pt)
+#check(2.99em)
+#check(<sec:intro>)
+#check(panic)
+#check(x => x + 1)
+#check(regex("\p{Letter}"))
+#check(stroke(red + 5pt))
+#check(auto)

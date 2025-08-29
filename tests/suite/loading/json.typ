@@ -19,3 +19,22 @@
 // but not overflow
 #let bignum = json("/assets/data/big-number.json")
 #bignum
+
+--- json-encode-any ---
+// Anything can be encoded.
+// Unsupported types fall back to strings via `repr`, but the specific output can be changed.
+#let check(value) = test(
+  json.encode(value),
+  json.encode(repr(value)),
+)
+
+#check(bytes("Typst"))
+#check(decimal("2.99792458"))
+#check(3.14159pt)
+#check(2.99em)
+#check(<sec:intro>)
+#check(panic)
+#check(x => x + 1)
+#check(regex("\p{Letter}"))
+#check(stroke(red + 5pt))
+#check(auto)
