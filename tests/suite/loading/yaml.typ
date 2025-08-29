@@ -7,7 +7,7 @@
 #test(data.integer, 5)
 #test(data.float, 1.12)
 #test(data.mapping, ("1": "one", "2": "two"))
-#test(data.seq, (1,2,3,4))
+#test(data.seq, (1, 2, 3, 4))
 #test(data.bool, false)
 #test(data.keys().contains("true"), true)
 #test(data.at("1"), "ok")
@@ -20,3 +20,22 @@
 // Warning: 15-21 `yaml.decode` is deprecated, directly pass bytes to `yaml` instead
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = yaml.decode
+
+--- yaml-decode-number ---
+#import "edge-case.typ": large-integer, representable-integer
+
+#for (name, source) in representable-integer {
+  assert.eq(
+    type(yaml(bytes(source))),
+    int,
+    message: "failed to decode " + name,
+  )
+}
+
+#for (name, source) in large-integer {
+  assert.eq(
+    type(yaml(bytes(source))),
+    float,
+    message: "failed to approximately decode " + name,
+  )
+}

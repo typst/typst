@@ -1,0 +1,18 @@
+// SKIP
+// Edge cases in deserialization.
+// They can be imported when testing decoding functions.
+
+#let representable-integer = (
+  i64-max: "9223372036854775807",
+  i64-min: "-9223372036854775808",
+)
+
+#let large-integer = (
+  i64-max-plus-one: "9223372036854775808",
+  i64-min-minus-one: "-9223372036854775809",
+  u64-max: "18446744073709551615",
+  u64-max-plus-one: "18446744073709551616",
+  i128-max: "170141183460469231731687303715884105727",
+  i128-min: "-170141183460469231731687303715884105728",
+  u128-max: "340282366920938463463374607431768211455",
+)
