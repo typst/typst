@@ -79,7 +79,10 @@ pub fn numbering(
     /// numberings to the `numbering` function without caring whether they are
     /// defined as a pattern or function.
     numbering: Numbering,
-    /// The numbers to apply the numbering to. Must be positive.
+    /// The numbers to apply the numbering to. Must be non-negative.
+    ///
+    /// In general, numbers are counted from one. A number of zero indicates
+    /// that the first element has not yet appeared.
     ///
     /// If `numbering` is a pattern and more numbers than counting symbols are
     /// given, the last counting symbol with its prefix is repeated.

@@ -202,10 +202,27 @@ pub struct PageElem {
     #[ghost]
     pub fill: Smart<Option<Paint>>,
 
-    /// How to [number]($numbering) the pages.
+    /// How to number the pages. You can refer to the page setup guide for
+    /// [customizing page numbers]($guides/page-setup-guide/#page-numbers).
     ///
-    /// If an explicit `footer` (or `header` for top-aligned numbering) is
-    /// given, the numbering is ignored.
+    /// Accepts a [numbering pattern or function]($numbering) taking one or two
+    /// numbers:
+    /// 1. the first number is the current page number
+    /// 2. the second number (if it exists) is the total number of pages
+    ///
+    /// These numbers are _logical_. They are controlled by the page counter,
+    /// [`counter(page)`]($counter), and may thus not match the physical number.
+    ///
+    /// More precisely, the second number is the [final]($counter.final) value
+    /// of `counter(page)`. If you [reset]($counter/#modifying) the page counter
+    /// manually, then it might not be what you want. To instead use the page
+    /// number at a certain position, you can attach a [label] there and use
+    /// [`counter(page).at(..)`]($counter.at) in the numbering function. This
+    /// might be improved in the future.
+    ///
+    /// In addition, if an explicit [`footer`]($page.footer) (or
+    /// [`header`]($page.header) for [top-aligned]($page.number-align) numbering)
+    /// is given, the numbering is ignored.
     ///
     /// ```example
     /// #set page(
@@ -215,6 +232,26 @@ pub struct PageElem {
     /// )
     ///
     /// #lorem(48)
+    /// ```
+    ///
+    /// ```example
+    /// >>> #set page(margin: (top: 16pt, bottom: 24pt))
+    /// #set page(numbering: (num, final) => numbering(
+    ///   "I / I",
+    ///   num,
+    ///   ..counter(page).at(<preface-end>),
+    /// ))
+    ///
+    /// = Preface
+    /// #metadata(none) <preface-end>
+    ///
+    /// #set page(numbering: "1 / 1")
+    /// #counter(page).update(1)
+    ///
+    /// = Main text
+    /// #lorem(5)
+    /// #pagebreak()
+    /// #lorem(5)
     /// ```
     #[ghost]
     pub numbering: Option<Numbering>,
@@ -255,8 +292,8 @@ pub struct PageElem {
     /// The page's header. Fills the top margin of each page.
     ///
     /// - Content: Shows the content as the header.
-    /// - `{auto}`: Shows the page number if a `numbering` is set and
-    ///   `number-align` is `top`.
+    /// - `{auto}`: Shows the page number if a [`numbering`]($page.numbering) is
+    ///   set and [`number-align`]($page.number-align) is `top`.
     /// - `{none}`: Suppresses the header.
     ///
     /// ```example
@@ -283,8 +320,8 @@ pub struct PageElem {
     /// The page's footer. Fills the bottom margin of each page.
     ///
     /// - Content: Shows the content as the footer.
-    /// - `{auto}`: Shows the page number if a `numbering` is set and
-    ///   `number-align` is `bottom`.
+    /// - `{auto}`: Shows the page number if a [`numbering`]($page.numbering) is
+    ///   set and [`number-align`]($page.number-align) is `bottom`.
     /// - `{none}`: Suppresses the footer.
     ///
     /// For just a page number, the `numbering` property typically suffices. If

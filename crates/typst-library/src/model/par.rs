@@ -352,7 +352,7 @@ impl Unlabellable for Packed<ParbreakElem> {}
 #[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
 pub struct ParLine {
     /// How to number each line. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking a single number.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))
