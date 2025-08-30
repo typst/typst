@@ -946,7 +946,14 @@ fn shape_glyph<'a>(
     match buffer.len() {
         0 => return None,
         1 => {}
-        _ => unreachable!(),
+        _ => {
+            todo!("Not quite sure how to resolve this")
+            // from origin/main:
+            //  unreachable!()
+            // from this branch:
+            //  // TODO: deal with multiple glyphs.
+            //  bail!(span, "did not get a single glyph after shaping {}", text);
+        }
     }
 
     let info = buffer.glyph_infos()[0];
