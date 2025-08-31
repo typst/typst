@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "citationberg"
 version = "0.5.0"
-source = "git+https://github.com/typst/citationberg.git?rev=4962719138554757f890086660a05862f0b8a0c6#4962719138554757f890086660a05862f0b8a0c6"
+source = "git+https://github.com/typst/citationberg.git?rev=35cc83fb325d22c9b5bd5c7fc1d8e79897308076#35cc83fb325d22c9b5bd5c7fc1d8e79897308076"
 dependencies = [
  "quick-xml 0.38.1",
  "serde",
@@ -937,7 +937,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.8.1"
-source = "git+https://github.com/wkordalski/hayagriva.git?branch=transparent-locator-payload-with-discrimination-ids#119d3f0910beccb8887caff24eecd558d77f7287"
+source = "git+https://github.com/wkordalski/hayagriva.git?branch=transparent-locator-payload-with-discrimination-ids#d1ce8e131b128569f98e6b2bdc3573986399967d"
 dependencies = [
  "biblatex",
  "ciborium",
