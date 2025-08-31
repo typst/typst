@@ -165,3 +165,6 @@ manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
+
+[patch.crates-io]
+hayagriva = { git = "https://github.com/typst/hayagriva.git", branch = "main" }
