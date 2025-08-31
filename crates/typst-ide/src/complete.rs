@@ -492,7 +492,7 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
     // A label anywhere in code: "(<la|".
     if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
         ctx.from = ctx.leaf.offset() + 1;
-        ctx.label_completions(true);
+        ctx.label_completions(false);
         return true;
     }
 
@@ -910,7 +910,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     // A potential label (only at the start of an argument list): "(<|".
     if ctx.before.ends_with("(<") {
         ctx.from = ctx.cursor;
-        ctx.label_completions(true);
+        ctx.label_completions(false);
         return true;
     }
 
@@ -1280,7 +1280,7 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for labels and references.
-    fn label_completions(&mut self, all: bool) {
+    fn label_completions(&mut self, include_suppressed: bool) {
         let Some(document) = self.document else { return };
         let (labels, split) = analyze_labels(document);
 
@@ -1300,7 +1300,7 @@ impl<'a> CompletionContext<'a> {
 
         for (label, detail) in labels.into_iter().skip(skip).take(take) {
             let name = label.resolve();
-            if !all && name.as_str().contains(LABEL_SUPPRESSED_CHARS) {
+            if !include_suppressed && name.as_str().contains(LABEL_SUPPRESSED_CHARS) {
                 continue;
             }
             self.completions.push(Completion {
@@ -1761,29 +1761,15 @@ mod tests {
     }
 
     #[test]
-    fn test_autocomplete_label_all_included() {
-        let result = test_with_addition(
-            r#"a<test> b#label("test,1") c#label("test@1") d#label("test/1")"#,
-            " <t",
-            -1,
-        );
-        let completions = result.completions();
-        let label_count =
-            completions.iter().filter(|c| c.kind == CompletionKind::Label).count();
-        assert_eq!(label_count, 4);
-    }
-
-    #[test]
-    fn test_autocomplete_ref_invalid_labels_skipped() {
-        let result = test_with_addition(
-            r#"a<test> b#label("test,1") c#label("test@1") d#label("test/1")"#,
-            " @t",
-            -1,
-        );
-        let completions = result.completions();
-        let label_count =
-            completions.iter().filter(|c| c.kind == CompletionKind::Label).count();
-        assert_eq!(label_count, 1);
+    fn test_autocomplete_ref_and_label_invalid_labels_skipped() {
+        let test = r#"a<test> b#label("test,1") c#label("test@1") d#label("test/1")"#;
+        let exclude_list = ["test,1", "test@1", "test/1"];
+        test_with_addition(test, " #ref(<)", -2)
+            .must_include(["test"])
+            .must_exclude(exclude_list);
+        test_with_addition(test, " @", -1)
+            .must_include(["test"])
+            .must_exclude(exclude_list);
     }
 
     #[test]
