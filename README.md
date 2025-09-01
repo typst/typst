@@ -35,13 +35,14 @@ need to compile Typst documents locally. For the best writing experience,
 consider signing up to our [collaborative online editor][app] for free.
 
 ## Example
+
 A [gentle introduction][tutorial] to Typst is available in our documentation.
 However, if you want to see the power of Typst encapsulated in one image, here
 it is:
+
 <p align="center">
  <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/228031796-ced0e452-fcee-4ae9-92da-b9287764ff25.png">
 </p>
-
 
 Let's dissect what's going on:
 
@@ -74,36 +75,38 @@ Let's dissect what's going on:
 <details>
   <summary>Text version of the code example.</summary>
 
-  ```typst
-  #set page(width: 10cm, height: auto)
-  #set heading(numbering: "1.")
+```typst
+#set page(width: 10cm, height: auto)
+#set heading(numbering: "1.")
 
-  = Fibonacci sequence
-  The Fibonacci sequence is defined through the
-  recurrence relation $F_n = F_(n-1) + F_(n-2)$.
-  It can also be expressed in _closed form:_
+= Fibonacci sequence
+The Fibonacci sequence is defined through the
+recurrence relation $F_n = F_(n-1) + F_(n-2)$.
+It can also be expressed in _closed form:_
 
-  $ F_n = round(1 / sqrt(5) phi.alt^n), quad
-    phi.alt = (1 + sqrt(5)) / 2 $
+$ F_n = round(1 / sqrt(5) phi.alt^n), quad
+  phi.alt = (1 + sqrt(5)) / 2 $
 
-  #let count = 8
-  #let nums = range(1, count + 1)
-  #let fib(n) = (
-    if n <= 2 { 1 }
-    else { fib(n - 1) + fib(n - 2) }
-  )
+#let count = 8
+#let nums = range(1, count + 1)
+#let fib(n) = (
+  if n <= 2 { 1 }
+  else { fib(n - 1) + fib(n - 2) }
+)
 
-  The first #count numbers of the sequence are:
+The first #count numbers of the sequence are:
 
-  #align(center, table(
-    columns: count,
-    ..nums.map(n => $F_#n$),
-    ..nums.map(n => str(fib(n))),
-  ))
-  ```
+#align(center, table(
+  columns: count,
+  ..nums.map(n => $F_#n$),
+  ..nums.map(n => str(fib(n))),
+))
+```
+
 </details>
 
 ## Installation
+
 Typst's CLI is available from different sources:
 
 - You can get sources and pre-built binaries for the latest release of Typst
@@ -114,8 +117,8 @@ Typst's CLI is available from different sources:
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
   - Linux:
-      - View [Typst on Repology][repology]
-      - View [Typst's Snap][snap]
+    - View [Typst on Repology][repology]
+    - View [Typst's Snap][snap]
   - macOS: `brew install typst`
   - Windows: `winget install --id Typst.Typst`
 
@@ -134,7 +137,9 @@ Typst's CLI is available from different sources:
   `docker run ghcr.io/typst/typst:latest --help`.
 
 ## Usage
+
 Once you have installed Typst, you can use it like this:
+
 ```sh
 # Creates `file.pdf` in working directory.
 typst compile file.typ
@@ -146,6 +151,7 @@ typst compile path/to/source.typ path/to/output.pdf
 You can also watch source files and automatically recompile on changes. This is
 faster than compiling from scratch each time because Typst has incremental
 compilation.
+
 ```sh
 # Watches source files and recompiles on changes.
 typst watch file.typ
@@ -153,6 +159,7 @@ typst watch file.typ
 
 Typst further allows you to add custom font paths for your project and list all
 of the fonts it discovered:
+
 ```sh
 # Adds additional directories to search for fonts.
 typst compile --font-path path/to/fonts file.typ
@@ -165,6 +172,7 @@ TYPST_FONT_PATHS=path/to/fonts typst fonts
 ```
 
 For other CLI subcommands and options, see below:
+
 ```sh
 # Prints available subcommands and options.
 typst help
@@ -173,13 +181,14 @@ typst help
 typst help watch
 ```
 
-If you prefer an integrated IDE-like experience with autocompletion and instant 
-preview, you can also check out our [free web app][app]. Alternatively, there is 
-a community-created language server called 
-[Tinymist](https://myriad-dreamin.github.io/tinymist/) which is integrated into 
+If you prefer an integrated IDE-like experience with autocompletion and instant
+preview, you can also check out our [free web app][app]. Alternatively, there is
+a community-created language server called
+[Tinymist](https://myriad-dreamin.github.io/tinymist/) which is integrated into
 various editor extensions.
 
 ## Community
+
 The main places where the community gathers are our [Forum][forum] and our
 [Discord server][discord]. The Forum is a great place to ask questions, help
 others, and share cool things you created with Typst. The Discord server is more
@@ -193,6 +202,7 @@ If you want to share your own creations, you can submit them to our
 If you had a bad experience in our community, please [reach out to us][contact].
 
 ## Contributing
+
 We love to see contributions from the community. If you experience bugs, feel
 free to open an issue. If you would like to implement a new feature or bug fix,
 please follow the steps outlined in the [contribution guide][contributing].
@@ -213,10 +223,12 @@ Another good way to contribute is by [sharing packages][packages] with the
 community.
 
 ## Pronunciation and Spelling
+
 IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er. When
 writing about Typst, capitalize its name as a proper noun, with a capital "T".
 
 ## Design Principles
+
 All of Typst has been designed with three key goals in mind: Power,
 simplicity, and performance. We think it's time for a system that matches the
 power of LaTeX, is easy to learn and use, all while being fast enough to realize
@@ -260,7 +272,8 @@ We'd like to thank everyone who is supporting Typst's development, be it via
 - [Zerodha](https://zerodha.tech/blog/1-5-million-pdfs-in-25-minutes/) for their
   generous one-time sponsorship
 
-[^1]: This list only includes contributions for our open-source work that exceed
+[^1]:
+    This list only includes contributions for our open-source work that exceed
     or are expected to exceed €10K.
 
 [docs]: https://typst.app/docs/
