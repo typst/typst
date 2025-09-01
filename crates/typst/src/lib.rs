@@ -41,7 +41,7 @@ pub use typst_utils as utils;
 use std::sync::LazyLock;
 
 use comemo::{Track, Tracked};
-use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use ecow::{EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
 use typst_html::HtmlDocument;
 use typst_library::diag::{
