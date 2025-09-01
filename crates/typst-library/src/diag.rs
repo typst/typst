@@ -569,7 +569,7 @@ impl Display for FileError {
             Self::NotSource(path) => {
                 write!(f, "{} is not a typst source file", path.display())
             }
-            Self::InvalidUtf8(_) => write!(f, "file is not valid utf-8"),
+            Self::InvalidUtf8(_) => write!(f, "file is not valid UTF-8"),
             Self::IsDirectory(path) => {
                 write!(f, "failed to load file {} (is a directory)", path.display())
             }
