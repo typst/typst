@@ -38,22 +38,22 @@ pub use typst_syntax as syntax;
 #[doc(inline)]
 pub use typst_utils as utils;
 
-use std::collections::HashSet;
 use std::sync::LazyLock;
 
-use comemo::{Track, Tracked, Validate};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use comemo::{Track, Tracked};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use rustc_hash::FxHashSet;
+use typst_html::HtmlDocument;
 use typst_library::diag::{
-    bail, warning, FileError, SourceDiagnostic, SourceResult, Warned,
+    FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{NativeRuleMap, StyleChain, Styles, Value};
-use typst_library::html::HtmlDocument;
 use typst_library::introspection::Introspector;
 use typst_library::layout::PagedDocument;
 use typst_library::routines::Routines;
 use typst_syntax::{FileId, Span};
-use typst_timing::{timed, TimingScope};
+use typst_timing::{TimingScope, timed};
 
 use crate::foundations::{Target, TargetElem};
 use crate::model::DocumentInfo;
@@ -135,7 +135,7 @@ fn compile_impl<D: Document>(
 
         subsink = Sink::new();
 
-        let constraint = <Introspector as Validate>::Constraint::new();
+        let constraint = comemo::Constraint::new();
         let mut engine = Engine {
             world,
             introspector: introspector.track_with(&constraint),
@@ -150,7 +150,7 @@ fn compile_impl<D: Document>(
         introspector = document.introspector();
         iter += 1;
 
-        if timed!("check stabilized", introspector.validate(&constraint)) {
+        if timed!("check stabilized", constraint.validate(introspector)) {
             break;
         }
 
@@ -176,7 +176,7 @@ fn compile_impl<D: Document>(
 
 /// Deduplicate diagnostics.
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
-    let mut unique = HashSet::new();
+    let mut unique = FxHashSet::default();
     diags.retain(|diag| {
         let hash = typst_utils::hash128(&(&diag.span, &diag.message));
         unique.insert(hash)
@@ -358,4 +358,5 @@ pub static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
     html_module: typst_html::module,
+    html_span_filled: typst_html::html_span_filled,
 });

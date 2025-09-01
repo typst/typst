@@ -1,16 +1,17 @@
 use comemo::Track;
 use ecow::eco_format;
 
-use crate::diag::{bail, At, Hint, SourceResult};
+use crate::diag::{At, Hint, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed,
-    Repr, Smart, StyleChain, Synthesize,
+    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
+    StyleChain, Synthesize, TargetElem, cast, elem,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
 use crate::model::{
-    BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, Numbering,
+    BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, LinkElem,
+    LinkTarget, Numbering,
 };
 use crate::text::TextElem;
 
@@ -82,7 +83,7 @@ use crate::text::TextElem;
 /// When you only ever need to reference pages of a figure/table/heading/etc. in
 /// a document, the default `form` field value can be changed to `{"page"}` with
 /// a set rule. If you prefer a short "p." supplement over "page", the
-/// [`page.supplement`]($page.supplement) field can be used for changing this:
+/// [`page.supplement`] field can be used for changing this:
 ///
 /// ```example
 /// #set page(
@@ -209,11 +210,11 @@ impl Synthesize for Packed<RefElem> {
         elem.citation = Some(Some(citation));
         elem.element = Some(None);
 
-        if !BibliographyElem::has(engine, elem.target) {
-            if let Ok(found) = engine.introspector.query_label(elem.target).cloned() {
-                elem.element = Some(Some(found));
-                return Ok(());
-            }
+        if !BibliographyElem::has(engine, elem.target)
+            && let Ok(found) = engine.introspector.query_label(elem.target).cloned()
+        {
+            elem.element = Some(Some(found));
+            return Ok(());
         }
 
         Ok(())
@@ -346,7 +347,14 @@ fn realize_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
-    Ok(content.linked(Destination::Location(loc)))
+    Ok(if styles.get(TargetElem::target).is_html() {
+        LinkElem::new(LinkTarget::Dest(Destination::Location(loc)), content).pack()
+    } else {
+        // TODO: We should probably also use `LinkElem` in the paged target, but
+        // it's a bit breaking and it becomes hard to style links without
+        // affecting references, so this change should be well-considered.
+        content.linked(Destination::Location(loc))
+    })
 }
 
 /// Turn a reference into a citation.

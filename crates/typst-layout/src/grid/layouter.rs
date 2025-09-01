@@ -1,11 +1,14 @@
 use std::fmt::Debug;
 
-use typst_library::diag::{bail, SourceResult};
+use rustc_hash::FxHashMap;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
 };
+use typst_library::layout::resolve::Entry;
 use typst_library::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Rel,
     Size, Sizing,
@@ -16,16 +19,18 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::{
-    generate_line_segments, hline_stroke_at_column, layout_cell, vline_stroke_at_row,
-    LineSegment, Rowspan, UnbreakableRowGroup,
+    LineSegment, Rowspan, UnbreakableRowGroup, generate_line_segments,
+    hline_stroke_at_column, layout_cell, vline_stroke_at_row,
 };
 
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The grid of cells.
-    pub(super) grid: &'a CellGrid<'a>,
+    pub(super) grid: &'a CellGrid,
     /// The regions to layout children into.
     pub(super) regions: Regions<'a>,
+    /// The locators for the each cell in the cell grid.
+    pub(super) cell_locators: FxHashMap<Axes<usize>, Locator<'a>>,
     /// The inherited styles.
     pub(super) styles: StyleChain<'a>,
     /// Resolved column sizes.
@@ -228,8 +233,9 @@ impl<'a> GridLayouter<'a> {
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
-        grid: &'a CellGrid<'a>,
+        grid: &'a CellGrid,
         regions: Regions<'a>,
+        locator: Locator<'a>,
         styles: StyleChain<'a>,
         span: Span,
     ) -> Self {
@@ -238,9 +244,22 @@ impl<'a> GridLayouter<'a> {
         let mut regions = regions;
         regions.expand = Axes::new(true, false);
 
+        // Prepare the locators for each cell in the cell grid.
+        let mut locator = locator.split();
+        let mut cell_locators = FxHashMap::default();
+        for y in 0..grid.rows.len() {
+            for x in 0..grid.cols.len() {
+                let Some(Entry::Cell(cell)) = grid.entry(x, y) else {
+                    continue;
+                };
+                cell_locators.insert(Axes::new(x, y), locator.next(&cell.body.span()));
+            }
+        }
+
         Self {
             grid,
             regions,
+            cell_locators,
             styles,
             rcols: vec![Abs::zero(); grid.cols.len()],
             width: Abs::zero(),
@@ -270,43 +289,59 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
+    /// Create a [`Locator`] for use in [`layout_cell`].
+    pub(super) fn cell_locator(
+        &self,
+        pos: Axes<usize>,
+        disambiguator: usize,
+    ) -> Locator<'a> {
+        let mut cell_locator = self.cell_locators[&pos].relayout();
+
+        // The disambiguator is used for repeated cells, e.g. in repeated headers.
+        if disambiguator > 0 {
+            cell_locator = cell_locator.split().next_inner(disambiguator as u128);
+        }
+
+        cell_locator
+    }
+
     /// Determines the columns sizes and then layouts the grid row-by-row.
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        if let Some(footer) = &self.grid.footer {
-            if footer.repeated {
-                // Ensure rows in the first region will be aware of the
-                // possible presence of the footer.
-                self.prepare_footer(footer, engine, 0)?;
-                self.regions.size.y -= self.current.footer_height;
-                self.current.initial_after_repeats = self.regions.size.y;
-            }
+        if let Some(footer) = &self.grid.footer
+            && footer.repeated
+        {
+            // Ensure rows in the first region will be aware of the
+            // possible presence of the footer.
+            self.prepare_footer(footer, engine, 0)?;
+            self.regions.size.y -= self.current.footer_height;
+            self.current.initial_after_repeats = self.regions.size.y;
         }
 
         let mut y = 0;
         let mut consecutive_header_count = 0;
         while y < self.grid.rows.len() {
             if let Some(next_header) = self.upcoming_headers.get(consecutive_header_count)
+                && next_header.range.contains(&y)
             {
-                if next_header.range.contains(&y) {
-                    self.place_new_headers(&mut consecutive_header_count, engine)?;
-                    y = next_header.range.end;
+                self.place_new_headers(&mut consecutive_header_count, engine)?;
+                y = next_header.range.end;
 
-                    // Skip header rows during normal layout.
-                    continue;
-                }
+                // Skip header rows during normal layout.
+                continue;
             }
 
-            if let Some(footer) = &self.grid.footer {
-                if footer.repeated && y >= footer.start {
-                    if y == footer.start {
-                        self.layout_footer(footer, engine, self.finished.len())?;
-                        self.flush_orphans();
-                    }
-                    y = footer.end;
-                    continue;
+            if let Some(footer) = &self.grid.footer
+                && footer.repeated
+                && y >= footer.start
+            {
+                if y == footer.start {
+                    self.layout_footer(footer, engine, self.finished.len())?;
+                    self.flush_orphans();
                 }
+                y = footer.end;
+                continue;
             }
 
             self.layout_row(y, engine, 0)?;
@@ -1037,8 +1072,9 @@ impl<'a> GridLayouter<'a> {
 
                 let size = Size::new(available, height);
                 let pod = Region::new(size, Axes::splat(false));
-                let frame =
-                    layout_cell(cell, engine, 0, self.styles, pod.into())?.into_frame();
+                let locator = self.cell_locator(parent, 0);
+                let frame = layout_cell(cell, engine, locator, self.styles, pod.into())?
+                    .into_frame();
                 resolved.set_max(frame.width() - already_covered_width);
             }
 
@@ -1228,7 +1264,7 @@ impl<'a> GridLayouter<'a> {
                     .skip(parent.y)
                     .take(rowspan)
                     .rev()
-                    .find(|(_, &row)| row == Sizing::Auto)
+                    .find(|&(_, &row)| row == Sizing::Auto)
                     .map(|(y, _)| y);
 
                 if last_spanned_auto_row != Some(y) {
@@ -1276,21 +1312,20 @@ impl<'a> GridLayouter<'a> {
                 pod
             };
 
+            let locator = self.cell_locator(parent, disambiguator);
             let frames =
-                layout_cell(cell, engine, disambiguator, self.styles, pod)?.into_frames();
+                layout_cell(cell, engine, locator, self.styles, pod)?.into_frames();
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
             if let Some([first, rest @ ..]) =
                 frames.get(measurement_data.frames_in_previous_regions..)
+                && can_skip
+                && breakable
+                && first.is_empty()
+                && rest.iter().any(|frame| !frame.is_empty())
             {
-                if can_skip
-                    && breakable
-                    && first.is_empty()
-                    && rest.iter().any(|frame| !frame.is_empty())
-                {
-                    return Ok(None);
-                }
+                return Ok(None);
             }
 
             // Skip frames from previous regions if applicable.
@@ -1436,9 +1471,9 @@ impl<'a> GridLayouter<'a> {
                         // rows.
                         pod.full = self.regions.full;
                     }
-                    let frame =
-                        layout_cell(cell, engine, disambiguator, self.styles, pod)?
-                            .into_frame();
+                    let locator = self.cell_locator(Axes::new(x, y), disambiguator);
+                    let frame = layout_cell(cell, engine, locator, self.styles, pod)?
+                        .into_frame();
                     let mut pos = offset;
                     if self.is_rtl {
                         // In RTL cells expand to the left, thus the position
@@ -1485,8 +1520,8 @@ impl<'a> GridLayouter<'a> {
                     pod.size.x = width;
 
                     // Push the layouted frames into the individual output frames.
-                    let fragment =
-                        layout_cell(cell, engine, disambiguator, self.styles, pod)?;
+                    let locator = self.cell_locator(Axes::new(x, y), disambiguator);
+                    let fragment = layout_cell(cell, engine, locator, self.styles, pod)?;
                     for (output, frame) in outputs.iter_mut().zip(fragment) {
                         let mut pos = offset;
                         if self.is_rtl {
@@ -1529,16 +1564,16 @@ impl<'a> GridLayouter<'a> {
         // The latest rows have orphan prevention (headers) and no other rows
         // were placed, so remove those rows and try again in a new region,
         // unless this is the last region.
-        if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take() {
-            if !last {
-                self.current.lrows.truncate(orphan_snapshot);
-                self.current.repeated_header_rows =
-                    self.current.repeated_header_rows.min(orphan_snapshot);
+        if let Some(orphan_snapshot) = self.current.lrows_orphan_snapshot.take()
+            && !last
+        {
+            self.current.lrows.truncate(orphan_snapshot);
+            self.current.repeated_header_rows =
+                self.current.repeated_header_rows.min(orphan_snapshot);
 
-                if orphan_snapshot == 0 {
-                    // Removed all repeated headers.
-                    self.current.last_repeated_header_end = 0;
-                }
+            if orphan_snapshot == 0 {
+                // Removed all repeated headers.
+                self.current.last_repeated_header_end = 0;
             }
         }
 
@@ -1571,21 +1606,19 @@ impl<'a> GridLayouter<'a> {
             && self.current.could_progress_at_top;
 
         let mut laid_out_footer_start = None;
-        if !footer_would_be_widow {
-            if let Some(footer) = &self.grid.footer {
-                // Don't layout the footer if it would be alone with the header
-                // in the page (hence the widow check), and don't layout it
-                // twice (check below).
-                //
-                // TODO(subfooters): this check can be replaced by a vector of
-                // repeating footers in the future, and/or some "pending
-                // footers" vector for footers we're about to place.
-                if footer.repeated
-                    && self.current.lrows.iter().all(|row| row.index() < footer.start)
-                {
-                    laid_out_footer_start = Some(footer.start);
-                    self.layout_footer(footer, engine, self.finished.len())?;
-                }
+        if !footer_would_be_widow && let Some(footer) = &self.grid.footer {
+            // Don't layout the footer if it would be alone with the header
+            // in the page (hence the widow check), and don't layout it
+            // twice (check below).
+            //
+            // TODO(subfooters): this check can be replaced by a vector of
+            // repeating footers in the future, and/or some "pending
+            // footers" vector for footers we're about to place.
+            if footer.repeated
+                && self.current.lrows.iter().all(|row| row.index() < footer.start)
+            {
+                laid_out_footer_start = Some(footer.start);
+                self.layout_footer(footer, engine, self.finished.len())?;
             }
         }
 

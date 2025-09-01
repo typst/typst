@@ -80,7 +80,7 @@ use comemo::TrackedMut;
 use ecow::EcoString;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::{Feature, Features};
 
@@ -154,8 +154,8 @@ pub fn panic(
 /// Fails with an error if the condition is not fulfilled. Does not
 /// produce any output in the document.
 ///
-/// If you wish to test equality between two values, see
-/// [`assert.eq`]($assert.eq) and [`assert.ne`]($assert.ne).
+/// If you wish to test equality between two values, see [`assert.eq`] and
+/// [`assert.ne`].
 ///
 /// # Example
 /// ```typ

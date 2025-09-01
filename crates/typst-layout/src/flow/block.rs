@@ -407,10 +407,10 @@ fn distribute<'a>(
     // If there is still something remaining, apply it to the
     // last region (it will overflow, but there's nothing else
     // we can do).
-    if !remaining.approx_empty() {
-        if let Some(last) = buf.last_mut() {
-            *last += remaining;
-        }
+    if !remaining.approx_empty()
+        && let Some(last) = buf.last_mut()
+    {
+        *last += remaining;
     }
 
     // Distribute the heights to the first region and the

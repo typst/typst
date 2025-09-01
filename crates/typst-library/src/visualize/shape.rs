@@ -1,4 +1,4 @@
-use crate::foundations::{elem, Cast, Content, Smart};
+use crate::foundations::{Cast, Content, Smart, elem};
 use crate::layout::{Abs, Corners, Length, Point, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 
@@ -36,7 +36,7 @@ pub struct RectElem {
     /// How to stroke the rectangle. This can be:
     ///
     /// - `{none}` to disable stroking
-    /// - `{auto}` for a stroke of `{1pt + black}` if and if only if no fill is
+    /// - `{auto}` for a stroke of `{1pt + black}` if and only if no fill is
     ///   given.
     /// - Any kind of [stroke]
     /// - A dictionary describing the stroke for each side individually. The

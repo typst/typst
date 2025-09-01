@@ -21,13 +21,12 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
     let elements = &gc.document.introspector.query(&HeadingElem::ELEM.select());
 
     for elem in elements.iter() {
-        if let Some(page_ranges) = &gc.options.page_ranges {
-            if !page_ranges
+        if let Some(page_ranges) = &gc.options.page_ranges
+            && !page_ranges
                 .includes_page(gc.document.introspector.page(elem.location().unwrap()))
-            {
-                // Don't bookmark headings in non-exported pages.
-                continue;
-            }
+        {
+            // Don't bookmark headings in non-exported pages.
+            continue;
         }
 
         let heading = elem.to_packed::<HeadingElem>().unwrap();
@@ -125,9 +124,15 @@ impl<'a> HeadingNode<'a> {
 
     fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
         let loc = self.element.location().unwrap();
-        let title = self.element.body.plain_text().to_string();
         let pos = gc.document.introspector.position(loc);
         let page_index = pos.page.get() - 1;
+
+        // Prepend the numbers to the title if they exist.
+        let text = self.element.body.plain_text();
+        let title = match &self.element.numbers {
+            Some(num) => format!("{num} {text}"),
+            None => text.to_string(),
+        };
 
         if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());

@@ -17,7 +17,7 @@ use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign, ControlFlow};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use serde::{Serialize, Serializer};
 
 use typst_syntax::Span;
@@ -26,8 +26,8 @@ use typst_utils::singleton;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    func, repr, scope, ty, Context, Dict, IntoValue, Label, Property, Recipe,
-    RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
+    Context, Dict, IntoValue, Label, Property, Recipe, RecipeIndex, Repr, Selector, Str,
+    Style, StyleChain, Styles, Value, func, repr, scope, ty,
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
@@ -174,10 +174,10 @@ impl Content {
         id: u8,
         styles: Option<StyleChain>,
     ) -> Result<Value, FieldAccessError> {
-        if id == 255 {
-            if let Some(label) = self.label() {
-                return Ok(label.into_value());
-            }
+        if id == 255
+            && let Some(label) = self.label()
+        {
+            return Ok(label.into_value());
         }
 
         match self.0.handle().field(id) {

@@ -1,8 +1,8 @@
 use ecow::EcoString;
 
-use crate::foundations::{elem, Content, NativeElement, Scope, SymbolElem};
+use crate::foundations::{Content, NativeElement, Scope, SymbolElem, elem};
 use crate::layout::HElem;
-use crate::math::{upright, Mathy, THIN};
+use crate::math::{Mathy, THIN, upright};
 use crate::text::TextElem;
 
 /// A text operator in an equation.

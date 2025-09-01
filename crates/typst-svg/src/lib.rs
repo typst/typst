@@ -6,8 +6,10 @@ mod shape;
 mod text;
 
 pub use image::{convert_image_scaling, convert_image_to_base64_url};
+use rustc_hash::FxHashMap;
+use typst_library::introspection::Introspector;
+use typst_library::model::Destination;
 
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter, Write};
 
 use ecow::EcoString;
@@ -45,6 +47,47 @@ pub fn svg_frame(frame: &Frame) -> String {
     renderer.finalize()
 }
 
+/// Export a frame into an SVG suitable for embedding into HTML.
+#[typst_macros::time(name = "svg html frame")]
+pub fn svg_html_frame(
+    frame: &Frame,
+    text_size: Abs,
+    id: Option<&str>,
+    link_points: &[(Point, EcoString)],
+    introspector: &Introspector,
+) -> String {
+    let mut renderer = SVGRenderer::with_options(
+        xmlwriter::Options {
+            indent: xmlwriter::Indent::None,
+            ..Default::default()
+        },
+        Some(introspector),
+    );
+    renderer.write_header_with_custom_attrs(frame.size(), |xml| {
+        if let Some(id) = id {
+            xml.write_attribute("id", id);
+        }
+        xml.write_attribute("class", "typst-frame");
+        xml.write_attribute_fmt(
+            "style",
+            format_args!(
+                "overflow: visible; width: {}em; height: {}em;",
+                frame.width() / text_size,
+                frame.height() / text_size,
+            ),
+        );
+    });
+
+    let state = State::new(frame.size(), Transform::identity());
+    renderer.render_frame(state, Transform::identity(), frame);
+
+    for (pos, id) in link_points {
+        renderer.render_link_point(*pos, id);
+    }
+
+    renderer.finalize()
+}
+
 /// Export a document with potentially multiple pages into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.
@@ -78,9 +121,11 @@ pub fn svg_merged(document: &PagedDocument, padding: Abs) -> String {
 }
 
 /// Renders one or multiple frames to an SVG file.
-struct SVGRenderer {
+struct SVGRenderer<'a> {
     /// The internal XML writer.
     xml: XmlWriter,
+    /// The document's introspector, if we're writing an HTML frame.
+    introspector: Option<&'a Introspector>,
     /// Prepared glyphs.
     glyphs: Deduplicator<RenderedGlyph>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
@@ -155,11 +200,20 @@ impl State {
     }
 }
 
-impl SVGRenderer {
+impl<'a> SVGRenderer<'a> {
     /// Create a new SVG renderer with empty glyph and clip path.
     fn new() -> Self {
+        Self::with_options(Default::default(), None)
+    }
+
+    /// Create a new SVG renderer with the given configuration.
+    fn with_options(
+        options: xmlwriter::Options,
+        introspector: Option<&'a Introspector>,
+    ) -> Self {
         SVGRenderer {
-            xml: XmlWriter::new(xmlwriter::Options::default()),
+            xml: XmlWriter::new(options),
+            introspector,
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),
             gradient_refs: Deduplicator::new('g'),
@@ -170,11 +224,22 @@ impl SVGRenderer {
         }
     }
 
-    /// Write the SVG header, including the `viewBox` and `width` and `height`
-    /// attributes.
+    /// Write the default SVG header, including a `typst-doc` class, the
+    /// `viewBox` and `width` and `height` attributes.
     fn write_header(&mut self, size: Size) {
+        self.write_header_with_custom_attrs(size, |xml| {
+            xml.write_attribute("class", "typst-doc");
+        });
+    }
+
+    /// Write the SVG header with additional attributes and standard attributes.
+    fn write_header_with_custom_attrs(
+        &mut self,
+        size: Size,
+        write_custom_attrs: impl FnOnce(&mut XmlWriter),
+    ) {
         self.xml.start_element("svg");
-        self.xml.write_attribute("class", "typst-doc");
+        write_custom_attrs(&mut self.xml);
         self.xml.write_attribute_fmt(
             "viewBox",
             format_args!("0 0 {} {}", size.x.to_pt(), size.y.to_pt()),
@@ -208,8 +273,7 @@ impl SVGRenderer {
 
         for (pos, item) in frame.items() {
             // File size optimization.
-            // TODO: SVGs could contain links, couldn't they?
-            if matches!(item, FrameItem::Link(_, _) | FrameItem::Tag(_)) {
+            if matches!(item, FrameItem::Tag(_)) {
                 continue;
             }
 
@@ -230,7 +294,7 @@ impl SVGRenderer {
                     self.render_shape(state.pre_translate(*pos), shape)
                 }
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
-                FrameItem::Link(_, _) => unreachable!(),
+                FrameItem::Link(dest, size) => self.render_link(dest, *size),
                 FrameItem::Tag(_) => unreachable!(),
             };
 
@@ -265,6 +329,53 @@ impl SVGRenderer {
         }
 
         self.render_frame(state, group.transform, &group.frame);
+        self.xml.end_element();
+    }
+
+    /// Render a link element.
+    fn render_link(&mut self, dest: &Destination, size: Size) {
+        self.xml.start_element("a");
+
+        match dest {
+            Destination::Location(loc) => {
+                // TODO: Location links on the same page could also be supported
+                // outside of HTML.
+                if let Some(introspector) = self.introspector
+                    && let Some(id) = introspector.html_id(*loc)
+                {
+                    self.xml.write_attribute_fmt("href", format_args!("#{id}"));
+                    self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
+                }
+            }
+            Destination::Position(_) => {
+                // TODO: Links on the same page could be supported.
+            }
+            Destination::Url(url) => {
+                self.xml.write_attribute("href", url.as_str());
+                self.xml.write_attribute("xlink:href", url.as_str());
+            }
+        }
+
+        self.xml.start_element("rect");
+        self.xml
+            .write_attribute_fmt("width", format_args!("{}", size.x.to_pt()));
+        self.xml
+            .write_attribute_fmt("height", format_args!("{}", size.y.to_pt()));
+        self.xml.write_attribute("fill", "transparent");
+        self.xml.write_attribute("stroke", "none");
+        self.xml.end_element();
+
+        self.xml.end_element();
+    }
+
+    /// Renders a linkable point that can be used to link into an HTML frame.
+    fn render_link_point(&mut self, pos: Point, id: &str) {
+        self.xml.start_element("g");
+        self.xml.write_attribute("id", id);
+        self.xml.write_attribute_fmt(
+            "transform",
+            format_args!("translate({} {})", pos.x.to_pt(), pos.y.to_pt()),
+        );
         self.xml.end_element();
     }
 
@@ -310,12 +421,16 @@ impl SVGRenderer {
 struct Deduplicator<T> {
     kind: char,
     vec: Vec<(u128, T)>,
-    present: HashMap<u128, Id>,
+    present: FxHashMap<u128, Id>,
 }
 
 impl<T> Deduplicator<T> {
     fn new(kind: char) -> Self {
-        Self { kind, vec: Vec::new(), present: HashMap::new() }
+        Self {
+            kind,
+            vec: Vec::new(),
+            present: FxHashMap::default(),
+        }
     }
 
     /// Inserts a value into the vector. If the hash is already present, returns

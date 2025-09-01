@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, HintedStrResult, HintedString};
-use crate::foundations::{cast, elem, scope, Content, Packed, Smart};
+use crate::diag::{HintedStrResult, HintedString, bail};
+use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
@@ -22,8 +22,8 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Because tables are just grids with different defaults for some cell
 /// properties (notably `stroke` and `inset`), refer to the [grid
-/// documentation]($grid) for more information on how to size the table tracks
-/// and specify the cell appearance properties.
+/// documentation]($grid/#track-size) for more information on how to size the
+/// table tracks and specify the cell appearance properties.
 ///
 /// If you are unsure whether you should be using a table or a grid, consider
 /// whether the content you are arranging semantically belongs together as a set
@@ -36,8 +36,8 @@ use crate::visualize::{Paint, Stroke};
 /// in the document flow.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
-/// table cells, you can use the [`table.cell`]($table.cell) element. See its
-/// documentation for more information.
+/// table cells, you can use the [`table.cell`] element. See its documentation
+/// for more information.
 ///
 /// Although the `table` and the `grid` share most properties, set and show
 /// rules on one of them do not affect the other.
@@ -69,8 +69,8 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// ```
 ///
-/// Much like with grids, you can use [`table.cell`]($table.cell) to customize
-/// the appearance and the position of each cell.
+/// Much like with grids, you can use [`table.cell`] to customize the appearance
+/// and the position of each cell.
 ///
 /// ```example
 /// >>> #set page(width: auto)
@@ -115,22 +115,22 @@ use crate::visualize::{Paint, Stroke};
 /// ```
 #[elem(scope, LocalName, Figurable)]
 pub struct TableElem {
-    /// The column sizes. See the [grid documentation]($grid) for more
-    /// information on track sizing.
+    /// The column sizes. See the [grid documentation]($grid/#track-size) for
+    /// more information on track sizing.
     pub columns: TrackSizings,
 
-    /// The row sizes. See the [grid documentation]($grid) for more information
-    /// on track sizing.
+    /// The row sizes. See the [grid documentation]($grid/#track-size) for more
+    /// information on track sizing.
     pub rows: TrackSizings,
 
     /// The gaps between rows and columns. This is a shorthand for setting
     /// `column-gutter` and `row-gutter` to the same value. See the [grid
-    /// documentation]($grid) for more information on gutters.
+    /// documentation]($grid.gutter) for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid) for more information on gutters.
+    /// [grid documentation]($grid.gutter) for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -138,7 +138,7 @@ pub struct TableElem {
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`. See the
-    /// [grid documentation]($grid) for more information on gutters.
+    /// [grid documentation]($grid.gutter) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
@@ -190,8 +190,7 @@ pub struct TableElem {
     /// If it is necessary to place lines which can cross spacing between cells
     /// produced by the `gutter` option, or to override the stroke between
     /// multiple specific cells, consider specifying one or more of
-    /// [`table.hline`]($table.hline) and [`table.vline`]($table.vline)
-    /// alongside your table cells.
+    /// [`table.hline`] and [`table.vline`] alongside your table cells.
     ///
     /// See the [grid documentation]($grid.stroke) for more information on
     /// strokes.
@@ -223,8 +222,7 @@ pub struct TableElem {
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the table cells, plus any extra table lines specified
-    /// with the [`table.hline`]($table.hline) and
-    /// [`table.vline`]($table.vline) elements.
+    /// with the [`table.hline`] and [`table.vline`] elements.
     #[variadic]
     pub children: Vec<TableChild>,
 }
@@ -433,10 +431,10 @@ pub struct TableHeader {
 
 /// A repeatable table footer.
 ///
-/// Just like the [`table.header`]($table.header) element, the footer can repeat
-/// itself on every page of the table. This is useful for improving legibility
-/// by adding the column labels in both the header and footer of a large table,
-/// totals, or other information that should be visible on every page.
+/// Just like the [`table.header`] element, the footer can repeat itself on
+/// every page of the table. This is useful for improving legibility by adding
+/// the column labels in both the header and footer of a large table, totals, or
+/// other information that should be visible on every page.
 ///
 /// No other table cells may be placed after the footer.
 #[elem(name = "footer", title = "Table Footer")]
@@ -514,22 +512,22 @@ pub struct TableHLine {
     pub position: OuterVAlignment,
 }
 
-/// A vertical line in the table. See the docs for [`grid.vline`]($grid.vline)
-/// for more information regarding how to use this element's fields.
+/// A vertical line in the table. See the docs for [`grid.vline`] for more
+/// information regarding how to use this element's fields.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
 /// table's `stroke` field. Can cross spacing between cells created through the
 /// table's [`row-gutter`]($table.row-gutter) option.
 ///
-/// Similar to [`table.hline`]($table.hline), use this function if you want to
-/// manually place a vertical line at a specific position in a single table and
-/// use the [table's `stroke`]($table.stroke) field or [`table.cell`'s
+/// Similar to [`table.hline`], use this function if you want to manually place
+/// a vertical line at a specific position in a single table and use the
+/// [table's `stroke`]($table.stroke) field or [`table.cell`'s
 /// `stroke`]($table.cell.stroke) field instead if the line you want to place is
 /// part of all your tables' designs.
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
-    /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
+    /// The column before which the vertical line is placed (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.vline`].
     pub x: Smart<usize>,
 
     /// The row at which the vertical line starts (zero-indexed, inclusive).
@@ -625,7 +623,7 @@ pub struct TableVLine {
 ///   cell(align: left)[🌴🚗],
 ///   cell(
 ///     inset: 0.06em,
-///     text(1.62em)[🛖🌅🌊],
+///     text(1.62em)[🏝️🌅🌊],
 ///   ),
 /// )
 /// ```
@@ -653,11 +651,11 @@ pub struct TableCell {
     pub body: Content,
 
     /// The cell's column (zero-indexed).
-    /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
+    /// Functions identically to the `x` field in [`grid.cell`].
     pub x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
-    /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
+    /// Functions identically to the `y` field in [`grid.cell`].
     pub y: Smart<usize>,
 
     /// The amount of columns spanned by this cell.

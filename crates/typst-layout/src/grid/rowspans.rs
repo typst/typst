@@ -4,8 +4,8 @@ use typst_library::foundations::Resolve;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 
-use super::layouter::{points, Row};
-use super::{layout_cell, Cell, GridLayouter};
+use super::layouter::{Row, points};
+use super::{Cell, GridLayouter, layout_cell};
 
 /// All information needed to layout a single rowspan.
 pub struct Rowspan {
@@ -145,7 +145,8 @@ impl GridLayouter<'_> {
         }
 
         // Push the layouted frames directly into the finished frames.
-        let fragment = layout_cell(cell, engine, disambiguator, self.styles, pod)?;
+        let locator = self.cell_locator(Axes::new(x, y), disambiguator);
+        let fragment = layout_cell(cell, engine, locator, self.styles, pod)?;
         let (current_region, current_header_row_height) = current_region_data.unzip();
 
         // Clever trick to process finished header rows:
@@ -238,15 +239,16 @@ impl GridLayouter<'_> {
             // current row is dynamic and depends on the amount of upcoming
             // unbreakable cells (with or without a rowspan setting).
             let mut amount_unbreakable_rows = None;
-            if let Some(footer) = &self.grid.footer {
-                if !footer.repeated && current_row >= footer.start {
-                    // Non-repeated footer, so keep it unbreakable.
-                    //
-                    // TODO(subfooters): This will become unnecessary
-                    // once non-repeated footers are treated differently and
-                    // have widow prevention.
-                    amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
-                }
+            if let Some(footer) = &self.grid.footer
+                && !footer.repeated
+                && current_row >= footer.start
+            {
+                // Non-repeated footer, so keep it unbreakable.
+                //
+                // TODO(subfooters): This will become unnecessary
+                // once non-repeated footers are treated differently and
+                // have widow prevention.
+                amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
             }
 
             let row_group = self.simulate_unbreakable_row_group(
@@ -1268,9 +1270,9 @@ fn subtract_end_sizes(sizes: &mut Vec<Abs>, mut subtract: Abs) {
     while subtract > Abs::zero() && sizes.last().is_some_and(|&size| size <= subtract) {
         subtract -= sizes.pop().unwrap();
     }
-    if subtract > Abs::zero() {
-        if let Some(last_size) = sizes.last_mut() {
-            *last_size -= subtract;
-        }
+    if subtract > Abs::zero()
+        && let Some(last_size) = sizes.last_mut()
+    {
+        *last_size -= subtract;
     }
 }

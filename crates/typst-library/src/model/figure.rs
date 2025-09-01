@@ -5,11 +5,11 @@ use std::str::FromStr;
 use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
-    ShowSet, Smart, StyleChain, Styles, Synthesize,
+    Content, Element, NativeElement, Packed, Selector, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, cast, elem, scope, select_where,
 };
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
@@ -189,6 +189,39 @@ pub struct FigureElem {
     ///   supplement: [Atom],
     /// )
     /// ```
+    ///
+    /// If you want to modify a counter to skip a number or reset the counter,
+    /// you can access the [counter] of each kind of figure with a
+    /// [`where`]($function.where) selector:
+    ///
+    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
+    /// - For [images]($image): `{counter(figure.where(kind: image))}`
+    /// - For a custom kind: `{counter(figure.where(kind: kind))}`
+    ///
+    /// ```example
+    /// #figure(
+    ///   table(columns: 2, $n$, $1$),
+    ///   caption: [The first table.],
+    /// )
+    ///
+    /// #counter(
+    ///   figure.where(kind: table)
+    /// ).update(41)
+    ///
+    /// #figure(
+    ///   table(columns: 2, $n$, $42$),
+    ///   caption: [The 42nd table],
+    /// )
+    ///
+    /// #figure(
+    ///   rect[Image],
+    ///   caption: [Does not affect images],
+    /// )
+    /// ```
+    ///
+    /// To conveniently use the correct counter in a show rule, you can access
+    /// the `counter` field. There is an example of this in the documentation
+    /// [of the `figure.caption` element's `body` field]($figure.caption.body).
     pub kind: Smart<FigureKind>,
 
     /// The figure's supplement.
@@ -228,8 +261,8 @@ pub struct FigureElem {
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
-    /// - For (tables)[@table]: `{counter(figure.where(kind: table))}`
-    /// - For (images)[@image]: `{counter(figure.where(kind: image))}`
+    /// - For [tables]($table): `{counter(figure.where(kind: table))}`
+    /// - For [images]($image): `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
     /// These are the counters you'll need to modify if you want to skip a

@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, Str, Value};
+use crate::foundations::{Str, Value, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a JSON file.
@@ -67,7 +67,10 @@ pub fn json(
 impl json {
     /// Reads structured data from a JSON string/bytes.
     #[func(title = "Decode JSON")]
-    #[deprecated = "`json.decode` is deprecated, directly pass bytes to `json` instead"]
+    #[deprecated(
+        message = "`json.decode` is deprecated, directly pass bytes to `json` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// JSON data.

@@ -6,12 +6,11 @@ use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::{Get, NonZeroExt};
 
-use crate::diag::{bail, error, At, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, select_where, Args, Construct, Content, Context, Func,
-    LocatableSelector, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain,
-    Styles,
+    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Packed,
+    Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
 };
 use crate::introspection::{
     Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink,
@@ -383,7 +382,7 @@ impl OutlineEntry {
     /// If the outline's indent is a fixed value or a function, the prefixes are
     /// indented, but the inner contents are simply offset from the prefix by
     /// the specified `gap`, rather than aligning outline-wide. For a visual
-    /// explanation, see [`outline.indent`]($outline.indent).
+    /// explanation, see [`outline.indent`].
     #[func(contextual)]
     pub fn indented(
         &self,

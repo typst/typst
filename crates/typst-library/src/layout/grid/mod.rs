@@ -4,14 +4,14 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use comemo::Track;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, HintedStrResult, HintedString, SourceResult};
+use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, CastInfo, Content, Context, Fold, FromValue, Func,
-    IntoValue, Packed, Reflect, Resolve, Smart, StyleChain, Value,
+    Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
+    Resolve, Smart, StyleChain, Value, cast, elem, scope,
 };
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
@@ -36,7 +36,11 @@ use crate::visualize::{Paint, Stroke};
 /// in the document flow. Set and show rules on one of these elements do not
 /// affect the other.
 ///
+/// # Sizing the tracks { #track-size }
+///
 /// A grid's sizing is determined by the track sizes specified in the arguments.
+/// There are multiple sizing parameters: [`columns`]($grid.columns),
+/// [`rows`]($grid.rows) and [`gutter`]($grid.gutter).
 /// Because each of the sizing parameters accepts the same values, we will
 /// explain them just once, here. Each sizing argument accepts an array of
 /// individual track sizes. A track size is either:
@@ -62,8 +66,8 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options. It also
-/// shows how you can use [`grid.cell`]($grid.cell) to make an individual cell
-/// span two grid tracks.
+/// shows how you can use [`grid.cell`] to make an individual cell span two grid
+/// tracks.
 ///
 /// ```example
 /// // We use `rect` to emphasize the
@@ -111,15 +115,14 @@ use crate::visualize::{Paint, Stroke};
 ///   stroke
 ///
 /// If you need to override one of the above options for a single cell, you can
-/// use the [`grid.cell`]($grid.cell) element. Likewise, you can override
-/// individual grid lines with the [`grid.hline`]($grid.hline) and
-/// [`grid.vline`]($grid.vline) elements.
+/// use the [`grid.cell`] element. Likewise, you can override individual grid
+/// lines with the [`grid.hline`] and [`grid.vline`] elements.
 ///
 /// Alternatively, if you need the appearance options to depend on a cell's
 /// position (column and row), you may specify a function to `fill` or `align`
 /// of the form `(column, row) => value`. You may also use a show rule on
-/// [`grid.cell`]($grid.cell) - see that element's examples or the examples
-/// below for more information.
+/// [`grid.cell`] - see that element's examples or the examples below for more
+/// information.
 ///
 /// Locating most of your styling in set and show rules is recommended, as it
 /// keeps the grid's or table's actual usages clean and easy to read. It also
@@ -144,21 +147,26 @@ pub struct GridElem {
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
+    ///
+    /// See the [track size section](#track-size) above for more details.
     pub columns: TrackSizings,
 
     /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
+    ///
+    /// See the [track size section](#track-size) above for more details.
     pub rows: TrackSizings,
 
-    /// The gaps between rows and columns.
+    /// The gaps between rows and columns. This is a shorthand to set
+    /// [`column-gutter`]($grid.column-gutter) and [`row-gutter`]($grid.row-gutter)
+    /// to the same value.
     ///
     /// If there are more gutters than defined sizes, the last gutter is
     /// repeated.
     ///
-    /// This is a shorthand to set `column-gutter` and `row-gutter` to the same
-    /// value.
+    /// See the [track size section](#track-size) above for more details.
     #[external]
     pub gutter: TrackSizings,
 
@@ -202,8 +210,8 @@ pub struct GridElem {
     /// The function receives the cells' column and row indices, starting from
     /// zero. If set to `{auto}`, the outer alignment is used.
     ///
-    /// You can find an example for this argument at the
-    /// [`table.align`]($table.align) parameter.
+    /// You can find an example for this argument at the [`table.align`]
+    /// parameter.
     pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
@@ -214,8 +222,7 @@ pub struct GridElem {
     /// If it is necessary to place lines which can cross spacing between cells
     /// produced by the `gutter` option, or to override the stroke between
     /// multiple specific cells, consider specifying one or more of
-    /// [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline) alongside
-    /// your grid cells.
+    /// [`grid.hline`] and [`grid.vline`] alongside your grid cells.
     ///
     /// ```example
     /// #set page(height: 13em, width: 26em)
@@ -288,14 +295,13 @@ pub struct GridElem {
 
     /// How much to pad the cells' content.
     ///
-    /// You can find an example for this argument at the
-    /// [`table.inset`]($table.inset) parameter.
+    /// You can find an example for this argument at the [`table.inset`]
+    /// parameter.
     #[fold]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
-    /// The contents of the grid cells, plus any extra grid lines specified
-    /// with the [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline)
-    /// elements.
+    /// The contents of the grid cells, plus any extra grid lines specified with
+    /// the [`grid.hline`] and [`grid.vline`] elements.
     ///
     /// The cells are populated in row-major order.
     #[variadic]
@@ -445,8 +451,8 @@ impl TryFrom<Content> for GridItem {
 /// A repeatable grid header.
 ///
 /// If `repeat` is set to `true`, the header will be repeated across pages. For
-/// an example, refer to the [`table.header`]($table.header) element and the
-/// [`grid.stroke`]($grid.stroke) parameter.
+/// an example, refer to the [`table.header`] element and the [`grid.stroke`]
+/// parameter.
 #[elem(name = "header", title = "Grid Header")]
 pub struct GridHeader {
     /// Whether this header should be repeated across pages.
@@ -471,8 +477,8 @@ pub struct GridHeader {
 
 /// A repeatable grid footer.
 ///
-/// Just like the [`grid.header`]($grid.header) element, the footer can repeat
-/// itself on every page of the table.
+/// Just like the [`grid.header`] element, the footer can repeat itself on every
+/// page of the table.
 ///
 /// No other grid cells may be placed after the footer.
 #[elem(name = "footer", title = "Grid Footer")]
@@ -492,13 +498,12 @@ pub struct GridFooter {
 /// `stroke` field. Can cross spacing between cells created through the grid's
 /// `column-gutter` option.
 ///
-/// An example for this function can be found at the
-/// [`table.hline`]($table.hline) element.
+/// An example for this function can be found at the [`table.hline`] element.
 #[elem(name = "hline", title = "Grid Horizontal Line")]
 pub struct GridHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
     /// If the `position` field is set to `{bottom}`, the line is placed below
-    /// the row with the given index instead (see that field's docs for
+    /// the row with the given index instead (see [`grid.hline.position`] for
     /// details).
     ///
     /// Specifying `{auto}` causes the line to be placed at the row below the
@@ -548,9 +553,9 @@ pub struct GridHLine {
 /// the grid's `row-gutter` option.
 #[elem(name = "vline", title = "Grid Vertical Line")]
 pub struct GridVLine {
-    /// The column before which the horizontal line is placed (zero-indexed).
+    /// The column before which the vertical line is placed (zero-indexed).
     /// If the `position` field is set to `{end}`, the line is placed after the
-    /// column with the given index instead (see that field's docs for
+    /// column with the given index instead (see [`grid.vline.position`] for
     /// details).
     ///
     /// Specifying `{auto}` causes the line to be placed at the column after
@@ -638,8 +643,8 @@ pub struct GridVLine {
 ///
 /// You may also apply a show rule on `grid.cell` to style all cells at once,
 /// which allows you, for example, to apply styles based on a cell's position.
-/// Refer to the examples of the [`table.cell`]($table.cell) element to learn
-/// more about this.
+/// Refer to the examples of the [`table.cell`] element to learn more about
+/// this.
 #[elem(name = "cell", title = "Grid Cell")]
 pub struct GridCell {
     /// The cell's body.

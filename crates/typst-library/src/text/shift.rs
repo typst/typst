@@ -1,6 +1,6 @@
 use ttf_parser::Tag;
 
-use crate::foundations::{elem, Content, Smart};
+use crate::foundations::{Content, Smart, elem};
 use crate::layout::{Em, Length};
 use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 
@@ -14,11 +14,11 @@ use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 /// ```
 #[elem(title = "Subscript")]
 pub struct SubElem {
-    /// Whether to create artificial subscripts by lowering and scaling down
-    /// regular glyphs.
+    /// Whether to use subscript glyphs from the font if available.
     ///
     /// Ideally, subscripts glyphs are provided by the font (using the `subs`
-    /// OpenType feature). Otherwise, Typst is able to synthesize subscripts.
+    /// OpenType feature). Otherwise, Typst is able to synthesize subscripts by
+    /// lowering and scaling down regular glyphs.
     ///
     /// When this is set to `{false}`, synthesized glyphs will be used
     /// regardless of whether the font provides dedicated subscript glyphs. When
@@ -69,11 +69,11 @@ pub struct SubElem {
 /// ```
 #[elem(title = "Superscript")]
 pub struct SuperElem {
-    /// Whether to create artificial superscripts by raising and scaling down
-    /// regular glyphs.
+    /// Whether to use superscript glyphs from the font if available.
     ///
     /// Ideally, superscripts glyphs are provided by the font (using the `sups`
-    /// OpenType feature). Otherwise, Typst is able to synthesize superscripts.
+    /// OpenType feature). Otherwise, Typst is able to synthesize superscripts
+    /// by raising and scaling down regular glyphs.
     ///
     /// When this is set to `{false}`, synthesized glyphs will be used
     /// regardless of whether the font provides dedicated superscript glyphs.
@@ -176,14 +176,14 @@ impl ScriptKind {
         }
     }
 }
-static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+pub static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
     width: Em::new(0.6),
     height: Em::new(0.6),
     horizontal_offset: Em::zero(),
     vertical_offset: Em::new(-0.2),
 };
 
-static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+pub static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
     width: Em::new(0.6),
     height: Em::new(0.6),
     horizontal_offset: Em::zero(),

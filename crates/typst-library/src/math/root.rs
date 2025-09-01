@@ -1,6 +1,6 @@
 use typst_syntax::Span;
 
-use crate::foundations::{elem, func, Content, NativeElement};
+use crate::foundations::{Content, NativeElement, elem, func};
 use crate::math::Mathy;
 
 /// A square root.

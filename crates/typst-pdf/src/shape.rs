@@ -6,7 +6,7 @@ use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::paint;
-use crate::util::{convert_path, AbsExt, TransformExt};
+use crate::util::{AbsExt, TransformExt, convert_path};
 
 #[typst_macros::time(name = "handle shape")]
 pub(crate) fn handle_shape(
@@ -16,7 +16,7 @@ pub(crate) fn handle_shape(
     gc: &mut GlobalContext,
     span: Span,
 ) -> SourceResult<()> {
-    surface.set_location(span.into_raw().get());
+    surface.set_location(span.into_raw());
     surface.push_transform(&fc.state().transform().to_krilla());
 
     if let Some(path) = convert_geometry(&shape.geometry) {
@@ -35,11 +35,7 @@ pub(crate) fn handle_shape(
         };
 
         let stroke = shape.stroke.as_ref().and_then(|stroke| {
-            if stroke.thickness.to_f32() > 0.0 {
-                Some(stroke)
-            } else {
-                None
-            }
+            if stroke.thickness.to_f32() > 0.0 { Some(stroke) } else { None }
         });
 
         let stroke = if let Some(stroke) = &stroke {

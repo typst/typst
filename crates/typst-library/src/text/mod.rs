@@ -33,7 +33,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use icu_properties::sets::CodePointSetData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -43,17 +43,17 @@ use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::diag::{bail, warning, HintedStrResult, SourceResult, StrResult};
+use crate::World;
+use crate::diag::{HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, elem, Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue,
-    NativeElement, Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set,
-    Smart, StyleChain,
+    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
+    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, StyleChain,
+    cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
-use crate::World;
 
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -92,7 +92,7 @@ pub(super) fn define(global: &mut Scope) {
 /// ```
 #[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
-    /// A font family descriptor or priority list of font family descriptor.
+    /// A font family descriptor or priority list of font family descriptors.
     ///
     /// A font family descriptor can be a plain string representing the family
     /// name or a dictionary with the following keys:
@@ -270,15 +270,14 @@ pub struct TextElem {
     /// ```
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
-        if let Some(paint) = &paint {
-            if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
+        if let Some(paint) = &paint
+            && paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(
                     paint.span,
                     "gradients and tilings on text must be relative to the parent";
                     hint: "make sure to set `relative: auto` on your text fill"
                 );
             }
-        }
         paint.map(|paint| paint.v)
     })]
     #[default(Color::BLACK.into())]
@@ -412,6 +411,9 @@ pub struct TextElem {
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
+    ///
+    /// The language code is case-insensitive, and will be lowercased when
+    /// accessed through [context]($context).
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,
@@ -419,6 +421,9 @@ pub struct TextElem {
     /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
     ///
     /// This lets the text processing pipeline make more informed choices.
+    ///
+    /// The region code is case-insensitive, and will be uppercased when
+    /// accessed through [context]($context).
     #[ghost]
     pub region: Option<Region>,
 

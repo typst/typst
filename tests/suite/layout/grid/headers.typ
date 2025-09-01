@@ -137,6 +137,19 @@
   [a],
 )
 
+--- grid-header-multiple-unordered ---
+#set page(height: 4em)
+#grid(
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  grid.header([x]),
+  [a],
+  [b],
+  [c],
+  [d],
+  [e],
+  [f],
+)
+
 --- grid-header-skip ---
 #grid(
   columns: 2,
@@ -146,6 +159,63 @@
   grid.cell(x: 1)[c], [d],
   grid.header([e]),
   [f], grid.cell(x: 1)[g]
+)
+
+--- grid-header-skip-unordered ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  [b],
+  grid.header([x]),
+  [c]
+)
+
+--- grid-header-rowbreak-auto-pos ---
+#grid(
+  columns: 2,
+  [x],
+  grid.hline(stroke: red),
+  grid.header([a]),
+  grid.hline(stroke: 3pt),
+  [y],
+  grid.header(),
+  [z],
+)
+
+--- grid-header-rowbreak-fixed-pos ---
+#grid(
+  columns: 2,
+  [z],
+  grid.hline(stroke: red),
+  grid.header(grid.cell(x: 0)[b]),
+  grid.hline(stroke: 3pt),
+  [w],
+  [j],
+  grid.header(grid.cell(x: 0, y: 9)[c]),
+  [k]
+)
+
+--- grid-header-rowbreak-mixed-pos ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header([x], grid.cell(x: 0)[b]),
+  [c],
+  grid.hline(stroke: red),
+  grid.header([y], grid.cell(x: 0, y: 8)[d]),
+  grid.hline(stroke: 3pt),
+  [e]
+)
+
+--- grid-header-rowbreak-auto-and-fixed-pos ---
+#grid(
+  columns: 2,
+  [a],
+  grid.header([x]),
+  [b],
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  [c]
 )
 
 --- grid-header-too-large-non-repeating-orphan ---
@@ -398,7 +468,7 @@
     [a], [b],
     [c],
   ),
-  // Error: 3-48 cell would conflict with header spanning the same position
+  // Error: 3-48 cell would conflict with header also spanning row 1
   // Hint: 3-48 try moving the cell or the header
   table.cell(x: 1, y: 1, rowspan: 2, lorem(80))
 )
@@ -411,7 +481,7 @@
     [a], [b],
     [c],
   ),
-  // Error: 3-42 cell would conflict with header spanning the same position
+  // Error: 3-42 cell would conflict with header also spanning row 1
   // Hint: 3-42 try moving the cell or the header
   table.cell(y: 1, rowspan: 2, lorem(80))
 )
@@ -616,6 +686,45 @@
   ),
 )
 
+--- grid-header-collision-multiple-ordered ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.cell(x: 0, y: 3)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  // Error: 15-39 cell would cause header to expand to non-empty row 3
+  // Hint: 15-39 try moving its cells to available rows
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+)
+
+--- grid-header-collision-multiple-unordered ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  // Error: 3-27 cell would conflict with header also spanning row 3
+  // Hint: 3-27 try moving the cell or the header
+  grid.cell(x: 0, y: 3)[a]
+)
+
+--- grid-header-collision-multiple-rowspan ---
+#grid(
+  columns: 2,
+  grid.cell(x: 0, y: 0)[a],
+  grid.cell(x: 1, y: 0)[a],
+  grid.header(grid.cell(x: 0, y: 2)[y]),
+  grid.header(grid.cell(x: 0, y: 3)[y]),
+  grid.header(grid.cell(x: 0, y: 4)[y]),
+  // Error: 3-39 cell would conflict with header also spanning row 2
+  // Hint: 3-39 try moving the cell or the header
+  grid.cell(x: 0, y: 1, rowspan: 2)[a]
+)
+
 --- issue-5359-column-override-stays-inside-header ---
 #table(
   columns: 3,
@@ -624,4 +733,16 @@
     [A], table.cell(x: 1)[B], [C],
     table.cell(x: 1)[D],
   ),
+)
+
+--- issue-6666-auto-hlines-around-header ---
+#table(
+	columns: 2,
+	table.hline(stroke: 2pt + blue),
+	table.header([*foo*], [*bar*]),
+	table.hline(stroke: 1.5pt + red),
+	table.cell(colspan: 2)[_asdf_],
+	table.hline(stroke: 1.5pt + red),
+	[a], [b],
+	[c], [d],
 )

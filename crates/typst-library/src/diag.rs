@@ -8,7 +8,7 @@ use std::string::FromUtf8Error;
 
 use az::SaturatingAs;
 use comemo::Tracked;
-use ecow::{eco_vec, EcoVec};
+use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Lines, Span, Spanned, SyntaxError};
 use utf8_iter::ErrorReportingUtf8Chars;
@@ -151,6 +151,13 @@ pub struct Warned<T> {
     pub warnings: EcoVec<SourceDiagnostic>,
 }
 
+impl<T> Warned<T> {
+    /// Maps the output, keeping the same warnings.
+    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Warned<R> {
+        Warned { output: f(self.output), warnings: self.warnings }
+    }
+}
+
 /// An error or warning in a source or text file.
 ///
 /// The contained spans will only be detached if any of the input source files
@@ -234,18 +241,23 @@ impl From<SyntaxError> for SourceDiagnostic {
 
 /// Destination for a deprecation message when accessing a deprecated value.
 pub trait DeprecationSink {
-    /// Emits the given deprecation message into this sink.
-    fn emit(self, message: &str);
+    /// Emits the given deprecation message into this sink alongside a version
+    /// in which the deprecated item is planned to be removed.
+    fn emit(self, message: &str, until: Option<&str>);
 }
 
 impl DeprecationSink for () {
-    fn emit(self, _: &str) {}
+    fn emit(self, _: &str, _: Option<&str>) {}
 }
 
 impl DeprecationSink for (&mut Engine<'_>, Span) {
     /// Emits the deprecation message as a warning.
-    fn emit(self, message: &str) {
-        self.0.sink.warn(SourceDiagnostic::warning(self.1, message));
+    fn emit(self, message: &str, version: Option<&str>) {
+        self.0
+            .sink
+            .warn(SourceDiagnostic::warning(self.1, message).with_hints(
+                version.map(|v| eco_format!("it will be removed in Typst {}", v)),
+            ));
     }
 }
 
@@ -296,13 +308,12 @@ impl<T> Trace<T> for SourceResult<T> {
             let Some(trace_range) = world.range(span) else { return errors };
             for error in errors.make_mut().iter_mut() {
                 // Skip traces that surround the error.
-                if let Some(error_range) = world.range(error.span) {
-                    if error.span.id() == span.id()
-                        && trace_range.start <= error_range.start
-                        && trace_range.end >= error_range.end
-                    {
-                        continue;
-                    }
+                if let Some(error_range) = world.range(error.span)
+                    && error.span.id() == span.id()
+                    && trace_range.start <= error_range.start
+                    && trace_range.end >= error_range.end
+                {
+                    continue;
                 }
 
                 error.trace.push(Spanned::new(make_point(), span));
@@ -839,7 +850,9 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
     let pos = LineCol::one_based(error.pos().row as usize, error.pos().col as usize);
     let message = match error {
         roxmltree::Error::UnexpectedCloseTag(expected, actual, _) => {
-            eco_format!("failed to parse {format} (found closing tag '{actual}' instead of '{expected}')")
+            eco_format!(
+                "failed to parse {format} (found closing tag '{actual}' instead of '{expected}')"
+            )
         }
         roxmltree::Error::UnknownEntityReference(entity, _) => {
             eco_format!("failed to parse {format} (unknown entity '{entity}')")

@@ -1,8 +1,8 @@
 use typst_syntax::Span;
 
 use crate::foundations::{
-    cast, elem, Content, Depth, Label, NativeElement, Packed, ShowSet, Smart, StyleChain,
-    Styles,
+    Content, Depth, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles,
+    cast, elem,
 };
 use crate::introspection::Locatable;
 use crate::layout::{BlockElem, Em, PadElem};

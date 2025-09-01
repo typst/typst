@@ -1,12 +1,12 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Add;
 
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, error};
 use crate::foundations::{
-    cast, func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
+    Array, Dict, FromValue, IntoValue, Repr, Str, Value, cast, func, repr, scope, ty,
 };
 
 /// Captured arguments to a function.

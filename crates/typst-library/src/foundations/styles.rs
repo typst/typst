@@ -1,11 +1,11 @@
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
 
 use comemo::Tracked;
-use ecow::{eco_vec, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_vec};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -13,8 +13,8 @@ use typst_utils::LazyHash;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, ty, Content, Context, Element, Field, Func, NativeElement, OneOrMultiple,
-    Packed, RefableProperty, Repr, Selector, SettableProperty, Target,
+    Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,
+    RefableProperty, Repr, Selector, SettableProperty, Target, cast, ty,
 };
 use crate::text::{FontFamily, FontList, TextElem};
 
@@ -621,11 +621,7 @@ impl<'a> StyleChain<'a> {
             .properties(func, id)
             .map(|block| block.downcast::<T>(func, id).clone());
 
-        if let Some(folded) = iter.reduce(fold) {
-            fold(folded, default)
-        } else {
-            default
-        }
+        if let Some(folded) = iter.reduce(fold) { fold(folded, default) } else { default }
     }
 
     /// Iterate over all values for the given property in the chain.
@@ -942,7 +938,7 @@ fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
 
 /// Holds native show rules.
 pub struct NativeRuleMap {
-    rules: HashMap<(Element, Target), NativeShowRule>,
+    rules: FxHashMap<(Element, Target), NativeShowRule>,
 }
 
 /// The signature of a native show rule.
@@ -960,7 +956,7 @@ impl NativeRuleMap {
     ///
     /// Contains built-in rules for a few special elements.
     pub fn new() -> Self {
-        let mut rules = Self { rules: HashMap::new() };
+        let mut rules = Self { rules: FxHashMap::default() };
 
         // ContextElem is as special as SequenceElem and StyledElem and could,
         // in theory, also be special cased in realization.

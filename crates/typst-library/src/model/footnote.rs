@@ -3,11 +3,11 @@ use std::str::FromStr;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain,
-    Styles,
+    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
+    elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, Length, Ratio};
@@ -23,10 +23,10 @@ use crate::visualize::{LineElem, Stroke};
 /// and can break across multiple pages.
 ///
 /// To customize the appearance of the entry in the footnote listing, see
-/// [`footnote.entry`]($footnote.entry). The footnote itself is realized as a
-/// normal superscript, so you can use a set rule on the [`super`] function to
-/// customize it. You can also apply a show rule to customize only the footnote
-/// marker (superscript number) in the running text.
+/// [`footnote.entry`]. The footnote itself is realized as a normal superscript,
+/// so you can use a set rule on the [`super`] function to customize it. You can
+/// also apply a show rule to customize only the footnote marker (superscript
+/// number) in the running text.
 ///
 /// # Example
 /// ```example

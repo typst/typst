@@ -1,5 +1,5 @@
-use typst_library::diag::{bail, warning, SourceResult};
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
+use typst_library::diag::{SourceResult, bail, warning};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Point, Ratio, Rel, Size,
 };
@@ -9,8 +9,8 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, style_for_denominator, AlignmentResult, FrameFragment, GlyphFragment,
-    LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
+    AlignmentResult, DELIM_SHORT_FALL, FrameFragment, GlyphFragment, LeftRightAlternator,
+    MathContext, alignments, style_for_denominator,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -186,12 +186,10 @@ fn layout_body(
     // We pad ascent and descent with the ascent and descent of the paren
     // to ensure that normal matrices are aligned with others unless they are
     // way too big.
-    let paren = GlyphFragment::new_char(
-        ctx.font,
-        styles.chain(&denom_style),
-        '(',
-        Span::detached(),
-    )?;
+    // This will never panic as a paren will never shape into nothing.
+    let paren =
+        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
+            .unwrap();
 
     for (column, col) in columns.iter().zip(&mut cols) {
         for (cell, (ascent, descent)) in column.iter().zip(&mut heights) {
@@ -341,13 +339,14 @@ fn layout_delimiters(
     span: Span,
 ) -> SourceResult<()> {
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
-    let axis = scaled!(ctx, styles, axis_height);
+    let axis = ctx.font().math().axis_height.resolve(styles);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
 
     if let Some(left_c) = left {
-        let mut left = GlyphFragment::new_char(ctx.font, styles, left_c, span)?;
+        let mut left =
+            ctx.layout_into_fragment(&SymbolElem::packed(left_c).spanned(span), styles)?;
         left.stretch_vertical(ctx, target - short_fall);
         left.center_on_axis();
         ctx.push(left);
@@ -356,7 +355,8 @@ fn layout_delimiters(
     ctx.push(FrameFragment::new(styles, frame));
 
     if let Some(right_c) = right {
-        let mut right = GlyphFragment::new_char(ctx.font, styles, right_c, span)?;
+        let mut right =
+            ctx.layout_into_fragment(&SymbolElem::packed(right_c).spanned(span), styles)?;
         right.stretch_vertical(ctx, target - short_fall);
         right.center_on_axis();
         ctx.push(right);

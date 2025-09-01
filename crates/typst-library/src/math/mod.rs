@@ -27,7 +27,7 @@ pub use self::underover::*;
 use typst_utils::singleton;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{elem, Content, Module, NativeElement, Scope};
+use crate::foundations::{Content, Module, NativeElement, Scope, elem};
 use crate::layout::{Em, HElem};
 use crate::text::TextElem;
 

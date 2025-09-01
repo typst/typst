@@ -3,7 +3,7 @@ use std::str::FromStr;
 use smallvec::SmallVec;
 
 use crate::diag::bail;
-use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, Styles};
+use crate::foundations::{Array, Content, Packed, Smart, Styles, cast, elem, scope};
 use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
@@ -41,8 +41,8 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 /// + Don't forget step two
 /// ```
 ///
-/// You can also use [`enum.item`]($enum.item) to programmatically customize the
-/// number of each item in the enumeration:
+/// You can also use [`enum.item`] to programmatically customize the number of
+/// each item in the enumeration:
 ///
 /// ```example
 /// #enum(
@@ -220,7 +220,7 @@ impl EnumElem {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<u64>,
+    pub number: Smart<u64>,
 
     /// The item's body.
     #[required]

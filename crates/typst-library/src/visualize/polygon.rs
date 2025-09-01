@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use typst_syntax::Span;
 
-use crate::foundations::{elem, func, scope, Content, NativeElement, Smart};
+use crate::foundations::{Content, NativeElement, Smart, elem, func, scope};
 use crate::layout::{Axes, Em, Length, Rel};
 use crate::visualize::{FillRule, Paint, Stroke};
 
@@ -35,10 +35,10 @@ pub struct PolygonElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the polygon. This can be:
+    /// How to [stroke] the polygon.
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and if only if no fill is given.
+    /// stroke of `{1pt}` black if and only if no fill is given.
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 

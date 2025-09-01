@@ -4,10 +4,10 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, Not};
 
 use typst_utils::Get;
 
-use crate::diag::{bail, HintedStrResult};
+use crate::diag::{HintedStrResult, bail};
 use crate::foundations::{
-    array, cast, Array, CastInfo, FromValue, IntoValue, Reflect, Resolve, Smart,
-    StyleChain, Value,
+    Array, CastInfo, FromValue, IntoValue, Reflect, Resolve, Smart, StyleChain, Value,
+    array, cast,
 };
 use crate::layout::{Abs, Dir, Rel, Size};
 

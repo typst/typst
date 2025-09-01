@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -8,16 +7,17 @@ use std::sync::OnceLock;
 
 use comemo::Tracked;
 use parking_lot::Mutex;
-use typst::diag::{bail, At, FileError, FileResult, SourceResult, StrResult};
+use rustc_hash::FxHashMap;
+use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    func, Array, Bytes, Context, Datetime, IntoValue, NoneValue, Repr, Smart, Value,
+    Array, Bytes, Context, Datetime, IntoValue, NoneValue, Repr, Smart, Value, func,
 };
 use typst::layout::{Abs, Margin, PageElem};
 use typst::model::{Numbering, NumberingPattern};
 use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
-use typst::utils::{singleton, LazyHash};
+use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Feature, Library, LibraryExt, World};
 use typst_syntax::Lines;
@@ -108,7 +108,7 @@ struct TestBase {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
-    slots: Mutex<HashMap<FileId, FileSlot>>,
+    slots: Mutex<FxHashMap<FileId, FileSlot>>,
 }
 
 impl Default for TestBase {
@@ -122,7 +122,7 @@ impl Default for TestBase {
             library: LazyHash::new(library()),
             book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
-            slots: Mutex::new(HashMap::new()),
+            slots: Mutex::new(FxHashMap::default()),
         }
     }
 }

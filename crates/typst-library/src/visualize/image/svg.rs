@@ -1,17 +1,17 @@
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use comemo::Tracked;
+use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
-use crate::diag::{format_xml_like_error, LoadError, LoadResult, ReportPos};
+use crate::World;
+use crate::diag::{LoadError, LoadResult, ReportPos, format_xml_like_error};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{
     Font, FontBook, FontFlags, FontStretch, FontStyle, FontVariant, FontWeight,
 };
-use crate::World;
 
 /// A decoded SVG.
 #[derive(Clone, Hash)]
@@ -144,9 +144,9 @@ struct FontResolver<'a> {
     /// The active list of font families at the location of the SVG.
     families: &'a [&'a str],
     /// A mapping from Typst font indices to fontdb IDs.
-    to_id: HashMap<usize, Option<fontdb::ID>>,
+    to_id: FxHashMap<usize, Option<fontdb::ID>>,
     /// The reverse mapping.
-    from_id: HashMap<fontdb::ID, Font>,
+    from_id: FxHashMap<fontdb::ID, Font>,
     /// Accumulates a hash of all used fonts.
     hasher: SipHasher13,
 }
@@ -162,8 +162,8 @@ impl<'a> FontResolver<'a> {
             book,
             world,
             families,
-            to_id: HashMap::new(),
-            from_id: HashMap::new(),
+            to_id: FxHashMap::default(),
+            from_id: FxHashMap::default(),
             hasher: SipHasher13::new(),
         }
     }

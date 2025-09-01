@@ -9,7 +9,7 @@ use typst_utils::LazyHash;
 
 use crate::lines::Lines;
 use crate::reparser::reparse;
-use crate::{parse, FileId, LinkedNode, Span, SyntaxNode, VirtualPath};
+use crate::{FileId, LinkedNode, Span, SyntaxNode, VirtualPath, parse};
 
 /// A source file.
 ///

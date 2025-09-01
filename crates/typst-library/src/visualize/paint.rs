@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::EcoString;
 
-use crate::foundations::{cast, Repr, Smart};
+use crate::foundations::{Repr, Smart, cast};
 use crate::visualize::{Color, Gradient, RelativeTo, Tiling};
 
 /// How a fill or stroke should be painted.

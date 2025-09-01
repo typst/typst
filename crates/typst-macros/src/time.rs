@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::parse::{Parse, ParseStream};
-use syn::{parse_quote, Result};
+use syn::{Result, parse_quote};
 
 use crate::util::{kw, parse_key_value, parse_string};
 
