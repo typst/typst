@@ -230,7 +230,7 @@ fn layout_body(
     let mut total_height =
         heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + gap.y * (nrows - 1) as f64;
 
-    if hline.0.contains(&0_isize) {
+    if hline.0.contains(&0) {
         total_height += gap.y;
     }
 
@@ -243,7 +243,7 @@ fn layout_body(
 
     let mut x = Abs::zero();
 
-    if vline.0.contains(&(0_isize)) {
+    if vline.0.contains(&0) {
         frame.push(
             Point::with_x(x + half_gap.x),
             line_item(total_height, true, stroke.clone(), span),
@@ -254,7 +254,7 @@ fn layout_body(
     for (index, col) in cols.into_iter().enumerate() {
         let AlignmentResult { points, width: rcol } = alignments(&col);
 
-        let mut y = if hline.0.contains(&0_isize) { gap.y } else { Abs::zero() };
+        let mut y = if hline.0.contains(&0) { gap.y } else { Abs::zero() };
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_line_frame(&points, alternator);

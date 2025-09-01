@@ -93,7 +93,6 @@ $ mat(column-gap: #1em, 1, 2; 3, 4)
 #grid(
   columns: 2,
   gutter: 10pt,
-
   $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #3) $,
   $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #4) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 0)) $,
