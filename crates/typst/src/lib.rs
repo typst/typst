@@ -40,8 +40,9 @@ pub use typst_utils as utils;
 
 use std::sync::LazyLock;
 
-use comemo::{Track, Tracked, Validate};
+use comemo::{Track, Tracked};
 use ecow::{EcoVec, eco_format, eco_vec};
+use rustc_hash::FxHashSet;
 use typst_html::HtmlDocument;
 use typst_library::diag::{
     ErrAt, FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
