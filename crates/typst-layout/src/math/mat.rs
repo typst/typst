@@ -88,7 +88,7 @@ pub fn layout_mat(
     let augment = elem.augment.resolve(styles);
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
-            if offset > rows.len() as isize || offset.unsigned_abs() > rows.len() + 1 {
+            if offset > nrows as isize || offset.unsigned_abs() > nrows {
                 bail!(
                     span,
                     "cannot draw a horizontal line at offset {offset} \
@@ -98,7 +98,7 @@ pub fn layout_mat(
         }
 
         for &offset in &aug.vline.0 {
-            if offset > ncols as isize || offset.unsigned_abs() > ncols + 1 {
+            if offset > ncols as isize || offset.unsigned_abs() > ncols {
                 bail!(
                     span,
                     "cannot draw a vertical line at offset {offset} \
@@ -215,13 +215,13 @@ fn layout_body(
 
     for line in hline.0.iter_mut() {
         if *line < 0 {
-            *line += (nrows as isize) + 1
+            *line += nrows as isize;
         }
     }
 
     for line in vline.0.iter_mut() {
         if *line < 0 {
-            *line += (ncols as isize) + 1
+            *line += ncols as isize;
         }
     }
 
