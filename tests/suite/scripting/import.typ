@@ -320,6 +320,7 @@
 --- import-file-not-valid-utf-8 ---
 // Some non-text stuff.
 // Error: 9-35 file is not valid utf-8
+// Hint: 9-35 tried to read /assets/images/rhino.png
 #import "/assets/images/rhino.png"
 
 --- import-item-not-found ---
