@@ -92,3 +92,7 @@ Lריווח #h(1cm) R
     #text(lang: "ar")[سلام]
   ],
 )
+
+--- issue-5276-shaping-consecutive-ltr-with-lang ---
+#let a = text(lang: "ar")[\u{645}]
+#a#a

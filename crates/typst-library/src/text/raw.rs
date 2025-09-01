@@ -32,6 +32,12 @@ use crate::visualize::Color;
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
 ///
+/// Note that text given to this element cannot contain arbitrary formatting,
+/// such as `[*strong*]` or `[_emphasis_]`, as it is displayed verbatim. If
+/// you'd like to display any kind of content with a monospace font, instead of
+/// using [`raw`], you should change its font to a monospace font using the
+/// [`text`]($text) function.
+///
 /// # Example
 /// ````example
 /// Adding `rbx` to `rcx` gives
@@ -74,6 +80,49 @@ use crate::visualize::Color;
 /// needed, start the text with a single space (which will be trimmed) or use
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
+///
+/// If no syntax highlighting is available by default for your specified
+/// language tag (or if you want to override the built-in definition), you may
+/// provide a custom syntax specification file to the
+/// [`syntaxes`]($raw.syntaxes) field.
+///
+/// # Styling
+/// By default, the `raw` element uses the `DejaVu Sans Mono` font (included
+/// with Typst), with a smaller font size of `{0.8em}` (that is, 80% of
+/// the global font size). This is because monospace fonts tend to be visually
+/// larger than non-monospace fonts.
+///
+/// You can customize these properties with show-set rules:
+///
+/// ````example
+/// // Switch to Cascadia Code for both
+/// // inline and block raw.
+/// #show raw: set text(font: "Cascadia Code")
+///
+/// // Reset raw blocks to the same size as normal text,
+/// // but keep inline raw at the reduced size.
+/// #show raw.where(block: true): set text(1em / 0.8)
+///
+/// Now using the `Cascadia Code` font for raw text.
+/// Here's some Python code. It looks larger now:
+///
+/// ```py
+/// def python():
+///   return 5 + 5
+/// ```
+/// ````
+///
+/// In addition, you can customize the syntax highlighting colors by setting
+/// a custom theme through the [`theme`]($raw.theme) field.
+///
+/// For complete customization of the appearance of a raw block, a show rule
+/// on [`raw.line`]($raw.line) could be helpful, such as to add line numbers.
+///
+/// Note that, in raw text, typesetting features like
+/// [hyphenation]($text.hyphenate), [overhang]($text.overhang),
+/// [CJK-Latin spacing]($text.cjk-latin-spacing) (and
+/// [justification]($par.justify) for [raw blocks]($raw.block)) will be
+/// disabled by default.
 #[elem(
     scope,
     title = "Raw Text / Code",
@@ -890,14 +939,14 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
     author: Some("The Typst Project Developers".into()),
     settings: synt::ThemeSettings::default(),
     scopes: vec![
-        item("comment", Some("#8a8a8a"), None),
+        item("comment", Some("#74747c"), None),
         item("constant.character.escape", Some("#1d6c76"), None),
         item("markup.bold", None, Some(synt::FontStyle::BOLD)),
         item("markup.italic", None, Some(synt::FontStyle::ITALIC)),
         item("markup.underline", None, Some(synt::FontStyle::UNDERLINE)),
-        item("markup.raw", Some("#818181"), None),
+        item("markup.raw", Some("#6b6b6f"), None),
         item("string.other.math.typst", None, None),
-        item("punctuation.definition.math", Some("#298e0d"), None),
+        item("punctuation.definition.math", Some("#198810"), None),
         item("keyword.operator.math", Some("#1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
         item(
@@ -908,16 +957,16 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("punctuation.definition.list", Some("#8b41b1"), None),
         item("markup.list.term", None, Some(synt::FontStyle::BOLD)),
         item("entity.name.label, markup.other.reference", Some("#1d6c76"), None),
-        item("keyword, constant.language, variable.language", Some("#d73a49"), None),
-        item("storage.type, storage.modifier", Some("#d73a49"), None),
+        item("keyword, constant.language, variable.language", Some("#d73948"), None),
+        item("storage.type, storage.modifier", Some("#d73948"), None),
         item("constant", Some("#b60157"), None),
-        item("string", Some("#298e0d"), None),
+        item("string", Some("#198810"), None),
         item("entity.name, variable.function, support", Some("#4b69c6"), None),
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
         item("entity.other, meta.interpolation", Some("#8b41b1"), None),
         item("meta.diff.range", Some("#8b41b1"), None),
-        item("markup.inserted, meta.diff.header.to-file", Some("#298e0d"), None),
-        item("markup.deleted, meta.diff.header.from-file", Some("#d73a49"), None),
+        item("markup.inserted, meta.diff.header.to-file", Some("#198810"), None),
+        item("markup.deleted, meta.diff.header.from-file", Some("#d73948"), None),
     ],
 });

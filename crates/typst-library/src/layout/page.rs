@@ -462,7 +462,7 @@ pub struct PagedDocument {
 }
 
 /// A finished page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
