@@ -146,7 +146,9 @@ impl FileSlot {
         self.source
             .get_or_init(|| {
                 let buf = read(&system_path(self.id)?)?;
-                let text = String::from_utf8(buf.into_owned())?;
+                let text = String::from_utf8(buf.into_owned()).map_err(|_| {
+                    FileError::InvalidUtf8(self.id.vpath().as_rooted_path().into())
+                })?;
                 Ok(Source::new(self.id, text))
             })
             .clone()

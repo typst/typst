@@ -513,7 +513,7 @@ pub enum FileError {
     /// The file was not valid UTF-8, but should have been.
     InvalidUtf8(PathBuf),
     /// The package the file is part of could not be loaded.
-    Package(PackageError),
+    Package(Box<PackageError>),
     /// Another error.
     ///
     /// The optional string can give more details, if available.
@@ -593,12 +593,18 @@ impl ErrAt for FileError {
 
 impl From<PackageError> for FileError {
     fn from(err: PackageError) -> Self {
+        Self::Package(Box::new(err))
+    }
+}
+
+impl From<Box<PackageError>> for FileError {
+    fn from(err: Box<PackageError>) -> Self {
         Self::Package(err)
     }
 }
 
 /// A result type with a package-related error.
-pub type PackageResult<T> = Result<T, PackageError>;
+pub type PackageResult<T> = Result<T, Box<PackageError>>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PackageRegistry {

@@ -129,7 +129,7 @@ impl PackageStorage {
         // cause of the failure.
         // We try `namespace/` then `namespace/name/` then `namespace/name/version/`
         // and see where the first error occurs.
-        let not_found = |msg| Err(PackageError::NotFound(spec.clone(), msg));
+        let not_found = |msg| Err(Box::new(PackageError::NotFound(spec.clone(), msg)));
 
         let Some(packages_dir) = &self.package_path else {
             return not_found(eco_format!("cannot access local package storage"));
@@ -151,7 +151,7 @@ impl PackageStorage {
             ));
         }
         let latest = self.determine_latest_version(&spec.versionless()).ok();
-        Err(PackageError::VersionNotFound(
+        Err(Box::new(PackageError::VersionNotFound(
             spec.clone(),
             latest,
             PackageRegistry {
@@ -159,7 +159,7 @@ impl PackageStorage {
                 path: namespace_dir.to_path_buf(),
                 url: None,
             },
-        ))
+        )))
     }
 
     /// Tries to determine the latest version of a package.
@@ -231,7 +231,7 @@ impl PackageStorage {
             Ok(data) => data,
             Err(ureq::Error::Status(404, _)) => {
                 if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
-                    return Err(PackageError::VersionNotFound(
+                    return Err(Box::new(PackageError::VersionNotFound(
                         spec.clone(),
                         Some(version),
                         PackageRegistry {
@@ -239,19 +239,21 @@ impl PackageStorage {
                             path: cache_dir.to_path_buf(),
                             url: Some(eco_format!("{namespace_url}")),
                         },
-                    ));
+                    )));
                 } else {
-                    return Err(PackageError::NotFound(
+                    return Err(Box::new(PackageError::NotFound(
                         spec.clone(),
                         eco_format!(
                             "the registry at {namespace_url} does not have package '{}'",
                             spec.name
                         ),
-                    ));
+                    )));
                 }
             }
             Err(err) => {
-                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))));
+                return Err(Box::new(PackageError::NetworkFailed(Some(eco_format!(
+                    "{err}"
+                )))));
             }
         };
 
@@ -299,7 +301,9 @@ impl PackageStorage {
         match fs::rename(&tempdir, &package_dir) {
             Ok(()) => Ok(package_dir),
             Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(package_dir),
-            Err(err) => Err(error("failed to move downloaded package directory", err)),
+            Err(err) => {
+                Err(Box::new(error("failed to move downloaded package directory", err)))
+            }
         }
     }
 }
