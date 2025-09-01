@@ -82,6 +82,7 @@ pub fn layout_mat(
 ) -> SourceResult<()> {
     let span = elem.span();
     let rows = &elem.rows;
+    let nrows = rows.len();
     let ncols = rows.first().map_or(0, |row| row.len());
 
     let augment = elem.augment.resolve(styles);
@@ -90,9 +91,8 @@ pub fn layout_mat(
             if offset > rows.len() as isize || offset.unsigned_abs() > rows.len() + 1 {
                 bail!(
                     span,
-                    "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                    if offset < 0 { rows.len() as isize + offset } else { offset },
-                    rows.len()
+                    "cannot draw a horizontal line at offset {offset} \
+                     in a matrix with {nrows} rows",
                 );
             }
         }
@@ -101,9 +101,8 @@ pub fn layout_mat(
             if offset > ncols as isize || offset.unsigned_abs() > ncols + 1 {
                 bail!(
                     span,
-                    "cannot draw a vertical line after column {} of a matrix with {} columns",
-                    if offset < 0 { ncols as isize + offset } else { offset },
-                    ncols
+                    "cannot draw a vertical line at offset {offset} \
+                     in a matrix with {ncols} columns",
                 );
             }
         }

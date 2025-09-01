@@ -121,7 +121,7 @@ $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
 #set math.mat(augment: none)
 
 --- math-mat-augment-line-out-of-bounds ---
-// Error: 3-37 cannot draw a vertical line after column 4 of a matrix with 3 columns
+// Error: 3-37 cannot draw a vertical line at offset 4 in a matrix with 3 columns
 $ mat(1, 0, 0; 0, 1, 1; augment: #4) $,
 
 --- math-mat-align ---
