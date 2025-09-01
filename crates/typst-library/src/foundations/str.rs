@@ -254,9 +254,9 @@ impl Str {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Str> {
-        let end = end.or(count.map(|c| start + c)).unwrap_or(self.len() as i64);
         let start = self.locate(start)?;
-        let end = self.locate(end)?.max(start);
+        let end = end.or(count.map(|c| start as i64 + c));
+        let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
         Ok(self.0[start..end].into())
     }
 
