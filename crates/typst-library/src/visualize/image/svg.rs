@@ -391,7 +391,7 @@ impl<'a> ImageResolver<'a> {
                     None => ImageFormat::detect(&arc_data),
                 };
                 match format {
-                    None => Err(EcoString::from("could not determine image format")),
+                    None => Err(EcoString::from("unknown image format")),
                     Some(ImageFormat::Vector(vector_format)) => match vector_format {
                         VectorFormat::Svg => {
                             Err(EcoString::from("SVG images are not supported yet"))
