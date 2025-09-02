@@ -132,7 +132,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 ))
 
 --- image-svg-linked-csv ---
-// Error: 8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (could not determine image format)
+// Error: 8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (unknown image format)
 #image(bytes(
   ```
   <svg xmlns="http://www.w3.org/2000/svg">

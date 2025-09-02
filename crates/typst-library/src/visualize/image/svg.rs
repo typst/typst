@@ -78,14 +78,11 @@ impl SvgImage {
             },
         )
         .map_err(format_usvg_error)?;
-        let font_hash = font_resolver.into_inner().unwrap().finish();
-        let image_resolve_error = image_resolver.lock().unwrap().error.clone();
-        match image_resolve_error {
-            Some(err) => Err(err),
-            None => {
-                Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
-            }
+        if let Some(err) = image_resolver.into_inner().unwrap().error {
+            return Err(err);
         }
+        let font_hash = font_resolver.into_inner().unwrap().finish();
+        Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash, tree })))
     }
 
     /// The raw image data.
@@ -332,36 +329,31 @@ impl<'a> ImageResolver<'a> {
     /// or if the linked image failed to load.
     /// Only the first error message is retained.
     fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
-        if self.error.is_none() {
-            match self.load_or_error(href) {
-                Ok(image) => Some(image),
-                Err(err) => {
-                    self.error = Some(LoadError::new(
-                        ReportPos::None,
-                        eco_format!("failed to load linked image {} in SVG", href),
-                        err,
-                    ));
-                    None
-                }
+        if self.error.is_some() {
+            return None;
+        }
+        match self.load_or_error(href) {
+            Ok(image) => Some(image),
+            Err(err) => {
+                self.error = Some(LoadError::new(
+                    ReportPos::None,
+                    eco_format!("failed to load linked image {} in SVG", href),
+                    err,
+                ));
+                None
             }
-        } else {
-            None
         }
     }
 
     /// Load a linked image or return an error message string.
     fn load_or_error(&mut self, href: &str) -> Result<usvg::ImageKind, EcoString> {
         // If the href starts with "file://", strip this prefix to construct an ordinary path.
-        let href = if let Some(stripped) = href.strip_prefix("file://") {
-            stripped
-        } else {
-            href
-        };
+        let href = href.strip_prefix("file://").unwrap_or(href);
 
         // Do not accept absolute hrefs. They would be parsed in typst in a way
         // that is not compatible with their interpretation in the SVG standard.
         if href.starts_with("/") {
-            return Err(EcoString::from("absolute paths are not allowed"));
+            return Err("absolute paths are not allowed".into());
         }
 
         // Exit early if the href is an URL.
@@ -371,13 +363,13 @@ impl<'a> ImageResolver<'a> {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
             {
-                return Err(EcoString::from("URLs are not allowed"));
+                return Err("URLs are not allowed".into());
             }
         }
 
         // Resolve the path to the linked image.
         if self.svg_parent.is_none() {
-            return Err(EcoString::from("cannot access file system from here"));
+            return Err("cannot access file system from here".into());
         }
         // Replace the final underscore in svg_parent by the href.
         let href_file = self.svg_parent.unwrap().join(href);
@@ -391,13 +383,12 @@ impl<'a> ImageResolver<'a> {
                     None => ImageFormat::detect(&arc_data),
                 };
                 match format {
-                    None => Err(EcoString::from("unknown image format")),
                     Some(ImageFormat::Vector(vector_format)) => match vector_format {
                         VectorFormat::Svg => {
-                            Err(EcoString::from("SVG images are not supported yet"))
+                            Err("SVG images are not supported yet".into())
                         }
                         VectorFormat::Pdf => {
-                            Err(EcoString::from("PDF documents are not supported"))
+                            Err("PDF documents are not supported".into())
                         }
                     },
                     Some(ImageFormat::Raster(raster_format)) => match raster_format {
@@ -414,20 +405,21 @@ impl<'a> ImageResolver<'a> {
                             }
                         }
                         RasterFormat::Pixel(_) => {
-                            Err(EcoString::from("pixel formats are not supported"))
+                            Err("pixel formats are not supported".into())
                         }
                     },
+                    None => Err("unknown image format".into()),
                 }
             }
             Err(err) => Err(match err {
                 FileError::NotFound(path) => {
                     eco_format!("file not found, searched at {}", path.display())
                 }
-                FileError::AccessDenied => EcoString::from("access denied"),
-                FileError::IsDirectory => EcoString::from("is a directory"),
+                FileError::AccessDenied => "access denied".into(),
+                FileError::IsDirectory => "is a directory".into(),
                 FileError::Other(Some(msg)) => msg,
-                FileError::Other(None) => EcoString::from("unspecified error"),
-                _ => EcoString::from("unexpected error"),
+                FileError::Other(None) => "unspecified error".into(),
+                _ => eco_format!("unexpected error: {}", err),
             }),
         }
     }
