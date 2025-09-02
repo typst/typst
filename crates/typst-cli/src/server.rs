@@ -201,7 +201,7 @@ const PLACEHOLDER_HTML: &str = "\
   </head>
   <body>
     <main>
-      <div>Waiting for output ...</div>
+      <div>Waiting for output…</div>
       <div><code>typst watch {INPUT}</code></div>
     </main>
   </body>
