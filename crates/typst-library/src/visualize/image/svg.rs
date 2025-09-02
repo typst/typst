@@ -411,6 +411,7 @@ impl<'a> ImageResolver<'a> {
                     None => Err("unknown image format".into()),
                 }
             }
+            // TODO: Somehow unify this with `impl Display for FileError`.
             Err(err) => Err(match err {
                 FileError::NotFound(path) => {
                     eco_format!("file not found, searched at {}", path.display())
