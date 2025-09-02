@@ -226,6 +226,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     break;
                 }
                 Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Fr(_, 1.., _) => {
+                    if i == self.items.len() - 1 {
+                        self.items.remove(i);
+                        break;
+                    }
+                }
                 Item::Frame(..) | Item::Fr(..) => break,
             }
         }
