@@ -48,11 +48,11 @@ impl SvgImage {
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],
-        svg_parent: Option<FileId>,
+        svg_file: Option<FileId>,
     ) -> LoadResult<SvgImage> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
-        let image_resolver = Mutex::new(ImageResolver::new(world, svg_parent));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
         let tree = usvg::Tree::from_data(
             &data,
             &usvg::Options {
@@ -315,14 +315,14 @@ struct ImageResolver<'a> {
     /// The world used to load linked images.
     world: Tracked<'a, dyn World + 'a>,
     /// Parent folder of the SVG file, used to resolve hrefs to linked images, if any.
-    svg_parent: Option<FileId>,
+    svg_file: Option<FileId>,
     /// The first error that occurred when loading a linked image, if any.
     error: Option<LoadError>,
 }
 
 impl<'a> ImageResolver<'a> {
-    fn new(world: Tracked<'a, dyn World + 'a>, svg_parent: Option<FileId>) -> Self {
-        Self { world, svg_parent, error: None }
+    fn new(world: Tracked<'a, dyn World + 'a>, svg_file: Option<FileId>) -> Self {
+        Self { world, svg_file, error: None }
     }
 
     /// Load a linked image or return None if a previous image caused an error,
@@ -368,11 +368,11 @@ impl<'a> ImageResolver<'a> {
         }
 
         // Resolve the path to the linked image.
-        if self.svg_parent.is_none() {
+        if self.svg_file.is_none() {
             return Err("cannot access file system from here".into());
         }
-        // Replace the final underscore in svg_parent by the href.
-        let href_file = self.svg_parent.unwrap().join(href);
+        // Replace the file name in svg_file by href.
+        let href_file = self.svg_file.unwrap().join(href);
 
         // Load image if file can be accessed.
         match self.world.file(href_file) {
