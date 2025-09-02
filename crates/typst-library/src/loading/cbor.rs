@@ -32,8 +32,7 @@ use crate::loading::{DataSource, Load};
 /// | map        | [`dictionary`]         |
 ///
 /// - Be aware that **CBOR integers** larger than 2<sup>63</sup>-1 or smaller than
-///   -2<sup>63</sup> will be approximated as floating-point numbers or rejected
-///   for parsing.
+///   -2<sup>63</sup> will be approximated as floating-point numbers.
 ///
 /// - **CBOR tags** are not supported, and an error will be thrown.
 ///

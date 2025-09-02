@@ -48,7 +48,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// - In most cases, **YAML numbers** will be converted to floats or integers
 ///   depending on whether they are whole numbers. However, be aware that integers
 ///   larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will be
-///   approximated as floating-point numbers or rejected for parsing.
+///   approximated as floating-point numbers.
 ///
 /// - **Custom YAML tags** are ignored, though the loaded value will still be present.
 ///
