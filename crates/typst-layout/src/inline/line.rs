@@ -18,25 +18,6 @@ const EN_DASH: char = '–';
 const EM_DASH: char = '—';
 const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified breaks.
 
-// We use indices to remember the logical (as opposed to visual) order of items.
-// During line building, the items are stored in visual (BiDi-reordered) order.
-// When committing to a line and building its frame, we sort by logical index.
-//
-// - Special layout-generated items have custom indices that ensure correct
-//   ordering w.r.t. to each other and normal elements, listed below.
-// - Normal items have their position in `p.items` plus the number of special
-//   reserved prefix indices.
-//
-// Logical indices must be unique within a line because we use an unstable sort.
-const START_HYPHEN_IDX: usize = 0;
-const fn logical_item_idx(i: usize) -> usize {
-    // This won't overflow because the `idx` comes from a vector which is
-    // limited to `isize::MAX` elements.
-    i + 1
-}
-const FALLBACK_TEXT_IDX: usize = usize::MAX - 1;
-const END_HYPHEN_IDX: usize = usize::MAX;
-
 /// A layouted line, consisting of a sequence of layouted inline items that are
 /// mostly borrowed from the preparation phase. This type enables you to measure
 /// the size of a line in a range before committing to building the line's
@@ -180,7 +161,7 @@ pub fn line<'a>(
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim, false)
     {
-        items.push(Item::Text(hyphen), START_HYPHEN_IDX);
+        items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
     }
 
     collect_items(&mut items, engine, p, range, trim);
@@ -191,7 +172,7 @@ pub fn line<'a>(
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim, true)
     {
-        items.push(Item::Text(hyphen), END_HYPHEN_IDX);
+        items.push(Item::Text(hyphen), LogicalIndex::END_HYPHEN);
     }
 
     // Ensure that there is no weak spacing at the start and end of the line.
@@ -236,7 +217,7 @@ fn collect_items<'a>(
     if !items.iter().any(|item| matches!(item, Item::Text(_)))
         && let Some(fallback) = fallback
     {
-        items.push(fallback, FALLBACK_TEXT_IDX);
+        items.push(fallback, LogicalIndex::FALLBACK_TEXT);
     }
 }
 
@@ -302,7 +283,7 @@ fn collect_range<'a>(
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
     for (i, (subrange, item)) in p.slice(range.clone()) {
-        let idx = logical_item_idx(i);
+        let idx = LogicalIndex::from_item_index(i);
 
         // All non-text items are just kept, they can't be split.
         let Item::Text(shaped) = item else {
@@ -538,7 +519,7 @@ pub fn commit(
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for &(idx, ref item) in line.items.indexed_iter() {
-        let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
+        let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
@@ -670,7 +651,7 @@ fn overhang(c: char) -> f64 {
 }
 
 /// A collection of owned or borrowed inline items.
-pub struct Items<'a>(Vec<(usize, ItemEntry<'a>)>);
+pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
 
 impl<'a> Items<'a> {
     /// Create empty items.
@@ -679,7 +660,7 @@ impl<'a> Items<'a> {
     }
 
     /// Push a new item.
-    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: usize) {
+    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: LogicalIndex) {
         self.0.push((idx, entry.into()));
     }
 
@@ -695,7 +676,7 @@ impl<'a> Items<'a> {
     /// provide the indices in visual order!
     pub fn indexed_iter(
         &self,
-    ) -> impl DoubleEndedIterator<Item = &(usize, ItemEntry<'a>)> {
+    ) -> impl DoubleEndedIterator<Item = &(LogicalIndex, ItemEntry<'a>)> {
         self.0.iter()
     }
 
@@ -726,7 +707,7 @@ impl<'a> Items<'a> {
 }
 
 impl<'a> Deref for Items<'a> {
-    type Target = Vec<(usize, ItemEntry<'a>)>;
+    type Target = Vec<(LogicalIndex, ItemEntry<'a>)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -742,6 +723,34 @@ impl DerefMut for Items<'_> {
 impl Debug for Items<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(&self.0).finish()
+    }
+}
+
+/// We use indices to remember the logical (as opposed to visual) order of
+/// items. During line building, the items are stored in visual (BiDi-reordered)
+/// order. When committing to a line and building its frame, we sort by logical
+/// index.
+///
+/// - Special layout-generated items have custom indices that ensure correct
+///   ordering w.r.t. to each other and normal elements, listed below.
+/// - Normal items have their position in `p.items` plus the number of special
+///   reserved prefix indices.
+///
+/// Logical indices must be unique within a line because we use an unstable
+/// sort.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct LogicalIndex(usize);
+
+impl LogicalIndex {
+    const START_HYPHEN: Self = Self(0);
+    const FALLBACK_TEXT: Self = Self(usize::MAX - 1);
+    const END_HYPHEN: Self = Self(usize::MAX);
+
+    /// Create a logical index from the index of an item in the [`p.items`](Preparation::items).
+    const fn from_item_index(i: usize) -> Self {
+        // This won't overflow because the `idx` comes from a vector which is
+        // limited to `isize::MAX` elements.
+        Self(i + 1)
     }
 }
 
