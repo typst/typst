@@ -101,6 +101,11 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
+--- image-svg-linked-many-formats ---
+#set page(width: auto, height: auto, margin: 1pt)
+#set text(1pt)
+#image("../../../assets/images/linked.svg", width: 39pt)
+
 --- image-svg-linked-file-not-found ---
 // Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
 #image(bytes(
