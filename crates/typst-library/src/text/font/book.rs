@@ -7,7 +7,9 @@ use ttf_parser::{PlatformId, Tag, name_id};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
-use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::text::{
+    Font, FontStretch, FontStyle, FontVariant, FontWeight, is_default_ignorable,
+};
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -99,8 +101,12 @@ impl FontBook {
         variant: FontVariant,
         text: &str,
     ) -> Option<usize> {
-        // Find the fonts that contain the text's first non-space char ...
-        let c = text.chars().find(|c| !c.is_whitespace())?;
+        // Find the fonts that contain the text's first non-space and
+        // non-ignorable char ...
+        let c = text
+            .chars()
+            .find(|&c| !c.is_whitespace() && !is_default_ignorable(c))?;
+
         let ids = self
             .infos
             .iter()

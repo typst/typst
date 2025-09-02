@@ -35,6 +35,7 @@
 #t(f, `f`)
 #t(rect , `rect`)
 #t(() => none, `(..) => ..`)
+#t(f.with(), `(..) => ..`)
 
 // Types.
 #t(int, `int`)

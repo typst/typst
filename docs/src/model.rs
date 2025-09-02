@@ -81,6 +81,7 @@ pub struct CategoryItem {
 
 /// Details about a function.
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FuncModel {
     pub path: Vec<EcoString>,
     pub name: EcoString,

@@ -20,3 +20,22 @@
 // Warning: 15-21 `yaml.decode` is deprecated, directly pass bytes to `yaml` instead
 // Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = yaml.decode
+
+--- yaml-decode-number ---
+#import "edge-case.typ": large-integer, representable-integer
+
+#for (name, source) in representable-integer {
+  assert.eq(
+    type(yaml(bytes(source))),
+    int,
+    message: "failed to decode " + name,
+  )
+}
+
+#for (name, source) in large-integer {
+  assert.eq(
+    type(yaml(bytes(source))),
+    float,
+    message: "failed to approximately decode " + name,
+  )
+}

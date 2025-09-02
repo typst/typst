@@ -32,6 +32,12 @@ use crate::visualize::Color;
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
 ///
+/// Note that text given to this element cannot contain arbitrary formatting,
+/// such as `[*strong*]` or `[_emphasis_]`, as it is displayed verbatim. If
+/// you'd like to display any kind of content with a monospace font, instead of
+/// using [`raw`], you should change its font to a monospace font using the
+/// [`text`]($text) function.
+///
 /// # Example
 /// ````example
 /// Adding `rbx` to `rcx` gives
@@ -74,6 +80,49 @@ use crate::visualize::Color;
 /// needed, start the text with a single space (which will be trimmed) or use
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
+///
+/// If no syntax highlighting is available by default for your specified
+/// language tag (or if you want to override the built-in definition), you may
+/// provide a custom syntax specification file to the
+/// [`syntaxes`]($raw.syntaxes) field.
+///
+/// # Styling
+/// By default, the `raw` element uses the `DejaVu Sans Mono` font (included
+/// with Typst), with a smaller font size of `{0.8em}` (that is, 80% of
+/// the global font size). This is because monospace fonts tend to be visually
+/// larger than non-monospace fonts.
+///
+/// You can customize these properties with show-set rules:
+///
+/// ````example
+/// // Switch to Cascadia Code for both
+/// // inline and block raw.
+/// #show raw: set text(font: "Cascadia Code")
+///
+/// // Reset raw blocks to the same size as normal text,
+/// // but keep inline raw at the reduced size.
+/// #show raw.where(block: true): set text(1em / 0.8)
+///
+/// Now using the `Cascadia Code` font for raw text.
+/// Here's some Python code. It looks larger now:
+///
+/// ```py
+/// def python():
+///   return 5 + 5
+/// ```
+/// ````
+///
+/// In addition, you can customize the syntax highlighting colors by setting
+/// a custom theme through the [`theme`]($raw.theme) field.
+///
+/// For complete customization of the appearance of a raw block, a show rule
+/// on [`raw.line`]($raw.line) could be helpful, such as to add line numbers.
+///
+/// Note that, in raw text, typesetting features like
+/// [hyphenation]($text.hyphenate), [overhang]($text.overhang),
+/// [CJK-Latin spacing]($text.cjk-latin-spacing) (and
+/// [justification]($par.justify) for [raw blocks]($raw.block)) will be
+/// disabled by default.
 #[elem(
     scope,
     title = "Raw Text / Code",
