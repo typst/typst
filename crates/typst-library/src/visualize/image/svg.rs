@@ -41,10 +41,10 @@ impl SvgImage {
         Ok(Self(Arc::new(Repr { data, size: tree_size(&tree), font_hash: 0, tree })))
     }
 
-    /// Decode an SVG image with access to fonts.
+    /// Decode an SVG image with access to fonts and linked images.
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
-    pub fn with_fonts(
+    pub fn with_fonts_images(
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[&str],

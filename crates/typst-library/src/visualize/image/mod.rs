@@ -272,7 +272,7 @@ impl Packed<ImageElem> {
                     DataSource::Bytes(_) => span.id(),
                 };
                 ImageKind::Svg(
-                    SvgImage::with_fonts(
+                    SvgImage::with_fonts_images(
                         loaded.data.clone(),
                         engine.world,
                         &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
