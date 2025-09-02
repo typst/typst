@@ -77,7 +77,7 @@ enum Item<'a, 'b> {
     /// Absolute spacing and its weakness level.
     Abs(Abs, u8),
     /// Fractional spacing or a fractional block.
-    Fr(Fr, Option<&'b SingleChild<'a>>),
+    Fr(Fr, u8, Option<&'b SingleChild<'a>>),
     /// A frame for a laid out line or block.
     Frame(Frame, Axes<FixedAlignment>),
     /// A frame for an absolutely (not floatingly) placed child.
@@ -169,18 +169,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes fractional spacing.
     fn fr(&mut self, fr: Fr, weakness: u8) {
-        if weakness > 0 {
-            let has_previous = self
-                .items
-                .iter()
-                .any(|item| !matches!(item, Item::Abs(_, _) | Item::Fr(_, _)));
-            if !has_previous {
-                return;
-            }
+        if weakness > 0 && !self.keep_spacing_fr(fr, weakness) {
+            return;
         }
-
         self.trim_spacing();
-        self.items.push(Item::Fr(fr, None));
+        self.items.push(Item::Fr(fr, weakness, None));
     }
 
     /// Decides whether to keep weak spacing based on previous items. If there
@@ -200,6 +193,24 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 Item::Fr(.., None) => return false,
                 Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
+            }
+        }
+        false
+    }
+
+    fn keep_spacing_fr(&mut self, fr: Fr, weakness: u8) -> bool {
+        for item in self.items.iter_mut().rev() {
+            match *item {
+                Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
+                Item::Fr(prev_fr, prev_weakness @ 1.., child) => {
+                    if weakness <= prev_weakness
+                        && (weakness < prev_weakness || fr > prev_fr)
+                    {
+                        *item = Item::Fr(fr, weakness, child);
+                    }
+                    return false;
+                }
+                Item::Frame(..) | Item::Fr(..) => return true,
             }
         }
         false
@@ -270,7 +281,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.composer
                 .footnotes(&self.regions, &frame, Abs::zero(), false, true)?;
             self.flush_tags();
-            self.items.push(Item::Fr(fr, Some(single)));
+            self.items.push(Item::Fr(fr, 5, Some(single)));
             return Ok(());
         }
 
@@ -477,7 +488,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for item in &self.items {
             match item {
                 Item::Abs(v, _) => used.y += *v,
-                Item::Fr(v, child) => {
+                Item::Fr(v, _, child) => {
                     frs += *v;
                     has_fr_child |= child.is_some();
                 }
@@ -500,7 +511,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut fr_frames = vec![];
         if has_fr_child {
             for item in &self.items {
-                let Item::Fr(v, Some(single)) = item else { continue };
+                let Item::Fr(v, _, Some(single)) = item else { continue };
                 let length = v.share(frs, fr_space);
                 let pod = Region::new(Size::new(region.size.x, length), region.expand);
                 let frame = single.layout(self.composer.engine, pod)?;
@@ -534,7 +545,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 Item::Abs(v, _) => {
                     offset += v;
                 }
-                Item::Fr(v, single) => {
+                Item::Fr(v, _, single) => {
                     let length = v.share(frs, fr_space);
                     if let Some(single) = single {
                         let frame = fr_frames.next().unwrap();

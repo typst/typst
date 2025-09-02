@@ -246,7 +246,7 @@ impl<'a> Collector<'a, '_, '_> {
         let spacing = |amount| match amount {
             Smart::Auto => Child::Rel((*fallback).into(), 4),
             Smart::Custom(Spacing::Rel(rel)) => Child::Rel(rel.resolve(styles), 3),
-            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr, 3),
+            Smart::Custom(Spacing::Fr(fr)) => Child::Fr(fr, 5),
         };
 
         self.output.push(spacing(elem.above.get(styles)));
