@@ -6,7 +6,7 @@ use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use typst_library::World;
-use typst_library::diag::{SourceResult, bail, warning};
+use typst_library::diag::{At, SourceResult, StrResult, bail, warning};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
@@ -328,9 +328,9 @@ impl GlyphFragment {
             language(styles),
             styles.get(TextElem::fallback),
             text,
-            span,
             families(styles).collect(),
-        )?
+        )
+        .at(span)?
         else {
             return Ok(None);
         };
@@ -842,7 +842,6 @@ pub fn has_dtls_feat(font: &Font) -> bool {
         .is_some()
 }
 
-#[allow(clippy::too_many_arguments)]
 #[comemo::memoize]
 fn shape(
     world: Tracked<dyn World + '_>,
@@ -851,9 +850,8 @@ fn shape(
     language: rustybuzz::Language,
     fallback: bool,
     text: &str,
-    span: Span,
     families: Vec<&FontFamily>,
-) -> SourceResult<Option<(char, Font, Glyph)>> {
+) -> StrResult<Option<(char, Font, Glyph)>> {
     let mut used = vec![];
     let buffer = UnicodeBuffer::new();
     shape_glyph(
@@ -865,7 +863,6 @@ fn shape(
         language,
         fallback,
         text,
-        span,
         families.into_iter(),
     )
 }
@@ -880,9 +877,8 @@ fn shape_glyph<'a>(
     language: rustybuzz::Language,
     fallback: bool,
     text: &str,
-    span: Span,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
-) -> SourceResult<Option<(char, Font, Glyph)>> {
+) -> StrResult<Option<(char, Font, Glyph)>> {
     // Find the next available family.
     let book = world.book();
     let mut selection = None;
@@ -956,7 +952,7 @@ fn shape_glyph<'a>(
         1 => {}
         _ => {
             // TODO: deal with multiple glyphs.
-            bail!(span, "did not get a single glyph after shaping {}", text);
+            bail!("did not get a single glyph after shaping {}", text);
         }
     }
 
@@ -991,7 +987,6 @@ fn shape_glyph<'a>(
             language,
             fallback,
             text,
-            span,
             families,
         )
     }
