@@ -165,7 +165,7 @@ fn layout_horizontal_frac(
     span: Span,
 ) -> SourceResult<()> {
     let num = if let Some(lr) = num.to_packed::<LrElem>() {
-        <typst_library::math::LrElem as Clone>::clone(&lr)
+        <typst_library::math::LrElem as Clone>::clone(lr)
             .with_deparenthesize(false)
             .pack()
     } else {
@@ -180,7 +180,7 @@ fn layout_horizontal_frac(
     ctx.push(slash);
 
     let denom = if let Some(lr) = denom.to_packed::<LrElem>() {
-        <typst_library::math::LrElem as Clone>::clone(&lr)
+        <typst_library::math::LrElem as Clone>::clone(lr)
             .with_deparenthesize(false)
             .pack()
     } else {
