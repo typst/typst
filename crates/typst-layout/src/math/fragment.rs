@@ -947,12 +947,8 @@ fn shape_glyph<'a>(
         0 => return None,
         1 => {}
         _ => {
-            todo!("Not quite sure how to resolve this")
-            // from origin/main:
-            //  unreachable!()
-            // from this branch:
-            //  // TODO: deal with multiple glyphs.
-            //  bail!(span, "did not get a single glyph after shaping {}", text);
+            // TODO: deal with multiple glyphs.
+            bail!(span, "did not get a single glyph after shaping {}", text);
         }
     }
 
