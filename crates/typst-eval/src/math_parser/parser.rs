@@ -16,7 +16,7 @@ use super::tokens::{ArgStart, Marker, Mode, Token, TokenInfo, TokenStream, Trivi
 /// Parse a math token stream into a single value.
 pub fn parse(tokens: &mut TokenStream) -> Value {
     math_expression(tokens, Side::Closed, &[])
-        .map(|spanned| spanned.v) // The overall span is handled by our caller.
+        .map(|spanned| spanned.0.v) // The overall span is handled by our caller.
         .unwrap_or_else(|| Content::empty().into_value())
 }
 
@@ -241,14 +241,18 @@ fn at_stop(token: &Token, stop_kinds: &[MathKind]) -> bool {
 
 /// A standard pratt parser that additionally parses: juxtaposed elements,
 /// chained sub/superscript operators, and parentheses removal.
+///
+/// Also returns whether the expression had parentheses that were removed due
+/// to the precedence of the parent operator.
 fn math_expression(
     tokens: &mut TokenStream,
     parent_op: Side,
     chain_kinds: &[MathKind],
-) -> Option<Spanned<Value>> {
+) -> Option<(Spanned<Value>, bool)> {
     // TODO: If we pass in a `&mut Vec` as a param, we can just use one vector as an arena.
     let mut parsed: Vec<Value> = Vec::new();
     let mut lhs_start = 0;
+    let mut lhs_deparen = false;
     let mut juxt = Side::Closed;
     let mut active_chain: Option<ExprKind> = None;
     let mut initial_span = Span::detached();
@@ -341,16 +345,18 @@ fn math_expression(
         }
 
         // Parse an operator's right side and push it onto `parsed`.
+        let mut rhs_deparen = false;
         if let Side::Open(right_prec) = op.right {
             let kinds = match &op.finish {
                 Finish::MaybeChain { expr: _, with: kinds } => *kinds,
                 _ => &[],
             };
             let rhs = math_expression(tokens, Side::Open(right_prec), kinds);
-            let Some(value) = rhs else {
+            let Some((value, deparen)) = rhs else {
                 tokens.error_at(mark, "expected a value to the right of the operator");
                 continue;
             };
+            rhs_deparen = deparen;
             parsed.push(value.v);
         }
 
@@ -359,7 +365,7 @@ fn math_expression(
             Finish::Value { value } => value.spanned(mark.span),
             Finish::Expression { expr } => {
                 let op_values = parsed.drain(lhs_start..);
-                finish_expression(expr, op_values, mark.span)
+                finish_expression(expr, op_values, mark.span, (lhs_deparen, rhs_deparen))
             }
             Finish::MaybeChain { expr, with: kinds } => {
                 if tokens.just_peek().is_some_and(|peek| at_stop(&peek.token, kinds)) {
@@ -367,10 +373,13 @@ fn math_expression(
                     continue;
                 }
                 let op_values = parsed.drain(lhs_start..);
-                finish_expression(expr, op_values, mark.span)
+                finish_expression(expr, op_values, mark.span, Default::default())
             }
             Finish::Delims { left } => {
-                parse_delimiters(tokens, left, parent_op, juxt, mark)
+                let (value, deparen) =
+                    parse_delimiters(tokens, left, parent_op, juxt, mark);
+                lhs_deparen = deparen;
+                value
             }
             Finish::ParseFuncArgs { func } => parse_function(tokens, func, mark),
         };
@@ -380,7 +389,7 @@ fn math_expression(
     }
 
     let value = if let Some(expr) = active_chain {
-        finish_expression(expr, parsed.into_iter(), initial_span)
+        finish_expression(expr, parsed.into_iter(), initial_span, Default::default())
     } else if let Some(value) = parsed.pop() {
         assert!(parsed.is_empty());
         value
@@ -390,7 +399,7 @@ fn math_expression(
     } else {
         return None;
     };
-    Some(Spanned::new(value, initial_span))
+    Some((Spanned::new(value, initial_span), lhs_deparen))
 }
 
 /// Use our parsed values to finish off the expression.
@@ -398,6 +407,7 @@ fn finish_expression(
     expr: ExprKind,
     mut vals: impl Iterator<Item = Value>,
     span: Span,
+    (num_depar, denom_depar): (bool, bool),
 ) -> Value {
     let mut next_content = || vals.next().unwrap().display();
 
@@ -435,7 +445,10 @@ fn finish_expression(
         ExprKind::Frac => {
             let num = next_content();
             let denom = next_content();
-            FracElem::new(num, denom).pack()
+            FracElem::new(num, denom)
+                .with_num_deparenthesized(num_depar)
+                .with_denom_deparenthesized(denom_depar)
+                .pack()
         }
         ExprKind::Root { index } => {
             let radicand = next_content();
@@ -455,14 +468,15 @@ fn parse_delimiters(
     parent_op: Side,
     juxt: Side,
     mark: Marker,
-) -> Value {
+) -> (Value, bool) {
     let (body, mode_end) = tokens
         .enter_mode(Mode::Delims, |tokens| math_expression(tokens, Side::Closed, &[]));
 
     let closing = match mode_end {
         // Remove parentheses if they're being used for grouping.
         Some((')', _)) if opening == '(' && remove_parens(tokens, parent_op, juxt) => {
-            return body.map_or(Content::empty().into_value(), |b| b.v);
+            let content = body.map_or(Content::empty().into_value(), |b| b.0.v);
+            return (content, true);
         }
         Some((closing, end_mark)) => {
             Some(SymbolElem::packed(closing).spanned(end_mark.span))
@@ -470,7 +484,7 @@ fn parse_delimiters(
         None => None,
     };
     let opening = SymbolElem::packed(opening).spanned(mark.span);
-    let body = if let Some(Spanned { v, span }) = body {
+    let body = if let Some((Spanned { v, span }, _)) = body {
         v.display().spanned(span)
     } else {
         Content::empty()
@@ -481,7 +495,7 @@ fn parse_delimiters(
     } else {
         Content::sequence([opening, body])
     };
-    content.spanned(mark.span).into_value()
+    (content.spanned(mark.span).into_value(), false)
 }
 
 /// Whether to remove parens based on our surrounding operators.
@@ -599,7 +613,7 @@ fn parse_args(tokens: &mut TokenStream) -> EcoVec<Arg> {
             }
         };
 
-        let value = math_expression(tokens, Side::Closed, &[]).unwrap();
+        let value = math_expression(tokens, Side::Closed, &[]).unwrap().0;
 
         match arg_modifier {
             Some((ArgStart::Named { name }, mark)) => {
