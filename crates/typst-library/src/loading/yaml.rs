@@ -46,9 +46,10 @@ use crate::loading::{DataSource, Load, Readable};
 /// | mapping                                | [`dictionary`]       |
 ///
 /// - In most cases, **YAML numbers** will be converted to floats or integers
-///   depending on whether they are whole numbers. However, be aware that integers
-///   larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will be
-///   approximated as floating-point numbers.
+///   depending on whether they are whole numbers. However, be aware that
+///   integers larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will
+///   be converted to floating-point numbers, which may result in an
+///   approximative value.
 ///
 /// - **Custom YAML tags** are ignored, though the loaded value will still be present.
 ///
@@ -60,8 +61,8 @@ use crate::loading::{DataSource, Load, Readable};
 /// | [`content`]                           | a mapping describing the content |
 /// | other types ([`length`], etc.)        | string via [`repr`]              |
 ///
-/// - **Bytes** are not encoded as YAML sequences for performance reasons.
-///   Consider using [`cbor.encode`] for binary data.
+/// - **Bytes** are not encoded as YAML sequences for performance and readability
+///   reasons. Consider using [`cbor.encode`] for binary data.
 ///
 /// - The **`repr`** function is [for debugging purposes only]($repr/#debugging-only),
 ///   and its output is not guaranteed to be stable across typst versions.

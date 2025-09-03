@@ -28,8 +28,9 @@ use crate::loading::{DataSource, Load};
 /// | array      | [`array`]              |
 /// | map        | [`dictionary`]         |
 ///
-/// - Be aware that **CBOR integers** larger than 2<sup>63</sup>-1 or smaller than
-///   -2<sup>63</sup> will be approximated as floating-point numbers.
+/// - Be aware that **CBOR integers** larger than 2<sup>63</sup>-1 or smaller
+///   than -2<sup>63</sup> will be converted to floating point numbers, which
+///   may result in an approximative value.
 ///
 /// - **CBOR tags** are not supported, and an error will be thrown.
 ///

@@ -43,7 +43,7 @@ use crate::loading::{DataSource, Load, Readable};
 ///
 /// Be aware that **TOML integers** larger than 2<sup>63</sup>-1 or smaller than
 /// -2<sup>63</sup> cannot be represented losslessly in Typst, and an error will
-/// be thrown according to the [spec](https://toml.io/en/v1.0.0#integer).
+/// be thrown according to the [specification](https://toml.io/en/v1.0.0#integer).
 ///
 /// | Typst value                           | Converted into TOML            |
 /// | ------------------------------------- | ------------------------------ |
@@ -54,8 +54,8 @@ use crate::loading::{DataSource, Load, Readable};
 /// | [`content`]                           | a table describing the content |
 /// | other types ([`length`], etc.)        | string via [`repr`]            |
 ///
-/// - **Bytes** are not encoded as TOML arrays for performance reasons.
-///   Consider using [`cbor.encode`] for binary data.
+/// - **Bytes** are not encoded as TOML arrays for performance and readability
+///   reasons. Consider using [`cbor.encode`] for binary data.
 ///
 /// - The **`repr`** function is [for debugging purposes only]($repr/#debugging-only),
 ///   and its output is not guaranteed to be stable across typst versions.
