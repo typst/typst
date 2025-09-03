@@ -16,9 +16,6 @@ use crate::loading::{DataSource, Load};
 /// another CBOR data type.
 ///
 /// # Conversion details { #conversion }
-/// Typst uses [ciborium](https://docs.rs/ciborium/latest/ciborium/#compatibility-with-other-implementations)
-/// to process CBOR data. The ciborium project is wire-compatible with other
-/// implementations in decoding, but not necessarily encoding.
 ///
 /// | CBOR value | Converted into Typst   |
 /// | ---------- | ---------------------- |
