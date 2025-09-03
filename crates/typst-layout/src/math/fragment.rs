@@ -842,6 +842,7 @@ pub fn has_dtls_feat(font: &Font) -> bool {
         .is_some()
 }
 
+#[allow(clippy::too_many_arguments)]
 #[comemo::memoize]
 fn shape(
     world: Tracked<dyn World + '_>,
