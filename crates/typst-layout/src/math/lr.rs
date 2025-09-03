@@ -33,6 +33,14 @@ pub fn layout_lr(
     let (start_idx, end_idx) = fragments.split_prefix_suffix(|f| f.is_ignorant());
     let inner_fragments = &mut fragments[start_idx..end_idx];
 
+    // If this left-right pair comes from an element that should be
+    // deparenthesized then ignore the first and last fragment.
+    let deparen = elem.deparenthesize.unwrap_or(false);
+    if deparen {
+        ctx.extend(inner_fragments[1..inner_fragments.len() - 1].iter().cloned());
+        return Ok(());
+    }
+
     let mut max_extent = Abs::zero();
     for fragment in inner_fragments.iter() {
         let (font, size) = fragment.font(ctx, styles);

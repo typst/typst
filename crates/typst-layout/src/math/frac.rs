@@ -28,15 +28,9 @@ pub fn layout_frac(
         FracStyle::Skewed => {
             layout_skewed_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
         }
-        FracStyle::Horizontal => layout_horizontal_frac(
-            ctx,
-            styles,
-            &elem.num,
-            &elem.denom,
-            elem.span(),
-            elem.num_deparenthesized.get(styles),
-            elem.denom_deparenthesized.get(styles),
-        ),
+        FracStyle::Horizontal => {
+            layout_horizontal_frac(ctx, styles, &elem.num, &elem.denom, elem.span())
+        }
         FracStyle::Vertical => layout_vertical_frac_like(
             ctx,
             styles,
@@ -169,20 +163,15 @@ fn layout_horizontal_frac(
     num: &Content,
     denom: &Content,
     span: Span,
-    num_deparen: bool,
-    denom_deparen: bool,
 ) -> SourceResult<()> {
-    let num = if num_deparen {
-        &LrElem::new(Content::sequence(vec![
-            SymbolElem::packed('('),
-            num.clone(),
-            SymbolElem::packed(')'),
-        ]))
-        .pack()
+    let num = if let Some(lr) = num.to_packed::<LrElem>() {
+        <typst_library::math::LrElem as Clone>::clone(&lr)
+            .with_deparenthesize(false)
+            .pack()
     } else {
-        num
+        num.clone()
     };
-    let num_frame = ctx.layout_into_fragment(num, styles)?;
+    let num_frame = ctx.layout_into_fragment(&num, styles)?;
     ctx.push(num_frame);
 
     let mut slash =
@@ -190,17 +179,14 @@ fn layout_horizontal_frac(
     slash.center_on_axis();
     ctx.push(slash);
 
-    let denom = if denom_deparen {
-        &LrElem::new(Content::sequence(vec![
-            SymbolElem::packed('('),
-            denom.clone(),
-            SymbolElem::packed(')'),
-        ]))
-        .pack()
+    let denom = if let Some(lr) = denom.to_packed::<LrElem>() {
+        <typst_library::math::LrElem as Clone>::clone(&lr)
+            .with_deparenthesize(false)
+            .pack()
     } else {
-        denom
+        denom.clone()
     };
-    let denom_frame = ctx.layout_into_fragment(denom, styles)?;
+    let denom_frame = ctx.layout_into_fragment(&denom, styles)?;
     ctx.push(denom_frame);
 
     Ok(())
