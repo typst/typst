@@ -24,6 +24,8 @@ pub struct LrElem {
     )]
     pub body: Content,
 
+    /// Whether this delimited maths has been marked for deparenthesization,
+    /// which will omit one leading and one trailing parenthesis.
     #[synthesized]
     pub deparenthesize: bool,
 }
