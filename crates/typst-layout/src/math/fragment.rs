@@ -6,7 +6,7 @@ use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use typst_library::World;
-use typst_library::diag::{bail, warning};
+use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{
@@ -307,7 +307,7 @@ impl GlyphFragment {
         styles: StyleChain,
         c: char,
         span: Span,
-    ) -> Option<Self> {
+    ) -> SourceResult<Option<Self>> {
         Self::new(ctx.engine.world, styles, c.encode_utf8(&mut [0; 4]), span)
     }
 
@@ -318,18 +318,22 @@ impl GlyphFragment {
         styles: StyleChain,
         text: &str,
         span: Span,
-    ) -> Option<GlyphFragment> {
+    ) -> SourceResult<Option<GlyphFragment>> {
         assert!(text.graphemes(true).count() == 1);
 
-        let (c, font, mut glyph) = shape(
+        let Some((c, font, mut glyph)) = shape(
             world,
             variant(styles),
             features(styles),
             language(styles),
             styles.get(TextElem::fallback),
             text,
+            span,
             families(styles).collect(),
-        )?;
+        )?
+        else {
+            return Ok(None);
+        };
         glyph.span.0 = span;
 
         let limits = Limits::for_char(c);
@@ -369,7 +373,7 @@ impl GlyphFragment {
             modifiers: FrameModifiers::get_in(styles),
         };
         fragment.update_glyph();
-        Some(fragment)
+        Ok(Some(fragment))
     }
 
     /// Sets element id and boxes in appropriate way without changing other
@@ -846,8 +850,9 @@ fn shape(
     language: rustybuzz::Language,
     fallback: bool,
     text: &str,
+    span: Span,
     families: Vec<&FontFamily>,
-) -> Option<(char, Font, Glyph)> {
+) -> SourceResult<Option<(char, Font, Glyph)>> {
     let mut used = vec![];
     let buffer = UnicodeBuffer::new();
     shape_glyph(
@@ -859,6 +864,7 @@ fn shape(
         language,
         fallback,
         text,
+        span,
         families.into_iter(),
     )
 }
@@ -873,8 +879,9 @@ fn shape_glyph<'a>(
     language: rustybuzz::Language,
     fallback: bool,
     text: &str,
+    span: Span,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
-) -> Option<(char, Font, Glyph)> {
+) -> SourceResult<Option<(char, Font, Glyph)>> {
     // Find the next available family.
     let book = world.book();
     let mut selection = None;
@@ -913,9 +920,9 @@ fn shape_glyph<'a>(
                 span: (Span::detached(), 0),
             };
             let c = text.chars().next().unwrap();
-            return Some((c, font, glyph));
+            return Ok(Some((c, font, glyph)));
         }
-        return None;
+        return Ok(None);
     };
 
     // This font has been exhausted and will not be used again.
@@ -944,7 +951,7 @@ fn shape_glyph<'a>(
 
     let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
     match buffer.len() {
-        0 => return None,
+        0 => return Ok(None),
         1 => {}
         _ => {
             // TODO: deal with multiple glyphs.
@@ -972,7 +979,7 @@ fn shape_glyph<'a>(
             span: (Span::detached(), 0),
         };
         let c = text[cluster..].chars().next().unwrap();
-        Some((c, font, glyph))
+        Ok(Some((c, font, glyph)))
     } else {
         shape_glyph(
             world,
@@ -983,6 +990,7 @@ fn shape_glyph<'a>(
             language,
             fallback,
             text,
+            span,
             families,
         )
     }
