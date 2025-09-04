@@ -815,7 +815,10 @@ fn shape_segment<'a>(
     }
 
     // Shape!
-    let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
+    let buffer = typst_timing::timed!(
+        "rustybuzz",
+        rustybuzz::shape_with_plan(font.rusty(), &plan, buffer)
+    );
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
