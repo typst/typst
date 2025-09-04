@@ -80,7 +80,7 @@ fn layout_inline_text(
 
             // This won't panic as ASCII digits and '.' will never end up as
             // nothing after shaping.
-            let glyph = GlyphFragment::new_char(ctx, styles, c, span).unwrap();
+            let glyph = GlyphFragment::new_char(ctx, styles, c, span)?.unwrap();
             fragments.push(glyph.into());
         }
         let frame = MathRun::new(fragments).into_frame(styles);
@@ -129,41 +129,47 @@ pub fn layout_symbol(
     ctx: &mut MathContext,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    // Switch dotless char to normal when we have the dtls OpenType feature.
-    // This should happen before the main styling pass.
-    let dtls = style_dtls();
-    let (unstyled_c, symbol_styles) = match (try_dotless(elem.text), ctx.font().clone()) {
-        (Some(c), font) if has_dtls_feat(&font) => (c, styles.chain(&dtls)),
-        _ => (elem.text, styles),
-    };
-
     let variant = styles.get(EquationElem::variant);
     let bold = styles.get(EquationElem::bold);
     let italic = styles.get(EquationElem::italic);
+    let dtls = style_dtls();
+    let has_dtls_feat = has_dtls_feat(ctx.font());
+    for cluster in elem.text.graphemes(true) {
+        // Switch dotless char to normal when we have the dtls OpenType feature.
+        // This should happen before the main styling pass.
+        let mut enable_dtls = false;
+        let text: EcoString = cluster
+            .chars()
+            .flat_map(|mut c| {
+                if has_dtls_feat && let Some(d) = try_dotless(c) {
+                    enable_dtls = true;
+                    c = d;
+                }
+                to_style(c, MathStyle::select(c, variant, bold, italic))
+            })
+            .collect();
+        let styles = if enable_dtls { styles.chain(&dtls) } else { styles };
 
-    let style = MathStyle::select(unstyled_c, variant, bold, italic);
-    let text: EcoString = to_style(unstyled_c, style).collect();
-
-    if let Some(mut glyph) =
-        GlyphFragment::new(ctx.engine.world, symbol_styles, &text, elem.span())
-    {
-        if glyph.class == MathClass::Large {
-            if styles.get(EquationElem::size) == MathSize::Display {
-                let height = glyph
-                    .item
-                    .font
-                    .math()
-                    .display_operator_min_height
-                    .at(glyph.item.size);
-                glyph.stretch_vertical(ctx, height);
-            };
-            // TeXbook p 155. Large operators are always vertically centered on
-            // the axis.
-            glyph.center_on_axis();
+        if let Some(mut glyph) =
+            GlyphFragment::new(ctx.engine.world, styles, &text, elem.span())?
+        {
+            if glyph.class == MathClass::Large {
+                if styles.get(EquationElem::size) == MathSize::Display {
+                    let height = glyph
+                        .item
+                        .font
+                        .math()
+                        .display_operator_min_height
+                        .at(glyph.item.size);
+                    glyph.stretch_vertical(ctx, height);
+                };
+                // TeXbook p 155. Large operators are always vertically centered on
+                // the axis.
+                glyph.center_on_axis();
+            }
+            ctx.push(glyph);
         }
-        ctx.push(glyph);
     }
-
     Ok(())
 }
 
