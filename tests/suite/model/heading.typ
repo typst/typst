@@ -101,6 +101,11 @@ comment spans lines
 #set heading(numbering: "1.1.a.")
 = State of the Art
 
+--- heading-hanging-indent-auto-center-align ---
+#set heading(numbering: "1.1.a.")
+#show heading: set align(center)
+= Center aligned
+
 --- heading-hanging-indent-zero ---
 #set heading(numbering: "1.1.a.", hanging-indent: 0pt)
 = State of the Art
