@@ -210,15 +210,11 @@ pub struct PageElem {
     /// 1. the first number is the current page number
     /// 2. the second number (if it exists) is the total number of pages
     ///
-    /// These numbers are _logical_. They are controlled by the page counter,
-    /// [`counter(page)`]($counter), and may thus not match the physical number.
-    ///
-    /// More precisely, the second number is the [final]($counter.final) value
-    /// of `counter(page)`. If you [reset]($counter/#modifying) the page counter
-    /// manually, then it might not be what you want. To instead use the page
-    /// number at a certain position, you can attach a [label] there and use
-    /// [`counter(page).at(..)`]($counter.at) in the numbering function. This
-    /// might be improved in the future.
+    /// These are logical numbers controlled by the page counter, and may thus
+    /// not match the physical number. To be specific, they are the
+    /// [current]($counter.get) and the [final]($counter.final) value of
+    /// `{counter(page)}`. See the documentation for [`counter`]($counter/#page-counter)
+    /// for further customizations.
     ///
     /// In addition, if an explicit [`footer`]($page.footer) (or
     /// [`header`]($page.header) for [top-aligned]($page.number-align) numbering)
@@ -232,26 +228,6 @@ pub struct PageElem {
     /// )
     ///
     /// #lorem(48)
-    /// ```
-    ///
-    /// ```example
-    /// >>> #set page(margin: (top: 16pt, bottom: 24pt))
-    /// #set page(numbering: (num, final) => numbering(
-    ///   "I / I",
-    ///   num,
-    ///   ..counter(page).at(<preface-end>),
-    /// ))
-    ///
-    /// = Preface
-    /// #metadata(none) <preface-end>
-    ///
-    /// #set page(numbering: "1 / 1")
-    /// #counter(page).update(1)
-    ///
-    /// = Main text
-    /// #lorem(5)
-    /// #pagebreak()
-    /// #lorem(5)
     /// ```
     #[ghost]
     pub numbering: Option<Numbering>,
