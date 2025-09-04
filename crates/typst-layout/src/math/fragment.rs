@@ -6,8 +6,8 @@ use rustybuzz::{BufferFlags, UnicodeBuffer};
 use ttf_parser::GlyphId;
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use typst_library::World;
-use typst_library::diag::{At, SourceResult, StrResult, bail, warning};
-use typst_library::foundations::StyleChain;
+use typst_library::diag::{At, HintedStrResult, SourceResult, bail, warning};
+use typst_library::foundations::{Repr, StyleChain};
 use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, Axis, Corner, Em, Frame, FrameItem, Point, Size, VAlignment,
@@ -851,7 +851,7 @@ fn shape(
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
-) -> StrResult<Option<(char, Font, Glyph)>> {
+) -> HintedStrResult<Option<(char, Font, Glyph)>> {
     let mut used = vec![];
     let buffer = UnicodeBuffer::new();
     shape_glyph(
@@ -878,7 +878,7 @@ fn shape_glyph<'a>(
     fallback: bool,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
-) -> StrResult<Option<(char, Font, Glyph)>> {
+) -> HintedStrResult<Option<(char, Font, Glyph)>> {
     // Find the next available family.
     let book = world.book();
     let mut selection = None;
@@ -950,10 +950,11 @@ fn shape_glyph<'a>(
     match buffer.len() {
         0 => return Ok(None),
         1 => {}
-        _ => {
-            // TODO: deal with multiple glyphs.
-            bail!("did not get a single glyph after shaping {}", text);
-        }
+        // TODO: Deal with multiple glyphs.
+        _ => bail!(
+            "shaping the text `{}` yielded more than one glyph", text.repr();
+            hint: "please report this as a bug",
+        ),
     }
 
     let info = buffer.glyph_infos()[0];
