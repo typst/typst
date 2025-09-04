@@ -168,6 +168,7 @@ pub fn line<'a>(
 
     // Trim the line at the end, if necessary for this breakpoint.
     let trim = range.start + breakpoint.trim(full).len();
+    let trimmed_range = range.start..trim;
 
     // Collect the items for the line.
     let mut items = Items::new();
@@ -198,7 +199,8 @@ pub fn line<'a>(
     trim_weak_spacing(&mut items);
 
     // Deal with CJ characters at line boundaries.
-    adjust_cj_at_line_boundaries(p, full, &mut items);
+    // Use the trimmed range for robust boundary checks.
+    adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
 
     // Compute the line's width.
     let width = items.iter().map(Item::natural_width).sum();
@@ -338,7 +340,11 @@ fn collect_range<'a>(
 ///
 /// See Requirements for Chinese Text Layout, Section 3.1.6.3 Compression of
 /// punctuation marks at line start or line end.
-fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) {
+///
+/// The `range` should only contain regular texts, with linebreaks trimmed.
+fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items) {
+    let text = &p.text[range];
+
     if text.starts_with(BEGIN_PUNCT_PAT)
         || (p.config.cjk_latin_spacing && text.starts_with(is_of_cj_script))
     {
@@ -346,8 +352,7 @@ fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) 
     }
 
     if text.ends_with(END_PUNCT_PAT)
-        || (p.config.cjk_latin_spacing
-            && text.strip_suffix("\n").unwrap_or(text).ends_with(is_of_cj_script))
+        || (p.config.cjk_latin_spacing && text.ends_with(is_of_cj_script))
     {
         adjust_cj_at_line_end(p, items);
     }
