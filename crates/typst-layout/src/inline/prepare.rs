@@ -136,7 +136,7 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
 
         // Since we only call this function in [`prepare`], we can assume that
         // the Cow is owned, and `to_mut` can be called without overhead.
-        debug_assert!(matches!(text.glyphs, std::borrow::Cow::Owned(_)));
+        debug_assert!(text.glyphs.is_owned());
         let mut glyphs = text.glyphs.to_mut().iter_mut().peekable();
 
         while let Some(glyph) = glyphs.next() {
