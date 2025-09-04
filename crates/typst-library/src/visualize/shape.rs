@@ -36,11 +36,15 @@ pub struct RectElem {
     /// How to stroke the rectangle. This can be:
     ///
     /// - `{none}` to disable stroking
+    ///
     /// - `{auto}` for a stroke of `{1pt + black}` if and only if no fill is
     ///   given.
+    ///
     /// - Any kind of [stroke]
+    ///
     /// - A dictionary describing the stroke for each side individually. The
     ///   dictionary can contain the following keys in order of precedence:
+    ///
     ///   - `top`: The top stroke.
     ///   - `right`: The right stroke.
     ///   - `bottom`: The bottom stroke.
@@ -49,6 +53,9 @@ pub struct RectElem {
     ///   - `y`: The vertical stroke.
     ///   - `rest`: The stroke on all sides except those for which the
     ///     dictionary explicitly sets a size.
+    ///
+    ///   All keys are optional; omitted keys will use their previously set
+    ///   value, or the default stroke if never set.
     ///
     /// ```example
     /// #stack(

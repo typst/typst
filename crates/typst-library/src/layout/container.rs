@@ -69,6 +69,20 @@ pub struct BoxElem {
 
     /// How much to pad the box's content.
     ///
+    /// This can be:
+    /// - a single length for all sides
+    /// - a dictionary of lengths for individual sides
+    ///
+    /// When passing a dictionary, it can contain the following keys in order of
+    /// precedence: `top`, `right`, `bottom`, `left` (controlling the respective
+    /// cell sides), `x`, `y` (controlling vertical and horizontal insets), and
+    /// `rest` (covers all insets not styled by other dictionary entries). All
+    /// keys are optional; omitted keys will use their previously set value, or
+    /// the default value if never set.
+    ///
+    /// Here the lengths can be [relative] and ratios are relative to the box
+    /// size without outset.
+    ///
     /// _Note:_ When the box contains text, its exact size depends on the
     /// current [text edges]($text.top-edge).
     ///
@@ -79,6 +93,13 @@ pub struct BoxElem {
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the box's size without affecting the layout.
+    ///
+    /// This can be:
+    /// - a single length for all sides
+    /// - a dictionary of lengths for individual sides
+    /// Here the lengths can be [relative] and ratios are relative to the box
+    /// size without outset. See the above documentation for [inset]($box.inset)
+    /// for further details.
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
