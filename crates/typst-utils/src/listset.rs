@@ -1,7 +1,7 @@
 use std::ops::DerefMut;
 
 /// Picked by gut feeling. Could probably even be a bit larger.
-const CUT_OFF: usize = 10;
+const CUT_OFF: usize = 15;
 
 /// A set backed by a mutable slice-like data structure.
 ///

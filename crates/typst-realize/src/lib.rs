@@ -813,8 +813,6 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
     let mut end = start + trimmed.len();
 
-    // Determine which tags are opened/closed within the grouping.
-
     // Tags that are opened within the grouping should have their closing tag
     // included if it is at the end boundary. Similarly, tags that are closed
     // within should have their opening tag included if it is at the start
