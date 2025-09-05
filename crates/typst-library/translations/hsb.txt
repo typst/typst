@@ -1,0 +1,8 @@
+figure = Wobraz
+table = Tabulka
+# equation =
+bibliography = Literatura
+# heading =
+outline = Wobsah
+# raw =
+page = Strona

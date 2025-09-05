@@ -1,0 +1,8 @@
+figure = Darlun
+table = Tabl
+# equation =
+bibliography = Llyfryddiaeth
+# heading =
+outline = Cynnwys
+# raw =
+page = tudalen

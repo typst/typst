@@ -1,0 +1,8 @@
+figure = ପ୍ରତିଛବି
+table = ଟେବୁଲ୍
+# equation =
+bibliography = ସୂଚନା
+# heading =
+outline = ସୁଚୀ ପତ୍ର
+# raw =
+page = ପୃଷ୍ଠା

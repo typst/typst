@@ -1,0 +1,8 @@
+figure = Figur
+table = Tabell
+equation = Likning
+bibliography = Bibliografi
+heading = Avsnitt
+outline = Innhold
+raw = Opplisting
+page = Side

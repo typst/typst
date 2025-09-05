@@ -1,0 +1,8 @@
+# figure =
+table = ટેબલ
+# equation =
+# bibliography =
+# heading =
+# outline =
+# raw =
+page = પાનુ
