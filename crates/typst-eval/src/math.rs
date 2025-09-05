@@ -124,19 +124,35 @@ impl Eval for ast::MathFrac<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let num_expr = self.num();
-        let num = num_expr.eval_display(vm)?;
+        let mut num = num_expr.eval_display(vm)?;
         let denom_expr = self.denom();
-        let denom = denom_expr.eval_display(vm)?;
+        let mut denom = denom_expr.eval_display(vm)?;
 
         let num_depar =
             matches!(num_expr, ast::Expr::Math(math) if math.was_deparenthesized());
         let denom_depar =
             matches!(denom_expr, ast::Expr::Math(math) if math.was_deparenthesized());
 
-        Ok(FracElem::new(num, denom)
-            .with_num_deparenthesized(num_depar)
-            .with_denom_deparenthesized(denom_depar)
-            .pack())
+        if num_depar {
+            num = LrElem::new(Content::sequence(vec![
+                SymbolElem::packed('('),
+                num,
+                SymbolElem::packed(')'),
+            ]))
+            .with_deparenthesize(true)
+            .pack()
+        }
+        if denom_depar {
+            denom = LrElem::new(Content::sequence(vec![
+                SymbolElem::packed('('),
+                denom,
+                SymbolElem::packed(')'),
+            ]))
+            .with_deparenthesize(true)
+            .pack()
+        }
+
+        Ok(FracElem::new(num, denom).pack())
     }
 }
 
