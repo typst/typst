@@ -3230,6 +3230,7 @@ dependencies = [
  "comemo",
  "ecow",
  "regex",
+ "rustc-hash",
  "typst-library",
  "typst-macros",
  "typst-syntax",

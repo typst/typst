@@ -23,6 +23,7 @@ bumpalo = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 regex = { workspace = true }
+rustc-hash = { workspace = true }
 
 [lints]
 workspace = true
