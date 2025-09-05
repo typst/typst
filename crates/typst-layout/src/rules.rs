@@ -10,11 +10,11 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em, GridCell,
-    GridChild, GridElem, GridItem, HAlignment, HElem, HideElem, InlineElem, LayoutElem,
-    Length, MoveElem, OuterVAlignment, PadElem, PlaceElem, PlacementScope, Region, Rel,
-    RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing, SkewElem, Spacing,
-    StackChild, StackElem, TrackSizings, VElem,
+    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
+    FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
+    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PlaceElem,
+    PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing,
+    SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
@@ -240,8 +240,9 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         let numbering = Counter::of(HeadingElem::ELEM)
             .display_at_loc(engine, location, styles, numbering)?
             .spanned(span);
+        let align = styles.resolve(AlignElem::alignment);
 
-        if hanging_indent.is_auto() {
+        if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
             // We don't have a locator for the numbering here, so we just

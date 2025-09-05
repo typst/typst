@@ -93,15 +93,18 @@ $ mat(column-gap: #1em, 1, 2; 3, 4)
 #grid(
   columns: 2,
   gutter: 10pt,
-
   $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #3) $,
-  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #(-1)) $,
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #4) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 0)) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 2)) $,
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: -1)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 3)) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 1, vline: 1)) $,
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: -2, vline: -2)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: -1, vline: -1)) $,
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 2, stroke: 1pt + blue)) $,
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: -1, stroke: 1pt + blue)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 3, stroke: 1pt + blue)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 3, stroke: 1pt + blue)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 0, stroke: 1pt + blue)) $,
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #(vline: -4, stroke: 1pt + blue)) $,
 )
 
 --- math-mat-augment-set ---
@@ -115,8 +118,8 @@ $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
 #set math.mat(augment: none)
 
 --- math-mat-augment-line-out-of-bounds ---
-// Error: 3-37 cannot draw a vertical line after column 3 of a matrix with 3 columns
-$ mat(1, 0, 0; 0, 1, 1; augment: #3) $,
+// Error: 3-37 cannot draw a vertical line at offset 4 in a matrix with 3 columns
+$ mat(1, 0, 0; 0, 1, 1; augment: #4) $,
 
 --- math-mat-align ---
 $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #left) $

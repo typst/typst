@@ -91,6 +91,11 @@ pub struct BoxElem {
 
     /// How much to expand the box's size without affecting the layout.
     ///
+    /// This can be a single length for all sides or a dictionary of lengths for
+    /// individual sides. [Relative lengths]($relative) are relative to the box
+    /// size without outset. See the documentation for [inset]($box.inset) above
+    /// for further details.
+    ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
     /// [raw text's block parameter]($raw.block).
