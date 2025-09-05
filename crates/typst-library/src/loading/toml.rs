@@ -9,7 +9,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// Reads structured data from a TOML file.
 ///
 /// The file must contain a valid TOML table. The TOML values will be converted
-/// into corresponding Typst values listed in the [table below](#conversion).
+/// into corresponding Typst values as listed in the [table below](#conversion).
 ///
 /// The function returns a dictionary representing the TOML table.
 ///
@@ -41,10 +41,6 @@ use crate::loading::{DataSource, Load, Readable};
 /// | array      | [`array`]            |
 /// | table      | [`dictionary`]       |
 ///
-/// Be aware that **TOML integers** larger than 2<sup>63</sup>-1 or smaller than
-/// -2<sup>63</sup> cannot be represented losslessly in Typst, and an error will
-/// be thrown according to the [specification](https://toml.io/en/v1.0.0#integer).
-///
 /// | Typst value                           | Converted into TOML            |
 /// | ------------------------------------- | ------------------------------ |
 /// | types that can be converted from TOML | corresponding TOML value       |
@@ -54,11 +50,17 @@ use crate::loading::{DataSource, Load, Readable};
 /// | [`content`]                           | a table describing the content |
 /// | other types ([`length`], etc.)        | string via [`repr`]            |
 ///
-/// - **Bytes** are not encoded as TOML arrays for performance and readability
+/// ## Notes
+/// - Be aware that TOML integers larger than 2<sup>63</sup>-1 or smaller
+///   than -2<sup>63</sup> cannot be represented losslessly in Typst, and an
+///   error will be thrown according to the
+///   [specification](https://toml.io/en/v1.0.0#integer).
+///
+/// - Bytes are not encoded as TOML arrays for performance and readability
 ///   reasons. Consider using [`cbor.encode`] for binary data.
 ///
-/// - The **`repr`** function is [for debugging purposes only]($repr/#debugging-only),
-///   and its output is not guaranteed to be stable across typst versions.
+/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "TOML")]
 pub fn toml(
     engine: &mut Engine,

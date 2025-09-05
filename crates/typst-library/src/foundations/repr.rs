@@ -29,9 +29,9 @@ pub const MINUS_SIGN: &str = "\u{2212}";
 ///
 /// To be specific, having the same `repr` does not guarantee that values are
 /// equivalent, and `repr` is not a strict inverse of [`eval`]. In the following
-/// example, for readability, the [`length`] is rounded to two significant digits
-/// and the parameter list and body of the [unamed `function`]($function/#unnamed)
-/// are omitted.
+/// example, for readability, the [`length`] is rounded to two significant
+/// digits and the parameter list and body of the
+/// [unnamed `function`]($function/#unnamed) are omitted.
 ///
 /// ```example
 /// #assert(2pt / 3 < 0.67pt)
