@@ -126,8 +126,10 @@ pub struct PageElem {
     ///   - `rest`: The margins on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
-    /// The values for `left` and `right` are mutually exclusive with
-    /// the values for `inside` and `outside`.
+    /// All keys are optional; omitted keys will use their previously set value,
+    /// or the default margin if never set. In addition, the values for `left`
+    /// and `right` are mutually exclusive with the values for `inside` and
+    /// `outside`.
     ///
     /// ```example
     /// #set page(
