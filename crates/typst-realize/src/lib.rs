@@ -8,10 +8,9 @@ use std::borrow::Cow;
 use std::cell::LazyCell;
 
 use arrayvec::ArrayVec;
-use bumpalo::collections::{String as BumpString, Vec as BumpVec};
+use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use rustc_hash::FxHashSet;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -19,7 +18,7 @@ use typst_library::foundations::{
     RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
     SymbolElem, Synthesize, TargetElem, Transformation,
 };
-use typst_library::introspection::{Locatable, Location, SplitLocator, Tag, TagElem};
+use typst_library::introspection::{Locatable, LocationKey, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -31,7 +30,7 @@ use typst_library::model::{
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
-use typst_utils::{SliceExt, SmallBitSet};
+use typst_utils::{ListSet, SliceExt, SmallBitSet};
 
 /// Realize content into a flat list of well-known, styled items.
 #[typst_macros::time(name = "realize")]
@@ -821,19 +820,22 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // within should have their opening tag included if it is at the start
     // boundary. Tags that are not referenced within shouldn't be included.
     if rule.tags {
-        let within: FxHashSet<Location> = trimmed
-            .iter()
-            .filter_map(|(c, _)| c.to_packed::<TagElem>())
-            .map(|elem| elem.tag.location())
-            .collect();
+        let within = ListSet::new(
+            trimmed
+                .iter()
+                .filter_map(|(c, _)| c.to_packed::<TagElem>())
+                .map(|elem| LocationKey::new(elem.tag.location()))
+                .collect_in::<BumpVec<_>>(&s.arenas.bump),
+        );
 
-        // Include all tags at the start that are closed within. Here, we don't
-        // have to handle inner elements because spaces will already be
-        // destructed and won't end up in the sink.
+        // Include all tags at the start that are closed within. Unlike for
+        // trailing tags (see below), we don't have to handle inner elements in
+        // between because spaces will already be destructed and won't end up in
+        // the sink.
         while let Some(pred) = start.checked_sub(1)
             && let (c, _) = s.sink[pred]
             && let Some(elem) = c.to_packed::<TagElem>()
-            && within.contains(&elem.tag.location())
+            && within.contains(&elem.tag.location().into())
         {
             start = pred;
         }
@@ -844,13 +846,13 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
         // is correct. Typically, the inner element will be discarded anyway.
         s.sink[end..].sort_by_key(|(c, _)| {
             !c.to_packed::<TagElem>()
-                .is_some_and(|elem| within.contains(&elem.tag.location()))
+                .is_some_and(|elem| within.contains(&elem.tag.location().into()))
         });
 
         // Include all tags at the end that are opened within.
         while let Some((c, _)) = s.sink.get(end)
             && let Some(elem) = c.to_packed::<TagElem>()
-            && within.contains(&elem.tag.location())
+            && within.contains(&elem.tag.location().into())
         {
             end += 1;
         }

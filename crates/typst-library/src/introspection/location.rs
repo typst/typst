@@ -105,6 +105,29 @@ impl Repr for Location {
     }
 }
 
+/// Can be used to use a location as a key in an ordered map.
+///
+/// [`Location`] itself does not implement [`Ord`] because comparing hashes like
+/// this has not semantic meaning. The potential for misuse (e.g. checking
+/// whether locations have a particular relative ordering) is relatively high.
+///
+/// Still, it can be used to have orderable locations for things like sets.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct LocationKey(u128);
+
+impl LocationKey {
+    /// Create a location key from a location.
+    pub fn new(location: Location) -> Self {
+        Self(location.0)
+    }
+}
+
+impl From<Location> for LocationKey {
+    fn from(location: Location) -> Self {
+        Self::new(location)
+    }
+}
+
 /// Makes this element as locatable through the introspector.
 pub trait Locatable {}
 
