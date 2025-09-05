@@ -23,15 +23,16 @@ use serde::{Serialize, Serializer};
 use typst_syntax::Span;
 use typst_utils::singleton;
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Context, Dict, IntoValue, Label, Property, Recipe, RecipeIndex, Repr, Selector, Str,
-    Style, StyleChain, Styles, Value, func, repr, scope, ty,
+    Args, Context, Dict, IntoValue, Label, Property, Recipe, RecipeIndex, Repr, Selector,
+    Str, Style, StyleChain, Styles, Value, func, repr, scope, ty,
 };
-use crate::introspection::Location;
+use crate::introspection::{Locatable, Location};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
+use crate::pdf::{ArtifactElem, ArtifactKind};
 use crate::text::UnderlineElem;
 
 /// A piece of document content.
@@ -476,8 +477,12 @@ impl Content {
     }
 
     /// Link the content somewhere.
-    pub fn linked(self, dest: Destination) -> Self {
-        self.set(LinkElem::current, Some(dest))
+    pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
+        let span = self.span();
+        LinkMarker::new(self, dest.clone(), alt)
+            .pack()
+            .spanned(span)
+            .set(LinkElem::current, Some(dest))
     }
 
     /// Set alignments for this content.
@@ -505,6 +510,12 @@ impl Content {
             .with_dy(delta.y)
             .pack()
             .spanned(span)
+    }
+
+    /// Link the content somewhere.
+    pub fn artifact(self, kind: ArtifactKind) -> Self {
+        let span = self.span();
+        ArtifactElem::new(self).with_kind(kind).pack().spanned(span)
     }
 }
 
@@ -770,6 +781,27 @@ impl PartialEq for StyledElem {
 impl Repr for StyledElem {
     fn repr(&self) -> EcoString {
         eco_format!("styled(child: {}, ..)", self.child.repr())
+    }
+}
+
+/// An element that associates the body of a link with the destination.
+#[elem(Locatable, Construct)]
+pub struct LinkMarker {
+    /// The content.
+    #[internal]
+    #[required]
+    pub body: Content,
+    #[internal]
+    #[required]
+    pub dest: Destination,
+    #[internal]
+    #[required]
+    pub alt: Option<EcoString>,
+}
+
+impl Construct for LinkMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
     }
 }
 

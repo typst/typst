@@ -1,15 +1,22 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{HintedStrResult, HintedString, bail};
-use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
+use crate::engine::Engine;
+use crate::foundations::{
+    Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
+};
+use crate::introspection::Locatable;
+use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
+use crate::pdf::TableCellKind;
 use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
@@ -113,7 +120,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, LocalName, Figurable)]
+#[elem(scope, Synthesize, Locatable, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
     /// more information on track sizing.
@@ -221,6 +228,15 @@ pub struct TableElem {
     #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
+    /// A summary of the table's purpose and structure.
+    ///
+    /// This will be available for assistive techonologies (such as screen readers).
+    pub summary: Option<EcoString>,
+
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
+
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
     #[variadic]
@@ -243,6 +259,18 @@ impl TableElem {
 
     #[elem]
     type TableFooter;
+}
+
+impl Synthesize for Packed<TableElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = table_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
+    }
 }
 
 impl LocalName for Packed<TableElem> {
@@ -678,6 +706,14 @@ pub struct TableCell {
     /// The cell's [stroke]($table.stroke) override.
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    #[internal]
+    #[parse(Some(Smart::Auto))]
+    pub kind: Smart<TableCellKind>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 
     /// Whether rows spanned by this cell can be placed in different pages.
     /// When equal to `{auto}`, a cell spanning only fixed-size rows is

@@ -1,0 +1,14 @@
+- Tag: Link
+  /Alt: "Email hello@typst.app"
+  /K:
+    - Annotation: page=0 index=0
+    - Tag: P
+      /K:
+        - Content: page=0 mcid=0
+- Tag: Link
+  /Alt: "Telephone 123"
+  /K:
+    - Annotation: page=0 index=1
+    - Tag: P
+      /K:
+        - Content: page=0 mcid=1

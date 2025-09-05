@@ -1,6 +1,6 @@
 // Test the quote element.
 
---- quote-dir-author-pos ---
+--- quote-dir-author-pos render pdftags ---
 // Text direction affects author positioning
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
@@ -8,7 +8,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set text(lang: "ar")
 #quote(attribution: [عالم])[مرحبًا]
 
---- quote-dir-align ---
+--- quote-dir-align render pdftags ---
 // Text direction affects block alignment
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 #set quote(block: true)

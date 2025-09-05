@@ -1,0 +1,78 @@
+- Tag: Table
+  /BBox:
+    page: 0
+    left:     9.500
+    top:      9.500
+    right:   40.130
+    bottom:  43.660
+  /K:
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: []
+              /BorderColor:
+                before: #000000
+                after:  #ff4136
+                start:  #000000
+                end:    #2ecc40
+              /BorderStyle: Solid
+              /BorderThickness:   1.000
+              /K:
+                - Content: page=0 mcid=0
+            - Tag: TD
+              /Headers: []
+              /BorderColor:
+                before: #000000
+                after:  #ff4136
+                start:  #000000
+                end:    #000000
+              /BorderStyle:
+                before: Solid
+                after:  Solid
+                start:  None
+                end:    Solid
+              /BorderThickness:
+                before:   1.000
+                after:    1.000
+                start:    0.000
+                end:      1.000
+              /K:
+                - Content: page=0 mcid=1
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: []
+              /BorderColor:
+                before: #000000
+                after:  #000000
+                start:  #000000
+                end:    #2ecc40
+              /BorderStyle:
+                before: None
+                after:  Solid
+                start:  Solid
+                end:    Solid
+              /BorderThickness:
+                before:   0.000
+                after:    1.000
+                start:    1.000
+                end:      1.000
+              /K:
+                - Content: page=0 mcid=2
+            - Tag: TD
+              /Headers: []
+              /BorderColor: #000000
+              /BorderStyle:
+                before: None
+                after:  Solid
+                start:  None
+                end:    Solid
+              /BorderThickness:
+                before:   0.000
+                after:    1.000
+                start:    0.000
+                end:      1.000
+              /K:
+                - Content: page=0 mcid=3

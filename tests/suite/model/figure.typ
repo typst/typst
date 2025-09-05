@@ -1,6 +1,6 @@
 // Test figures.
 
---- figure-basic ---
+--- figure-basic render pdftags ---
 #set page(width: 150pt)
 #set figure(numbering: "I")
 

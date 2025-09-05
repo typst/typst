@@ -97,6 +97,14 @@ impl<T: Add> Sides<T> {
 }
 
 impl<T> Sides<Option<T>> {
+    /// Unwrap-or the individual sides.
+    pub fn unwrap_or(self, default: T) -> Sides<T>
+    where
+        T: Clone,
+    {
+        self.map(|v| v.unwrap_or(default.clone()))
+    }
+
     /// Unwrap-or-default the individual sides.
     pub fn unwrap_or_default(self) -> Sides<T>
     where
