@@ -10,7 +10,7 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, LinkMarker};
 use typst_library::introspection::Location;
 use typst_library::layout::{
-    GridCell, GridElem, HideElem, Point, Rect, RepeatElem, Size,
+    GridCell, GridElem, HideElem, PlaceElem, Point, Rect, RepeatElem, Size,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
@@ -206,7 +206,7 @@ pub fn handle_start(
         push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()));
         return Ok(());
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
-        push_stack(gc, elem, StackEntryKind::LogicalParent);
+        gc.tags.logical_parents.insert(elem.location().unwrap());
         return Ok(());
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
         Tag::Note.into()
@@ -224,6 +224,11 @@ pub fn handle_start(
         // If the raw element is inline, the content can be inserted directly.
         if gc.tags.stack.parent().is_some_and(|p| p.is_code_block()) {
             push_stack(gc, elem, StackEntryKind::CodeBlockLine);
+        }
+        return Ok(());
+    } else if let Some(place) = elem.to_packed::<PlaceElem>() {
+        if place.float.val() {
+            gc.tags.logical_parents.insert(elem.location().unwrap());
         }
         return Ok(());
     } else if let Some(_) = elem.to_packed::<StrongElem>() {
@@ -275,7 +280,7 @@ pub fn handle_start(
 fn push_stack(gc: &mut GlobalContext, elem: &Content, kind: StackEntryKind) {
     let loc = elem.location().expect("elem to be locatable");
     let span = elem.span();
-    let id = gc.tags.groups.reserve_located(loc);
+    let id = gc.tags.groups.reserve_located(loc, GroupLang::Tagged(None));
     push_stack_entry(gc, Some(loc), span, id, kind);
 }
 
@@ -326,6 +331,11 @@ pub fn handle_end(
 
     if gc.tags.text_attrs.pop(loc) {
         return Ok(());
+    }
+
+    if gc.tags.logical_parents.remove(&loc) {
+        let id = gc.tags.groups.reserve_located(loc, GroupLang::Transparent);
+        gc.tags.push(TagNode::Group(id));
     }
 
     // Search for an improperly nested starting tag, that is being closed.
@@ -392,7 +402,7 @@ pub fn handle_end(
             span: entry.span,
             // Reserve a virtual group so it won't be combined with the original
             // located group.
-            id: gc.tags.groups.reserve_virtual(),
+            id: gc.tags.groups.reserve_virtual(GroupLang::Tagged(None)),
             kind,
         });
         pop_stack(gc, entry);
@@ -412,7 +422,6 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
     let contents = GroupContents { id: entry.id, span: entry.span };
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => gc.tags.groups.init_tag(tag, contents),
-        StackEntryKind::LogicalParent => TagNode::Group(contents.id),
         StackEntryKind::LogicalChild => {
             unreachable!("logical children are handled separately")
         }
@@ -526,9 +535,9 @@ impl<'a> ChildGroupHandle<'a, '_> {
 /// and must produce a located [`Group`], so the children can be inserted there.
 ///
 /// Currently the the frame parent is only set for:
-/// - place elements [`typst_library::layout::PlaceElem`]
-/// - footnote entries [`typst_library::model::FootnoteEntry`]
-/// - broken table cells [`typst_library::model::TableCell`]
+/// - place elements [`PlaceElem`]
+/// - footnote entries [`FootnoteEntry`]
+/// - broken table/grid cells [`TableCell`]/[`GridCell`]
 pub fn logical_child<'a, 'b>(
     gc: &'b mut GlobalContext<'a>,
     parent: Option<Location>,
@@ -540,7 +549,7 @@ pub fn logical_child<'a, 'b>(
         return ChildGroupHandle { gc, pushed: false };
     };
 
-    let id = gc.tags.groups.reserve_located(parent_loc);
+    let id = gc.tags.groups.reserve_located(parent_loc, GroupLang::Transparent);
 
     // The entry is popped off the stack in the drop implementation.
     push_stack_entry(gc, None, Span::detached(), id, StackEntryKind::LogicalChild);

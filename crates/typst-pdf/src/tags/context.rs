@@ -1,10 +1,11 @@
 use std::cell::OnceCell;
+use std::collections::hash_map::Entry;
 use std::slice::SliceIndex;
 
 use krilla::geom as kg;
 use krilla::tagging as kt;
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, GridCell, Point, Rect};
@@ -30,6 +31,7 @@ pub struct Tags {
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
     pub groups: Groups,
+    pub logical_parents: FxHashSet<Location>,
     pub disable: Option<Disable>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
@@ -48,7 +50,8 @@ impl Tags {
             text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
-            groups: Groups::default(),
+            groups: Groups::new(),
+            logical_parents: FxHashSet::default(),
             disable: None,
 
             link_id: LinkId(0),
@@ -115,9 +118,10 @@ impl Tags {
         }
         if let Some(last) = self.stack.last_mut()
             && let last = &mut self.groups.get_mut(last.id)
-            && last.lang.is_none_or(|l| l == lang)
+            && let GroupLang::Tagged(parent_lang) = &mut last.lang
+            && parent_lang.is_none_or(|l| l == lang)
         {
-            last.lang = Some(lang);
+            *parent_lang = Some(lang);
             return None;
         }
         Some(lang)
@@ -147,36 +151,32 @@ fn resolve_node(
             let mut group = groups.take(id);
 
             let mut nodes = Vec::with_capacity(group.nodes.len());
-            let lang =
-                if group.tag.is_some() { &mut group.lang } else { &mut parent_lang };
+            let lang = if let GroupLang::Tagged(lang) = &mut group.lang {
+                lang
+            } else {
+                &mut parent_lang
+            };
             for child in group.nodes.into_iter() {
                 resolve_node(groups, placeholders, lang, &mut nodes, child);
             }
 
             // Try to propagate the groups language to the parent tag.
-            group.lang = group.lang.and_then(|lang| {
+            if let Some(lang) = group.lang.get() {
                 if parent_lang.is_none_or(|l| l == lang) {
                     *parent_lang = Some(lang);
-                    return None;
+                    group.lang = GroupLang::Tagged(None);
                 }
-                Some(lang)
-            });
+            }
 
             if let Some(mut tag) = group.tag {
-                tag.set_lang(group.lang.map(|l| l.as_str().to_string()));
-                let group = kt::TagGroup::with_children(tag, nodes);
-                accum.push(Node::Group(group));
-            } else if let Some(lang) = group.lang {
-                // HACK: This should never happen. This group has a language
-                // attribute associated with it, that couldn't be propagated to
-                // the parent group, but also it doesn't have a tag because it
-                // is a transparent group. This will only happen if a transparent
-                // group has direct children that are marked content sequences,
-                // which currently cannot happen.
-                let tag = kt::Tag::NonStruct.with_lang(Some(lang.as_str().to_string()));
+                tag.set_lang(group.lang.get().map(|l| l.as_str().to_string()));
                 let group = kt::TagGroup::with_children(tag, nodes);
                 accum.push(Node::Group(group));
             } else {
+                // The language attribute shouldn't be set if there is no tag for
+                // this group.
+                debug_assert!(group.lang.get().is_none());
+
                 accum.extend(nodes);
             }
         }
@@ -378,7 +378,6 @@ pub struct StackEntry {
 #[derive(Clone, Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
-    LogicalParent,
     LogicalChild,
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
@@ -491,7 +490,6 @@ impl StackEntryKind {
                 TagKind::Strong(_) => true,
                 TagKind::Em(_) => true,
             },
-            StackEntryKind::LogicalParent => false,
             StackEntryKind::LogicalChild => false,
             StackEntryKind::Outline(_) => false,
             StackEntryKind::OutlineEntry(_) => false,
@@ -603,7 +601,7 @@ impl BBoxCtx {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Groups {
     locations: FxHashMap<Location, GroupId>,
     list: Vec<Group>,
@@ -613,6 +611,10 @@ pub struct Groups {
 pub struct GroupId(u32);
 
 impl Groups {
+    pub fn new() -> Self {
+        Self { locations: FxHashMap::default(), list: Vec::new() }
+    }
+
     pub fn get(&self, id: GroupId) -> &Group {
         &self.list[id.0 as usize]
     }
@@ -627,18 +629,29 @@ impl Groups {
 
     /// Reserves a located group, if the location hasn't already been reserved,
     /// otherwise returns the already reserved id.
-    pub fn reserve_located(&mut self, loc: Location) -> GroupId {
-        *self.locations.entry(loc).or_insert_with(|| {
-            let id = GroupId(self.list.len() as u32);
-            self.list.push(Group { tag: None, lang: None, nodes: Vec::new() });
-            id
-        })
+    pub fn reserve_located(&mut self, loc: Location, lang: GroupLang) -> GroupId {
+        match self.locations.entry(loc) {
+            Entry::Occupied(occupied) => {
+                let id = *occupied.get();
+                if let GroupLang::Tagged(_) = lang {
+                    let group = &mut self.list[id.0 as usize];
+                    group.lang = lang;
+                }
+                id
+            }
+            Entry::Vacant(vacant) => {
+                let id = GroupId(self.list.len() as u32);
+                vacant.insert(id);
+                self.list.push(Group { tag: None, lang, nodes: Vec::new() });
+                id
+            }
+        }
     }
 
     /// Reserves a virtual group not associated with any [`Location`].
-    pub fn reserve_virtual(&mut self) -> GroupId {
+    pub fn reserve_virtual(&mut self, lang: GroupLang) -> GroupId {
         let id = GroupId(self.list.len() as u32);
-        self.list.push(Group { tag: None, lang: None, nodes: Vec::new() });
+        self.list.push(Group { tag: None, lang, nodes: Vec::new() });
         id
     }
 
@@ -651,7 +664,11 @@ impl Groups {
         nodes: Vec<TagNode>,
     ) -> TagNode {
         let id = GroupId(self.list.len() as u32);
-        self.list.push(Group { tag: Some(tag.into()), lang: None, nodes });
+        self.list.push(Group {
+            tag: Some(tag.into()),
+            lang: GroupLang::Tagged(None),
+            nodes,
+        });
         TagNode::Group(id)
     }
 
@@ -681,8 +698,24 @@ pub struct Group {
     /// no parent tag for these children and they will be added directly to the
     /// tag tree, or it hasn't been found yet.
     pub tag: Option<TagKind>,
-    pub lang: Option<Lang>,
+    pub lang: GroupLang,
     pub nodes: Vec<TagNode>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum GroupLang {
+    Tagged(Option<Lang>),
+    #[default]
+    Transparent,
+}
+
+impl GroupLang {
+    pub fn get(self) -> Option<Lang> {
+        match self {
+            GroupLang::Tagged(lang) => lang,
+            GroupLang::Transparent => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
