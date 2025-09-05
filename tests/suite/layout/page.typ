@@ -66,7 +66,7 @@
 // Test page fill.
 #set page(width: 80pt, height: 40pt, fill: eastern)
 #text(15pt, font: "Roboto", fill: white, smallcaps[Typst])
-#page(width: 40pt, fill: auto, margin: (top: 10pt, rest: auto))[Hi]
+#page(width: 40pt, fill: auto, margin: (top: 10pt, rest: 4.762pt))[Hi]
 
 --- page-fill-none ---
 // Test disabling page fill.
@@ -347,6 +347,26 @@ A
   #set text(red)
   A
 ]
+
+--- page-bleed ---
+#set page(
+  bleed: 20pt,
+  margin: 20pt,
+  height: 80pt,
+  width: 80pt,
+  background: rect(width: 100%, height: 100%, fill: gray),
+)
+#rect(width: 100%, height: 100%, fill: black)
+
+--- page-bleed-content-bleeding ---
+#set page(
+  bleed: 20pt,
+  margin: 20pt,
+  height: 80pt,
+  width: 80pt,
+)
+#set align(center + horizon)
+#rect(width: 100pt, height: 100pt, fill: black)
 
 --- issue-2631-page-header-ordering ---
 #set text(6pt)
