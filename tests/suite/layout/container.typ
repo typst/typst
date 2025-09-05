@@ -335,21 +335,20 @@ c
 
 --- box-inset-ratio ---
 #let body-width = 10pt
-
 #context for inset in range(10).map(n => n / 10) {
   // If there's infinite available space, then:
-  //   measured-width =  body-width + measured-width × inset.
+  // ```
+  // measured-width = body-width + measured-width × inset.
+  // ```
   // (not counting truncation errors)
-  let measured-width = measure(
-    box(inset: (left: 100% * inset), box(width: body-width)),
+  let (width: measured-width) = measure(
+    box(
+      // Outset should not affect inset.
+      outset: 137pt,
+      inset: (left: 100% * inset),
+      block(width: body-width)
+    ),
     width: auto,
-  ).width
+  )
   assert.eq(measured-width, body-width / (1 - inset))
-
-  // Moreover, outset should not affect inset.
-  let measured-width-with-outset = measure(
-    box(outset: 137pt, inset: (left: 100% * inset), box(width: body-width)),
-    width: auto,
-  ).width
-  assert.eq(measured-width-with-outset, measured-width)
 }
