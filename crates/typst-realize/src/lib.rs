@@ -11,6 +11,7 @@ use arrayvec::ArrayVec;
 use bumpalo::collections::{String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
+use rustc_hash::FxHashSet;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -18,7 +19,7 @@ use typst_library::foundations::{
     RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
     SymbolElem, Synthesize, TargetElem, Transformation,
 };
-use typst_library::introspection::{SplitLocator, Tag, TagElem, Unlocatable};
+use typst_library::introspection::{Location, SplitLocator, Tag, TagElem, Unlocatable};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -64,6 +65,16 @@ pub fn realize<'a>(
 
     visit(&mut s, content, styles)?;
     finish(&mut s)?;
+
+    // eprintln!("----------");
+    // for (c, s) in &s.sink {
+    //     if let Some(tag) = c.to_packed::<TagElem>().map(|elem| &elem.tag) {
+    //         eprintln!("{tag:?}, {:?}", tag.location());
+    //     } else {
+    //         eprintln!("{c:#?}");
+    //     }
+    // }
+    // eprintln!("----------");
 
     Ok(s.sink)
 }
@@ -799,11 +810,39 @@ where
 /// Finishes the currently innermost grouping.
 fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
-    let Grouping { start, rule, .. } = s.groupings.pop().unwrap();
+    let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
 
     // Trim trailing non-trigger elements.
+    let tags_within: FxHashSet<Location> = s.sink[start..]
+        .trim_end_matches(|(c, _)| !(rule.trigger)(c, s))
+        .iter()
+        .filter_map(|(c, _)| c.to_packed::<TagElem>())
+        .map(|elem| elem.tag.location())
+        .collect();
+
+    while start > 0
+        && let (c, _) = s.sink[start - 1]
+        && let Some(elem) = c.to_packed::<TagElem>()
+        && tags_within.contains(&elem.tag.location())
+    {
+        start -= 1;
+    }
+
     let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
-    let end = start + trimmed.len();
+    let mut end = start + trimmed.len();
+
+    s.sink[end..].sort_by_key(|(c, _)| {
+        !c.to_packed::<TagElem>()
+            .is_some_and(|elem| tags_within.contains(&elem.tag.location()))
+    });
+
+    while let Some((c, _)) = s.sink.get(end)
+        && let Some(elem) = c.to_packed::<TagElem>()
+        && tags_within.contains(&elem.tag.location())
+    {
+        end += 1;
+    }
+
     let tail = s.store_slice(&s.sink[end..]);
     s.sink.truncate(end);
 
