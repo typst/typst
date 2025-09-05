@@ -207,18 +207,20 @@ pub struct PageElem {
     ///
     /// Accepts a [numbering pattern or function]($numbering) taking one or two
     /// numbers:
-    /// 1. the first number is the current page number
-    /// 2. the second number (if it exists) is the total number of pages
+    /// 1. The first number is the current page number.
+    /// 2. The second number is the total number of pages. In a numbering
+    ///    pattern, the second number can be omitted. If a function is passed,
+    ///    it will always receive both numbers.
     ///
     /// These are logical numbers controlled by the page counter, and may thus
-    /// not match the physical number. To be specific, they are the
+    /// not match the physical numbers. Specifically, they are the
     /// [current]($counter.get) and the [final]($counter.final) value of
-    /// `{counter(page)}`. See the documentation for [`counter`]($counter/#page-counter)
-    /// for further customizations.
+    /// `{counter(page)}`. See the [`counter`]($counter/#page-counter)
+    /// documentation for more details.
     ///
-    /// In addition, if an explicit [`footer`]($page.footer) (or
-    /// [`header`]($page.header) for [top-aligned]($page.number-align) numbering)
-    /// is given, the numbering is ignored.
+    /// If an explicit [`footer`]($page.footer) (or [`header`]($page.header) for
+    /// [top-aligned]($page.number-align) numbering) is given, the numbering is
+    /// ignored.
     ///
     /// ```example
     /// #set page(
