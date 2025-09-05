@@ -187,8 +187,8 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to_packed::<SymbolElem>() {
-        Some(elem) => Self::new(elem.text),
-        None => bail!("expected a symbol"),
+    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
+        Some(c) => Self::new(c),
+        _ => bail!("expected a single-codepoint symbol"),
     },
 }

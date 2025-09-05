@@ -286,11 +286,8 @@ impl Array {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Array> {
-        let mut end = end;
-        if end.is_none() {
-            end = count.map(|c: i64| start + c);
-        }
         let start = self.locate(start, true)?;
+        let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
         Ok(self.0[start..end].into())
     }

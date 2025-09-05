@@ -593,7 +593,7 @@ pub type LoadResult<T> = Result<T, LoadError>;
 /// [`FileId`]: typst_syntax::FileId
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LoadError {
-    /// The position in the file at which the error occured.
+    /// The position in the file at which the error occurred.
     pos: ReportPos,
     /// Must contain a message formatted like this: `"failed to do thing (cause)"`.
     message: EcoString,
