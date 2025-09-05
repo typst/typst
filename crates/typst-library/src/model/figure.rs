@@ -258,6 +258,10 @@ pub struct FigureElem {
     #[default(true)]
     pub outlined: bool,
 
+    /// The absolute nesting depth of the figure, starting from one.
+    #[default(NonZeroUsize::ONE)]
+    pub level: NonZeroUsize,
+
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
@@ -371,11 +375,11 @@ impl ShowSet for Packed<FigureElem> {
 
 impl Count for Packed<FigureElem> {
     fn update(&self) -> Option<CounterUpdate> {
-        // If the figure is numbered, step the counter by one.
+        // If the figure is numbered, step the counter for the given level by one.
         // This steps the `counter(figure)` which is global to all numbered figures.
         self.numbering()
             .is_some()
-            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+            .then(|| CounterUpdate::Step(self.level.get(StyleChain::default())))
     }
 }
 
