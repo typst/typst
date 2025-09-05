@@ -811,34 +811,49 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
 
     // Trim trailing non-trigger elements.
-    let tags_within: FxHashSet<Location> = s.sink[start..]
-        .trim_end_matches(|(c, _)| !(rule.trigger)(c, s))
-        .iter()
-        .filter_map(|(c, _)| c.to_packed::<TagElem>())
-        .map(|elem| elem.tag.location())
-        .collect();
-
-    while start > 0
-        && let (c, _) = s.sink[start - 1]
-        && let Some(elem) = c.to_packed::<TagElem>()
-        && tags_within.contains(&elem.tag.location())
-    {
-        start -= 1;
-    }
-
     let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
     let mut end = start + trimmed.len();
 
-    s.sink[end..].sort_by_key(|(c, _)| {
-        !c.to_packed::<TagElem>()
-            .is_some_and(|elem| tags_within.contains(&elem.tag.location()))
-    });
+    // Determine which tags are opened/closed within the grouping.
 
-    while let Some((c, _)) = s.sink.get(end)
-        && let Some(elem) = c.to_packed::<TagElem>()
-        && tags_within.contains(&elem.tag.location())
-    {
-        end += 1;
+    // Tags that are opened within the grouping should have their closing tag
+    // included if it is at the end boundary. Similarly, tags that are closed
+    // within should have their opening tag included if it is at the start
+    // boundary. Tags that are not referenced within shouldn't be included.
+    if rule.tags {
+        let within: FxHashSet<Location> = trimmed
+            .iter()
+            .filter_map(|(c, _)| c.to_packed::<TagElem>())
+            .map(|elem| elem.tag.location())
+            .collect();
+
+        // Include all tags at the start that are closed within. Here, we don't
+        // have to handle inner elements because spaces will already be
+        // destructed and won't end up in the sink.
+        while let Some(pred) = start.checked_sub(1)
+            && let (c, _) = s.sink[pred]
+            && let Some(elem) = c.to_packed::<TagElem>()
+            && within.contains(&elem.tag.location())
+        {
+            start = pred;
+        }
+
+        // The trailing part of the sink can contain a mix of inner elements and
+        // tags. We want to stably move tags that are referenced within before
+        // inner elements (typically spaces) so that the tag nesting structure
+        // is correct. Typically, the inner element will be discarded anyway.
+        s.sink[end..].sort_by_key(|(c, _)| {
+            !c.to_packed::<TagElem>()
+                .is_some_and(|elem| within.contains(&elem.tag.location()))
+        });
+
+        // Include all tags at the end that are opened within.
+        while let Some((c, _)) = s.sink.get(end)
+            && let Some(elem) = c.to_packed::<TagElem>()
+            && within.contains(&elem.tag.location())
+        {
+            end += 1;
+        }
     }
 
     let tail = s.store_slice(&s.sink[end..]);
