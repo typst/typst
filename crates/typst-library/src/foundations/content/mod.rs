@@ -30,6 +30,7 @@ use crate::foundations::{
     Style, StyleChain, Styles, Value, func, repr, scope, ty,
 };
 use crate::introspection::Location;
+use crate::introspection::Unlocatable;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
 use crate::text::UnderlineElem;
@@ -705,7 +706,7 @@ impl Serialize for Content {
 }
 
 /// A sequence of content.
-#[elem(Debug, Repr)]
+#[elem(Debug, Repr, Unlocatable)]
 pub struct SequenceElem {
     /// The elements.
     #[required]
@@ -718,6 +719,8 @@ impl Debug for SequenceElem {
         f.debug_list().entries(&self.children).finish()
     }
 }
+
+impl Unlocatable for Packed<SequenceElem> {}
 
 // Derive is currently incompatible with `elem` macro.
 #[allow(clippy::derivable_impls)]
@@ -742,7 +745,7 @@ impl Repr for SequenceElem {
 }
 
 /// Content alongside styles.
-#[elem(Debug, Repr, PartialEq)]
+#[elem(Debug, Repr, PartialEq, Unlocatable)]
 pub struct StyledElem {
     /// The content.
     #[required]
@@ -760,6 +763,8 @@ impl Debug for StyledElem {
         self.child.fmt(f)
     }
 }
+
+impl Unlocatable for Packed<StyledElem> {}
 
 impl PartialEq for StyledElem {
     fn eq(&self, other: &Self) -> bool {
