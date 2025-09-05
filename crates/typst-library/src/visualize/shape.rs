@@ -73,6 +73,7 @@ pub struct RectElem {
     /// the width and height divided by two. This can be:
     ///
     /// - A relative length for a uniform corner radius.
+    ///
     /// - A dictionary: With a dictionary, the stroke for each side can be set
     ///   individually. The dictionary can contain the following keys in order
     ///   of precedence:
