@@ -38,3 +38,12 @@
     message: "failed to approximately decode " + name,
   )
 }
+
+--- json-encode-any ---
+#import "edge-case.typ": special-types-for-human
+#for value in special-types-for-human {
+  test(
+    json.encode(value),
+    json.encode(repr(value)),
+  )
+}
