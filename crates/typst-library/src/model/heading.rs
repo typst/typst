@@ -93,7 +93,7 @@ pub struct HeadingElem {
     pub offset: usize,
 
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking multiple numbers.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")

@@ -53,7 +53,8 @@ use crate::visualize::{LineElem, Stroke};
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 #[elem(scope, Locatable, Count)]
 pub struct FootnoteElem {
-    /// How to number footnotes.
+    /// How to number footnotes. Accepts a
+    /// [numbering pattern or function]($numbering) taking a single number.
     ///
     /// By default, the footnote numbering continues throughout your document.
     /// If you prefer per-page footnote numbering, you can reset the footnote
