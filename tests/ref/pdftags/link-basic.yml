@@ -31,10 +31,11 @@
         - Content: page=0 mcid=7
         - Annotation: page=0 index=3
     - Content: page=0 mcid=8
+    - Content: page=0 mcid=9
     - Tag: Link
       /Alt: "Telephone 123"
       /K:
-        - Content: page=0 mcid=9
+        - Content: page=0 mcid=10
         - Annotation: page=0 index=4
-    - Content: page=0 mcid=10
     - Content: page=0 mcid=11
+    - Content: page=0 mcid=12

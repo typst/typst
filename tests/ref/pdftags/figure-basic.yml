@@ -7,13 +7,14 @@
         - Content: page=0 mcid=1
         - Annotation: page=0 index=0
     - Content: page=0 mcid=2
+    - Content: page=0 mcid=3
     - Tag: Link
       /Alt: "Table II"
       /K:
-        - Content: page=0 mcid=3
+        - Content: page=0 mcid=4
         - Annotation: page=0 index=1
-    - Content: page=0 mcid=4
     - Content: page=0 mcid=5
+    - Content: page=0 mcid=6
 - Tag: NonStruct
   /K:
     - Tag: Figure
@@ -42,15 +43,15 @@
                       /Headers: []
                       /BorderStyle: Solid
                       /K:
-                        - Content: page=0 mcid=6
+                        - Content: page=0 mcid=7
                     - Tag: TD
                       /Headers: []
                       /BorderStyle: Solid
                       /K:
-                        - Content: page=0 mcid=7
+                        - Content: page=0 mcid=8
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=8
+        - Content: page=0 mcid=9
 - Tag: NonStruct
   /K:
     - Tag: Figure
@@ -61,10 +62,10 @@
         right:  103.346
         bottom: 147.093
       /K:
-        - Content: page=0 mcid=9
+        - Content: page=0 mcid=10
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=10
+        - Content: page=0 mcid=11
 - Tag: NonStruct
   /K:
     - Tag: Figure
@@ -93,24 +94,19 @@
                       /Headers: []
                       /BorderStyle: Solid
                       /K:
-                        - Content: page=0 mcid=11
-                    - Tag: TD
-                      /Headers: []
-                      /BorderStyle: Solid
-                      /K:
                         - Content: page=0 mcid=12
                     - Tag: TD
                       /Headers: []
                       /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=13
-                - Tag: TR
-                  /K:
                     - Tag: TD
                       /Headers: []
                       /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=14
+                - Tag: TR
+                  /K:
                     - Tag: TD
                       /Headers: []
                       /BorderStyle: Solid
@@ -121,6 +117,11 @@
                       /BorderStyle: Solid
                       /K:
                         - Content: page=0 mcid=16
+                    - Tag: TD
+                      /Headers: []
+                      /BorderStyle: Solid
+                      /K:
+                        - Content: page=0 mcid=17
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=17
+        - Content: page=0 mcid=18
