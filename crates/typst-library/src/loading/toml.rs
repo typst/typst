@@ -3,16 +3,15 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{Str, Value, func, scope};
+use crate::foundations::{Dict, Str, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a TOML file.
 ///
-/// The file must contain a valid TOML table. TOML tables will be converted into
-/// Typst dictionaries, and TOML arrays will be converted into Typst arrays.
-/// Strings, booleans and datetimes will be converted into the Typst equivalents
-/// and numbers will be converted to floats or integers depending on whether
-/// they are whole numbers.
+/// The file must contain a valid TOML table. The TOML values will be converted
+/// into corresponding Typst values as listed in the [table below](#conversion).
+///
+/// The function returns a dictionary representing the TOML table.
 ///
 /// The TOML file in the example consists of a table with the keys `title`,
 /// `version`, and `authors`.
@@ -26,12 +25,48 @@ use crate::loading::{DataSource, Load, Readable};
 /// Authors: #(details.authors
 ///   .join(", ", last: " and "))
 /// ```
+///
+/// # Conversion details { #conversion }
+///
+/// First of all, TOML documents are tables. Other values must be put in a table
+/// to be encoded or decoded.
+///
+/// | TOML value | Converted into Typst |
+/// | ---------- | -------------------- |
+/// | string     | [`str`]              |
+/// | integer    | [`int`]              |
+/// | float      | [`float`]            |
+/// | boolean    | [`bool`]             |
+/// | datetime   | [`datetime`]         |
+/// | array      | [`array`]            |
+/// | table      | [`dictionary`]       |
+///
+/// | Typst value                           | Converted into TOML            |
+/// | ------------------------------------- | ------------------------------ |
+/// | types that can be converted from TOML | corresponding TOML value       |
+/// | `{none}`                              | ignored                        |
+/// | [`bytes`]                             | string via [`repr`]            |
+/// | [`symbol`]                            | string                         |
+/// | [`content`]                           | a table describing the content |
+/// | other types ([`length`], etc.)        | string via [`repr`]            |
+///
+/// ## Notes
+/// - Be aware that TOML integers larger than 2<sup>63</sup>-1 or smaller
+///   than -2<sup>63</sup> cannot be represented losslessly in Typst, and an
+///   error will be thrown according to the
+///   [specification](https://toml.io/en/v1.0.0#integer).
+///
+/// - Bytes are not encoded as TOML arrays for performance and readability
+///   reasons. Consider using [`cbor.encode`] for binary data.
+///
+/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "TOML")]
 pub fn toml(
     engine: &mut Engine,
     /// A [path]($syntax/#paths) to a TOML file or raw TOML bytes.
     source: Spanned<DataSource>,
-) -> SourceResult<Value> {
+) -> SourceResult<Dict> {
     let loaded = source.load(engine.world)?;
     let raw = loaded.data.as_str().within(&loaded)?;
     ::toml::from_str(raw).map_err(format_toml_error).within(&loaded)
@@ -49,7 +84,7 @@ impl toml {
         engine: &mut Engine,
         /// TOML data.
         data: Spanned<Readable>,
-    ) -> SourceResult<Value> {
+    ) -> SourceResult<Dict> {
         toml(engine, data.map(Readable::into_source))
     }
 
@@ -57,7 +92,9 @@ impl toml {
     #[func(title = "Encode TOML")]
     pub fn encode(
         /// Value to be encoded.
-        value: Spanned<Value>,
+        ///
+        /// TOML documents are tables. Therefore, only dictionaries are suitable.
+        value: Spanned<Dict>,
         /// Whether to pretty-print the resulting TOML.
         #[named]
         #[default(true)]

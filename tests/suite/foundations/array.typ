@@ -223,6 +223,8 @@
 #test(range(10).slice(2, 6), (2, 3, 4, 5))
 #test(range(10).slice(4, count: 3), (4, 5, 6))
 #test(range(10).slice(-5, count: 2), (5, 6))
+#test((1, 2, 3).slice(-3, count: 3), (1, 2, 3))
+#test((1, 2, 3).slice(-1, count: 1), (3,))
 #test((1, 2, 3).slice(2, -2), ())
 #test((1, 2, 3).slice(-2, 2), (2,))
 #test((1, 2, 3).slice(-3, 2), (1, 2))
@@ -231,6 +233,10 @@
 --- array-slice-out-of-bounds ---
 // Error: 2-30 array index out of bounds (index: 12, len: 10)
 #range(10).slice(9, count: 3)
+
+--- array-slice-out-of-bounds-from-back ---
+// Error: 2-31 array index out of bounds (index: 12, len: 10)
+#range(10).slice(-2, count: 4)
 
 --- array-slice-out-of-bounds-negative ---
 // Error: 2-24 array index out of bounds (index: -4, len: 3)

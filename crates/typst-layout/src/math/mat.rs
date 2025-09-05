@@ -82,28 +82,27 @@ pub fn layout_mat(
 ) -> SourceResult<()> {
     let span = elem.span();
     let rows = &elem.rows;
+    let nrows = rows.len();
     let ncols = rows.first().map_or(0, |row| row.len());
 
     let augment = elem.augment.resolve(styles);
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
-            if offset == 0 || offset.unsigned_abs() >= rows.len() {
+            if offset > nrows as isize || offset.unsigned_abs() > nrows {
                 bail!(
                     span,
-                    "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                    if offset < 0 { rows.len() as isize + offset } else { offset },
-                    rows.len()
+                    "cannot draw a horizontal line at offset {offset} \
+                     in a matrix with {nrows} rows",
                 );
             }
         }
 
         for &offset in &aug.vline.0 {
-            if offset == 0 || offset.unsigned_abs() >= ncols {
+            if offset > ncols as isize || offset.unsigned_abs() > ncols {
                 bail!(
                     span,
-                    "cannot draw a vertical line after column {} of a matrix with {} columns",
-                    if offset < 0 { ncols as isize + offset } else { offset },
-                    ncols
+                    "cannot draw a vertical line at offset {offset} \
+                     in a matrix with {ncols} columns",
                 );
             }
         }
@@ -165,7 +164,7 @@ fn layout_body(
         ..Default::default()
     };
 
-    let (hline, vline, stroke) = match augment {
+    let (mut hline, mut vline, stroke) = match augment {
         Some(augment) => {
             // We need to get stroke here for ownership.
             let stroke = augment.stroke.unwrap_or_default().unwrap_or(default_stroke);
@@ -188,7 +187,7 @@ fn layout_body(
     // way too big.
     // This will never panic as a paren will never shape into nothing.
     let paren =
-        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
+        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())?
             .unwrap();
 
     for (column, col) in columns.iter().zip(&mut cols) {
@@ -214,20 +213,48 @@ fn layout_body(
         }
     }
 
+    for line in hline.0.iter_mut() {
+        if *line < 0 {
+            *line += nrows as isize;
+        }
+    }
+
+    for line in vline.0.iter_mut() {
+        if *line < 0 {
+            *line += ncols as isize;
+        }
+    }
+
     // For each row, combine maximum ascent and descent into a row height.
     // Sum the row heights, then add the total height of the gaps between rows.
-    let total_height =
+    let mut total_height =
         heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + gap.y * (nrows - 1) as f64;
+
+    if hline.0.contains(&0) {
+        total_height += gap.y;
+    }
+
+    if hline.0.contains(&(nrows as isize)) {
+        total_height += gap.y;
+    }
 
     // Width starts at zero because it can't be calculated until later
     let mut frame = Frame::soft(Size::new(Abs::zero(), total_height));
 
     let mut x = Abs::zero();
 
+    if vline.0.contains(&0) {
+        frame.push(
+            Point::with_x(x + half_gap.x),
+            line_item(total_height, true, stroke.clone(), span),
+        );
+        x += gap.x;
+    }
+
     for (index, col) in cols.into_iter().enumerate() {
         let AlignmentResult { points, width: rcol } = alignments(&col);
 
-        let mut y = Abs::zero();
+        let mut y = if hline.0.contains(&0) { gap.y } else { Abs::zero() };
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_line_frame(&points, alternator);
@@ -249,9 +276,7 @@ fn layout_body(
         x += rcol;
 
         // If a vertical line should be inserted after this column
-        if vline.0.contains(&(index as isize + 1))
-            || vline.0.contains(&(1 - ((ncols - index) as isize)))
-        {
+        if vline.0.contains(&(index as isize + 1)) {
             frame.push(
                 Point::with_x(x + half_gap.x),
                 line_item(total_height, true, stroke.clone(), span),
@@ -262,16 +287,17 @@ fn layout_body(
         x += gap.x;
     }
 
-    // Once all the columns are laid out, the total width can be calculated
-    let total_width = x - gap.x;
+    let total_width = if !(vline.0.contains(&(ncols as isize))) { x - gap.x } else { x };
 
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
-        let real_line =
-            if line < 0 { nrows - line.unsigned_abs() } else { line as usize };
-        let offset = (heights[0..real_line].iter().map(|&(a, b)| a + b).sum::<Abs>()
-            + gap.y * (real_line - 1) as f64)
-            + half_gap.y;
+        let offset = if line == 0 {
+            gap.y
+        } else {
+            (heights[0..line as usize].iter().map(|&(a, b)| a + b).sum::<Abs>()
+                + gap.y * (line - 1) as f64)
+                + half_gap.y
+        };
 
         frame.push(
             Point::with_y(offset),

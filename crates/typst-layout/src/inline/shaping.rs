@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use az::SaturatingAs;
@@ -48,7 +49,85 @@ pub struct ShapedText<'a> {
     /// The font variant.
     pub variant: FontVariant,
     /// The shaped glyphs.
-    pub glyphs: Cow<'a, [ShapedGlyph]>,
+    pub glyphs: Glyphs<'a>,
+}
+
+/// A copy-on-write collection of glyphs.
+///
+/// At the edges of the collection, there can be _trimmed_ glyphs for end-of-line
+/// whitespace that should not affect layout, but should be emitted into the PDF
+/// to keep things accessible.
+///
+/// These glyphs are not visible when deref-ing the `Glyphs` to a slice as they
+/// should be ignored in almost all circumstances. They are only visible when
+/// explicitly accessing [`all`](Self::all) glyphs.
+#[derive(Clone)]
+pub struct Glyphs<'a> {
+    /// All glyphs, including the trimmed ones.
+    inner: Cow<'a, [ShapedGlyph]>,
+    /// The range of untrimmed glyphs.
+    kept: Range,
+}
+
+impl<'a> Glyphs<'a> {
+    /// Create a borrowed glyph collection from an existing slice.
+    ///
+    /// This happens after reshaping.
+    pub fn from_slice(glyphs: &'a [ShapedGlyph]) -> Self {
+        Self {
+            inner: Cow::Borrowed(glyphs),
+            kept: 0..glyphs.len(),
+        }
+    }
+
+    /// Create an owned glyph collection from an vector.
+    ///
+    /// This happens after initial shaping.
+    pub fn from_vec(glyphs: Vec<ShapedGlyph>) -> Self {
+        let len = glyphs.len();
+        Self { inner: Cow::Owned(glyphs), kept: 0..len }
+    }
+
+    /// Whether this glyph collection is using the owned representation.
+    pub fn is_owned(&self) -> bool {
+        matches!(self.inner, Cow::Owned(_))
+    }
+
+    /// Clone the internal glyph data to make it modifiable. Should be avoided
+    /// if possible on potentially borrowed glyphs as it can be expensive
+    /// (benchmarks have shown ~10% slowdown on a text-heavy document if no
+    /// borrowing is used).
+    pub fn to_mut(&mut self) -> &mut [ShapedGlyph] {
+        &mut self.inner.to_mut()[self.kept.clone()]
+    }
+
+    /// Trims glyphs that satisfy the given condition from the start and end.
+    ///
+    /// Those glyphs will not be visible during normal operation anymore, only
+    /// through [`all`](Self::all).
+    pub fn trim(&mut self, f: impl FnMut(&ShapedGlyph) -> bool + Copy) {
+        let (start, end) = self.inner.split_prefix_suffix(f);
+        self.kept = start..end;
+    }
+
+    /// Accesses all glyphs, not just the untrimmed ones.
+    pub fn all(&self) -> &[ShapedGlyph] {
+        self.inner.as_ref()
+    }
+
+    /// Whether this contains neither kept nor trimmed glyphs.
+    pub fn is_fully_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<'a> Deref for Glyphs<'a> {
+    type Target = [ShapedGlyph];
+
+    /// Returns only the kept (untrimmed) glyphs.
+    fn deref(&self) -> &Self::Target {
+        &self.inner[self.kept.clone()]
+    }
 }
 
 /// A single glyph resulting from shaping.
@@ -225,9 +304,10 @@ impl<'a> ShapedText<'a> {
         let stroke = self.styles.resolve(TextElem::stroke);
         let span_offset = self.styles.get(TextElem::span_offset);
 
+        let mut i = 0;
         for ((font, y_offset, glyph_size), group) in self
             .glyphs
-            .as_ref()
+            .all()
             .group_by_key(|g| (g.font.clone(), g.y_offset, g.size))
         {
             let mut range = group[0].range.clone();
@@ -268,6 +348,14 @@ impl<'a> ShapedText<'a> {
                     let mut span = spans.span_at(shaped.range.start);
                     span.1 = span.1.saturating_add(span_offset.saturating_as());
 
+                    // Zero out the advance if the glyph was trimmed.
+                    let x_advance = if self.glyphs.kept.contains(&i) {
+                        shaped.x_advance + justification_left + justification_right
+                    } else {
+                        Em::zero()
+                    };
+                    i += 1;
+
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--
                     // +---+-----------+---+
@@ -288,9 +376,7 @@ impl<'a> ShapedText<'a> {
                     // A+B+C+D: Glyph's x_advance
                     Glyph {
                         id: shaped.glyph_id,
-                        x_advance: shaped.x_advance
-                            + justification_left
-                            + justification_right,
+                        x_advance,
                         x_offset: shaped.x_offset + justification_left,
                         y_advance: Em::zero(),
                         y_offset: Em::zero(),
@@ -352,7 +438,7 @@ impl<'a> ShapedText<'a> {
             bottom.set_max(b);
         };
 
-        if self.glyphs.is_empty() {
+        if self.glyphs.is_fully_empty() {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             let world = engine.world;
@@ -423,7 +509,7 @@ impl<'a> ShapedText<'a> {
                 region: self.region,
                 styles: self.styles,
                 variant: self.variant,
-                glyphs: Cow::Borrowed(glyphs),
+                glyphs: Glyphs::from_slice(glyphs),
             }
         } else {
             shape(
@@ -440,7 +526,7 @@ impl<'a> ShapedText<'a> {
 
     /// Derive an empty text run with the same properties as this one.
     pub fn empty(&self) -> Self {
-        Self { text: "", glyphs: Cow::Borrowed(&[]), ..*self }
+        Self { text: "", glyphs: Glyphs::from_slice(&[]), ..*self }
     }
 
     /// Creates shaped text containing a hyphen.
@@ -483,7 +569,7 @@ impl<'a> ShapedText<'a> {
                 region: base.region,
                 styles: base.styles,
                 variant: base.variant,
-                glyphs: Cow::Owned(vec![ShapedGlyph {
+                glyphs: Glyphs::from_vec(vec![ShapedGlyph {
                     font,
                     glyph_id: glyph_id.0,
                     x_advance,
@@ -691,7 +777,7 @@ fn shape<'a>(
         region,
         styles,
         variant: ctx.variant,
-        glyphs: Cow::Owned(ctx.glyphs),
+        glyphs: Glyphs::from_vec(ctx.glyphs),
     }
 }
 

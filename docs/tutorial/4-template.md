@@ -99,6 +99,7 @@ previous chapter.
       right + horizon,
       title
     ),
+>>> numbering: "1",
     columns: 2,
 <<<     ...
   )
@@ -110,27 +111,22 @@ previous chapter.
 
   // Heading show rules.
 <<<   ...
->>>  show heading.where(
->>>    level: 1
->>>  ): it => block(
->>>    align(center,
->>>      text(
->>>        13pt,
->>>        weight: "regular",
->>>        smallcaps(it.body),
->>>      )
->>>    ),
->>>  )
->>>  show heading.where(
->>>    level: 2
->>>  ): it => box(
->>>    text(
->>>      11pt,
->>>      weight: "regular",
->>>      style: "italic",
->>>      it.body + [.],
->>>    )
->>>  )
+>>> show heading.where(
+>>>   level: 1
+>>> ): it => block(width: 100%)[
+>>>   #set align(center)
+>>>   #set text(13pt, weight: "regular")
+>>>   #smallcaps(it.body)
+>>> ]
+>>>
+>>> show heading.where(
+>>>   level: 2
+>>> ): it => text(
+>>>   size: 11pt,
+>>>   weight: "regular",
+>>>   style: "italic",
+>>>   it.body + [.],
+>>> )
 
   doc
 }
@@ -141,9 +137,9 @@ previous chapter.
 )
 
 = Introduction
-#lorem(90)
-
 <<< ...
+>>> #lorem(90)
+>>>
 >>> == Motivation
 >>> #lorem(140)
 >>>
@@ -182,7 +178,10 @@ to work like this:
 
 ```typ
 #show: doc => conf(
-  title: [Towards Improved Modelling],
+  title: [
+    A fluid dynamic model for
+    glacier flow
+  ],
   authors: (
     (
       name: "Theresa Tungsten",
@@ -240,30 +239,41 @@ The resulting template function looks like this:
   doc,
 ) = {
   // Set and show rules from before.
->>> #set page(columns: 2)
+>>> // (skipped)
 <<<   ...
 
-  set align(center)
-  text(17pt, title)
+  place(
+    top + center,
+    float: true,
+    scope: "parent",
+    clearance: 2em,
+    {
+      text(
+        17pt,
+        weight: "bold",
+        title,
+      )
 
-  let count = authors.len()
-  let ncols = calc.min(count, 3)
-  grid(
-    columns: (1fr,) * ncols,
-    row-gutter: 24pt,
-    ..authors.map(author => [
-      #author.name \
-      #author.affiliation \
-      #link("mailto:" + author.email)
-    ]),
+      let count = authors.len()
+      let ncols = calc.min(count, 3)
+      grid(
+        columns: (1fr,) * ncols,
+        row-gutter: 24pt,
+        ..authors.map(author => [
+          #author.name \
+          #author.affiliation \
+          #link("mailto:" + author.email)
+        ]),
+      )
+
+      par(justify: false)[
+        *Abstract* \
+        #abstract
+      ]
+
+    }
   )
 
-  par(justify: false)[
-    *Abstract* \
-    #abstract
-  ]
-
-  set align(left)
   doc
 }
 ```
@@ -291,71 +301,74 @@ call.
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(font: "Libertinus Serif", 11pt)
->>>  set par(justify: true)
->>>  set page(
->>>    "us-letter",
->>>    margin: auto,
->>>    header: align(
->>>      right + horizon,
->>>      title
->>>    ),
->>>    numbering: "1",
->>>    columns: 2,
->>>  )
+>>>   set page(
+>>>     "us-letter",
+>>>     margin: auto,
+>>>     header: align(
+>>>       right + horizon,
+>>>       title
+>>>     ),
+>>>     numbering: "1",
+>>>     columns: 2,
+>>>   )
+>>>   set par(justify: true)
+>>>   set text(font: "Libertinus Serif", 11pt)
 >>>
->>>  show heading.where(
->>>    level: 1
->>>  ): it => block(
->>>    align(center,
->>>      text(
->>>        13pt,
->>>        weight: "regular",
->>>        smallcaps(it.body),
->>>      )
->>>    ),
->>>  )
->>>  show heading.where(
->>>    level: 2
->>>  ): it => box(
->>>    text(
->>>      11pt,
->>>      weight: "regular",
->>>      style: "italic",
->>>      it.body + [.],
->>>    )
->>>  )
+>>>   show heading.where(
+>>>     level: 1
+>>>   ): it => block(width: 100%)[
+>>>     #set align(center)
+>>>     #set text(13pt, weight: "regular")
+>>>     #smallcaps(it.body)
+>>>   ]
 >>>
->>>  place(
->>>    top,
->>>    float: true,
->>>    scope: "parent",
->>>    clearance: 2em,
->>>    {
->>>      set align(center)
->>>      text(17pt, title)
->>>      let count = calc.min(authors.len(), 3)
->>>      grid(
->>>        columns: (1fr,) * count,
->>>        row-gutter: 24pt,
->>>        ..authors.map(author => [
->>>          #author.name \
->>>          #author.affiliation \
->>>          #link("mailto:" + author.email)
->>>        ]),
->>>      )
->>>      par(justify: false)[
->>>        *Abstract* \
->>>        #abstract
->>>      ]
->>>    },
->>>  )
->>>  doc
->>>}
+>>>   show heading.where(
+>>>     level: 2
+>>>   ): it => text(
+>>>     size: 11pt,
+>>>     weight: "regular",
+>>>     style: "italic",
+>>>     it.body + [.],
+>>>   )
+>>>
+>>>   place(
+>>>     top + center,
+>>>     float: true,
+>>>     scope: "parent",
+>>>     clearance: 2em,
+>>>     {
+>>>       text(
+>>>         17pt,
+>>>         weight: "bold",
+>>>         title,
+>>>       )
+>>>
+>>>       let count = authors.len()
+>>>       let ncols = calc.min(count, 3)
+>>>       grid(
+>>>         columns: (1fr,) * ncols,
+>>>         row-gutter: 24pt,
+>>>         ..authors.map(author => [
+>>>           #author.name \
+>>>           #author.affiliation \
+>>>           #link("mailto:" + author.email)
+>>>         ]),
+>>>       )
+>>>
+>>>       par(justify: false)[
+>>>         *Abstract* \
+>>>         #abstract
+>>>       ]
+>>>     }
+>>>   )
+>>>
+>>>   doc
+>>> }
 <<< #import "conf.typ": conf
 #show: conf.with(
   title: [
-    Towards Improved Modelling
+    A fluid dynamic model for
+    glacier flow
   ],
   authors: (
     (

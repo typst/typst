@@ -404,6 +404,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(v.into_value())
     }
 
+    fn visit_i128<E: Error>(self, v: i128) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
     fn visit_u8<E: Error>(self, v: u8) -> Result<Self::Value, E> {
         Ok(v.into_value())
     }
@@ -417,6 +421,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u128<E: Error>(self, v: u128) -> Result<Self::Value, E> {
         Ok(v.into_value())
     }
 
