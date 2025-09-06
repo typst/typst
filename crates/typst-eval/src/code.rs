@@ -383,7 +383,7 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
         hint: "try omitting the `return` to automatically join all values"
     );
 
-    if tree.query_first(selector).is_some() {
+    if tree.query_first_naive(selector).is_some() {
         warning.hint("state/counter updates are content that must end up in the document to have an effect");
     }
 
