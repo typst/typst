@@ -152,3 +152,7 @@ pleasing way.
   stroke: 0.6pt,
   [$mat(2241/2210,-71/1105;-71/1105,147/1105)$],
 )
+
+--- linebreak-default-ignorables ---
+#set text(font: "Noto Sans Math")
+\u{2295}\u{FE00} vs \u{2295}\u{FE00}
