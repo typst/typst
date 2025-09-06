@@ -117,7 +117,7 @@ Typst's CLI is available from different sources:
       - View [Typst on Repology][repology]
       - View [Typst's Snap][snap]
   - macOS: `brew install typst`
-  - Windows: `winget install --id Typst.Typst`
+  - Windows: `winget install -e --id Typst.Typst`
 
 - If you have a [Rust][rust] toolchain installed, you can install
   - the latest released Typst version with
