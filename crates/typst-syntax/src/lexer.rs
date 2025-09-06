@@ -643,8 +643,12 @@ impl Lexer<'_> {
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                let (kind, node) = self.math_ident_or_field(start);
-                return (kind, Some(node));
+                if self.s.from(start).graphemes(true).count() == 1 {
+                    SyntaxKind::MathText
+                } else {
+                    let (kind, node) = self.math_ident_or_field(start);
+                    return (kind, Some(node));
+                }
             }
 
             // Other math atoms.
@@ -689,7 +693,6 @@ impl Lexer<'_> {
             if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
                 self.s = s;
             }
-            SyntaxKind::MathText
         } else {
             let len = self
                 .s
@@ -698,14 +701,8 @@ impl Lexer<'_> {
                 .next()
                 .map_or(0, str::len);
             self.s.jump(start + len);
-            if len > c.len_utf8() {
-                // Grapheme clusters are treated as normal text and stay grouped
-                // This may need to change in the future.
-                SyntaxKind::Text
-            } else {
-                SyntaxKind::MathText
-            }
         }
+        SyntaxKind::MathText
     }
 
     /// Handle named arguments in math function call.
