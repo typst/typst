@@ -183,3 +183,7 @@ $ A sect B = A inter B $
 --- issue-5930-symbol-label ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")
+
+--- presentation-selectors ---
+#sym.copyright #emoji.copyright \
+#sym.suit.heart #emoji.suit.heart
