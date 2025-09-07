@@ -317,8 +317,8 @@ impl Counter {
         engine.introspect(CounterAtIntrospection(self.clone(), loc, span))
     }
 
-    /// Displays the current value of the counter with a numbering and returns
-    /// the formatted output.
+    /// Displays the value of the counter with a numbering at the given location
+    /// and returns the formatted output.
     #[func(contextual)]
     pub fn display(
         self,
@@ -336,6 +336,17 @@ impl Counter {
         /// `{"1.1"}` if no such style exists.
         #[default]
         numbering: Smart<Numbering>,
+        /// The place at which the counter should be displayed.
+        ///
+        /// If a selector is used, it must match exactly one element in the
+        /// document. The most useful kinds of selectors for this are
+        /// [labels]($label) and [locations]($location).
+        ///
+        /// If this is omitted or set to `{auto}`, this displays the counter at
+        /// the current location. This is equivalent to using `{here()}`.
+        #[named]
+        #[default]
+        at: Smart<LocatableSelector>,
         /// If enabled, displays the current and final top-level count together.
         /// Both can be styled through a single numbering pattern. This is used
         /// by the page numbering property to display the current and total
@@ -344,7 +355,12 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> SourceResult<Value> {
-        let location = context.location().at(span)?;
+        let location = match at {
+            Smart::Auto => context.location().at(span)?,
+            Smart::Custom(ref selector) => {
+                selector.resolve_unique(engine, context, span)?
+            }
+        };
         let state = if both {
             engine.introspect(CounterBothIntrospection(self.clone(), location, span))?
         } else {
@@ -356,40 +372,12 @@ impl Counter {
             .or_else(|| self.matching_numbering(context.styles().ok()?))
             .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
-        state.display(engine, context, &numbering)
-    }
-
-    /// Displays the value of the counter with a numbering at the given location
-    /// and returns the formatted output.
-    #[func(contextual)]
-    pub fn display_at(
-        self,
-        engine: &mut Engine,
-        context: Tracked<Context>,
-        span: Span,
-        /// The place at which the counter should be displayed.
-        selector: LocatableSelector,
-        /// A [numbering pattern or a function]($numbering), which specifies how
-        /// to display the counter. If given a function, that function receives
-        /// each number of the counter as a separate argument. If the amount of
-        /// numbers varies, e.g. for the heading argument, you can use an
-        /// [argument sink]($arguments).
-        ///
-        /// If this is omitted or set to `{auto}`, displays the counter with the
-        /// numbering style for the counted element or with the pattern
-        /// `{"1.1"}` if no such style exists.
-        #[default]
-        numbering: Smart<Numbering>,
-        /// If enabled, displays the current and final top-level count together.
-        /// Both can be styled through a single numbering pattern. This is used
-        /// by the page numbering property to display the current and total
-        /// number of pages when a pattern like `{"1 / 1"}` is given.
-        #[named]
-        #[default(false)]
-        both: bool,
-    ) -> SourceResult<Value> {
-        let loc = selector.resolve_unique(engine.introspector, context).at(span)?;
-        self.display_impl(engine, loc, numbering, both, context.styles().ok())
+        if at.is_custom() {
+            let context = Context::new(Some(location), context.styles().ok());
+            state.display(engine, context.track(), &numbering)
+        } else {
+            state.display(engine, context, &numbering)
+        }
     }
 
     /// Retrieves the value of the counter at the given location. Always returns
@@ -660,6 +648,7 @@ pub const COUNTER_DISPLAY_RULE: ShowFn<CounterDisplayElem> = |elem, engine, styl
             Context::new(elem.location(), Some(styles)).track(),
             elem.span(),
             elem.numbering.clone(),
+            Smart::Auto,
             elem.both,
         )?
         .display())

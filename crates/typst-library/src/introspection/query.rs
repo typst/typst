@@ -49,7 +49,7 @@ use crate::introspection::Introspector;
 ///   )
 ///   for chapter in chapters {
 ///     let loc = chapter.location()
-///     let nr = counter(page).display-at(loc)
+///     let nr = counter(page).display(at: loc)
 ///     [#chapter.body #h(1fr) #nr \ ]
 ///   }
 /// }
