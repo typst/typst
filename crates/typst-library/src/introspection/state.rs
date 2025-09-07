@@ -7,7 +7,7 @@ use crate::diag::{At, SourceResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Repr,
-    Selector, Str, Value, cast, elem, func, scope, select_where, ty,
+    Selector, Smart, Str, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::routines::Routines;
@@ -304,9 +304,7 @@ impl State {
         Self::new(key, init)
     }
 
-    /// Retrieves the value of the state at the current location.
-    ///
-    /// This is equivalent to `{state.at(here())}`.
+    /// Retrieves the value of the state at the given location.
     #[typst_macros::time(name = "state.get", span = span)]
     #[func(contextual)]
     pub fn get(
@@ -314,8 +312,25 @@ impl State {
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
+        /// The place at which the state should be retrieved.
+        ///
+        /// If a selector is used, it must match exactly one element in the
+        /// document. The most useful kinds of selectors for this are
+        /// [labels]($label) and [locations]($location).
+        ///
+        /// If this is omitted or set to `{auto}`, retrieves the state at the
+        /// current location. This is equivalent to using `{here()}`.
+        #[named]
+        #[default]
+        at: Smart<LocatableSelector>,
     ) -> SourceResult<Value> {
-        let loc = context.location().at(span)?;
+        let loc = match at {
+            Smart::Auto => context.location(),
+            Smart::Custom(selector) => {
+                selector.resolve_unique(engine.introspector, context)
+            }
+        }
+        .at(span)?;
         self.at_loc(engine, loc)
     }
 
