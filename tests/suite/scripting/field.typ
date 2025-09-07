@@ -74,3 +74,7 @@
   // Hint: 3-4 try creating a new stroke with the updated field value instead
   s.thickness = 5pt
 }
+
+--- field-mutable-cannot-access ---
+// Error: 8-12 cannot access mutating fields on array
+#array.push
