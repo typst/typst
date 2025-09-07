@@ -725,6 +725,20 @@ a b c --------------------
 #let foo = "bar"
 ```
 
+--- raw-default-json-theme ---
+```json
+{
+  "foo": "bar",
+  "test": [
+    "test",
+    true,
+    42,
+    5.0,
+    null
+  ]
+}
+```
+
 --- raw-unclosed ---
 // Test unterminated raw text.
 //
