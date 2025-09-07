@@ -22,7 +22,7 @@ Second: #context mine.display("I")
 #c.update(n => n + 2)
 #context test(c.get(), (4,))
 #c.update(n => n - 3)
-#context test(c.at(here()), (1,))
+#context test(c.get(at: here()), (1,))
 
 --- counter-label ---
 // Count labels.
@@ -119,11 +119,11 @@ B
 #figure(caption: [Four 'D's], kind: image, supplement: "Figure")[_DDDD!_]
 
 --- counter-at-no-context ---
-// Test `counter.at` outside of context.
-// Error: 2-28 can only be used when context is known
-// Hint: 2-28 try wrapping this in a `context` expression
-// Hint: 2-28 the `context` expression should wrap everything that depends on this function
-#counter("key").at(<label>)
+// Test `counter.get(at: loc)` outside of context.
+// Error: 2-33 can only be used when context is known
+// Hint: 2-33 try wrapping this in a `context` expression
+// Hint: 2-33 the `context` expression should wrap everything that depends on this function
+#counter("key").get(at: <label>)
 
 --- issue-2480-counter-reset ---
 #let q = counter("question")
@@ -202,6 +202,11 @@ B
 #context [
   #let fig = query(<blah>).first()
   #fig.counter.display(fig.numbering) \
-  #numbering(fig.numbering, ..fig.counter.at(fig.location())) \
+  #numbering(fig.numbering, ..fig.counter.get(at: fig.location())) \
   #fig.counter.display(at: fig.location(), fig.numbering) \
 ]
+
+--- counter-at-deprecated ---
+// Warning: 25-27 `counter.at` is deprecated, use the `at` parameter on `counter.get` instead
+// Hint: 25-27 it will be removed in Typst 0.15.0
+#context counter("key").at(here())

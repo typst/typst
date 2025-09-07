@@ -50,7 +50,7 @@
     #counter(figure).display(at: it.location()):
     #it.caption.body
     #box(width: 1fr, repeat[.])
-    #counter(page).at(it.location()).first() \
+    #counter(page).get(at: it.location()).first() \
   ]
 }
 

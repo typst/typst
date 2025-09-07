@@ -74,10 +74,10 @@ use crate::routines::Routines;
 /// value gives you a state value which exposes a few functions. The two most
 /// important ones are `get` and `update`:
 ///
-/// - The [`get`]($state.get) function retrieves the current value of the state.
-///   Because the value can vary over the course of the document, it is a
-///   _contextual_ function that can only be used when [context]($context) is
-///   available.
+/// - The [`get`]($state.get) function retrieves the value of the state at a
+///   specific location. By default, it uses the current location. Because the
+///   value can vary over the course of the document, it is a _contextual_
+///   function that can only be used when [context]($context) is available.
 ///
 /// - The [`update`]($state.update) function modifies the state. You can give it
 ///   any value. If given a non-function value, it sets the state to that value.
@@ -135,9 +135,10 @@ use crate::routines::Routines;
 /// # Time Travel
 /// By using Typst's state management system you also get time travel
 /// capabilities! We can find out what the value of the state will be at any
-/// position in the document from anywhere else. In particular, the `at` method
-/// gives us the value of the state at any particular location and the `final`
-/// methods gives us the value of the state at the end of the document.
+/// position in the document from anywhere else. In particular, the
+/// [`at`]($state.get.at) parameter gives us the value of the state at any
+/// particular location and the `final` methods gives us the value of the state
+/// at the end of the document.
 ///
 /// ```example
 /// >>> #let s = state("x", 0)
@@ -150,7 +151,7 @@ use crate::routines::Routines;
 /// <<< ...
 ///
 /// Value at `<here>` is
-/// #context s.at(<here>)
+/// #context s.get(at: <here>)
 ///
 /// #compute("10") \
 /// #compute("x + 3") \
@@ -341,6 +342,10 @@ impl State {
     /// [locations]($location).
     #[typst_macros::time(name = "state.at", span = span)]
     #[func(contextual)]
+    #[deprecated(
+        message = "`state.at` is deprecated, use the `at` parameter on `state.get` instead",
+        until = "0.15.0"
+    )]
     pub fn at(
         &self,
         engine: &mut Engine,

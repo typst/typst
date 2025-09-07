@@ -184,7 +184,7 @@ use crate::routines::Routines;
 /// = Values
 /// #context [
 ///   Value here: #mine.get() \
-///   At intro: #mine.at(<intro>) \
+///   At intro: #mine.get(at: <intro>) \
 ///   Final value: #mine.final()
 /// ]
 ///
@@ -508,6 +508,10 @@ impl Counter {
     /// useful kinds of selectors for this are [labels]($label) and
     /// [locations]($location).
     #[func(contextual)]
+    #[deprecated(
+        message = "`counter.at` is deprecated, use the `at` parameter on `counter.get` instead",
+        until = "0.15.0"
+    )]
     pub fn at(
         &self,
         engine: &mut Engine,
