@@ -49,7 +49,7 @@ In #context counter(heading).display()
 
 At Beta, it was #context {
   let it = query(heading).find(it => it.body == [Beta])
-  counter(heading).display-at(it.location(), it.numbering)
+  counter(heading).display(at: it.location(), it.numbering)
 }
 
 --- counter-page ---
@@ -203,5 +203,5 @@ B
   #let fig = query(<blah>).first()
   #fig.counter.display(fig.numbering) \
   #numbering(fig.numbering, ..fig.counter.at(fig.location())) \
-  #fig.counter.display-at(fig.location(), fig.numbering) \
+  #fig.counter.display(at: fig.location(), fig.numbering) \
 ]
