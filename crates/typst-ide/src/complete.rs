@@ -24,9 +24,6 @@ use crate::utils::{
 };
 use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items};
 
-/// Labels that contain these chars are not suitable for reference completion.
-const LABEL_SUPPRESSED_CHARS: &[char; 3] = &[',', '/', '@'];
-
 /// Autocomplete a cursor position in a source file.
 ///
 /// Returns the position from which the completions apply and a list of
@@ -1300,7 +1297,7 @@ impl<'a> CompletionContext<'a> {
 
         for (label, detail) in labels.into_iter().skip(skip).take(take) {
             let name = label.resolve();
-            if !include_suppressed && name.as_str().contains(LABEL_SUPPRESSED_CHARS) {
+            if !include_suppressed && !typst_syntax::is_valid_label_literal_id(&name) {
                 continue;
             }
             self.completions.push(Completion {
@@ -1313,7 +1310,7 @@ impl<'a> CompletionContext<'a> {
                         if close { ">" } else { "" }
                     )
                 }),
-                label: label.resolve().as_str().into(),
+                label: name.as_str().into(),
                 detail,
             });
         }
@@ -1762,13 +1759,13 @@ mod tests {
 
     #[test]
     fn test_autocomplete_ref_and_label_invalid_labels_skipped() {
-        let test = r#"a<test> b#label("test,1") c#label("test@1") d#label("test/1")"#;
+        let test = r#"a1<test> a2<test.:1> b#label("test,1") c#label("test@1") d#label("test/1")"#;
         let exclude_list = ["test,1", "test@1", "test/1"];
         test_with_addition(test, " #ref(<)", -2)
-            .must_include(["test"])
+            .must_include(["test", "test.:1"])
             .must_exclude(exclude_list);
         test_with_addition(test, " @", -1)
-            .must_include(["test"])
+            .must_include(["test", "test.:1"])
             .must_exclude(exclude_list);
     }
 
