@@ -359,6 +359,16 @@ impl Property {
         self.elem == elem
     }
 
+    /// Retrieves a reference to the value of the given field from the property.
+    ///
+    /// Not possible if the value needs folding.
+    pub fn get_ref<E, const I: u8>(&self, _: Field<E, I>) -> Option<&E::Type>
+    where
+        E: RefableProperty<I>,
+    {
+        if self.is(E::ELEM, I) { Some(self.value.downcast(E::ELEM, I)) } else { None }
+    }
+
     /// Turn this property into prehashed style.
     pub fn wrap(self) -> LazyHash<Style> {
         Style::Property(self).wrap()

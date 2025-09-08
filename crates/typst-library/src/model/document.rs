@@ -6,6 +6,7 @@ use crate::foundations::{
     Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Styles,
     Value, cast, elem,
 };
+use crate::text::Lang;
 
 /// The root element of a document and its metadata.
 ///
@@ -101,6 +102,12 @@ pub struct DocumentInfo {
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
+    /// The document's language, set from the first top-level set rule, e.g.
+    ///
+    /// ```typc
+    /// set text(lang: "...")
+    /// ```
+    pub lang: Smart<Lang>,
 }
 
 impl DocumentInfo {

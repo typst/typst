@@ -49,9 +49,9 @@ pub struct Tags {
 }
 
 impl Tags {
-    pub fn new() -> Self {
+    pub fn new(doc_lang: Option<Lang>) -> Self {
         Self {
-            doc_lang: None,
+            doc_lang,
             text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),

@@ -1,4 +1,7 @@
+lang: "ar"
+---
 - Tag: P
+  /Lang: "en"
   /K:
     - Content: page=0 mcid=0
     - Tag: InlineQuote
@@ -7,7 +10,6 @@
         - Content: page=0 mcid=2
     - Content: page=0 mcid=3
 - Tag: P
-  /Lang: "ar"
   /K:
     - Tag: InlineQuote
       /K:
