@@ -518,7 +518,8 @@ pub struct ChildGroupHandle<'a, 'b> {
 impl Drop for ChildGroupHandle<'_, '_> {
     fn drop(&mut self) {
         if self.pushed {
-            self.gc.tags.stack.pop().expect("stack entry");
+            let entry = self.gc.tags.stack.pop().expect("stack entry");
+            assert!(matches!(entry.kind, StackEntryKind::LogicalChild));
         }
     }
 }

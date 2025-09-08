@@ -12,7 +12,8 @@ Par 3.
 #set text(lang: "nl")
 A paragraph.
 
-// language attributes are propagated to the parent (L) tag
+// The list bullets are in spanish :)
+#set text(lang: "es")
 - #text(lang: "de", "a")
   - #text(lang: "de", "b")
   - #text(lang: "de", "c")

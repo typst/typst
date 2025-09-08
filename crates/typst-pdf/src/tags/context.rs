@@ -89,7 +89,7 @@ impl Tags {
         }
     }
 
-    pub fn build_tree(&mut self) -> TagTree {
+    pub fn finish(&mut self) -> TagTree {
         assert!(self.stack.items.is_empty(), "tags weren't properly closed");
 
         let mut children = Vec::with_capacity(self.tree.len());
@@ -112,16 +112,16 @@ impl Tags {
     /// this will return `Some`, and the language should be specified on the
     /// marked content directly.
     pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
-        if self.doc_lang.is_none_or(|l| l == lang) {
+        if let Some(last) = self.stack.last_mut() {
+            let group = &mut self.groups.get_mut(last.id);
+            if let GroupLang::Tagged(parent_lang) = &mut group.lang
+                && parent_lang.is_none_or(|l| l == lang)
+            {
+                *parent_lang = Some(lang);
+                return None;
+            }
+        } else if self.doc_lang.is_none_or(|l| l == lang) {
             self.doc_lang = Some(lang);
-            return None;
-        }
-        if let Some(last) = self.stack.last_mut()
-            && let last = &mut self.groups.get_mut(last.id)
-            && let GroupLang::Tagged(parent_lang) = &mut last.lang
-            && parent_lang.is_none_or(|l| l == lang)
-        {
-            *parent_lang = Some(lang);
             return None;
         }
         Some(lang)
@@ -151,21 +151,17 @@ fn resolve_node(
             let mut group = groups.take(id);
 
             let mut nodes = Vec::with_capacity(group.nodes.len());
-            let lang = if let GroupLang::Tagged(lang) = &mut group.lang {
-                lang
-            } else {
-                &mut parent_lang
-            };
+            let lang = group.lang.as_mut().unwrap_or(&mut parent_lang);
             for child in group.nodes.into_iter() {
                 resolve_node(groups, placeholders, lang, &mut nodes, child);
             }
 
             // Try to propagate the groups language to the parent tag.
-            if let Some(lang) = group.lang.get() {
-                if parent_lang.is_none_or(|l| l == lang) {
-                    *parent_lang = Some(lang);
-                    group.lang = GroupLang::Tagged(None);
-                }
+            if let Some(lang) = group.lang.get()
+                && parent_lang.is_none_or(|l| l == lang)
+            {
+                *parent_lang = Some(lang);
+                group.lang = GroupLang::Tagged(None);
             }
 
             if let Some(mut tag) = group.tag {
@@ -715,6 +711,10 @@ impl GroupLang {
             GroupLang::Tagged(lang) => lang,
             GroupLang::Transparent => None,
         }
+    }
+
+    pub fn as_mut(&mut self) -> Option<&mut Option<Lang>> {
+        if let Self::Tagged(v) = self { Some(v) } else { None }
     }
 }
 
