@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::cell::LazyCell;
 
 use arrayvec::ArrayVec;
-use bumpalo::collections::{String as BumpString, Vec as BumpVec};
+use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail};
@@ -18,7 +18,7 @@ use typst_library::foundations::{
     RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
     SymbolElem, Synthesize, TargetElem, Transformation,
 };
-use typst_library::introspection::{Locatable, SplitLocator, Tag, TagElem};
+use typst_library::introspection::{Locatable, LocationKey, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -30,7 +30,7 @@ use typst_library::model::{
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use typst_syntax::Span;
-use typst_utils::{SliceExt, SmallBitSet};
+use typst_utils::{ListSet, SliceExt, SmallBitSet};
 
 /// Realize content into a flat list of well-known, styled items.
 #[typst_macros::time(name = "realize")]
@@ -797,11 +797,54 @@ where
 /// Finishes the currently innermost grouping.
 fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
-    let Grouping { start, rule, .. } = s.groupings.pop().unwrap();
+    let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
 
     // Trim trailing non-trigger elements.
     let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
-    let end = start + trimmed.len();
+    let mut end = start + trimmed.len();
+
+    // Tags that are opened within the grouping should have their closing tag
+    // included if it is at the end boundary. Similarly, tags that are closed
+    // within should have their opening tag included if it is at the start
+    // boundary. Finally, tags that are sandwiched between an opening tag with a
+    // matching closing tag should also be included.
+    if rule.tags
+        && let within = ListSet::new(
+            trimmed
+                .iter()
+                .filter_map(|(c, _)| c.to_packed::<TagElem>())
+                .map(|elem| LocationKey::new(elem.tag.location()))
+                .collect_in::<BumpVec<_>>(&s.arenas.bump),
+        )
+        && !within.is_empty()
+    {
+        // Include all tags at the start that are closed within.
+        for (k, (c, _)) in s.sink[..start].iter().enumerate().rev() {
+            let Some(elem) = c.to_packed::<TagElem>() else { break };
+            if within.contains(&elem.tag.location().into()) {
+                start = k;
+            }
+        }
+
+        // The trailing part of the sink can contain a mix of inner elements and
+        // tags. If there is a closing tag with a matching start tag, but there
+        // is an inner element in between, that's in principle a situation with
+        // overlapping tags. However, if the inner element would immediately be
+        // destructed anyways, there isn't really a problem. So we try to
+        // anticipate that and destruct it eagerly.
+        if std::ptr::eq(rule, &PAR) {
+            for _ in s.sink.extract_if(end.., |(c, _)| c.is::<SpaceElem>()) {}
+        }
+
+        // Include all tags at the end that are opened within.
+        for (k, (c, _)) in s.sink.iter().enumerate().skip(end) {
+            let Some(elem) = c.to_packed::<TagElem>() else { break };
+            if within.contains(&elem.tag.location().into()) {
+                end = k;
+            }
+        }
+    }
+
     let tail = s.store_slice(&s.sink[end..]);
     s.sink.truncate(end);
 
