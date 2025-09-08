@@ -382,25 +382,13 @@ impl Content {
         }
     }
 
-    /// Queries the content tree for all elements that match the given selector.
-    ///
-    /// Elements produced in `show` rules will not be included in the results.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
-        let mut results = Vec::new();
-        let _ = self.traverse(&mut |element| -> ControlFlow<()> {
-            if selector.matches(&element, None) {
-                results.push(element);
-            }
-            ControlFlow::Continue(())
-        });
-        results
-    }
-
     /// Queries the content tree for the first element that match the given
     /// selector.
     ///
-    /// Elements produced in `show` rules will not be included in the results.
-    pub fn query_first(&self, selector: &Selector) -> Option<Content> {
+    /// This is a *naive hack* because contextual content and elements produced
+    /// in `show` rules will not be included in the results. It's used should
+    /// be avoided.
+    pub fn query_first_naive(&self, selector: &Selector) -> Option<Content> {
         self.traverse(&mut |element| -> ControlFlow<Content> {
             if selector.matches(&element, None) {
                 ControlFlow::Break(element)
