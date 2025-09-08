@@ -291,53 +291,28 @@ pub struct GridElem {
     /// See the [styling section](#styling) above for details.
     ///
     /// ```example
-    /// #set grid(columns: 4, inset: 3pt, align: center + horizon)
-    /// #let placeholder = range(4 * 3).map(n => numbering("A", n + 1))
+    /// #set page(width: 420pt)
+    /// #set text(number-type: "old-style")
     ///
     /// #grid(
-    ///   stroke: 0.5pt,
-    ///   ..placeholder
-    /// )
+    ///   columns: (1fr, 2fr, 2fr),
+    ///   row-gutter: 1.5em,
+    ///   inset: (left: 0.5em),
+    ///   stroke: (x, y) => if x > 0 { (left: 0.5pt + gray) },
     ///
-    /// #grid(
-    ///   stroke: (y: 0.8pt + gray),
-    ///   ..placeholder
-    /// )
-    /// #grid(
-    ///   columns: (1em, 2em) * 2,
-    ///   stroke: (blue, none),
-    ///   ..placeholder
-    /// )
+    ///   ..(
+    ///     [Winter \ 2007 \ Season],
+    ///     [Aaron Copland \ *The Tender Land* \ January 2007],
+    ///     [Eric Satie \ *Gymnopedie 1, 2* \ February 2007],
+    ///   ).map(text.with(1.3em)),
     ///
-    /// #grid(
-    ///   stroke: (x, y) => if x == 0 { (right: green) },
-    ///   ..placeholder
-    /// )
+    ///   [],
+    ///   [Jan 12 \ *Middlebury College \ Center for the Arts* \ 20:00],
+    ///   [Feb 3 \ *Johnson State College Dibden Center for the Arts* \ 19:30],
     ///
-    /// #grid(
-    ///   stroke: (x, y) => if x >= 1 { (left: purple) },
-    ///   ..placeholder
-    /// )
-    /// ```
-    ///
-    /// ```example
-    /// // If there is a gutter, then result of `stroke` will be
-    /// // different from that of `hline` and `vline`.
-    /// >>> #set grid(inset: 3pt, align: center + horizon)
-    /// #set grid(
-    ///   columns: 2,
-    ///   row-gutter: 5pt,
-    /// )
-    ///
-    /// #grid(
-    ///   stroke: (x, y) => if x == 0 { (right: green) },
-    ///   [A], [B],
-    ///   [C], [D],
-    /// )
-    ///
-    /// #grid(
-    ///   [A], grid.vline(stroke: green), [B],
-    ///   [C], [D],
+    ///   [],
+    ///   [Jan 19 \ *Lyndon State College Alexander Twilight Theater* \ 20:00],
+    ///   [Feb 10 \ *Middlebury College \ Center for the Arts* \ 19:00],
     /// )
     /// ```
     ///
