@@ -77,10 +77,10 @@ B
 // orphan frames, its position correctly reflects that.
 #set page(height: 40pt)
 A
-#block[B]<a>
+#block[B]<b>
 
 #context test(
-  locate(<a>).position(),
+  locate(<b>).position(),
   (page: 2, x: 10pt, y: 10pt),
 )
 
