@@ -559,7 +559,7 @@ struct CallData {
     args: Vec<Bytes>,
     /// The results of the current call.
     output: Vec<u8>,
-    /// A memory error that occured during execution of the current call.
+    /// A memory error that occurred during execution of the current call.
     memory_error: Option<MemoryError>,
 }
 
