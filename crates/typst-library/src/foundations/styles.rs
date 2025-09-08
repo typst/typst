@@ -16,7 +16,6 @@ use crate::foundations::{
     Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,
     RefableProperty, Repr, Selector, SettableProperty, Target, cast, ty,
 };
-use crate::text::{FontFamily, FontList, TextElem};
 
 /// A list of style properties.
 #[ty(cast)]
@@ -117,19 +116,6 @@ impl Styles {
             .iter()
             .filter_map(|style| style.property())
             .any(|property| property.is_of(elem) && property.id == I)
-    }
-
-    /// Set a font family composed of a preferred family and existing families
-    /// from a style chain.
-    pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(
-            TextElem::font,
-            FontList(
-                std::iter::once(preferred)
-                    .chain(existing.get_ref(TextElem::font).into_iter().cloned())
-                    .collect(),
-            ),
-        );
     }
 }
 
