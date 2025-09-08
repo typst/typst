@@ -352,6 +352,8 @@ fn realize_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
+    content = content.spanned(reference.span());
+
     Ok(DirectLinkElem::new(loc, content, Some(alt)).pack())
 }
 

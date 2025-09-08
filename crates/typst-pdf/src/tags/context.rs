@@ -424,7 +424,7 @@ pub enum StackEntryKind {
     BibEntry,
     Figure(FigureCtx),
     Formula(FigureCtx),
-    Link(LinkId, Packed<LinkMarker>),
+    Link(LinkId, Packed<LinkMarker>, bool),
     CodeBlock,
     CodeBlockLine,
 }
@@ -455,7 +455,7 @@ impl StackEntryKind {
     }
 
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
-        if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+        if let Self::Link(id, link, _) = self { Some((*id, link)) } else { None }
     }
 
     pub fn is_code_block(&self) -> bool {

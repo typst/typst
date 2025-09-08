@@ -26,7 +26,7 @@ use typst_library::visualize::{Image, ImageElem, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::link::LinkAnnotation;
+use crate::link::{LinkAnnotation, LinkAnnotationKind};
 use crate::tags::convert::ArtifactKindExt;
 use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
@@ -49,6 +49,15 @@ pub fn handle_start(
     surface: &mut Surface,
     elem: &Content,
 ) -> SourceResult<()> {
+    // Link marker entries are required for link annotations, even if tagging
+    // is otherwise disabled or within an artifact.
+    if let Some(link) = elem.to_packed::<LinkMarker>() {
+        let link_id = gc.tags.next_link_id();
+        let artifact = gc.options.disable_tags || gc.tags.disable.is_some();
+        push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone(), artifact))?;
+        return Ok(());
+    }
+
     if gc.options.disable_tags {
         return Ok(());
     }
@@ -199,10 +208,6 @@ pub fn handle_start(
         Tag::Hn(level, Some(name)).into()
     } else if let Some(_) = elem.to_packed::<ParElem>() {
         Tag::P.into()
-    } else if let Some(link) = elem.to_packed::<LinkMarker>() {
-        let link_id = gc.tags.next_link_id();
-        push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()))?;
-        return Ok(());
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
         gc.tags.logical_parents.insert(elem.location().unwrap(), elem.span());
         return Ok(());
@@ -316,6 +321,9 @@ pub fn handle_end(
     loc: Location,
 ) -> SourceResult<()> {
     if gc.options.disable_tags {
+        // Link marker entries are also used if tagging is otherwise disabled,
+        // so pop them off the stack.
+        gc.tags.stack.pop_if(|e| e.loc == Some(loc));
         return Ok(());
     }
 
@@ -367,7 +375,7 @@ pub fn handle_end(
         return Ok(());
     }
 
-    // There are overlapping tags in the tag tree. Figure whether breaking
+    // There are overlapping tags in the tag tree. Figure out whether breaking
     // up the current tag stack is semantically ok.
     let mut is_breakable = true;
     let mut non_breakable_span = Span::detached();
@@ -409,7 +417,7 @@ pub fn handle_end(
         let entry = gc.tags.stack.pop().unwrap();
 
         let mut kind = entry.kind.clone();
-        if let StackEntryKind::Link(id, _) = &mut kind {
+        if let StackEntryKind::Link(id, _, _) = &mut kind {
             // Assign a new link id, so a new link annotation will be created.
             *id = gc.tags.next_link_id();
         }
@@ -505,7 +513,11 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
             let tag = Tag::Formula(ctx.alt).with_bbox(ctx.bbox.to_krilla());
             gc.tags.groups.init_tag(tag, contents)
         }
-        StackEntryKind::Link(_, _) => {
+        StackEntryKind::Link(_, _, artifact) => {
+            if artifact {
+                return;
+            }
+
             let mut node = gc.tags.groups.init_tag(Tag::Link, contents);
             // Wrap link in reference tag if inside an outline entry.
             if gc.tags.stack.parent_outline_entry().is_some() {
@@ -597,9 +609,13 @@ pub fn logical_child<'a, 'b>(
     Ok(ChildGroupHandle { gc, stack_idx })
 }
 
-pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn page<T>(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    page_fn: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
+) -> T {
     if gc.options.disable_tags {
-        return;
+        return page_fn(gc, surface);
     }
 
     if let Some(disable) = gc.tags.disable {
@@ -609,16 +625,36 @@ pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {
         };
         surface.start_tagged(ContentTag::Artifact(kind.to_krilla()));
     }
-}
 
-pub fn page_end(gc: &mut GlobalContext, surface: &mut Surface) {
-    if gc.options.disable_tags {
-        return;
-    }
+    let res = page_fn(gc, surface);
 
     if gc.tags.disable.is_some() {
         surface.end_tagged();
     }
+
+    res
+}
+
+pub fn disable<T>(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    kind: Disable,
+    f: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
+) -> T {
+    let started = gc.tags.disable.is_none();
+    if started {
+        gc.tags.disable = Some(kind);
+        surface.start_tagged(ContentTag::Artifact(ArtifactType::Other));
+    }
+
+    let res = f(gc, surface);
+
+    if started {
+        gc.tags.disable = None;
+        surface.end_tagged();
+    }
+
+    res
 }
 
 /// Add all annotations that were found in the page frame.
@@ -637,50 +673,15 @@ pub fn add_link_annotations(
         )
         .with_location(Some(a.span.into_raw()));
 
-        if gc.options.disable_tags {
-            page.add_annotation(annotation);
-        } else {
+        if let LinkAnnotationKind::Tagged { placeholder, .. } = a.kind
+            && !gc.options.disable_tags
+        {
             let annot_id = page.add_tagged_annotation(annotation);
-            gc.tags.placeholders.init(a.placeholder, Node::Leaf(annot_id));
+            gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
+        } else {
+            page.add_annotation(annotation);
         }
     }
-}
-
-pub struct DisableHandle<'a, 'b, 'c, 'd> {
-    gc: &'b mut GlobalContext<'a>,
-    surface: &'d mut Surface<'c>,
-    /// Whether this handle started the disabled range.
-    started: bool,
-}
-
-impl Drop for DisableHandle<'_, '_, '_, '_> {
-    fn drop(&mut self) {
-        if self.started {
-            self.gc.tags.disable = None;
-            self.surface.end_tagged();
-        }
-    }
-}
-
-impl<'a, 'c> DisableHandle<'a, '_, 'c, '_> {
-    pub fn reborrow<'s>(
-        &'s mut self,
-    ) -> (&'s mut GlobalContext<'a>, &'s mut Surface<'c>) {
-        (self.gc, self.surface)
-    }
-}
-
-pub fn disable<'a, 'b, 'c, 'd>(
-    gc: &'b mut GlobalContext<'a>,
-    surface: &'d mut Surface<'c>,
-    kind: Disable,
-) -> DisableHandle<'a, 'b, 'c, 'd> {
-    let started = gc.tags.disable.is_none();
-    if started {
-        gc.tags.disable = Some(kind);
-        surface.start_tagged(ContentTag::Artifact(ArtifactType::Other));
-    }
-    DisableHandle { gc, surface, started }
 }
 
 pub fn text<'a, 'b>(

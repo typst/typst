@@ -88,3 +88,16 @@
   [a2], [c2],
   [a3], [c3],
 )
+
+--- table-tags-citation-in-repeated-header pdftags ---
+// Error: 3:16-3:23 PDF/UA-1 error: PDF artifacts may not contain links
+// Hint: 3:16-3:23 references, citations, and footnotes are also considered links in PDF
+#set page(height: 60pt)
+#table(
+  table.header[@netwok],
+  [A],
+  [A],
+)
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
