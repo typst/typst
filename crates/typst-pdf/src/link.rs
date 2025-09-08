@@ -13,12 +13,25 @@ use crate::tags::{LinkId, Placeholder, TagNode};
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) struct LinkAnnotation {
-    pub(crate) id: LinkId,
-    pub(crate) placeholder: Placeholder,
-    pub(crate) alt: Option<String>,
+    pub(crate) kind: LinkAnnotationKind,
     pub(crate) quad_points: Vec<kg::Quadrilateral>,
     pub(crate) target: Target,
-    pub(crate) span: Span,
+}
+
+impl LinkAnnotation {
+    pub(crate) fn id(&self) -> Option<LinkId> {
+        match self.kind {
+            LinkAnnotationKind::Tagged { id, .. } => Some(id),
+            LinkAnnotationKind::Artifact => None,
+        }
+    }
+}
+
+pub(crate) enum LinkAnnotationKind {
+    /// A link annotation that is tagged within a `Link` structure element.
+    Tagged { id: LinkId, placeholder: Placeholder, alt: Option<String>, span: Span },
+    /// A link annotation within an artifact.
+    Artifact,
 }
 
 pub(crate) fn handle_link(
@@ -50,6 +63,17 @@ pub(crate) fn handle_link(
         }
     };
 
+    let quad = to_quadrilateral(fc, size);
+
+    if gc.tags.disable.is_some() {
+        fc.push_link_annotation(LinkAnnotation {
+            kind: LinkAnnotationKind::Artifact,
+            quad_points: vec![quad],
+            target,
+        });
+        return;
+    }
+
     let (link_id, tagging_ctx) = match gc.tags.stack.find_parent_link() {
         Some((link_id, link, nodes)) => (link_id, Some((link, nodes))),
         None if gc.options.disable_tags => {
@@ -58,7 +82,6 @@ pub(crate) fn handle_link(
         }
         None => unreachable!("expected a link parent"),
     };
-    let quad = to_quadrilateral(fc, size);
 
     // Unfortunately quadpoints still aren't well supported by most PDF readers.
     // So only add multiple quadpoint entries to one annotation when targeting
@@ -84,12 +107,9 @@ pub(crate) fn handle_link(
                 (None, Span::detached())
             };
             fc.push_link_annotation(LinkAnnotation {
-                id: link_id,
-                placeholder,
+                kind: LinkAnnotationKind::Tagged { id: link_id, placeholder, alt, span },
                 quad_points: vec![quad],
-                alt,
                 target,
-                span,
             });
         }
     }

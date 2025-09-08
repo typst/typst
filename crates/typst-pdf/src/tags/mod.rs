@@ -27,7 +27,7 @@ use typst_library::visualize::{Image, ImageElem, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::link::LinkAnnotation;
+use crate::link::{LinkAnnotation, LinkAnnotationKind};
 use crate::tags::convert::ArtifactKindExt;
 use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
@@ -621,20 +621,22 @@ pub fn add_link_annotations(
     annotations: Vec<LinkAnnotation>,
 ) {
     for a in annotations.into_iter() {
-        let annotation = krilla::annotation::Annotation::new_link(
-            krilla::annotation::LinkAnnotation::new_with_quad_points(
-                a.quad_points,
-                a.target,
-            ),
-            a.alt,
-        )
-        .with_location(Some(a.span.into_raw()));
+        let annotation = krilla::annotation::LinkAnnotation::new_with_quad_points(
+            a.quad_points,
+            a.target,
+        );
 
-        if gc.options.disable_tags {
-            page.add_annotation(annotation);
-        } else {
+        if let LinkAnnotationKind::Tagged { placeholder, span, alt, .. } = a.kind
+            && !gc.options.disable_tags
+        {
+            let annotation = krilla::annotation::Annotation::new_link(annotation, alt)
+                .with_location(Some(span.into_raw()));
             let annot_id = page.add_tagged_annotation(annotation);
-            gc.tags.placeholders.init(a.placeholder, Node::Leaf(annot_id));
+            gc.tags.placeholders.init(placeholder, Node::Leaf(annot_id));
+        } else {
+            page.add_annotation(krilla::annotation::Annotation::new_link(
+                annotation, None,
+            ));
         }
     }
 }

@@ -88,3 +88,15 @@
   [a2], [c2],
   [a3], [c3],
 )
+
+--- table-tags-header-citation pdftags ---
+// The header is repeated and thus marked as an artifact, but it contains a link.
+#set page(height: 60pt)
+#table(
+  table.header[@netwok],
+  [A],
+  [A],
+)
+
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")

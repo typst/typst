@@ -241,7 +241,7 @@ impl FrameContext {
         &mut self,
         link_id: tags::LinkId,
     ) -> Option<&mut LinkAnnotation> {
-        self.link_annotations.iter_mut().rfind(|a| a.id == link_id)
+        self.link_annotations.iter_mut().rfind(|a| a.id() == Some(link_id))
     }
 
     pub(crate) fn push_link_annotation(&mut self, annotation: LinkAnnotation) {

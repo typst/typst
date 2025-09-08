@@ -1,0 +1,35 @@
+- Tag: Table
+  /BorderColor: #000000
+  /BorderThickness:   1.000
+  /K:
+    - Tag: THead
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TH
+              /Id: "U1x0y0"
+              /Scope: Column
+              /Headers: []
+              /BorderStyle: Solid
+              /K:
+                - Tag: Link
+                  /Alt: "[1]"
+                  /K:
+                    - Content: page=0 mcid=0
+                    - Annotation: page=0 index=0
+    - Tag: TBody
+      /K:
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=0 mcid=1
+        - Tag: TR
+          /K:
+            - Tag: TD
+              /Headers: ["U1x0y0"]
+              /BorderStyle: Solid
+              /K:
+                - Content: page=1 mcid=0
