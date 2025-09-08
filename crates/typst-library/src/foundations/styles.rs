@@ -319,6 +319,14 @@ impl Property {
         self.elem == elem
     }
 
+    /// Retrieves and clones the value from the style chain.
+    pub fn get_ref<E, const I: u8>(&self, _: Field<E, I>) -> Option<&E::Type>
+    where
+        E: RefableProperty<I>,
+    {
+        if self.is(E::ELEM, I) { Some(self.value.downcast(E::ELEM, I)) } else { None }
+    }
+
     /// Turn this property into prehashed style.
     pub fn wrap(self) -> LazyHash<Style> {
         Style::Property(self).wrap()

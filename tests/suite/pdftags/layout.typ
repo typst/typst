@@ -1,4 +1,4 @@
---- layout-tags-placement-different-lang pdftags ---
+--- layout-tags-placement-float pdftags ---
 #set text(lang: "de")
 #grid(
   columns: 2,

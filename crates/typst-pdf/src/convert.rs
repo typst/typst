@@ -290,7 +290,7 @@ impl<'a> GlobalContext<'a> {
             image_spans: FxHashSet::default(),
             page_index_converter,
 
-            tags: Tags::new(),
+            tags: Tags::new(document.info.lang.custom()),
         }
     }
 }
