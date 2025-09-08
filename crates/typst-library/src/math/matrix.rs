@@ -127,7 +127,7 @@ pub struct MatElem {
     ///     integer for a single line, or an array of integers
     ///     for multiple lines. Like for a single number, negative numbers start from the end.
     ///   - `stroke`: How to [stroke]($stroke) the line. If set to `{auto}`,
-    ///     takes on a thickness of 0.05em and square line caps.
+    ///     takes on a thickness of 0.05 em and square line caps.
     ///
     /// ```example
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
