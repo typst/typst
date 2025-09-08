@@ -459,6 +459,7 @@ impl<'a> MultiChild<'a> {
         regions: Regions,
     ) -> SourceResult<(Frame, Option<MultiSpill<'a, 'b>>)> {
         let fragment = self.layout_full(engine, regions)?;
+        let exist_non_empty_frame = fragment.iter().any(|f| !f.is_empty());
 
         // Extract the first frame.
         let mut frames = fragment.into_iter();
@@ -468,6 +469,7 @@ impl<'a> MultiChild<'a> {
         let mut spill = None;
         if frames.next().is_some() {
             spill = Some(MultiSpill {
+                exist_non_empty_frame,
                 multi: self,
                 full: regions.full,
                 first: regions.size.y,
@@ -539,6 +541,7 @@ fn layout_multi_impl(
 /// The spilled remains of a `MultiChild` that broke across two regions.
 #[derive(Debug, Clone)]
 pub struct MultiSpill<'a, 'b> {
+    pub(super) exist_non_empty_frame: bool,
     multi: &'b MultiChild<'a>,
     first: Abs,
     full: Abs,
