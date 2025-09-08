@@ -174,3 +174,12 @@ B
 #context test(c.get(), (100000000002,))
 #c.update(n => n + 2)
 #context test(c.get(), (100000000004,))
+
+--- counter-rtl ---
+#set page(width: auto)
+#let c = counter("c")
+#let s = context c.display() + c.step()
+#let tree = [درخت]
+#let line = [A #s B #tree #s #tree #s #tree C #s D #s]
+#line \
+#line

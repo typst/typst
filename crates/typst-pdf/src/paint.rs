@@ -15,7 +15,7 @@ use typst_library::visualize::{
 };
 use typst_utils::Numeric;
 
-use crate::convert::{handle_frame, FrameContext, GlobalContext, State};
+use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 
 pub(crate) fn convert_fill(
@@ -152,11 +152,12 @@ fn convert_gradient(
         RelativeTo::Parent => state.container_size(),
     };
 
-    let angle = gradient.angle().unwrap_or_else(Angle::zero);
+    let mut angle = gradient.angle().unwrap_or_else(Angle::zero);
     let base_transform = correct_transform(state, gradient.unwrap_relative(on_text));
     let stops = convert_gradient_stops(gradient);
     match &gradient {
         Gradient::Linear(_) => {
+            angle = Gradient::correct_aspect_ratio(angle, size.aspect_ratio());
             let (x1, y1, x2, y2) = {
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 

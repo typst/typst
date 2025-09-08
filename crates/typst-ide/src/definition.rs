@@ -1,12 +1,12 @@
 use typst::foundations::{Label, Selector, Value};
 use typst::layout::PagedDocument;
-use typst::syntax::{ast, LinkedNode, Side, Source, Span};
+use typst::syntax::{LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
 use crate::utils::globals;
 use crate::{
-    analyze_expr, analyze_import, deref_target, named_items, DerefTarget, IdeWorld,
-    NamedItem,
+    DerefTarget, IdeWorld, NamedItem, analyze_expr, analyze_import, deref_target,
+    named_items,
 };
 
 /// A definition of some item.
@@ -72,7 +72,8 @@ pub fn definition(
 
         // Try to jump to the referenced content.
         DerefTarget::Ref(node) => {
-            let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()));
+            let label = Label::new(PicoStr::intern(node.cast::<ast::Ref>()?.target()))
+                .expect("unexpected empty reference");
             let selector = Selector::Label(label);
             let elem = document?.introspector.query_first(&selector)?;
             return Some(Definition::Span(elem.span()));
@@ -89,11 +90,11 @@ mod tests {
     use std::borrow::Borrow;
     use std::ops::Range;
 
+    use typst::WorldExt;
     use typst::foundations::{IntoValue, NativeElement};
     use typst::syntax::Side;
-    use typst::WorldExt;
 
-    use super::{definition, Definition};
+    use super::{Definition, definition};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     type Response = (TestWorld, Option<Definition>);
@@ -186,6 +187,6 @@ mod tests {
 
     #[test]
     fn test_definition_std() {
-        test("#table", 1, Side::After).must_be_value(typst::model::TableElem::elem());
+        test("#table", 1, Side::After).must_be_value(typst::model::TableElem::ELEM);
     }
 }

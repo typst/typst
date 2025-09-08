@@ -1,6 +1,6 @@
 use typst_utils::Numeric;
 
-use crate::foundations::{cast, elem, Content};
+use crate::foundations::{Content, cast, elem};
 use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 
 /// Inserts horizontal spacing into a paragraph.

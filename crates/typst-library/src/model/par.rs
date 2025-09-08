@@ -1,10 +1,10 @@
 use typst_utils::singleton;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, elem, scope, Args, Cast, Construct, Content, Dict, NativeElement, Packed,
-    Smart, Unlabellable, Value,
+    Args, Cast, Construct, Content, Dict, NativeElement, Packed, Smart, Unlabellable,
+    Value, cast, dict, elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
@@ -108,7 +108,6 @@ pub struct ParElem {
     /// to `{-0.2em}` to get a baseline gap of exactly `{2em}`. The exact
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
-    #[resolve]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 
@@ -122,7 +121,6 @@ pub struct ParElem {
     /// that block's [`above`]($block.above) or [`below`]($block.below) property
     /// takes precedence over the paragraph spacing. Headings, for instance,
     /// reduce the spacing below them by default for a better look.
-    #[resolve]
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
@@ -213,7 +211,6 @@ pub struct ParElem {
     ///
     /// #lorem(15)
     /// ```
-    #[resolve]
     pub hanging_indent: Length,
 
     /// The contents of the paragraph.
@@ -355,7 +352,7 @@ impl Unlabellable for Packed<ParbreakElem> {}
 #[elem(name = "line", title = "Paragraph Line", keywords = ["line numbering"], Construct, Locatable)]
 pub struct ParLine {
     /// How to number each line. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking a single number.
     ///
     /// ```example
     /// >>> #set page(margin: (left: 3em))

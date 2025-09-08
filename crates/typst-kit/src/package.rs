@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use typst_library::diag::{bail, PackageError, PackageResult, StrResult};
+use typst_library::diag::{PackageError, PackageResult, StrResult, bail};
 use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::download::{Downloader, Progress};
@@ -189,7 +189,7 @@ impl PackageStorage {
                 }
             }
             Err(err) => {
-                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))))
+                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))));
             }
         };
 
@@ -199,7 +199,7 @@ impl PackageStorage {
         // The place at which the specific package version will live in the end.
         let package_dir = base_dir.join(format!("{}", spec.version));
 
-        // To prevent multiple Typst instances from interferring, we download
+        // To prevent multiple Typst instances from interfering, we download
         // into a temporary directory first and then move this directory to
         // its final destination.
         //

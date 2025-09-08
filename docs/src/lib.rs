@@ -9,14 +9,14 @@ pub use self::contribs::*;
 pub use self::html::*;
 pub use self::model::*;
 
-use std::collections::HashSet;
-
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use heck::ToTitleCase;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
-use typst::diag::{bail, StrResult};
+use typst::diag::{StrResult, bail};
+use typst::foundations::Deprecation;
 use typst::foundations::{
     AutoValue, Binding, Bytes, CastInfo, Func, Module, NoneValue, ParamInfo, Repr, Scope,
     Smart, Type, Value,
@@ -24,7 +24,7 @@ use typst::foundations::{
 use typst::layout::{Abs, Margin, PageElem, PagedDocument};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Category, Feature, Library, LibraryBuilder};
+use typst::{Category, Feature, Library, LibraryExt};
 use unicode_math_class::MathClass;
 
 macro_rules! load {
@@ -37,7 +37,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
     let mut groups: Vec<GroupData> =
         yaml::from_str(load!("reference/groups.yml")).unwrap();
     for group in &mut groups {
-        if group.filter.is_empty() {
+        if group.filter.is_empty() && group.name != "std" {
             group.filter = group
                 .module()
                 .scope()
@@ -51,7 +51,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = LibraryBuilder::default()
+    let mut lib = Library::builder()
         .with_features([Feature::Html].into_iter().collect())
         .build();
     let scope = lib.global.scope_mut();
@@ -63,12 +63,10 @@ static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     scope.reset_category();
 
     // Adjust the default look.
+    lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(240.0).into()));
+    lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles
-        .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
-    lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
-        Abs::pt(15.0).into(),
-    )))));
+        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(15.0).into()))));
 
     LazyHash::new(lib)
 });
@@ -105,7 +103,7 @@ pub trait Resolver {
 
     /// Produce HTML for an example.
     fn example(&self, hash: u128, source: Option<Html>, document: &PagedDocument)
-        -> Html;
+    -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -244,7 +242,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
             items.push(CategoryItem {
                 name: group.name.clone(),
                 route: subpage.route.clone(),
-                oneliner: oneliner(docs).into(),
+                oneliner: oneliner(docs),
                 code: true,
             });
             children.push(subpage);
@@ -261,7 +259,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
         shorthands = Some(ShorthandsModel { markup, math });
     }
 
-    let mut skip = HashSet::new();
+    let mut skip = FxHashSet::default();
     if category == Category::Math {
         skip = GROUPS
             .iter()
@@ -298,7 +296,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
                 items.push(CategoryItem {
                     name: name.into(),
                     route: subpage.route.clone(),
-                    oneliner: oneliner(func.docs().unwrap_or_default()).into(),
+                    oneliner: oneliner(func.docs().unwrap_or_default()),
                     code: true,
                 });
                 children.push(subpage);
@@ -308,7 +306,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
                 items.push(CategoryItem {
                     name: ty.short_name().into(),
                     route: subpage.route.clone(),
-                    oneliner: oneliner(ty.docs()).into(),
+                    oneliner: oneliner(ty.docs()),
                     code: true,
                 });
                 children.push(subpage);
@@ -383,7 +381,7 @@ fn func_page(
     parent: &str,
     func: &Func,
     path: &[&str],
-    deprecation: Option<&'static str>,
+    deprecation: Option<&Deprecation>,
 ) -> PageModel {
     let model = func_model(resolver, func, path, false, deprecation);
     let name = func.name().unwrap();
@@ -404,7 +402,7 @@ fn func_model(
     func: &Func,
     path: &[&str],
     nested: bool,
-    deprecation: Option<&'static str>,
+    deprecation: Option<&Deprecation>,
 ) -> FuncModel {
     let name = func.name().unwrap();
     let scope = func.scope().unwrap();
@@ -440,7 +438,8 @@ fn func_model(
         oneliner: oneliner(details),
         element: func.element().is_some(),
         contextual: func.contextual().unwrap_or(false),
-        deprecation,
+        deprecation_message: deprecation.map(Deprecation::message),
+        deprecation_until: deprecation.and_then(Deprecation::until),
         details: Html::markdown(resolver, details, nesting),
         example: example.map(|md| Html::markdown(resolver, md, None)),
         self_,
@@ -622,7 +621,7 @@ fn group_page(
     });
 
     let model = PageModel {
-        route: eco_format!("{parent}{}", group.name),
+        route: eco_format!("{parent}{}/", group.name),
         title: group.title.clone(),
         description: eco_format!("Documentation for the {} functions.", group.name),
         part: None,
@@ -639,7 +638,7 @@ fn group_page(
     let item = CategoryItem {
         name: group.name.clone(),
         route: model.route.clone(),
-        oneliner: oneliner(&group.details).into(),
+        oneliner: oneliner(&group.details),
         code: false,
     };
 
@@ -712,40 +711,45 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
     for (name, binding) in group.module().scope().iter() {
         let Value::Symbol(symbol) = binding.read() else { continue };
-        let complete = |variant: &str| {
+        let complete = |variant: codex::ModifierSet<&str>| {
             if variant.is_empty() {
                 name.clone()
             } else {
-                eco_format!("{}.{}", name, variant)
+                eco_format!("{}.{}", name, variant.as_str())
             }
         };
 
-        for (variant, c) in symbol.variants() {
+        for (variant, value, deprecation_message) in symbol.variants() {
+            let value_char = value.parse::<char>().ok();
+
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                value_char.and_then(|c| {
+                    list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                })
             };
 
             let name = complete(variant);
-            let deprecation = match name.as_str() {
-                "integral.sect" => {
-                    Some("`integral.sect` is deprecated, use `integral.inter` instead")
-                }
-                _ => binding.deprecation(),
-            };
 
             list.push(SymbolModel {
                 name,
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
                 math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
-                math_class: typst_utils::default_math_class(c).map(math_class_name),
-                codepoint: c as _,
-                accent: typst::math::Accent::combine(c).is_some(),
+                // Matches `typst_layout::math::GlyphFragment::new`
+                math_class: value.chars().next().and_then(|c| {
+                    typst_utils::default_math_class(c).map(math_class_name)
+                }),
+                value: value.into(),
+                // Matches casting `Symbol` to `Accent`
+                accent: value_char
+                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
                 alternates: symbol
                     .variants()
-                    .filter(|(other, _)| other != &variant)
-                    .map(|(other, _)| complete(other))
+                    .filter(|(other, _, _)| other != &variant)
+                    .map(|(other, _, _)| complete(other))
                     .collect(),
-                deprecation,
+                deprecation_message: deprecation_message
+                    .or_else(|| binding.deprecation().map(Deprecation::message)),
+                deprecation_until: binding.deprecation().and_then(Deprecation::until),
             });
         }
     }
@@ -780,8 +784,24 @@ pub fn urlify(title: &str) -> EcoString {
 }
 
 /// Extract the first line of documentation.
-fn oneliner(docs: &str) -> &str {
-    docs.lines().next().unwrap_or_default()
+fn oneliner(docs: &str) -> EcoString {
+    let paragraph = docs.split("\n\n").next().unwrap_or_default();
+    let mut depth = 0;
+    let mut period = false;
+    let mut end = paragraph.len();
+    for (i, c) in paragraph.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            '.' if depth == 0 => period = true,
+            c if period && c.is_whitespace() && !docs[..i].ends_with("e.g.") => {
+                end = i;
+                break;
+            }
+            _ => period = false,
+        }
+    }
+    EcoString::from(&docs[..end]).replace("\r\n", " ").replace("\n", " ")
 }
 
 /// The order of types in the documentation.

@@ -3,16 +3,16 @@ use std::str::FromStr;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Label, NativeElement, Packed, Show, ShowSet, Smart,
-    StyleChain, Styles,
+    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
+    elem, scope,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
-use crate::layout::{Abs, Em, HElem, Length, Ratio};
-use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
-use crate::text::{SuperElem, TextElem, TextSize};
+use crate::introspection::{Count, CounterUpdate, Locatable, Location};
+use crate::layout::{Abs, Em, Length, Ratio};
+use crate::model::{Numbering, NumberingPattern, ParElem};
+use crate::text::{TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -23,10 +23,10 @@ use crate::visualize::{LineElem, Stroke};
 /// and can break across multiple pages.
 ///
 /// To customize the appearance of the entry in the footnote listing, see
-/// [`footnote.entry`]($footnote.entry). The footnote itself is realized as a
-/// normal superscript, so you can use a set rule on the [`super`] function to
-/// customize it. You can also apply a show rule to customize only the footnote
-/// marker (superscript number) in the running text.
+/// [`footnote.entry`]. The footnote itself is realized as a normal superscript,
+/// so you can use a set rule on the [`super`] function to customize it. You can
+/// also apply a show rule to customize only the footnote marker (superscript
+/// number) in the running text.
 ///
 /// # Example
 /// ```example
@@ -51,9 +51,10 @@ use crate::visualize::{LineElem, Stroke};
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-#[elem(scope, Locatable, Show, Count)]
+#[elem(scope, Locatable, Count)]
 pub struct FootnoteElem {
-    /// How to number footnotes.
+    /// How to number footnotes. Accepts a
+    /// [numbering pattern or function]($numbering) taking a single number.
     ///
     /// By default, the footnote numbering continues throughout your document.
     /// If you prefer per-page footnote numbering, you can reset the footnote
@@ -67,7 +68,6 @@ pub struct FootnoteElem {
     /// #footnote[Star],
     /// #footnote[Dagger]
     /// ```
-    #[borrowed]
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
@@ -136,21 +136,6 @@ impl Packed<FootnoteElem> {
     }
 }
 
-impl Show for Packed<FootnoteElem> {
-    #[typst_macros::time(name = "footnote", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let span = self.span();
-        let loc = self.declaration_location(engine).at(span)?;
-        let numbering = self.numbering(styles);
-        let counter = Counter::of(FootnoteElem::elem());
-        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-        let sup = SuperElem::new(num).pack().spanned(span);
-        let loc = loc.variant(1);
-        // Add zero-width weak spacing to make the footnote "sticky".
-        Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
-    }
-}
-
 impl Count for Packed<FootnoteElem> {
     fn update(&self) -> Option<CounterUpdate> {
         (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
@@ -192,7 +177,7 @@ cast! {
 /// page run is a sequence of pages without an explicit pagebreak in between).
 /// For this reason, set and show rules for footnote entries should be defined
 /// before any page content, typically at the very start of the document.
-#[elem(name = "entry", title = "Footnote Entry", Show, ShowSet)]
+#[elem(name = "entry", title = "Footnote Entry", ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. Its location can be used to determine
     /// the footnote counter state.
@@ -248,7 +233,6 @@ pub struct FootnoteEntry {
     /// ]
     /// ```
     #[default(Em::new(1.0).into())]
-    #[resolve]
     pub clearance: Length,
 
     /// The gap between footnote entries.
@@ -261,7 +245,6 @@ pub struct FootnoteEntry {
     /// #footnote[Apart]
     /// ```
     #[default(Em::new(0.5).into())]
-    #[resolve]
     pub gap: Length,
 
     /// The indent of each footnote entry.
@@ -277,42 +260,11 @@ pub struct FootnoteEntry {
     pub indent: Length,
 }
 
-impl Show for Packed<FootnoteEntry> {
-    #[typst_macros::time(name = "footnote.entry", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let span = self.span();
-        let number_gap = Em::new(0.05);
-        let default = StyleChain::default();
-        let numbering = self.note.numbering(default);
-        let counter = Counter::of(FootnoteElem::elem());
-        let Some(loc) = self.note.location() else {
-            bail!(
-                span, "footnote entry must have a location";
-                hint: "try using a query or a show rule to customize the footnote instead"
-            );
-        };
-
-        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-        let sup = SuperElem::new(num)
-            .pack()
-            .spanned(span)
-            .linked(Destination::Location(loc))
-            .located(loc.variant(1));
-
-        Ok(Content::sequence([
-            HElem::new(self.indent(styles).into()).pack(),
-            sup,
-            HElem::new(number_gap.into()).with_weak(true).pack(),
-            self.note.body_content().unwrap().clone(),
-        ]))
-    }
-}
-
 impl ShowSet for Packed<FootnoteEntry> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(ParElem::set_leading(Em::new(0.5).into()));
-        out.set(TextElem::set_size(TextSize(Em::new(0.85).into())));
+        out.set(ParElem::leading, Em::new(0.5).into());
+        out.set(TextElem::size, TextSize(Em::new(0.85).into()));
         out
     }
 }

@@ -93,7 +93,7 @@ struct State<'a> {
     size: Size,
 }
 
-impl State<'_> {
+impl<'a> State<'a> {
     fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
         Self {
             size,
@@ -128,13 +128,10 @@ impl State<'_> {
     }
 
     /// Sets the current mask.
-    fn with_mask(self, mask: Option<&sk::Mask>) -> State<'_> {
-        // Ensure that we're using the parent's mask if we don't have one.
-        if mask.is_some() {
-            State { mask, ..self }
-        } else {
-            State { mask: None, ..self }
-        }
+    ///
+    /// If no mask is provided, the parent mask is used.
+    fn with_mask(self, mask: Option<&'a sk::Mask>) -> State<'a> {
+        State { mask: mask.or(self.mask), ..self }
     }
 
     /// Sets the size of the first hard frame in the hierarchy.
@@ -193,39 +190,38 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
 
     let mut mask = state.mask;
     let storage;
-    if let Some(clip_curve) = group.clip.as_ref() {
-        if let Some(path) = shape::convert_curve(clip_curve)
+    if let Some(clip_curve) = group.clip.as_ref()
+        && let Some(path) = shape::convert_curve(clip_curve)
             .and_then(|path| path.transform(state.transform))
-        {
-            if let Some(mask) = mask {
-                let mut mask = mask.clone();
-                mask.intersect_path(
-                    &path,
-                    sk::FillRule::default(),
-                    false,
-                    sk::Transform::default(),
-                );
-                storage = mask;
-            } else {
-                let pxw = canvas.width();
-                let pxh = canvas.height();
-                let Some(mut mask) = sk::Mask::new(pxw, pxh) else {
-                    // Fails if clipping rect is empty. In that case we just
-                    // clip everything by returning.
-                    return;
-                };
-
-                mask.fill_path(
-                    &path,
-                    sk::FillRule::default(),
-                    false,
-                    sk::Transform::default(),
-                );
-                storage = mask;
+    {
+        if let Some(mask) = mask {
+            let mut mask = mask.clone();
+            mask.intersect_path(
+                &path,
+                sk::FillRule::default(),
+                true,
+                sk::Transform::default(),
+            );
+            storage = mask;
+        } else {
+            let pxw = canvas.width();
+            let pxh = canvas.height();
+            let Some(mut mask) = sk::Mask::new(pxw, pxh) else {
+                // Fails if clipping rect is empty. In that case we just
+                // clip everything by returning.
+                return;
             };
 
-            mask = Some(&storage);
-        }
+            mask.fill_path(
+                &path,
+                sk::FillRule::default(),
+                true,
+                sk::Transform::default(),
+            );
+            storage = mask;
+        };
+
+        mask = Some(&storage);
     }
 
     render_frame(canvas, state.with_mask(mask), &group.frame);

@@ -46,6 +46,10 @@
 #set text(lang: "ru")
 "Лошадь не ест салат из огурцов" - это была первая фраза, сказанная по 'телефону'.
 
+--- smartquote-uk ---
+#set text(lang: "uk")
+"Кінь не їсть огірковий салат" — перше речення, коли-небудь вимовлене по 'телефону'.
+
 --- smartquote-it ---
 #set text(lang: "it")
 "Il cavallo non mangia insalata di cetrioli" è stata la prima frase pronunciata al 'telefono'.
@@ -108,6 +112,16 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 "'test statement'" \
 "'test' statement" \
 "statement 'test'"
+
+--- smartquote-nesting-twice render html ---
+When you said _that "he_ surely meant that 'she intended to say "I'm sorry"'", I was quite confused.
+
+'#box[box]'
+
+--- smartquote-inline-block html ---
+Applies across #html.span["inline-level] elements".
+
+Does not apply across #html.div["block-level] elements".
 
 --- smartquote-with-embedding-chars ---
 #set text(lang: "fr")

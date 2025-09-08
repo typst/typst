@@ -31,6 +31,7 @@ flate2 = { workspace = true }
 fontdb = { workspace = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true }
+hayro-syntax = { workspace = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }
 icu_provider_blob = { workspace = true }
@@ -49,6 +50,7 @@ regex = { workspace = true }
 regex-syntax = { workspace = true }
 roxmltree = { workspace = true }
 rust_decimal = { workspace = true }
+rustc-hash = { workspace = true }
 rustybuzz = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -66,6 +68,7 @@ unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }
+utf8_iter = { workspace = true }
 wasmi = { workspace = true }
 xmlwriter = { workspace = true }
 

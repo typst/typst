@@ -1,5 +1,5 @@
-use typst_library::diag::{bail, warning, SourceResult};
-use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
+use typst_library::diag::{SourceResult, bail, warning};
+use typst_library::foundations::{Content, Packed, Resolve, StyleChain, SymbolElem};
 use typst_library::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Point, Ratio, Rel, Size,
 };
@@ -9,8 +9,8 @@ use typst_library::visualize::{FillRule, FixedStroke, Geometry, LineCap, Shape};
 use typst_syntax::Span;
 
 use super::{
-    alignments, delimiter_alignment, style_for_denominator, AlignmentResult,
-    FrameFragment, GlyphFragment, LeftRightAlternator, MathContext, DELIM_SHORT_FALL,
+    AlignmentResult, DELIM_SHORT_FALL, FrameFragment, GlyphFragment, LeftRightAlternator,
+    MathContext, alignments, style_for_denominator,
 };
 
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
@@ -30,15 +30,15 @@ pub fn layout_vec(
         ctx,
         styles,
         &[column],
-        elem.align(styles),
+        elem.align.resolve(styles),
         LeftRightAlternator::Right,
         None,
-        Axes::with_y(elem.gap(styles)),
+        Axes::with_y(elem.gap.resolve(styles)),
         span,
         "elements",
     )?;
 
-    let delim = elem.delim(styles);
+    let delim = elem.delim.get(styles);
     layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
 }
 
@@ -59,14 +59,17 @@ pub fn layout_cases(
         FixedAlignment::Start,
         LeftRightAlternator::None,
         None,
-        Axes::with_y(elem.gap(styles)),
+        Axes::with_y(elem.gap.resolve(styles)),
         span,
         "branches",
     )?;
 
-    let delim = elem.delim(styles);
-    let (open, close) =
-        if elem.reverse(styles) { (None, delim.close()) } else { (delim.open(), None) };
+    let delim = elem.delim.get(styles);
+    let (open, close) = if elem.reverse.get(styles) {
+        (None, delim.close())
+    } else {
+        (delim.open(), None)
+    };
     layout_delimiters(ctx, styles, frame, open, close, span)
 }
 
@@ -79,28 +82,27 @@ pub fn layout_mat(
 ) -> SourceResult<()> {
     let span = elem.span();
     let rows = &elem.rows;
+    let nrows = rows.len();
     let ncols = rows.first().map_or(0, |row| row.len());
 
-    let augment = elem.augment(styles);
+    let augment = elem.augment.resolve(styles);
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
-            if offset == 0 || offset.unsigned_abs() >= rows.len() {
+            if offset > nrows as isize || offset.unsigned_abs() > nrows {
                 bail!(
                     span,
-                    "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                    if offset < 0 { rows.len() as isize + offset } else { offset },
-                    rows.len()
+                    "cannot draw a horizontal line at offset {offset} \
+                     in a matrix with {nrows} rows",
                 );
             }
         }
 
         for &offset in &aug.vline.0 {
-            if offset == 0 || offset.unsigned_abs() >= ncols {
+            if offset > ncols as isize || offset.unsigned_abs() > ncols {
                 bail!(
                     span,
-                    "cannot draw a vertical line after column {} of a matrix with {} columns",
-                    if offset < 0 { ncols as isize + offset } else { offset },
-                    ncols
+                    "cannot draw a vertical line at offset {offset} \
+                     in a matrix with {ncols} columns",
                 );
             }
         }
@@ -116,15 +118,15 @@ pub fn layout_mat(
         ctx,
         styles,
         &columns,
-        elem.align(styles),
+        elem.align.resolve(styles),
         LeftRightAlternator::Right,
         augment,
-        Axes::new(elem.column_gap(styles), elem.row_gap(styles)),
+        Axes::new(elem.column_gap.resolve(styles), elem.row_gap.resolve(styles)),
         span,
         "cells",
     )?;
 
-    let delim = elem.delim(styles);
+    let delim = elem.delim.get(styles);
     layout_delimiters(ctx, styles, frame, delim.open(), delim.close(), span)
 }
 
@@ -157,12 +159,12 @@ fn layout_body(
     let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.resolve(styles);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
-        paint: TextElem::fill_in(styles).as_decoration(),
+        paint: styles.get_ref(TextElem::fill).as_decoration(),
         cap: LineCap::Square,
         ..Default::default()
     };
 
-    let (hline, vline, stroke) = match augment {
+    let (mut hline, mut vline, stroke) = match augment {
         Some(augment) => {
             // We need to get stroke here for ownership.
             let stroke = augment.stroke.unwrap_or_default().unwrap_or(default_stroke);
@@ -183,8 +185,10 @@ fn layout_body(
     // We pad ascent and descent with the ascent and descent of the paren
     // to ensure that normal matrices are aligned with others unless they are
     // way too big.
+    // This will never panic as a paren will never shape into nothing.
     let paren =
-        GlyphFragment::new(ctx, styles.chain(&denom_style), '(', Span::detached());
+        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())?
+            .unwrap();
 
     for (column, col) in columns.iter().zip(&mut cols) {
         for (cell, (ascent, descent)) in column.iter().zip(&mut heights) {
@@ -202,27 +206,55 @@ fn layout_body(
                 ));
             }
 
-            ascent.set_max(cell.ascent().max(paren.ascent));
-            descent.set_max(cell.descent().max(paren.descent));
+            ascent.set_max(cell.ascent().max(paren.ascent()));
+            descent.set_max(cell.descent().max(paren.descent()));
 
             col.push(cell);
         }
     }
 
+    for line in hline.0.iter_mut() {
+        if *line < 0 {
+            *line += nrows as isize;
+        }
+    }
+
+    for line in vline.0.iter_mut() {
+        if *line < 0 {
+            *line += ncols as isize;
+        }
+    }
+
     // For each row, combine maximum ascent and descent into a row height.
     // Sum the row heights, then add the total height of the gaps between rows.
-    let total_height =
+    let mut total_height =
         heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + gap.y * (nrows - 1) as f64;
+
+    if hline.0.contains(&0) {
+        total_height += gap.y;
+    }
+
+    if hline.0.contains(&(nrows as isize)) {
+        total_height += gap.y;
+    }
 
     // Width starts at zero because it can't be calculated until later
     let mut frame = Frame::soft(Size::new(Abs::zero(), total_height));
 
     let mut x = Abs::zero();
 
+    if vline.0.contains(&0) {
+        frame.push(
+            Point::with_x(x + half_gap.x),
+            line_item(total_height, true, stroke.clone(), span),
+        );
+        x += gap.x;
+    }
+
     for (index, col) in cols.into_iter().enumerate() {
         let AlignmentResult { points, width: rcol } = alignments(&col);
 
-        let mut y = Abs::zero();
+        let mut y = if hline.0.contains(&0) { gap.y } else { Abs::zero() };
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_line_frame(&points, alternator);
@@ -244,9 +276,7 @@ fn layout_body(
         x += rcol;
 
         // If a vertical line should be inserted after this column
-        if vline.0.contains(&(index as isize + 1))
-            || vline.0.contains(&(1 - ((ncols - index) as isize)))
-        {
+        if vline.0.contains(&(index as isize + 1)) {
             frame.push(
                 Point::with_x(x + half_gap.x),
                 line_item(total_height, true, stroke.clone(), span),
@@ -257,16 +287,17 @@ fn layout_body(
         x += gap.x;
     }
 
-    // Once all the columns are laid out, the total width can be calculated
-    let total_width = x - gap.x;
+    let total_width = if !(vline.0.contains(&(ncols as isize))) { x - gap.x } else { x };
 
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
-        let real_line =
-            if line < 0 { nrows - line.unsigned_abs() } else { line as usize };
-        let offset = (heights[0..real_line].iter().map(|&(a, b)| a + b).sum::<Abs>()
-            + gap.y * (real_line - 1) as f64)
-            + half_gap.y;
+        let offset = if line == 0 {
+            gap.y
+        } else {
+            (heights[0..line as usize].iter().map(|&(a, b)| a + b).sum::<Abs>()
+                + gap.y * (line - 1) as f64)
+                + half_gap.y
+        };
 
         frame.push(
             Point::with_y(offset),
@@ -307,24 +338,26 @@ fn layout_delimiters(
     span: Span,
 ) -> SourceResult<()> {
     let short_fall = DELIM_SHORT_FALL.resolve(styles);
-    let axis = scaled!(ctx, styles, axis_height);
+    let axis = ctx.font().math().axis_height.resolve(styles);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
 
-    if let Some(left) = left {
-        let mut left = GlyphFragment::new(ctx, styles, left, span)
-            .stretch_vertical(ctx, target, short_fall);
-        left.align_on_axis(ctx, delimiter_alignment(left.c));
+    if let Some(left_c) = left {
+        let mut left =
+            ctx.layout_into_fragment(&SymbolElem::packed(left_c).spanned(span), styles)?;
+        left.stretch_vertical(ctx, target - short_fall);
+        left.center_on_axis();
         ctx.push(left);
     }
 
     ctx.push(FrameFragment::new(styles, frame));
 
-    if let Some(right) = right {
-        let mut right = GlyphFragment::new(ctx, styles, right, span)
-            .stretch_vertical(ctx, target, short_fall);
-        right.align_on_axis(ctx, delimiter_alignment(right.c));
+    if let Some(right_c) = right {
+        let mut right =
+            ctx.layout_into_fragment(&SymbolElem::packed(right_c).spanned(span), styles)?;
+        right.stretch_vertical(ctx, target - short_fall);
+        right.center_on_axis();
         ctx.push(right);
     }
 

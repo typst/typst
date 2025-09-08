@@ -20,27 +20,22 @@ pub fn layout_list(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let indent = elem.indent(styles);
-    let body_indent = elem.body_indent(styles);
-    let tight = elem.tight(styles);
-    let gutter = elem.spacing(styles).unwrap_or_else(|| {
-        if tight {
-            ParElem::leading_in(styles).into()
-        } else {
-            ParElem::spacing_in(styles).into()
-        }
+    let indent = elem.indent.get(styles);
+    let body_indent = elem.body_indent.get(styles);
+    let tight = elem.tight.get(styles);
+    let gutter = elem.spacing.get(styles).unwrap_or_else(|| {
+        if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
 
-    let Depth(depth) = ListElem::depth_in(styles);
+    let Depth(depth) = styles.get(ListElem::depth);
     let marker = elem
-        .marker(styles)
+        .marker
+        .get_ref(styles)
         .resolve(engine, styles, depth)?
         // avoid '#set align' interference with the list
         .aligned(HAlignment::Start + VAlignment::Top);
 
     let mut cells = vec![];
-    let mut locator = locator.split();
-
     for item in &elem.children {
         // Text in wide lists shall always turn into paragraphs.
         let mut body = item.body.clone();
@@ -48,13 +43,10 @@ pub fn layout_list(
             body += ParbreakElem::shared();
         }
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(marker.clone(), locator.next(&marker.span())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            body.styled(ListElem::set_depth(Depth(1))),
-            locator.next(&item.body.span()),
-        ));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(marker.clone()));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(body.set(ListElem::depth, Depth(1))));
     }
 
     let grid = CellGrid::new(
@@ -67,7 +59,7 @@ pub fn layout_list(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
 
     layouter.layout(engine)
 }
@@ -81,40 +73,32 @@ pub fn layout_enum(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let numbering = elem.numbering(styles);
-    let reversed = elem.reversed(styles);
-    let indent = elem.indent(styles);
-    let body_indent = elem.body_indent(styles);
-    let tight = elem.tight(styles);
-    let gutter = elem.spacing(styles).unwrap_or_else(|| {
-        if tight {
-            ParElem::leading_in(styles).into()
-        } else {
-            ParElem::spacing_in(styles).into()
-        }
+    let numbering = elem.numbering.get_ref(styles);
+    let reversed = elem.reversed.get(styles);
+    let indent = elem.indent.get(styles);
+    let body_indent = elem.body_indent.get(styles);
+    let tight = elem.tight.get(styles);
+    let gutter = elem.spacing.get(styles).unwrap_or_else(|| {
+        if tight { styles.get(ParElem::leading) } else { styles.get(ParElem::spacing) }
     });
 
     let mut cells = vec![];
-    let mut locator = locator.split();
-    let mut number = elem.start(styles).unwrap_or_else(|| {
-        if reversed {
-            elem.children.len() as u64
-        } else {
-            1
-        }
-    });
-    let mut parents = EnumElem::parents_in(styles);
+    let mut number = elem
+        .start
+        .get(styles)
+        .unwrap_or_else(|| if reversed { elem.children.len() as u64 } else { 1 });
+    let mut parents = styles.get_cloned(EnumElem::parents);
 
-    let full = elem.full(styles);
+    let full = elem.full.get(styles);
 
     // Horizontally align based on the given respective parameter.
     // Vertically align to the top to avoid inheriting `horizon` or `bottom`
     // alignment from the context and having the number be displaced in
     // relation to the item it refers to.
-    let number_align = elem.number_align(styles);
+    let number_align = elem.number_align.get(styles);
 
     for item in &elem.children {
-        number = item.number(styles).unwrap_or(number);
+        number = item.number.get(styles).unwrap_or(number);
 
         let context = Context::new(None, Some(styles));
         let resolved = if full {
@@ -133,8 +117,7 @@ pub fn layout_enum(
 
         // Disable overhang as a workaround to end-aligned dots glitching
         // and decreasing spacing between numbers and items.
-        let resolved =
-            resolved.aligned(number_align).styled(TextElem::set_overhang(false));
+        let resolved = resolved.aligned(number_align).set(TextElem::overhang, false);
 
         // Text in wide enums shall always turn into paragraphs.
         let mut body = item.body.clone();
@@ -142,13 +125,10 @@ pub fn layout_enum(
             body += ParbreakElem::shared();
         }
 
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(resolved, locator.next(&())));
-        cells.push(Cell::new(Content::empty(), locator.next(&())));
-        cells.push(Cell::new(
-            body.styled(EnumElem::set_parents(smallvec![number])),
-            locator.next(&item.body.span()),
-        ));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(resolved));
+        cells.push(Cell::new(Content::empty()));
+        cells.push(Cell::new(body.set(EnumElem::parents, smallvec![number])));
         number =
             if reversed { number.saturating_sub(1) } else { number.saturating_add(1) };
     }
@@ -163,7 +143,7 @@ pub fn layout_enum(
         Axes::with_y(&[gutter.into()]),
         cells,
     );
-    let layouter = GridLayouter::new(&grid, regions, styles, elem.span());
+    let layouter = GridLayouter::new(&grid, regions, locator, styles, elem.span());
 
     layouter.layout(engine)
 }

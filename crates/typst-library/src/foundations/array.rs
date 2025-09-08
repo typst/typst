@@ -4,16 +4,16 @@ use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, func, ops, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue,
-    Func, IntoValue, Reflect, Repr, Str, Value, Version,
+    Args, Bytes, CastInfo, Context, Dict, FromValue, Func, IntoValue, Reflect, Repr, Str,
+    Value, Version, cast, func, ops, repr, scope, ty,
 };
 
 /// Create a new [`Array`] from values.
@@ -94,7 +94,7 @@ impl Array {
     }
 
     /// Iterate over references to the contained values.
-    pub fn iter(&self) -> std::slice::Iter<Value> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Value> {
         self.0.iter()
     }
 
@@ -286,11 +286,8 @@ impl Array {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Array> {
-        let mut end = end;
-        if end.is_none() {
-            end = count.map(|c: i64| start + c);
-        }
         let start = self.locate(start, true)?;
+        let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
         Ok(self.0[start..end].into())
     }
@@ -604,7 +601,7 @@ impl Array {
         Ok(acc)
     }
 
-    /// Calculates the product all items (works for all types that can be
+    /// Calculates the product of all items (works for all types that can be
     /// multiplied).
     #[func]
     pub fn product(

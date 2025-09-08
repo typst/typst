@@ -1,28 +1,28 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 
-use ecow::{eco_format, EcoString};
-use if_chain::if_chain;
+use ecow::{EcoString, eco_format};
+use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    fields_on, repr, AutoValue, CastInfo, Func, Label, NoneValue, ParamInfo, Repr,
-    StyleChain, Styles, Type, Value,
+    AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, ParamInfo, Repr,
+    StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir, PagedDocument};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, FileId, LinkedNode, Side, Source,
-    SyntaxKind,
+    FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
+    is_ident,
 };
-use typst::text::RawElem;
+use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
 use unscanny::Scanner;
 
 use crate::utils::{
     check_value_recursively, globals, plain_docs_sentence, summarize_font_family,
 };
-use crate::{analyze_expr, analyze_import, analyze_labels, named_items, IdeWorld};
+use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -76,7 +76,7 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
@@ -98,7 +98,7 @@ pub enum CompletionKind {
     /// A font family.
     Font,
     /// A symbol.
-    Symbol(char),
+    Symbol(EcoString),
 }
 
 /// Complete in comments. Or rather, don't!
@@ -130,7 +130,14 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Start of a reference: "@|" or "@he|".
+    // Start of a reference: "@|".
+    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
+        return true;
+    }
+
+    // An existing reference: "@he|".
     if ctx.leaf.kind() == SyntaxKind::RefMarker {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
@@ -138,26 +145,22 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind a half-completed binding: "#let x = |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if prev.kind() == SyntaxKind::Eq;
-        if prev.parent_kind() == Some(SyntaxKind::LetBinding);
-        then {
-            ctx.from = ctx.cursor;
-            code_completions(ctx, false);
-            return true;
-        }
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Eq
+        && prev.parent_kind() == Some(SyntaxKind::LetBinding)
+    {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, false);
+        return true;
     }
 
     // Behind a half-completed context block: "#context |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if prev.kind() == SyntaxKind::Context;
-        then {
-            ctx.from = ctx.cursor;
-            code_completions(ctx, false);
-            return true;
-        }
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Context
+    {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, false);
+        return true;
     }
 
     // Directly after a raw block.
@@ -298,9 +301,16 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         return false;
     }
 
-    // Start of an interpolated identifier: "#|".
+    // Start of an interpolated identifier: "$#|$".
     if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind existing interpolated identifier: "$#pa|$".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
         return true;
     }
@@ -359,37 +369,34 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     );
 
     // Behind an expression plus dot: "emoji.|".
-    if_chain! {
-        if ctx.leaf.kind() == SyntaxKind::Dot
-            || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
-                && ctx.leaf.text() == ".");
-        if ctx.leaf.range().end == ctx.cursor;
-        if let Some(prev) = ctx.leaf.prev_sibling();
-        if !in_markup || prev.range().end == ctx.leaf.range().start;
-        if prev.is::<ast::Expr>();
-        if prev.parent_kind() != Some(SyntaxKind::Markup) ||
-           prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
-        if let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next();
-        then {
-            ctx.from = ctx.cursor;
-            field_access_completions(ctx, &value, &styles);
-            return true;
-        }
+    if (ctx.leaf.kind() == SyntaxKind::Dot
+        || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
+            && ctx.leaf.text() == "."))
+        && ctx.leaf.range().end == ctx.cursor
+        && let Some(prev) = ctx.leaf.prev_sibling()
+        && (!in_markup || prev.range().end == ctx.leaf.range().start)
+        && prev.is::<ast::Expr>()
+        && (prev.parent_kind() != Some(SyntaxKind::Markup)
+            || prev.prev_sibling_kind() == Some(SyntaxKind::Hash))
+        && let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next()
+    {
+        ctx.from = ctx.cursor;
+        field_access_completions(ctx, &value, &styles);
+        return true;
     }
 
     // Behind a started field access: "emoji.fa|".
-    if_chain! {
-        if ctx.leaf.kind() == SyntaxKind::Ident;
-        if let Some(prev) = ctx.leaf.prev_sibling();
-        if prev.kind() == SyntaxKind::Dot;
-        if let Some(prev_prev) = prev.prev_sibling();
-        if prev_prev.is::<ast::Expr>();
-        if let Some((value, styles)) = analyze_expr(ctx.world, &prev_prev).into_iter().next();
-        then {
-            ctx.from = ctx.leaf.offset();
-            field_access_completions(ctx, &value, &styles);
-            return true;
-        }
+    if ctx.leaf.kind() == SyntaxKind::Ident
+        && let Some(prev) = ctx.leaf.prev_sibling()
+        && prev.kind() == SyntaxKind::Dot
+        && let Some(prev_prev) = prev.prev_sibling()
+        && prev_prev.is::<ast::Expr>()
+        && let Some((value, styles)) =
+            analyze_expr(ctx.world, &prev_prev).into_iter().next()
+    {
+        ctx.from = ctx.leaf.offset();
+        field_access_completions(ctx, &value, &styles);
+        return true;
     }
 
     false
@@ -441,9 +448,9 @@ fn field_access_completions(
     match value {
         Value::Symbol(symbol) => {
             for modifier in symbol.modifiers() {
-                if let Ok(modified) = symbol.clone().modified(modifier) {
+                if let Ok(modified) = symbol.clone().modified((), modifier) {
                     ctx.completions.push(Completion {
-                        kind: CompletionKind::Symbol(modified.get()),
+                        kind: CompletionKind::Symbol(modified.get().into()),
                         label: modifier.into(),
                         apply: None,
                         detail: None,
@@ -493,57 +500,49 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
 fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // In an import path for a file or package:
     // "#import "|",
-    if_chain! {
-        if matches!(
-            ctx.leaf.parent_kind(),
-            Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude)
-        );
-        if let Some(ast::Expr::Str(str)) = ctx.leaf.cast();
+    if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
+        ctx.leaf.parent_kind()
+        && let Some(ast::Expr::Str(str)) = ctx.leaf.cast()
+    {
         let value = str.get();
-        then {
-            ctx.from = ctx.leaf.offset();
-            if value.starts_with('@') {
-                let all_versions = value.contains(':');
-                ctx.package_completions(all_versions);
-            } else {
-                ctx.file_completions_with_extensions(&["typ"]);
-            }
-            return true;
+        ctx.from = ctx.leaf.offset();
+        if value.starts_with('@') {
+            let all_versions = value.contains(':');
+            ctx.package_completions(all_versions);
+        } else {
+            ctx.file_completions_with_extensions(&["typ"]);
         }
+        return true;
     }
 
     // Behind an import list:
     // "#import "path.typ": |",
     // "#import "path.typ": a, b, |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::ModuleImport(import)) = prev.get().cast();
-        if let Some(ast::Imports::Items(items)) = import.imports();
-        if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
-        then {
-            ctx.from = ctx.cursor;
-            import_item_completions(ctx, items, &source);
-            return true;
-        }
+    if let Some(prev) = ctx.leaf.prev_sibling()
+        && let Some(ast::Expr::ModuleImport(import)) = prev.get().cast()
+        && let Some(ast::Imports::Items(items)) = import.imports()
+        && let Some(source) = prev.children().find(|child| child.is::<ast::Expr>())
+    {
+        ctx.from = ctx.cursor;
+        import_item_completions(ctx, items, &source);
+        return true;
     }
 
     // Behind a half-started identifier in an import list:
     // "#import "path.typ": thi|",
-    if_chain! {
-        if ctx.leaf.kind() == SyntaxKind::Ident;
-        if let Some(parent) = ctx.leaf.parent();
-        if parent.kind() == SyntaxKind::ImportItemPath;
-        if let Some(grand) = parent.parent();
-        if grand.kind() == SyntaxKind::ImportItems;
-        if let Some(great) = grand.parent();
-        if let Some(ast::Expr::ModuleImport(import)) = great.get().cast();
-        if let Some(ast::Imports::Items(items)) = import.imports();
-        if let Some(source) = great.children().find(|child| child.is::<ast::Expr>());
-        then {
-            ctx.from = ctx.leaf.offset();
-            import_item_completions(ctx, items, &source);
-            return true;
-        }
+    if ctx.leaf.kind() == SyntaxKind::Ident
+        && let Some(parent) = ctx.leaf.parent()
+        && parent.kind() == SyntaxKind::ImportItemPath
+        && let Some(grand) = parent.parent()
+        && grand.kind() == SyntaxKind::ImportItems
+        && let Some(great) = grand.parent()
+        && let Some(ast::Expr::ModuleImport(import)) = great.get().cast()
+        && let Some(ast::Imports::Items(items)) = import.imports()
+        && let Some(source) = great.children().find(|child| child.is::<ast::Expr>())
+    {
+        ctx.from = ctx.leaf.offset();
+        import_item_completions(ctx, items, &source);
+        return true;
     }
 
     false
@@ -593,15 +592,13 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind a half-completed show rule: "show strong: |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Colon);
-        if matches!(prev.parent_kind(), Some(SyntaxKind::ShowRule));
-        then {
-            ctx.from = ctx.cursor;
-            show_rule_recipe_completions(ctx);
-            return true;
-        }
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && matches!(prev.kind(), SyntaxKind::Colon)
+        && matches!(prev.parent_kind(), Some(SyntaxKind::ShowRule))
+    {
+        ctx.from = ctx.cursor;
+        show_rule_recipe_completions(ctx);
+        return true;
     }
 
     false
@@ -668,65 +665,63 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 /// Complete call and set rule parameters.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
-    let (callee, set, args, args_linked) = if_chain! {
-        if let Some(parent) = ctx.leaf.parent();
-        if let Some(parent) = match parent.kind() {
+    let (callee, set, args, args_linked) = if let Some(parent) = ctx.leaf.parent()
+        && let Some(parent) = match parent.kind() {
             SyntaxKind::Named => parent.parent(),
             _ => Some(parent),
-        };
-        if let Some(args) = parent.get().cast::<ast::Args>();
-        if let Some(grand) = parent.parent();
-        if let Some(expr) = grand.get().cast::<ast::Expr>();
-        let set = matches!(expr, ast::Expr::SetRule(_));
-        if let Some(callee) = match expr {
+        }
+        && let Some(args) = parent.get().cast::<ast::Args>()
+        && let Some(grand) = parent.parent()
+        && let Some(expr) = grand.get().cast::<ast::Expr>()
+        && let set = matches!(expr, ast::Expr::SetRule(_))
+        && let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::SetRule(set) => Some(set.target()),
             _ => None,
-        };
-        then {
-            (callee, set, args, parent)
-        } else {
-            return false;
-        }
+        } {
+        (callee, set, args, parent)
+    } else {
+        return false;
     };
 
     // Find the piece of syntax that decides what we're completing.
     let mut deciding = ctx.leaf.clone();
     while !matches!(
         deciding.kind(),
-        SyntaxKind::LeftParen | SyntaxKind::Comma | SyntaxKind::Colon
+        SyntaxKind::LeftParen
+            | SyntaxKind::RightParen
+            | SyntaxKind::Comma
+            | SyntaxKind::Colon
     ) {
         let Some(prev) = deciding.prev_leaf() else { break };
         deciding = prev;
     }
 
     // Parameter values: "func(param:|)", "func(param: |)".
-    if_chain! {
-        if deciding.kind() == SyntaxKind::Colon;
-        if let Some(prev) = deciding.prev_leaf();
-        if let Some(param) = prev.get().cast::<ast::Ident>();
-        then {
-            if let Some(next) = deciding.next_leaf() {
-                ctx.from = ctx.cursor.min(next.offset());
-            }
-
-            named_param_value_completions(ctx, callee, &param);
-            return true;
+    if let SyntaxKind::Colon = deciding.kind()
+        && let Some(prev) = deciding.prev_leaf()
+        && let Some(param) = prev.get().cast::<ast::Ident>()
+    {
+        if let Some(next) = deciding.next_leaf() {
+            ctx.from = ctx.cursor.min(next.offset());
         }
+
+        named_param_value_completions(ctx, callee, &param);
+        return true;
     }
 
-    // Parameters: "func(|)", "func(hi|)", "func(12,|)".
-    if_chain! {
-        if matches!(deciding.kind(), SyntaxKind::LeftParen | SyntaxKind::Comma);
-        if deciding.kind() != SyntaxKind::Comma || deciding.range().end < ctx.cursor;
-        then {
-            if let Some(next) = deciding.next_leaf() {
-                ctx.from = ctx.cursor.min(next.offset());
-            }
-
-            param_completions(ctx, callee, set, args, args_linked);
-            return true;
+    // Parameters: "func(|)", "func(hi|)", "func(12, |)", "func(12,|)" [explicit mode only]
+    if let SyntaxKind::LeftParen | SyntaxKind::Comma = deciding.kind()
+        && (deciding.kind() != SyntaxKind::Comma
+            || deciding.range().end < ctx.cursor
+            || ctx.explicit)
+    {
+        if let Some(next) = deciding.next_leaf() {
+            ctx.from = ctx.cursor.min(next.offset());
         }
+
+        param_completions(ctx, callee, set, args, args_linked);
+        return true;
     }
 
     false
@@ -745,7 +740,7 @@ fn param_completions<'a>(
 
     // Determine which arguments are already present.
     let mut existing_positional = 0;
-    let mut existing_named = HashSet::new();
+    let mut existing_named = FxHashSet::default();
     for arg in args.items() {
         match arg {
             ast::Arg::Pos(_) => {
@@ -841,7 +836,9 @@ fn param_value_completions<'a>(
 /// Returns which file extensions to complete for the given parameter if any.
 fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static str]> {
     Some(match (func.name(), param.name) {
-        (Some("image"), "source") => &["png", "jpg", "jpeg", "gif", "svg", "svgz"],
+        (Some("image"), "source") => {
+            &["png", "jpg", "jpeg", "gif", "svg", "svgz", "webp", "pdf"]
+        }
         (Some("csv"), "source") => &["csv"],
         (Some("plugin"), "source") => &["wasm"],
         (Some("cbor"), "source") => &["cbor"],
@@ -855,6 +852,7 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
         (Some("embed"), "path") => &[],
+        (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
         (None, "path") => &[],
         _ => return None,
     })
@@ -897,7 +895,10 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     }
 
     // An existing identifier: "{ pa| }".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
+    // Ignores named pair keys as they are not variables (as in "(pa|: 23)").
+    if ctx.leaf.kind() == SyntaxKind::Ident
+        && (ctx.leaf.index() > 0 || ctx.leaf.parent_kind() != Some(SyntaxKind::Named))
+    {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, false);
         return true;
@@ -910,11 +911,19 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Anywhere: "{ | }".
-    // But not within or after an expression.
+    // Anywhere: "{ | }", "(|)", "(1,|)", "(a:|)".
+    // But not within or after an expression, and also not part of a dictionary
+    // key (as in "(pa: |,)")
     if ctx.explicit
+        && ctx.leaf.parent_kind() != Some(SyntaxKind::Dict)
         && (ctx.leaf.kind().is_trivia()
-            || matches!(ctx.leaf.kind(), SyntaxKind::LeftParen | SyntaxKind::LeftBrace))
+            || matches!(
+                ctx.leaf.kind(),
+                SyntaxKind::LeftParen
+                    | SyntaxKind::LeftBrace
+                    | SyntaxKind::Comma
+                    | SyntaxKind::Colon
+            ))
     {
         ctx.from = ctx.cursor;
         code_completions(ctx, false);
@@ -1081,6 +1090,22 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
     }
 }
 
+/// See if the AST node is somewhere within a show rule applying to equations
+fn is_in_equation_show_rule(leaf: &LinkedNode<'_>) -> bool {
+    let mut node = leaf;
+    while let Some(parent) = node.parent() {
+        if let Some(expr) = parent.get().cast::<ast::Expr>()
+            && let ast::Expr::ShowRule(show) = expr
+            && let Some(ast::Expr::FieldAccess(field)) = show.selector()
+            && field.field().as_str() == "equation"
+        {
+            return true;
+        }
+        node = parent;
+    }
+    false
+}
+
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn IdeWorld + 'a),
@@ -1093,7 +1118,7 @@ struct CompletionContext<'a> {
     explicit: bool,
     from: usize,
     completions: Vec<Completion>,
-    seen_casts: HashSet<u128>,
+    seen_casts: FxHashSet<u128>,
 }
 
 impl<'a> CompletionContext<'a> {
@@ -1118,7 +1143,7 @@ impl<'a> CompletionContext<'a> {
             explicit,
             from: cursor,
             completions: vec![],
-            seen_casts: HashSet::new(),
+            seen_casts: FxHashSet::default(),
         })
     }
 
@@ -1152,10 +1177,12 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
-        let equation = self.before_window(25).contains("equation");
+        let equation = is_in_equation_show_rule(self.leaf);
         for (family, iter) in self.world.book().families() {
-            let detail = summarize_font_family(iter);
-            if !equation || family.contains("Math") {
+            let variants: Vec<_> = iter.collect();
+            let is_math = variants.iter().any(|f| f.flags.contains(FontFlags::MATH));
+            let detail = summarize_font_family(variants);
+            if !equation || is_math {
                 self.str_completion(
                     family,
                     Some(CompletionKind::Font),
@@ -1343,17 +1370,18 @@ impl<'a> CompletionContext<'a> {
             }
         } else if at {
             apply = Some(eco_format!("at(\"{label}\")"));
-        } else if label.starts_with('"') && self.after.starts_with('"') {
-            if let Some(trimmed) = label.strip_suffix('"') {
-                apply = Some(trimmed.into());
-            }
+        } else if label.starts_with('"')
+            && self.after.starts_with('"')
+            && let Some(trimmed) = label.strip_suffix('"')
+        {
+            apply = Some(trimmed.into());
         }
 
         self.completions.push(Completion {
             kind: kind.unwrap_or_else(|| match value {
                 Value::Func(_) => CompletionKind::Func,
                 Value::Type(_) => CompletionKind::Type,
-                Value::Symbol(s) => CompletionKind::Symbol(s.get()),
+                Value::Symbol(s) => CompletionKind::Symbol(s.get().into()),
                 _ => CompletionKind::Constant,
             }),
             label,
@@ -1532,7 +1560,7 @@ mod tests {
 
     use typst::layout::PagedDocument;
 
-    use super::{autocomplete, Completion};
+    use super::{Completion, CompletionKind, autocomplete};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     /// Quote a string.
@@ -1547,10 +1575,11 @@ mod tests {
     trait ResponseExt {
         fn completions(&self) -> &[Completion];
         fn labels(&self) -> BTreeSet<&str>;
+        fn must_be_empty(&self) -> &Self;
         fn must_include<'a>(&self, includes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_exclude<'a>(&self, excludes: impl IntoIterator<Item = &'a str>) -> &Self;
         fn must_apply<'a>(&self, label: &str, apply: impl Into<Option<&'a str>>)
-            -> &Self;
+        -> &Self;
     }
 
     impl ResponseExt for Response {
@@ -1563,6 +1592,16 @@ mod tests {
 
         fn labels(&self) -> BTreeSet<&str> {
             self.completions().iter().map(|c| c.label.as_str()).collect()
+        }
+
+        #[track_caller]
+        fn must_be_empty(&self) -> &Self {
+            let labels = self.labels();
+            assert!(
+                labels.is_empty(),
+                "expected no suggestions (got {labels:?} instead)"
+            );
+            self
         }
 
         #[track_caller]
@@ -1609,7 +1648,28 @@ mod tests {
         let world = world.acquire();
         let world = world.borrow();
         let doc = typst::compile(world).output.ok();
-        test_with_doc(world, pos, doc.as_ref())
+        test_with_doc(world, pos, doc.as_ref(), true)
+    }
+
+    #[track_caller]
+    fn test_implicit(world: impl WorldLike, pos: impl FilePos) -> Response {
+        let world = world.acquire();
+        let world = world.borrow();
+        let doc = typst::compile(world).output.ok();
+        test_with_doc(world, pos, doc.as_ref(), false)
+    }
+
+    #[track_caller]
+    fn test_with_addition(
+        initial_text: &str,
+        addition: &str,
+        pos: impl FilePos,
+    ) -> Response {
+        let mut world = TestWorld::new(initial_text);
+        let doc = typst::compile(&world).output.ok();
+        let end = world.main.text().len();
+        world.main.edit(end..end, addition);
+        test_with_doc(&world, pos, doc.as_ref(), true)
     }
 
     #[track_caller]
@@ -1617,11 +1677,12 @@ mod tests {
         world: impl WorldLike,
         pos: impl FilePos,
         doc: Option<&PagedDocument>,
+        explicit: bool,
     ) -> Response {
         let world = world.acquire();
         let world = world.borrow();
         let (source, cursor) = pos.resolve(world);
-        autocomplete(world, doc, &source, cursor, true)
+        autocomplete(world, doc, &source, cursor, explicit)
     }
 
     #[test]
@@ -1644,6 +1705,13 @@ mod tests {
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
     }
 
+    /// Test that autocomplete in math uses the correct global scope.
+    #[test]
+    fn test_autocomplete_math_scope() {
+        test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
+        test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
@@ -1662,12 +1730,36 @@ mod tests {
 
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
-        let end = world.main.len_bytes();
+        let end = world.main.text().len();
         world.main.edit(end..end, " #cite()");
 
-        test_with_doc(&world, -2, doc.as_ref())
+        test_with_doc(&world, -2, doc.as_ref(), true)
             .must_include(["netwok", "glacier-melt", "supplement"])
             .must_exclude(["bib"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_function() {
+        test_with_addition("x<test>", " #ref(<)", -2).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand() {
+        test_with_addition("x<test>", " @", -1).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_shorthand_with_partial_identifier() {
+        test_with_addition("x<test>", " @te", -1).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_identical_labels_returns_single_completion() {
+        let result = test_with_addition("x<test> y<test>", " @t", -1);
+        let completions = result.completions();
+        let label_count =
+            completions.iter().filter(|c| c.kind == CompletionKind::Label).count();
+        assert_eq!(label_count, 1);
     }
 
     /// Test what kind of brackets we autocomplete for function calls depending
@@ -1698,6 +1790,8 @@ mod tests {
         test("#numbering(\"foo\", 1, )", -2)
             .must_include(["integer"])
             .must_exclude(["string"]);
+        // After argument list no completions.
+        test("#numbering()", -1).must_exclude(["string"]);
     }
 
     /// Test that autocompletion for values of known type picks up nested
@@ -1727,6 +1821,8 @@ mod tests {
             .with_source("content/a.typ", "#image()")
             .with_source("content/b.typ", "#csv(\"\")")
             .with_source("content/c.typ", "#include \"\"")
+            .with_source("content/d.typ", "#pdf.attach(\"\")")
+            .with_source("content/e.typ", "#math.attach(\"\")")
             .with_asset_at("assets/tiger.jpg", "tiger.jpg")
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
@@ -1735,15 +1831,20 @@ mod tests {
             .must_include([q!("content/a.typ"), q!("content/b.typ"), q!("utils.typ")])
             .must_exclude([q!("assets/tiger.jpg")]);
 
-        test(&world, ("content/c.typ", -2))
-            .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
-            .must_exclude([q!("c.typ")]);
-
         test(&world, ("content/a.typ", -2))
             .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")])
             .must_exclude([q!("../data/example.csv"), q!("b.typ")]);
 
         test(&world, ("content/b.typ", -3)).must_include([q!("../data/example.csv")]);
+
+        test(&world, ("content/c.typ", -2))
+            .must_include([q!("../main.typ"), q!("a.typ"), q!("b.typ")])
+            .must_exclude([q!("c.typ")]);
+
+        test(&world, ("content/d.typ", -2))
+            .must_include([q!("../assets/tiger.jpg"), q!("../data/example.csv")]);
+
+        test(&world, ("content/e.typ", -2)).must_exclude([q!("data/example.csv")]);
     }
 
     #[test]
@@ -1789,5 +1890,110 @@ mod tests {
         test("$ arrow. $", -3)
             .must_include(["r", "dashed"])
             .must_exclude(["cases"]);
+    }
+
+    #[test]
+    fn test_autocomplete_fonts() {
+        test("#text(font:)", -2)
+            .must_include([q!("Libertinus Serif"), q!("New Computer Modern Math")]);
+
+        test("#show link: set text(font: )", -2)
+            .must_include([q!("Libertinus Serif"), q!("New Computer Modern Math")]);
+
+        test("#show math.equation: set text(font: )", -2)
+            .must_include([q!("New Computer Modern Math")])
+            .must_exclude([q!("Libertinus Serif")]);
+
+        test("#show math.equation: it => { set text(font: )\nit }", -7)
+            .must_include([q!("New Computer Modern Math")])
+            .must_exclude([q!("Libertinus Serif")]);
+    }
+
+    #[test]
+    fn test_autocomplete_typed_html() {
+        test("#html.div(translate: )", -2)
+            .must_include(["true", "false"])
+            .must_exclude([q!("yes"), q!("no")]);
+        test("#html.input(value: )", -2).must_include(["float", "string", "red", "blue"]);
+        test("#html.div(role: )", -2).must_include([q!("alertdialog")]);
+    }
+
+    #[test]
+    fn test_autocomplete_in_function_params_after_comma_and_colon() {
+        let document = "#text(size: 12pt, [])";
+
+        // After colon
+        test(document, 11).must_include(["length"]);
+        test_implicit(document, 11).must_include(["length"]);
+
+        test(document, 12).must_include(["length"]);
+        test_implicit(document, 12).must_include(["length"]);
+
+        // After comma
+        test(document, 17).must_include(["font"]);
+        test_implicit(document, 17).must_be_empty();
+
+        test(document, 18).must_include(["font"]);
+        test_implicit(document, 18).must_include(["font"]);
+    }
+
+    #[test]
+    fn test_autocomplete_in_list_literal() {
+        let document = "#let val = 0\n#(1, \"one\")";
+
+        // After opening paren
+        test(document, 15).must_include(["color", "val"]);
+        test_implicit(document, 15).must_be_empty();
+
+        // After first element
+        test(document, 16).must_be_empty();
+        test_implicit(document, 16).must_be_empty();
+
+        // After comma
+        test(document, 17).must_include(["color", "val"]);
+        test_implicit(document, 17).must_be_empty();
+
+        test(document, 18).must_include(["color", "val"]);
+        test_implicit(document, 18).must_be_empty();
+    }
+
+    #[test]
+    fn test_autocomplete_in_dict_literal() {
+        let document = "#let first = 0\n#(first: 1, second: one)";
+
+        // After opening paren
+        test(document, 17).must_be_empty();
+        test_implicit(document, 17).must_be_empty();
+
+        // After first key
+        test(document, 22).must_be_empty();
+        test_implicit(document, 22).must_be_empty();
+
+        // After colon
+        test(document, 23).must_include(["align", "first"]);
+        test_implicit(document, 23).must_be_empty();
+
+        test(document, 24).must_include(["align", "first"]);
+        test_implicit(document, 24).must_be_empty();
+
+        // After first value
+        test(document, 25).must_be_empty();
+        test_implicit(document, 25).must_be_empty();
+
+        // After comma
+        test(document, 26).must_be_empty();
+        test_implicit(document, 26).must_be_empty();
+
+        test(document, 27).must_be_empty();
+        test_implicit(document, 27).must_be_empty();
+    }
+
+    #[test]
+    fn test_autocomplete_in_destructuring() {
+        let document = "#let value = 20\n#let (va: value) = (va: 10)";
+
+        // At destructuring rename pattern source
+        test(document, 24).must_be_empty();
+        test_implicit(document, 24).must_be_empty();
     }
 }
