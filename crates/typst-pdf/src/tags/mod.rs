@@ -347,6 +347,21 @@ pub fn handle_end(
         return Ok(());
     };
 
+    // Table/grid cells can only have overlapping tags if they are broken across
+    // multiple regions. In that case stash the unfinished stack entries, and
+    // push them back on when processing the logical children.
+    let entry = &gc.tags.stack[idx];
+    if matches!(entry.kind, StackEntryKind::TableCell(_) | StackEntryKind::GridCell(_)) {
+        let group = gc.tags.groups.get_mut(entry.id);
+        let unfinished_stack = gc.tags.stack.stash_unfinished_stack(idx);
+        group.unfinished_stack.extend(unfinished_stack);
+
+        let closed = gc.tags.stack.pop().unwrap();
+        assert_eq!(closed.loc, Some(loc));
+        pop_stack(gc, closed);
+        return Ok(());
+    }
+
     // There are overlapping tags in the tag tree. Figure whether breaking
     // up the current tag stack is semantically ok.
     let mut is_breakable = true;
@@ -511,15 +526,27 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
 
 pub struct ChildGroupHandle<'a, 'b> {
     gc: &'b mut GlobalContext<'a>,
-    /// Whether a stack entry was pushed.
-    pushed: bool,
+    /// The index of the logical child inside the tag stack. It shouldn't change
+    /// since overlapping tags to the outside are not not possible for elements
+    /// which currently have logical children.
+    stack_idx: Option<usize>,
 }
 
 impl Drop for ChildGroupHandle<'_, '_> {
     fn drop(&mut self) {
-        if self.pushed {
-            let entry = self.gc.tags.stack.pop().expect("stack entry");
+        if let Some(idx) = self.stack_idx {
+            let entry = self.gc.tags.stack.get(idx).expect("stack entry");
             assert!(matches!(entry.kind, StackEntryKind::LogicalChild));
+
+            // Stash the unfinished stack entries so they can be processed by
+            // the next logical child.
+            if idx + 1 < self.gc.tags.stack.len() {
+                let group = self.gc.tags.groups.get_mut(entry.id);
+                let unfinished_stack = self.gc.tags.stack.stash_unfinished_stack(idx);
+                group.unfinished_stack.extend(unfinished_stack);
+            }
+
+            self.gc.tags.stack.pop();
         }
     }
 }
@@ -544,18 +571,23 @@ pub fn logical_child<'a, 'b>(
     parent: Option<Location>,
 ) -> ChildGroupHandle<'a, 'b> {
     if gc.options.disable_tags || gc.tags.disable.is_some() {
-        return ChildGroupHandle { gc, pushed: false };
+        return ChildGroupHandle { gc, stack_idx: None };
     }
     let Some(parent_loc) = parent else {
-        return ChildGroupHandle { gc, pushed: false };
+        return ChildGroupHandle { gc, stack_idx: None };
     };
 
     let id = gc.tags.groups.reserve_located(parent_loc, GroupLang::Transparent);
+    let stack_idx = Some(gc.tags.stack.len());
 
     // The entry is popped off the stack in the drop implementation.
     push_stack_entry(gc, None, Span::detached(), id, StackEntryKind::LogicalChild);
 
-    ChildGroupHandle { gc, pushed: true }
+    // Push the unfinished stack entries back on to be processed.
+    let group = gc.tags.groups.get_mut(id);
+    gc.tags.stack.extend(group.unfinished_stack.drain(..));
+
+    ChildGroupHandle { gc, stack_idx }
 }
 
 pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {

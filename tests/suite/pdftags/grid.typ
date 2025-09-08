@@ -9,3 +9,19 @@
   [b], grid.cell(x: 2, y: 1, colspan: 2, rowspan: 2, underline[text]),
   [b],
 )
+
+--- grid-tags-cell-breaking pdftags ---
+// The second paragraph contains marked content from page 1 and 2
+#set page(width: 5cm, height: 3cm)
+#grid(
+  columns: 2,
+  row-gutter: 8pt,
+  [Lorem ipsum dolor sit amet.
+
+  Aenean commodo ligula eget dolor. Aenean massa. Penatibus et magnis.],
+  [Text that is rather short],
+  [Fireflies],
+  [Critical],
+  [Decorum],
+  [Rampage],
+)

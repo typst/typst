@@ -150,6 +150,8 @@ fn resolve_node(
         TagNode::Group(id) => {
             let mut group = groups.take(id);
 
+            assert!(group.unfinished_stack.is_empty());
+
             let mut nodes = Vec::with_capacity(group.nodes.len());
             let lang = group.lang.as_mut().unwrap_or(&mut parent_lang);
             for child in group.nodes.into_iter() {
@@ -227,6 +229,10 @@ impl TagStack {
         self.items.len()
     }
 
+    pub fn get(&self, idx: usize) -> Option<&StackEntry> {
+        self.items.get(idx)
+    }
+
     pub fn last_mut(&mut self) -> Option<&mut StackEntry> {
         self.items.last_mut()
     }
@@ -279,6 +285,29 @@ impl TagStack {
         });
 
         Some(removed)
+    }
+
+    /// Remove all stack entries after the idx.
+    /// This takes care of updating the parent bboxes.
+    pub fn stash_unfinished_stack(
+        &mut self,
+        idx: usize,
+    ) -> std::vec::Drain<'_, StackEntry> {
+        if self.bbox_idx.is_some() {
+            // The inner tags are broken across regions (pages), which invalidates all bounding boxes.
+            for entry in self.items.iter_mut() {
+                if let Some(bbox) = entry.kind.bbox_mut() {
+                    bbox.multi_page = true;
+                }
+            }
+            self.bbox_idx = self.items[..idx]
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, entry)| entry.kind.bbox().is_some())
+                .map(|(idx, _)| idx);
+        }
+        self.items.drain(idx + 1..)
     }
 
     pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
@@ -638,7 +667,12 @@ impl Groups {
             Entry::Vacant(vacant) => {
                 let id = GroupId(self.list.len() as u32);
                 vacant.insert(id);
-                self.list.push(Group { tag: None, lang, nodes: Vec::new() });
+                self.list.push(Group {
+                    tag: None,
+                    lang,
+                    nodes: Vec::new(),
+                    unfinished_stack: Vec::new(),
+                });
                 id
             }
         }
@@ -647,7 +681,12 @@ impl Groups {
     /// Reserves a virtual group not associated with any [`Location`].
     pub fn reserve_virtual(&mut self, lang: GroupLang) -> GroupId {
         let id = GroupId(self.list.len() as u32);
-        self.list.push(Group { tag: None, lang, nodes: Vec::new() });
+        self.list.push(Group {
+            tag: None,
+            lang,
+            nodes: Vec::new(),
+            unfinished_stack: Vec::new(),
+        });
         id
     }
 
@@ -664,6 +703,7 @@ impl Groups {
             tag: Some(tag.into()),
             lang: GroupLang::Tagged(None),
             nodes,
+            unfinished_stack: Vec::new(),
         });
         TagNode::Group(id)
     }
@@ -696,6 +736,10 @@ pub struct Group {
     pub tag: Option<TagKind>,
     pub lang: GroupLang,
     pub nodes: Vec<TagNode>,
+    /// Currently only used for table/grid cells that are broken across multiple
+    /// regions, and thus can have opening/closing introspection tags that are
+    /// in completely different frames, due to the logical parenting mechanism.
+    pub unfinished_stack: Vec<StackEntry>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
