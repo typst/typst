@@ -88,7 +88,7 @@ pub struct ImageElem {
     /// are currently only supported during normal export and not when exporting
     /// with a standard like PDF/A-3 or PDF/UA-1. If you need that, you should
     /// only use SVG to embed vector images. In addition to that, Typst also does
-    /// currently not support PDFs that are password-protected or have any 
+    /// currently not support PDFs that are password-protected or have any
     /// other kind of encryption.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
