@@ -86,7 +86,8 @@ pub struct ImageElem {
     /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
     /// `{"pdf"}`, `{"webp"}` as well as raw pixel data. Note that PDF images
     /// are currently only supported during normal export and not when exporting
-    /// with a standard like PDF/A-3 or PDF/UA-1.
+    /// with a standard like PDF/A-3 or PDF/UA-1. If you need that, you should
+    /// only use SVG to embed vector images.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
