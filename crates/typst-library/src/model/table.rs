@@ -144,18 +144,21 @@ pub struct TableElem {
 
     /// How much to pad the cells' content.
     ///
-    /// To specify a cell's inset, you can use a single length for all sides, or
-    /// a dictionary of lengths for individual sides. See the
+    /// To specify the same inset for all cells, use a single length for all
+    /// sides, or a dictionary of lengths for individual sides. See the
     /// [box's documentation]($box.inset) for more details.
     ///
-    /// To specify it for the entire table, you can:
-    /// - use a single inset for all cells
-    /// - use an array of insets corresponding to each column
-    /// - use a function that maps a cell's position to its inset
-    /// See the [grid documentation]($grid/#styling) for details.
+    /// To specify a varying inset for different cells, you can:
+    /// - use a single, uniform inset for all cells
+    /// - use an array of insets for each column
+    /// - use a function that maps a cell's X/Y position (both starting from
+    ///   zero) to its inset
+    ///
+    /// See the [grid documentation]($grid/#styling) for more details.
     ///
     /// ```example
     /// #table(
+    ///   columns: 2,
     ///   inset: 10pt,
     ///   [Hello],
     ///   [World],
@@ -163,10 +166,7 @@ pub struct TableElem {
     ///
     /// #table(
     ///   columns: 2,
-    ///   inset: (
-    ///     x: 20pt,
-    ///     y: 10pt,
-    ///   ),
+    ///   inset: (x: 20pt, y: 10pt),
     ///   [Hello],
     ///   [World],
     /// )
@@ -182,7 +182,9 @@ pub struct TableElem {
     /// You can specify the alignment in any of the following fashions:
     /// - use a single alignment for all cells
     /// - use an array of alignments corresponding to each column
-    /// - use a function that maps a cell's position to its alignment
+    /// - use a function that maps a cell's X/Y position (both starting from
+    ///   zero) to its alignment
+    ///
     /// See the [table guide]($guides/table-guide/#alignment) for details.
     ///
     /// ```example
@@ -198,11 +200,13 @@ pub struct TableElem {
     /// How to fill the cells.
     ///
     /// This can be:
-    /// - a single color for all cells
-    /// - an array of colors corresponding to each column
-    /// - a function that maps a cell's position to its color
+    /// - a single fill for all cells
+    /// - an array of fill corresponding to each column
+    /// - a function that maps a cell's position to its fill
+    ///
     /// Most notably, arrays and functions are useful for creating striped
-    /// tables. See the [table guide]($guides/table-guide/#fills) for details.
+    /// tables. See the [table guide]($guides/table-guide/#fills) for more
+    /// details.
     ///
     /// ```example
     /// #table(
@@ -231,15 +235,16 @@ pub struct TableElem {
     /// stroke between multiple specific cells, consider specifying one or more
     /// of [`table.hline`] and [`table.vline`] alongside your table cells.
     ///
-    /// To specify a cell's stroke, you can use a single [stroke] for all sides,
-    /// or a dictionary of [strokes]($stroke) for individual sides. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// To specify the same stroke for all cells, use a single [stroke] for all
+    /// sides, or a dictionary of [strokes]($stroke) for individual sides. See
+    /// the [rectangle's documentation]($rect.stroke) for more details.
     ///
-    /// To specify it for the entire table, you can:
+    /// To specify varying strokes for different cells, you can:
     /// - use a single stroke for all cells
     /// - use an array of strokes corresponding to each column
     /// - use a function that maps a cell's position to its stroke
-    /// See the [table guide]($guides/table-guide/#strokes) for details.
+    ///
+    /// See the [table guide]($guides/table-guide/#strokes) for more details.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,

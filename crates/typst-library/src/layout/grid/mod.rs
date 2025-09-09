@@ -120,20 +120,19 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// To meet different needs, there are various ways to set them.
 ///
-/// Basically, if you need to override the above options for individual cells,
-/// you can use the [`grid.cell`] element. Likewise, you can override individual
-/// grid lines with the [`grid.hline`] and [`grid.vline`] elements. See that
-/// element's examples or the examples below for more information.
+/// If you need to override the above options for individual cells, you can use
+/// the [`grid.cell`] element. Likewise, you can override individual grid lines
+/// with the [`grid.hline`] and [`grid.vline`] elements.
 ///
-/// Additionally, if you need to use an overall style for a grid, you may
-/// specify the option in any of the following fashions:
+/// To configure an overall style for a grid, you may instead specify the option
+/// in any of the following fashions:
 ///
-/// - A single value that applies to all cells.
-/// - An array of values corresponding to each column. The array will be
-///   cycled if there are more columns than the array.
-/// - A function in the form of `(x, y) => value`. It receives the cell's column
-///   and row indices (both zero-indexed) and should return the value to apply
-///   to that cell.
+/// - As a single value that applies to all cells.
+/// - As an array of values corresponding to each column. The array will be
+///   cycled if there are more columns than the array has items.
+/// - As a function in the form of `(x, y) => value`. It receives the cell's
+///   column and row indices (both starting from zero) and should return the
+///   value to apply to that cell.
 ///
 /// ```example
 /// #grid(
@@ -143,7 +142,7 @@ use crate::visualize::{Paint, Stroke};
 ///   align: center,
 ///   // By a single but more complicated value
 ///   inset: (x: 2pt, y: 3pt),
-///   // By an array of values
+///   // By an array of values (cycling)
 ///   fill: (rgb("#239dad50"), none),
 ///   // By a function that returns a value
 ///   stroke: (x, y) => if calc.rem(x + y, 3) == 0 { 0.5pt },
@@ -218,15 +217,16 @@ pub struct GridElem {
 
     /// How much to pad the cells' content.
     ///
-    /// To specify a cell's inset, you can use a single length for all sides, or
-    /// a dictionary of lengths for individual sides. See the
+    /// To specify a uniform inset for all cells, you can use a single length
+    /// for all sides, or a dictionary of lengths for individual sides. See the
     /// [box's documentation]($box.inset) for more details.
     ///
-    /// To specify it for the entire grid, you can:
+    /// To specify varying inset for different cells, you can:
     /// - use a single inset for all cells
     /// - use an array of insets corresponding to each column
     /// - use a function that maps a cell's position to its inset
-    /// See the [styling section](#styling) above for details.
+    ///
+    /// See the [styling section](#styling) above for more details.
     ///
     /// In addition, you can find an example at the [`table.inset`] parameter.
     #[fold]
@@ -240,6 +240,7 @@ pub struct GridElem {
     /// - use a single alignment for all cells
     /// - use an array of alignments corresponding to each column
     /// - use a function that maps a cell's position to its alignment
+    ///
     /// See the [styling section](#styling) above for details.
     ///
     /// In addition, you can find an example at the [`table.align`] parameter.
@@ -251,8 +252,9 @@ pub struct GridElem {
     /// - a single color for all cells
     /// - an array of colors corresponding to each column
     /// - a function that maps a cell's position to its color
+    ///
     /// Most notably, arrays and functions are useful for creating striped grids.
-    /// See the [styling section](#styling) above for details.
+    /// See the [styling section](#styling) above for more details.
     ///
     /// ```example
     /// #grid(
@@ -280,15 +282,17 @@ pub struct GridElem {
     /// stroke between multiple specific cells, consider specifying one or more
     /// of [`grid.hline`] and [`grid.vline`] alongside your grid cells.
     ///
-    /// To specify a cell's stroke, you can use a single [stroke] for all sides,
-    /// or a dictionary of [strokes]($stroke) for individual sides. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// To specify the same stroke for all cells, you can use a single [stroke]
+    /// for all sides, or a dictionary of [strokes]($stroke) for individual
+    /// sides. See the [rectangle's documentation]($rect.stroke) for more
+    /// details.
     ///
-    /// To specify it for the entire grid, you can:
+    /// To specify varying strokes for different cells, you can:
     /// - use a single stroke for all cells
     /// - use an array of strokes corresponding to each column
     /// - use a function that maps a cell's position to its stroke
-    /// See the [styling section](#styling) above for details.
+    ///
+    /// See the [styling section](#styling) above for more details.
     ///
     /// ```example
     /// #set page(width: 420pt)
@@ -858,7 +862,7 @@ pub enum Celled<T> {
     /// A closure mapping from cell coordinates to a value.
     Func(Func),
     /// An array of values corresponding to each column. The array will be
-    /// cycled if there are more columns than the array.
+    /// cycled if there are more columns than the array has items.
     Array(Vec<T>),
 }
 
