@@ -52,7 +52,7 @@ $hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #f
 $ hat(i) $
 
 --- math-accent-dotless-greedy ---
-// Currently the dotless style propogates to everything in the accent's base,
+// Currently the dotless style propagates to everything in the accent's base,
 // even though it shouldn't.
 $ arrow(P_(c, i dot j) P_(1, i) j) \
   arrow(P_(c, i dot j) P_(1, i) j, dotless: #false) $

@@ -82,8 +82,8 @@ a + 0.
 + Tea
 + Milk
 
---- enum-numbering-reversed-overriden ---
-// Test reverse numbering with overriden numbers.
+--- enum-numbering-reversed-overridden ---
+// Test reverse numbering with overridden numbers.
 #set enum(reversed: true)
 + A
 + B
