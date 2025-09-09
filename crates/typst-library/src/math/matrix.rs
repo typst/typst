@@ -20,6 +20,10 @@ const DEFAULT_COL_GAP: Em = Em::new(0.5);
 /// Content in the vector's elements can be aligned with the
 /// [`align`]($math.vec.align) parameter, or the `&` symbol.
 ///
+/// This function is for typesetting vector components. To typeset a symbol that
+/// represents a vector, [`arrow`]($math.arrow) and [`bold`]($math.bold) are
+/// commonly used.
+///
 /// # Example
 /// ```example
 /// $ vec(a, b, c) dot vec(1, 2, 3)
