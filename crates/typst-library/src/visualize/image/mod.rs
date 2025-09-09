@@ -84,7 +84,9 @@ pub struct ImageElem {
     /// format automatically, but that's not always possible).
     ///
     /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
-    /// `{"pdf"}`, `{"webp"}` as well as raw pixel data.
+    /// `{"pdf"}`, `{"webp"}` as well as raw pixel data. Note that PDF images
+    /// are currently only supported during normal export and not when exporting
+    /// with a standard like PDF/A-3 or PDF/UA-1.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
