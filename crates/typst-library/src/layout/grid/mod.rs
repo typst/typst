@@ -297,26 +297,30 @@ pub struct GridElem {
     /// ```example
     /// #set page(width: 420pt)
     /// #set text(number-type: "old-style")
+    /// #show grid.cell.where(y: 0): set text(size: 1.3em)
     ///
     /// #grid(
     ///   columns: (1fr, 2fr, 2fr),
     ///   row-gutter: 1.5em,
     ///   inset: (left: 0.5em),
     ///   stroke: (x, y) => if x > 0 { (left: 0.5pt + gray) },
+    ///   align: horizon,
     ///
-    ///   ..(
-    ///     [Winter \ 2007 \ Season],
-    ///     [Aaron Copland \ *The Tender Land* \ January 2007],
-    ///     [Eric Satie \ *Gymnopedie 1, 2* \ February 2007],
-    ///   ).map(text.with(1.3em)),
+    ///   [Winter \ 2007 \ Season],
+    ///   [Aaron Copland \ *The Tender Land* \ January 2007],
+    ///   [Eric Satie \ *Gymnopedie 1, 2* \ February 2007],
     ///
     ///   [],
     ///   [Jan 12 \ *Middlebury College \ Center for the Arts* \ 20:00],
-    ///   [Feb 3 \ *Johnson State College Dibden Center for the Arts* \ 19:30],
+    ///   [Feb 2 \ *Johnson State College Dibden Center for the Arts* \ 19:30],
     ///
     ///   [],
-    ///   [Jan 19 \ *Lyndon State College Alexander Twilight Theater* \ 20:00],
-    ///   [Feb 10 \ *Middlebury College \ Center for the Arts* \ 19:00],
+    ///   [Skip a week \ #text(0.8em)[_Prepare your exams!_]],
+    ///   [Feb 9 \ *Castleton State College \ Fine Arts Center* \ 19:30],
+    ///
+    ///   [],
+    ///   [Jan 26, 27 \ *Lyndon State College Alexander Twilight Theater* \ 20:00],
+    ///   [Feb 17 --- #smallcaps[Anniversary] \ *Middlebury College \ Center for the Arts* \ 19:00 #text(0.7em)[(for a special guest)]],
     /// )
     /// ```
     ///
