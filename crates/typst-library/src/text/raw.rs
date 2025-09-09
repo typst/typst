@@ -968,6 +968,6 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("meta.diff.range", Some("#8b41b1"), None),
         item("markup.inserted, meta.diff.header.to-file", Some("#198810"), None),
         item("markup.deleted, meta.diff.header.from-file", Some("#d73948"), None),
-        item("meta.mapping.key.json string.quoted.double.json", Some("#2c9bbd"), None),
+        item("meta.mapping.key.json string.quoted.double.json", Some("#198810"), None),
     ],
 });
