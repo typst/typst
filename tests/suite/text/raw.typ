@@ -735,7 +735,11 @@ a b c --------------------
     42,
     5.0,
     null
-  ]
+  ],
+  "hi": {
+    "this": "is a test!",
+    "What is this?": "This is incredible text!"
+  }
 }
 ```
 
