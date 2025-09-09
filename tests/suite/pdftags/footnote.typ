@@ -7,3 +7,6 @@ Footnote #footnote[
   #set text(lang: "de")
   Hallo
 ] in text.
+
+--- footnote-tags-ref-to-other-footnote pdftags ---
+This #footnote[content]<note> and #footnote(<note>).

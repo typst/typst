@@ -5,7 +5,8 @@ use std::slice::SliceIndex;
 use krilla::geom as kg;
 use krilla::tagging as kt;
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, GridCell, Point, Rect};
@@ -14,6 +15,7 @@ use typst_library::pdf::ArtifactKind;
 use typst_library::text::Lang;
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::convert::FrameContext;
 use crate::tags::grid::{GridCtx, TableCtx};
 use crate::tags::list::ListCtx;
@@ -34,7 +36,7 @@ pub struct Tags {
     /// Logical parent markers for elements that are not directly associated
     /// with a PDF tag. They are inserted at the end introspection tag to mark
     /// the point where logical children are inserted.
-    pub logical_parents: FxHashSet<Location>,
+    pub logical_parents: FxHashMap<Location, Span>,
     pub disable: Option<Disable>,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
@@ -54,7 +56,7 @@ impl Tags {
             stack: TagStack::new(),
             placeholders: Placeholders(Vec::new()),
             groups: Groups::new(),
-            logical_parents: FxHashSet::default(),
+            logical_parents: FxHashMap::default(),
             disable: None,
 
             link_id: LinkId(0),
@@ -117,7 +119,7 @@ impl Tags {
     pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
         if let Some(last) = self.stack.last_mut() {
             let group = &mut self.groups.get_mut(last.id);
-            if let GroupLang::Tagged(parent_lang) = &mut group.lang
+            if let GroupState::Tagged(_, parent_lang) = &mut group.state
                 && parent_lang.is_none_or(|l| l == lang)
             {
                 *parent_lang = Some(lang);
@@ -156,29 +158,32 @@ fn resolve_node(
             assert!(group.unfinished_stack.is_empty());
 
             let mut nodes = Vec::with_capacity(group.nodes.len());
-            let lang = group.lang.as_mut().unwrap_or(&mut parent_lang);
+            let lang = group.state.lang_mut().unwrap_or(&mut parent_lang);
             for child in group.nodes.into_iter() {
                 resolve_node(groups, placeholders, lang, &mut nodes, child);
             }
 
-            // Try to propagate the groups language to the parent tag.
-            if let Some(lang) = group.lang.get()
-                && parent_lang.is_none_or(|l| l == lang)
-            {
-                *parent_lang = Some(lang);
-                group.lang = GroupLang::Tagged(None);
-            }
+            match group.state {
+                GroupState::Tagged(tag, mut group_lang) => {
+                    // Try to propagate the groups language to the parent tag.
+                    if let Some(lang) = group_lang
+                        && parent_lang.is_none_or(|l| l == lang)
+                    {
+                        *parent_lang = Some(lang);
+                        group_lang = None;
+                    }
 
-            if let Some(mut tag) = group.tag {
-                tag.set_lang(group.lang.get().map(|l| l.as_str().to_string()));
-                let group = kt::TagGroup::with_children(tag, nodes);
-                accum.push(Node::Group(group));
-            } else {
-                // The language attribute shouldn't be set if there is no tag for
-                // this group.
-                debug_assert!(group.lang.get().is_none());
+                    let tag = tag
+                        .expect("tag to be initialized")
+                        .with_lang(group_lang.map(|l| l.as_str().to_string()))
+                        .with_location(group.span.map(Span::into_raw));
 
-                accum.extend(nodes);
+                    let group = kt::TagGroup::with_children(tag, nodes);
+                    accum.push(Node::Group(group));
+                }
+                GroupState::Transparent => {
+                    accum.extend(nodes);
+                }
             }
         }
         TagNode::Leaf(identifier) => {
@@ -657,39 +662,66 @@ impl Groups {
 
     /// Reserves a located group, if the location hasn't already been reserved,
     /// otherwise returns the already reserved id.
-    pub fn reserve_located(&mut self, loc: Location, lang: GroupLang) -> GroupId {
+    pub fn reserve_located(
+        &mut self,
+        options: &PdfOptions,
+        loc: Location,
+        kind: GroupKind,
+    ) -> SourceResult<GroupId> {
         match self.locations.entry(loc) {
             Entry::Occupied(occupied) => {
                 let id = *occupied.get();
-                if let GroupLang::Tagged(_) = lang {
-                    let group = &mut self.list[id.0 as usize];
-                    group.lang = lang;
+                let group = &mut self.list[id.0 as usize];
+
+                let is_child = kind == GroupKind::LogicalChild;
+                if is_child {
+                    group.has_children = true;
+                } else {
+                    group.num_parents += 1
                 }
-                id
+
+                if group.span.is_none() {
+                    group.span = kind.span();
+                }
+
+                if options.is_pdf_ua() && group.num_parents > 1 && group.has_children {
+                    let validator = options.standards.config.validator();
+                    let validator = validator.as_str();
+                    let span = kind.span().or(group.span).unwrap_or(Span::detached());
+                    bail!(
+                        span,
+                        "{validator} error: ambigous logical parent";
+                        hint: "please report this as a bug"
+                    );
+                }
+
+                if !is_child {
+                    if group.num_parents == 1 {
+                        group.state = kind.into();
+                    } else {
+                        // Multiple introspection tags have the same location,
+                        // for example because an element was queried and then
+                        // placed again. Create a new group that doesn't have
+                        // a location mapping.
+                        return Ok(self.reserve_virtual(kind));
+                    }
+                }
+
+                Ok(id)
             }
             Entry::Vacant(vacant) => {
                 let id = GroupId(self.list.len() as u32);
                 vacant.insert(id);
-                self.list.push(Group {
-                    tag: None,
-                    lang,
-                    nodes: Vec::new(),
-                    unfinished_stack: Vec::new(),
-                });
-                id
+                self.list.push(Group::new(kind));
+                Ok(id)
             }
         }
     }
 
     /// Reserves a virtual group not associated with any [`Location`].
-    pub fn reserve_virtual(&mut self, lang: GroupLang) -> GroupId {
+    pub fn reserve_virtual(&mut self, kind: GroupKind) -> GroupId {
         let id = GroupId(self.list.len() as u32);
-        self.list.push(Group {
-            tag: None,
-            lang,
-            nodes: Vec::new(),
-            unfinished_stack: Vec::new(),
-        });
+        self.list.push(Group::new(kind));
         id
     }
 
@@ -703,9 +735,11 @@ impl Groups {
     ) -> TagNode {
         let id = GroupId(self.list.len() as u32);
         self.list.push(Group {
-            tag: Some(tag.into()),
-            lang: GroupLang::Tagged(None),
+            state: GroupState::Tagged(Some(tag.into()), None),
             nodes,
+            span: None,
+            num_parents: 1,
+            has_children: false,
             unfinished_stack: Vec::new(),
         });
         TagNode::Group(id)
@@ -723,52 +757,105 @@ impl Groups {
         tag: impl Into<TagKind>,
         contents: GroupContents,
     ) -> TagNode {
-        let tag = tag.into().with_location(Some(contents.span.into_raw()));
+        let tag = tag.into();
         let group = self.get_mut(contents.id);
-        assert!(group.tag.is_none());
-        group.tag = Some(tag);
+
+        match &mut group.state {
+            GroupState::Tagged(t, _) => {
+                assert!(t.is_none());
+                *t = Some(tag);
+            }
+            GroupState::Transparent => unreachable!(),
+        }
         TagNode::Group(contents.id)
     }
 }
 
 #[derive(Debug, Default)]
 pub struct Group {
-    /// The optional parent tag of this group. If not present, either there is
-    /// no parent tag for these children and they will be added directly to the
-    /// tag tree, or it hasn't been found yet.
-    pub tag: Option<TagKind>,
-    pub lang: GroupLang,
+    pub state: GroupState,
     pub nodes: Vec<TagNode>,
+    pub span: Option<Span>,
+
+    pub num_parents: u32,
+    pub has_children: bool,
+
     /// Currently only used for table/grid cells that are broken across multiple
     /// regions, and thus can have opening/closing introspection tags that are
     /// in completely different frames, due to the logical parenting mechanism.
     pub unfinished_stack: Vec<StackEntry>,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub enum GroupLang {
-    Tagged(Option<Lang>),
+impl Group {
+    fn new(kind: GroupKind) -> Self {
+        let is_child = kind == GroupKind::LogicalChild;
+        Group {
+            state: kind.into(),
+            span: kind.span(),
+            num_parents: if is_child { 0 } else { 1 },
+            has_children: is_child,
+            nodes: Vec::new(),
+            unfinished_stack: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GroupKind {
+    /// A tagged group that will produce a PDF tag.
+    Tagged(Span),
+    /// A logical parent group, that is transparently inserted after the element
+    /// content. For example to mark where a place element should be inserted.
+    /// This won't produce a PDF tag.
+    LogcialParent(Span),
+    /// A logical child that is added to a located group.
+    LogicalChild,
+}
+
+impl GroupKind {
+    fn span(self) -> Option<Span> {
+        match self {
+            GroupKind::Tagged(span) => Some(span),
+            GroupKind::LogcialParent(span) => Some(span),
+            GroupKind::LogicalChild => None,
+        }
+    }
+}
+
+impl From<GroupKind> for GroupState {
+    fn from(val: GroupKind) -> Self {
+        match val {
+            GroupKind::Tagged(_) => GroupState::Tagged(None, None),
+            GroupKind::LogcialParent(_) | GroupKind::LogicalChild => {
+                GroupState::Transparent
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub enum GroupState {
+    Tagged(Option<TagKind>, Option<Lang>),
     #[default]
     Transparent,
 }
 
-impl GroupLang {
-    pub fn get(self) -> Option<Lang> {
+impl GroupState {
+    pub fn tag(&self) -> Option<&TagKind> {
         match self {
-            GroupLang::Tagged(lang) => lang,
-            GroupLang::Transparent => None,
+            Self::Tagged(tag, _) => tag.as_ref(),
+            Self::Transparent => None,
         }
     }
 
-    pub fn as_mut(&mut self) -> Option<&mut Option<Lang>> {
-        if let Self::Tagged(v) = self { Some(v) } else { None }
+    pub fn lang_mut(&mut self) -> Option<&mut Option<Lang>> {
+        if let Self::Tagged(_, l) = self { Some(l) } else { None }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupContents {
     pub id: GroupId,
-    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]

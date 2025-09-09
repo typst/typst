@@ -76,48 +76,48 @@ pub fn handle_start(
     let tag = if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
-                push_stack(gc, elem, StackEntryKind::Outline(OutlineCtx::new()));
+                push_stack(gc, elem, StackEntryKind::Outline(OutlineCtx::new()))?;
                 return Ok(());
             }
             PdfMarkerTagKind::FigureBody(alt) => {
                 let alt = alt.as_ref().map(|s| s.to_string());
-                push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)));
+                push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)))?;
                 return Ok(());
             }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
-                push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
+                push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)))?;
                 return Ok(());
             }
             PdfMarkerTagKind::BibEntry => {
-                push_stack(gc, elem, StackEntryKind::BibEntry);
+                push_stack(gc, elem, StackEntryKind::BibEntry)?;
                 return Ok(());
             }
             PdfMarkerTagKind::ListItemLabel => {
-                push_stack(gc, elem, StackEntryKind::ListItemLabel);
+                push_stack(gc, elem, StackEntryKind::ListItemLabel)?;
                 return Ok(());
             }
             PdfMarkerTagKind::ListItemBody => {
-                push_stack(gc, elem, StackEntryKind::ListItemBody);
+                push_stack(gc, elem, StackEntryKind::ListItemBody)?;
                 return Ok(());
             }
             PdfMarkerTagKind::Label => Tag::Lbl.into(),
         }
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
-        push_stack(gc, elem, StackEntryKind::OutlineEntry(entry.clone()));
+        push_stack(gc, elem, StackEntryKind::OutlineEntry(entry.clone()))?;
         return Ok(());
     } else if let Some(_list) = elem.to_packed::<ListElem>() {
         let numbering = ListNumbering::Circle; // TODO: infer numbering from `list.marker`
-        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
+        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)))?;
         return Ok(());
     } else if let Some(_enumeration) = elem.to_packed::<EnumElem>() {
         let numbering = ListNumbering::Decimal; // TODO: infer numbering from `enum.numbering`
-        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
+        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)))?;
         return Ok(());
     } else if let Some(_enumeration) = elem.to_packed::<TermsElem>() {
         let numbering = ListNumbering::None;
-        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)));
+        push_stack(gc, elem, StackEntryKind::List(ListCtx::new(numbering)))?;
         return Ok(());
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
         if figure.caption.opt_ref().is_none() {
@@ -140,7 +140,7 @@ pub fn handle_start(
             }
             return Ok(());
         } else {
-            push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)));
+            push_stack(gc, elem, StackEntryKind::Figure(FigureCtx::new(alt)))?;
             return Ok(());
         }
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
@@ -151,14 +151,14 @@ pub fn handle_start(
                 figure_ctx.alt = alt.clone();
             }
         }
-        push_stack(gc, elem, StackEntryKind::Formula(FigureCtx::new(alt)));
+        push_stack(gc, elem, StackEntryKind::Formula(FigureCtx::new(alt)))?;
         return Ok(());
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let table_id = gc.tags.next_table_id();
         let summary = table.summary.opt_ref().map(|s| s.to_string());
         let grid = table.grid.clone().unwrap();
         let ctx = TableCtx::new(grid, table_id, summary);
-        push_stack(gc, elem, StackEntryKind::Table(ctx));
+        push_stack(gc, elem, StackEntryKind::Table(ctx))?;
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         // Only repeated table headers and footer cells are laid out multiple
@@ -168,13 +168,13 @@ pub fn handle_start(
         if cell.is_repeated.val() {
             push_disable(gc, surface, elem, ArtifactKind::Other);
         } else {
-            push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()));
+            push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()))?;
         }
         return Ok(());
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
         let grid = grid.grid.clone().unwrap();
         let ctx = GridCtx::new(grid);
-        push_stack(gc, elem, StackEntryKind::Grid(ctx));
+        push_stack(gc, elem, StackEntryKind::Grid(ctx))?;
         return Ok(());
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
         // If there is no grid parent, this means a grid layouter is used
@@ -191,7 +191,7 @@ pub fn handle_start(
             if cell.is_repeated.val() {
                 push_disable(gc, surface, elem, ArtifactKind::Other);
             } else {
-                push_stack(gc, elem, StackEntryKind::GridCell(cell.clone()));
+                push_stack(gc, elem, StackEntryKind::GridCell(cell.clone()))?;
             }
         }
         return Ok(());
@@ -203,10 +203,10 @@ pub fn handle_start(
         Tag::P.into()
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
-        push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()));
+        push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone()))?;
         return Ok(());
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
-        gc.tags.logical_parents.insert(elem.location().unwrap());
+        gc.tags.logical_parents.insert(elem.location().unwrap(), elem.span());
         return Ok(());
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
         Tag::Note.into()
@@ -215,7 +215,7 @@ pub fn handle_start(
         if quote.block.val() { Tag::BlockQuote.into() } else { Tag::InlineQuote.into() }
     } else if let Some(raw) = elem.to_packed::<RawElem>() {
         if raw.block.val() {
-            push_stack(gc, elem, StackEntryKind::CodeBlock);
+            push_stack(gc, elem, StackEntryKind::CodeBlock)?;
             return Ok(());
         } else {
             Tag::Code.into()
@@ -223,12 +223,12 @@ pub fn handle_start(
     } else if let Some(_) = elem.to_packed::<RawLine>() {
         // If the raw element is inline, the content can be inserted directly.
         if gc.tags.stack.parent().is_some_and(|p| p.is_code_block()) {
-            push_stack(gc, elem, StackEntryKind::CodeBlockLine);
+            push_stack(gc, elem, StackEntryKind::CodeBlockLine)?;
         }
         return Ok(());
     } else if let Some(place) = elem.to_packed::<PlaceElem>() {
         if place.float.val() {
-            gc.tags.logical_parents.insert(elem.location().unwrap());
+            gc.tags.logical_parents.insert(elem.location().unwrap(), elem.span());
         }
         return Ok(());
     } else if let Some(_) = elem.to_packed::<StrongElem>() {
@@ -272,16 +272,22 @@ pub fn handle_start(
         return Ok(());
     };
 
-    push_stack(gc, elem, StackEntryKind::Standard(tag));
-
-    Ok(())
+    push_stack(gc, elem, StackEntryKind::Standard(tag))
 }
 
-fn push_stack(gc: &mut GlobalContext, elem: &Content, kind: StackEntryKind) {
+fn push_stack(
+    gc: &mut GlobalContext,
+    elem: &Content,
+    kind: StackEntryKind,
+) -> SourceResult<()> {
     let loc = elem.location().expect("elem to be locatable");
     let span = elem.span();
-    let id = gc.tags.groups.reserve_located(loc, GroupLang::Tagged(None));
+    let id = gc
+        .tags
+        .groups
+        .reserve_located(gc.options, loc, GroupKind::Tagged(span))?;
     push_stack_entry(gc, Some(loc), span, id, kind);
+    Ok(())
 }
 
 fn push_stack_entry(
@@ -333,8 +339,9 @@ pub fn handle_end(
         return Ok(());
     }
 
-    if gc.tags.logical_parents.remove(&loc) {
-        let id = gc.tags.groups.reserve_located(loc, GroupLang::Transparent);
+    if let Some(span) = gc.tags.logical_parents.remove(&loc) {
+        let kind = GroupKind::LogcialParent(span);
+        let id = gc.tags.groups.reserve_located(gc.options, loc, kind)?;
         gc.tags.push(TagNode::Group(id));
     }
 
@@ -417,7 +424,8 @@ pub fn handle_end(
             span: entry.span,
             // Reserve a virtual group so it won't be combined with the original
             // located group.
-            id: gc.tags.groups.reserve_virtual(GroupLang::Tagged(None)),
+            // TODO: should the location instead point to the second entry?
+            id: gc.tags.groups.reserve_virtual(GroupKind::Tagged(entry.span)),
             kind,
         });
         pop_stack(gc, entry);
@@ -434,7 +442,7 @@ pub fn handle_end(
 }
 
 fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
-    let contents = GroupContents { id: entry.id, span: entry.span };
+    let contents = GroupContents { id: entry.id };
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => gc.tags.groups.init_tag(tag, contents),
         StackEntryKind::LogicalChild => {
@@ -569,15 +577,19 @@ impl<'a> ChildGroupHandle<'a, '_> {
 pub fn logical_child<'a, 'b>(
     gc: &'b mut GlobalContext<'a>,
     parent: Option<Location>,
-) -> ChildGroupHandle<'a, 'b> {
+) -> SourceResult<ChildGroupHandle<'a, 'b>> {
     if gc.options.disable_tags || gc.tags.disable.is_some() {
-        return ChildGroupHandle { gc, stack_idx: None };
+        return Ok(ChildGroupHandle { gc, stack_idx: None });
     }
     let Some(parent_loc) = parent else {
-        return ChildGroupHandle { gc, stack_idx: None };
+        return Ok(ChildGroupHandle { gc, stack_idx: None });
     };
 
-    let id = gc.tags.groups.reserve_located(parent_loc, GroupLang::Transparent);
+    let id = gc.tags.groups.reserve_located(
+        gc.options,
+        parent_loc,
+        GroupKind::LogicalChild,
+    )?;
     let stack_idx = Some(gc.tags.stack.len());
 
     // The entry is popped off the stack in the drop implementation.
@@ -587,7 +599,7 @@ pub fn logical_child<'a, 'b>(
     let group = gc.tags.groups.get_mut(id);
     gc.tags.stack.extend(group.unfinished_stack.drain(..));
 
-    ChildGroupHandle { gc, stack_idx }
+    Ok(ChildGroupHandle { gc, stack_idx })
 }
 
 pub fn page_start(gc: &mut GlobalContext, surface: &mut Surface) {

@@ -62,7 +62,7 @@ impl ListCtx {
         //
         // So move the nested list out of the list item.
         if let [_, TagNode::Group(id)] = groups.get(contents.id).nodes.as_slice()
-            && let Some(TagKind::L(_)) = groups.get(*id).tag
+            && let Some(TagKind::L(_)) = groups.get(*id).state.tag()
         {
             item.sub_list = groups.get_mut(contents.id).nodes.pop();
         }
