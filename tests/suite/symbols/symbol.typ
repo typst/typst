@@ -185,8 +185,8 @@ $ A sect B = A inter B $
 #context test(query(<lab>).first().text, "😀")
 
 --- presentation-selectors ---
-// Currently, presentation selectors do not cause a font fallback when the main
-// fot supports at least one presentation, instead causing a fallback of the
+// Currently, presentation selectors do not cause font fallback when the main
+// font supports at least one presentation, instead causing a fallback of the
 // presentation form. This should probably be solved at some point, making the
 // emojis below render with an emoji form.
 // See: https://github.com/typst/typst/pull/6875.
