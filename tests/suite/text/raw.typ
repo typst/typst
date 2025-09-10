@@ -743,6 +743,20 @@ a b c --------------------
 }
 ```
 
+--- raw-default-yaml-theme ---
+```yaml
+foo: bar
+test:
+- test
+- true
+- 42
+- 5
+-
+hi:
+  this: is a test!
+  What is this?: This is incredible text!
+```
+
 --- raw-unclosed ---
 // Test unterminated raw text.
 //
