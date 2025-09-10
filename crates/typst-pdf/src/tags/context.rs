@@ -31,6 +31,9 @@ pub struct Tags {
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
     pub groups: Groups,
+    /// Logical parent markers for elements that are not directly associated
+    /// with a PDF tag. They are inserted at the end introspection tag to mark
+    /// the point where logical children are inserted.
     pub logical_parents: FxHashSet<Location>,
     pub disable: Option<Disable>,
     /// Used to group multiple link annotations using quad points.
