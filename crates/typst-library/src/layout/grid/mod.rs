@@ -320,7 +320,11 @@ pub struct GridElem {
     ///
     ///   [],
     ///   [Jan 26, 27 \ *Lyndon State College Alexander Twilight Theater* \ 20:00],
-    ///   [Feb 17 --- #smallcaps[Anniversary] \ *Middlebury College \ Center for the Arts* \ 19:00 #text(0.7em)[(for a special guest)]],
+    ///   [
+    ///     Feb 17 --- #smallcaps[Anniversary] \
+    ///     *Middlebury College \ Center for the Arts* \
+    ///     19:00 #text(0.7em)[(for a special guest)]
+    ///   ],
     /// )
     /// ```
     ///
