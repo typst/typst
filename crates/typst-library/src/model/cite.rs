@@ -1,3 +1,4 @@
+use ecow::{EcoString, eco_format};
 use typst_syntax::Spanned;
 
 use crate::diag::{At, HintedString, SourceResult, error};
@@ -7,7 +8,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
-use crate::model::{CslSource, CslStyle};
+use crate::model::{CslSource, CslStyle, Destination, LinkTarget, Url};
 use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
@@ -124,6 +125,28 @@ impl Synthesize for Packed<CiteElem> {
         elem.lang = Some(styles.get(TextElem::lang));
         elem.region = Some(styles.get(TextElem::region));
         Ok(())
+    }
+}
+
+impl Packed<CiteElem> {
+    /// Generate a bibliography entry ID based on this citation key.
+    /// This creates IDs like "ref-arrgh" for citation key "arrgh".
+    pub fn bibliography_entry_id(&self) -> EcoString {
+        let key_str = self.key.resolve().to_string();
+        eco_format!("ref-{}", key_str)
+    }
+
+    /// Generate a URL for linking to a bibliography entry from this citation.
+    /// This creates URLs like "#ref-arrgh" for citation key "arrgh".
+    pub fn citation_link_url(&self) -> Result<Url, EcoString> {
+        let entry_id = self.bibliography_entry_id();
+        let url_str = eco_format!("#{}", entry_id);
+        Url::new(url_str.clone()).map_err(|_| eco_format!("failed to create URL for citation link: {}", url_str))
+    }
+
+    /// Create a LinkTarget for linking to a bibliography entry from this citation.
+    pub fn citation_link_target(&self) -> Result<LinkTarget, EcoString> {
+        self.citation_link_url().map(|url| LinkTarget::Dest(Destination::Url(url)))
     }
 }
 

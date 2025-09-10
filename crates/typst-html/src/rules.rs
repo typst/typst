@@ -2,24 +2,50 @@ use std::num::NonZeroUsize;
 
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
+use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, NativeElement, NativeRuleMap, Packed, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
 use typst_library::layout::{BlockBody, BlockElem, BoxElem, OuterVAlignment, Sizing};
 use typst_library::model::{
-    Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, EmphElem, EnumElem,
+    FigureCaption, FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem,
+    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    TitleElem, Works,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    HighlightElem, LinebreakElem, LocalName, OverlineElem, RawElem, RawLine,
+    SmallcapsElem, SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 
 use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
+
+
+
+/// Collect all unique CiteElems from the document in order
+fn collect_cite_elems(engine: &mut Engine) -> Vec<Packed<CiteElem>> {
+    let cite_groups = engine.introspector.query(&CiteGroup::ELEM.select());
+    let mut all_cites = Vec::new();
+    let mut seen_keys = std::collections::HashSet::new();
+    
+    for group in cite_groups {
+        if let Some(group) = group.to_packed::<CiteGroup>() {
+            for child in &group.children {
+                let key_str = child.key.resolve().to_string();
+                if seen_keys.insert(key_str) {
+                    all_cites.push(child.clone());
+                }
+            }
+        }
+    }
+    
+    all_cites
+}
+
+
 
 /// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -40,6 +66,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, QUOTE_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
+    rules.register(Html, BIBLIOGRAPHY_RULE);
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -275,7 +302,35 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+// Individual citations are handled through CiteGroup, so no separate CiteElem rule is needed
+
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
+    // For single citations, we can wrap the entire realized content in a link
+    if elem.children.len() == 1 {
+        let child = &elem.children[0];
+        
+        // Realize the citation first  
+        let realized = elem.realize(engine)?;
+        
+        // Create link to bibliography entry using CiteElem method
+        if let Ok(link_target) = child.citation_link_target() {
+            let linked_content = LinkElem::new(link_target, realized);
+            return Ok(linked_content.pack());
+        }
+        
+        return Ok(realized);
+    }
+    
+    // For multiple citations, we need to realize the group as a whole first
+    // to respect CSL formatting, then wrap the entire group as a single link
+    // or fall back to no linking for now
+    // TODO: Implement content analysis to identify individual citation parts
+    let realized = elem.realize(engine)?;
+    
+    // For now, fall back to no linking for multiple citations
+    // This preserves the CSL formatting but doesn't create individual links
+    Ok(realized)
+};
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
     Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
@@ -513,4 +568,82 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     }
 
     Ok(HtmlElem::new(tag::img).with_attrs(attrs).with_styles(inline).pack())
+};
+
+const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let span = elem.span();
+
+    let works = Works::generate(engine).at(span)?;
+
+    let Some(references) = &works.references else {
+        return Ok(Content::empty());
+    };
+
+    // Collect all CiteElems from the document to determine bibliography entry IDs
+    let cite_elems = collect_cite_elems(engine);
+
+    let mut content = Content::empty();
+
+    // Add title if specified
+    let title = elem.title.get_ref(styles);
+    if let Smart::Custom(Some(title_content)) = title {
+        content += HtmlElem::new(tag::h2)
+            .with_body(Some(title_content.clone()))
+            .pack()
+            .spanned(span);
+    } else if matches!(title, Smart::Auto) {
+        // Use localized default bibliography title
+        content += HtmlElem::new(tag::h2)
+            .with_body(Some(
+                typst_library::text::TextElem::packed(
+                    Packed::<BibliographyElem>::local_name_in(styles),
+                )
+                .spanned(span),
+            ))
+            .pack()
+            .spanned(span);
+    }
+
+    // Create bibliography container
+    let mut bibliography_attrs = HtmlAttrs::new();
+    bibliography_attrs.push(attr::id, "typst-bibliography");
+    bibliography_attrs.push(attr::role, "list");
+
+    // Create bibliography entries
+    let entries = Content::sequence(references.iter().enumerate().map(
+        |(k, (prefix, reference))| {
+            let mut entry_attrs = HtmlAttrs::new();
+            entry_attrs.push(attr::role, "listitem");
+
+            // Generate ID for this entry based on corresponding CiteElem
+            let entry_id = if let Some(cite_elem) = cite_elems.get(k) {
+                cite_elem.bibliography_entry_id()
+            } else {
+                // Fallback to numbered ID if no corresponding citation found
+                eco_format!("ref-{}", k + 1)
+            };
+            entry_attrs.push(attr::id, entry_id);
+
+            // Combine prefix and reference content
+            let entry_content = if let Some(prefix_content) = prefix {
+                prefix_content.clone() + reference.clone()
+            } else {
+                reference.clone()
+            };
+
+            HtmlElem::new(tag::div)
+                .with_attrs(entry_attrs)
+                .with_body(Some(entry_content))
+                .pack()
+                .spanned(reference.span())
+        },
+    ));
+
+    content += HtmlElem::new(tag::div)
+        .with_attrs(bibliography_attrs)
+        .with_body(Some(entries))
+        .pack()
+        .spanned(span);
+
+    Ok(content)
 };
