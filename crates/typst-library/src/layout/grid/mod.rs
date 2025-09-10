@@ -157,11 +157,6 @@ use crate::visualize::{Paint, Stroke};
 /// making it possible to style cells at specific columns or rows, or individual
 /// positions.
 ///
-/// Locating most of your styling in set and show rules is
-/// recommended, as it keeps the grid's or table's actual usages clean and easy
-/// to read. It also allows you to easily change the grid's appearance in one
-/// place.
-///
 /// ## Stroke styling precedence
 /// As explained above, there are three ways to set the stroke of a grid cell:
 /// through [`{grid.cell}`'s `stroke` field]($grid.cell.stroke), by using

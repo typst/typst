@@ -40,7 +40,10 @@ use crate::visualize::{Paint, Stroke};
 /// for more information.
 ///
 /// Although the `table` and the `grid` share most properties, set and show
-/// rules on one of them do not affect the other.
+/// rules on one of them do not affect the other. Locating most of your styling
+/// in set and show rules is recommended, as it keeps the table's actual usages
+/// clean and easy to read. It also allows you to easily change the table's
+/// appearance in one place.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
 /// [figure].
