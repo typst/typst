@@ -2,7 +2,6 @@ use std::num::NonZeroUsize;
 
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
-use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, NativeElement, NativeRuleMap, Packed, ShowFn, Smart, StyleChain, Target,
 };
@@ -278,13 +277,11 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-// Individual citations are handled through CiteGroup, so no separate CiteElem rule is needed
-
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
-    // For now, fall back to no linking for multiple citations. This preserves
-    // the CSL formatting but doesn't create individual links. Whether or not we
-    // can accurately link the in-line citations to bibliography elements
-    // depends on the CSL formatting.
+    // For now, fall back to no linking for any citations. This preserves the
+    // CSL formatting but doesn't create individual links. Whether or not we can
+    // accurately link the in-line citations to bibliography elements depends on
+    // the CSL formatting.
     let realized = elem.realize(engine)?;
 
     Ok(realized)
@@ -541,13 +538,13 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     // Add title if specified
     let title = elem.title.get_ref(styles);
     if let Smart::Custom(Some(title_content)) = title {
-        content += HtmlElem::new(tag::h2)
+        content += HtmlElem::new(tag::h1)
             .with_body(Some(title_content.clone()))
             .pack()
             .spanned(span);
     } else if matches!(title, Smart::Auto) {
         // Use localized default bibliography title
-        content += HtmlElem::new(tag::h2)
+        content += HtmlElem::new(tag::h1)
             .with_body(Some(
                 typst_library::text::TextElem::packed(
                     Packed::<BibliographyElem>::local_name_in(styles),
@@ -563,24 +560,22 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     bibliography_attrs.push(attr::role, "list");
 
     // Create bibliography entries
-    let entries = Content::sequence(references.iter().enumerate().map(
-        |(k, (prefix, reference))| {
-            let mut entry_attrs = HtmlAttrs::new();
-            entry_attrs.push(attr::role, "listitem");
-            // Combine prefix and reference content
-            let entry_content = if let Some(prefix_content) = prefix {
-                prefix_content.clone() + SpaceElem::shared().clone() + reference.clone()
-            } else {
-                reference.clone()
-            };
+    let entries = Content::sequence(references.iter().map(|(prefix, reference)| {
+        let mut entry_attrs = HtmlAttrs::new();
+        entry_attrs.push(attr::role, "listitem");
 
-            HtmlElem::new(tag::div)
-                .with_attrs(entry_attrs)
-                .with_body(Some(entry_content))
-                .pack()
-                .spanned(reference.span())
-        },
-    ));
+        let entry_content = if let Some(prefix_content) = prefix {
+            prefix_content.clone() + SpaceElem::shared().clone() + reference.clone()
+        } else {
+            reference.clone()
+        };
+
+        HtmlElem::new(tag::div)
+            .with_attrs(entry_attrs)
+            .with_body(Some(entry_content))
+            .pack()
+            .spanned(reference.span())
+    }));
 
     content += HtmlElem::new(tag::div)
         .with_attrs(bibliography_attrs)
