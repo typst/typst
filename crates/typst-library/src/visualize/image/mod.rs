@@ -84,12 +84,13 @@ pub struct ImageElem {
     /// format automatically, but that's not always possible).
     ///
     /// Supported formats are `{"png"}`, `{"jpg"}`, `{"gif"}`, `{"svg"}`,
-    /// `{"pdf"}`, `{"webp"}` as well as raw pixel data. Note that PDF images
-    /// are currently only supported during normal export and not when exporting
-    /// with a standard like PDF/A-3 or PDF/UA-1. If you need that, you should
-    /// only use SVG to embed vector images. In addition to that, Typst also does
-    /// currently not support PDFs that are password-protected or have any
-    /// other kind of encryption.
+    /// `{"pdf"}`, `{"webp"}` as well as raw pixel data.
+    ///
+    /// Note that PDF images are currently not supported when exporting with a
+    /// specific PDF standard, like PDF/A-3 or PDF/UA-1. In these cases, you can
+    /// instead use SVGs to embed vector images. Additionally, Typst does not
+    /// currently support PDFs that are password-protected or have any other
+    /// kind of encryption.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
