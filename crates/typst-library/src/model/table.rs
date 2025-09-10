@@ -40,7 +40,10 @@ use crate::visualize::{Paint, Stroke};
 /// for more information.
 ///
 /// Although the `table` and the `grid` share most properties, set and show
-/// rules on one of them do not affect the other.
+/// rules on one of them do not affect the other. Locating most of your styling
+/// in set and show rules is recommended, as it keeps the table's actual usages
+/// clean and easy to read. It also allows you to easily change the appearance
+/// of all tables in one place.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
 /// [figure].
@@ -142,11 +145,71 @@ pub struct TableElem {
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
+    /// How much to pad the cells' content.
+    ///
+    /// To specify the same inset for all cells, use a single length for all
+    /// sides, or a dictionary of lengths for individual sides. See the
+    /// [box's documentation]($box.inset) for more details.
+    ///
+    /// To specify a varying inset for different cells, you can:
+    /// - use a single, uniform inset for all cells
+    /// - use an array of insets for each column
+    /// - use a function that maps a cell's X/Y position (both starting from
+    ///   zero) to its inset
+    ///
+    /// See the [grid documentation]($grid/#styling) for more details.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 2,
+    ///   inset: 10pt,
+    ///   [Hello],
+    ///   [World],
+    /// )
+    ///
+    /// #table(
+    ///   columns: 2,
+    ///   inset: (x: 20pt, y: 10pt),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    /// ```
+    #[fold]
+    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+
+    /// How to align the cells' content.
+    ///
+    /// If set to `{auto}`, the outer alignment is used.
+    ///
+    /// You can specify the alignment in any of the following fashions:
+    /// - use a single alignment for all cells
+    /// - use an array of alignments corresponding to each column
+    /// - use a function that maps a cell's X/Y position (both starting from
+    ///   zero) to its alignment
+    ///
+    /// See the [table guide]($guides/table-guide/#alignment) for details.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (left, center, right),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
+    pub align: Celled<Smart<Alignment>>,
+
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function
-    /// receives the cells' column and row indices, starting from zero. This can
-    /// be used to implement striped tables.
+    /// This can be:
+    /// - a single fill for all cells
+    /// - an array of fill corresponding to each column
+    /// - a function that maps a cell's position to its fill
+    ///
+    /// Most notably, arrays and functions are useful for creating striped
+    /// tables. See the [table guide]($guides/table-guide/#fills) for more
+    /// details.
     ///
     /// ```example
     /// #table(
@@ -166,60 +229,28 @@ pub struct TableElem {
     /// ```
     pub fill: Celled<Option<Paint>>,
 
-    /// How to align the cells' content.
-    ///
-    /// This can either be a single alignment, an array of alignments
-    /// (corresponding to each column) or a function that returns an alignment.
-    /// The function receives the cells' column and row indices, starting from
-    /// zero. If set to `{auto}`, the outer alignment is used.
-    ///
-    /// ```example
-    /// #table(
-    ///   columns: 3,
-    ///   align: (left, center, right),
-    ///   [Hello], [Hello], [Hello],
-    ///   [A], [B], [C],
-    /// )
-    /// ```
-    pub align: Celled<Smart<Alignment>>,
-
     /// How to [stroke] the cells.
     ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
     /// If it is necessary to place lines which can cross spacing between cells
-    /// produced by the `gutter` option, or to override the stroke between
-    /// multiple specific cells, consider specifying one or more of
-    /// [`table.hline`] and [`table.vline`] alongside your table cells.
+    /// produced by the [`gutter`]($table.gutter) option, or to override the
+    /// stroke between multiple specific cells, consider specifying one or more
+    /// of [`table.hline`] and [`table.vline`] alongside your table cells.
     ///
-    /// See the [grid documentation]($grid.stroke) for more information on
-    /// strokes.
+    /// To specify the same stroke for all cells, use a single [stroke] for all
+    /// sides, or a dictionary of [strokes]($stroke) for individual sides. See
+    /// the [rectangle's documentation]($rect.stroke) for more details.
+    ///
+    /// To specify varying strokes for different cells, you can:
+    /// - use a single stroke for all cells
+    /// - use an array of strokes corresponding to each column
+    /// - use a function that maps a cell's position to its stroke
+    ///
+    /// See the [table guide]($guides/table-guide/#strokes) for more details.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
-
-    /// How much to pad the cells' content.
-    ///
-    /// ```example
-    /// #table(
-    ///   inset: 10pt,
-    ///   [Hello],
-    ///   [World],
-    /// )
-    ///
-    /// #table(
-    ///   columns: 2,
-    ///   inset: (
-    ///     x: 20pt,
-    ///     y: 10pt,
-    ///   ),
-    ///   [Hello],
-    ///   [World],
-    /// )
-    /// ```
-    #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
@@ -666,14 +697,14 @@ pub struct TableCell {
     #[default(NonZeroUsize::ONE)]
     pub rowspan: NonZeroUsize,
 
-    /// The cell's [fill]($table.fill) override.
-    pub fill: Smart<Option<Paint>>,
+    /// The cell's [inset]($table.inset) override.
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's [alignment]($table.align) override.
     pub align: Smart<Alignment>,
 
-    /// The cell's [inset]($table.inset) override.
-    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+    /// The cell's [fill]($table.fill) override.
+    pub fill: Smart<Option<Paint>>,
 
     /// The cell's [stroke]($table.stroke) override.
     #[fold]
