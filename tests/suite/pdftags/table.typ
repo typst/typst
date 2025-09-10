@@ -89,8 +89,9 @@
   [a3], [c3],
 )
 
---- table-tags-header-citation pdftags ---
-// The header is repeated and thus marked as an artifact, but it contains a link.
+--- table-tags-citation-in-repeated-header pdftags ---
+// Error: 3:16-3:23 PDF/UA1 error: PDF artifacts may not contain links
+// Hint: 3:16-3:23 references, citations, and footnotes are also considered links in PDF
 #set page(height: 60pt)
 #table(
   table.header[@netwok],

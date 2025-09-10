@@ -138,17 +138,15 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
             let page_idx = gc.page_index_converter.pdf_page_index(i);
             let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
 
-            tags::page_start(gc, &mut surface);
-
-            handle_frame(
-                &mut fc,
-                &typst_page.frame,
-                typst_page.fill_or_transparent(),
-                &mut surface,
-                gc,
-            )?;
-
-            tags::page_end(gc, &mut surface);
+            tags::page(gc, &mut surface, |gc, surface| {
+                handle_frame(
+                    &mut fc,
+                    &typst_page.frame,
+                    typst_page.fill_or_transparent(),
+                    surface,
+                    gc,
+                )
+            })?;
 
             surface.finish();
 
@@ -325,7 +323,7 @@ pub(crate) fn handle_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
-            FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size),
+            FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(elem)) => tags::handle_start(gc, surface, elem)?,
             FrameItem::Tag(Tag::End(loc, _)) => tags::handle_end(gc, surface, *loc)?,
         }

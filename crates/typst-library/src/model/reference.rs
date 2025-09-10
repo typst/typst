@@ -353,6 +353,8 @@ fn realize_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
+    content = content.spanned(reference.span());
+
     Ok(if styles.get(TargetElem::target).is_html() {
         LinkElem::new(LinkTarget::Dest(Destination::Location(loc)), content).pack()
     } else {

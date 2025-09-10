@@ -824,7 +824,9 @@ impl<'a> Generator<'a> {
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
                         let dest = Destination::Location(*location);
                         let alt = content.plain_text();
-                        content = content.linked(dest, Some(alt));
+                        content = content
+                            .spanned(self.bibliography.span())
+                            .linked(dest, Some(alt));
                     }
                     StrResult::Ok(content)
                 })
@@ -955,6 +957,8 @@ impl ElemRenderer<'_> {
             }
             _ => {}
         }
+
+        content = content.spanned(self.span);
 
         if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
             && let Some(location) = (self.link)(i)

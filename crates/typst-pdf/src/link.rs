@@ -4,6 +4,7 @@ use krilla::annotation::Target;
 use krilla::configure::Validator;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
+use typst_library::diag::{SourceResult, bail};
 use typst_library::layout::{Point, Position, Size};
 use typst_library::model::Destination;
 use typst_syntax::Span;
@@ -13,13 +14,15 @@ use crate::tags::{LinkId, Placeholder, TagNode};
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) struct LinkAnnotation {
-    pub(crate) kind: LinkAnnotationKind,
-    pub(crate) quad_points: Vec<kg::Quadrilateral>,
-    pub(crate) target: Target,
+    pub kind: LinkAnnotationKind,
+    pub alt: Option<String>,
+    pub span: Span,
+    pub quad_points: Vec<kg::Quadrilateral>,
+    pub target: Target,
 }
 
 impl LinkAnnotation {
-    pub(crate) fn id(&self) -> Option<LinkId> {
+    pub fn id(&self) -> Option<LinkId> {
         match self.kind {
             LinkAnnotationKind::Tagged { id, .. } => Some(id),
             LinkAnnotationKind::Artifact => None,
@@ -29,7 +32,7 @@ impl LinkAnnotation {
 
 pub(crate) enum LinkAnnotationKind {
     /// A link annotation that is tagged within a `Link` structure element.
-    Tagged { id: LinkId, placeholder: Placeholder, alt: Option<String>, span: Span },
+    Tagged { id: LinkId, placeholder: Placeholder },
     /// A link annotation within an artifact.
     Artifact,
 }
@@ -39,14 +42,14 @@ pub(crate) fn handle_link(
     gc: &mut GlobalContext,
     dest: &Destination,
     size: Size,
-) {
+) -> SourceResult<()> {
     let target = match dest {
         Destination::Url(u) => {
             Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
         Destination::Position(p) => match pos_to_target(gc, *p) {
             Some(target) => target,
-            None => return,
+            None => return Ok(()),
         },
         Destination::Location(loc) => {
             if let Some(nd) = gc.loc_to_names.get(loc) {
@@ -57,31 +60,38 @@ pub(crate) fn handle_link(
                 let pos = gc.document.introspector.position(*loc);
                 match pos_to_target(gc, pos) {
                     Some(target) => target,
-                    None => return,
+                    None => return Ok(()),
                 }
             }
         }
     };
 
+    let (link_id, link, group_id) =
+        gc.tags.stack.find_parent_link().expect("link parent");
+    let alt = link.alt.as_ref().map(EcoString::to_string);
     let quad = to_quadrilateral(fc, size);
 
-    if gc.tags.disable.is_some() {
+    if gc.options.disable_tags || gc.tags.disable.is_some() {
+        if gc.options.is_pdf_ua() && gc.tags.disable.is_some() {
+            let validator = gc.options.standards.config.validator();
+            let validator = validator.as_str();
+            let span = link.span();
+            bail!(
+                span,
+                "{validator} error: PDF artifacts may not contain links";
+                hint: "references, citations, and footnotes \
+                      are also considered links in PDF");
+        }
+
         fc.push_link_annotation(LinkAnnotation {
             kind: LinkAnnotationKind::Artifact,
+            alt,
+            span: link.span(),
             quad_points: vec![quad],
             target,
         });
-        return;
+        return Ok(());
     }
-
-    let (link_id, tagging_ctx) = match gc.tags.stack.find_parent_link() {
-        Some((link_id, link, nodes)) => (link_id, Some((link, nodes))),
-        None if gc.options.disable_tags => {
-            let link_id = gc.tags.next_link_id();
-            (link_id, None)
-        }
-        None => unreachable!("expected a link parent"),
-    };
 
     // Unfortunately quadpoints still aren't well supported by most PDF readers.
     // So only add multiple quadpoint entries to one annotation when targeting
@@ -98,21 +108,19 @@ pub(crate) fn handle_link(
         Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
             let placeholder = gc.tags.placeholders.reserve();
-            let (alt, span) = if let Some((link, id)) = tagging_ctx {
-                let nodes = &mut gc.tags.groups.get_mut(id).nodes;
-                nodes.push(TagNode::Placeholder(placeholder));
-                let alt = link.alt.as_ref().map(EcoString::to_string);
-                (alt, link.span())
-            } else {
-                (None, Span::detached())
-            };
+            let nodes = &mut gc.tags.groups.get_mut(group_id).nodes;
+            nodes.push(TagNode::Placeholder(placeholder));
             fc.push_link_annotation(LinkAnnotation {
-                kind: LinkAnnotationKind::Tagged { id: link_id, placeholder, alt, span },
+                kind: LinkAnnotationKind::Tagged { id: link_id, placeholder },
+                alt,
+                span: link.span(),
                 quad_points: vec![quad],
                 target,
             });
         }
     }
+
+    Ok(())
 }
 
 /// Compute the quadrilateral representing the transformed rectangle of this frame.

@@ -128,12 +128,10 @@ fn convert_pattern(
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
-    {
-        let mut handle = tags::disable(gc, &mut surface, Disable::Tiling);
-        let (gc, surface) = handle.reborrow();
+    tags::disable(gc, &mut surface, Disable::Tiling, |gc, surface| {
         let mut fc = FrameContext::new(None, pattern.frame().size());
-        handle_frame(&mut fc, pattern.frame(), None, surface, gc)?;
-    }
+        handle_frame(&mut fc, pattern.frame(), None, surface, gc)
+    })?;
     surface.finish();
     let stream = stream_builder.finish();
     let pattern = Pattern {
