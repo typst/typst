@@ -28,7 +28,7 @@ pub struct OverlineElem {
 /// A horizontal brace under content, with an optional annotation below.
 ///
 /// ```example
-/// $ underbrace(1 + 2 + ... + 5, "numbers") $
+/// $ underbrace(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct UnderbraceElem {
@@ -44,7 +44,7 @@ pub struct UnderbraceElem {
 /// A horizontal brace over content, with an optional annotation above.
 ///
 /// ```example
-/// $ overbrace(1 + 2 + ... + 5, "numbers") $
+/// $ overbrace(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct OverbraceElem {
@@ -60,7 +60,7 @@ pub struct OverbraceElem {
 /// A horizontal bracket under content, with an optional annotation below.
 ///
 /// ```example
-/// $ underbracket(1 + 2 + ... + 5, "numbers") $
+/// $ underbracket(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct UnderbracketElem {
@@ -76,7 +76,7 @@ pub struct UnderbracketElem {
 /// A horizontal bracket over content, with an optional annotation above.
 ///
 /// ```example
-/// $ overbracket(1 + 2 + ... + 5, "numbers") $
+/// $ overbracket(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct OverbracketElem {
@@ -92,7 +92,7 @@ pub struct OverbracketElem {
 /// A horizontal parenthesis under content, with an optional annotation below.
 ///
 /// ```example
-/// $ underparen(1 + 2 + ... + 5, "numbers") $
+/// $ underparen(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct UnderparenElem {
@@ -108,7 +108,7 @@ pub struct UnderparenElem {
 /// A horizontal parenthesis over content, with an optional annotation above.
 ///
 /// ```example
-/// $ overparen(1 + 2 + ... + 5, "numbers") $
+/// $ overparen(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct OverparenElem {
@@ -125,7 +125,7 @@ pub struct OverparenElem {
 /// annotation below.
 ///
 /// ```example
-/// $ undershell(1 + 2 + ... + 5, "numbers") $
+/// $ undershell(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct UndershellElem {
@@ -142,7 +142,7 @@ pub struct UndershellElem {
 /// annotation above.
 ///
 /// ```example
-/// $ overshell(1 + 2 + ... + 5, "numbers") $
+/// $ overshell(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
 #[elem(Mathy)]
 pub struct OvershellElem {
