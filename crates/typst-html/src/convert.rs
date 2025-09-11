@@ -3,7 +3,7 @@ use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, StyleChain, Target, TargetElem};
 use typst_library::introspection::{SplitLocator, TagElem};
-use typst_library::layout::{Abs, Axes, Region, Size};
+use typst_library::layout::{Abs, Axes, HElem, Region, Size};
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -103,6 +103,11 @@ fn handle(
             elem.text.clone()
         };
         handle_text(converter, text, elem.span());
+    } else if let Some(elem) = child.to_packed::<HElem>()
+        && elem.amount.is_zero()
+    {
+        // Nothing to do for zero-sized spacing. This is sometimes used to
+        // destruct spaces, e.g. in footnotes. See [`HElem::hole`].
     } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
         converter.push(HtmlElement::new(tag::br).spanned(elem.span()));
     } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
