@@ -317,7 +317,7 @@ impl Debug for Property {
             f,
             "Set({}.{}: ",
             self.elem.name(),
-            self.elem.field_name(self.id).unwrap()
+            self.elem.field_name(self.id).unwrap_or("internal")
         )?;
         self.value.fmt(f)?;
         write!(f, ")")
