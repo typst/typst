@@ -45,10 +45,10 @@ pub fn convert(
     convert_pages(&mut gc, &mut document)?;
     attach_files(typst_document, &mut document)?;
 
-    let tree = gc.tags.finish();
+    let (doc_lang, tree) = gc.tags.finish();
 
     document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
+    document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
 
     finish(document, gc, options.standards.config)
@@ -60,10 +60,10 @@ pub fn tag_tree(
 ) -> SourceResult<String> {
     let (mut document, mut gc) = setup(typst_document, options);
     convert_pages(&mut gc, &mut document)?;
-    let tree = gc.tags.finish();
+    let (doc_lang, tree) = gc.tags.finish();
 
     let mut output = String::new();
-    if let Some(lang) = gc.tags.doc_lang
+    if let Some(lang) = doc_lang
         && lang != Lang::ENGLISH
     {
         output = format!("lang: \"{}\"\n---\n", lang.as_str());

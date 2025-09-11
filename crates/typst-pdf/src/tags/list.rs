@@ -61,10 +61,10 @@ impl ListCtx {
         // ```
         //
         // So move the nested list out of the list item.
-        if let [.., TagNode::Group(id)] = groups.get(contents.id).nodes.as_slice()
-            && let Some(TagKind::L(_)) = groups.get(*id).state.tag()
+        if let [.., TagNode::Group(id)] = groups.nodes(contents.id)
+            && let Some(TagKind::L(_)) = groups.tag(*id)
         {
-            item.sub_list = groups.get_mut(contents.id).nodes.pop();
+            item.sub_list = groups.pop_node(contents.id);
         }
 
         item.body = Some(groups.init_tag(Tag::LBody, contents));
@@ -92,9 +92,9 @@ impl ListCtx {
                 item.body.unwrap_or_else(|| groups.new_empty(Tag::LBody)),
             ];
             let node = groups.new_virtual(Tag::LI, nodes);
-            groups.get_mut(contents.id).nodes.push(node);
+            groups.push_node(contents.id, node);
             if let Some(sub_list) = item.sub_list {
-                groups.get_mut(contents.id).nodes.push(sub_list);
+                groups.push_node(contents.id, sub_list);
             }
         }
         groups.init_tag(Tag::L(self.numbering), contents)

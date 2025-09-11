@@ -108,8 +108,7 @@ pub(crate) fn handle_link(
         Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
             let placeholder = gc.tags.placeholders.reserve();
-            let nodes = &mut gc.tags.groups.get_mut(group_id).nodes;
-            nodes.push(TagNode::Placeholder(placeholder));
+            gc.tags.groups.push_node(group_id, TagNode::Placeholder(placeholder));
             fc.push_link_annotation(LinkAnnotation {
                 kind: LinkAnnotationKind::Tagged { id: link_id, placeholder },
                 alt,

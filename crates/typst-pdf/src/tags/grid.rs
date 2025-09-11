@@ -311,7 +311,7 @@ impl TableCtx {
 
             // Push the `TR` tags directly.
             if !gen_row_groups {
-                groups.get_mut(contents.id).nodes.push(row);
+                groups.push_node(contents.id, row);
                 continue;
             }
 
@@ -325,7 +325,7 @@ impl TableCtx {
                 };
                 let chunk_nodes = std::mem::take(&mut row_chunk);
                 let node = groups.new_virtual(tag, chunk_nodes);
-                groups.get_mut(contents.id).nodes.push(node);
+                groups.push_node(contents.id, node);
 
                 chunk_kind = row_kind;
             }
@@ -339,7 +339,7 @@ impl TableCtx {
                 TableCellKind::Data => Tag::TBody.into(),
             };
             let node = groups.new_virtual(tag, row_chunk);
-            groups.get_mut(contents.id).nodes.push(node);
+            groups.push_node(contents.id, node);
         }
 
         let tag = Tag::Table
@@ -672,7 +672,7 @@ impl GridCtx {
     pub fn build_grid(self, groups: &mut Groups, contents: GroupContents) -> TagNode {
         for cell in self.cells.entries.into_iter().filter_map(GridEntry::into_cell) {
             let node = groups.init_tag(Tag::Div, cell.contents);
-            groups.get_mut(contents.id).nodes.push(node);
+            groups.push_node(contents.id, node);
         }
 
         groups.init_tag(Tag::Div, contents)

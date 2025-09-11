@@ -211,7 +211,7 @@ pub fn handle_start(
     } else if let Some(_) = elem.to_packed::<ParElem>() {
         Tag::P.into()
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
-        gc.tags.logical_parents.insert(elem.location().unwrap(), elem.span());
+        push_logical_parent(gc, elem);
         return Ok(());
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
         Tag::Note.into()
@@ -233,7 +233,7 @@ pub fn handle_start(
         return Ok(());
     } else if let Some(place) = elem.to_packed::<PlaceElem>() {
         if place.float.val() {
-            gc.tags.logical_parents.insert(elem.location().unwrap(), elem.span());
+            push_logical_parent(gc, elem);
         }
         return Ok(());
     } else if let Some(_) = elem.to_packed::<StrongElem>() {
@@ -295,6 +295,17 @@ fn push_stack(
     Ok(())
 }
 
+fn push_logical_parent(gc: &mut GlobalContext, elem: &Content) {
+    let loc = elem.location().expect("elem to be locatable");
+    let span = elem.span();
+    // Use the group id of the parent so all content is transparently inserted,
+    // the logical parent marker is inserted when the entry is popped off the
+    // stack.
+    let parent_id = gc.tags.parent_group();
+    let kind = StackEntryKind::LogicalParent(elem.clone());
+    push_stack_entry(gc, Some(loc), span, parent_id, kind);
+}
+
 fn push_stack_entry(
     gc: &mut GlobalContext,
     loc: Option<Location>,
@@ -339,18 +350,12 @@ pub fn handle_end(
 
     if let Some(entry) = gc.tags.stack.pop_if(|e| e.loc == Some(loc)) {
         // The tag nesting was properly closed.
-        pop_stack(gc, entry);
+        pop_stack(gc, entry)?;
         return Ok(());
     }
 
     if gc.tags.text_attrs.pop(loc) {
         return Ok(());
-    }
-
-    if let Some(span) = gc.tags.logical_parents.remove(&loc) {
-        let kind = GroupKind::LogcialParent(span);
-        let id = gc.tags.groups.reserve_located(gc.options, loc, kind)?;
-        gc.tags.push(TagNode::Group(id));
     }
 
     // Search for an improperly nested starting tag, that is being closed.
@@ -367,13 +372,13 @@ pub fn handle_end(
     // push them back on when processing the logical children.
     let entry = &gc.tags.stack[idx];
     if matches!(entry.kind, StackEntryKind::TableCell(_) | StackEntryKind::GridCell(_)) {
-        let group = gc.tags.groups.get_mut(entry.id);
-        let unfinished_stack = gc.tags.stack.stash_unfinished_stack(idx);
-        group.unfinished_stack.extend(unfinished_stack);
+        let group_id = entry.id;
+        let unfinished_stack = gc.tags.stack.take_unfinished_stack(idx);
+        gc.tags.groups.store_unfinished_stack(group_id, unfinished_stack);
 
         let closed = gc.tags.stack.pop().unwrap();
         assert_eq!(closed.loc, Some(loc));
-        pop_stack(gc, closed);
+        pop_stack(gc, closed)?;
         return Ok(());
     }
 
@@ -436,12 +441,12 @@ pub fn handle_end(
             id: gc.tags.groups.reserve_virtual(GroupKind::Tagged(entry.span)),
             kind,
         });
-        pop_stack(gc, entry);
+        pop_stack(gc, entry)?;
     }
 
     // Pop the closed entry off the stack.
     let closed = gc.tags.stack.pop().unwrap();
-    pop_stack(gc, closed);
+    pop_stack(gc, closed)?;
 
     // Push all broken and afterwards duplicated entries back on.
     gc.tags.stack.extend(broken_entries);
@@ -449,10 +454,20 @@ pub fn handle_end(
     Ok(())
 }
 
-fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
+fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) -> SourceResult<()> {
     let contents = GroupContents { id: entry.id };
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => gc.tags.groups.init_tag(tag, contents),
+        StackEntryKind::LogicalParent(elem) => {
+            // Insert a logical parent marker at the end of the element, all
+            // logical children will be inserted here.
+            let loc = elem.location().unwrap();
+            let span = elem.span();
+            let kind = GroupKind::LogcialParent(span);
+            let id = gc.tags.groups.reserve_located(gc.options, loc, kind)?;
+            gc.tags.push(TagNode::Group(id));
+            return Ok(());
+        }
         StackEntryKind::LogicalChild => {
             unreachable!("logical children are handled separately")
         }
@@ -465,7 +480,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
                     outline_entry,
                     contents,
                 );
-                return;
+                return Ok(());
             } else {
                 // Avoid panicking, the nesting will be validated later.
                 gc.tags.groups.init_tag(Tag::TOCI, contents)
@@ -475,7 +490,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         StackEntryKind::TableCell(cell) => {
             if let Some(table_ctx) = gc.tags.stack.parent_table() {
                 table_ctx.insert(&cell, contents);
-                return;
+                return Ok(());
             } else {
                 // Avoid panicking, the nesting will be validated later.
                 gc.tags.groups.init_tag(Tag::TD, contents)
@@ -485,7 +500,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         StackEntryKind::GridCell(cell) => {
             if let Some(grid_ctx) = gc.tags.stack.parent_grid() {
                 grid_ctx.insert(&cell, contents);
-                return;
+                return Ok(());
             } else {
                 // Avoid panicking, the nesting will be validated later.
                 gc.tags.groups.init_tag(Tag::Div, contents)
@@ -495,17 +510,17 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         StackEntryKind::ListItemLabel => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
             list_ctx.push_label(&mut gc.tags.groups, contents);
-            return;
+            return Ok(());
         }
         StackEntryKind::ListItemBody => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
             list_ctx.push_body(&mut gc.tags.groups, contents);
-            return;
+            return Ok(());
         }
         StackEntryKind::BibEntry => {
             let list_ctx = gc.tags.stack.parent_list().expect("parent list");
             list_ctx.push_bib_entry(&mut gc.tags.groups, contents);
-            return;
+            return Ok(());
         }
         StackEntryKind::Figure(ctx) => {
             let tag = Tag::Figure(ctx.alt).with_bbox(ctx.bbox.to_krilla());
@@ -517,7 +532,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
         }
         StackEntryKind::Link(_, link, artifact) => {
             if artifact {
-                return;
+                return Ok(());
             }
 
             let alt = link.alt.as_ref().map(EcoString::to_string);
@@ -542,6 +557,8 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) {
     };
 
     gc.tags.push(node);
+
+    Ok(())
 }
 
 pub struct ChildGroupHandle<'a, 'b> {
@@ -561,9 +578,9 @@ impl Drop for ChildGroupHandle<'_, '_> {
             // Stash the unfinished stack entries so they can be processed by
             // the next logical child.
             if idx + 1 < self.gc.tags.stack.len() {
-                let group = self.gc.tags.groups.get_mut(entry.id);
-                let unfinished_stack = self.gc.tags.stack.stash_unfinished_stack(idx);
-                group.unfinished_stack.extend(unfinished_stack);
+                let entry_id = entry.id;
+                let unfinished_stack = self.gc.tags.stack.take_unfinished_stack(idx);
+                self.gc.tags.groups.store_unfinished_stack(entry_id, unfinished_stack);
             }
 
             self.gc.tags.stack.pop();
@@ -608,8 +625,7 @@ pub fn logical_child<'a, 'b>(
     push_stack_entry(gc, None, Span::detached(), id, StackEntryKind::LogicalChild);
 
     // Push the unfinished stack entries back on to be processed.
-    let group = gc.tags.groups.get_mut(id);
-    gc.tags.stack.extend(group.unfinished_stack.drain(..));
+    gc.tags.stack.extend(gc.tags.groups.take_unfinished_stack(id));
 
     Ok(ChildGroupHandle { gc, stack_idx })
 }

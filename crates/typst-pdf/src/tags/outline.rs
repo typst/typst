@@ -42,7 +42,7 @@ impl OutlineCtx {
     fn push(&mut self, groups: &mut Groups, group_id: GroupId, entry: TagNode) {
         match self.stack.last_mut() {
             Some(section) => section.push(entry),
-            None => groups.get_mut(group_id).nodes.push(entry),
+            None => groups.push_node(group_id, entry),
         }
     }
 

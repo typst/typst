@@ -7,7 +7,7 @@ use krilla::tagging as kt;
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
 use rustc_hash::FxHashMap;
 use typst_library::diag::{SourceResult, bail};
-use typst_library::foundations::{LinkMarker, Packed};
+use typst_library::foundations::{Content, LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, GridCell, Point, Rect};
 use typst_library::model::{OutlineEntry, TableCell};
@@ -24,92 +24,83 @@ use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
 use crate::util::AbsExt;
 
 pub struct Tags {
-    /// The language of the first text item that has been encountered.
-    pub doc_lang: Option<Lang>,
     /// The set of text attributes.
     pub text_attrs: TextAttrs,
     /// The intermediary stack of nested tag groups.
     pub stack: TagStack,
+    pub groups: Groups,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
-    pub groups: Groups,
-    /// Logical parent markers for elements that are not directly associated
-    /// with a PDF tag. They are inserted at the end introspection tag to mark
-    /// the point where logical children are inserted.
-    pub logical_parents: FxHashMap<Location, Span>,
     pub disable: Option<Disable>,
+    /// The document group which makes up the whole tag tree.
+    doc: GroupId,
     /// Used to group multiple link annotations using quad points.
     link_id: LinkId,
     /// Used to generate IDs referenced in table `Headers` attributes.
     /// The IDs must be document wide unique.
     table_id: TableId,
-
-    /// The output.
-    tree: Vec<TagNode>,
 }
 
 impl Tags {
     pub fn new(doc_lang: Option<Lang>) -> Self {
+        let mut groups = Groups::new();
+        let doc = groups.root_document(doc_lang);
         Self {
-            doc_lang,
             text_attrs: TextAttrs::new(),
             stack: TagStack::new(),
+            groups,
             placeholders: Placeholders(Vec::new()),
-            groups: Groups::new(),
-            logical_parents: FxHashMap::default(),
             disable: None,
-
+            doc,
             link_id: LinkId(0),
             table_id: TableId(0),
-
-            tree: Vec::new(),
         }
+    }
+
+    /// Either the group of the last stack entry or the root document group.
+    pub fn parent_group(&self) -> GroupId {
+        self.stack.last().map(|e| e.id).unwrap_or(self.doc)
     }
 
     pub fn push(&mut self, node: TagNode) {
-        if let Some(entry) = self.stack.last_mut() {
-            self.groups.get_mut(entry.id).nodes.push(node);
-        } else {
-            self.tree.push(node);
-        }
+        self.groups.push_node(self.parent_group(), node);
     }
 
-    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, id: Identifier) {
+    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, text_id: Identifier) {
         if new_attrs.is_empty() {
-            self.push(TagNode::Leaf(id));
+            self.push(TagNode::Leaf(text_id));
             return;
         }
 
-        let last_node = if let Some(entry) = self.stack.last_mut() {
-            self.groups.get_mut(entry.id).nodes.last_mut()
-        } else {
-            self.tree.last_mut()
-        };
+        let last_node = self.groups.nodes_mut(self.parent_group()).last_mut();
         if let Some(TagNode::Text(prev_attrs, nodes)) = last_node
             && *prev_attrs == new_attrs
         {
-            nodes.push(id);
+            nodes.push(text_id);
         } else {
-            self.push(TagNode::Text(new_attrs, vec![id]));
+            self.push(TagNode::Text(new_attrs, vec![text_id]));
         }
     }
 
-    pub fn finish(&mut self) -> TagTree {
+    pub fn finish(&mut self) -> (Option<Lang>, TagTree) {
         assert!(self.stack.items.is_empty(), "tags weren't properly closed");
 
-        let mut children = Vec::with_capacity(self.tree.len());
+        let doc = self.groups.take_group(self.doc);
+        let GroupState::Root(mut doc_lang) = doc.state else { unreachable!() };
 
-        for child in std::mem::take(&mut self.tree) {
+        let mut children = Vec::with_capacity(doc.nodes.len());
+
+        for child in doc.nodes {
             resolve_node(
                 &mut self.groups,
                 &mut self.placeholders,
-                &mut self.doc_lang,
+                &mut doc_lang,
                 &mut children,
                 child,
             );
         }
 
-        TagTree::from(children)
+        (doc_lang, TagTree::from(children))
     }
 
     /// Try to set the language of the direct parent tag, or the entire document.
@@ -117,19 +108,7 @@ impl Tags {
     /// this will return `Some`, and the language should be specified on the
     /// marked content directly.
     pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
-        if let Some(last) = self.stack.last_mut() {
-            let group = &mut self.groups.get_mut(last.id);
-            if let GroupState::Tagged(_, parent_lang) = &mut group.state
-                && parent_lang.is_none_or(|l| l == lang)
-            {
-                *parent_lang = Some(lang);
-                return None;
-            }
-        } else if self.doc_lang.is_none_or(|l| l == lang) {
-            self.doc_lang = Some(lang);
-            return None;
-        }
-        Some(lang)
+        self.groups.try_set_lang(self.parent_group(), lang)
     }
 
     pub fn next_link_id(&mut self) -> LinkId {
@@ -153,7 +132,7 @@ fn resolve_node(
 ) {
     match node {
         TagNode::Group(id) => {
-            let mut group = groups.take(id);
+            let mut group = groups.take_group(id);
 
             assert!(group.unfinished_stack.is_empty());
 
@@ -164,6 +143,7 @@ fn resolve_node(
             }
 
             match group.state {
+                GroupState::Root(_) => unreachable!(),
                 GroupState::Tagged(tag, mut group_lang) => {
                     // Try to propagate the groups language to the parent tag.
                     if let Some(lang) = group_lang
@@ -241,8 +221,8 @@ impl TagStack {
         self.items.get(idx)
     }
 
-    pub fn last_mut(&mut self) -> Option<&mut StackEntry> {
-        self.items.last_mut()
+    pub fn last(&self) -> Option<&StackEntry> {
+        self.items.last()
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, StackEntry> {
@@ -297,7 +277,7 @@ impl TagStack {
 
     /// Remove all stack entries after the idx.
     /// This takes care of updating the parent bboxes.
-    pub fn stash_unfinished_stack(
+    pub fn take_unfinished_stack(
         &mut self,
         idx: usize,
     ) -> std::vec::Drain<'_, StackEntry> {
@@ -411,6 +391,7 @@ pub struct StackEntry {
 #[derive(Clone, Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
+    LogicalParent(Content),
     LogicalChild,
     Outline(OutlineCtx),
     OutlineEntry(Packed<OutlineEntry>),
@@ -523,6 +504,7 @@ impl StackEntryKind {
                 TagKind::Strong(_) => true,
                 TagKind::Em(_) => true,
             },
+            StackEntryKind::LogicalParent(_) => false,
             StackEntryKind::LogicalChild => false,
             StackEntryKind::Outline(_) => false,
             StackEntryKind::OutlineEntry(_) => false,
@@ -648,15 +630,61 @@ impl Groups {
         Self { locations: FxHashMap::default(), list: Vec::new() }
     }
 
-    pub fn get(&self, id: GroupId) -> &Group {
+    fn _get(&self, id: GroupId) -> &Group {
         &self.list[id.0 as usize]
     }
 
-    pub fn get_mut(&mut self, id: GroupId) -> &mut Group {
+    fn _get_mut(&mut self, id: GroupId) -> &mut Group {
         &mut self.list[id.0 as usize]
     }
 
-    pub fn take(&mut self, id: GroupId) -> Group {
+    pub fn tag(&self, id: GroupId) -> Option<&TagKind> {
+        self._get(id).state.tag()
+    }
+
+    pub fn nodes(&self, id: GroupId) -> &[TagNode] {
+        &self._get(id).nodes
+    }
+
+    pub fn nodes_mut(&mut self, id: GroupId) -> &mut Vec<TagNode> {
+        &mut self._get_mut(id).nodes
+    }
+
+    pub fn push_node(&mut self, id: GroupId, node: TagNode) {
+        self._get_mut(id).nodes.push(node);
+    }
+
+    pub fn pop_node(&mut self, id: GroupId) -> Option<TagNode> {
+        self._get_mut(id).nodes.pop()
+    }
+
+    pub fn store_unfinished_stack(
+        &mut self,
+        id: GroupId,
+        entries: impl IntoIterator<Item = StackEntry>,
+    ) {
+        self._get_mut(id).unfinished_stack.extend(entries);
+    }
+
+    pub fn take_unfinished_stack(
+        &mut self,
+        id: GroupId,
+    ) -> impl IntoIterator<Item = StackEntry> {
+        self._get_mut(id).unfinished_stack.drain(..)
+    }
+
+    fn try_set_lang(&mut self, id: GroupId, lang: Lang) -> Option<Lang> {
+        let group = &mut self._get_mut(id);
+        if let GroupState::Tagged(_, parent_lang) = &mut group.state
+            && parent_lang.is_none_or(|l| l == lang)
+        {
+            *parent_lang = Some(lang);
+            return None;
+        }
+        Some(lang)
+    }
+
+    fn take_group(&mut self, id: GroupId) -> Group {
         std::mem::take(&mut self.list[id.0 as usize])
     }
 
@@ -675,7 +703,7 @@ impl Groups {
 
                 let is_child = kind == GroupKind::LogicalChild;
                 if is_child {
-                    group.has_children = true;
+                    group.has_logical_children = true;
                 } else {
                     group.num_parents += 1
                 }
@@ -684,7 +712,10 @@ impl Groups {
                     group.span = kind.span();
                 }
 
-                if options.is_pdf_ua() && group.num_parents > 1 && group.has_children {
+                if options.is_pdf_ua()
+                    && group.num_parents > 1
+                    && group.has_logical_children
+                {
                     let validator = options.standards.config.validator();
                     let validator = validator.as_str();
                     let span = kind.span().or(group.span).unwrap_or(Span::detached());
@@ -725,6 +756,20 @@ impl Groups {
         id
     }
 
+    /// Create the root document group.
+    pub fn root_document(&mut self, doc_lang: Option<Lang>) -> GroupId {
+        let id = GroupId(self.list.len() as u32);
+        self.list.push(Group {
+            state: GroupState::Root(doc_lang),
+            nodes: Vec::new(),
+            span: None,
+            num_parents: 1,
+            has_logical_children: false,
+            unfinished_stack: Vec::new(),
+        });
+        id
+    }
+
     /// Directly create a virtual group, which didn't originate directly from a
     /// typst element. It has [`Location`] associated with it, and thus cannot
     /// be found by logical children.
@@ -739,7 +784,7 @@ impl Groups {
             nodes,
             span: None,
             num_parents: 1,
-            has_children: false,
+            has_logical_children: false,
             unfinished_stack: Vec::new(),
         });
         TagNode::Group(id)
@@ -758,14 +803,14 @@ impl Groups {
         contents: GroupContents,
     ) -> TagNode {
         let tag = tag.into();
-        let group = self.get_mut(contents.id);
+        let group = self._get_mut(contents.id);
 
         match &mut group.state {
             GroupState::Tagged(t, _) => {
                 assert!(t.is_none());
                 *t = Some(tag);
             }
-            GroupState::Transparent => unreachable!(),
+            GroupState::Root(_) | GroupState::Transparent => unreachable!(),
         }
         TagNode::Group(contents.id)
     }
@@ -773,17 +818,17 @@ impl Groups {
 
 #[derive(Debug, Default)]
 pub struct Group {
-    pub state: GroupState,
+    state: GroupState,
     pub nodes: Vec<TagNode>,
     pub span: Option<Span>,
 
-    pub num_parents: u32,
-    pub has_children: bool,
+    num_parents: u32,
+    has_logical_children: bool,
 
     /// Currently only used for table/grid cells that are broken across multiple
     /// regions, and thus can have opening/closing introspection tags that are
     /// in completely different frames, due to the logical parenting mechanism.
-    pub unfinished_stack: Vec<StackEntry>,
+    unfinished_stack: Vec<StackEntry>,
 }
 
 impl Group {
@@ -793,7 +838,7 @@ impl Group {
             state: kind.into(),
             span: kind.span(),
             num_parents: if is_child { 0 } else { 1 },
-            has_children: is_child,
+            has_logical_children: is_child,
             nodes: Vec::new(),
             unfinished_stack: Vec::new(),
         }
@@ -834,7 +879,8 @@ impl From<GroupKind> for GroupState {
 }
 
 #[derive(Debug, Default)]
-pub enum GroupState {
+enum GroupState {
+    Root(Option<Lang>),
     Tagged(Option<TagKind>, Option<Lang>),
     #[default]
     Transparent,
@@ -843,13 +889,18 @@ pub enum GroupState {
 impl GroupState {
     pub fn tag(&self) -> Option<&TagKind> {
         match self {
+            Self::Root(_) => None,
             Self::Tagged(tag, _) => tag.as_ref(),
             Self::Transparent => None,
         }
     }
 
     pub fn lang_mut(&mut self) -> Option<&mut Option<Lang>> {
-        if let Self::Tagged(_, l) = self { Some(l) } else { None }
+        match self {
+            Self::Root(lang) => Some(lang),
+            Self::Tagged(_, lang) => Some(lang),
+            Self::Transparent => None,
+        }
     }
 }
 

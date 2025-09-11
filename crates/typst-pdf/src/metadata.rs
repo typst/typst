@@ -2,16 +2,16 @@ use ecow::EcoString;
 use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart, StyleChain};
 use typst_library::layout::Dir;
-use typst_library::text::TextElem;
+use typst_library::text::{Lang, TextElem};
 
 use crate::convert::GlobalContext;
 
-pub(crate) fn build_metadata(gc: &GlobalContext) -> Metadata {
+pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Lang>) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
 
     // Always write a language, PDF/UA-1 implicitly requires a document language
     // so the metadata and outline entries have an applicable language.
-    let lang = gc.tags.doc_lang.unwrap_or(StyleChain::default().get(TextElem::lang));
+    let lang = doc_lang.unwrap_or(StyleChain::default().get(TextElem::lang));
 
     let dir = if lang.dir() == Dir::RTL {
         TextDirection::RightToLeft
