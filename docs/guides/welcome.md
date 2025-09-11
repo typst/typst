@@ -11,3 +11,4 @@ Feel free to propose other topics for guides!
 - [Guide for LaTeX Users]($guides/guide-for-latex-users)
 - [Page Setup Guide]($guides/page-setup-guide)
 - [Table Guide]($guides/table-guide)
+- [Accessibility guide]($guides/accessibility-guide)
