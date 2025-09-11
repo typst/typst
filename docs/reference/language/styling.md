@@ -128,8 +128,9 @@ to:
   See the documentation of the [`regex` type]($regex) for details.
 
 - **Function with fields:** `{show heading.where(level: 1): ..}` \
-  Transform only elements that have the specified fields. For example, you might
-  want to only change the style of level-1 headings.
+  Transform only elements that have fields with specific values or of specific
+  types. For example, you might want to only change the style of level-1
+  headings or of links pointing to string URLs.
 
 - **Label:** `{show <intro>: ..}` \
   Select and transform elements that have the specified label. See the
