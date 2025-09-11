@@ -155,25 +155,32 @@ impl TableCtx {
         let height = self.cells.height();
 
         // Only generate row groups such as `THead`, `TFoot`, and `TBody` if
-        // there are no rows with mixed cell kinds.
-        let mut gen_row_groups = true;
+        // there are no rows with mixed cell kinds, and there is at least one
+        // header or a footer.
         let mut row_kinds = self.default_row_kinds;
-        'outer: for (row, row_kind) in self.cells.rows().zip(row_kinds.iter_mut()) {
-            *row_kind = self.cells.resolve(row.first().unwrap()).unwrap().data.kind;
-            for cell in row.iter().filter_map(|cell| self.cells.resolve(cell)) {
-                if let TableCellKind::Header(_, scope) = cell.data.kind
-                    && scope != TableHeaderScope::Column
-                {
-                    gen_row_groups = false;
-                    break 'outer;
-                }
+        let gen_row_groups = {
+            let mut uniform_rows = true;
+            let mut has_header_or_footer = false;
+            'outer: for (row, row_kind) in self.cells.rows().zip(row_kinds.iter_mut()) {
+                *row_kind = self.cells.resolve(row.first().unwrap()).unwrap().data.kind;
+                has_header_or_footer |= *row_kind != TableCellKind::Data;
+                for cell in row.iter().filter_map(|cell| self.cells.resolve(cell)) {
+                    if let TableCellKind::Header(_, scope) = cell.data.kind
+                        && scope != TableHeaderScope::Column
+                    {
+                        uniform_rows = false;
+                        break 'outer;
+                    }
 
-                if *row_kind != cell.data.kind {
-                    gen_row_groups = false;
-                    break 'outer;
+                    if *row_kind != cell.data.kind {
+                        uniform_rows = false;
+                        break 'outer;
+                    }
                 }
             }
-        }
+
+            uniform_rows && has_header_or_footer
+        };
 
         // Compute the headers attribute column-wise.
         for x in 0..width {
