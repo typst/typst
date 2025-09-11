@@ -18,7 +18,8 @@
 #context query(<placed>).join()
 
 --- query-tags-ambigous-parent-footnote pdftags ---
-// TODO: add test once tag nesting is fixed
+// Error: 1:2-1:21 PDF/UA1 error: ambigous logical parent
+// Hint: 1:2-1:21 please report this as a bug
 #footnote[something] <note>
 
 #context query(<note>).join()
