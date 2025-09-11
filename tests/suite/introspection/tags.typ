@@ -1,14 +1,15 @@
 --- tags-grouping ---
 // Test how grouping rules handle tags at their edges. To observe this scenario,
-// we can in principle have a link at the start or end of a paragraph and see
-// whether the two nest correctly.
+// we have a link at the start or end of a paragraph and see whether the two
+// nest correctly.
 //
-// Unfortunately, there isn't really a way to test end tags from Typst code.
-// Hence, we're simulating it with metadata here. Note that this tests for
-// slightly different, but even a bit more complex behavior since each metadata
-// has its own start and end tags. Effectively, we are enforcing that not just
-// the trailing end tag is kept in the paragraph grouping, but also that
-// start/end combos before it are kept, too.
+// The tag nesting check is done as a custom check as, unfortunately, there isn't
+// really a way to test end tags from Typst code.
+//
+// On top that we are checking that trailing start/end combos tags after the
+// grouping, but before a tag that is matched in the group are also kept in the
+// grouping. This we can check from within Typst code via show rules with
+// metadata, which is done below.
 
 // Hide everything ... we don't need a reference image.
 #set text(size: 0pt)
@@ -41,6 +42,11 @@
     output
   )
 }
+
+// Because `par` is not currently locatable, we need another way to ensure
+// tags are generated around it. This can be removed once par is locatable.
+#show par: quote
+#show quote: it => it.body
 
 // Both link and ref are contained in the paragraph.
 #case(
