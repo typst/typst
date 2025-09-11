@@ -840,7 +840,7 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
         for (k, (c, _)) in s.sink.iter().enumerate().skip(end) {
             let Some(elem) = c.to_packed::<TagElem>() else { break };
             if within.contains(&elem.tag.location().into()) {
-                end = k;
+                end = k + 1;
             }
         }
     }
