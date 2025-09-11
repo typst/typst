@@ -145,10 +145,10 @@ impl Release {
         };
 
         match downloader.download(&url) {
-            Ok(response) => response.into_json().map_err(|err| {
+            Ok(mut response) => response.body_mut().read_json().map_err(|err| {
                 eco_format!("failed to parse release information ({err})")
             }),
-            Err(ureq::Error::Status(404, _)) => {
+            Err(ureq::Error::StatusCode(404)) => {
                 bail!("release not found (searched at {url})")
             }
             Err(err) => bail!("failed to download release ({err})"),
@@ -175,7 +175,7 @@ impl Release {
             &mut PrintDownload("release"),
         ) {
             Ok(data) => data,
-            Err(ureq::Error::Status(404, _)) => {
+            Err(ureq::Error::StatusCode(404)) => {
                 bail!("asset not found (searched for {})", asset.name);
             }
             Err(err) => bail!("failed to download asset ({err})"),
