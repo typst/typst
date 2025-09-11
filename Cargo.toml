@@ -165,3 +165,8 @@ manual_range_contains = "allow"
 mutable_key_type = "allow"
 uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
+
+[patch.crates-io]
+# Remove if and when the commit is included in a release version.
+# See https://github.com/typst/typst/issues/4421.
+syntect = { git = "https://github.com/trishume/syntect", rev = "162a7f366dd560aabda5f629c210ba9eb4270e10" }
