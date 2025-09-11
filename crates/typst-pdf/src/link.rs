@@ -71,8 +71,8 @@ pub(crate) fn handle_link(
     let alt = link.alt.as_ref().map(EcoString::to_string);
     let quad = to_quadrilateral(fc, size);
 
-    if gc.options.disable_tags || gc.tags.disable.is_some() {
-        if gc.options.is_pdf_ua() && gc.tags.disable.is_some() {
+    if gc.options.disable_tags || gc.tags.stack.in_disabled() {
+        if gc.options.is_pdf_ua() && gc.tags.stack.in_disabled() {
             let validator = gc.options.standards.config.validator();
             let validator = validator.as_str();
             let span = link.span();

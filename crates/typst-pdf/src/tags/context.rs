@@ -1,9 +1,8 @@
 use std::cell::OnceCell;
 use std::collections::hash_map::Entry;
-use std::slice::SliceIndex;
 
 use krilla::geom as kg;
-use krilla::tagging as kt;
+use krilla::tagging::{self as kt, ArtifactType};
 use krilla::tagging::{BBox, Identifier, Node, TagKind, TagTree};
 use rustc_hash::FxHashMap;
 use typst_library::diag::{SourceResult, bail};
@@ -11,7 +10,6 @@ use typst_library::foundations::{Content, LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{Abs, GridCell, Point, Rect};
 use typst_library::model::{OutlineEntry, TableCell};
-use typst_library::pdf::ArtifactKind;
 use typst_library::text::Lang;
 use typst_syntax::Span;
 
@@ -31,7 +29,6 @@ pub struct Tags {
     pub groups: Groups,
     /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
     pub placeholders: Placeholders,
-    pub disable: Option<Disable>,
     /// The document group which makes up the whole tag tree.
     doc: GroupId,
     /// Used to group multiple link annotations using quad points.
@@ -50,7 +47,6 @@ impl Tags {
             stack: TagStack::new(),
             groups,
             placeholders: Placeholders(Vec::new()),
-            disable: None,
             doc,
             link_id: LinkId(0),
             table_id: TableId(0),
@@ -178,39 +174,40 @@ fn resolve_node(
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Disable {
-    /// Either an artifact or a hide element.
-    Elem(Location, ArtifactKind),
-    Tiling,
+#[derive(Debug)]
+pub struct TagStack {
+    items: Vec<EntryWrapper>,
 }
 
 #[derive(Debug)]
-pub struct TagStack {
-    items: Vec<StackEntry>,
-    /// The index of the topmost stack entry that has a bbox.
-    bbox_idx: Option<usize>,
+struct EntryWrapper {
+    inner: StackEntry,
+    /// The index of the last stack entry that has a [`BBoxCtx`], might point
+    /// at the entry itself.
+    last_bbox_idx: Option<u32>,
+    /// The index of the first stack entry that is [`StackEntryKind::Disabled`].
+    first_disabled_idx: Option<u32>,
 }
 
-impl<I: SliceIndex<[StackEntry]>> std::ops::Index<I> for TagStack {
-    type Output = I::Output;
+impl std::ops::Index<usize> for TagStack {
+    type Output = StackEntry;
 
     #[inline]
-    fn index(&self, index: I) -> &Self::Output {
-        std::ops::Index::index(&self.items, index)
+    fn index(&self, index: usize) -> &Self::Output {
+        &std::ops::Index::index(&self.items, index).inner
     }
 }
 
-impl<I: SliceIndex<[StackEntry]>> std::ops::IndexMut<I> for TagStack {
+impl std::ops::IndexMut<usize> for TagStack {
     #[inline]
-    fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        std::ops::IndexMut::index_mut(&mut self.items, index)
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut std::ops::IndexMut::index_mut(&mut self.items, index).inner
     }
 }
 
 impl TagStack {
     pub fn new() -> Self {
-        Self { items: Vec::new(), bbox_idx: None }
+        Self { items: Vec::new() }
     }
 
     pub fn len(&self) -> usize {
@@ -218,32 +215,54 @@ impl TagStack {
     }
 
     pub fn get(&self, idx: usize) -> Option<&StackEntry> {
-        self.items.get(idx)
+        self.items.get(idx).map(|e| &e.inner)
     }
 
     pub fn last(&self) -> Option<&StackEntry> {
-        self.items.last()
+        self.items.last().map(|e| &e.inner)
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, StackEntry> {
-        self.items.iter()
+    pub fn last_mut(&mut self) -> Option<&mut StackEntry> {
+        self.items.last_mut().map(|e| &mut e.inner)
+    }
+
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = &StackEntry> + ExactSizeIterator + DoubleEndedIterator {
+        self.items.iter().map(|e| &e.inner)
+    }
+
+    fn new_entry(&self, entry: StackEntry) -> EntryWrapper {
+        let last = self.items.last();
+        let new_idx = self.items.len() as u32;
+        EntryWrapper {
+            last_bbox_idx: if entry.kind.bbox().is_some() {
+                Some(new_idx)
+            } else {
+                last.and_then(|e| e.last_bbox_idx)
+            },
+            first_disabled_idx: last
+                .and_then(|last| last.first_disabled_idx)
+                .or_else(|| entry.kind.is_disabled().then_some(new_idx)),
+            inner: entry,
+        }
     }
 
     pub fn push(&mut self, entry: StackEntry) {
-        if entry.kind.bbox().is_some() {
-            self.bbox_idx = Some(self.len());
-        }
+        let entry = self.new_entry(entry);
         self.items.push(entry);
     }
 
-    pub fn extend(&mut self, iter: impl IntoIterator<Item = StackEntry>) {
-        let start = self.len();
-        self.items.extend(iter);
-        let last_bbox_offset = self.items[start..]
-            .iter()
-            .rposition(|entry| entry.kind.bbox().is_some());
-        if let Some(offset) = last_bbox_offset {
-            self.bbox_idx = Some(start + offset);
+    pub fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = StackEntry>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let iter = iter.into_iter();
+        self.items.reserve(iter.len());
+        for entry in iter {
+            let entry = self.new_entry(entry);
+            self.items.push(entry);
         }
     }
 
@@ -254,23 +273,22 @@ impl TagStack {
         mut predicate: impl FnMut(&mut StackEntry) -> bool,
     ) -> Option<StackEntry> {
         let last = self.items.last_mut()?;
-        if predicate(last) { self.pop() } else { None }
+        if predicate(&mut last.inner) { self.pop() } else { None }
     }
 
     /// Remove the last stack entry.
     /// This takes care of updating the parent bboxes.
     pub fn pop(&mut self) -> Option<StackEntry> {
-        let removed = self.items.pop()?;
+        let removed = self.items.pop()?.inner;
 
         let Some(inner_bbox) = removed.kind.bbox() else { return Some(removed) };
+        let Some(outer_bbox_idx) = self.items.last().and_then(|e| e.last_bbox_idx) else {
+            return Some(removed);
+        };
 
-        self.bbox_idx = self.items.iter_mut().enumerate().rev().find_map(|(i, entry)| {
-            let outer_bbox = entry.kind.bbox_mut()?;
-            if let Some((page_idx, rect)) = inner_bbox.rect {
-                outer_bbox.expand_page(page_idx, rect);
-            }
-            Some(i)
-        });
+        // Update the parent bbox
+        let outer_bbox = self[outer_bbox_idx as usize].kind.bbox_mut().unwrap();
+        outer_bbox.expand_page(inner_bbox);
 
         Some(removed)
     }
@@ -280,26 +298,20 @@ impl TagStack {
     pub fn take_unfinished_stack(
         &mut self,
         idx: usize,
-    ) -> std::vec::Drain<'_, StackEntry> {
-        if self.bbox_idx.is_some() {
-            // The inner tags are broken across regions (pages), which invalidates all bounding boxes.
-            for entry in self.items.iter_mut() {
-                if let Some(bbox) = entry.kind.bbox_mut() {
-                    bbox.multi_page = true;
-                }
-            }
-            self.bbox_idx = self.items[..idx]
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, entry)| entry.kind.bbox().is_some())
-                .map(|(idx, _)| idx);
-        }
-        self.items.drain(idx + 1..)
+    ) -> impl Iterator<Item = StackEntry> + ExactSizeIterator + DoubleEndedIterator {
+        self.items.drain(idx + 1..).map(|e| e.inner)
+    }
+
+    pub fn in_disabled(&self) -> bool {
+        self.items.last().is_some_and(|e| e.first_disabled_idx.is_some())
+    }
+
+    pub fn get_disabled(&self) -> Option<ArtifactType> {
+        self.last()?.kind.as_disabled()
     }
 
     pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
-        self.items.last_mut().map(|e| &mut e.kind)
+        self.items.last_mut().map(|e| &mut e.inner.kind)
     }
 
     pub fn parent_table(&mut self) -> Option<&mut TableCtx> {
@@ -319,7 +331,7 @@ impl TagStack {
     }
 
     pub fn parent_outline(&mut self) -> Option<(&mut OutlineCtx, GroupId)> {
-        self.items.last_mut().and_then(|e| {
+        self.last_mut().and_then(|e| {
             let ctx = e.kind.as_outline_mut()?;
             Some((ctx, e.id))
         })
@@ -329,8 +341,8 @@ impl TagStack {
         self.parent()?.as_outline_entry_mut()
     }
 
-    pub fn find_parent_link(&mut self) -> Option<(LinkId, &Packed<LinkMarker>, GroupId)> {
-        self.items.iter_mut().rev().find_map(|e| {
+    pub fn find_parent_link(&self) -> Option<(LinkId, &Packed<LinkMarker>, GroupId)> {
+        self.iter().rev().find_map(|e| {
             let (link_id, link) = e.kind.as_link()?;
             Some((link_id, link, e.id))
         })
@@ -338,7 +350,8 @@ impl TagStack {
 
     /// Finds the first parent that has a bounding box.
     pub fn find_parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
-        self.items[self.bbox_idx?].kind.bbox_mut()
+        let bbox_idx = self.items.last()?.last_bbox_idx?;
+        self[bbox_idx as usize].kind.bbox_mut()
     }
 }
 
@@ -390,7 +403,7 @@ pub struct StackEntry {
 
 #[derive(Clone, Debug)]
 pub enum StackEntryKind {
-    Standard(TagKind),
+    Disabled(ArtifactType),
     LogicalParent(Content),
     LogicalChild,
     Outline(OutlineCtx),
@@ -408,9 +421,18 @@ pub enum StackEntryKind {
     Link(LinkId, Packed<LinkMarker>, bool),
     CodeBlock,
     CodeBlockLine,
+    Standard(TagKind),
 }
 
 impl StackEntryKind {
+    pub fn is_disabled(&self) -> bool {
+        matches!(self, Self::Disabled(_))
+    }
+
+    pub fn as_disabled(&self) -> Option<ArtifactType> {
+        if let Self::Disabled(v) = self { Some(*v) } else { None }
+    }
+
     pub fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
         if let Self::Outline(v) = self { Some(v) } else { None }
     }
@@ -463,6 +485,24 @@ impl StackEntryKind {
 
     pub fn is_breakable(&self, is_pdf_ua: bool) -> bool {
         match self {
+            StackEntryKind::Disabled(_) => true,
+            StackEntryKind::LogicalParent(_) => false,
+            StackEntryKind::LogicalChild => false,
+            StackEntryKind::Outline(_) => false,
+            StackEntryKind::OutlineEntry(_) => false,
+            StackEntryKind::Table(_) => false,
+            StackEntryKind::TableCell(_) => false,
+            StackEntryKind::Grid(_) => false,
+            StackEntryKind::GridCell(_) => false,
+            StackEntryKind::List(_) => false,
+            StackEntryKind::ListItemLabel => false,
+            StackEntryKind::ListItemBody => false,
+            StackEntryKind::BibEntry => false,
+            StackEntryKind::Figure(_) => false,
+            StackEntryKind::Formula(_) => false,
+            StackEntryKind::Link(..) => !is_pdf_ua,
+            StackEntryKind::CodeBlock => false,
+            StackEntryKind::CodeBlockLine => false,
             StackEntryKind::Standard(tag) => match tag {
                 TagKind::Part(_) => !is_pdf_ua,
                 TagKind::Article(_) => !is_pdf_ua,
@@ -504,23 +544,6 @@ impl StackEntryKind {
                 TagKind::Strong(_) => true,
                 TagKind::Em(_) => true,
             },
-            StackEntryKind::LogicalParent(_) => false,
-            StackEntryKind::LogicalChild => false,
-            StackEntryKind::Outline(_) => false,
-            StackEntryKind::OutlineEntry(_) => false,
-            StackEntryKind::Table(_) => false,
-            StackEntryKind::TableCell(_) => false,
-            StackEntryKind::Grid(_) => false,
-            StackEntryKind::GridCell(_) => false,
-            StackEntryKind::List(_) => false,
-            StackEntryKind::ListItemLabel => false,
-            StackEntryKind::ListItemBody => false,
-            StackEntryKind::BibEntry => false,
-            StackEntryKind::Figure(_) => false,
-            StackEntryKind::Formula(_) => false,
-            StackEntryKind::Link(..) => !is_pdf_ua,
-            StackEntryKind::CodeBlock => false,
-            StackEntryKind::CodeBlockLine => false,
         }
     }
 }
@@ -585,10 +608,13 @@ impl BBoxCtx {
 
     /// Expand the bounding box with a rectangle that's already transformed into
     /// page coordinates.
-    pub fn expand_page(&mut self, page_idx: usize, rect: Rect) {
+    pub fn expand_page(&mut self, inner: &BBoxCtx) {
+        self.multi_page |= inner.multi_page;
         if self.multi_page {
             return;
         }
+
+        let Some((page_idx, rect)) = inner.rect else { return };
         let (idx, bbox) = self.rect.get_or_insert((
             page_idx,
             Rect::new(Point::splat(Abs::inf()), Point::splat(-Abs::inf())),
@@ -624,6 +650,10 @@ pub struct Groups {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GroupId(u32);
+
+impl GroupId {
+    pub const INVALID: Self = Self(u32::MAX);
+}
 
 impl Groups {
     pub fn new() -> Self {
@@ -669,7 +699,7 @@ impl Groups {
     pub fn take_unfinished_stack(
         &mut self,
         id: GroupId,
-    ) -> impl IntoIterator<Item = StackEntry> {
+    ) -> impl Iterator<Item = StackEntry> + ExactSizeIterator + DoubleEndedIterator {
         self._get_mut(id).unfinished_stack.drain(..)
     }
 

@@ -18,7 +18,7 @@ use typst_library::model::{
     HeadingElem, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, StrongElem,
     TableCell, TableElem, TermsElem,
 };
-use typst_library::pdf::{ArtifactElem, ArtifactKind, PdfMarkerTag, PdfMarkerTagKind};
+use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
     HighlightElem, Lang, OverlineElem, RawElem, RawLine, ScriptKind, StrikeElem, SubElem,
     SuperElem, TextItem, UnderlineElem,
@@ -54,7 +54,7 @@ pub fn handle_start(
     // is otherwise disabled or within an artifact.
     if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
-        let artifact = gc.options.disable_tags || gc.tags.disable.is_some();
+        let artifact = gc.options.disable_tags || gc.tags.stack.in_disabled();
         push_stack(gc, elem, StackEntryKind::Link(link_id, link.clone(), artifact))?;
         return Ok(());
     }
@@ -63,21 +63,16 @@ pub fn handle_start(
         return Ok(());
     }
 
-    if gc.tags.disable.is_some() {
-        // Don't nest artifacts
-        return Ok(());
-    }
-
     #[allow(clippy::redundant_pattern_matching)]
     if let Some(_) = elem.to_packed::<HideElem>() {
-        push_disable(gc, surface, elem, ArtifactKind::Other);
+        push_disable(gc, surface, elem, ArtifactType::Other);
         return Ok(());
     } else if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
         let kind = artifact.kind.val();
-        push_disable(gc, surface, elem, kind);
+        push_disable(gc, surface, elem, kind.to_krilla());
         return Ok(());
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        push_disable(gc, surface, elem, ArtifactKind::Other);
+        push_disable(gc, surface, elem, ArtifactType::Other);
         return Ok(());
     }
 
@@ -175,7 +170,7 @@ pub fn handle_start(
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         if cell.is_repeated.val() {
-            push_disable(gc, surface, elem, ArtifactKind::Other);
+            push_disable(gc, surface, elem, ArtifactType::Other);
         } else {
             push_stack(gc, elem, StackEntryKind::TableCell(cell.clone()))?;
         }
@@ -198,7 +193,7 @@ pub fn handle_start(
             // semantic meaning in the tag tree, which doesn't use page breaks for
             // it's semantic structure.
             if cell.is_repeated.val() {
-                push_disable(gc, surface, elem, ArtifactKind::Other);
+                push_disable(gc, surface, elem, ArtifactType::Other);
             } else {
                 push_stack(gc, elem, StackEntryKind::GridCell(cell.clone()))?;
             }
@@ -306,6 +301,22 @@ fn push_logical_parent(gc: &mut GlobalContext, elem: &Content) {
     push_stack_entry(gc, Some(loc), span, parent_id, kind);
 }
 
+fn push_disable(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    elem: &Content,
+    ty: ArtifactType,
+) {
+    if !gc.tags.stack.in_disabled() {
+        surface.start_tagged(ContentTag::Artifact(ty));
+    }
+
+    let loc = elem.location().expect("elem to be locatable");
+    let span = elem.span();
+    let kind = StackEntryKind::Disabled(ty);
+    push_stack_entry(gc, Some(loc), span, GroupId::INVALID, kind);
+}
+
 fn push_stack_entry(
     gc: &mut GlobalContext,
     loc: Option<Location>,
@@ -315,17 +326,6 @@ fn push_stack_entry(
 ) {
     let entry = StackEntry { loc, span, id, kind };
     gc.tags.stack.push(entry);
-}
-
-fn push_disable(
-    gc: &mut GlobalContext,
-    surface: &mut Surface,
-    elem: &Content,
-    kind: ArtifactKind,
-) {
-    let loc = elem.location().expect("elem to be locatable");
-    surface.start_tagged(ContentTag::Artifact(kind.to_krilla()));
-    gc.tags.disable = Some(Disable::Elem(loc, kind));
 }
 
 pub fn handle_end(
@@ -340,17 +340,9 @@ pub fn handle_end(
         return Ok(());
     }
 
-    if let Some(Disable::Elem(l, _)) = gc.tags.disable
-        && l == loc
-    {
-        surface.end_tagged();
-        gc.tags.disable = None;
-        return Ok(());
-    }
-
     if let Some(entry) = gc.tags.stack.pop_if(|e| e.loc == Some(loc)) {
         // The tag nesting was properly closed.
-        pop_stack(gc, entry)?;
+        pop_stack(gc, surface, entry)?;
         return Ok(());
     }
 
@@ -376,9 +368,18 @@ pub fn handle_end(
         let unfinished_stack = gc.tags.stack.take_unfinished_stack(idx);
         gc.tags.groups.store_unfinished_stack(group_id, unfinished_stack);
 
-        let closed = gc.tags.stack.pop().unwrap();
-        assert_eq!(closed.loc, Some(loc));
-        pop_stack(gc, closed)?;
+        let entry = gc.tags.stack.pop().unwrap();
+        pop_stack(gc, surface, entry)?;
+        return Ok(());
+    }
+
+    // If the element that would break up the other tags is a disabled element,
+    // don't break up the tags, just remove the disabled stack entry.
+    if matches!(entry.kind, StackEntryKind::Disabled(_)) {
+        let entries = gc.tags.stack.take_unfinished_stack(idx).collect::<Vec<_>>();
+        let entry = gc.tags.stack.pop().unwrap();
+        gc.tags.stack.extend(entries);
+        pop_stack(gc, surface, entry)?;
         return Ok(());
     }
 
@@ -386,7 +387,7 @@ pub fn handle_end(
     // up the current tag stack is semantically ok.
     let mut is_breakable = true;
     let mut non_breakable_span = Span::detached();
-    for e in gc.tags.stack[idx + 1..].iter() {
+    for e in gc.tags.stack.iter().skip(idx + 1) {
         if e.kind.is_breakable(gc.options.is_pdf_ua()) {
             continue;
         }
@@ -432,32 +433,46 @@ pub fn handle_end(
             bbox.reset();
         }
 
-        broken_entries.push(StackEntry {
-            loc: entry.loc,
-            span: entry.span,
+        let id = match kind {
+            StackEntryKind::Disabled(_) => GroupId::INVALID,
             // Reserve a virtual group so it won't be combined with the original
             // located group.
-            // TODO: should the location instead point to the second entry?
-            id: gc.tags.groups.reserve_virtual(GroupKind::Tagged(entry.span)),
-            kind,
-        });
-        pop_stack(gc, entry)?;
+            _ => gc.tags.groups.reserve_virtual(GroupKind::Tagged(entry.span)),
+        };
+
+        broken_entries.push(StackEntry { loc: entry.loc, span: entry.span, id, kind });
+        pop_stack(gc, surface, entry)?;
     }
 
     // Pop the closed entry off the stack.
     let closed = gc.tags.stack.pop().unwrap();
-    pop_stack(gc, closed)?;
+    pop_stack(gc, surface, closed)?;
 
+    // Restart the artifact if it was ended in the `pop_stack` call.
+    if !gc.tags.stack.in_disabled()
+        && let Some(ty) = broken_entries.iter().find_map(|e| e.kind.as_disabled())
+    {
+        surface.start_tagged(ContentTag::Artifact(ty));
+    }
     // Push all broken and afterwards duplicated entries back on.
     gc.tags.stack.extend(broken_entries);
 
     Ok(())
 }
 
-fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) -> SourceResult<()> {
+fn pop_stack(
+    gc: &mut GlobalContext,
+    surface: &mut Surface,
+    entry: StackEntry,
+) -> SourceResult<()> {
     let contents = GroupContents { id: entry.id };
     let node = match entry.kind {
-        StackEntryKind::Standard(tag) => gc.tags.groups.init_tag(tag, contents),
+        StackEntryKind::Disabled(_) => {
+            if !gc.tags.stack.in_disabled() {
+                surface.end_tagged();
+            }
+            return Ok(());
+        }
         StackEntryKind::LogicalParent(elem) => {
             // Insert a logical parent marker at the end of the element, all
             // logical children will be inserted here.
@@ -465,8 +480,7 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) -> SourceResult<()> {
             let span = elem.span();
             let kind = GroupKind::LogcialParent(span);
             let id = gc.tags.groups.reserve_located(gc.options, loc, kind)?;
-            gc.tags.push(TagNode::Group(id));
-            return Ok(());
+            TagNode::Group(id)
         }
         StackEntryKind::LogicalChild => {
             unreachable!("logical children are handled separately")
@@ -554,9 +568,12 @@ fn pop_stack(gc: &mut GlobalContext, entry: StackEntry) -> SourceResult<()> {
             let text = gc.tags.groups.init_tag(Tag::Span, contents);
             gc.tags.groups.new_virtual(Tag::P, vec![text])
         }
+        StackEntryKind::Standard(tag) => gc.tags.groups.init_tag(tag, contents),
     };
 
-    gc.tags.push(node);
+    if !gc.tags.stack.in_disabled() {
+        gc.tags.push(node);
+    }
 
     Ok(())
 }
@@ -607,7 +624,7 @@ pub fn logical_child<'a, 'b>(
     gc: &'b mut GlobalContext<'a>,
     parent: Option<Location>,
 ) -> SourceResult<ChildGroupHandle<'a, 'b>> {
-    if gc.options.disable_tags || gc.tags.disable.is_some() {
+    if gc.options.disable_tags || gc.tags.stack.in_disabled() {
         return Ok(ChildGroupHandle { gc, stack_idx: None });
     }
     let Some(parent_loc) = parent else {
@@ -639,41 +656,38 @@ pub fn page<T>(
         return page_fn(gc, surface);
     }
 
-    if let Some(disable) = gc.tags.disable {
-        let kind = match disable {
-            Disable::Elem(_, kind) => kind,
-            Disable::Tiling => ArtifactKind::Other,
-        };
-        surface.start_tagged(ContentTag::Artifact(kind.to_krilla()));
+    if let Some(ty) = gc.tags.stack.get_disabled() {
+        surface.start_tagged(ContentTag::Artifact(ty));
     }
 
     let res = page_fn(gc, surface);
 
-    if gc.tags.disable.is_some() {
+    if gc.tags.stack.in_disabled() {
         surface.end_tagged();
     }
 
     res
 }
 
-pub fn disable<T>(
+pub fn tiling<T>(
     gc: &mut GlobalContext,
     surface: &mut Surface,
-    kind: Disable,
     f: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
 ) -> T {
-    let started = gc.tags.disable.is_none();
-    if started {
-        gc.tags.disable = Some(kind);
-        surface.start_tagged(ContentTag::Artifact(ArtifactType::Other));
-    }
+    let ty = ArtifactType::Other;
+    gc.tags.stack.push(StackEntry {
+        loc: None,
+        span: Span::detached(),
+        id: GroupId::INVALID,
+        kind: StackEntryKind::Disabled(ty),
+    });
+    surface.start_tagged(ContentTag::Artifact(ty));
 
     let res = f(gc, surface);
 
-    if started {
-        gc.tags.disable = None;
-        surface.end_tagged();
-    }
+    surface.end_tagged();
+    let entry = gc.tags.stack.pop().expect("stack entry");
+    assert!(entry.kind.is_disabled());
 
     res
 }
@@ -717,7 +731,7 @@ pub fn text<'a, 'b>(
 
     update_bbox(gc, fc, || text.bbox());
 
-    if gc.tags.disable.is_some() {
+    if gc.tags.stack.in_disabled() {
         return TagHandle { surface, started: false };
     }
 
@@ -803,7 +817,7 @@ fn start_content<'a, 'b>(
     surface: &'b mut Surface<'a>,
     content: ContentTag,
 ) -> TagHandle<'a, 'b> {
-    if gc.tags.disable.is_some() {
+    if gc.tags.stack.in_disabled() {
         return TagHandle { surface, started: false };
     }
 
