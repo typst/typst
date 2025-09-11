@@ -64,7 +64,7 @@ A#super(highlight[4])
 |#sub(typographic: true)[longscript]| \
 |#sub(typographic: false)[longscript]|
 
---- script-metrics-bundeled-fonts ---
+--- script-metrics-bundled-fonts ---
 // Tests whether the script metrics are used properly by synthesizing
 // superscripts and subscripts for all bundled fonts.
 

@@ -112,7 +112,7 @@ impl HtmlElement {
         self
     }
 
-    /// Add an atribute to the element.
+    /// Add an attribute to the element.
     pub fn with_attr(mut self, key: HtmlAttr, value: impl Into<EcoString>) -> Self {
         self.attrs.push(key, value);
         self

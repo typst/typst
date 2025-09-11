@@ -95,7 +95,13 @@ impl Location {
 
 impl Debug for Location {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Location({})", self.0)
+        if f.alternate() {
+            write!(f, "Location({})", self.0)
+        } else {
+            // Print a shorter version by default to make it more readable.
+            let truncated = self.0 as u16;
+            write!(f, "Location({truncated})")
+        }
     }
 }
 

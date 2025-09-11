@@ -663,7 +663,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
         self.footnote_separator = Some(frame);
     }
 
-    /// The combined height of the top and bottom area (includings clearances).
+    /// The combined height of the top and bottom area (including clearances).
     /// Subtracting this from the total region size yields the available space
     /// for distribution.
     fn height(&self) -> Abs {

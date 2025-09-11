@@ -35,9 +35,10 @@ impl Tag {
 
 impl Debug for Tag {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let loc = self.location();
         match self {
-            Tag::Start(elem) => write!(f, "Start({:?})", elem.elem().name()),
-            Tag::End(..) => f.pad("End"),
+            Tag::Start(elem) => write!(f, "Start({:?}, {loc:?})", elem.elem().name()),
+            Tag::End(..) => f.pad("End({loc:?})"),
         }
     }
 }

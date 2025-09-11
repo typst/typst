@@ -109,7 +109,7 @@ pub struct PageElem {
     /// The page's margins.
     ///
     /// - `{auto}`: The margins are set automatically to 2.5/21 times the smaller
-    ///   dimension of the page. This results in 2.5cm margins for an A4 page.
+    ///   dimension of the page. This results in 2.5 cm margins for an A4 page.
     /// - A single length: The same margin on all sides.
     /// - A dictionary: With a dictionary, the margins can be set individually.
     ///   The dictionary can contain the following keys in order of precedence:

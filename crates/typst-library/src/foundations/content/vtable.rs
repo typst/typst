@@ -22,7 +22,7 @@
 //!
 //! # Safety
 //! This module contains a lot of `unsafe` keywords, but almost all of it is the
-//! same and quite straightfoward. All function pointers that operate on a
+//! same and quite straightforward. All function pointers that operate on a
 //! specific element type are marked as unsafe. In combination with `repr(C)`,
 //! this grants us the ability to safely transmute a `ContentVtable<Packed<E>>`
 //! into a `ContentVtable<RawContent>` (or just short `ContentVtable`). Callers
@@ -287,7 +287,7 @@ impl ContentHandle<&mut RawContent> {
     pub unsafe fn drop(&mut self) {
         // Safety:
         // - `Handle` has the invariant that the vtable is matching.
-        // - The caller satifies the requirements of `drop`
+        // - The caller satisfies the requirements of `drop`
         unsafe { (self.1.drop)(self.0) }
     }
 }

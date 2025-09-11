@@ -150,7 +150,7 @@ fn root_element(
     let body = match classify_output(output)? {
         OutputKind::Html(element) => return Ok(element),
         OutputKind::Body(body) => body,
-        OutputKind::Leafs(leafs) => HtmlElement::new(tag::body).with_children(leafs),
+        OutputKind::Leaves(leaves) => HtmlElement::new(tag::body).with_children(leaves),
     };
     Ok(HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()]))
 }
@@ -224,7 +224,7 @@ fn classify_output(mut output: EcoVec<HtmlNode>) -> SourceResult<OutputKind> {
             _ => {}
         }
     }
-    Ok(OutputKind::Leafs(output))
+    Ok(OutputKind::Leaves(output))
 }
 
 /// What kinds of output the user generated.
@@ -235,6 +235,6 @@ enum OutputKind {
     /// The user generate their own `<body>` element. We do not need to supply
     /// one, but need supply the `<html>` element.
     Body(HtmlElement),
-    /// The user generated leafs which we wrap in a `<body>` and `<html>`.
-    Leafs(EcoVec<HtmlNode>),
+    /// The user generated leaves which we wrap in a `<body>` and `<html>`.
+    Leaves(EcoVec<HtmlNode>),
 }

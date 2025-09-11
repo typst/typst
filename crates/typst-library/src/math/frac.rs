@@ -27,7 +27,7 @@ pub struct FracElem {
     #[required]
     pub denom: Content,
 
-    /// How the fraction shoud be laid out.
+    /// How the fraction should be laid out.
     ///
     /// ```example
     /// #set math.frac(style: "skewed")

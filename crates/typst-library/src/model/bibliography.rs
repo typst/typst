@@ -322,7 +322,7 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
             Err(err) => err,
         };
 
-        // If it can be decoded as BibLaTeX, we use that isntead.
+        // If it can be decoded as BibLaTeX, we use that instead.
         let bib_errs = match hayagriva::io::from_biblatex_str(data) {
             // If the file is almost valid yaml, but contains no `@` character
             // it will be successfully parsed as an empty BibLaTeX library,
