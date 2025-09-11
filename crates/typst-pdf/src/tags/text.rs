@@ -8,7 +8,7 @@ use typst_library::text::{Font, ScriptKind, TextItem, TextSize};
 use typst_library::visualize::{Paint, Stroke};
 
 use crate::PdfOptions;
-use crate::tags::convert;
+use crate::tags::util;
 use crate::util::AbsExt;
 
 #[derive(Clone, Debug)]
@@ -36,7 +36,7 @@ impl TextAttrs {
     }
 
     pub fn push_highlight(&mut self, elem: &Content, paint: Option<&Paint>) {
-        let color = paint.and_then(convert::paint_to_color);
+        let color = paint.and_then(util::paint_to_color);
         self.push(elem, TextAttr::Highlight(color));
     }
 
@@ -161,7 +161,7 @@ impl TextDecoStroke {
         let Smart::Custom(stroke) = stroke else {
             return TextDecoStroke::default();
         };
-        let color = stroke.paint.custom().as_ref().and_then(convert::paint_to_color);
+        let color = stroke.paint.custom().as_ref().and_then(util::paint_to_color);
         let thickness = stroke.thickness.custom();
         TextDecoStroke { color, thickness }
     }
@@ -197,16 +197,16 @@ impl ResolvedTextAttrs {
             && self.deco.is_some()
     }
 
-    pub fn resolve_nodes(self, accum: &mut Vec<Node>, children: Vec<kt::Identifier>) {
-        enum Prev {
-            Children(Vec<kt::Identifier>),
+    pub fn resolve_nodes(self, accum: &mut Vec<Node>, children: &[kt::Identifier]) {
+        enum Prev<'a> {
+            Children(&'a [kt::Identifier]),
             Group(kt::TagGroup),
         }
 
-        impl Prev {
+        impl Prev<'_> {
             fn into_nodes(self) -> Vec<Node> {
                 match self {
-                    Prev::Children(ids) => ids.into_iter().map(Node::Leaf).collect(),
+                    Prev::Children(ids) => ids.iter().map(|id| Node::Leaf(*id)).collect(),
                     Prev::Group(group) => vec![Node::Group(group)],
                 }
             }
@@ -236,7 +236,7 @@ impl ResolvedTextAttrs {
 
         match prev {
             Prev::Group(group) => accum.push(Node::Group(group)),
-            Prev::Children(ids) => accum.extend(ids.into_iter().map(Node::Leaf)),
+            Prev::Children(ids) => accum.extend(ids.iter().map(|id| Node::Leaf(*id))),
         }
     }
 }

@@ -1,7 +1,6 @@
 use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::Target;
-use krilla::configure::Validator;
 use krilla::destination::XyzDestination;
 use krilla::geom as kg;
 use typst_library::diag::{SourceResult, bail};
@@ -10,7 +9,7 @@ use typst_library::model::Destination;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
-use crate::tags::{LinkId, Placeholder, TagNode};
+use crate::tags::{self, AnnotationId, GroupId};
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) struct LinkAnnotation {
@@ -21,18 +20,9 @@ pub(crate) struct LinkAnnotation {
     pub target: Target,
 }
 
-impl LinkAnnotation {
-    pub fn id(&self) -> Option<LinkId> {
-        match self.kind {
-            LinkAnnotationKind::Tagged { id, .. } => Some(id),
-            LinkAnnotationKind::Artifact => None,
-        }
-    }
-}
-
 pub(crate) enum LinkAnnotationKind {
     /// A link annotation that is tagged within a `Link` structure element.
-    Tagged { id: LinkId, placeholder: Placeholder },
+    Tagged(AnnotationId),
     /// A link annotation within an artifact.
     Artifact,
 }
@@ -68,28 +58,57 @@ pub(crate) fn handle_link(
         }
     };
 
-    let (link_id, link, group_id) =
-        gc.tags.stack.find_parent_link().expect("link parent");
-    let alt = link.alt.as_ref().map(EcoString::to_string);
     let quad = to_quadrilateral(fc, size);
 
-    if gc.options.disable_tags || gc.tags.disable.is_some() {
-        if gc.options.is_pdf_ua() && gc.tags.disable.is_some() {
+    if tags::disabled(gc) {
+        if gc.tags.in_tiling && gc.options.is_pdf_ua() {
+            let validator = gc.options.standards.config.validator().as_str();
+            bail!(
+                Span::detached(),
+                "{validator} error: PDF artifacts may not contain links";
+                hint: "a link was used within a tiling";
+                hint: "references, citations, and footnotes \
+                      are also considered links in PDF"
+            );
+        }
+
+        fc.push_link_annotation(
+            GroupId::INVALID,
+            LinkAnnotation {
+                kind: LinkAnnotationKind::Artifact,
+                alt: None,
+                span: Span::detached(),
+                quad_points: vec![quad],
+                target,
+            },
+        );
+        return Ok(());
+    }
+
+    let (group_id, link) = gc.tags.tree.parent_link().expect("link parent");
+    let alt = link.alt.as_ref().map(EcoString::to_string);
+
+    if gc.tags.tree.parent_artifact().is_some() {
+        if gc.options.is_pdf_ua() {
             let validator = gc.options.standards.config.validator().as_str();
             bail!(
                 link.span(),
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "references, citations, and footnotes \
-                      are also considered links in PDF");
+                      are also considered links in PDF"
+            );
         }
 
-        fc.push_link_annotation(LinkAnnotation {
-            kind: LinkAnnotationKind::Artifact,
-            alt,
-            span: link.span(),
-            quad_points: vec![quad],
-            target,
-        });
+        fc.push_link_annotation(
+            group_id,
+            LinkAnnotation {
+                kind: LinkAnnotationKind::Artifact,
+                alt,
+                span: link.span(),
+                quad_points: vec![quad],
+                target,
+            },
+        );
         return Ok(());
     }
 
@@ -103,20 +122,23 @@ pub(crate) fn handle_link(
     // typst/typst and then ends on another line.
     // ```
     // The bounding box would span the entire paragraph, which is undesirable.
-    let join_annotations = gc.options.standards.config.validator() == Validator::UA1;
-    match fc.get_link_annotation(link_id) {
+    let join_annotations = gc.options.is_pdf_ua();
+    match fc.get_link_annotation(group_id) {
         Some(annotation) if join_annotations => annotation.quad_points.push(quad),
         _ => {
-            let placeholder = gc.tags.placeholders.reserve();
-            let nodes = &mut gc.tags.groups.get_mut(group_id).nodes;
-            nodes.push(TagNode::Placeholder(placeholder));
-            fc.push_link_annotation(LinkAnnotation {
-                kind: LinkAnnotationKind::Tagged { id: link_id, placeholder },
-                alt,
-                span: link.span(),
-                quad_points: vec![quad],
-                target,
-            });
+            let annot_id = gc.tags.annotations.reserve();
+            fc.push_link_annotation(
+                group_id,
+                LinkAnnotation {
+                    kind: LinkAnnotationKind::Tagged(annot_id),
+                    alt,
+                    span: link.span(),
+                    quad_points: vec![quad],
+                    target,
+                },
+            );
+            let group = gc.tags.tree.groups.get_mut(group_id);
+            group.push_annotation(annot_id);
         }
     }
 

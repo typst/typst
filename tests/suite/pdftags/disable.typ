@@ -47,3 +47,14 @@
 ]
 - b
   - c
+
+--- disable-tags-broken-paragraph-hide pdftags ---
+This is the #hide[ first paragraph.
+
+And this is the ] second paragraph.
+
+--- disable-tags-broken-paragraph-artifact pdftags ---
+This is the #pdf.artifact[ first paragraph.
+
+And this is the ] second paragraph.
+

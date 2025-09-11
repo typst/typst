@@ -1,4 +1,5 @@
 use ecow::{EcoVec, eco_format};
+use indexmap::IndexMap;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
@@ -10,7 +11,8 @@ use krilla::surface::Surface;
 use krilla::tagging::fmt::Output;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
+use smallvec::SmallVec;
 use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Location, Tag};
@@ -30,7 +32,7 @@ use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
-use crate::tags::{self, Tags};
+use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
 use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 
@@ -39,15 +41,15 @@ pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<Vec<u8>> {
-    let (mut document, mut gc) = setup(typst_document, options);
+    let (mut document, mut gc) = setup(typst_document, options)?;
 
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
 
-    let tree = gc.tags.finish();
+    let (doc_lang, tree) = tags::finish(&mut gc.tags);
 
     document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
+    document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
 
     finish(document, gc, options.standards.config)
@@ -57,14 +59,14 @@ pub fn tag_tree(
     typst_document: &PagedDocument,
     options: &PdfOptions,
 ) -> SourceResult<String> {
-    let (mut document, mut gc) = setup(typst_document, options);
+    let (mut document, mut gc) = setup(typst_document, options)?;
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
 
-    let tree = gc.tags.finish();
+    let (doc_lang, tree) = tags::finish(&mut gc.tags);
 
     let mut output = String::new();
-    if let Some(lang) = gc.tags.doc_lang
+    if let Some(lang) = doc_lang
         && lang != Lang::ENGLISH
     {
         output = format!("lang: \"{}\"\n---\n", lang.as_str());
@@ -72,7 +74,7 @@ pub fn tag_tree(
     tree.output(&mut output).unwrap();
 
     document.set_outline(build_outline(&gc));
-    document.set_metadata(build_metadata(&gc));
+    document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
 
     finish(document, gc, options.standards.config)?;
@@ -83,7 +85,7 @@ pub fn tag_tree(
 fn setup<'a>(
     typst_document: &'a PagedDocument,
     options: &'a PdfOptions,
-) -> (Document, GlobalContext<'a>) {
+) -> SourceResult<(Document, GlobalContext<'a>)> {
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
@@ -99,15 +101,17 @@ fn setup<'a>(
     let page_index_converter = PageIndexConverter::new(typst_document, options);
     let named_destinations =
         collect_named_destinations(typst_document, &page_index_converter);
+    let tags = tags::init(typst_document, options)?;
 
     let gc = GlobalContext::new(
         typst_document,
         options,
         named_destinations,
         page_index_converter,
+        tags,
     );
 
-    (document, gc)
+    Ok((document, gc))
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
@@ -158,7 +162,8 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             surface.finish();
 
-            tags::add_link_annotations(gc, &mut page, fc.link_annotations);
+            let link_annotations = fc.link_annotations.into_values().flatten();
+            tags::add_link_annotations(gc, &mut page, link_annotations);
         }
     }
 
@@ -215,7 +220,8 @@ pub(crate) struct FrameContext {
     /// of if the FrameContext has been built to convert a pattern.
     pub(crate) page_idx: Option<usize>,
     states: Vec<State>,
-    link_annotations: Vec<LinkAnnotation>,
+    /// The link annotations belonging to a Link tag.
+    link_annotations: IndexMap<GroupId, SmallVec<[LinkAnnotation; 1]>, FxBuildHasher>,
 }
 
 impl FrameContext {
@@ -223,7 +229,7 @@ impl FrameContext {
         Self {
             page_idx,
             states: vec![State::new(size)],
-            link_annotations: Vec::new(),
+            link_annotations: IndexMap::default(),
         }
     }
 
@@ -245,13 +251,18 @@ impl FrameContext {
 
     pub(crate) fn get_link_annotation(
         &mut self,
-        link_id: tags::LinkId,
+        id: GroupId,
     ) -> Option<&mut LinkAnnotation> {
-        self.link_annotations.iter_mut().rfind(|a| a.id() == Some(link_id))
+        self.link_annotations.get_mut(&id)?.last_mut()
     }
 
-    pub(crate) fn push_link_annotation(&mut self, annotation: LinkAnnotation) {
-        self.link_annotations.push(annotation);
+    pub(crate) fn push_link_annotation(
+        &mut self,
+        id: GroupId,
+        annotation: LinkAnnotation,
+    ) {
+        let annotations = self.link_annotations.entry(id).or_default();
+        annotations.push(annotation);
     }
 }
 
@@ -285,6 +296,7 @@ impl<'a> GlobalContext<'a> {
         options: &'a PdfOptions,
         loc_to_names: FxHashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
+        tags: Tags,
     ) -> GlobalContext<'a> {
         Self {
             fonts_forward: FxHashMap::default(),
@@ -295,8 +307,7 @@ impl<'a> GlobalContext<'a> {
             image_to_spans: FxHashMap::default(),
             image_spans: FxHashSet::default(),
             page_index_converter,
-
-            tags: Tags::new(document.info.lang.custom()),
+            tags,
         }
     }
 }
@@ -353,28 +364,29 @@ pub(crate) fn handle_group(
     fc.push();
     fc.state_mut().pre_concat(group.transform);
 
-    let mut handle = tags::logical_child(gc, group.parent)?;
-    let gc = handle.gc();
+    tags::group(gc, surface, group.parent, |gc, surface| -> SourceResult<()> {
+        let clip_path = group
+            .clip
+            .as_ref()
+            .and_then(|p| {
+                let mut builder = PathBuilder::new();
+                convert_path(p, &mut builder);
+                builder.finish()
+            })
+            .and_then(|p| p.transform(fc.state().transform.to_krilla()));
 
-    let clip_path = group
-        .clip
-        .as_ref()
-        .and_then(|p| {
-            let mut builder = PathBuilder::new();
-            convert_path(p, &mut builder);
-            builder.finish()
-        })
-        .and_then(|p| p.transform(fc.state().transform.to_krilla()));
+        if let Some(clip_path) = &clip_path {
+            surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
+        }
 
-    if let Some(clip_path) = &clip_path {
-        surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
-    }
+        handle_frame(fc, &group.frame, None, surface, gc)?;
 
-    handle_frame(fc, &group.frame, None, surface, gc)?;
+        if clip_path.is_some() {
+            surface.pop();
+        }
 
-    if clip_path.is_some() {
-        surface.pop();
-    }
+        Ok(())
+    })?;
 
     fc.pop();
 

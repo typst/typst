@@ -3254,6 +3254,7 @@ dependencies = [
  "comemo",
  "ecow",
  "image",
+ "indexmap 2.7.1",
  "infer",
  "krilla",
  "krilla-svg",

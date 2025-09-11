@@ -1,6 +1,12 @@
 - Tag: P
   /K:
     - Tag: Table
+      /BBox:
+        page: 0
+        left:    11.664
+        top:     10.008
+        right:   90.215
+        bottom:  17.742
       /K:
         - Tag: Code
           /K:

@@ -3,6 +3,12 @@ use krilla::tagging::{ArtifactType, NaiveRgbColor};
 use typst_library::pdf::{ArtifactKind, TableHeaderScope};
 use typst_library::visualize::Paint;
 
+mod idvec;
+mod prop;
+
+pub use idvec::*;
+pub use prop::*;
+
 // Best effort fallible conversion.
 pub fn paint_to_color(paint: &Paint) -> Option<NaiveRgbColor> {
     match paint {

@@ -16,7 +16,7 @@ use typst_library::visualize::{
 use typst_utils::Numeric;
 
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
-use crate::tags::{self, Disable};
+use crate::tags;
 use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
 
 pub(crate) fn convert_fill(
@@ -128,7 +128,7 @@ fn convert_pattern(
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
-    tags::disable(gc, &mut surface, Disable::Tiling, |gc, surface| {
+    tags::tiling(gc, &mut surface, |gc, surface| {
         let mut fc = FrameContext::new(None, pattern.frame().size());
         handle_frame(&mut fc, pattern.frame(), None, surface, gc)
     })?;
