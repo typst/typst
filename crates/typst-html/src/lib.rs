@@ -68,6 +68,15 @@ pub struct HtmlElem {
     /// The body can be arbitrary Typst content.
     #[positional]
     pub body: Option<Content>,
+
+    /// A role that should be applied to the top-level styled HTML element, but
+    /// not its descendants. If we ever get set rules that apply to a specific
+    /// element instead of a subtree, they could supplant this. If we need the
+    /// same mechanism for things like `class`, this could potentially also be
+    /// extended to arbitrary attributes. It's minimal for now.
+    #[internal]
+    #[ghost]
+    pub role: Option<EcoString>,
 }
 
 impl HtmlElem {

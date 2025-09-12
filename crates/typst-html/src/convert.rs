@@ -12,7 +12,7 @@ use typst_library::text::{
 use typst_syntax::Span;
 
 use crate::fragment::{html_block_fragment, html_inline_fragment};
-use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, css, tag};
+use crate::{FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, tag};
 
 /// What and how to convert.
 pub enum ConversionLevel<'a> {
@@ -152,6 +152,8 @@ fn handle_html_elem(
     elem: &Packed<HtmlElem>,
     styles: StyleChain,
 ) -> SourceResult<()> {
+    let role = styles.get_cloned(HtmlElem::role);
+
     let mut children = EcoVec::new();
     if let Some(body) = elem.body.get_ref(styles) {
         let whitespace = if converter.whitespace == Whitespace::Pre
@@ -162,6 +164,16 @@ fn handle_html_elem(
             Whitespace::Pre
         } else {
             Whitespace::Normal
+        };
+
+        // The `role` attribute should only apply to the first element in the
+        // hierarchy. Thus, we unset it for children if it is currently set.
+        let unset;
+        let styles = if role.is_some() {
+            unset = HtmlElem::role.set(None).wrap();
+            styles.chain(&unset)
+        } else {
+            styles
         };
 
         if tag::is_block_by_default(elem.tag) {
@@ -190,9 +202,14 @@ fn handle_html_elem(
         }
     }
 
+    let mut attrs = elem.attrs.get_cloned(styles);
+    if let Some(role) = role {
+        attrs.push(attr::role, role);
+    }
+
     converter.push(HtmlElement {
         tag: elem.tag,
-        attrs: elem.attrs.get_cloned(styles),
+        attrs,
         children,
         span: elem.span(),
         pre_span: false,
