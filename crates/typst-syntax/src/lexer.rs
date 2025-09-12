@@ -127,14 +127,19 @@ impl Lexer<'_> {
     /// Eat whitespace characters greedily.
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
+
+        // We compute at most two newlines because the lexer only needs to
+        // distinguish between: 0 newlines (inline space), 1 newline (line
+        // break), and 2 or more newlines (paragraph break). The exact number
+        // beyond two is not relevant here.
         let newlines = match c {
             // Optimize eating a single space.
             ' ' if more.is_empty() => 0,
-            _ => count_newlines(self.s.from(start)),
+            _ => count_newlines_up_to_2(self.s.from(start)),
         };
 
         self.newline = newlines > 0;
-        if self.mode == SyntaxMode::Markup && newlines >= 2 {
+        if self.mode == SyntaxMode::Markup && newlines == 2 {
             SyntaxKind::Parbreak
         } else {
             SyntaxKind::Space
@@ -1025,8 +1030,11 @@ pub fn split_newlines(text: &str) -> Vec<&str> {
     lines
 }
 
-/// Count the number of newlines in text.
-fn count_newlines(text: &str) -> usize {
+/// Count the number of newlines in text up to two. The result is:
+/// - 0 if there are no newlines,
+/// - 1 if there is exactly one newline,
+/// - 2 if there are two or more newlines.
+fn count_newlines_up_to_2(text: &str) -> usize {
     let mut newlines = 0;
     let mut s = Scanner::new(text);
     while let Some(c) = s.eat() {
@@ -1035,6 +1043,9 @@ fn count_newlines(text: &str) -> usize {
                 s.eat_if('\n');
             }
             newlines += 1;
+            if newlines == 2 {
+                return newlines;
+            }
         }
     }
     newlines
