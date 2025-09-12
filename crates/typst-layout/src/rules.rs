@@ -376,42 +376,21 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
-    let loc = elem.declaration_location(engine).at(span)?;
-    let numbering = elem.numbering.get_ref(styles);
-    let counter = Counter::of(FootnoteElem::ELEM);
-    let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+    let (dest, num) = elem.realize(engine, styles)?;
     let sup = SuperElem::new(num).pack().spanned(span);
-    // This well-known derived location is manually attached to the
-    // `FootnoteEntry`.
-    let dest = Destination::Location(loc.variant(1));
-    // Add zero-width weak spacing to make the footnote "sticky".
     Ok(HElem::hole().clone() + sup.linked(dest))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let span = elem.span();
     let number_gap = Em::new(0.05);
-    let default = StyleChain::default();
-    let numbering = elem.note.numbering.get_ref(default);
-    let counter = Counter::of(FootnoteElem::ELEM);
-    let Some(loc) = elem.note.location() else {
-        bail!(
-            span, "footnote entry must have a location";
-            hint: "try using a query or a show rule to customize the footnote instead"
-        );
-    };
-
-    let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let sup = SuperElem::new(num)
-        .pack()
-        .spanned(span)
-        .linked(Destination::Location(loc));
-
+    let (dest, num, body) = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(num).pack().spanned(span).linked(dest);
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
         sup,
         HElem::new(number_gap.into()).with_weak(true).pack(),
-        elem.note.body_content().unwrap().clone(),
+        body,
     ]))
 };
 
