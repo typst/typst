@@ -124,8 +124,12 @@ impl Selector {
         match self {
             Self::Elem(element, dict) => {
                 target.elem() == *element
-                    && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
-                        target.get(*id, styles).as_ref().ok() == Some(value)
+                    && dict.iter().flat_map(|dict| dict.iter()).all(|(id, expected)| {
+                        let Ok(found) = target.get(*id, styles) else { return false };
+                        match expected {
+                            Value::Type(ty) => found.ty() == *ty,
+                            _ => found == *expected,
+                        }
                     })
             }
             Self::Label(label) => target.label() == Some(*label),
