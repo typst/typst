@@ -2,13 +2,15 @@ use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Selector,
-    Str, Value, ops,
+    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Repr,
+    Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
+use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 use typst_utils::singleton;
 
+use crate::methods::is_mutating_method;
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
 
 impl Eval for ast::Code<'_> {
@@ -319,7 +321,10 @@ impl Eval for ast::FieldAccess<'_> {
         let field_span = field.span();
 
         let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
-            Ok(value) => return Ok(value),
+            Ok(field) => {
+                validate_method_access(&value, &field, field_span)?;
+                return Ok(field);
+            }
             Err(err) => err,
         };
 
@@ -388,4 +393,16 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
     }
 
     engine.sink.warn(warning);
+}
+
+/// Raises an error if a user tries to access a mutating method outside of a call expression.
+fn validate_method_access(target: &Value, field: &Value, span: Span) -> SourceResult<()> {
+    let Value::Func(f) = field else { return Ok(()) };
+    let Some(name) = f.name() else { return Ok(()) };
+
+    if is_mutating_method(name) {
+        bail!(span, "cannot access mutating fields on {}", target.repr());
+    }
+
+    Ok(())
 }
