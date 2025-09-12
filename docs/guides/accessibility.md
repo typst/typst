@@ -15,7 +15,7 @@ Making a document accessible means that it can be used and understood by everyon
 
 To accommodate all of these people and scenarios, you should design your document for **Universal Access.** Universal Access is a simple but powerful principle: instead of retrofitting a project for accessibility after the fact, design from the beginning to work for the broadest possible range of people and situations. This will improve the experience for all readers!
 
-Typst can help you to create accessible files that read well on screen readers, look good even when reflowed for a different screen size, and pass automated accessibility checkers. However, to create accessible files, you will have to keep some rules in mind. This guide will help you learn what issues impact accessibility, how to design for Universal Access, and what tools Typst gives you to accomplish this. Much of the guidance here applies to all export targets, but the guide focuses on PDF export. Notable differences to HTML are called out.
+Typst can help you to create accessible files that read well on screen readers, look good even when reflowed for a different screen size, and pass automated accessibility checkers. However, to create accessible files, you will have to keep some rules in mind. This guide will help you learn what issues impact accessibility, how to design for Universal Access, and what tools Typst gives you to accomplish this. Much of the guidance here applies to all export targets, but the guide focuses on PDF export. Notable differences to HTML export are called out.
 
 ## Basics of Accessibility
 
@@ -23,7 +23,9 @@ Accessible files allow software to do more with them than to just lay them out. 
 
 This information is consumed by different software to provide access. When exporting a PDF from Typst, the _PDF viewer_ (sometimes also called a reader) will display the document's pages just as you designed them with Typst's preview. Some people rely on _Assistive Technologies_ (AT) such as screen readers, braille displays, screen magnifiers, and more for consuming PDF files. In that case, the semantic information in the file is used to adapt the contents of a file into spoken or written text, or into a different visual representation. Other users will make the PDF viewer reflow the file to create a layout similar to a web page: The content will fit the viewport's width and scroll continuously. Finally, some users will repurpose the PDF into another format, for example plain text for ingestion into a Large Language Model (LLM) or HTML. A special form of repurposing is copy and paste where users use the clipboard to extract content from a file to use it in another application.
 
-Accessibility support differs based on viewer and AT. Some combinations work better than others. In our testing, Adobe [Acrobat][Acrobat] paired with [NVDA][NVDA] on Windows and [VoiceOver][VoiceOver] on macOS provided the richest accessibility support.
+Accessibility support differs based on viewer and AT. Some combinations work better than others. In our testing, [Adobe Acrobat][Acrobat] paired with [NVDA][NVDA] on Windows and [VoiceOver][VoiceOver] on macOS provided the richest accessibility support. When using HTML export, browsers provide a more consistent baseline of accessibility when compared to PDF readers.
+
+Only PDF and HTML export produce accessible files. Neither PNGs nor SVGs are accessible on their own. Both formats can be used in an accessible larger work by providing a [textual representation](#textual-representations).
 
 ## Maintaining semantics
 
@@ -71,7 +73,7 @@ The show-set rule completely changes the default appearance of the [`strong`] el
 
 For AT to read the contents of a document in the right order and for repurposing applications, accessible files must make their reading order explicit. This is because the logical reading order can differ from layout order. Floating figures are a common example for such a difference: A figure may be relevant to a paragraph in the center of a page but appear at the top or bottom edge. In non-accessible files, PDF readers and AT have to assume that layout order equals the logical reading order, often leading to confusion for AT users. When the reading order is well-defined, screen readers read a footnote or a floating figure immediately where it makes sense.
 
-Fortunately, Typst markup already implies a single reading order. You can assume that Typst documents will read in the order that content has been placed in the markup. For most documents, this is good enough. However, when using the place and move function or floating figures, you must pay special attention to place the function call at its spot in the logical reading order in markup, even if this has no consequence on the layout. Just ask yourself where you'd want a screen reader to announce the content you are placing.
+Fortunately, Typst markup already implies a single reading order. You can assume that Typst documents will read in the order that content has been placed in the markup. For most documents, this is good enough. However, when using the [`place`] and [`move`] function or [floating figures]($figure.placement), you must pay special attention to place the function call at its spot in the logical reading order in markup, even if this has no consequence on the layout. Just ask yourself where you would want a screen reader to announce the content you are placing.
 
 ## Layout containers
 
@@ -79,11 +81,11 @@ Typst provides some layout containers like [`grid`], [`stack`], [`box`], [`colum
 
 When designing for Universal Access, you need to be aware that AT users often cannot view the visual layout that the container creates. Instead, AT will just read its contents, so it is best to think about these containers as transparent in terms of accessibility. For example, a grid will just be announced cell by cell, in the order that you have added cells in the source code. If the layout you created is merely visual and decorative, this is fine. If, however, the layout carries semantic meaning that is apparent to a sighted user viewing the file in a regular PDF reader, it is not accessible. Instead, create an alternative representation of your content that leverages text or wrap your container in the [`figure`] element to provide an alternative textual description.
 
-Do not use the grid container to represent tabular data. Instead, use [`table`]. Tables are accessible to AT users and conserved during reflow and repurposing. When creating tables, use the [`table.header`]($table.header) and [`table.footer`]($table.footer) elements to mark up the semantic roles of individual rows. Keep in mind that while AT users can access tables, it is often cumbersome to them: Tables are optimized for visual consumption. Being read the contents of a set of cells while having to recall their row and column creates additional mental load. Consider making the core takeaway of the table accessible as text or a caption elsewhere.
+Do not use the grid container to represent tabular data. Instead, use [`table`]. Tables are accessible to AT users and conserved during reflow and repurposing. When creating tables, use the [`table.header`]($table.header) and [`table.footer`]($table.footer) elements to mark up the semantic roles of individual rows. The table documentation contains an [accessibility section]($table#accessibility) with more information on how to make your tables accessible. Keep in mind that while AT users can access tables, it is often cumbersome to them: Tables are optimized for visual consumption. Being read the contents of a set of cells while having to recall their row and column creates additional mental load. Consider making the core takeaway of the table accessible as text or a caption elsewhere.
 
-Likewise, if you use functions like [`rotate`], [`scale`], and [`skew`], take care that this transformation either has no semantic meaning or that the meaning is available to AT users elsewhere, i.e. in figure alt text or a caption.
+Likewise, if you use functions like [`rotate`], [`scale`], and [`skew`], take care that this transformation either has no semantic meaning or that the meaning is available to AT users elsewhere, i.e. in figure [alt text](#textual-representations) or a caption.
 
-## Artifacts
+## Artifacts <artifacts>
 
 Some things on a page have no semantic meaning and are irrelevant to the content of a document. We call these items _artifacts._ Artifacts are hidden from AT and repurposing and will vanish during reflow. Here are some examples for artifacts:
 
@@ -93,7 +95,7 @@ Some things on a page have no semantic meaning and are irrelevant to the content
 
 In general, every element on a page must either have some way for AT to announce it or be an artifact for a document to be considered accessible.
 
-Typst automatically tags many layout artifacts such as headers, footers, page back- and foregrounds, and automatic hyphenation as artifacts. However, if you'd like to add purely decorative content to your document, you can use the `pdf.artifact` function to mark a piece of content as an artifact. <!-- TODO: Link once it exists -->
+Typst automatically tags many layout artifacts such as headers, footers, page back- and foregrounds, and automatic hyphenation as artifacts. However, if you'd like to add purely decorative content to your document, you can use the `pdf.artifact` function to mark a piece of content as an artifact. If you are unsure if you should mark an element as an artifact, ask yourself this: Would it be purely annoying if a screen reader announced the element to you? Then, it may be an artifact. If, instead, it could be useful to have it announced, then it is not an artifact. <!-- TODO: Link once it exists -->
 
 Please note that Typst will mark shapes and paths like [`square`] and [`circle`] as artifacts while their content will remain semantically relevant and accessible to AT. If your shapes have a semantic meaning, please wrap them in the [`figure`] element to provide an alternative textual description.
 
@@ -103,15 +105,18 @@ Universal Access not only means that your documents works with AT, reflow, and r
 
 This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. For a color blind user, there are multiple challenges here. The first is to associate the color of a bar segment with its entry in the legend. You could help the reader by always ensuring that the colors appear in the same order as they do in the legend and note this. The next challenge is to identify the boundaries of the colored segments in a single bar. To make this easier, you could draw a dark or light boundry with high contrast. Alternatively, you could address both problems by also giving each segment a unique pattern in addition to a color.
 
-There are tools on the web to simulate the color perception of various color blindnesses. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it.
 
-Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image. There are [tools to compare how much contrast a pair of colors has][wcag-contrast] as foreground and background. The most common one is the WCAG color contrast ratio. For a given font size, a color pair may either fail the test, get to the AA level, or reach the higher AAA level. Aim for at least AA contrast for all your color pairings.
+There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it.
+
+Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
 | Content                                | AA Ratio | AAA Ratio |
-|----------------------------------------|----------|-----------|
+|----------------------------------------|---------:|----------:|
 | Large text (>=18pt or bold and >=14pt) | 3:1      | 4.5:1     |
 | Small text                             | 4.5:1    | 7:1       |
 | Non-text content                       | 3:1      | 3:1       |
+
+There are [tools to compare how much contrast a pair of colors has][wcag-contrast] as foreground and background. The most common one is the WCAG color contrast ratio. For a given font size, a color pair may either fail the test, get to the AA level, or reach the higher AAA level. Aim for at least AA contrast for all your color pairings.
 
 Note that common accessibility frameworks like WCAG make an exception for purely decorative text and logos: Due to their graphic character, they can have contrast ratios that fail to achieve AA contrast ratio.
 
@@ -127,19 +132,38 @@ Alternatively, you can add these set rules to a version of your document to meet
 ```typ
 // Set letter and word spacing
 #set text(spacing: 0.16em, tracking: 0.12em)
+## Textual representations <textual-representations>
 
-// Add 1.5x of the normal line spacing
-// and 2x the font size as paragraph spacing
-#set par(leading: 1.3em, spacing: 2em)
+To support AT use and some repurposing workflows, all elements with a semantic meaning must have a textual representation. Think about it in terms of Universal Access: If an item is not an [artifact](#artifacts), it has a semantic meaning. If, however, AT cannot ingest the item, the full semantic meaning of a document is not available to AT users. Hence, to provide Universal Access, use the mechanisms built into Typst to provide alternative representations.
+
+When you add an image, be sure to use the [`alt` argument of the image function]($image.alt) to describe what's visible in the image. This alternative description (sometimes known as alt text) should describe the gist of the image: Think about how you would describe the image to a friend if you called them on the phone. To write good alternative descriptions, consider the context in which the image appears:
+
+```example
+#image("heron.jpg", alt: "?")
+
+Herons have feet with interdigital webbing, allowing for good mobility when swimming, and wings that span up to 2m30.
 ```
 
-All values given in these set rules are minimums. When you use these values, consider distributing two versions of your document, as documents with spacing this large are not visually appealing to everyone.
+What could be a good alternative description for this image? Let's consider a few examples for what _not_ to do:
 
-## Textual representations
+- `["Image of a heron"]`: \
+  ❌ The screen reader will already announce the image on its own, so saying this is an image is redundant. In this example, the AT user would hear "Image, Image of a heron".
 
-To support AT use and some repurposing workflows, all elements with a semantic meaning must have a textual representation. Think about it in terms of Universal Access: If an item is not an artifact, it has a semantic meaning. If, however, AT cannot ingest the item, the full semantic meaning of a document is not available to AT users. Hence, to provide Universal Access, use the mechanisms built into Typst to provide alternative representations.
+- `["A bird"]`: \
+  ❌ The alternative description is not specific enough. For example, it is relevant to a user that the image depicts a heron and both its feet and wings are visible.
 
-When you add an image, be sure to use the [`alt` argument of the image function]($image.alt) to describe what's visible in the image. This alternative description (sometimes known as alt text) should describe the gist of the image: Think about how you would describe the image to a friend if you called them on the phone. There are resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to PDF and SVG images. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
+- `["Gray heron in flight. Picture by Makasch1966 on Wikimedia Commons, CC Attribution 4.0 International license"]`: \
+  ❌ The alternative description should not include details not visible in the image, such as attribution, jokes, or metadata. Keep in mind that it is not accessible to sighted users. That information belongs elsewhere.
+
+- `["Gray heron flying low, heading from the right to left. Its feet are extended and slightly point downwards, touching a blurred horizon where a dark forest becomes visible. The bird's wings are extended and arc upwards. There are out-of-focus branches visible in the lower left corner of the image."]`: \
+  ❌ The alternative description is too verbose. Use your discretion and determine how important the image is to the content. Think about how long a sighted user would realistically look at the image; your alt text should take about the same effort to 'consume.' For example, the anatomic description contained above could be appropriate for a longer discussion in a zooology textbook while the compositional information is useful when writing about photography. The context the example image comes with is relatively short, so write a more brief description.
+
+Instead, in the given example, you could use this alternative text:
+
+`["Heron in flight with feet and wings spread"]` \
+✅ This alternative description describes the image, is relevant to the context, and matches its brevity.
+
+There are more resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to PDF and SVG images. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
 
 Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If your figure contains an image, it suffices to set an alternative description on the image.
 
@@ -159,7 +183,7 @@ To specify your language, use ISO 639 codes. For regions, use the [ISO 3166-1 al
 
 There are three special language codes defined by both ISO 639-2 and ISO 639-3 that you can use when providing a normal language code is difficult:
 
-- `zxx` for text that is not natural language
+- `zxx` for text that is not in a natural language
 - `und` for text for which you cannot determine the natural language
 - `mis` for text in languages that have not been assigned a language code
 
@@ -193,13 +217,19 @@ It is important that the sequence of headings you use is sequential: Never skip 
 === Third level heading
 ```
 
+Note that in order to pass the [automated accessibility check in Adobe Acrobat][acro-check-outline], documents with 21 pages or more must contain outlined headings.
+
 ## Accessibility Standards and Legislation
 
 There are international standards that help you to assert that a Typst document is accessible. For PDF export, Typst can check whether you are complying with PDF-based accessibility standards and assert the compliance in the compiled file:
 
 - **Tagged PDF:** Tagged PDF contain machine-readable data about the semantic structure of a document that AT can parse. Typst will write Tagged PDFs by default, but keep in mind that Typst can only write appropriate tags if it knows about the semantic structure of your document. Refer to the Section Maintaining semantics to learn how to use Typst's elements to communicate element semantics. To provide Universal Access, you are also responsible to provide textual representation of non-text content yourself.
-- **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide alternative description for images, and disallows the use of characters in the Unicode Private Use Area whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (the latter is not yet supported by Typst).
-- **PDF/UA-1:** The PDF/UA standard explains how to write a PDF 1.7 file optimized for Universal Access. It implies Tagged PDF, forces alternative descriptions for images and mathematics, requires a document title, and introduces rules how document contents like tables should be structured. If you are following this guide, you should be in compliance with most rules in PDF/UA-1 already. <!-- TODO Mention WTPDF? -->
+
+- **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide alternative description for images, and disallows the use of characters in the [Unicode Private Use Area][unic-pua] whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (the latter is not yet supported by Typst).
+
+- **PDF/UA-1:** The PDF/UA standard explains how to write a PDF 1.7 file optimized for Universal Access. It implies Tagged PDF, forces alternative descriptions for images and mathematics, requires a document title, and introduces rules how document contents like tables should be structured. If you are following this guide, you should be in compliance with most rules in PDF/UA-1 already.
+
+There are also a more recent part of the PDF/UA standard that targets PDF 2.0 files, PDF/UA-2. Support for PDF/UA-2 not yet available in Typst. [Both parts of the PDF/UA specification are available free of charge from the PDF Association.][pdf-ua-free] The industry standard [Well Tagged PDF (WTPDF)][WTPDF] is very similar to PDF/UA-2. All files conforming to WTPDF can also declare conformance with PDF/UA-2.
 
 When you select one or multiple of these standards for PDF export, Typst will detect if you are in violation of their rules and fail the export with a descriptive error message. You can combine multiple standards. For the strictest accessibility check currently available, choose PDF/UA-1. You can combine it with PDF/A-2a for the broadest possible range of checks. Do not disable writing tags unless you have a good reason, as they provide a baseline of accessibility across all documents you export.
 
@@ -217,6 +247,30 @@ Many territories have accessibility legislation that requires you to create acce
 
 Using this guide can help you reach compliance with either regulation.
 
+## Testing for Accessibility
+
+In order to test whether your PDF document is accessible, you can use automated tools and manual testing. Some standards like PDF/UA and PDF/A can be checked exclusively through automated tools, while some rules in WCAG and other standards require manual checks. Many of the automatable checks are automatically passed by Typst when Tagged PDF is enabled. For many other automatable checks, you can enable PDF/UA-1 export so that Typst will run them instead. Automated tools can only provide a baseline of accessibility, for truly Universal Access, it is best if you try the document yourself with AT.
+
+Here is a list of automated checkers to try to test for conformance:
+
+- **[veraPDF][veraPDF]:** This open-source tool can check if your PDF file conforms to the parts of the PDF/A and PDF/UA standards it declared conformance with. Use this tool if you have chosen one of these standards during export. Failures are considered bugs in Typst and should be reported on GitHub.
+
+- **[PDF Accessibility Checker (PAC)][PAC]:** The freeware PAC checks whether your document complies with PDF/UA and WCAG rules. When you receive a hard error in the PDF/UA tab, this is considered a bug in Typst and should be reported on GitHub. Warnings in the PDF/UA and Quality tabs may either be bugs, problems in your document, or neither. Check on the [Forum][Typst Forum] or on [Discord][Discord] if you are unsure. Errors and warnings in the WCAG tab indicate problems with your document.
+
+- **[Accessibility Check in Adobe Acrobat Pro][acro-check]:** The accessibility checker in the paid version of Adobe Acrobat checks all PDF documents for problems. Instead of checking compliance with a well-known international or industry standard, Adobe has created their own suite of tests. Because the rules behind these tests sometimes contradict international standards like PDF/UA, some of Acrobat's checks are expected to fail for Typst documents[^1]. Other checks, such as the contrast check are useful and indicate problems with your document.
+
+When doing manual checking, you can start with a checklist. If your organization places emphasis on accessibility, they will sometimes have their own list. In absence of one, you can try lists by universities such as [Universität Bremen (in English)][checklist-unib] or governments such as in [Canada][checklist-canada] or by the [US Social Security Administration][checklist-us-ssa]. Although these checklists differ in verbosity, they all cover the most essential manual checks. Many of the technical checks in them can be skipped if you choose PDF/UA-1 export in Typst. If unsure which checklist to use, choose one from an organization culturally similar to yours.
+
+However, to reach the highest standard of accessibility for widely circulated documents, consider checking your document with AT. Although there are many AT and PDF viewers, it is sufficient to test a single combination. Which is best differs depending on your operating system:
+
+- Windows: Test with [Adobe Acrobat][Acrobat] and [NVDA][NVDA]. NVDA is free, open-source software. A free version of Acrobat is available.
+- macOS: Test with [Adobe Acrobat][Acrobat] and [VoiceOver][VoiceOver]. VoiceOver is the screen reader that comes with macOS and other Apple platforms.
+- Linux: Test with [Evince][Evince] or [Okular][Okular] and [Orca][Orca]. All three tools are free, open-source software. However, AT support across Linux platforms lags behind what is available on Windows and macOS. Likewise, Evince and Okular have less accessibility support than Acrobat. We strongly suggest testing with Acrobat instead.
+
+When first getting into testing, consider completing the interactive training program your screen reader offers, if any. Building confidence with a screen reader helps you experience your document like a full-time screen reader user. When checking your document, check that it not only makes all the same information accessible that is available to a sighted user, but also that it is easy to navigate. The experience your users will have will vary based on the pairing of PDF viewer and AT they use.
+
+[^1]: For example, when using footnotes, the check "Lbl and LBody must be children of LI" in the "List" section is expected to fail
+
 [NVDA]: https://www.nvaccess.org/download/
 [Acrobat]: https://www.adobe.com/acrobat.html
 [VoiceOver]: https://support.apple.com/guide/voiceover/welcome/mac
@@ -231,3 +285,20 @@ Using this guide can help you reach compliance with either regulation.
 [EN301549]: https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/en_301549v030201p.pdf
 [EAA]: https://eur-lex.europa.eu/eli/dir/2019/882/oj "Directive (EU) 2019/882 of the European Parliament and of the Council of 17 April 2019 on the accessibility requirements for products and services (Text with EEA relevance)"
 [ADA-2]: https://www.ada.gov/law-and-regs/regulations/title-ii-2010-regulations/ "Americans with Disabilities Act Title II Regulations"
+[color-blind-simulator]: https://daltonlens.org/colorblindness-simulator "Online Color Blindness Simulators"
+[unic-pua]: https://en.wikipedia.org/wiki/Private_Use_Areas "Private Use Areas"
+[pdf-ua-free]: https://pdfa.org/sponsored-standards/ "Sponsored ISO standards for PDF technology"
+[WTPDF]: https://pdfa.org/wtpdf/ "Well-Tagged PDF (WTPDF)"
+[acro-check]: https://helpx.adobe.com/acrobat/using/create-verify-pdf-accessibility.html "Create and verify PDF accessibility (Acrobat Pro)"
+[acro-check-outline]: https://helpx.adobe.com/acrobat/using/create-verify-pdf-accessibility.html#Bookmarks "Create and verify PDF accessibility (Acrobat Pro) - Bookmarks"
+[veraPDF]: https://verapdf.org "Industry Supported PDF/A Validation"
+[PAC]: https://pac.pdf-accessibility.org/en "PDF Accessibility Checker"
+[Typst Forum]: https://forum.typst.app/
+[Discord]: https://discord.gg/2uDybryKPe
+[checklist-unib]: https://www.uni-bremen.de/fileadmin/user_upload/universitaet/Digitale_Transformation/Projekt_BALLON/Checklisten/2._Auflage_englisch/Checklist_for_accessible_PDF_ENG-US_ver2.pdf "Accessible E-Learning and Teaching - Checklist for Creating and Reviewing Accessible PDF Documents"
+[checklist-canada]: https://a11y.canada.ca/en/pdf-accessibility-checklist/ "PDF accessibility checklist"
+[checklist-us-ssa]: https://www.ssa.gov/accessibility/checklists/PDF_508_Compliance_Checklist.pdf
+"Portable Document Format (PDF) Basic Testing Guide"
+[Evince]: https://wiki.gnome.org/Apps/Evince/
+[Okular]: https://okular.kde.org/ "Okular - The Universal Document Viewer"
+[Orca]: https://orca.gnome.org "Orca - A free and open source screen reader"
