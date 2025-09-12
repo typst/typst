@@ -47,11 +47,10 @@
   let elements = query(selector(figure).after(here()))
   for it in elements [
     Figure
-    #numbering(it.numbering,
-      ..counter(figure).at(it.location())):
+    #counter(figure).display(at: it.location()):
     #it.caption.body
     #box(width: 1fr, repeat[.])
-    #counter(page).at(it.location()).first() \
+    #counter(page).get(at: it.location()).first() \
   ]
 }
 
