@@ -397,7 +397,7 @@ impl IntrospectorBuilder {
                     if let Some(parent) = group.parent {
                         let mut nested = vec![];
                         self.discover_in_frame(&mut nested, &group.frame, page, ts);
-                        self.insertions.insert(parent, nested);
+                        self.register_insertion(parent, nested);
                     } else {
                         self.discover_in_frame(sink, &group.frame, page, ts);
                     }
@@ -432,6 +432,11 @@ impl IntrospectorBuilder {
                 self.keys.insert(*key, *loc);
             }
         }
+    }
+
+    /// Saves nested pairs as logically belonging to the `parent`.
+    pub fn register_insertion(&mut self, parent: Location, nested: Vec<Pair>) {
+        self.insertions.insert(parent, nested);
     }
 
     /// Build a complete introspector with all acceleration structures from a

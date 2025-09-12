@@ -211,6 +211,7 @@ fn handle_html_elem(
         tag: elem.tag,
         attrs,
         children,
+        parent: elem.parent,
         span: elem.span(),
         pre_span: false,
     });

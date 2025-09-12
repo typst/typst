@@ -119,7 +119,13 @@ fn introspect_html(
                 }
                 HtmlNode::Text(_, _) => {}
                 HtmlNode::Element(elem) => {
-                    discover(builder, sink, link_targets, &elem.children)
+                    if let Some(parent) = elem.parent {
+                        let mut nested = vec![];
+                        discover(builder, &mut nested, link_targets, &elem.children);
+                        builder.register_insertion(parent, nested);
+                    } else {
+                        discover(builder, sink, link_targets, &elem.children)
+                    }
                 }
                 HtmlNode::Frame(frame) => {
                     builder.discover_in_frame(
