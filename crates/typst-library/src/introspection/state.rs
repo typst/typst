@@ -23,18 +23,18 @@ use crate::routines::Routines;
 ///
 /// ```typ
 /// // This doesn't work!
-/// #let x = 0
+/// #let star = 0
 /// #let compute(expr) = {
-///   x = eval(
-///     expr.replace("x", str(x))
+///   star = eval(
+///     expr.replace("⭐", str(star))
 ///   )
-///   [New value is #x. ]
+///   [New value is #star.]
 /// }
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
-/// #compute("x * 2") \
-/// #compute("x - 5")
+/// #compute("⭐ + 3") \
+/// #compute("⭐ * 2") \
+/// #compute("⭐ - 5")
 /// ```
 ///
 /// # State and document markup { #state-and-markup }
@@ -87,18 +87,18 @@ use crate::routines::Routines;
 /// Our initial example would now look like this:
 ///
 /// ```example
-/// #let s = state("x", 0)
-/// #let compute(expr) = [
-///   #s.update(x =>
-///     eval(expr.replace("x", str(x)))
+/// #let star = state("star", 0)
+/// #let compute(expr) = {
+///   star.update(old =>
+///     eval(expr.replace("⭐", str(old)))
 ///   )
-///   New value is #context s.get().
-/// ]
+///   [New value is #context star.get().]
+/// }
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
-/// #compute("x * 2") \
-/// #compute("x - 5")
+/// #compute("⭐ + 3") \
+/// #compute("⭐ * 2") \
+/// #compute("⭐ - 5")
 /// ```
 ///
 /// State managed by Typst is always updated in layout order, not in evaluation
@@ -109,22 +109,22 @@ use crate::routines::Routines;
 /// but they still show the correct results:
 ///
 /// ```example
-/// >>> #let s = state("x", 0)
-/// >>> #let compute(expr) = [
-/// >>>   #s.update(x =>
-/// >>>     eval(expr.replace("x", str(x)))
+/// >>> #let star = state("star", 0)
+/// >>> #let compute(expr) = {
+/// >>>   star.update(old =>
+/// >>>     eval(expr.replace("⭐", str(old)))
 /// >>>   )
-/// >>>   New value is #context s.get().
-/// >>> ]
+/// >>>   [New value is #context star.get().]
+/// >>> }
 /// <<< ...
 ///
 /// #let more = [
-///   #compute("x * 2") \
-///   #compute("x - 5")
+///   #compute("⭐ * 2") \
+///   #compute("⭐ - 5")
 /// ]
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
+/// #compute("⭐ + 3") \
 /// #more
 /// ```
 ///
@@ -140,23 +140,23 @@ use crate::routines::Routines;
 /// methods gives us the value of the state at the end of the document.
 ///
 /// ```example
-/// >>> #let s = state("x", 0)
-/// >>> #let compute(expr) = [
-/// >>>   #s.update(x => {
-/// >>>     eval(expr.replace("x", str(x)))
-/// >>>   })
-/// >>>   New value is #context s.get().
-/// >>> ]
+/// >>> #let star = state("star", 0)
+/// >>> #let compute(expr) = {
+/// >>>   star.update(old =>
+/// >>>     eval(expr.replace("⭐", str(old)))
+/// >>>   )
+/// >>>   [New value is #context star.get().]
+/// >>> }
 /// <<< ...
 ///
 /// Value at `<here>` is
-/// #context s.at(<here>)
+/// #context star.at(<here>)
 ///
 /// #compute("10") \
-/// #compute("x + 3") \
+/// #compute("⭐ + 3") \
 /// *Here.* <here> \
-/// #compute("x * 2") \
-/// #compute("x - 5")
+/// #compute("⭐ * 2") \
+/// #compute("⭐ - 5")
 /// ```
 ///
 /// # A word of caution { #caution }
@@ -173,9 +173,9 @@ use crate::routines::Routines;
 ///
 /// ```example
 /// // This is bad!
-/// #let s = state("x", 1)
-/// #context s.update(s.final() + 1)
-/// #context s.get()
+/// #let x = state("key", 1)
+/// #context x.update(x.final() + 1)
+/// #context x.get()
 /// ```
 ///
 /// In general, you should try not to generate state updates from within context
