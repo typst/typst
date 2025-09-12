@@ -1,0 +1,402 @@
+use std::collections::hash_map::Entry;
+
+use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
+use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
+use typst_library::foundations::{LinkMarker, Packed};
+use typst_library::introspection::Location;
+use typst_library::layout::GridCell;
+use typst_library::model::{OutlineEntry, TableCell};
+use typst_library::text::Lang;
+use typst_syntax::Span;
+
+use crate::tags::context::{
+    AnnotationId, BBoxCtx, FigureCtx, GridId, ListId, OutlineId, TableId, TagNode,
+};
+use crate::tags::text::ResolvedTextAttrs;
+use crate::tags::tree::StackEntry;
+use crate::tags::util::{Id, IdVec};
+
+pub type GroupId = Id<Group>;
+
+impl GroupId {
+    pub const INVALID: Self = Self::new(u32::MAX);
+}
+
+#[derive(Debug)]
+pub struct Groups {
+    locations: FxHashMap<Location, LocatedGroup>,
+    list: IdVec<Group>,
+
+    /// Currently only used for table/grid cells that are broken across multiple
+    /// regions, and thus can have opening/closing introspection tags that are
+    /// in completely different frames, due to the logical parenting mechanism.
+    unfinished_stacks: FxHashMap<Location, Vec<StackEntry>>,
+}
+
+impl Groups {
+    pub fn new() -> Self {
+        Self {
+            locations: FxHashMap::default(),
+            list: IdVec::new(),
+            unfinished_stacks: FxHashMap::default(),
+        }
+    }
+
+    pub fn by_loc(&self, loc: &Location) -> Option<LocatedGroup> {
+        self.locations.get(loc).copied()
+    }
+
+    pub fn get(&self, id: GroupId) -> &Group {
+        self.list.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: GroupId) -> &mut Group {
+        self.list.get_mut(id)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Group> {
+        self.list.iter()
+    }
+
+    pub fn store_unfinished_stack(&mut self, loc: Location, entries: Vec<StackEntry>) {
+        self.unfinished_stacks.insert(loc, entries);
+    }
+
+    pub fn take_unfinished_stack(&mut self, loc: Location) -> Option<Vec<StackEntry>> {
+        self.unfinished_stacks.remove(&loc)
+    }
+
+    pub fn try_set_lang(&mut self, id: GroupId, lang: Lang) -> Option<Lang> {
+        // TODO: walk up to the first parent that has a language.
+        let group = &mut self.get_mut(id);
+        if let Some(parent_lang) = group.kind.lang_mut()
+            && parent_lang.is_none_or(|l| l == lang)
+        {
+            *parent_lang = Some(lang);
+            return None;
+        }
+        Some(lang)
+    }
+
+    /// Reserves a located group. If the location has already been reserved,
+    /// create a new group.
+    pub fn new_located(
+        &mut self,
+        loc: Location,
+        parent: GroupId,
+        span: Span,
+        kind: GroupKind,
+    ) -> GroupId {
+        let id = self.new_virtual(parent, span, kind);
+        match self.locations.entry(loc) {
+            Entry::Occupied(occupied) => {
+                // Multiple introspection tags have the same location,
+                // for example because an element was queried and then
+                // placed again. Create a new group that doesn't have
+                // a location mapping.
+                let located = occupied.into_mut();
+                located.multiple_parents = true;
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(LocatedGroup { id, multiple_parents: false });
+            }
+        }
+        id
+    }
+
+    pub fn new_virtual(
+        &mut self,
+        parent: GroupId,
+        span: Span,
+        kind: GroupKind,
+    ) -> GroupId {
+        self.list.push(Group::new(parent, span, kind))
+    }
+
+    /// NOTE: this needs to be kept in sync with [`GroupKind::is_breakable`].
+    pub fn break_group(&mut self, id: GroupId, new_parent: GroupId) -> GroupId {
+        let group = self.get(id);
+
+        let kind = match &group.kind {
+            GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
+            GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
+            GroupKind::Standard(tag, _) => GroupKind::Standard(tag.clone(), None),
+            GroupKind::Root(..)
+            | GroupKind::LogicalParent(..)
+            | GroupKind::LogicalChild
+            | GroupKind::Outline(..)
+            | GroupKind::OutlineEntry(..)
+            | GroupKind::Table(..)
+            | GroupKind::TableCell(..)
+            | GroupKind::Grid(..)
+            | GroupKind::GridCell(..)
+            | GroupKind::List(..)
+            | GroupKind::ListItemLabel(..)
+            | GroupKind::ListItemBody(..)
+            | GroupKind::BibEntry(..)
+            | GroupKind::Figure(..)
+            | GroupKind::Formula(..)
+            | GroupKind::CodeBlock(..)
+            | GroupKind::CodeBlockLine(..) => unreachable!(),
+        };
+        self.list.push(Group {
+            parent: new_parent,
+            kind,
+            span: group.span,
+            nodes: Vec::new(),
+        })
+    }
+}
+
+/// These methods are the only way to insert nested groups in the
+/// [`Group::nodes`] list.
+impl Groups {
+    pub fn push_tag(&mut self, parent: GroupId, tag: impl Into<TagKind>) -> GroupId {
+        let kind = GroupKind::Standard(tag.into(), None);
+        let id = self.list.push(Group::new(parent, Span::detached(), kind));
+        self.get_mut(parent).nodes.push(TagNode::Group(id));
+        id
+    }
+
+    pub fn push_group(&mut self, parent: GroupId, child: GroupId) {
+        debug_assert!(self.check_ancestor(parent, child));
+        self.get_mut(parent).nodes.push(TagNode::Group(child));
+    }
+
+    pub fn extend_groups(
+        &mut self,
+        parent: GroupId,
+        children: impl ExactSizeIterator<Item = GroupId>,
+    ) {
+        self.get_mut(parent).nodes.reserve(children.len());
+        for child in children {
+            self.push_group(parent, child);
+        }
+    }
+
+    /// Check whether the childs [`Group::parent`] is either the `parent` or an
+    /// ancestor of the `parent`.
+    fn check_ancestor(&self, parent: GroupId, child: GroupId) -> bool {
+        let ancestor = self.get(child).parent;
+        let mut current = parent;
+        while current != GroupId::INVALID {
+            if current == ancestor {
+                return true;
+            }
+            current = self.get(current).parent;
+        }
+        false
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct LocatedGroup {
+    pub id: GroupId,
+    pub multiple_parents: bool,
+}
+
+#[derive(Debug)]
+pub struct Group {
+    /// The parent of this group. Must not be the direct parent in the concrete
+    /// tag tree that will be built. But it must be an ancestor in the resulting
+    /// tree. For example for a [`GroupKind::TableCell`] this will point to the
+    /// parent [`GroupKind::Table`] even though the concrete tag tree will have
+    /// intermediate [`TagKind::TR`] or [`TagKind::TBody`] groups in the
+    /// generated `nodes`.
+    pub parent: GroupId,
+    pub span: Span,
+    pub kind: GroupKind,
+    /// Only allow mutating this list through the API, to ensure the parent
+    /// will be set for child groups.
+    nodes: Vec<TagNode>,
+}
+
+impl Group {
+    fn new(parent: GroupId, span: Span, kind: GroupKind) -> Self {
+        Group { parent, span, kind, nodes: Vec::new() }
+    }
+
+    pub fn nodes(&self) -> &[TagNode] {
+        &self.nodes
+    }
+
+    pub fn push_leaf(&mut self, id: Identifier) {
+        self.nodes.push(TagNode::Leaf(id));
+    }
+
+    pub fn push_annotation(&mut self, annot_id: AnnotationId) {
+        self.nodes.push(TagNode::Annotation(annot_id));
+    }
+
+    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, text_id: Identifier) {
+        if new_attrs.is_empty() {
+            self.push_leaf(text_id);
+            return;
+        }
+
+        let last_node = self.nodes.last_mut();
+        if let Some(TagNode::Text(prev_attrs, nodes)) = last_node
+            && *prev_attrs == new_attrs
+        {
+            nodes.push(text_id);
+        } else {
+            self.nodes.push(TagNode::Text(new_attrs, vec![text_id]));
+        }
+    }
+
+    pub fn pop_node(&mut self) -> Option<TagNode> {
+        self.nodes.pop()
+    }
+}
+
+#[derive(Debug)]
+pub enum GroupKind {
+    Root(Option<Lang>),
+    Artifact(ArtifactType),
+    LogicalParent(SmallVec<[GroupId; 4]>),
+    LogicalChild,
+    Outline(OutlineId, Option<Lang>),
+    OutlineEntry(Packed<OutlineEntry>, Option<Lang>),
+    Table(TableId, BBoxCtx, Option<Lang>),
+    TableCell(Packed<TableCell>, TagKind, Option<Lang>),
+    Grid(GridId, Option<Lang>),
+    GridCell(Packed<GridCell>, Option<Lang>),
+    List(ListId, ListNumbering, Option<Lang>),
+    ListItemLabel(Option<Lang>),
+    ListItemBody(Option<Lang>),
+    BibEntry(Option<Lang>),
+    Figure(FigureCtx, Option<Lang>),
+    Formula(FigureCtx, Option<Lang>),
+    Link(Packed<LinkMarker>, Option<Lang>),
+    CodeBlock(Option<Lang>),
+    CodeBlockLine(Option<Lang>),
+    Standard(TagKind, Option<Lang>),
+}
+
+impl GroupKind {
+    pub fn is_artifact(&self) -> bool {
+        matches!(self, Self::Artifact(_))
+    }
+
+    pub fn as_artifact(&self) -> Option<ArtifactType> {
+        if let Self::Artifact(v) = self { Some(*v) } else { None }
+    }
+
+    pub fn as_list(&self) -> Option<ListId> {
+        if let Self::List(v, ..) = self { Some(*v) } else { None }
+    }
+
+    pub fn as_link(&self) -> Option<&Packed<LinkMarker>> {
+        if let Self::Link(v, ..) = self { Some(v) } else { None }
+    }
+
+    pub fn bbox(&self) -> Option<&BBoxCtx> {
+        match self {
+            Self::Table(_, bbox, _) => Some(bbox),
+            Self::Figure(ctx, _) => Some(&ctx.bbox),
+            Self::Formula(ctx, _) => Some(&ctx.bbox),
+            _ => None,
+        }
+    }
+
+    pub fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
+        match self {
+            Self::Table(_, bbox, _) => Some(bbox),
+            Self::Figure(ctx, ..) => Some(&mut ctx.bbox),
+            Self::Formula(ctx, ..) => Some(&mut ctx.bbox),
+            _ => None,
+        }
+    }
+
+    pub fn lang_mut(&mut self) -> Option<&mut Option<Lang>> {
+        Some(match self {
+            GroupKind::Root(lang) => lang,
+            GroupKind::Artifact(_) => return None,
+            GroupKind::LogicalParent(_) => return None,
+            GroupKind::LogicalChild => return None,
+            GroupKind::Outline(_, lang) => lang,
+            GroupKind::OutlineEntry(_, lang) => lang,
+            GroupKind::Table(_, _, lang) => lang,
+            GroupKind::TableCell(_, _, lang) => lang,
+            GroupKind::Grid(_, lang) => lang,
+            GroupKind::GridCell(_, lang) => lang,
+            GroupKind::List(_, _, lang) => lang,
+            GroupKind::ListItemLabel(lang) => lang,
+            GroupKind::ListItemBody(lang) => lang,
+            GroupKind::BibEntry(lang) => lang,
+            GroupKind::Figure(_, lang) => lang,
+            GroupKind::Formula(_, lang) => lang,
+            GroupKind::Link(_, lang) => lang,
+            GroupKind::CodeBlock(lang) => lang,
+            GroupKind::CodeBlockLine(lang) => lang,
+            GroupKind::Standard(_, lang) => lang,
+        })
+    }
+
+    /// NOTE: this needs to be kept in sync with [`Groups::break_group`].
+    pub fn is_breakable(&self, is_pdf_ua: bool) -> bool {
+        match self {
+            GroupKind::Root(..) => false,
+            GroupKind::Artifact(..) => true,
+            GroupKind::LogicalParent(..) => false,
+            GroupKind::LogicalChild => false,
+            GroupKind::Outline(..) => false,
+            GroupKind::OutlineEntry(..) => false,
+            GroupKind::Table(..) => false,
+            GroupKind::TableCell(..) => false,
+            GroupKind::Grid(..) => false,
+            GroupKind::GridCell(..) => false,
+            GroupKind::List(..) => false,
+            GroupKind::ListItemLabel(..) => false,
+            GroupKind::ListItemBody(..) => false,
+            GroupKind::BibEntry(..) => false,
+            GroupKind::Figure(..) => false,
+            GroupKind::Formula(..) => false,
+            GroupKind::Link(..) => !is_pdf_ua,
+            GroupKind::CodeBlock(..) => false,
+            GroupKind::CodeBlockLine(..) => false,
+            GroupKind::Standard(tag, ..) => match tag {
+                TagKind::Part(_) => !is_pdf_ua,
+                TagKind::Article(_) => !is_pdf_ua,
+                TagKind::Section(_) => !is_pdf_ua,
+                TagKind::Div(_) => !is_pdf_ua,
+                TagKind::BlockQuote(_) => !is_pdf_ua,
+                TagKind::Caption(_) => !is_pdf_ua,
+                TagKind::TOC(_) => false,
+                TagKind::TOCI(_) => false,
+                TagKind::Index(_) => false,
+                TagKind::P(_) => true,
+                TagKind::Hn(_) => !is_pdf_ua,
+                TagKind::L(_) => false,
+                TagKind::LI(_) => false,
+                TagKind::Lbl(_) => !is_pdf_ua,
+                TagKind::LBody(_) => !is_pdf_ua,
+                TagKind::Table(_) => false,
+                TagKind::TR(_) => false,
+                // TODO: disallow table/grid cells outside of tables/grids
+                TagKind::TH(_) => false,
+                TagKind::TD(_) => false,
+                TagKind::THead(_) => false,
+                TagKind::TBody(_) => false,
+                TagKind::TFoot(_) => false,
+                TagKind::Span(_) => true,
+                TagKind::InlineQuote(_) => !is_pdf_ua,
+                TagKind::Note(_) => !is_pdf_ua,
+                TagKind::Reference(_) => !is_pdf_ua,
+                TagKind::BibEntry(_) => !is_pdf_ua,
+                TagKind::Code(_) => !is_pdf_ua,
+                TagKind::Link(_) => !is_pdf_ua,
+                TagKind::Annot(_) => !is_pdf_ua,
+                TagKind::Figure(_) => !is_pdf_ua,
+                TagKind::Formula(_) => !is_pdf_ua,
+                TagKind::NonStruct(_) => !is_pdf_ua,
+                TagKind::Datetime(_) => !is_pdf_ua,
+                TagKind::Terms(_) => !is_pdf_ua,
+                TagKind::Title(_) => !is_pdf_ua,
+                TagKind::Strong(_) => true,
+                TagKind::Em(_) => true,
+            },
+        }
+    }
+}

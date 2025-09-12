@@ -24,6 +24,7 @@ bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 image = { workspace = true }
+indexmap = { workspace = true }
 infer = { workspace = true }
 krilla = { workspace = true }
 krilla-svg = { workspace = true }

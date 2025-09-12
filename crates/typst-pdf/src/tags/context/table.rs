@@ -10,46 +10,25 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_library::foundations::Packed;
 use typst_library::layout::resolve::{CellGrid, Line, LinePosition};
-use typst_library::layout::{Abs, GridCell, Sides};
-use typst_library::model::TableCell;
+use typst_library::layout::{Abs, Sides};
+use typst_library::model::{TableCell, TableElem};
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
 use typst_library::visualize::{FixedStroke, Stroke};
 
-use crate::tags::convert::TableHeaderScopeExt;
-use crate::tags::util::PropertyValCopied;
-use crate::tags::{BBoxCtx, GroupContents, Groups, TableId, TagNode, convert};
+use crate::tags::context::TableId;
+use crate::tags::context::grid::{CtxCell, GridCells, GridEntry, GridExt};
+use crate::tags::util::{self, PropertyOptRef, PropertyValCopied, TableHeaderScopeExt};
+use crate::tags::{GroupId, GroupKind, Groups};
 use crate::util::{AbsExt, SidesExt};
 
-trait GridExt {
-    /// Convert from "effective" positions inside the cell grid, which may
-    /// include gutter tracks in addition to the cells, to conventional
-    /// positions.
-    #[allow(clippy::wrong_self_convention)]
-    fn from_effective(&self, i: usize) -> u32;
-
-    /// Convert from conventional positions to "effective" positions inside the
-    /// cell grid, which may include gutter tracks in addition to the cells.
-    fn to_effective(&self, i: u32) -> usize;
-}
-
-impl GridExt for CellGrid {
-    fn from_effective(&self, i: usize) -> u32 {
-        if self.has_gutter { (i / 2) as u32 } else { i as u32 }
-    }
-
-    fn to_effective(&self, i: u32) -> usize {
-        if self.has_gutter { 2 * i as usize } else { i as usize }
-    }
-}
-
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct TableCtx {
-    pub id: TableId,
-    pub summary: Option<String>,
-    pub bbox: BBoxCtx,
-    pub default_row_kinds: Vec<TableCellKind>,
-    grid: Arc<CellGrid>,
+    pub table_id: TableId,
+    pub elem: Packed<TableElem>,
+    row_kinds: Vec<TableCellKind>,
     cells: GridCells<TableCellData>,
+    border_thickness: Option<f32>,
+    border_color: Option<NaiveRgbColor>,
 }
 
 #[derive(Clone, Debug)]
@@ -73,50 +52,56 @@ pub enum StrokePriority {
 }
 
 impl TableCtx {
-    pub fn new(grid: Arc<CellGrid>, id: TableId, summary: Option<String>) -> Self {
+    pub fn new(table_id: TableId, table: Packed<TableElem>) -> Self {
+        let grid = table.grid.as_ref().unwrap();
         let width = grid.non_gutter_column_count();
         let height = grid.non_gutter_row_count();
 
+        // Generate the default row kinds.
         let mut grid_headers = grid.headers.iter().peekable();
-        let row_kinds = (0..height as u32).map(|y| {
-            let grid_y = grid.to_effective(y);
+        let default_row_kinds = (0..height as u32)
+            .map(|y| {
+                let grid_y = grid.to_effective(y);
 
-            // Find current header
-            while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
-            if let Some(header) = grid_headers.peek()
-                && header.range.contains(&grid_y)
-            {
-                return TableCellKind::Header(header.level, TableHeaderScope::Column);
-            }
+                // Find current header
+                while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
+                if let Some(header) = grid_headers.peek()
+                    && header.range.contains(&grid_y)
+                {
+                    return TableCellKind::Header(header.level, TableHeaderScope::Column);
+                }
 
-            if let Some(footer) = &grid.footer
-                && footer.range().contains(&grid_y)
-            {
-                return TableCellKind::Footer;
-            }
+                if let Some(footer) = &grid.footer
+                    && footer.range().contains(&grid_y)
+                {
+                    return TableCellKind::Footer;
+                }
 
-            TableCellKind::Data
-        });
+                TableCellKind::Data
+            })
+            .collect::<Vec<_>>();
 
         Self {
-            id,
-            summary,
-            bbox: BBoxCtx::new(),
-            default_row_kinds: row_kinds.collect(),
-            grid,
+            table_id,
+            elem: table,
+            row_kinds: default_row_kinds,
             cells: GridCells::new(width, height),
+            border_thickness: None,
+            border_color: None,
         }
     }
 
-    pub fn insert(&mut self, cell: &Packed<TableCell>, contents: GroupContents) {
+    pub fn insert(&mut self, cell: &Packed<TableCell>, id: GroupId) {
         let x = cell.x.val().unwrap_or_else(|| unreachable!()).saturating_as();
         let y = cell.y.val().unwrap_or_else(|| unreachable!()).saturating_as();
         let rowspan = cell.rowspan.val();
         let colspan = cell.colspan.val();
-        let kind = cell.kind.val().unwrap_or_else(|| self.default_row_kinds[y as usize]);
+        let grid = self.elem.grid.as_deref().unwrap();
 
-        let [grid_x, grid_y] = [x, y].map(|i| self.grid.to_effective(i));
-        let grid_cell = self.grid.cell(grid_x, grid_y).unwrap();
+        let kind = cell.kind.val().unwrap_or(self.row_kinds[y as usize]);
+
+        let [grid_x, grid_y] = [x, y].map(|i| grid.to_effective(i));
+        let grid_cell = grid.cell(grid_x, grid_y).unwrap();
         let stroke = grid_cell.stroke.clone().zip(grid_cell.stroke_overridden).map(
             |(stroke, overriden)| {
                 let priority = if overriden {
@@ -133,37 +118,36 @@ impl TableCtx {
             y,
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
             colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
-            contents,
+            id,
         });
     }
 
-    pub fn build_table(
-        mut self,
-        groups: &mut Groups,
-        contents: GroupContents,
-    ) -> TagNode {
+    pub fn build_table(&mut self, groups: &mut Groups, table_id: GroupId) {
         // Table layouting ensures that there are no overlapping cells, and that
         // any gaps left by the user are filled with empty cells.
         // A show rule, can prevent the table from being layed out, in which case
         // all cells will be missing, in that case just return whatever contents
         // that were generated in the show rule.
-        if self.cells.entries.iter().all(GridEntry::is_missing) {
-            return groups.init_tag(Tag::Table.with_summary(self.summary), contents);
+        if self.cells.iter().all(GridEntry::is_missing) {
+            return;
         }
 
         let width = self.cells.width();
         let height = self.cells.height();
+        let grid = self.elem.grid.as_deref().unwrap();
 
         // Only generate row groups such as `THead`, `TFoot`, and `TBody` if
         // there are no rows with mixed cell kinds, and there is at least one
         // header or a footer.
-        let mut row_kinds = self.default_row_kinds;
         let gen_row_groups = {
             let mut uniform_rows = true;
             let mut has_header_or_footer = false;
-            'outer: for (row, row_kind) in self.cells.rows().zip(row_kinds.iter_mut()) {
-                *row_kind = self.cells.resolve(row.first().unwrap()).unwrap().data.kind;
-                has_header_or_footer |= *row_kind != TableCellKind::Data;
+            'outer: for (row, row_kind) in
+                self.cells.rows().zip(self.row_kinds.iter_mut())
+            {
+                let first_cell = self.cells.resolve(row.first().unwrap()).unwrap();
+                let first_kind = first_cell.data.kind;
+
                 for cell in row.iter().filter_map(|cell| self.cells.resolve(cell)) {
                     if let TableCellKind::Header(_, scope) = cell.data.kind
                         && scope != TableHeaderScope::Column
@@ -172,11 +156,17 @@ impl TableCtx {
                         break 'outer;
                     }
 
-                    if *row_kind != cell.data.kind {
+                    if first_kind != cell.data.kind {
                         uniform_rows = false;
                         break 'outer;
                     }
                 }
+
+                // If all cells in the row have the same custom kind, the row
+                // kind is overwritten.
+                *row_kind = first_kind;
+
+                has_header_or_footer |= *row_kind != TableCellKind::Data;
             }
 
             uniform_rows && has_header_or_footer
@@ -185,10 +175,10 @@ impl TableCtx {
         // Compute the headers attribute column-wise.
         for x in 0..width {
             let mut column_headers = Vec::new();
-            let mut grid_headers = self.grid.headers.iter().peekable();
+            let mut grid_headers = grid.headers.iter().peekable();
             for y in 0..height {
                 // Find current header region
-                let grid_y = self.grid.to_effective(y);
+                let grid_y = grid.to_effective(y);
                 while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
                 let region_range = grid_headers.peek().and_then(|header| {
                     if !header.range.contains(&grid_y) {
@@ -196,13 +186,13 @@ impl TableCtx {
                     }
 
                     // Convert from the `CellGrid` coordinates to normal ones.
-                    let start = self.grid.from_effective(header.range.start);
-                    let end = self.grid.from_effective(header.range.end);
+                    let start = grid.from_effective(header.range.start);
+                    let end = grid.from_effective(header.range.end);
                     Some(start..end)
                 });
 
                 resolve_cell_headers(
-                    self.id,
+                    self.table_id,
                     &mut self.cells,
                     &mut column_headers,
                     region_range,
@@ -216,7 +206,7 @@ impl TableCtx {
             let mut row_headers = Vec::new();
             for x in 0..width {
                 resolve_cell_headers(
-                    self.id,
+                    self.table_id,
                     &mut self.cells,
                     &mut row_headers,
                     None,
@@ -229,7 +219,7 @@ impl TableCtx {
         // Place h-lines, overwriting the cells stroke.
         place_explicit_lines(
             &mut self.cells,
-            &self.grid.hlines,
+            &grid.hlines,
             height,
             width,
             |cells, (y, x), pos| {
@@ -243,7 +233,7 @@ impl TableCtx {
         // Place v-lines, overwriting the cells stroke.
         place_explicit_lines(
             &mut self.cells,
-            &self.grid.vlines,
+            &grid.vlines,
             width,
             height,
             |cells, (x, y), pos| {
@@ -271,90 +261,84 @@ impl TableCtx {
             }
         }
 
-        let (parent_border_thickness, parent_border_color) =
+        (self.border_thickness, self.border_color) =
             try_resolve_table_stroke(&self.cells);
 
-        let mut chunk_kind = self.cells.cell(0, 0).unwrap().data.kind;
-        let mut row_chunk = Vec::new();
-        let mut row_iter = self.cells.into_rows();
+        let mut chunk_kind = self.row_kinds[0];
+        let mut chunk_id = GroupId::INVALID;
+        for (row, y) in self.cells.rows_mut().zip(0..) {
+            let parent = if gen_row_groups {
+                let row_kind = self.row_kinds[y as usize];
+                if chunk_id == GroupId::INVALID
+                    || !should_group_rows(chunk_kind, row_kind)
+                {
+                    let tag: TagKind = match row_kind {
+                        TableCellKind::Header(..) => Tag::THead.into(),
+                        TableCellKind::Footer => Tag::TFoot.into(),
+                        TableCellKind::Data => Tag::TBody.into(),
+                    };
+                    chunk_kind = row_kind;
+                    chunk_id = groups.push_tag(table_id, tag);
+                }
+                chunk_id
+            } else {
+                table_id
+            };
 
-        while let Some((y, row)) = row_iter.row() {
+            let row_id = groups.push_tag(parent, Tag::TR);
             let row_nodes = row
+                .iter_mut()
                 .filter_map(|entry| {
-                    let cell = entry.into_cell()?;
+                    let cell = entry.as_cell_mut()?;
                     let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
                     let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
-                    let mut tag: TagKind = match cell.data.kind {
+                    let cell_kind = cell.data.kind;
+                    let headers = std::mem::take(&mut cell.data.headers);
+                    let mut tag: TagKind = match cell_kind {
                         TableCellKind::Header(_, scope) => {
-                            let id = table_cell_id(self.id, cell.x, cell.y);
+                            let id = table_cell_id(self.table_id, cell.x, cell.y);
                             Tag::TH(scope.to_krilla())
                                 .with_id(Some(id))
-                                .with_headers(Some(cell.data.headers))
+                                .with_headers(Some(headers))
                                 .with_row_span(rowspan)
                                 .with_col_span(colspan)
                                 .into()
                         }
                         TableCellKind::Footer | TableCellKind::Data => Tag::TD
-                            .with_headers(Some(cell.data.headers))
+                            .with_headers(Some(headers))
                             .with_row_span(rowspan)
                             .with_col_span(colspan)
                             .into(),
                     };
 
                     resolve_cell_border_and_background(
-                        &self.grid,
-                        parent_border_thickness,
-                        parent_border_color,
+                        grid,
+                        self.border_thickness,
+                        self.border_color,
                         [cell.x, cell.y],
-                        cell.data.stroke,
+                        &cell.data.stroke,
                         &mut tag,
                     );
 
-                    Some(groups.init_tag(tag, cell.contents))
+                    let cell_group = groups.get_mut(cell.id);
+                    if let GroupKind::TableCell(_, t, _) = &mut cell_group.kind {
+                        *t = tag;
+                    }
+
+                    Some(cell.id)
                 })
-                .collect();
+                .collect::<Vec<_>>();
 
-            let row = groups.new_virtual(Tag::TR, row_nodes);
-
-            // Push the `TR` tags directly.
-            if !gen_row_groups {
-                groups.push_node(contents.id, row);
-                continue;
-            }
-
-            // Generate row groups.
-            let row_kind = row_kinds[y as usize];
-            if !should_group_rows(chunk_kind, row_kind) {
-                let tag: TagKind = match chunk_kind {
-                    TableCellKind::Header(..) => Tag::THead.into(),
-                    TableCellKind::Footer => Tag::TFoot.into(),
-                    TableCellKind::Data => Tag::TBody.into(),
-                };
-                let chunk_nodes = std::mem::take(&mut row_chunk);
-                let node = groups.new_virtual(tag, chunk_nodes);
-                groups.push_node(contents.id, node);
-
-                chunk_kind = row_kind;
-            }
-            row_chunk.push(row);
+            groups.extend_groups(row_id, row_nodes.into_iter());
         }
+    }
 
-        if !row_chunk.is_empty() {
-            let tag: TagKind = match chunk_kind {
-                TableCellKind::Header(..) => Tag::THead.into(),
-                TableCellKind::Footer => Tag::TFoot.into(),
-                TableCellKind::Data => Tag::TBody.into(),
-            };
-            let node = groups.new_virtual(tag, row_chunk);
-            groups.push_node(contents.id, node);
-        }
-
-        let tag = Tag::Table
-            .with_summary(self.summary)
-            .with_bbox(self.bbox.to_krilla())
-            .with_border_thickness(parent_border_thickness.map(kt::Sides::uniform))
-            .with_border_color(parent_border_color.map(kt::Sides::uniform));
-        groups.init_tag(tag, contents)
+    pub fn build_tag(&self) -> TagKind {
+        Tag::Table
+            .with_summary(self.elem.summary.opt_ref().map(String::from))
+            .with_border_thickness(self.border_thickness.map(kt::Sides::uniform))
+            .with_border_color(self.border_color.map(kt::Sides::uniform))
+            .into()
     }
 }
 
@@ -456,8 +440,9 @@ where
 }
 
 fn table_cell_id(table_id: TableId, x: u32, y: u32) -> TagId {
+    // 32 bytes is the maximum length the ID string can have.
     let mut buf = SmallVec::<[u8; 32]>::new();
-    _ = write!(&mut buf, "{}x{x}y{y}", table_id.get());
+    _ = write!(&mut buf, "{}x{x}y{y}", table_id.get() + 1);
     TagId::from(buf)
 }
 
@@ -539,7 +524,7 @@ fn try_resolve_table_stroke(
 ) -> (Option<f32>, Option<NaiveRgbColor>) {
     // Omitted strokes are counted too for reasons explained above.
     let mut strokes = FxHashMap::<_, usize>::default();
-    for cell in cells.entries.iter().filter_map(GridEntry::as_cell) {
+    for cell in cells.iter().filter_map(GridEntry::as_cell) {
         for stroke in cell.data.stroke.iter() {
             *strokes.entry(stroke.stroke.as_ref()).or_default() += 1;
         }
@@ -556,7 +541,7 @@ fn try_resolve_table_stroke(
 
     // Only set a parent stroke width if the table uses one uniform stroke.
     let thickness = uniform_stroke.then_some(stroke.thickness.to_f32());
-    let color = convert::paint_to_color(&stroke.paint);
+    let color = util::paint_to_color(&stroke.paint);
 
     (thickness, color)
 }
@@ -566,7 +551,7 @@ fn resolve_cell_border_and_background(
     parent_border_thickness: Option<f32>,
     parent_border_color: Option<NaiveRgbColor>,
     pos: [u32; 2],
-    stroke: Sides<PrioritzedStroke>,
+    stroke: &Sides<PrioritzedStroke>,
     tag: &mut TagKind,
 ) {
     // Resolve border attributes.
@@ -594,7 +579,7 @@ fn resolve_cell_border_and_background(
         });
 
     let border_color = resolve_sides(&fixed, parent_border_color, None, |s| {
-        s.and_then(|s| convert::paint_to_color(&s.paint))
+        s.and_then(|s| util::paint_to_color(&s.paint))
     });
 
     tag.set_border_style(border_style);
@@ -603,7 +588,7 @@ fn resolve_cell_border_and_background(
 
     let [grid_x, grid_y] = pos.map(|i| grid.to_effective(i));
     let grid_cell = grid.cell(grid_x, grid_y).unwrap();
-    let background_color = grid_cell.fill.as_ref().and_then(convert::paint_to_color);
+    let background_color = grid_cell.fill.as_ref().and_then(util::paint_to_color);
     tag.set_background_color(background_color);
 }
 
@@ -647,234 +632,4 @@ where
 
     // TODO(accessibility): handle `text(dir: rtl)`
     Some(sides.to_lrtb_krilla())
-}
-
-#[derive(Clone, Debug)]
-pub struct GridCtx {
-    cells: GridCells<()>,
-}
-
-impl GridCtx {
-    pub fn new(grid: Arc<CellGrid>) -> Self {
-        let width = grid.non_gutter_column_count();
-        let height = grid.non_gutter_row_count();
-        Self { cells: GridCells::new(width, height) }
-    }
-
-    pub fn insert(&mut self, cell: &Packed<GridCell>, contents: GroupContents) {
-        let x = cell.x.val().unwrap_or_else(|| unreachable!());
-        let y = cell.y.val().unwrap_or_else(|| unreachable!());
-        let rowspan = cell.rowspan.val();
-        let colspan = cell.colspan.val();
-        self.cells.insert(CtxCell {
-            data: (),
-            x: x.saturating_as(),
-            y: y.saturating_as(),
-            rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
-            colspan: colspan.try_into().unwrap_or(NonZeroU32::MAX),
-            contents,
-        });
-    }
-
-    pub fn build_grid(self, groups: &mut Groups, contents: GroupContents) -> TagNode {
-        for cell in self.cells.entries.into_iter().filter_map(GridEntry::into_cell) {
-            let node = groups.init_tag(Tag::Div, cell.contents);
-            groups.push_node(contents.id, node);
-        }
-
-        groups.init_tag(Tag::Div, contents)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct GridCells<T> {
-    width: usize,
-    entries: Vec<GridEntry<T>>,
-}
-
-struct RowIter<T> {
-    width: u32,
-    height: u32,
-    consumed: u32,
-    inner: std::vec::IntoIter<T>,
-}
-
-impl<T> RowIter<T> {
-    fn row<'a>(&'a mut self) -> Option<(u32, RowEntryIter<'a, T>)> {
-        if self.consumed < self.height {
-            let y = self.consumed;
-            self.consumed += 1;
-            Some((y, RowEntryIter { consumed: 0, parent: self }))
-        } else {
-            None
-        }
-    }
-}
-
-struct RowEntryIter<'a, T> {
-    consumed: u32,
-    parent: &'a mut RowIter<T>,
-}
-
-// Make sure this iterator consumes the whole row.
-impl<T> Drop for RowEntryIter<'_, T> {
-    fn drop(&mut self) {
-        while self.next().is_some() {}
-    }
-}
-
-impl<'a, T> Iterator for RowEntryIter<'a, T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.consumed < self.parent.width {
-            self.consumed += 1;
-            self.parent.inner.next()
-        } else {
-            None
-        }
-    }
-}
-
-impl<T: Clone> GridCells<T> {
-    fn new(width: usize, height: usize) -> Self {
-        Self {
-            width,
-            entries: vec![GridEntry::Missing; width * height],
-        }
-    }
-
-    fn width(&self) -> u32 {
-        self.width as u32
-    }
-
-    fn height(&self) -> u32 {
-        (self.entries.len() / self.width) as u32
-    }
-
-    fn rows(&self) -> impl Iterator<Item = &[GridEntry<T>]> {
-        self.entries.chunks(self.width)
-    }
-
-    fn into_rows(self) -> RowIter<GridEntry<T>> {
-        RowIter {
-            width: self.width(),
-            height: self.height(),
-            consumed: 0,
-            inner: self.entries.into_iter(),
-        }
-    }
-
-    fn cell(&self, x: u32, y: u32) -> Option<&CtxCell<T>> {
-        let cell = &self.entries[self.cell_idx(x, y)];
-        self.resolve(cell)
-    }
-
-    fn cell_mut(&mut self, x: u32, y: u32) -> Option<&mut CtxCell<T>> {
-        let idx = self.cell_idx(x, y);
-        let cell = &mut self.entries[idx];
-        match cell {
-            // Reborrow here, so the borrow of `cell` doesn't get returned from
-            // the function. Otherwise the borrow checker assumes `cell` borrows
-            // `self.rows` for the entirety of the function, not just this match
-            // arm, and doesn't allow the second mutable borrow in the match arm
-            // below.
-            GridEntry::Cell(_) => self.entries[idx].as_cell_mut(),
-            &mut GridEntry::Spanned(idx) => self.entries[idx].as_cell_mut(),
-            GridEntry::Missing => None,
-        }
-    }
-
-    /// Mutably borrows disjoint cells. Cells are considered disjoint if their
-    /// positions don't resolve to the same parent cell in case of a
-    /// [`GridEntry::Cell`] or indirectly through a [`GridEntry::Spanned`].
-    ///
-    /// # Panics
-    ///
-    /// If one of the positions points to a [`GridEntry::Missing`].
-    fn cells_disjoint_mut<const N: usize>(
-        &mut self,
-        positions: [(u32, u32); N],
-    ) -> Option<[&mut CtxCell<T>; N]> {
-        let indices = positions.map(|(x, y)| {
-            let idx = self.cell_idx(x, y);
-            let cell = &self.entries[idx];
-            match cell {
-                GridEntry::Cell(_) => idx,
-                &GridEntry::Spanned(idx) => idx,
-                GridEntry::Missing => unreachable!(""),
-            }
-        });
-
-        let entries = self.entries.get_disjoint_mut(indices).ok()?;
-        Some(entries.map(|entry| entry.as_cell_mut().unwrap()))
-    }
-
-    fn resolve<'a>(&'a self, cell: &'a GridEntry<T>) -> Option<&'a CtxCell<T>> {
-        match cell {
-            GridEntry::Cell(cell) => Some(cell),
-            &GridEntry::Spanned(idx) => self.entries[idx].as_cell(),
-            GridEntry::Missing => None,
-        }
-    }
-
-    fn insert(&mut self, cell: CtxCell<T>) {
-        let x = cell.x;
-        let y = cell.y;
-        let rowspan = cell.rowspan.get();
-        let colspan = cell.colspan.get();
-        let parent_idx = self.cell_idx(x, y);
-
-        assert!(self.entries[parent_idx].is_missing());
-
-        // Store references to the cell for all spanned cells.
-        for j in y..y + rowspan {
-            for i in x..x + colspan {
-                let idx = self.cell_idx(i, j);
-                self.entries[idx] = GridEntry::Spanned(parent_idx);
-            }
-        }
-
-        self.entries[parent_idx] = GridEntry::Cell(cell);
-    }
-
-    fn cell_idx(&self, x: u32, y: u32) -> usize {
-        y as usize * self.width + x as usize
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-enum GridEntry<D> {
-    Cell(CtxCell<D>),
-    Spanned(usize),
-    #[default]
-    Missing,
-}
-
-impl<D> GridEntry<D> {
-    fn as_cell(&self) -> Option<&CtxCell<D>> {
-        if let Self::Cell(v) = self { Some(v) } else { None }
-    }
-
-    fn as_cell_mut(&mut self) -> Option<&mut CtxCell<D>> {
-        if let Self::Cell(v) = self { Some(v) } else { None }
-    }
-
-    fn into_cell(self) -> Option<CtxCell<D>> {
-        if let Self::Cell(v) = self { Some(v) } else { None }
-    }
-
-    fn is_missing(&self) -> bool {
-        matches!(self, Self::Missing)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct CtxCell<D> {
-    data: D,
-    x: u32,
-    y: u32,
-    rowspan: NonZeroU32,
-    colspan: NonZeroU32,
-    contents: GroupContents,
 }
