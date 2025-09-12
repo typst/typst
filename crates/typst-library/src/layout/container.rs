@@ -31,7 +31,10 @@ use crate::visualize::{Paint, Stroke};
 pub struct BoxElem {
     /// The width of the box.
     ///
-    /// Boxes can have [fractional]($fraction) widths, as the example below
+    /// This can be a relative length. See the [its documentation]($relative)
+    /// for more details.
+    ///
+    /// Boxes can also have [fractional]($fraction) widths, as the example below
     /// demonstrates.
     ///
     /// _Note:_ Currently, only boxes and only their widths might be fractionally
@@ -44,6 +47,9 @@ pub struct BoxElem {
     pub width: Sizing,
 
     /// The height of the box.
+    ///
+    /// This can be a relative length. See the [its documentation]($relative)
+    /// for more details.
     pub height: Smart<Rel<Length>>,
 
     /// An amount to shift the box's baseline by.
@@ -77,8 +83,9 @@ pub struct BoxElem {
     /// other dictionary entries). All keys are optional; omitted keys will use
     /// their previously set value, or the default value if never set.
     ///
-    /// [Relative lengths]($relative) are relative to the box size without
-    /// outset.
+    /// [Relative lengths]($relative) for this parameter are relative to the box
+    /// size excluding [outset]($box.outset). This differs from
+    /// [width]($box.width) and [height]($box.height).
     ///
     /// _Note:_ When the box contains text, its exact size depends on the
     /// current [text edges]($text.top-edge).
@@ -92,9 +99,9 @@ pub struct BoxElem {
     /// How much to expand the box's size without affecting the layout.
     ///
     /// This can be a single length for all sides or a dictionary of lengths for
-    /// individual sides. [Relative lengths]($relative) are relative to the box
-    /// size without outset. See the documentation for [inset]($box.inset) above
-    /// for further details.
+    /// individual sides. [Relative lengths]($relative) for this parameter are
+    /// relative to the box size excluding outset. See the documentation for
+    /// [inset]($box.inset) above for further details.
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
@@ -226,6 +233,9 @@ pub enum InlineItem {
 pub struct BlockElem {
     /// The block's width.
     ///
+    /// This can be a relative length. See the [its documentation]($relative)
+    /// for more details.
+    ///
     /// ```example
     /// #set align(center)
     /// #block(
@@ -240,6 +250,13 @@ pub struct BlockElem {
     /// The block's height. When the height is larger than the remaining space
     /// on a page and [`breakable`]($block.breakable) is `{true}`, the
     /// block will continue on the next page with the remaining height.
+    ///
+    ///
+    /// This can be a relative length. See the [its documentation]($relative)
+    /// for more details.
+    ///
+    /// Boxes can also have [fractional]($fraction) widths, as the example below
+    /// demonstrates.
     ///
     /// ```example
     /// #set page(height: 80pt)
