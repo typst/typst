@@ -177,6 +177,7 @@ fn guide_pages(resolver: &dyn Resolver) -> PageModel {
         md_page(resolver, &base, load!("guides/guide-for-latex-users.md")),
         md_page(resolver, &base, load!("guides/page-setup.md")),
         md_page(resolver, &base, load!("guides/tables.md")),
+        md_page(resolver, &base, load!("guides/accessibility.md")),
     ];
     page
 }
