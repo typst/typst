@@ -64,8 +64,8 @@ fn html_document_impl(
         route: Route::extend(route).unnested(),
     };
 
-    // Mark the external styles as "outside" so that they are valid at the page
-    // level.
+    // Mark the external styles as "outside" so that they are valid at the
+    // document level.
     let styles = styles.to_map().outside();
     let styles = StyleChain::new(&styles);
 
