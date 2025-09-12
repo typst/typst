@@ -120,18 +120,6 @@ There are [tools to compare how much contrast a pair of colors has][wcag-contras
 
 Note that common accessibility frameworks like WCAG make an exception for purely decorative text and logos: Due to their graphic character, they can have contrast ratios that fail to achieve AA contrast ratio.
 
-## Text layout and spacing
-
-Some users that use your document visually, such as users with low vision and dyslexia, may require larger spacing between characters, words, lines, and paragraphs. It is generally accepted that you can freely choose these values to fit your design intent as long as the final user of your document can change these values. In principle, Typst emits PDFs that allow viewers to do this by either overriding these values in reflow mode or by repurposing the file into another format such as HTML, where browsers allow the user to change these values.
-
-In practice, most PDF viewers do not support overriding these layout properties, even when they support reflow. If you expect your users to face challenges with text layout, consider exporting your document to HTML which better accommodates layout customization instead.
-
-Alternatively, you can add these set rules to a version of your document to meet the recommendations of [WCAG Success Criterion 1.4.12][wcag-sg-1412-us] without any user interaction:
-
-// TODO: These values are busted
-```typ
-// Set letter and word spacing
-#set text(spacing: 0.16em, tracking: 0.12em)
 ## Textual representations <textual-representations>
 
 To support AT use and some repurposing workflows, all elements with a semantic meaning must have a textual representation. Think about it in terms of Universal Access: If an item is not an [artifact](#artifacts), it has a semantic meaning. If, however, AT cannot ingest the item, the full semantic meaning of a document is not available to AT users. Hence, to provide Universal Access, use the mechanisms built into Typst to provide alternative representations.
@@ -144,7 +132,7 @@ When you add an image, be sure to use the [`alt` argument of the image function]
 Herons have feet with interdigital webbing, allowing for good mobility when swimming, and wings that span up to 2m30.
 ```
 
-What could be a good alternative description for this image? Let's consider a few examples for what _not_ to do:
+What could be a good alternative description for [this image][heron]? Let's consider a few examples for what _not_ to do:
 
 - `["Image of a heron"]`: \
   ❌ The screen reader will already announce the image on its own, so saying this is an image is redundant. In this example, the AT user would hear "Image, Image of a heron".
@@ -269,6 +257,20 @@ However, to reach the highest standard of accessibility for widely circulated do
 
 When first getting into testing, consider completing the interactive training program your screen reader offers, if any. Building confidence with a screen reader helps you experience your document like a full-time screen reader user. When checking your document, check that it not only makes all the same information accessible that is available to a sighted user, but also that it is easy to navigate. The experience your users will have will vary based on the pairing of PDF viewer and AT they use.
 
+## Limits and considerations for export formats
+
+Even when you design your document with accessibility in mind, you should be aware of the limitations of your export format. Fundamentally, AT support for PDF files is more difficult to implement than for other formats such as HTML. PDF was conceived in 1993 to accurately render print documents on a computer. Accessibility features were first added with PDF 1.4 in 2001, and improved in PDF 1.5 (2003) and PDF 2.0 (2017). By contrast, HTML offers a richer semantic model and more flexibility, so AT support in browsers generally surpasses what is possible in PDF viewers.
+
+Also keep in mind that PDF files are mostly static. This allows you to disregard many WCAG and EN 301 549 rules designed for interactive content and multimedia. However, the lack of interactivity also makes it more difficult for users to customize a document's layout to their needs.
+
+For example, [WCAG Success Criterion 1.4.12][wcag-sg-1412-us] (codified in Clause 10.1.4.12 of EN 301 549) prescribes that a user must be able to increase character, letter, line, and paragraph spacing to very wide values. This benefits users with reduced vision or dyslexia. The Success Criterion does not require you to design your document with these layout parameters, instead, it only requires a mechanism through which users can increase these parameters when reading the document. For HTML files, it is easy to comply with this Success Criterion because the browser lets the user override these spacing parameters on a page. For PDF, the situation is more nuanced: Theoretically, Typst adds tags and attributes designed for reflow to a file. A PDF reader, when reflowing, could allow its user to increase spacings beyond what is codified in these tags. In practice, we are not aware of a PDF viewer with this feature. Instead, this Success Criterion can be satisfied by repurposing the PDF into a HTML file and opening it in a browser.
+
+In practice, even if your file is technically compliant, you cannot expect your users to know about these workarounds. Therefore, if you are aiming to meet the highest standards of Universal Access, consider distributing an HTML version of your document alongside your PDF. Export this file directly using Typst's [HTML export]($html) (in preview). Even though HTML export will not conserve many aspects of your visual layout, it will produce a file that leverages semantic HTML and technologies like [Digital Publishing ARIA][dpub-aria] to provide Universal Access. It will be of a higher quality than a PDF file repurposed to HTML.
+
+Finally, keep in mind that PDFs are designed for print. Hence, you should not assume that interactive features like links are available to users who chose to print your document.
+
+As mentioned above, files created by PNG and SVG export are not accessible.
+
 [^1]: For example, when using footnotes, the check "Lbl and LBody must be children of LI" in the "List" section is expected to fail
 
 [NVDA]: https://www.nvaccess.org/download/
@@ -302,3 +304,5 @@ When first getting into testing, consider completing the interactive training pr
 [Evince]: https://wiki.gnome.org/Apps/Evince/
 [Okular]: https://okular.kde.org/ "Okular - The Universal Document Viewer"
 [Orca]: https://orca.gnome.org "Orca - A free and open source screen reader"
+[heron]: https://commons.wikimedia.org/wiki/File:Reiher_im_Flug.jpg
+[dpub-aria]: https://www.w3.org/TR/dpub-aria-1.1/ "Specification for Digital Publishing WAI-ARIA Module 1.1"
