@@ -341,8 +341,8 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
     if elem.quotes.get(styles).unwrap_or(!block) {
         // Add zero-width weak spacing to make the quotes "sticky".
-        let hole = HElem::hole().pack();
-        let sticky = Content::sequence([hole.clone(), realized, hole]);
+        let hole = HElem::hole();
+        let sticky = Content::sequence([hole.clone(), realized, hole.clone()]);
         realized = QuoteElem::quoted(sticky, styles);
     }
 
@@ -385,7 +385,7 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     // `FootnoteEntry`.
     let dest = Destination::Location(loc.variant(1));
     // Add zero-width weak spacing to make the footnote "sticky".
-    Ok(HElem::hole().pack() + sup.linked(dest))
+    Ok(HElem::hole().clone() + sup.linked(dest))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
