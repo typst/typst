@@ -132,6 +132,7 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         disambiguator: usize,
         as_short_lived: bool,
+        is_being_repeated: bool,
     ) -> SourceResult<Abs> {
         let mut header_height = Abs::zero();
         for y in header.range.clone() {
@@ -143,6 +144,7 @@ impl<'a> GridLayouter<'a> {
                     RowState {
                         current_row_height: Some(Abs::zero()),
                         in_active_repeatable: !as_short_lived,
+                        is_being_repeated,
                     },
                 )?
                 .current_row_height
@@ -293,7 +295,7 @@ impl<'a> GridLayouter<'a> {
         let mut i = 0;
         while let Some(&header) = self.repeating_headers.get(i) {
             let header_height =
-                self.layout_header_rows(header, engine, disambiguator, false)?;
+                self.layout_header_rows(header, engine, disambiguator, false, true)?;
             self.current.repeating_header_height += header_height;
 
             // We assume that this vector will be sorted according
@@ -329,7 +331,7 @@ impl<'a> GridLayouter<'a> {
                 has_non_repeated_pending_header = true;
             }
             let header_height =
-                self.layout_header_rows(header, engine, disambiguator, false)?;
+                self.layout_header_rows(header, engine, disambiguator, false, false)?;
             if header.repeated {
                 self.current.repeating_header_height += header_height;
                 self.current.repeating_header_heights.push(header_height);
@@ -404,7 +406,8 @@ impl<'a> GridLayouter<'a> {
             total_header_row_count(headers.iter().map(Repeatable::deref));
 
         for header in headers {
-            let header_height = self.layout_header_rows(header, engine, 0, false)?;
+            let header_height =
+                self.layout_header_rows(header, engine, 0, false, false)?;
 
             // Only store this header height if it is actually going to
             // become a pending header. Otherwise, pretend it's not a
@@ -515,6 +518,7 @@ impl<'a> GridLayouter<'a> {
         footer: &Footer,
         engine: &mut Engine,
         disambiguator: usize,
+        is_being_repeated: bool,
     ) -> SourceResult<()> {
         // Ensure footer rows have their own height available.
         // Won't change much as we're creating an unbreakable row group
@@ -532,6 +536,7 @@ impl<'a> GridLayouter<'a> {
                 disambiguator,
                 RowState {
                     in_active_repeatable: repeats,
+                    is_being_repeated,
                     ..Default::default()
                 },
             )?;

@@ -66,6 +66,7 @@ pub enum Attr {
     Html,
     Render,
     Large,
+    Pdftags,
 }
 
 /// The size of a file.
@@ -304,6 +305,7 @@ impl<'a> Parser<'a> {
                 "large" => Attr::Large,
                 "html" => Attr::Html,
                 "render" => Attr::Render,
+                "pdftags" => Attr::Pdftags,
                 found => {
                     self.error(format!(
                         "expected attribute or closing ---, found `{found}`"

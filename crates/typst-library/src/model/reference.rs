@@ -342,10 +342,18 @@ fn realize_reference(
         Smart::Custom(Some(supplement)) => supplement.resolve(engine, styles, [elem])?,
     };
 
+    let alt = {
+        let supplement = supplement.plain_text();
+        let numbering = numbers.plain_text();
+        eco_format!("{supplement} {numbering}",)
+    };
+
     let mut content = numbers;
     if !supplement.is_empty() {
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
+
+    content = content.spanned(reference.span());
 
     Ok(if styles.get(TargetElem::target).is_html() {
         LinkElem::new(LinkTarget::Dest(Destination::Location(loc)), content).pack()
@@ -353,7 +361,7 @@ fn realize_reference(
         // TODO: We should probably also use `LinkElem` in the paged target, but
         // it's a bit breaking and it becomes hard to style links without
         // affecting references, so this change should be well-considered.
-        content.linked(Destination::Location(loc))
+        content.linked(Destination::Location(loc), Some(alt))
     })
 }
 

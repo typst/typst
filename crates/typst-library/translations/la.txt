@@ -6,3 +6,4 @@ heading = Caput
 outline = Index capitum
 raw = Exemplum
 page = charta
+# footnote =
