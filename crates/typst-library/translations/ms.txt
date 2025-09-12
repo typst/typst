@@ -1,0 +1,8 @@
+figure = Gambar
+table = Jadual
+# equation =
+bibliography = Bibliografi
+# heading =
+outline = Kandungan
+# raw =
+page = Halaman

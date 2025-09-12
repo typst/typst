@@ -1,0 +1,8 @@
+figure = Figuro
+table = Tabelo
+equation = Ekvacio
+bibliography = Bibliografio
+heading = Sekcio
+outline = Enhavo
+raw = Listado
+page = Paĝo

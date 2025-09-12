@@ -1,0 +1,8 @@
+figure = شكل
+table = جدول
+# equation =
+bibliography = کتاب‌نامه
+# heading =
+outline = فهرست
+# raw =
+page = صفحه

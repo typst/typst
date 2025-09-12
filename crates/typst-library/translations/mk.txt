@@ -1,0 +1,8 @@
+figure = Слика
+table = Табела
+# equation =
+bibliography = Библиографиjа
+# heading =
+outline = Содржина
+# raw =
+page = стр.

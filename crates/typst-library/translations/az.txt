@@ -1,0 +1,8 @@
+figure = Şəkil
+table = Cədvəl
+# equation =
+bibliography = Ədəbiyyat
+# heading =
+outline = Mündəricat
+# raw =
+page = səh.
