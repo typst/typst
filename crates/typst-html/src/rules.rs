@@ -3,19 +3,20 @@ use std::num::NonZeroUsize;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
-    Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, NativeElement, NativeRuleMap, Packed, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
 use typst_library::layout::{BlockBody, BlockElem, BoxElem, OuterVAlignment, Sizing};
 use typst_library::model::{
-    Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, EmphElem, EnumElem,
+    FigureCaption, FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem,
+    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    TitleElem, Works,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    HighlightElem, LinebreakElem, LocalName, OverlineElem, RawElem, RawLine,
+    SmallcapsElem, SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 
@@ -40,6 +41,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, QUOTE_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
+    rules.register(Html, BIBLIOGRAPHY_RULE);
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -275,7 +277,15 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
+    // For now, fall back to no linking for any citations. This preserves the
+    // CSL formatting but doesn't create individual links. Whether or not we can
+    // accurately link the in-line citations to bibliography elements depends on
+    // the CSL formatting.
+    let realized = elem.realize(engine)?;
+
+    Ok(realized)
+};
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
     Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
@@ -513,4 +523,65 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     }
 
     Ok(HtmlElem::new(tag::img).with_attrs(attrs).with_styles(inline).pack())
+};
+
+const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let span = elem.span();
+    let works = Works::generate(engine).at(span)?;
+
+    let mut content = Content::empty();
+
+    let Some(references) = &works.references else {
+        return Ok(Content::empty());
+    };
+
+    // Add title if specified
+    let title = elem.title.get_ref(styles);
+    if let Smart::Custom(Some(title_content)) = title {
+        content += HtmlElem::new(tag::h1)
+            .with_body(Some(title_content.clone()))
+            .pack()
+            .spanned(span);
+    } else if matches!(title, Smart::Auto) {
+        // Use localized default bibliography title
+        content += HtmlElem::new(tag::h1)
+            .with_body(Some(
+                typst_library::text::TextElem::packed(
+                    Packed::<BibliographyElem>::local_name_in(styles),
+                )
+                .spanned(span),
+            ))
+            .pack()
+            .spanned(span);
+    }
+
+    let mut bibliography_attrs = HtmlAttrs::new();
+    bibliography_attrs.push(attr::id, "typst-bibliography");
+    bibliography_attrs.push(attr::role, "list");
+
+    // Create bibliography entries
+    let entries = Content::sequence(references.iter().map(|(prefix, reference)| {
+        let mut entry_attrs = HtmlAttrs::new();
+        entry_attrs.push(attr::role, "listitem");
+
+        let entry_content = if let Some(prefix_content) = prefix {
+            prefix_content.clone() + SpaceElem::shared().clone() + reference.clone()
+        } else {
+            reference.clone()
+        };
+
+        HtmlElem::new(tag::div)
+            .with_attrs(entry_attrs)
+            .with_body(Some(entry_content))
+            .pack()
+            .spanned(reference.span())
+    }));
+
+    content += HtmlElem::new(tag::div)
+        .with_attrs(bibliography_attrs)
+        .with_body(Some(entries))
+        .pack()
+        .spanned(span);
+
+    Ok(content)
 };

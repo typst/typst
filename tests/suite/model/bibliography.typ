@@ -95,3 +95,34 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 @Zee04
 
 #bibliography("/assets/bib/works_too.bib")
+
+--- bibliography-basic-html html ---
+= Details
+See also @arrgh and @distress.
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-with-title-html html ---
+@arrgh
+#bibliography("/assets/bib/works.bib", title: [Custom References])
+
+--- bibliography-no-title-html html ---
+@arrgh
+#bibliography("/assets/bib/works.bib", title: none)
+
+--- bibliography-empty-html html ---
+Nothing here!
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-localized-de-html html ---
+#set text(lang: "de")
+@arrgh
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-localized-fr-html html ---
+#set text(lang: "fr") 
+@arrgh
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-multiple-citations-html html ---
+Multiple successive citations: @arrgh @distress.
+#bibliography("/assets/bib/works.bib")
