@@ -8,15 +8,16 @@ use std::borrow::Cow;
 use std::cell::LazyCell;
 
 use arrayvec::ArrayVec;
+use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Recipe,
-    RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem, Styles,
-    SymbolElem, Synthesize, TargetElem, Transformation,
+    Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
+    Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
+    Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{Locatable, LocationKey, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
@@ -799,33 +800,18 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
     let Grouping { mut start, rule, .. } = s.groupings.pop().unwrap();
 
-    // Trim trailing non-trigger elements.
+    // Trim trailing non-trigger elements. At the start, they are already not
+    // included precisely because they are not triggers.
     let trimmed = s.sink[start..].trim_end_matches(|(c, _)| !(rule.trigger)(c, s));
     let mut end = start + trimmed.len();
 
-    // Tags that are opened within the grouping should have their closing tag
-    // included if it is at the end boundary. Similarly, tags that are closed
-    // within should have their opening tag included if it is at the start
-    // boundary. Finally, tags that are sandwiched between an opening tag with a
-    // matching closing tag should also be included.
-    if rule.tags
-        && let within = ListSet::new(
-            trimmed
-                .iter()
-                .filter_map(|(c, _)| c.to_packed::<TagElem>())
-                .map(|elem| LocationKey::new(elem.tag.location()))
-                .collect_in::<BumpVec<_>>(&s.arenas.bump),
-        )
-        && !within.is_empty()
-    {
-        // Include all tags at the start that are closed within.
-        for (k, (c, _)) in s.sink[..start].iter().enumerate().rev() {
-            let Some(elem) = c.to_packed::<TagElem>() else { break };
-            if within.contains(&elem.tag.location().into()) {
-                start = k;
-            }
-        }
-
+    // Tags that are opened within or at the start boundary of the grouping
+    // should have their closing tag included if it is at the end boundary.
+    // Similarly, tags that are closed within or at the end boundary should have
+    // their opening tag included if it is at the start boundary. Finally, tags
+    // that are sandwiched between an opening tag with a matching closing tag
+    // should also be included.
+    if rule.tags {
         // The trailing part of the sink can contain a mix of inner elements and
         // tags. If there is a closing tag with a matching start tag, but there
         // is an inner element in between, that's in principle a situation with
@@ -836,10 +822,26 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
             for _ in s.sink.extract_if(end.., |(c, _)| c.is::<SpaceElem>()) {}
         }
 
-        // Include all tags at the end that are opened within.
+        // Find tags before, within, and after the grouping range.
+        let bump = &s.arenas.bump;
+        let before = tag_set(bump, s.sink[..start].iter().rev().map_while(to_tag));
+        let within = tag_set(bump, s.sink[start..end].iter().filter_map(to_tag));
+        let after = tag_set(bump, s.sink[end..].iter().map_while(to_tag));
+
+        // Include all tags at the start that are closed within or after.
+        for (k, (c, _)) in s.sink[..start].iter().enumerate().rev() {
+            let Some(elem) = c.to_packed::<TagElem>() else { break };
+            let key = elem.tag.location().into();
+            if within.contains(&key) || after.contains(&key) {
+                start = k;
+            }
+        }
+
+        // Include all tags at the end that are opened within or before.
         for (k, (c, _)) in s.sink.iter().enumerate().skip(end) {
             let Some(elem) = c.to_packed::<TagElem>() else { break };
-            if within.contains(&elem.tag.location().into()) {
+            let key = elem.tag.location().into();
+            if within.contains(&key) || before.contains(&key) {
                 end = k + 1;
             }
         }
@@ -875,6 +877,24 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     }
 
     Ok(())
+}
+
+/// Extracts the locations of all tags in the given `list` into a bump-allocated
+/// set.
+fn tag_set<'a>(
+    bump: &'a Bump,
+    iter: impl IntoIterator<Item = &'a Packed<TagElem>>,
+) -> ListSet<BumpVec<'a, LocationKey>> {
+    ListSet::new(
+        iter.into_iter()
+            .map(|elem| LocationKey::new(elem.tag.location()))
+            .collect_in::<BumpVec<_>>(bump),
+    )
+}
+
+/// Tries to convert a pair to a tag.
+fn to_tag<'a>((c, _): &Pair<'a>) -> Option<&'a Packed<TagElem>> {
+    c.to_packed::<TagElem>()
 }
 
 /// The maximum number of nested groups that are possible. Corresponds to the

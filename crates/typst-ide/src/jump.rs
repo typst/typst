@@ -417,7 +417,7 @@ mod tests {
     fn test_footnote_links() {
         let s = "#footnote[Hi]";
         test_click(s, point(10.0, 10.0), pos(1, 10.0, 31.58).map(Jump::Position));
-        test_click(s, point(19.0, 33.0), pos(1, 10.0, 10.0).map(Jump::Position));
+        test_click(s, point(19.0, 33.0), pos(1, 10.0, 16.58).map(Jump::Position));
     }
 
     #[test]
