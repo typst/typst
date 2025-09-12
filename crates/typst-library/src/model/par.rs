@@ -108,6 +108,78 @@ pub struct ParElem {
     /// to `{-0.2em}` to get a baseline gap of exactly `{2em}`. The exact
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
+    ///
+    /// ```preview
+    /// #set page(height: auto, width: 240pt, margin: 15pt)
+    ///
+    /// #set page(width: 350pt, margin: (x: 20%))
+    ///
+    /// // A sample text for measuring font metrics.
+    /// #let sample-text = [A]
+    ///
+    /// // Number of lines in each paragraph
+    /// #let n-rows = (4, 4, 2)
+    /// // TODO: count n-rows automatically.
+    ///
+    /// #context {
+    ///   let line-height = measure(sample-text).height
+    ///
+    ///   let rows(n) = ((line-height,) * n).intersperse(par.leading)
+    ///   let jumps = n-rows.map(rows).intersperse(par.spacing).flatten()
+    ///
+    ///   place(grid(
+    ///     ..jumps
+    ///       .enumerate()
+    ///       .map(((i, h)) => if calc.even(i) {
+    ///         // Draw a stripe for the line
+    ///         block(
+    ///           height: h,
+    ///           width: 100%,
+    ///           fill: aqua.transparentize(60%),
+    ///         )
+    ///       } else {
+    ///         // Put an annotation for the gap
+    ///
+    ///         // `(x, y).at(hh)` becomes `x` for leading, or `y` for spacing.
+    ///         let hh = if h == par.spacing { 1 } else { 0 }
+    ///
+    ///         align(end, block(
+    ///           height: h,
+    ///           outset: (right: (0.5em, 1em).at(hh)),
+    ///           stroke: (
+    ///             left: none,
+    ///             rest: 0.5pt + (blue, orange).at(hh),
+    ///           ),
+    ///           if i <= (5, 20).at(hh) {
+    ///             place(horizon, dx: 1.3em, {
+    ///               set text(0.8em, (blue.darken(20%), orange.darken(10%)).at(hh))
+    ///               ([leading], [spacing]).at(hh)
+    ///             })
+    ///           },
+    ///         ))
+    ///       })
+    ///   ))
+    ///
+    ///   // TODO: Write top/bottom edge in the right place.
+    ///   place(dy: line-height * 6.67 + par.spacing, place(end, grid(
+    ///     columns: 2,
+    ///     align: horizon,
+    ///     gutter: 0.3em,
+    ///     text(0.8em)[top~edge], line(length: 10pt, stroke: 0.5pt),
+    ///   )))
+    ///   place(dy: line-height * 5.60 + par.leading, place(end, grid(
+    ///     columns: 2,
+    ///     align: horizon,
+    ///     gutter: 0.3em,
+    ///     text(0.8em)[bottom~edge], line(length: 10pt, stroke: 0.5pt),
+    ///   )))
+    /// }
+    ///
+    /// #set text(luma(50%))
+    ///
+    /// #show ". ": it => it + parbreak()
+    /// #lorem(55)
+    /// ```
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 
