@@ -9,13 +9,13 @@ Making a document accessible means that it can be used and understood by everyon
 
 - A user may print the document on paper
 - A user may read your document on a phone, with reflow in their PDF reader enabled
-- A user may have their computer read the document back to you
-- A user may ask an Artificial Intelligence to summarize your document to them
-- A user may convert their document to another file format like HTML that is more accessible to them
+- A user may have their computer read the document back to them
+- A user may ask an Artificial Intelligence to summarize your document for them
+- A user may convert your document to another file format like HTML that is more accessible to them
 
 To accommodate all of these people and scenarios, you should design your document for **Universal Access.** Universal Access is a simple but powerful principle: instead of retrofitting a project for accessibility after the fact, design from the beginning to work for the broadest possible range of people and situations. This will improve the experience for all readers!
 
-Typst can help you to create accessible files that read well on screen readers, look good even when reflowed for a different screen size, and pass automated accessibility checkers. However, to create accessible files, you will have to keep some rules in mind. This guide will help you to learn what issues impact accessibility, how to design for Universal Access, and what tools Typst gives you to accomplish this. Much of the guidance here applies to all export targets, but the guide focusses on PDF export. Notable differences to HTML are called out.
+Typst can help you to create accessible files that read well on screen readers, look good even when reflowed for a different screen size, and pass automated accessibility checkers. However, to create accessible files, you will have to keep some rules in mind. This guide will help you learn what issues impact accessibility, how to design for Universal Access, and what tools Typst gives you to accomplish this. Much of the guidance here applies to all export targets, but the guide focuses on PDF export. Notable differences to HTML are called out.
 
 ## Basics of Accessibility
 
@@ -27,7 +27,7 @@ Accessibility support differs based on viewer and AT. Some combinations work bet
 
 ## Maintaining semantics
 
-To add correct semantic information for AT and repurposing to a file, Typst needs to know what semantic part each part of the file plays. For example, this means that a heading in a compiled PDF should not just be text that is large and bold, instead, the file should contain the explicit information (known as a _tag_) that a particular text makes up a heading. A screen reader will then announce it as a heading and allow the user to navigate between headings.
+To add correct semantic information for AT and repurposing to a file, Typst needs to know what semantic role each part of the file plays. For example, this means that a heading in a compiled PDF should not just be text that is large and bold, instead, the file should contain the explicit information (known as a _tag_) that a particular text makes up a heading. A screen reader will then announce it as a heading and allow the user to navigate between headings.
 
 If you are using Typst idiomatically, using the built-in markup and elements, Typst automatically adds tags with rich semantic information to your files. Let's take a look at two code examples:
 
@@ -49,7 +49,7 @@ Both of these examples look the same. They both contain the text "Heading" in bo
 
 Using semantics is not limited to headings. Here are a few more examples for elements you should use:
 
-- Use underscores / [`emph`] instead of the text function to make text emphasized
+- Use underscores / [`emph`] instead of the [`text`] function to make text emphasized
 - Use stars / [`strong`] instead of the text function to make text carry strong emphasis
 - Use lists, including [`terms`], instead of normal text with newlines when working with itemized or ordered content.
 - Use [`quote`] for inline and block quotes
@@ -57,7 +57,7 @@ Using semantics is not limited to headings. Here are a few more examples for ele
 - Use labels and [`ref`] or `@references` to reference other parts of your documents instead of just typing out a reference
 - Use the [`caption` argument of the `figure` element]($figure.caption) to provide captions instead of adding them as text below the function call
 
-If you want to style the default appearance of an element, do not replace it with your own custom function. Instead, use [set]($styling/#set-rules), show set, and [show rules]($styling/#show-rules) to customize its appearance. Here is an example on how you can change how strong emphasis looks in your document:
+If you want to style the default appearance of an element, do not replace it with your own custom function. Instead, use [set]($styling/#set-rules), show-set, and [show rules]($styling/#show-rules) to customize its appearance. Here is an example on how you can change how strong emphasis looks in your document:
 
 ```example
 // Change how text inside of strong emphasis looks
@@ -65,11 +65,11 @@ If you want to style the default appearance of an element, do not replace it wit
 When setting up your tents, *never forget* to secure the pegs
 ```
 
-The show set rule completely changes the default appearance of the strong element, but its semantic meaning will be conserved. If you need even more customization, you can provide show rules with fully custom layouting code while Typst will still be able to track the semantic purpose of the element.
+The show-set rule completely changes the default appearance of the [`strong`] element, but its semantic meaning will be conserved. If you need even more customization, you can provide show rules with fully custom layouting code while Typst will still be able to track the semantic purpose of the element.
 
 ## Reading order
 
-For AT to read the contents of a document in the right order and for repurposing applications, accessible files must make their reading order explicit. This is because the logical reading order can differ from layout order. Floating figures are a common example for such a difference: A figure may be relevant to a paragraph in the center of a page but appear at the top or bottom edge. In non-accessible files, PDF readers and AT have to assume that layout order equals the logical reading order, often leading to confusion for AT users. Instead, when reading order is defined screen readers read a footnote or a floating figure immediately where it makes sense.
+For AT to read the contents of a document in the right order and for repurposing applications, accessible files must make their reading order explicit. This is because the logical reading order can differ from layout order. Floating figures are a common example for such a difference: A figure may be relevant to a paragraph in the center of a page but appear at the top or bottom edge. In non-accessible files, PDF readers and AT have to assume that layout order equals the logical reading order, often leading to confusion for AT users. When the reading order is well-defined, screen readers read a footnote or a floating figure immediately where it makes sense.
 
 Fortunately, Typst markup already implies a single reading order. You can assume that Typst documents will read in the order that content has been placed in the markup. For most documents, this is good enough. However, when using the place and move function or floating figures, you must pay special attention to place the function call at its spot in the logical reading order in markup, even if this has no consequence on the layout. Just ask yourself where you'd want a screen reader to announce the content you are placing.
 
@@ -77,7 +77,7 @@ Fortunately, Typst markup already implies a single reading order. You can assume
 
 Typst provides some layout containers like [`grid`], [`stack`], [`box`], [`columns`], and [`block`] to visually arrange your data. None of these containers come with any semantic meaning attached. Typst will conserve some of these containers (such as columns) during PDF reflow while other containers will be discarded.
 
-When designing for Universal Access, you need to be aware that AT users often cannot view the visual layout that the container creates. Instead, AT will just read its contents, so it is best to think about these containers as transparent in terms of accessibility. For example, a grid will just be announced cell by cell, in the order that you have added cells in the source code. If there layout you created is merely visual and decorative, this is fine. If, however, the layout carries semantic meaning that is apparent to a sighted user viewing the file in a regular PDF reader, it is not accessible. Instead, create an alternative representation of your content that leverages text or wrap your container in the [`figure`] element to provide an alternative textual description.
+When designing for Universal Access, you need to be aware that AT users often cannot view the visual layout that the container creates. Instead, AT will just read its contents, so it is best to think about these containers as transparent in terms of accessibility. For example, a grid will just be announced cell by cell, in the order that you have added cells in the source code. If the layout you created is merely visual and decorative, this is fine. If, however, the layout carries semantic meaning that is apparent to a sighted user viewing the file in a regular PDF reader, it is not accessible. Instead, create an alternative representation of your content that leverages text or wrap your container in the [`figure`] element to provide an alternative textual description.
 
 Do not use the grid container to represent tabular data. Instead, use [`table`]. Tables are accessible to AT users and conserved during reflow and repurposing. When creating tables, use the [`table.header`]($table.header) and [`table.footer`]($table.footer) elements to mark up the semantic roles of individual rows. Keep in mind that while AT users can access tables, it is often cumbersome to them: Tables are optimized for visual consumption. Being read the contents of a set of cells while having to recall their row and column creates additional mental load. Consider making the core takeaway of the table accessible as text or a caption elsewhere.
 
@@ -139,7 +139,7 @@ All values given in these set rules are minimums. When you use these values, con
 
 To support AT use and some repurposing workflows, all elements with a semantic meaning must have a textual representation. Think about it in terms of Universal Access: If an item is not an artifact, it has a semantic meaning. If, however, AT cannot ingest the item, the full semantic meaning of a document is not available to AT users. Hence, to provide Universal Access, use the mechanisms built into Typst to provide alternative representations.
 
-When you add an image, be sure to use the [`alt` argument of the image function]($image.alt) to describe what's visible in the image. This alternative description (sometimes known as alt text) should describe the gist of the image: Think about you would describe the image to a friend if you called them on the phone. There are resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to PDF and SVG images. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
+When you add an image, be sure to use the [`alt` argument of the image function]($image.alt) to describe what's visible in the image. This alternative description (sometimes known as alt text) should describe the gist of the image: Think about how you would describe the image to a friend if you called them on the phone. There are resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to PDF and SVG images. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
 
 Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If your figure contains an image, it suffices to set an alternative description on the image.
 
@@ -198,7 +198,7 @@ It is important that the sequence of headings you use is sequential: Never skip 
 There are international standards that help you to assert that a Typst document is accessible. For PDF export, Typst can check whether you are complying with PDF-based accessibility standards and assert the compliance in the compiled file:
 
 - **Tagged PDF:** Tagged PDF contain machine-readable data about the semantic structure of a document that AT can parse. Typst will write Tagged PDFs by default, but keep in mind that Typst can only write appropriate tags if it knows about the semantic structure of your document. Refer to the Section Maintaining semantics to learn how to use Typst's elements to communicate element semantics. To provide Universal Access, you are also responsible to provide textual representation of non-text content yourself.
-- **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide descriptions text for images, and disallows the use of characters in the Unicode Private Use Area whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (the latter is not yet supported by Typst).
+- **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide alternative description for images, and disallows the use of characters in the Unicode Private Use Area whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (the latter is not yet supported by Typst).
 - **PDF/UA-1:** The PDF/UA standard explains how to write a PDF 1.7 file optimized for Universal Access. It implies Tagged PDF, forces alternative descriptions for images and mathematics, requires a document title, and introduces rules how document contents like tables should be structured. If you are following this guide, you should be in compliance with most rules in PDF/UA-1 already. <!-- TODO Mention WTPDF? -->
 
 When you select one or multiple of these standards for PDF export, Typst will detect if you are in violation of their rules and fail the export with a descriptive error message. You can combine multiple standards. For the strictest accessibility check currently available, choose PDF/UA-1. You can combine it with PDF/A-2a for the broadest possible range of checks. Do not disable writing tags unless you have a good reason, as they provide a baseline of accessibility across all documents you export.
