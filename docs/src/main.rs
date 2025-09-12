@@ -2,9 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use typst::layout::PagedDocument;
+use typst::layout::{Abs, PagedDocument};
 use typst_docs::{Html, Resolver, provide};
-use typst_render::render;
+use typst_render::{render, render_merged};
 
 #[derive(Debug)]
 struct CliResolver<'a> {
@@ -34,8 +34,12 @@ impl Resolver for CliResolver<'_> {
             );
         }
 
-        let page = document.pages.first().expect("page 0");
-        let pixmap = render(page, 2.0);
+        let pixmap = if document.pages.len() > 1 {
+            render_merged(document, 2.0, Abs::pt(10.0), None)
+        } else {
+            let page = document.pages.first().expect("page 0");
+            render(page, 2.0)
+        };
         let filename = format!("{hash:x}.png");
         let path = self.assets_dir.join(&filename);
         fs::create_dir_all(path.parent().expect("parent")).expect("create dir");
