@@ -381,9 +381,11 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let counter = Counter::of(FootnoteElem::ELEM);
     let num = counter.display_at_loc(engine, loc, styles, numbering)?;
     let sup = SuperElem::new(num).pack().spanned(span);
-    let loc = loc.variant(1);
+    // This well-known derived location is manually attached to the
+    // `FootnoteEntry`.
+    let dest = Destination::Location(loc.variant(1));
     // Add zero-width weak spacing to make the footnote "sticky".
-    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
+    Ok(HElem::hole().pack() + sup.linked(dest))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -403,8 +405,7 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let sup = SuperElem::new(num)
         .pack()
         .spanned(span)
-        .linked(Destination::Location(loc))
-        .located(loc.variant(1));
+        .linked(Destination::Location(loc));
 
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
