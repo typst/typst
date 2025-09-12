@@ -219,7 +219,7 @@ $ mat(delim: \[, 1, 2; 3, 4) $
 $ mat(delim: bracket.l, 1, 2; 3, 4) $
 
 $ mat(delim: "⟦", 1, 2; 3, 4) $
-$ mat(delim: bracket.double.l, 1, 2; 3, 4) $
+$ mat(delim: bracket.stroked.l, 1, 2; 3, 4) $
 
 $ mat(delim: "{", 1, 2; 3, 4) $
 $ mat(delim: \{, 1, 2; 3, 4) $
@@ -233,7 +233,7 @@ $ mat(delim: "‖", 1, 2; 3, 4) $
 $ mat(delim: bar.v.double, 1, 2; 3, 4) $
 
 $ mat(delim: "⟨", 1, 2; 3, 4) $
-$ mat(delim: angle.l, 1, 2; 3, 4) $
+$ mat(delim: chevron.l, 1, 2; 3, 4) $
 
 --- math-mat-delims-inverted ---
 $ mat(delim: ")", 1, 2; 3, 4) $
@@ -245,18 +245,18 @@ $ mat(delim: \], 1, 2; 3, 4) $
 $ mat(delim: bracket.r, 1, 2; 3, 4) $
 
 $ mat(delim: "⟧", 1, 2; 3, 4) $
-$ mat(delim: bracket.double.r, 1, 2; 3, 4) $
+$ mat(delim: bracket.stroked.r, 1, 2; 3, 4) $
 
 $ mat(delim: "}", 1, 2; 3, 4) $
 $ mat(delim: \}, 1, 2; 3, 4) $
 $ mat(delim: brace.r, 1, 2; 3, 4) $
 
 $ mat(delim: "⟩", 1, 2; 3, 4) $
-$ mat(delim: angle.r, 1, 2; 3, 4) $
+$ mat(delim: chevron.r, 1, 2; 3, 4) $
 
 --- math-mat-delims-pair ---
 $ mat(delim: #(none, "["), 1, 2; 3, 4) $
-$ mat(delim: #(sym.angle.r, sym.bracket.double.r), 1, 2; 3, 4) $
+$ mat(delim: #(sym.chevron.r, sym.bracket.stroked.r), 1, 2; 3, 4) $
 
 --- math-mat-linebreaks ---
 // Warning: 20-29 linebreaks are ignored in cells
@@ -266,7 +266,7 @@ $ mat(a; b; c) mat(a \ b \ c) $
 --- math-mat-vec-cases-unity ---
 // Test that matrices, vectors, and cases are all laid out the same.
 $ mat(z_(n_p); a^2)
-  vec(z_(n_p), a^2) 
+  vec(z_(n_p), a^2)
   cases(reverse: #true, delim: \(, z_(n_p), a^2)
   cases(delim: \(, z_(n_p), a^2) $
 
