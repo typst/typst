@@ -6,7 +6,7 @@ use rustc_hash::FxHashSet;
 use typst_library::World;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, StyleChain};
+use typst_library::foundations::{Content, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, IntrospectorBuilder, Location, Locator,
 };
@@ -17,6 +17,7 @@ use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
 use crate::convert::{ConversionLevel, Whitespace};
+use crate::rules::FootnoteContainer;
 use crate::{HtmlDocument, HtmlElem, HtmlElement, HtmlNode, attr, tag};
 
 /// Produce an HTML document from content.
@@ -64,8 +65,11 @@ fn html_document_impl(
         route: Route::extend(route).unnested(),
     };
 
-    // Mark the external styles as "outside" so that they are valid at the page
-    // level.
+    // Create this upfront to make it as stable as possible.
+    let footnote_locator = locator.next(&());
+
+    // Mark the external styles as "outside" so that they are valid at the
+    // document level.
     let styles = styles.to_map().outside();
     let styles = StyleChain::new(&styles);
 
@@ -80,7 +84,7 @@ fn html_document_impl(
         styles,
     )?;
 
-    let output = crate::convert::convert_to_nodes(
+    let nodes = crate::convert::convert_to_nodes(
         &mut engine,
         &mut locator,
         children.iter().copied(),
@@ -88,9 +92,26 @@ fn html_document_impl(
         Whitespace::Normal,
     )?;
 
+    let mut output = classify_output(nodes.clone())?;
+    let introspectibles = if let OutputKind::Leaves(leaves) = &mut output {
+        // Add a footnote container at the end, but only if the user did not
+        // provide their own `<html>` or `<body>` element.
+        let notes = crate::fragment::html_block_fragment(
+            &mut engine,
+            FootnoteContainer::shared(),
+            footnote_locator,
+            StyleChain::new(&Styles::root(&children, styles)),
+            Whitespace::Normal,
+        )?;
+        leaves.extend(notes);
+        leaves
+    } else {
+        &nodes
+    };
+
     let mut link_targets = FxHashSet::default();
-    let mut introspector = introspect_html(&output, &mut link_targets);
-    let mut root = root_element(output, &info)?;
+    let mut introspector = introspect_html(introspectibles, &mut link_targets);
+    let mut root = root_element(output, &info);
     crate::link::identify_link_targets(&mut root, &mut introspector, link_targets);
 
     Ok(HtmlDocument { info, root, introspector })
@@ -119,7 +140,13 @@ fn introspect_html(
                 }
                 HtmlNode::Text(_, _) => {}
                 HtmlNode::Element(elem) => {
-                    discover(builder, sink, link_targets, &elem.children)
+                    if let Some(parent) = elem.parent {
+                        let mut nested = vec![];
+                        discover(builder, &mut nested, link_targets, &elem.children);
+                        builder.register_insertion(parent, nested);
+                    } else {
+                        discover(builder, sink, link_targets, &elem.children)
+                    }
                 }
                 HtmlNode::Frame(frame) => {
                     builder.discover_in_frame(
@@ -142,17 +169,14 @@ fn introspect_html(
 
 /// Wrap the nodes in `<html>` and `<body>` if they are not yet rooted,
 /// supplying a suitable `<head>`.
-fn root_element(
-    output: EcoVec<HtmlNode>,
-    info: &DocumentInfo,
-) -> SourceResult<HtmlElement> {
+fn root_element(output: OutputKind, info: &DocumentInfo) -> HtmlElement {
     let head = head_element(info);
-    let body = match classify_output(output)? {
-        OutputKind::Html(element) => return Ok(element),
+    let body = match output {
+        OutputKind::Html(element) => return element,
         OutputKind::Body(body) => body,
         OutputKind::Leaves(leaves) => HtmlElement::new(tag::body).with_children(leaves),
     };
-    Ok(HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()]))
+    HtmlElement::new(tag::html).with_children(eco_vec![head.into(), body.into()])
 }
 
 /// Generate a `<head>` element.
@@ -207,15 +231,14 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 }
 
 /// Determine which kind of output the user generated.
-fn classify_output(mut output: EcoVec<HtmlNode>) -> SourceResult<OutputKind> {
+fn classify_output(output: EcoVec<HtmlNode>) -> SourceResult<OutputKind> {
     let count = output.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
-    for node in output.make_mut() {
+    for node in &output {
         let HtmlNode::Element(elem) = node else { continue };
         let tag = elem.tag;
-        let mut take = || std::mem::replace(elem, HtmlElement::new(tag::html));
         match (tag, count) {
-            (tag::html, 1) => return Ok(OutputKind::Html(take())),
-            (tag::body, 1) => return Ok(OutputKind::Body(take())),
+            (tag::html, 1) => return Ok(OutputKind::Html(elem.clone())),
+            (tag::body, 1) => return Ok(OutputKind::Body(elem.clone())),
             (tag::html | tag::body, _) => bail!(
                 elem.span,
                 "`{}` element must be the only element in the document",

@@ -7,17 +7,22 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
-use typst_library::layout::{BlockBody, BlockElem, BoxElem, OuterVAlignment, Sizing};
+use typst_library::layout::{
+    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
+};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
+    ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
+    TermsElem, TitleElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
+use typst_macros::elem;
+use typst_utils::singleton;
 
 use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -38,6 +43,9 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
+    rules.register(Html, FOOTNOTE_RULE);
+    rules.register(Html, FOOTNOTE_CONTAINER_RULE);
+    rules.register(Html, FOOTNOTE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
     rules.register(Html, TABLE_RULE);
@@ -271,6 +279,93 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     }
 
     Ok(realized)
+};
+
+const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
+    let span = elem.span();
+    let (dest, num) = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(num).pack().spanned(span);
+
+    // Link to the footnote entry.
+    let link = LinkElem::new(dest.into(), sup)
+        .pack()
+        .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+
+    Ok(HElem::hole().clone() + link)
+};
+
+/// This is inserted at the end of the body to display footnotes. In the future,
+/// we can expose this to allow customizing where the footnotes appear. It could
+/// also be exposed for paged export.
+#[elem]
+pub struct FootnoteContainer {}
+
+impl FootnoteContainer {
+    /// Get the globally shared footnote container element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, FootnoteContainer::new().pack())
+    }
+}
+
+const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
+    let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
+    if notes.is_empty() {
+        return Ok(Content::empty());
+    }
+
+    // Create entries for all footnotes in the document.
+    let items = notes.into_iter().map(|note| {
+        let note = note.into_packed::<FootnoteElem>().unwrap();
+        let loc = note.location().unwrap();
+        let span = note.span();
+        HtmlElem::new(tag::li)
+            .with_body(Some(
+                FootnoteEntry::new(note).pack().spanned(span).located(loc.variant(1)),
+            ))
+            .with_parent(loc)
+            .pack()
+            .spanned(span)
+    });
+
+    // There can be multiple footnotes in a container, so they semantically
+    // represent an ordered list. However, the list is already numbered with the
+    // footnote superscripts in the DOM, so we turn off CSS' list enumeration.
+    let list = HtmlElem::new(tag::ol)
+        .with_styles(css::Properties::new().with("list-style-type", "none"))
+        .with_body(Some(Content::sequence(items)))
+        .pack();
+
+    // The user may want to style the whole footnote element so we wrap it in an
+    // additional selectable container. `aside` has the right semantics as a
+    // container for auxiliary page content. There is no ARIA role for
+    // footnotes, so we use a class instead. (There is `doc-endnotes`, but has
+    // footnotes and endnotes have somewhat different semantics.)
+    Ok(HtmlElem::new(tag::aside)
+        .with_attr(attr::class, "footnotes")
+        .with_body(Some(list))
+        .pack())
+};
+
+const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
+    let span = elem.span();
+    let (dest, num, body) = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(num).pack().spanned(span);
+
+    // We create a link back to the first footnote reference.
+    let link = LinkElem::new(dest.into(), sup)
+        .pack()
+        .spanned(span)
+        .styled(HtmlElem::role.set(Some("doc-backlink".into())));
+
+    // We want to use the Digital Publishing ARIA role `doc-footnote` and the
+    // fallback role `note` for each individual footnote. Because the enclosing
+    // `li`, as a child of an `ol`, must have the implicit `listitem` role, we
+    // need an additional container. We chose a `div` instead of a `span` to
+    // allow for block-level content in the footnote.
+    Ok(HtmlElem::new(tag::div)
+        .with_attr(attr::role, "doc-footnote note")
+        .with_body(Some(link + body))
+        .pack())
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);

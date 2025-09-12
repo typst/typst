@@ -118,6 +118,59 @@ impl Styles {
             .filter_map(|style| style.property())
             .any(|property| property.is_of(elem) && property.id == I)
     }
+
+    /// Determines the styles used for content that it at the root, outside of
+    /// the user-controlled content (e.g. page marginals and footnotes). This
+    /// applies to both paged and HTML export.
+    ///
+    /// As a base, we collect the styles that are shared by all elements in the
+    /// children (this can be a whole document in HTML or a page run in paged
+    /// export). As a fallback if there are no elements, we use the styles
+    /// active at the very start or, for page runs, at the pagebreak that
+    /// introduced the page. Then, to produce our trunk styles, we filter this
+    /// list of styles according to a few rules:
+    ///
+    /// - Other styles are only kept if they are `outside && (initial ||
+    ///   liftable)`.
+    /// - "Outside" means they were not produced within a show rule or, for page
+    ///   runs, that the show rule "broke free" to the root level by emitting
+    ///   page styles.
+    /// - "Initial" means they were active where the children start (efor pages,
+    ///   at the pagebreak that introduced the page). Since these are
+    ///   intuitively already active, they should be kept even if not liftable.
+    ///   (E.g. `text(red, page(..)`) makes the footer red.)
+    /// - "Liftable" means they can be lifted to the root  level even though
+    ///   they weren't yet active at the very beginning. Set rule styles are
+    ///   liftable as opposed to direct constructor calls:
+    ///   - For `set page(..); set text(red)` the red text is kept even though
+    ///     it comes after the weak pagebreak from set page.
+    ///   - For `set page(..); text(red)[..]` the red isn't kept because the
+    ///     constructor styles are not liftable.
+    pub fn root(children: &[(&Content, StyleChain)], initial: StyleChain) -> Styles {
+        // Determine the shared styles (excluding tags).
+        let base = StyleChain::trunk_from_pairs(children).unwrap_or(initial).to_map();
+
+        // Determine the initial styles that are also shared by everything. We can't
+        // use `StyleChain::trunk` because it currently doesn't deal with partially
+        // shared links (where a subslice matches).
+        let trunk_len = initial
+            .to_map()
+            .as_slice()
+            .iter()
+            .zip(base.as_slice())
+            .take_while(|&(a, b)| a == b)
+            .count();
+
+        // Filter the base styles according to our rules.
+        base.into_iter()
+            .enumerate()
+            .filter(|(i, style)| {
+                let initial = *i < trunk_len;
+                style.outside() && (initial || style.liftable())
+            })
+            .map(|(_, style)| style)
+            .collect()
+    }
 }
 
 impl From<LazyHash<Style>> for Styles {
