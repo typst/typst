@@ -7,7 +7,7 @@ use crate::foundations::{
     Value, cast, dict, elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
-use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
+use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
 use crate::model::Numbering;
 
 /// A logical subdivison of textual content.
@@ -136,6 +136,15 @@ pub struct ParElem {
     #[default(false)]
     pub justify: bool,
 
+    /// Microtypographical settings that are used during justification.
+    #[default(JustificationLimits {
+        word_min: Rel::new(Ratio::new(0.8), Abs::zero().into()),
+        word_max: Rel::new(Ratio::new(1.33), Abs::zero().into()),
+        glyph_min: Rel::new(Ratio::new(0.98), Abs::zero().into()),
+        glyph_max: Rel::new(Ratio::new(1.02), Abs::zero().into())
+    })]
+    pub justification_limits: JustificationLimits,
+
     /// How to determine line breaks.
     ///
     /// When this property is set to `{auto}`, its default value, optimized line
@@ -222,6 +231,57 @@ pub struct ParElem {
 impl ParElem {
     #[elem]
     type ParLine;
+}
+
+/// Configuration for microtypographical settings to be used during
+/// justification.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+pub struct JustificationLimits {
+    /// Minimum allowable word spacing.
+    pub word_min: Rel,
+    /// Maximum allowable word spacing.
+    pub word_max: Rel,
+    /// Minimum allowable glyph spacing.
+    pub glyph_min: Rel,
+    /// Maximum allowable glyph spacing.
+    pub glyph_max: Rel,
+}
+
+cast! {
+    JustificationLimits,
+    self => Value::Dict(self.into()),
+    mut dict: Dict => {
+        let mut word: Dict = dict.take("word")?.cast()?;
+        let word_min = word.take("min")?.cast()?;
+        let word_max = word.take("max")?.cast()?;
+
+        let mut glyph: Dict = dict.take("glyph")?.cast()?;
+        let glyph_min = glyph.take("min")?.cast()?;
+        let glyph_max = glyph.take("max")?.cast()?;
+
+        dict.finish(&["word", "glyph"])?;
+        Self {
+            word_min,
+            word_max,
+            glyph_min,
+            glyph_max
+        }
+    },
+}
+
+impl From<JustificationLimits> for Dict {
+    fn from(justification_limits: JustificationLimits) -> Self {
+        dict! {
+            "word" => dict! {
+                "min" => justification_limits.word_min,
+                "max" => justification_limits.word_max,
+            },
+            "glyph" => dict! {
+                "min" => justification_limits.glyph_min,
+                "max" => justification_limits.glyph_max,
+            },
+        }
+    }
 }
 
 /// How to determine line breaks in a paragraph.

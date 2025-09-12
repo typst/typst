@@ -11,6 +11,7 @@ use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
+use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
     Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
     TextElem, TextItem, families, features, is_default_ignorable, language, variant,
@@ -226,13 +227,26 @@ impl ShapedGlyph {
             || self.c.is_ascii_digit()
     }
 
-    pub fn base_adjustability(&self, style: CjkPunctStyle) -> Adjustability {
+    pub fn base_adjustability(
+        &self,
+        style: CjkPunctStyle,
+        justification_limits: JustificationLimits,
+        font_size: Abs,
+    ) -> Adjustability {
         let width = self.x_advance;
+
         if self.is_space() {
             Adjustability {
-                // The number for spaces is from Knuth-Plass' paper
-                stretchability: (Em::zero(), width / 2.0),
-                shrinkability: (Em::zero(), width / 3.0),
+                stretchability: (
+                    Em::zero(),
+                    (width / 2.0) * justification_limits.word_max.rel.get()
+                        + Em::from_length(justification_limits.word_max.abs, font_size),
+                ),
+                shrinkability: (
+                    Em::zero(),
+                    (width / 3.0) * justification_limits.word_min.rel.get()
+                        + Em::from_length(justification_limits.word_min.abs, font_size),
+                ),
             }
         } else if self.is_cjk_left_aligned_punctuation(style) {
             Adjustability {
@@ -250,7 +264,18 @@ impl ShapedGlyph {
                 shrinkability: (width / 4.0, width / 4.0),
             }
         } else {
-            Adjustability::default()
+            Adjustability {
+                stretchability: (
+                    Em::zero(),
+                    width * (justification_limits.glyph_max.rel.get() - 1.0)
+                        + Em::from_length(justification_limits.glyph_max.abs, font_size),
+                ),
+                shrinkability: (
+                    Em::zero(),
+                    width * (1.0 - justification_limits.glyph_min.rel.get())
+                        + Em::from_length(justification_limits.glyph_min.abs, font_size),
+                ),
+            }
         }
     }
 
@@ -1176,9 +1201,12 @@ fn track_and_space(ctx: &mut ShapingContext) {
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
+    let justification_limits = ctx.styles.get(ParElem::justification_limits);
+    let font_size = ctx.size;
 
     for glyph in &mut ctx.glyphs {
-        glyph.adjustability = glyph.base_adjustability(style);
+        glyph.adjustability =
+            glyph.base_adjustability(style, justification_limits, font_size);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
