@@ -1386,7 +1386,7 @@ fn select_span(children: &[Pair]) -> Span {
 /// Turn realized content with styles back into owned content and a trunk style
 /// chain.
 fn repack<'a>(buf: &[Pair<'a>]) -> (Content, StyleChain<'a>) {
-    let trunk = StyleChain::trunk(buf.iter().map(|&(_, s)| s)).unwrap_or_default();
+    let trunk = StyleChain::trunk_from_pairs(buf).unwrap_or_default();
     let depth = trunk.links().count();
 
     let mut seq = Vec::with_capacity(buf.len());

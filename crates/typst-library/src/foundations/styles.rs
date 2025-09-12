@@ -16,6 +16,7 @@ use crate::foundations::{
     Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,
     RefableProperty, Repr, Selector, SettableProperty, Target, cast, ty,
 };
+use crate::introspection::TagElem;
 
 /// A list of style properties.
 #[ty(cast)]
@@ -702,6 +703,13 @@ impl<'a> StyleChain<'a> {
         }
 
         Some(trunk)
+    }
+
+    /// Determines the shared trunk of a list of elements.
+    ///
+    /// This will ignore styles for tags (conceptually, they just don't exist).
+    pub fn trunk_from_pairs(iter: &[(&Content, Self)]) -> Option<Self> {
+        Self::trunk(iter.iter().filter(|(c, _)| !c.is::<TagElem>()).map(|&(_, s)| s))
     }
 }
 

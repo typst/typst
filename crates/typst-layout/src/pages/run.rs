@@ -6,7 +6,7 @@ use typst_library::foundations::{
     Content, NativeElement, Resolve, Smart, StyleChain, Styles,
 };
 use typst_library::introspection::{
-    Counter, CounterDisplayElem, CounterKey, Introspector, Locator, LocatorLink, TagElem,
+    Counter, CounterDisplayElem, CounterKey, Introspector, Locator, LocatorLink,
 };
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, Binding, ColumnsElem, Dir, Frame, HAlignment,
@@ -249,8 +249,7 @@ fn layout_page_run_impl(
 ///     constructor styles are not liftable.
 fn determine_page_styles(children: &[Pair], initial: StyleChain) -> Styles {
     // Determine the shared styles (excluding tags).
-    let tagless = children.iter().filter(|(c, _)| !c.is::<TagElem>()).map(|&(_, s)| s);
-    let base = StyleChain::trunk(tagless).unwrap_or(initial).to_map();
+    let base = StyleChain::trunk_from_pairs(children).unwrap_or(initial).to_map();
 
     // Determine the initial styles that are also shared by everything. We can't
     // use `StyleChain::trunk` because it currently doesn't deal with partially
