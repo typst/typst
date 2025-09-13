@@ -230,7 +230,7 @@ pub struct ParElem {
     /// #set par.line(numbering: _ => [#metadata(none)<par-line>])
     ///
     /// #set par(justify: true)
-    /// #set text(luma(50%))
+    /// #set text(luma(50%), overhang: false)
     /// #show ". ": it => it + parbreak()
     /// #lorem(55)
     /// ```
