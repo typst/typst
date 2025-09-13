@@ -110,22 +110,47 @@ pub struct ParElem {
     /// the first and last line.
     ///
     /// ```preview
-    /// #set page(height: auto, width: 240pt, margin: 15pt)
-    ///
-    /// #set page(width: 350pt, margin: (x: 20%))
+    /// // Color palette
+    /// #let c = (
+    ///   par-line: aqua.transparentize(60%),
+    ///   leading-line: blue,
+    ///   leading-text: blue.darken(20%),
+    ///   spacing-line: orange,
+    ///   spacing-text: orange.darken(10%),
+    /// )
     ///
     /// // A sample text for measuring font metrics.
     /// #let sample-text = [A]
     ///
-    /// // Number of lines in each paragraph
-    /// #let n-rows = (4, 4, 2)
-    /// // TODO: count n-rows automatically.
+    /// // The wide margin is for annotations
+    /// #set page(width: 350pt, margin: (x: 20%))
     ///
     /// #context {
-    ///   let line-height = measure(sample-text).height
+    ///   let text-height = measure(sample-text).height
+    ///   let line-height = text-height + par.leading.to-absolute()
     ///
-    ///   let rows(n) = ((line-height,) * n).intersperse(par.leading)
-    ///   let jumps = n-rows.map(rows).intersperse(par.spacing).flatten()
+    ///   // Number of lines in each paragraph
+    ///   let n-lines = {
+    ///     // Calculate `n-lines` by querying `par.line`.
+    ///     let positions = query(<par-line>).map(it => it.location().position().y)
+    ///
+    ///     // Determine it's leading or spacing
+    ///     let kinds = positions
+    ///       .enumerate()
+    ///       .slice(1)
+    ///       .map(((i, y)) => {
+    ///         // Displacement from the last line relative to the line height
+    ///         let jump = (positions.at(i) - positions.at(i - 1)) / line-height
+    ///         if calc.abs(jump - 1) < 0.1 { "leading" } else { "spacing" }
+    ///       })
+    ///
+    ///     kinds.split("spacing").map(x => x.len() + 1)
+    ///   }
+    ///
+    ///   let jumps = n-lines
+    ///     .map(n => ((text-height,) * n).intersperse(par.leading))
+    ///     .intersperse(par.spacing)
+    ///     .flatten()
     ///
     ///   place(grid(
     ///     ..jumps
@@ -135,48 +160,77 @@ pub struct ParElem {
     ///         block(
     ///           height: h,
     ///           width: 100%,
-    ///           fill: aqua.transparentize(60%),
+    ///           fill: c.par-line,
     ///         )
     ///       } else {
     ///         // Put an annotation for the gap
     ///
-    ///         // `(x, y).at(hh)` becomes `x` for leading, or `y` for spacing.
-    ///         let hh = if h == par.spacing { 1 } else { 0 }
+    ///         let sw(value-for-leading, value-for-spacing) = if h == par.leading {
+    ///           value-for-leading
+    ///         } else {
+    ///           value-for-spacing
+    ///         }
     ///
     ///         align(end, block(
     ///           height: h,
-    ///           outset: (right: (0.5em, 1em).at(hh)),
+    ///           outset: (right: sw(0.5em, 1em)),
     ///           stroke: (
     ///             left: none,
-    ///             rest: 0.5pt + (blue, orange).at(hh),
+    ///             rest: 0.5pt + sw(c.leading-line, c.spacing-line),
     ///           ),
-    ///           if i <= (5, 20).at(hh) {
+    ///           if i / 2 <= sw(n-lines.first(), n-lines.slice(0, 2).sum()) {
     ///             place(horizon, dx: 1.3em, {
-    ///               set text(0.8em, (blue.darken(20%), orange.darken(10%)).at(hh))
-    ///               ([leading], [spacing]).at(hh)
+    ///               set text(0.8em, sw(c.leading-text, c.spacing-text))
+    ///               sw([leading], [spacing])
     ///             })
     ///           },
     ///         ))
     ///       })
     ///   ))
     ///
-    ///   // TODO: Write top/bottom edge in the right place.
-    ///   place(dy: line-height * 6.67 + par.spacing, place(end, grid(
-    ///     columns: 2,
-    ///     align: horizon,
-    ///     gutter: 0.3em,
-    ///     text(0.8em)[top~edge], line(length: 10pt, stroke: 0.5pt),
-    ///   )))
-    ///   place(dy: line-height * 5.60 + par.leading, place(end, grid(
-    ///     columns: 2,
-    ///     align: horizon,
-    ///     gutter: 0.3em,
-    ///     text(0.8em)[bottom~edge], line(length: 10pt, stroke: 0.5pt),
-    ///   )))
+    ///   // Mark top and bottom edges
+    ///   place(
+    ///     // pos: top/bottom edge
+    ///     // dy: Δy to the last mark
+    ///     // kind: leading/spacing
+    ///     for (pos, dy, kind) in (
+    ///       (bottom, text-height, "leading"),
+    ///       (top, par.leading, "leading"),
+    ///       (
+    ///         bottom,
+    ///         (n-lines.first() - 1) * line-height - par.leading,
+    ///         "spacing",
+    ///       ),
+    ///       (top, par.spacing, "spacing"),
+    ///     ) {
+    ///       v(dy)
+    ///
+    ///       let c-text = c.at(kind + "-text")
+    ///       let c-line = c.at(kind + "-line")
+    ///
+    ///       place(end, box(
+    ///         height: 0pt,
+    ///         grid(
+    ///           columns: 2,
+    ///           column-gutter: 0.2em,
+    ///           align: pos,
+    ///           move(
+    ///             // Compensate optical illusion
+    ///             dy: if pos == top { -0.2em } else { 0.05em },
+    ///             text(0.8em, c-text)[#repr(pos) edge],
+    ///           ),
+    ///           line(length: 1em, stroke: 0.5pt + c-line),
+    ///         ),
+    ///       ))
+    ///     },
+    ///   )
     /// }
     ///
-    /// #set text(luma(50%))
+    /// // Bury metadata for the main text
+    /// #set par.line(numbering: n => [#metadata(n) <par-line>])
     ///
+    /// #set par(justify: true)
+    /// #set text(luma(50%))
     /// #show ". ": it => it + parbreak()
     /// #lorem(55)
     /// ```
