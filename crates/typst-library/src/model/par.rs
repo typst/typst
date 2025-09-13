@@ -227,7 +227,7 @@ pub struct ParElem {
     /// }
     ///
     /// // Bury metadata for the main text
-    /// #set par.line(numbering: n => [#metadata(n) <par-line>])
+    /// #set par.line(numbering: _ => [#metadata(none)<par-line>])
     ///
     /// #set par(justify: true)
     /// #set text(luma(50%))
