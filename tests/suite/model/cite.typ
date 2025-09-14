@@ -160,3 +160,9 @@ aaa
 @arrgh
 
 #bibliography("/assets/bib/works.bib")
+
+--- cite-chicago-fullnotes-warning ---
+// Test warning for deprecated alias.
+// Warning: 24-43 style 'chicago-fullnotes' has been deprecated in favor of 'chicago-notes'
+#cite(<netwok>, style: "chicago-fullnotes")
+#bibliography("/assets/bib/works.bib")

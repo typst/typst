@@ -132,8 +132,10 @@ pub struct BibliographyElem {
     /// - A path string to a [CSL file](https://citationstyles.org/). For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which a CSL style should be decoded.
-    #[parse(match args.named::<Spanned<CslSource>>("style")? {
-        Some(source) => Some(CslStyle::load(engine.world, source)?),
+    #[parse(match check_csl_style::<Spanned<CslSource>>(args.named("style")?, engine)? {
+        Some(source) => {
+            Some(CslStyle::load(engine.world, source)?)
+        },
         None => None,
     })]
     #[default({
@@ -436,6 +438,29 @@ pub enum CslSource {
     Named(ArchivedStyle),
     /// A normal data source.
     Normal(DataSource),
+}
+
+/// Parses and checks for a deprecated CSL style.
+pub(super) fn check_csl_style<T: FromValue<Spanned<Value>>>(
+    value: Option<Spanned<Value>>,
+    engine: &mut Engine,
+) -> SourceResult<Option<T>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
+    if let Value::Str(style) = &value.v
+        && &**style == "chicago-fullnotes"
+    {
+        engine.sink.warn(crate::diag::warning!(
+            value.span,
+            "style 'chicago-fullnotes' has been deprecated in favor of 'chicago-notes'"
+        ));
+    }
+
+    let span = value.span;
+
+    T::from_value(value).at(span).map(Some)
 }
 
 impl Reflect for CslSource {
