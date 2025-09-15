@@ -95,13 +95,15 @@ Some things on a page have no semantic meaning and are irrelevant to the content
 
 In general, every element on a page must either have some way for AT to announce it or be an artifact for a document to be considered accessible.
 
-Typst automatically tags many layout artifacts such as headers, footers, page back- and foregrounds, and automatic hyphenation as artifacts. However, if you'd like to add purely decorative content to your document, you can use the `pdf.artifact` function to mark a piece of content as an artifact. If you are unsure if you should mark an element as an artifact, ask yourself this: Would it be purely annoying if a screen reader announced the element to you? Then, it may be an artifact. If, instead, it could be useful to have it announced, then it is not an artifact. <!-- TODO: Link once it exists -->
+Typst automatically tags many layout artifacts such as headers, footers, page back- and foregrounds, and automatic hyphenation as artifacts. However, if you'd like to add purely decorative content to your document, you can use the [`pdf.artifact`] function to mark a piece of content as an artifact. If you are unsure if you should mark an element as an artifact, ask yourself this: Would it be purely annoying if a screen reader announced the element to you? Then, it may be an artifact. If, instead, it could be useful to have it announced, then it is not an artifact.
+
+For technical reasons, once you are in an artifact, you cannot become semantic content ingested by AI again. To stack artifacts and semantic contents, use [`place`] to move the content on top of one another.
 
 Please note that Typst will mark shapes and paths like [`square`] and [`circle`] as artifacts while their content will remain semantically relevant and accessible to AT. If your shapes have a semantic meaning, please wrap them in the [`figure`] element to provide an alternative textual description.
 
 ## Color use and contrast
 
-Universal Access not only means that your documents works with AT, reflow, and repurposing, but also that visual access is possible to everyone, including people with impaired eye sight. Not only does aging often come with worse sight, a significant chunk of people have problems differentiating color: About 8% of men and 0.5% of women are color blind.
+Universal Access not only means that your documents works with AT, reflow, and repurposing, but also that visual access is possible to everyone, including people with impaired eyesight. Not only does aging often come with worse sight, a significant chunk of people have problems differentiating color: About 8% of men and 0.5% of women are colorblind.
 
 <div style="display:flex; gap: 16px;">
 <img
@@ -120,7 +122,7 @@ Universal Access not only means that your documents works with AT, reflow, and r
 >
 </div>
 
-This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. Our example shows a chart of the domestic energy production in Germany by kind[^1]. In the picture, you can see the chart as it would normally appear and a simulation of how it would appear to people with deuteranopia-type color blindness. You can see that the two pairs of the first and last segment both look blue and the center pair looks yellow-ish. The first challenge for the color blind user is thus to make out the boundary of the "Renewable" and "Fossil Fuels" bar. Then, they must keep track of which bar is which by only their order, adding to their mental load. A way to make this chart even less accessible would be to make the order of segments not match their order in the legend.
+This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. Our example shows a chart of the domestic energy production in Germany by kind[^1]. In the picture, you can see the chart as it would normally appear and a simulation of how it would appear to people with deuteranopia-type color blindness. You can see that the two pairs of the first and last segment both look blue and the center pair looks yellow-ish. The first challenge for the colorblind user is thus to make out the boundary of the "Renewable" and "Fossil Fuels" bar. Then, they must keep track of which bar is which by only their order, adding to their mental load. A way to make this chart even less accessible would be to make the order of segments not match their order in the legend.
 
 How can we improve the chart? First, make sure that no information is solely communicated through color use. One possible way to do this by adding a pattern to each bar. Then, we can help the user make out the boundaries of each segment by adding a high-contrast border. Then, our chart could look something like this:
 
@@ -134,7 +136,7 @@ How can we improve the chart? First, make sure that no information is solely com
 >
 </div>
 
-This could be further improved by choosing colors that are differentiable to people afflicted by common color blindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
 
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
@@ -187,22 +189,22 @@ What could be a good alternative description for [this image][heron]? Let's cons
   ❌ The alternative description should not include details not visible in the image, such as attribution, jokes, or metadata. Keep in mind that it is not accessible to sighted users. That information belongs elsewhere.
 
 - `["Gray heron flying low, heading from the right to left. Its feet are extended and slightly point downwards, touching a blurred horizon where a dark forest becomes visible. The bird's wings are extended and arc upwards. There are out-of-focus branches visible in the lower left corner of the image."]`: \
-  ❌ The alternative description is too verbose. Use your discretion and determine how important the image is to the content. Think about how long a sighted user would realistically look at the image; your alt text should take about the same effort to 'consume.' For example, the anatomic description contained above could be appropriate for a longer discussion in a zooology textbook while the compositional information is useful when writing about photography. The context the example image comes with is relatively short, so write a more brief description.
+  ❌ The alternative description is too verbose. Use your discretion and determine how important the image is to the content. Think about how long a sighted user would realistically look at the image; your alt text should take about the same effort to 'consume.' For example, the anatomic description contained above could be appropriate for a longer discussion in a zoology textbook while the compositional information is useful when writing about photography. The context the example image comes with is relatively short, so write a more brief description.
 
 Instead, in the given example, you could use this alternative text:
 
 `["Heron in flight with feet and wings spread"]` \
 ✅ This alternative description describes the image, is relevant to the context, and matches its brevity.
 
-There are more resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to PDF and SVG images. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
+There are more resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to all image formats. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
 
 Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If your figure contains an image, it suffices to set an alternative description on the image.
 
-Do not use images of text, likewise, do not use the path operations to draw text manually. Typst will not be able to process text in images to make it accessible in the same way that native text is. The only exceptions to this rule are images in which the appearance of the text is essential to the semantic meaning of the document and cannot be reproduced with Typst natively. In that case, you must describe both the text content and the essential visual characteristics in the alternative description.
+Do not use images of text, likewise, do not use the path operations to draw text manually. Typst will not be able to process text in images to make it accessible in the same way that native text is. The only exceptions to this rule are images in which the appearance of the text is essential to the semantic meaning of the document and cannot be reproduced with Typst natively. In that case, you must describe both the textual content and the essential visual characteristics in the alternative description.
 
 ## Natural Language
 
-In order for screen readers to pronounce your document correctly and translation software to work properly, you must indicate in which natural language your document is written. Use the rule [`[#set text(lang: "..")]`]($text.lang) at the very start of your document or your template's capability to set a language. If you do not do so, Typst will assume that your content is in English. The natural language you choose not only impacts accessibility, but also how Typst will apply hyphenation, what text layout conventions are applied, the labels of figures and references, and, in the web app, what language is used for spellcheck.
+In order for screen readers to pronounce your document correctly and translation software to work properly, you must indicate in which natural language your document is written. Use the rule [`[#set text(lang: "..")]`]($text.lang) at the very start of your document or your template's capability to set a language. If you do not do so, Typst will assume that your content is in English. The natural language you choose not only impacts accessibility, but also how Typst will apply hyphenation, what typesetting conventions are applied, the labels of figures and references, and, in the web app, what language is used for spellcheck.
 
 If you are using a language with significant variation between regions, such as Chinese or English, also use [the `region` argument]($text.region). For example, Chinese as it is spoken in Hong Kong would look like this:
 
@@ -234,9 +236,9 @@ To do so in Typst, place this set rule in your document before any content:
 #set document(title: "GlorboCorp Q1 2023 Revenue Report")
 ```
 
-This will set the [title in the document's metadata]($document.title) and in the title bar of the PDF viewer. If this results in an error when using a template, consider whether your template may provide an alternative way to set the document title.
+This will set the [title in the document's metadata]($document.title) and in the title bar of the PDF viewer or a web browser. If this results in an error when using a template, consider whether your template may provide an alternative way to set the document title.
 
-Most likely, you will also want to include the title in your document. To do so, use the [`title`] element. When you add a call to the title element without any arguments, it will print the contents of the document's title. Alternatively, you can customize the title by passing content as the positional body argument. Do not use the title element more than once in your document.
+Most likely, you will also want to include the title in your document. To do so, use the [`title`] element. When you add a call to the title element without any arguments, it will print the contents of what you set as the document's title. Alternatively, you can customize the title by passing content as the positional body argument. Do not use the title element more than once in your document.
 
 Never use a heading for your document title, instead, use the title element. Should you have experience with HTML, it is important to remember that the semantics of the heading element in Typst differ from HTML headings. It is encouraged to use multiple first-level headings for section headings in Typst documents. When exporting to HTML, a title will be serialized as a `h1` tag while a first-level heading will be serialized as a `h2` tag. In PDF export, the title and headings will be correctly tagged based on the PDF version targeted.
 
@@ -252,7 +254,7 @@ Note that in order to pass the [automated accessibility check in Adobe Acrobat][
 
 ## Accessibility Standards and Legislation
 
-There are international standards that help you to assert that a Typst document is accessible. For PDF export, Typst can check whether you are complying with PDF-based accessibility standards and assert the compliance in the compiled file:
+There are international standards that help you to assert that a Typst document is accessible. For PDF export, the Typst compiler can check whether you are complying with PDF-based accessibility standards and assert the compliance in the compiled file:
 
 - **Tagged PDF:** Tagged PDF contain machine-readable data about the semantic structure of a document that AT can parse. Typst will write Tagged PDFs by default, but keep in mind that Typst can only write appropriate tags if it knows about the semantic structure of your document. Refer to the Section Maintaining semantics to learn how to use Typst's elements to communicate element semantics. To provide Universal Access, you are also responsible to provide textual representation of non-text content yourself.
 
