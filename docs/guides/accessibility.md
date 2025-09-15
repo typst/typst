@@ -103,12 +103,55 @@ Please note that Typst will mark shapes and paths like [`square`] and [`circle`]
 
 Universal Access not only means that your documents works with AT, reflow, and repurposing, but also that visual access is possible to everyone, including people with impaired eye sight. Not only does aging often come with worse sight, a significant chunk of people have problems differentiating color: About 8% of men and 0.5% of women are color blind.
 
-This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. For a color blind user, there are multiple challenges here. The first is to associate the color of a bar segment with its entry in the legend. You could help the reader by always ensuring that the colors appear in the same order as they do in the legend and note this. The next challenge is to identify the boundaries of the colored segments in a single bar. To make this easier, you could draw a dark or light boundry with high contrast. Alternatively, you could address both problems by also giving each segment a unique pattern in addition to a color.
+<div style="display:flex; gap: 16px;">
+<img
+  src="chart-bad-regular.png"
+  alt="Bar chart showing Energy production in Germany by kind in Terrawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels"
+  width="958"
+  height="637"
+  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
+>
+<img
+  src="chart-bad-deuteranopia.png"
+  alt="The same bar chart with changed colors, with the segments for Nuclear and Other in a very similar dark blue, and the neighboring segments of Renewables and Fossil Fuels in two almost indistinguishable shades of sickly yellow"
+  width="958"
+  height="637"
+  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
+>
+</div>
 
+This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. Our example shows a chart of the domestic energy production in Germany by kind[^1]. In the picture, you can see the chart as it would normally appear and a simulation of how it would appear to people with deuteranopia-type color blindness. You can see that the two pairs of the first and last segment both look blue and the center pair looks yellow-ish. The first challenge for the color blind user is thus to make out the boundary of the "Renewable" and "Fossil Fuels" bar. Then, they must keep track of which bar is which by only their order, adding to their mental load. A way to make this chart even less accessible would be to make the order of segments not match their order in the legend.
 
-There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it.
+How can we improve the chart? First, make sure that no information is solely communicated through color use. One possible way to do this by adding a pattern to each bar. Then, we can help the user make out the boundaries of each segment by adding a high-contrast border. Then, our chart could look something like this:
+
+<div>
+<img
+  src="chart-good.png"
+  alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern."
+  width="958"
+  height="637"
+  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 50%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
+>
+</div>
+
+This could be further improved by choosing colors that are differentiable to people afflicted by common color blindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
 
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
+
+<div>
+<img
+  src="color-contrast.png"
+  alt="Two callout boxes with the text 'Caution: Keep hands away from active stapler' with different designs. Each box has a contrast gauge for its text and graphical elements below it. The left box is shaded in a light red and the text is a regular shade of red. It has a text contrast of 2.8:1 and a graphics contrast of 1.4:1. The right box is white with a red outline and dark red text. It has a text contrast of 5.9:1 and a graphics contrast of 3.9:1."
+  width="1536"
+  height="708"
+  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 512px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
+>
+</div>
+
+In our example, we can see two designs for callout boxes. Because these boxes aim to help the user avoid a hazard, it is paramount that they can actually read them. However, in the first box, the background is fairly light, making it hard to make out the box. Worse, the red text is difficult to read on the light red background. The text has a 2.8:1 contrast ratio, failing the bar of 4.5:1 contrast WCAG sets. Likewise, the box has an 1.4:1 contrast ratio with the white page background, falling short of the 3:1 threshold for graphical objects.
+
+Colors in the second example have been adjusted to meet WCAG AA color contrast thresholds. It should be markedly easier to read the text in the box, even if you have good vision!
+
 
 | Content                                | AA Ratio | AAA Ratio |
 |----------------------------------------|---------:|----------:|
@@ -223,7 +266,7 @@ When you select one or multiple of these standards for PDF export, Typst will de
 
 Maybe you already noticed that some of the factors that go into Universal Access are hard to check automatically. For example, Typst will currently not automatically check that your color contrasts are sufficient or whether the natural language set matches the actual natural language (although the amount of spellcheck errors should provide a hint if you are using the web app). There are two international standards that address some of these human factors in more detail:
 
-- The **[Web Content Accessibility Guidelines (WCAG)][WCAG]**: Designed by the W3C, a big international consortium behind the technologies that power the internet, WCAG describes how to make a web site accessible. All of these rules are applicable to Typst's HTML output, and many of them apply to its PDF output.
+- The **[Web Content Accessibility Guidelines (WCAG)][WCAG]**: Designed by the W3C, a big international consortium behind the technologies that power the internet, WCAG describes how to make a web site accessible. All of these rules are applicable to Typst's HTML output, and many of them apply to its PDF output. WCAG separates its rules into the three levels A, AA, and AAA. It is recommended that normal documents aim for AA. If you have high standards for Universal Access, you can also consider AAA Success Criteria. However, Typst does not yet expose all PDF features needed for AAA compliance, e.g. an AT-accessible way to define expansions for abbreviations.
 - The **[European Norm EN 301 549][EN301549]**: Its Section 9 describes how to create accessible websites and its Section 10 describes what rules apply to non-web documents, including PDFs created by Typst. It points out which WCAG clauses are also applicable to PDFs. Conformance with this standard is a good start for complying with EU and national accessibility laws.
 
 Keep in mind that in order to conform with EN 301 549 and the relevant WCAG provisions, your document must be tagged. If you aim for conformance, we strongly suggest using PDF/UA-1 for export to automate many of the checks for the success criteria within.
@@ -245,7 +288,7 @@ Here is a list of automated checkers to try to test for conformance:
 
 - **[PDF Accessibility Checker (PAC)][PAC]:** The freeware PAC checks whether your document complies with PDF/UA and WCAG rules. When you receive a hard error in the PDF/UA tab, this is considered a bug in Typst and should be reported on GitHub. Warnings in the PDF/UA and Quality tabs may either be bugs, problems in your document, or neither. Check on the [Forum][Typst Forum] or on [Discord][Discord] if you are unsure. Errors and warnings in the WCAG tab indicate problems with your document.
 
-- **[Accessibility Check in Adobe Acrobat Pro][acro-check]:** The accessibility checker in the paid version of Adobe Acrobat checks all PDF documents for problems. Instead of checking compliance with a well-known international or industry standard, Adobe has created their own suite of tests. Because the rules behind these tests sometimes contradict international standards like PDF/UA, some of Acrobat's checks are expected to fail for Typst documents[^1]. Other checks, such as the contrast check are useful and indicate problems with your document.
+- **[Accessibility Check in Adobe Acrobat Pro][acro-check]:** The accessibility checker in the paid version of Adobe Acrobat checks all PDF documents for problems. Instead of checking compliance with a well-known international or industry standard, Adobe has created their own suite of tests. Because the rules behind these tests sometimes contradict international standards like PDF/UA, some of Acrobat's checks are expected to fail for Typst documents[^2]. Other checks, such as the contrast check are useful and indicate problems with your document.
 
 When doing manual checking, you can start with a checklist. If your organization places emphasis on accessibility, they will sometimes have their own list. In absence of one, you can try lists by universities such as [Universität Bremen (in English)][checklist-unib] or governments such as in [Canada][checklist-canada] or by the [US Social Security Administration][checklist-us-ssa]. Although these checklists differ in verbosity, they all cover the most essential manual checks. Many of the technical checks in them can be skipped if you choose PDF/UA-1 export in Typst. If unsure which checklist to use, choose one from an organization culturally similar to yours.
 
@@ -271,7 +314,9 @@ Finally, keep in mind that PDFs are designed for print. Hence, you should not as
 
 As mentioned above, files created by PNG and SVG export are not accessible.
 
-[^1]: For example, when using footnotes, the check "Lbl and LBody must be children of LI" in the "List" section is expected to fail
+[^1]: Dataset from the German Federal Statistics Authority (Statistisches Bundesamt, Destatis). ["Bruttostromerzeugung nach Energieträgern in Deutschland ab 1990"](https://www.destatis.de/DE/Themen/Branchen-Unternehmen/Energie/Erzeugung/bar-chart-race.html), 2025, available under the _Data licence Germany – attribution – version 2.0._
+
+[^2]: For example, when using footnotes, the check "Lbl and LBody must be children of LI" in the "List" section is expected to fail
 
 [NVDA]: https://www.nvaccess.org/download/
 [Acrobat]: https://www.adobe.com/acrobat.html
