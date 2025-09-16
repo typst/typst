@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::Write;
 use std::ops::Range;
 use std::str::FromStr;
@@ -101,7 +102,10 @@ regexes! {
 fn normalize_string(data: &str, filters: &[(Regex, &str)]) -> String {
     let mut latest = data.to_string();
     for (re, subst) in filters {
-        latest = re.replace_all(&latest, *subst).into_owned();
+        match re.replace_all(&latest, *subst) {
+            Cow::Borrowed(_) => {}
+            Cow::Owned(v) => latest = v,
+        }
     }
     latest
 }
