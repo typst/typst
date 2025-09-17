@@ -1,6 +1,5 @@
 use std::num::NonZeroU32;
 
-use ecow::EcoString;
 use typst_macros::{Cast, elem, func};
 use typst_utils::NonZeroExt;
 
@@ -147,8 +146,6 @@ macro_rules! pdf_marker_tag {
 pdf_marker_tag! {
     /// `TOC`
     OutlineBody,
-    /// `Figure`
-    FigureBody(alt: Option<EcoString>),
     /// `L` bibliography list
     Bibliography(numbered: bool),
     /// `LBody` wrapping `BibEntry`

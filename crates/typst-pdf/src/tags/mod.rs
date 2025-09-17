@@ -18,10 +18,10 @@ use typst_library::visualize::{Image, Shape};
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::{LinkAnnotation, LinkAnnotationKind};
-use crate::tags::context::{Annotations, BBoxCtx, FigureCtx, TableCtx, TagNode};
+use crate::tags::context::{Annotations, BBoxCtx, Ctx, FigureCtx, TagNode};
 use crate::tags::text::{TextAttr, TextDecoKind};
 use crate::tags::tree::{Step, Tree};
-use crate::tags::util::{IdVec, PropertyOptRef, PropertyValCloned, PropertyValCopied};
+use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::{AnnotationId, Tags};
 pub use groups::{Group, GroupId, GroupKind, Groups};
@@ -52,7 +52,7 @@ pub fn finish(tags: &mut Tags) -> (Option<Lang>, TagTree) {
     for child in group.nodes().iter() {
         resolve_node(
             &tags.tree.groups,
-            &tags.tree.tables,
+            &tags.tree.ctx,
             &mut tags.annotations,
             &mut doc_lang,
             &mut None,
@@ -67,7 +67,7 @@ pub fn finish(tags: &mut Tags) -> (Option<Lang>, TagTree) {
 /// Resolves nodes into an accumulator.
 fn resolve_node(
     groups: &Groups,
-    tables: &IdVec<TableCtx>,
+    ctx: &Ctx,
     annotations: &mut Annotations,
     parent_lang: &mut Option<Lang>,
     parent_bbox: &mut Option<BBoxCtx>,
@@ -78,7 +78,7 @@ fn resolve_node(
         TagNode::Group(id) => {
             resolve_group_node(
                 groups,
-                tables,
+                ctx,
                 annotations,
                 parent_lang,
                 parent_bbox,
@@ -100,7 +100,7 @@ fn resolve_node(
 
 fn resolve_group_node(
     groups: &Groups,
-    tables: &IdVec<TableCtx>,
+    ctx: &Ctx,
     annotations: &mut Annotations,
     mut parent_lang: &mut Option<Lang>,
     mut parent_bbox: &mut Option<BBoxCtx>,
@@ -109,8 +109,8 @@ fn resolve_group_node(
 ) {
     let group = groups.get(id);
 
-    let mut tag = build_group_tag(tables, group);
-    let mut bbox = group.kind.bbox().cloned();
+    let mut tag = build_group_tag(ctx, group);
+    let mut bbox = ctx.bbox(&group.kind).cloned();
     let mut nodes = Vec::new();
 
     let group_bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
@@ -119,21 +119,13 @@ fn resolve_group_node(
     // this might become an `Artifact` tag.
     if group.kind.is_artifact() {
         for child in group.nodes().iter() {
-            resolve_artifact_node(groups, group_bbox, child);
+            resolve_artifact_node(groups, ctx, group_bbox, child);
         }
     } else {
         nodes = Vec::with_capacity(group.nodes().len());
         let lang = tag.as_mut().map(|(_, lang)| lang).unwrap_or(&mut parent_lang);
         for child in group.nodes().iter() {
-            resolve_node(
-                groups,
-                tables,
-                annotations,
-                lang,
-                group_bbox,
-                &mut nodes,
-                child,
-            );
+            resolve_node(groups, ctx, annotations, lang, group_bbox, &mut nodes, child);
         }
 
         // Insert logical children at the end of the parent.
@@ -141,7 +133,7 @@ fn resolve_group_node(
             for child in children.iter() {
                 resolve_group_node(
                     groups,
-                    tables,
+                    ctx,
                     annotations,
                     lang,
                     group_bbox,
@@ -157,35 +149,38 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
-    if let Some((mut tag, mut group_lang)) = tag {
-        // Try to propagate the groups language to the parent tag.
-        if let Some(lang) = group_lang
-            && parent_lang.is_none_or(|l| l == lang)
-        {
-            *parent_lang = Some(lang);
-            group_lang = None;
-        }
-
-        tag.set_location(Some(group.span.into_raw()));
-        tag.set_lang(group_lang.map(|l| l.as_str().to_string()));
-        if let Some(bbox) = bbox {
-            match &mut tag {
-                TagKind::Table(tag) => tag.set_bbox(bbox.to_krilla()),
-                TagKind::Figure(tag) => tag.set_bbox(bbox.to_krilla()),
-                TagKind::Formula(tag) => tag.set_bbox(bbox.to_krilla()),
-                _ => (),
-            }
-        }
-
-        accum.push(Node::Group(kt::TagGroup::with_children(tag, nodes)));
-    } else {
+    // If this isn't a tagged group, forward the children to the parent.
+    let Some((mut tag, mut group_lang)) = tag else {
         accum.extend(nodes);
+        return;
+    };
+
+    // Try to propagate the groups language to the parent tag.
+    if let Some(lang) = group_lang
+        && parent_lang.is_none_or(|l| l == lang)
+    {
+        *parent_lang = Some(lang);
+        group_lang = None;
     }
+
+    tag.set_location(Some(group.span.into_raw()));
+    tag.set_lang(group_lang.map(|l| l.as_str().to_string()));
+    if let Some(bbox) = bbox {
+        match &mut tag {
+            TagKind::Table(tag) => tag.set_bbox(bbox.to_krilla()),
+            TagKind::Figure(tag) => tag.set_bbox(bbox.to_krilla()),
+            TagKind::Formula(tag) => tag.set_bbox(bbox.to_krilla()),
+            _ => (),
+        }
+    }
+
+    accum.push(Node::Group(kt::TagGroup::with_children(tag, nodes)));
 }
 
 /// Currently only done to resolve bounding boxes.
 fn resolve_artifact_node(
     groups: &Groups,
+    ctx: &Ctx,
     mut parent_bbox: &mut Option<BBoxCtx>,
     node: &TagNode,
 ) {
@@ -193,10 +188,10 @@ fn resolve_artifact_node(
         TagNode::Group(id) => {
             let group = groups.get(*id);
 
-            let mut bbox = group.kind.bbox().cloned();
+            let mut bbox = ctx.bbox(&group.kind).cloned();
             let group_bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
             for child in group.nodes().iter() {
-                resolve_artifact_node(groups, group_bbox, child);
+                resolve_artifact_node(groups, ctx, group_bbox, child);
             }
 
             // Update the parent bbox.
@@ -210,10 +205,7 @@ fn resolve_artifact_node(
     }
 }
 
-fn build_group_tag(
-    tables: &IdVec<TableCtx>,
-    group: &Group,
-) -> Option<(TagKind, Option<Lang>)> {
+fn build_group_tag(ctx: &Ctx, group: &Group) -> Option<(TagKind, Option<Lang>)> {
     Some(match &group.kind {
         GroupKind::Root(_) => unreachable!(),
         GroupKind::Artifact(_) => return None,
@@ -221,7 +213,7 @@ fn build_group_tag(
         GroupKind::LogicalChild => return None,
         GroupKind::Outline(_, lang) => (Tag::TOC.into(), *lang),
         GroupKind::OutlineEntry(_, lang) => (Tag::TOCI.into(), *lang),
-        GroupKind::Table(id, _, lang) => (tables.get(*id).build_tag(), *lang),
+        GroupKind::Table(id, _, lang) => (ctx.tables.get(*id).build_tag(), *lang),
         // TODO: store tags in a separate list and take them here.
         GroupKind::TableCell(_, tag, lang) => (tag.clone(), *lang),
         GroupKind::Grid(_, lang) => (Tag::Div.into(), *lang),
@@ -230,13 +222,16 @@ fn build_group_tag(
         GroupKind::ListItemLabel(lang) => (Tag::Lbl.into(), *lang),
         GroupKind::ListItemBody(lang) => (Tag::LBody.into(), *lang),
         GroupKind::BibEntry(lang) => (Tag::BibEntry.into(), *lang),
-        GroupKind::Figure(ctx, lang) => {
-            let tag = Tag::Figure(ctx.alt.as_ref().map(String::from)).into();
-            (tag, *lang)
+        GroupKind::Figure(id, _, lang) => (ctx.figures.get(*id).build_tag()?, *lang),
+        GroupKind::FigureCaption(_, lang) => (Tag::Caption.into(), *lang),
+        GroupKind::Image(image, _, lang) => {
+            let alt = image.alt.opt_ref().map(EcoString::to_string);
+            (Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into(), *lang)
         }
-        GroupKind::Formula(ctx, lang) => {
-            let tag = Tag::Formula(ctx.alt.as_ref().map(String::from)).into();
-            (tag, *lang)
+        GroupKind::Formula(equation, _, lang) => {
+            let alt = equation.alt.opt_ref().map(EcoString::to_string);
+            let placement = equation.block.val().then_some(kt::Placement::Block);
+            (Tag::Formula(alt).with_placement(placement).into(), *lang)
         }
         GroupKind::Link(link, lang) => {
             let alt = link.alt.as_ref().map(EcoString::to_string);

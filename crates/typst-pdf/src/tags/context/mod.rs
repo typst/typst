@@ -1,23 +1,24 @@
 use std::cell::OnceCell;
 
-use ecow::EcoString;
 use krilla::geom as kg;
 use krilla::tagging::{BBox, Identifier, Node};
 use typst_library::layout::{Abs, Point, Rect};
 use typst_library::text::Lang;
 
 use crate::convert::FrameContext;
-use crate::tags::GroupId;
 use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
 use crate::tags::tree::Tree;
-use crate::tags::util::Id;
+use crate::tags::util::{Id, IdVec};
+use crate::tags::{GroupId, GroupKind};
 use crate::util::AbsExt;
 
-pub use crate::tags::context::grid::GridCtx;
+pub use crate::tags::context::figure::{FigureCtx, build_figure};
+pub use crate::tags::context::grid::{GridCtx, build_grid};
 pub use crate::tags::context::list::ListCtx;
 pub use crate::tags::context::outline::OutlineCtx;
-pub use crate::tags::context::table::TableCtx;
+pub use crate::tags::context::table::{TableCtx, build_table};
 
+mod figure;
 mod grid;
 mod list;
 mod outline;
@@ -25,8 +26,10 @@ mod table;
 
 pub type TableId = Id<TableCtx>;
 pub type GridId = Id<GridCtx>;
+pub type FigureId = Id<FigureCtx>;
 pub type ListId = Id<ListCtx>;
 pub type OutlineId = Id<OutlineCtx>;
+pub type BBoxId = Id<BBoxCtx>;
 
 pub struct Tags {
     pub in_tiling: bool,
@@ -66,6 +69,41 @@ impl Tags {
     }
 }
 
+#[derive(Debug)]
+pub struct Ctx {
+    pub tables: IdVec<TableCtx>,
+    pub grids: IdVec<GridCtx>,
+    pub figures: IdVec<FigureCtx>,
+    pub lists: IdVec<ListCtx>,
+    pub outlines: IdVec<OutlineCtx>,
+    pub bboxes: IdVec<BBoxCtx>,
+}
+
+impl Ctx {
+    pub fn new() -> Self {
+        Self {
+            tables: IdVec::new(),
+            grids: IdVec::new(),
+            figures: IdVec::new(),
+            lists: IdVec::new(),
+            outlines: IdVec::new(),
+            bboxes: IdVec::new(),
+        }
+    }
+
+    pub fn new_bbox(&mut self) -> BBoxId {
+        self.bboxes.push(BBoxCtx::new())
+    }
+
+    pub fn bbox(&self, kind: &GroupKind) -> Option<&BBoxCtx> {
+        Some(self.bboxes.get(kind.bbox()?))
+    }
+
+    pub fn bbox_mut(&mut self, kind: &GroupKind) -> Option<&mut BBoxCtx> {
+        Some(self.bboxes.get_mut(kind.bbox()?))
+    }
+}
+
 pub struct Annotations(Vec<OnceCell<Identifier>>);
 
 impl Annotations {
@@ -90,19 +128,6 @@ impl Annotations {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AnnotationId(u32);
-
-/// Figure/Formula context
-#[derive(Debug, Clone, PartialEq)]
-pub struct FigureCtx {
-    pub alt: Option<EcoString>,
-    pub bbox: BBoxCtx,
-}
-
-impl FigureCtx {
-    pub fn new(alt: Option<EcoString>) -> Self {
-        Self { alt, bbox: BBoxCtx::new() }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BBoxCtx {

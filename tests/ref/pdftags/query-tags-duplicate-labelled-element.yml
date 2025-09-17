@@ -1,5 +1,6 @@
 - Tag: Figure
   /Alt: "Text saying: hello there"
+  /Placement: Block
   /BBox:
     page: 0
     left:    38.225
@@ -12,6 +13,7 @@
         - Content: page=0 mcid=0
 - Tag: Figure
   /Alt: "Text saying: hello there"
+  /Placement: Block
   /BBox:
     page: 0
     left:    38.225

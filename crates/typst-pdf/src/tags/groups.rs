@@ -6,12 +6,14 @@ use smallvec::SmallVec;
 use typst_library::foundations::{LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::GridCell;
+use typst_library::math::EquationElem;
 use typst_library::model::{OutlineEntry, TableCell};
 use typst_library::text::Lang;
+use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::tags::context::{
-    AnnotationId, BBoxCtx, FigureCtx, GridId, ListId, OutlineId, TableId, TagNode,
+    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagNode,
 };
 use crate::tags::text::ResolvedTextAttrs;
 use crate::tags::tree::StackEntry;
@@ -136,6 +138,8 @@ impl Groups {
             | GroupKind::ListItemBody(..)
             | GroupKind::BibEntry(..)
             | GroupKind::Figure(..)
+            | GroupKind::FigureCaption(..)
+            | GroupKind::Image(..)
             | GroupKind::Formula(..)
             | GroupKind::CodeBlock(..)
             | GroupKind::CodeBlockLine(..) => unreachable!(),
@@ -152,6 +156,7 @@ impl Groups {
 /// These methods are the only way to insert nested groups in the
 /// [`Group::nodes`] list.
 impl Groups {
+    /// Create a new group with a standard tag and push it into the parent.
     pub fn push_tag(&mut self, parent: GroupId, tag: impl Into<TagKind>) -> GroupId {
         let kind = GroupKind::Standard(tag.into(), None);
         let id = self.list.push(Group::new(parent, Span::detached(), kind));
@@ -159,11 +164,22 @@ impl Groups {
         id
     }
 
+    /// Prepend an existing group to the start of the parent.
+    #[cfg_attr(debug_assertions, track_caller)]
+    pub fn prepend_group(&mut self, parent: GroupId, child: GroupId) {
+        debug_assert!(self.check_ancestor(parent, child));
+        self.get_mut(parent).nodes.insert(0, TagNode::Group(child));
+    }
+
+    /// Append an existing group to the end of the parent.
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn push_group(&mut self, parent: GroupId, child: GroupId) {
         debug_assert!(self.check_ancestor(parent, child));
         self.get_mut(parent).nodes.push(TagNode::Group(child));
     }
 
+    /// Append multiple existing groups to the end of the parent.
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn extend_groups(
         &mut self,
         parent: GroupId,
@@ -258,7 +274,7 @@ pub enum GroupKind {
     LogicalChild,
     Outline(OutlineId, Option<Lang>),
     OutlineEntry(Packed<OutlineEntry>, Option<Lang>),
-    Table(TableId, BBoxCtx, Option<Lang>),
+    Table(TableId, BBoxId, Option<Lang>),
     TableCell(Packed<TableCell>, TagKind, Option<Lang>),
     Grid(GridId, Option<Lang>),
     GridCell(Packed<GridCell>, Option<Lang>),
@@ -266,8 +282,13 @@ pub enum GroupKind {
     ListItemLabel(Option<Lang>),
     ListItemBody(Option<Lang>),
     BibEntry(Option<Lang>),
-    Figure(FigureCtx, Option<Lang>),
-    Formula(FigureCtx, Option<Lang>),
+    Figure(FigureId, BBoxId, Option<Lang>),
+    /// The figure caption has a bbox so marked content sequences won't expand
+    /// the bbox of the parent figure group kind. The caption might be moved
+    /// into table, or next to to the figure tag.
+    FigureCaption(BBoxId, Option<Lang>),
+    Image(Packed<ImageElem>, BBoxId, Option<Lang>),
+    Formula(Packed<EquationElem>, BBoxId, Option<Lang>),
     Link(Packed<LinkMarker>, Option<Lang>),
     CodeBlock(Option<Lang>),
     CodeBlockLine(Option<Lang>),
@@ -291,20 +312,13 @@ impl GroupKind {
         if let Self::Link(v, ..) = self { Some(v) } else { None }
     }
 
-    pub fn bbox(&self) -> Option<&BBoxCtx> {
+    pub fn bbox(&self) -> Option<BBoxId> {
         match self {
-            Self::Table(_, bbox, _) => Some(bbox),
-            Self::Figure(ctx, _) => Some(&ctx.bbox),
-            Self::Formula(ctx, _) => Some(&ctx.bbox),
-            _ => None,
-        }
-    }
-
-    pub fn bbox_mut(&mut self) -> Option<&mut BBoxCtx> {
-        match self {
-            Self::Table(_, bbox, _) => Some(bbox),
-            Self::Figure(ctx, ..) => Some(&mut ctx.bbox),
-            Self::Formula(ctx, ..) => Some(&mut ctx.bbox),
+            GroupKind::Table(_, id, _) => Some(*id),
+            GroupKind::Figure(_, id, _) => Some(*id),
+            GroupKind::FigureCaption(id, _) => Some(*id),
+            GroupKind::Image(_, id, _) => Some(*id),
+            GroupKind::Formula(_, id, _) => Some(*id),
             _ => None,
         }
     }
@@ -325,8 +339,10 @@ impl GroupKind {
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
             GroupKind::BibEntry(lang) => lang,
-            GroupKind::Figure(_, lang) => lang,
-            GroupKind::Formula(_, lang) => lang,
+            GroupKind::Figure(_, _, lang) => lang,
+            GroupKind::FigureCaption(_, lang) => lang,
+            GroupKind::Image(_, _, lang) => lang,
+            GroupKind::Formula(_, _, lang) => lang,
             GroupKind::Link(_, lang) => lang,
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
@@ -352,6 +368,8 @@ impl GroupKind {
             GroupKind::ListItemBody(..) => false,
             GroupKind::BibEntry(..) => false,
             GroupKind::Figure(..) => false,
+            GroupKind::FigureCaption(..) => false,
+            GroupKind::Image(..) => false,
             GroupKind::Formula(..) => false,
             GroupKind::Link(..) => !is_pdf_ua,
             GroupKind::CodeBlock(..) => false,

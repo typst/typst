@@ -122,223 +122,221 @@ impl TableCtx {
         });
     }
 
-    pub fn build_table(&mut self, groups: &mut Groups, table_id: GroupId) {
-        // Table layouting ensures that there are no overlapping cells, and that
-        // any gaps left by the user are filled with empty cells.
-        // A show rule, can prevent the table from being layed out, in which case
-        // all cells will be missing, in that case just return whatever contents
-        // that were generated in the show rule.
-        if self.cells.iter().all(GridEntry::is_missing) {
-            return;
-        }
-
-        let width = self.cells.width();
-        let height = self.cells.height();
-        let grid = self.elem.grid.as_deref().unwrap();
-
-        // Only generate row groups such as `THead`, `TFoot`, and `TBody` if
-        // there are no rows with mixed cell kinds, and there is at least one
-        // header or a footer.
-        let gen_row_groups = {
-            let mut uniform_rows = true;
-            let mut has_header_or_footer = false;
-            'outer: for (row, row_kind) in
-                self.cells.rows().zip(self.row_kinds.iter_mut())
-            {
-                let first_cell = self.cells.resolve(row.first().unwrap()).unwrap();
-                let first_kind = first_cell.data.kind;
-
-                for cell in row.iter().filter_map(|cell| self.cells.resolve(cell)) {
-                    if let TableCellKind::Header(_, scope) = cell.data.kind
-                        && scope != TableHeaderScope::Column
-                    {
-                        uniform_rows = false;
-                        break 'outer;
-                    }
-
-                    if first_kind != cell.data.kind {
-                        uniform_rows = false;
-                        break 'outer;
-                    }
-                }
-
-                // If all cells in the row have the same custom kind, the row
-                // kind is overwritten.
-                *row_kind = first_kind;
-
-                has_header_or_footer |= *row_kind != TableCellKind::Data;
-            }
-
-            uniform_rows && has_header_or_footer
-        };
-
-        // Compute the headers attribute column-wise.
-        for x in 0..width {
-            let mut column_headers = Vec::new();
-            let mut grid_headers = grid.headers.iter().peekable();
-            for y in 0..height {
-                // Find current header region
-                let grid_y = grid.to_effective(y);
-                while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
-                let region_range = grid_headers.peek().and_then(|header| {
-                    if !header.range.contains(&grid_y) {
-                        return None;
-                    }
-
-                    // Convert from the `CellGrid` coordinates to normal ones.
-                    let start = grid.from_effective(header.range.start);
-                    let end = grid.from_effective(header.range.end);
-                    Some(start..end)
-                });
-
-                resolve_cell_headers(
-                    self.table_id,
-                    &mut self.cells,
-                    &mut column_headers,
-                    region_range,
-                    TableHeaderScope::refers_to_column,
-                    (x, y),
-                );
-            }
-        }
-        // Compute the headers attribute row-wise.
-        for y in 0..height {
-            let mut row_headers = Vec::new();
-            for x in 0..width {
-                resolve_cell_headers(
-                    self.table_id,
-                    &mut self.cells,
-                    &mut row_headers,
-                    None,
-                    TableHeaderScope::refers_to_row,
-                    (x, y),
-                );
-            }
-        }
-
-        // Place h-lines, overwriting the cells stroke.
-        place_explicit_lines(
-            &mut self.cells,
-            &grid.hlines,
-            height,
-            width,
-            |cells, (y, x), pos| {
-                let cell = cells.cell_mut(x, y)?;
-                Some(match pos {
-                    LinePosition::Before => &mut cell.data.stroke.bottom,
-                    LinePosition::After => &mut cell.data.stroke.top,
-                })
-            },
-        );
-        // Place v-lines, overwriting the cells stroke.
-        place_explicit_lines(
-            &mut self.cells,
-            &grid.vlines,
-            width,
-            height,
-            |cells, (x, y), pos| {
-                let cell = cells.cell_mut(x, y)?;
-                Some(match pos {
-                    LinePosition::Before => &mut cell.data.stroke.right,
-                    LinePosition::After => &mut cell.data.stroke.left,
-                })
-            },
-        );
-
-        // Remove overlapping border strokes between cells.
-        for y in 0..height {
-            for x in 0..width.saturating_sub(1) {
-                prioritize_strokes(&mut self.cells, (x, y), (x + 1, y), |a, b| {
-                    (&mut a.stroke.right, &mut b.stroke.left)
-                });
-            }
-        }
-        for x in 0..width {
-            for y in 0..height.saturating_sub(1) {
-                prioritize_strokes(&mut self.cells, (x, y), (x, y + 1), |a, b| {
-                    (&mut a.stroke.bottom, &mut b.stroke.top)
-                });
-            }
-        }
-
-        (self.border_thickness, self.border_color) =
-            try_resolve_table_stroke(&self.cells);
-
-        let mut chunk_kind = self.row_kinds[0];
-        let mut chunk_id = GroupId::INVALID;
-        for (row, y) in self.cells.rows_mut().zip(0..) {
-            let parent = if gen_row_groups {
-                let row_kind = self.row_kinds[y as usize];
-                if chunk_id == GroupId::INVALID
-                    || !should_group_rows(chunk_kind, row_kind)
-                {
-                    let tag: TagKind = match row_kind {
-                        TableCellKind::Header(..) => Tag::THead.into(),
-                        TableCellKind::Footer => Tag::TFoot.into(),
-                        TableCellKind::Data => Tag::TBody.into(),
-                    };
-                    chunk_kind = row_kind;
-                    chunk_id = groups.push_tag(table_id, tag);
-                }
-                chunk_id
-            } else {
-                table_id
-            };
-
-            let row_id = groups.push_tag(parent, Tag::TR);
-            let row_nodes = row
-                .iter_mut()
-                .filter_map(|entry| {
-                    let cell = entry.as_cell_mut()?;
-                    let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
-                    let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
-                    let cell_kind = cell.data.kind;
-                    let headers = std::mem::take(&mut cell.data.headers);
-                    let mut tag: TagKind = match cell_kind {
-                        TableCellKind::Header(_, scope) => {
-                            let id = table_cell_id(self.table_id, cell.x, cell.y);
-                            Tag::TH(scope.to_krilla())
-                                .with_id(Some(id))
-                                .with_headers(Some(headers))
-                                .with_row_span(rowspan)
-                                .with_col_span(colspan)
-                                .into()
-                        }
-                        TableCellKind::Footer | TableCellKind::Data => Tag::TD
-                            .with_headers(Some(headers))
-                            .with_row_span(rowspan)
-                            .with_col_span(colspan)
-                            .into(),
-                    };
-
-                    resolve_cell_border_and_background(
-                        grid,
-                        self.border_thickness,
-                        self.border_color,
-                        [cell.x, cell.y],
-                        &cell.data.stroke,
-                        &mut tag,
-                    );
-
-                    let cell_group = groups.get_mut(cell.id);
-                    if let GroupKind::TableCell(_, t, _) = &mut cell_group.kind {
-                        *t = tag;
-                    }
-
-                    Some(cell.id)
-                })
-                .collect::<Vec<_>>();
-
-            groups.extend_groups(row_id, row_nodes.into_iter());
-        }
-    }
-
     pub fn build_tag(&self) -> TagKind {
         Tag::Table
             .with_summary(self.elem.summary.opt_ref().map(String::from))
             .with_border_thickness(self.border_thickness.map(kt::Sides::uniform))
             .with_border_color(self.border_color.map(kt::Sides::uniform))
             .into()
+    }
+}
+
+pub fn build_table(table_ctx: &mut TableCtx, groups: &mut Groups, table_id: GroupId) {
+    // Table layouting ensures that there are no overlapping cells, and that
+    // any gaps left by the user are filled with empty cells.
+    // A show rule, can prevent the table from being layed out, in which case
+    // all cells will be missing, in that case just return whatever contents
+    // that were generated in the show rule.
+    if table_ctx.cells.iter().all(GridEntry::is_missing) {
+        return;
+    }
+
+    let width = table_ctx.cells.width();
+    let height = table_ctx.cells.height();
+    let grid = table_ctx.elem.grid.as_deref().unwrap();
+
+    // Only generate row groups such as `THead`, `TFoot`, and `TBody` if
+    // there are no rows with mixed cell kinds, and there is at least one
+    // header or a footer.
+    let gen_row_groups = {
+        let mut uniform_rows = true;
+        let mut has_header_or_footer = false;
+        'outer: for (row, row_kind) in
+            table_ctx.cells.rows().zip(table_ctx.row_kinds.iter_mut())
+        {
+            let first_cell = table_ctx.cells.resolve(row.first().unwrap()).unwrap();
+            let first_kind = first_cell.data.kind;
+
+            for cell in row.iter().filter_map(|cell| table_ctx.cells.resolve(cell)) {
+                if let TableCellKind::Header(_, scope) = cell.data.kind
+                    && scope != TableHeaderScope::Column
+                {
+                    uniform_rows = false;
+                    break 'outer;
+                }
+
+                if first_kind != cell.data.kind {
+                    uniform_rows = false;
+                    break 'outer;
+                }
+            }
+
+            // If all cells in the row have the same custom kind, the row
+            // kind is overwritten.
+            *row_kind = first_kind;
+
+            has_header_or_footer |= *row_kind != TableCellKind::Data;
+        }
+
+        uniform_rows && has_header_or_footer
+    };
+
+    // Compute the headers attribute column-wise.
+    for x in 0..width {
+        let mut column_headers = Vec::new();
+        let mut grid_headers = grid.headers.iter().peekable();
+        for y in 0..height {
+            // Find current header region
+            let grid_y = grid.to_effective(y);
+            while grid_headers.next_if(|h| h.range.end <= grid_y).is_some() {}
+            let region_range = grid_headers.peek().and_then(|header| {
+                if !header.range.contains(&grid_y) {
+                    return None;
+                }
+
+                // Convert from the `CellGrid` coordinates to normal ones.
+                let start = grid.from_effective(header.range.start);
+                let end = grid.from_effective(header.range.end);
+                Some(start..end)
+            });
+
+            resolve_cell_headers(
+                table_ctx.table_id,
+                &mut table_ctx.cells,
+                &mut column_headers,
+                region_range,
+                TableHeaderScope::refers_to_column,
+                (x, y),
+            );
+        }
+    }
+    // Compute the headers attribute row-wise.
+    for y in 0..height {
+        let mut row_headers = Vec::new();
+        for x in 0..width {
+            resolve_cell_headers(
+                table_ctx.table_id,
+                &mut table_ctx.cells,
+                &mut row_headers,
+                None,
+                TableHeaderScope::refers_to_row,
+                (x, y),
+            );
+        }
+    }
+
+    // Place h-lines, overwriting the cells stroke.
+    place_explicit_lines(
+        &mut table_ctx.cells,
+        &grid.hlines,
+        height,
+        width,
+        |cells, (y, x), pos| {
+            let cell = cells.cell_mut(x, y)?;
+            Some(match pos {
+                LinePosition::Before => &mut cell.data.stroke.bottom,
+                LinePosition::After => &mut cell.data.stroke.top,
+            })
+        },
+    );
+    // Place v-lines, overwriting the cells stroke.
+    place_explicit_lines(
+        &mut table_ctx.cells,
+        &grid.vlines,
+        width,
+        height,
+        |cells, (x, y), pos| {
+            let cell = cells.cell_mut(x, y)?;
+            Some(match pos {
+                LinePosition::Before => &mut cell.data.stroke.right,
+                LinePosition::After => &mut cell.data.stroke.left,
+            })
+        },
+    );
+
+    // Remove overlapping border strokes between cells.
+    for y in 0..height {
+        for x in 0..width.saturating_sub(1) {
+            prioritize_strokes(&mut table_ctx.cells, (x, y), (x + 1, y), |a, b| {
+                (&mut a.stroke.right, &mut b.stroke.left)
+            });
+        }
+    }
+    for x in 0..width {
+        for y in 0..height.saturating_sub(1) {
+            prioritize_strokes(&mut table_ctx.cells, (x, y), (x, y + 1), |a, b| {
+                (&mut a.stroke.bottom, &mut b.stroke.top)
+            });
+        }
+    }
+
+    (table_ctx.border_thickness, table_ctx.border_color) =
+        try_resolve_table_stroke(&table_ctx.cells);
+
+    let mut chunk_kind = table_ctx.row_kinds[0];
+    let mut chunk_id = GroupId::INVALID;
+    for (row, y) in table_ctx.cells.rows_mut().zip(0..) {
+        let parent = if gen_row_groups {
+            let row_kind = table_ctx.row_kinds[y as usize];
+            if chunk_id == GroupId::INVALID || !should_group_rows(chunk_kind, row_kind) {
+                let tag: TagKind = match row_kind {
+                    TableCellKind::Header(..) => Tag::THead.into(),
+                    TableCellKind::Footer => Tag::TFoot.into(),
+                    TableCellKind::Data => Tag::TBody.into(),
+                };
+                chunk_kind = row_kind;
+                chunk_id = groups.push_tag(table_id, tag);
+            }
+            chunk_id
+        } else {
+            table_id
+        };
+
+        let row_id = groups.push_tag(parent, Tag::TR);
+        let row_nodes = row
+            .iter_mut()
+            .filter_map(|entry| {
+                let cell = entry.as_cell_mut()?;
+                let rowspan = (cell.rowspan.get() != 1).then_some(cell.rowspan);
+                let colspan = (cell.colspan.get() != 1).then_some(cell.colspan);
+                let cell_kind = cell.data.kind;
+                let headers = std::mem::take(&mut cell.data.headers);
+                let mut tag: TagKind = match cell_kind {
+                    TableCellKind::Header(_, scope) => {
+                        let id = table_cell_id(table_ctx.table_id, cell.x, cell.y);
+                        Tag::TH(scope.to_krilla())
+                            .with_id(Some(id))
+                            .with_headers(Some(headers))
+                            .with_row_span(rowspan)
+                            .with_col_span(colspan)
+                            .into()
+                    }
+                    TableCellKind::Footer | TableCellKind::Data => Tag::TD
+                        .with_headers(Some(headers))
+                        .with_row_span(rowspan)
+                        .with_col_span(colspan)
+                        .into(),
+                };
+
+                resolve_cell_border_and_background(
+                    grid,
+                    table_ctx.border_thickness,
+                    table_ctx.border_color,
+                    [cell.x, cell.y],
+                    &cell.data.stroke,
+                    &mut tag,
+                );
+
+                let cell_group = groups.get_mut(cell.id);
+                if let GroupKind::TableCell(_, t, _) = &mut cell_group.kind {
+                    *t = tag;
+                }
+
+                Some(cell.id)
+            })
+            .collect::<Vec<_>>();
+
+        groups.extend_groups(row_id, row_nodes.into_iter());
     }
 }
 

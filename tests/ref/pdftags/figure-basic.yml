@@ -15,44 +15,39 @@
         - Annotation: page=0 index=1
     - Content: page=0 mcid=5
     - Content: page=0 mcid=6
-- Tag: NonStruct
+- Tag: Table
+  /BBox:
+    page: 0
+    left:    28.160
+    top:     54.240
+    right:  123.060
+    bottom:  84.520
+  /BorderColor: #000000
+  /BorderThickness:   1.000
   /K:
-    - Tag: Figure
-      /BBox:
-        page: 0
-        left:    59.750
-        top:     54.240
-        right:   90.250
-        bottom:  71.820
-      /K:
-        - Tag: Table
-          /BBox:
-            page: 0
-            left:    59.750
-            top:     54.240
-            right:   90.250
-            bottom:  71.820
-          /BorderColor: #000000
-          /BorderThickness:   1.000
-          /K:
-            - Tag: TR
-              /K:
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=7
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=8
     - Tag: Caption
       /K:
         - Content: page=0 mcid=9
-- Tag: NonStruct
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=7
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=8
+- Tag: Div
   /K:
+    - Tag: Caption
+      /K:
+        - Content: page=0 mcid=11
     - Tag: Figure
+      /Alt: "Sketch of white standing cylinder"
+      /Placement: Block
       /BBox:
         page: 0
         left:    46.654
@@ -61,63 +56,50 @@
         bottom: 147.093
       /K:
         - Content: page=0 mcid=10
-    - Tag: Caption
-      /K:
-        - Content: page=0 mcid=11
-- Tag: NonStruct
+- Tag: Table
+  /BBox:
+    page: 0
+    left:    19.695
+    top:    165.673
+    right:  131.525
+    bottom: 214.753
+  /BorderColor: #000000
+  /BorderThickness:   1.000
   /K:
-    - Tag: Figure
-      /BBox:
-        page: 0
-        left:    52.365
-        top:    165.673
-        right:   97.635
-        bottom: 199.833
-      /K:
-        - Tag: Table
-          /BBox:
-            page: 0
-            left:    52.365
-            top:    165.673
-            right:   97.635
-            bottom: 199.833
-          /BorderColor: #000000
-          /BorderThickness:   1.000
-          /K:
-            - Tag: TR
-              /K:
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=12
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=13
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=14
-            - Tag: TR
-              /K:
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=15
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=16
-                - Tag: TD
-                  /Headers: []
-                  /BorderStyle: Solid
-                  /K:
-                    - Content: page=0 mcid=17
     - Tag: Caption
       /K:
         - Content: page=0 mcid=18
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=12
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=13
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=14
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=15
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=16
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=17

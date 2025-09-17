@@ -23,10 +23,8 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
-use crate::tags::context::{GridCtx, ListCtx, OutlineCtx, TableCtx};
-use crate::tags::util::{
-    ArtifactKindExt, IdVec, PropertyOptRef, PropertyValCloned, PropertyValCopied,
-};
+use crate::tags::context::{self, Ctx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 use crate::tags::{BBoxCtx, FigureCtx, GroupId, GroupKind, Groups};
 
 pub struct Tree {
@@ -38,10 +36,7 @@ pub struct Tree {
     breaks: Vec<Break>,
     state: TreeStates,
     pub groups: Groups,
-    pub tables: IdVec<TableCtx>,
-    pub grids: IdVec<GridCtx>,
-    pub lists: IdVec<ListCtx>,
-    pub outlines: IdVec<OutlineCtx>,
+    pub ctx: Ctx,
 }
 
 impl Tree {
@@ -53,12 +48,10 @@ impl Tree {
             breaks: Vec::new(),
             state: TreeStates::new(),
             groups: Groups::new(),
-            tables: IdVec::new(),
-            grids: IdVec::new(),
-            lists: IdVec::new(),
-            outlines: IdVec::new(),
+            ctx: Ctx::new(),
         }
     }
+
     pub fn root(&self) -> GroupId {
         self.progressions[0]
     }
@@ -99,7 +92,7 @@ impl Tree {
     /// Find the lowest ancestor with a bounding box in the tree.
     pub fn parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
         let id = *self.state.bbox_stack.last()?;
-        self.groups.get_mut(id).kind.bbox_mut()
+        self.ctx.bbox_mut(&self.groups.get(id).kind)
     }
 
     pub fn finished_traversal(&self) -> bool {
@@ -199,7 +192,7 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
             {
                 tree.state.current_artifact = Some((next, ty));
                 surface.start_tagged(ContentTag::Artifact(ty));
-            } else if next_group.kind.bbox().is_some() {
+            } else if tree.ctx.bbox(&next_group.kind).is_some() {
                 tree.state.bbox_stack.push(next);
             }
         }
@@ -232,7 +225,7 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
                 let group = tree.groups.get(current);
                 if let Some(ty) = group.kind.as_artifact() {
                     current_artifact = Some((current, ty));
-                } else if group.kind.bbox().is_some() {
+                } else if tree.ctx.bbox(&group.kind).is_some() {
                     bbox_stack.insert(0, current);
                 }
                 current = group.parent;
@@ -349,7 +342,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         }
         GroupKind::OutlineEntry(entry, _) => {
             if let GroupKind::Outline(outline, _) = tree.groups.get(parent).kind {
-                let outline_ctx = tree.outlines.get_mut(outline);
+                let outline_ctx = tree.ctx.outlines.get_mut(outline);
                 let entry = entry.clone();
                 outline_ctx.insert(&mut tree.groups, parent, entry, id);
             } else {
@@ -357,13 +350,13 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             }
         }
         GroupKind::Table(table, ..) => {
-            let table_ctx = tree.tables.get_mut(*table);
-            table_ctx.build_table(&mut tree.groups, id);
+            let table_ctx = tree.ctx.tables.get_mut(*table);
+            context::build_table(table_ctx, &mut tree.groups, id);
             tree.groups.push_group(parent, id);
         }
         GroupKind::TableCell(cell, ..) => {
             if let GroupKind::Table(table, ..) = tree.groups.get(parent).kind {
-                let table_ctx = tree.tables.get_mut(table);
+                let table_ctx = tree.ctx.tables.get_mut(table);
                 table_ctx.insert(cell, id);
             } else {
                 // Avoid panicking, the nesting will be validated later.
@@ -371,13 +364,13 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             }
         }
         GroupKind::Grid(grid, _) => {
-            let grid_ctx = tree.grids.get(*grid);
-            grid_ctx.build_grid(&mut tree.groups, id);
+            let grid_ctx = tree.ctx.grids.get(*grid);
+            context::build_grid(grid_ctx, &mut tree.groups, id);
             tree.groups.push_group(parent, id);
         }
         GroupKind::GridCell(cell, _) => {
             if let GroupKind::Grid(grid, _) = tree.groups.get(parent).kind {
-                let grid_ctx = tree.grids.get_mut(grid);
+                let grid_ctx = tree.ctx.grids.get_mut(grid);
                 grid_ctx.insert(cell, id);
             } else {
                 // Avoid panicking, the nesting will be validated later.
@@ -389,20 +382,32 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         }
         GroupKind::ListItemLabel(..) => {
             let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.lists.get_mut(list);
+            let list_ctx = tree.ctx.lists.get_mut(list);
             list_ctx.push_label(&mut tree.groups, parent, id);
         }
         GroupKind::ListItemBody(..) => {
             let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.lists.get_mut(list);
+            let list_ctx = tree.ctx.lists.get_mut(list);
             list_ctx.push_body(&mut tree.groups, parent, id);
         }
         GroupKind::BibEntry(..) => {
             let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.lists.get_mut(list);
+            let list_ctx = tree.ctx.lists.get_mut(list);
             list_ctx.push_bib_entry(&mut tree.groups, parent, id);
         }
-        GroupKind::Figure(..) => {
+        GroupKind::Figure(figure, ..) => {
+            context::build_figure(tree, *figure, parent, id);
+        }
+        GroupKind::FigureCaption(..) => {
+            let parent_group = tree.groups.get_mut(parent);
+            if let GroupKind::Figure(figure, _, _) = &mut parent_group.kind {
+                let figure_ctx = tree.ctx.figures.get_mut(*figure);
+                figure_ctx.caption = Some(id);
+            } else {
+                tree.groups.push_group(parent, id);
+            }
+        }
+        GroupKind::Image(..) => {
             tree.groups.push_group(parent, id);
         }
         GroupKind::Formula(..) => {
@@ -444,10 +449,7 @@ struct TreeBuilder<'a> {
     progressions: Vec<GroupId>,
     breaks: Vec<Break>,
     groups: Groups,
-    tables: IdVec<TableCtx>,
-    grids: IdVec<GridCtx>,
-    lists: IdVec<ListCtx>,
-    outlines: IdVec<OutlineCtx>,
+    ctx: Ctx,
 
     stack: TagStack,
     logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
@@ -487,10 +489,7 @@ impl<'a> TreeBuilder<'a> {
             progressions: vec![doc],
             breaks: Vec::new(),
             groups,
-            tables: IdVec::new(),
-            grids: IdVec::new(),
-            lists: IdVec::new(),
-            outlines: IdVec::new(),
+            ctx: Ctx::new(),
 
             stack: TagStack::new(),
             logical_children: FxHashMap::default(),
@@ -513,10 +512,6 @@ impl<'a> TreeBuilder<'a> {
 
     pub fn parent_kind(&self) -> &GroupKind {
         &self.groups.get(self.parent()).kind
-    }
-
-    pub fn parent_kind_mut(&mut self) -> &mut GroupKind {
-        &mut self.groups.get_mut(self.parent()).kind
     }
 
     pub fn insert_break(&mut self, kind: BreakKind) {
@@ -658,10 +653,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         breaks: tree.breaks,
         state: TreeStates::new(),
         groups: tree.groups,
-        tables: tree.tables,
-        grids: tree.grids,
-        lists: tree.lists,
-        outlines: tree.outlines,
+        ctx: tree.ctx,
     })
 }
 
@@ -748,17 +740,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
-                let id = tree.outlines.push(OutlineCtx::new());
+                let id = tree.ctx.outlines.push(OutlineCtx::new());
                 push_stack(tree, elem, GroupKind::Outline(id, None))
-            }
-            PdfMarkerTagKind::FigureBody(alt) => {
-                let kind = GroupKind::Figure(FigureCtx::new(alt.clone()), None);
-                push_stack(tree, elem, kind)
             }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
-                let id = tree.lists.push(ListCtx::new());
+                let id = tree.ctx.lists.push(ListCtx::new());
                 push_stack(tree, elem, GroupKind::List(id, numbering, None))
             }
             PdfMarkerTagKind::BibEntry => {
@@ -779,55 +767,34 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(_) = elem.to_packed::<ListElem>() {
         // TODO: infer numbering from `list.marker`
         let numbering = ListNumbering::Circle;
-        let id = tree.lists.push(ListCtx::new());
+        let id = tree.ctx.lists.push(ListCtx::new());
         push_stack(tree, elem, GroupKind::List(id, numbering, None))
     } else if let Some(_) = elem.to_packed::<EnumElem>() {
         // TODO: infer numbering from `enum.numbering`
         let numbering = ListNumbering::Decimal;
-        let id = tree.lists.push(ListCtx::new());
+        let id = tree.ctx.lists.push(ListCtx::new());
         push_stack(tree, elem, GroupKind::List(id, numbering, None))
     } else if let Some(_) = elem.to_packed::<TermsElem>() {
         let numbering = ListNumbering::None;
-        let id = tree.lists.push(ListCtx::new());
+        let id = tree.ctx.lists.push(ListCtx::new());
         push_stack(tree, elem, GroupKind::List(id, numbering, None))
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
-        if figure.caption.opt_ref().is_none() {
-            no_progress(tree)
-        } else {
-            // Wrap the figure tag and the sibling caption in a container, if
-            // the caption is contained within the figure, like recommended for
-            // tables, screen readers might ignore it.
-            push_tag(tree, elem, Tag::NonStruct)
-        }
+        let bbox = tree.ctx.new_bbox();
+        let figure = tree.ctx.figures.push(FigureCtx::new(figure.clone()));
+        push_stack(tree, elem, GroupKind::Figure(figure, bbox, None))
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
-        push_tag(tree, elem, Tag::Caption)
+        let bbox = tree.ctx.new_bbox();
+        push_stack(tree, elem, GroupKind::FigureCaption(bbox, None))
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
-        let alt = image.alt.val_cloned();
-        if let GroupKind::Figure(figure_ctx, _) = tree.parent_kind_mut() {
-            // Set alt text of outer figure tag, if not present.
-            if figure_ctx.alt.is_none() {
-                figure_ctx.alt = alt;
-            }
-            no_progress(tree)
-        } else {
-            // TODO: Separate group kind for images, to generate
-            // just marked content.
-            push_stack(tree, elem, GroupKind::Figure(FigureCtx::new(alt), None))
-        }
+        let bbox = tree.ctx.new_bbox();
+        push_stack(tree, elem, GroupKind::Image(image.clone(), bbox, None))
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
-        // TODO: Only generate a figure if it contains exactly one image, or
-        // just marked content.
-        let alt = equation.alt.val_cloned();
-        if let GroupKind::Figure(figure_ctx, _) = tree.parent_kind_mut() {
-            // Set alt text of outer figure tag, if not present.
-            if figure_ctx.alt.is_none() {
-                figure_ctx.alt = alt.clone();
-            }
-        }
-        push_stack(tree, elem, GroupKind::Formula(FigureCtx::new(alt), None))
+        let bbox = tree.ctx.new_bbox();
+        push_stack(tree, elem, GroupKind::Formula(equation.clone(), bbox, None))
     } else if let Some(table) = elem.to_packed::<TableElem>() {
-        let id = tree.tables.push_with(|id| TableCtx::new(id, table.clone()));
-        push_stack(tree, elem, GroupKind::Table(id, BBoxCtx::new(), None))
+        let id = tree.ctx.tables.push_with(|id| TableCtx::new(id, table.clone()));
+        let bbox = tree.ctx.new_bbox();
+        push_stack(tree, elem, GroupKind::Table(id, bbox, None))
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         // Only repeated table headers and footer cells are laid out multiple
         // times. Mark duplicate headers as artifacts, since they have no
@@ -840,7 +807,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             push_stack(tree, elem, GroupKind::TableCell(cell.clone(), tag, None))
         }
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
-        let id = tree.grids.push(GridCtx::new(grid));
+        let id = tree.ctx.grids.push(GridCtx::new(grid));
         push_stack(tree, elem, GroupKind::Grid(id, None))
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
         // If there is no grid parent, this means a grid layouter is used

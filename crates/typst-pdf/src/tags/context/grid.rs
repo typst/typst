@@ -57,11 +57,11 @@ impl GridCtx {
             id,
         });
     }
+}
 
-    pub fn build_grid(&self, groups: &mut Groups, grid_id: GroupId) {
-        for cell in self.cells.entries.iter().filter_map(GridEntry::as_cell) {
-            groups.push_group(grid_id, cell.id);
-        }
+pub fn build_grid(grid_ctx: &GridCtx, groups: &mut Groups, grid_id: GroupId) {
+    for cell in grid_ctx.cells.entries.iter().filter_map(GridEntry::as_cell) {
+        groups.push_group(grid_id, cell.id);
     }
 }
 
