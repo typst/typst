@@ -13,7 +13,7 @@ We can clearly see that @fig-cylinder and
 ) <tab-basic>
 
 #figure(
-  pad(y: -6pt, image("/assets/images/cylinder.svg", height: 2cm)),
+  pad(y: -6pt, image(alt: "Sketch of white standing cylinder", "/assets/images/cylinder.svg", height: 2cm)),
   caption: [The basic shapes.],
   numbering: "I",
 ) <fig-cylinder>

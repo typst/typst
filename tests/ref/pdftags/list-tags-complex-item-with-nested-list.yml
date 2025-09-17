@@ -8,17 +8,9 @@
             - Content: page=0 mcid=0
         - Tag: LBody
           /K:
-            - Tag: Figure
-              /BBox:
-                page: 0
-                left:    21.425
-                top:      9.600
-                right:   29.275
-                bottom:  16.600
+            - Tag: BlockQuote
               /K:
-                - Tag: P
-                  /K:
-                    - Content: page=0 mcid=1
+                - Content: page=0 mcid=1
             - Tag: P
               /K:
                 - Tag: Link

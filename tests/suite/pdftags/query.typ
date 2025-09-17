@@ -4,7 +4,7 @@
 = Hi
 
 --- query-tags-duplicate-labelled-element pdftags ---
-#figure[
+#figure(alt: "Text saying: hello there")[
   hello there
 ] <figure>
 

@@ -17,7 +17,7 @@
 - f
 
 --- list-tags-complex-item-with-sub-list pdftags ---
-- #[#figure[hi] #footnote[1].]
+- #[#quote(block: true)[hi] #footnote[1].]
   - a
   - b
 - c
@@ -25,7 +25,7 @@
 
 --- list-tags-complex-item-with-nested-list pdftags ---
 - #[
-    #figure[hi]
+    #quote(block: true)[hi]
     #footnote[1].
     - a
     - b
