@@ -1,12 +1,10 @@
 - Tag: Link
-  /Alt: "https://example.com/"
   /K:
     - Annotation: page=0 index=0
     - Tag: P
       /K:
         - Content: page=0 mcid=0
 - Tag: Link
-  /Alt: "https://typst.org/"
   /K:
     - Annotation: page=0 index=1
     - Tag: P
@@ -16,7 +14,6 @@
   /K:
     - Content: page=0 mcid=2
     - Tag: Link
-      /Alt: "https://google.com/"
       /K:
         - Content: page=0 mcid=3
         - Annotation: page=0 index=2
@@ -26,14 +23,12 @@
   /K:
     - Content: page=0 mcid=6
     - Tag: Link
-      /Alt: "Email hi@typst.app"
       /K:
         - Content: page=0 mcid=7
         - Annotation: page=0 index=3
     - Content: page=0 mcid=8
     - Content: page=0 mcid=9
     - Tag: Link
-      /Alt: "Telephone 123"
       /K:
         - Content: page=0 mcid=10
         - Annotation: page=0 index=4

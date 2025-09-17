@@ -9,7 +9,6 @@
         - Tag: Reference
           /K:
             - Tag: Link
-              /Alt: "1. “A” page 1"
               /K:
                 - Tag: Lbl
                   /K:
@@ -24,7 +23,6 @@
             - Tag: Reference
               /K:
                 - Tag: Link
-                  /Alt: "1.a. “B” page 1"
                   /K:
                     - Tag: Lbl
                       /K:
@@ -37,7 +35,6 @@
             - Tag: Reference
               /K:
                 - Tag: Link
-                  /Alt: "1.b. “C” page 1"
                   /K:
                     - Tag: Lbl
                       /K:
@@ -50,7 +47,6 @@
         - Tag: Reference
           /K:
             - Tag: Link
-              /Alt: "2. “D” page 1"
               /K:
                 - Tag: Lbl
                   /K:
@@ -65,7 +61,6 @@
             - Tag: Reference
               /K:
                 - Tag: Link
-                  /Alt: "2.a. “E” page 1"
                   /K:
                     - Tag: Lbl
                       /K:

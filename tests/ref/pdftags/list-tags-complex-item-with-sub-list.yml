@@ -14,7 +14,6 @@
             - Tag: P
               /K:
                 - Tag: Link
-                  /Alt: "Footnote 1"
                   /K:
                     - Annotation: page=0 index=0
                     - Tag: Lbl
@@ -27,7 +26,6 @@
                 - Tag: Note
                   /K:
                     - Tag: Link
-                      /Alt: "1"
                       /K:
                         - Annotation: page=0 index=1
                         - Tag: Lbl

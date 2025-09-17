@@ -233,10 +233,7 @@ fn build_group_tag(ctx: &Ctx, group: &Group) -> Option<(TagKind, Option<Lang>)> 
             let placement = equation.block.val().then_some(kt::Placement::Block);
             (Tag::Formula(alt).with_placement(placement).into(), *lang)
         }
-        GroupKind::Link(link, lang) => {
-            let alt = link.alt.as_ref().map(EcoString::to_string);
-            (Tag::Link.with_alt_text(alt).into(), *lang)
-        }
+        GroupKind::Link(_, lang) => (Tag::Link.into(), *lang),
         GroupKind::CodeBlock(lang) => {
             let tag = Tag::Code.with_placement(Some(Placement::Block)).into();
             (tag, *lang)
