@@ -8,7 +8,7 @@ use krilla::geom::PathBuilder;
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
-use krilla::tagging::TagId;
+use krilla::tagging as kt;
 use krilla::tagging::fmt::Output;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
@@ -475,7 +475,7 @@ fn finish(
     }
 }
 
-fn display_tag_id(id: &TagId) -> impl std::fmt::Display + use<'_> {
+fn display_tag_id(id: &kt::TagId) -> impl std::fmt::Display + use<'_> {
     typst_utils::display(|f| {
         if let Ok(str) = std::str::from_utf8(id.as_bytes()) {
             f.write_str(str)

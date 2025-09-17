@@ -19,9 +19,10 @@ use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
 use crate::link::{LinkAnnotation, LinkAnnotationKind};
 use crate::tags::context::{Annotations, BBoxCtx, Ctx, FigureCtx, TagNode};
+use crate::tags::groups::TagStorage;
 use crate::tags::text::{TextAttr, TextDecoKind};
 use crate::tags::tree::{Step, Tree};
-use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
+use crate::tags::util::{IdVec, PropertyOptRef, PropertyValCloned, PropertyValCopied};
 
 pub use context::{AnnotationId, Tags};
 pub use groups::{Group, GroupId, GroupKind, Groups};
@@ -44,15 +45,16 @@ pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags
 pub fn finish(tags: &mut Tags) -> (Option<Lang>, TagTree) {
     assert!(tags.tree.finished_traversal(), "tree traversal didn't complete properly");
 
-    let group = tags.tree.groups.get(tags.tree.root());
+    let group = tags.tree.groups.list.get(GroupId::ROOT);
     let GroupKind::Root(mut doc_lang) = group.kind else { unreachable!() };
 
     let mut children = Vec::with_capacity(group.nodes().len());
 
     for child in group.nodes().iter() {
         resolve_node(
-            &tags.tree.groups,
             &tags.tree.ctx,
+            &tags.tree.groups.list,
+            &mut tags.tree.groups.tags,
             &mut tags.annotations,
             &mut doc_lang,
             &mut None,
@@ -66,8 +68,9 @@ pub fn finish(tags: &mut Tags) -> (Option<Lang>, TagTree) {
 
 /// Resolves nodes into an accumulator.
 fn resolve_node(
-    groups: &Groups,
     ctx: &Ctx,
+    groups: &IdVec<Group>,
+    tags: &mut TagStorage,
     annotations: &mut Annotations,
     parent_lang: &mut Option<Lang>,
     parent_bbox: &mut Option<BBoxCtx>,
@@ -77,8 +80,9 @@ fn resolve_node(
     match &node {
         TagNode::Group(id) => {
             resolve_group_node(
-                groups,
                 ctx,
+                groups,
+                tags,
                 annotations,
                 parent_lang,
                 parent_bbox,
@@ -99,8 +103,9 @@ fn resolve_node(
 }
 
 fn resolve_group_node(
-    groups: &Groups,
     ctx: &Ctx,
+    groups: &IdVec<Group>,
+    tags: &mut TagStorage,
     annotations: &mut Annotations,
     mut parent_lang: &mut Option<Lang>,
     mut parent_bbox: &mut Option<BBoxCtx>,
@@ -109,7 +114,7 @@ fn resolve_group_node(
 ) {
     let group = groups.get(id);
 
-    let mut tag = build_group_tag(ctx, group);
+    let mut tag = build_group_tag(ctx, tags, group);
     let mut bbox = ctx.bbox(&group.kind).cloned();
     let mut nodes = Vec::new();
 
@@ -125,15 +130,25 @@ fn resolve_group_node(
         nodes = Vec::with_capacity(group.nodes().len());
         let lang = tag.as_mut().map(|(_, lang)| lang).unwrap_or(&mut parent_lang);
         for child in group.nodes().iter() {
-            resolve_node(groups, ctx, annotations, lang, group_bbox, &mut nodes, child);
+            resolve_node(
+                ctx,
+                groups,
+                tags,
+                annotations,
+                lang,
+                group_bbox,
+                &mut nodes,
+                child,
+            );
         }
 
         // Insert logical children at the end of the parent.
         if let GroupKind::LogicalParent(children) = &group.kind {
             for child in children.iter() {
                 resolve_group_node(
-                    groups,
                     ctx,
+                    groups,
+                    tags,
                     annotations,
                     lang,
                     group_bbox,
@@ -179,7 +194,7 @@ fn resolve_group_node(
 
 /// Currently only done to resolve bounding boxes.
 fn resolve_artifact_node(
-    groups: &Groups,
+    groups: &IdVec<Group>,
     ctx: &Ctx,
     mut parent_bbox: &mut Option<BBoxCtx>,
     node: &TagNode,
@@ -205,7 +220,11 @@ fn resolve_artifact_node(
     }
 }
 
-fn build_group_tag(ctx: &Ctx, group: &Group) -> Option<(TagKind, Option<Lang>)> {
+fn build_group_tag(
+    ctx: &Ctx,
+    tags: &mut TagStorage,
+    group: &Group,
+) -> Option<(TagKind, Option<Lang>)> {
     Some(match &group.kind {
         GroupKind::Root(_) => unreachable!(),
         GroupKind::Artifact(_) => return None,
@@ -214,8 +233,7 @@ fn build_group_tag(ctx: &Ctx, group: &Group) -> Option<(TagKind, Option<Lang>)> 
         GroupKind::Outline(_, lang) => (Tag::TOC.into(), *lang),
         GroupKind::OutlineEntry(_, lang) => (Tag::TOCI.into(), *lang),
         GroupKind::Table(id, _, lang) => (ctx.tables.get(*id).build_tag(), *lang),
-        // TODO: store tags in a separate list and take them here.
-        GroupKind::TableCell(_, tag, lang) => (tag.clone(), *lang),
+        GroupKind::TableCell(_, tag, lang) => (tags.take(*tag), *lang),
         GroupKind::Grid(_, lang) => (Tag::Div.into(), *lang),
         GroupKind::GridCell(_, lang) => (Tag::Div.into(), *lang),
         GroupKind::List(_, numbering, lang) => (Tag::L(*numbering).into(), *lang),
@@ -239,7 +257,7 @@ fn build_group_tag(ctx: &Ctx, group: &Group) -> Option<(TagKind, Option<Lang>)> 
             (tag, *lang)
         }
         GroupKind::CodeBlockLine(lang) => (Tag::Span.into(), *lang),
-        GroupKind::Standard(tag, lang) => (tag.clone(), *lang),
+        GroupKind::Standard(tag, lang) => (tags.take(*tag), *lang),
     })
 }
 

@@ -13,7 +13,7 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::tags::context::{
-    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagNode,
+    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId, TagNode,
 };
 use crate::tags::text::ResolvedTextAttrs;
 use crate::tags::tree::StackEntry;
@@ -22,14 +22,17 @@ use crate::tags::util::{Id, IdVec};
 pub type GroupId = Id<Group>;
 
 impl GroupId {
+    pub const ROOT: Self = Self::new(0);
     pub const INVALID: Self = Self::new(u32::MAX);
 }
 
 #[derive(Debug)]
 pub struct Groups {
     locations: FxHashMap<Location, LocatedGroup>,
-    list: IdVec<Group>,
+    pub list: IdVec<Group>,
+    pub tags: TagStorage,
 
+    // TODO: move to tree builder
     /// Currently only used for table/grid cells that are broken across multiple
     /// regions, and thus can have opening/closing introspection tags that are
     /// in completely different frames, due to the logical parenting mechanism.
@@ -41,6 +44,7 @@ impl Groups {
         Self {
             locations: FxHashMap::default(),
             list: IdVec::new(),
+            tags: TagStorage::new(),
             unfinished_stacks: FxHashMap::default(),
         }
     }
@@ -116,14 +120,86 @@ impl Groups {
         self.list.push(Group::new(parent, span, kind))
     }
 
+    /// NOTE: this needs to be kept in sync with [`Groups::break_group`].
+    pub fn is_breakable(&self, kind: &GroupKind, is_pdf_ua: bool) -> bool {
+        match kind {
+            GroupKind::Root(..) => false,
+            GroupKind::Artifact(..) => true,
+            GroupKind::LogicalParent(..) => false,
+            GroupKind::LogicalChild => false,
+            GroupKind::Outline(..) => false,
+            GroupKind::OutlineEntry(..) => false,
+            GroupKind::Table(..) => false,
+            GroupKind::TableCell(..) => false,
+            GroupKind::Grid(..) => false,
+            GroupKind::GridCell(..) => false,
+            GroupKind::List(..) => false,
+            GroupKind::ListItemLabel(..) => false,
+            GroupKind::ListItemBody(..) => false,
+            GroupKind::BibEntry(..) => false,
+            GroupKind::Figure(..) => false,
+            GroupKind::FigureCaption(..) => false,
+            GroupKind::Image(..) => false,
+            GroupKind::Formula(..) => false,
+            GroupKind::Link(..) => !is_pdf_ua,
+            GroupKind::CodeBlock(..) => false,
+            GroupKind::CodeBlockLine(..) => false,
+            GroupKind::Standard(tag, ..) => match self.tags.get(*tag) {
+                TagKind::Part(_) => !is_pdf_ua,
+                TagKind::Article(_) => !is_pdf_ua,
+                TagKind::Section(_) => !is_pdf_ua,
+                TagKind::Div(_) => !is_pdf_ua,
+                TagKind::BlockQuote(_) => !is_pdf_ua,
+                TagKind::Caption(_) => !is_pdf_ua,
+                TagKind::TOC(_) => false,
+                TagKind::TOCI(_) => false,
+                TagKind::Index(_) => false,
+                TagKind::P(_) => true,
+                TagKind::Hn(_) => !is_pdf_ua,
+                TagKind::L(_) => false,
+                TagKind::LI(_) => false,
+                TagKind::Lbl(_) => !is_pdf_ua,
+                TagKind::LBody(_) => !is_pdf_ua,
+                TagKind::Table(_) => false,
+                TagKind::TR(_) => false,
+                TagKind::TH(_) => false,
+                TagKind::TD(_) => false,
+                TagKind::THead(_) => false,
+                TagKind::TBody(_) => false,
+                TagKind::TFoot(_) => false,
+                TagKind::Span(_) => true,
+                TagKind::InlineQuote(_) => !is_pdf_ua,
+                TagKind::Note(_) => !is_pdf_ua,
+                TagKind::Reference(_) => !is_pdf_ua,
+                TagKind::BibEntry(_) => !is_pdf_ua,
+                TagKind::Code(_) => !is_pdf_ua,
+                TagKind::Link(_) => !is_pdf_ua,
+                TagKind::Annot(_) => !is_pdf_ua,
+                TagKind::Figure(_) => !is_pdf_ua,
+                TagKind::Formula(_) => !is_pdf_ua,
+                TagKind::NonStruct(_) => !is_pdf_ua,
+                TagKind::Datetime(_) => !is_pdf_ua,
+                TagKind::Terms(_) => !is_pdf_ua,
+                TagKind::Title(_) => !is_pdf_ua,
+                TagKind::Strong(_) => true,
+                TagKind::Em(_) => true,
+            },
+        }
+    }
+
     /// NOTE: this needs to be kept in sync with [`GroupKind::is_breakable`].
     pub fn break_group(&mut self, id: GroupId, new_parent: GroupId) -> GroupId {
         let group = self.get(id);
+        let span = group.span;
 
-        let kind = match &group.kind {
+        let new_kind = match &group.kind {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
             GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
-            GroupKind::Standard(tag, _) => GroupKind::Standard(tag.clone(), None),
+            GroupKind::Standard(old, _) => {
+                let tag = self.tags.get(*old).clone();
+                let new = self.tags.push(tag);
+                GroupKind::Standard(new, None)
+            }
             GroupKind::Root(..)
             | GroupKind::LogicalParent(..)
             | GroupKind::LogicalChild
@@ -144,12 +220,7 @@ impl Groups {
             | GroupKind::CodeBlock(..)
             | GroupKind::CodeBlockLine(..) => unreachable!(),
         };
-        self.list.push(Group {
-            parent: new_parent,
-            kind,
-            span: group.span,
-            nodes: Vec::new(),
-        })
+        self.list.push(Group::new(new_parent, span, new_kind))
     }
 }
 
@@ -158,7 +229,8 @@ impl Groups {
 impl Groups {
     /// Create a new group with a standard tag and push it into the parent.
     pub fn push_tag(&mut self, parent: GroupId, tag: impl Into<TagKind>) -> GroupId {
-        let kind = GroupKind::Standard(tag.into(), None);
+        let tag_id = self.tags.push(tag);
+        let kind = GroupKind::Standard(tag_id, None);
         let id = self.list.push(Group::new(parent, Span::detached(), kind));
         self.get_mut(parent).nodes.push(TagNode::Group(id));
         id
@@ -203,6 +275,33 @@ impl Groups {
             current = self.get(current).parent;
         }
         false
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct TagStorage(Vec<Option<TagKind>>);
+
+impl TagStorage {
+    pub const fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn push(&mut self, tag: impl Into<TagKind>) -> TagId {
+        let id = TagId::new(self.0.len() as u32);
+        self.0.push(Some(tag.into()));
+        id
+    }
+
+    pub fn set(&mut self, id: TagId, tag: impl Into<TagKind>) {
+        self.0[id.idx()] = Some(tag.into());
+    }
+
+    pub fn get(&self, id: TagId) -> &TagKind {
+        self.0[id.idx()].as_ref().expect("tag")
+    }
+
+    pub fn take(&mut self, id: TagId) -> TagKind {
+        self.0[id.idx()].take().expect("tag")
     }
 }
 
@@ -275,7 +374,7 @@ pub enum GroupKind {
     Outline(OutlineId, Option<Lang>),
     OutlineEntry(Packed<OutlineEntry>, Option<Lang>),
     Table(TableId, BBoxId, Option<Lang>),
-    TableCell(Packed<TableCell>, TagKind, Option<Lang>),
+    TableCell(Packed<TableCell>, TagId, Option<Lang>),
     Grid(GridId, Option<Lang>),
     GridCell(Packed<GridCell>, Option<Lang>),
     List(ListId, ListNumbering, Option<Lang>),
@@ -292,7 +391,7 @@ pub enum GroupKind {
     Link(Packed<LinkMarker>, Option<Lang>),
     CodeBlock(Option<Lang>),
     CodeBlockLine(Option<Lang>),
-    Standard(TagKind, Option<Lang>),
+    Standard(TagId, Option<Lang>),
 }
 
 impl GroupKind {
@@ -348,73 +447,5 @@ impl GroupKind {
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Standard(_, lang) => lang,
         })
-    }
-
-    /// NOTE: this needs to be kept in sync with [`Groups::break_group`].
-    pub fn is_breakable(&self, is_pdf_ua: bool) -> bool {
-        match self {
-            GroupKind::Root(..) => false,
-            GroupKind::Artifact(..) => true,
-            GroupKind::LogicalParent(..) => false,
-            GroupKind::LogicalChild => false,
-            GroupKind::Outline(..) => false,
-            GroupKind::OutlineEntry(..) => false,
-            GroupKind::Table(..) => false,
-            GroupKind::TableCell(..) => false,
-            GroupKind::Grid(..) => false,
-            GroupKind::GridCell(..) => false,
-            GroupKind::List(..) => false,
-            GroupKind::ListItemLabel(..) => false,
-            GroupKind::ListItemBody(..) => false,
-            GroupKind::BibEntry(..) => false,
-            GroupKind::Figure(..) => false,
-            GroupKind::FigureCaption(..) => false,
-            GroupKind::Image(..) => false,
-            GroupKind::Formula(..) => false,
-            GroupKind::Link(..) => !is_pdf_ua,
-            GroupKind::CodeBlock(..) => false,
-            GroupKind::CodeBlockLine(..) => false,
-            GroupKind::Standard(tag, ..) => match tag {
-                TagKind::Part(_) => !is_pdf_ua,
-                TagKind::Article(_) => !is_pdf_ua,
-                TagKind::Section(_) => !is_pdf_ua,
-                TagKind::Div(_) => !is_pdf_ua,
-                TagKind::BlockQuote(_) => !is_pdf_ua,
-                TagKind::Caption(_) => !is_pdf_ua,
-                TagKind::TOC(_) => false,
-                TagKind::TOCI(_) => false,
-                TagKind::Index(_) => false,
-                TagKind::P(_) => true,
-                TagKind::Hn(_) => !is_pdf_ua,
-                TagKind::L(_) => false,
-                TagKind::LI(_) => false,
-                TagKind::Lbl(_) => !is_pdf_ua,
-                TagKind::LBody(_) => !is_pdf_ua,
-                TagKind::Table(_) => false,
-                TagKind::TR(_) => false,
-                // TODO: disallow table/grid cells outside of tables/grids
-                TagKind::TH(_) => false,
-                TagKind::TD(_) => false,
-                TagKind::THead(_) => false,
-                TagKind::TBody(_) => false,
-                TagKind::TFoot(_) => false,
-                TagKind::Span(_) => true,
-                TagKind::InlineQuote(_) => !is_pdf_ua,
-                TagKind::Note(_) => !is_pdf_ua,
-                TagKind::Reference(_) => !is_pdf_ua,
-                TagKind::BibEntry(_) => !is_pdf_ua,
-                TagKind::Code(_) => !is_pdf_ua,
-                TagKind::Link(_) => !is_pdf_ua,
-                TagKind::Annot(_) => !is_pdf_ua,
-                TagKind::Figure(_) => !is_pdf_ua,
-                TagKind::Formula(_) => !is_pdf_ua,
-                TagKind::NonStruct(_) => !is_pdf_ua,
-                TagKind::Datetime(_) => !is_pdf_ua,
-                TagKind::Terms(_) => !is_pdf_ua,
-                TagKind::Title(_) => !is_pdf_ua,
-                TagKind::Strong(_) => true,
-                TagKind::Em(_) => true,
-            },
-        }
     }
 }

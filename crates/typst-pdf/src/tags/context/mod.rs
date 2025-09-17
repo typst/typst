@@ -1,7 +1,7 @@
 use std::cell::OnceCell;
 
 use krilla::geom as kg;
-use krilla::tagging::{BBox, Identifier, Node};
+use krilla::tagging::{BBox, Identifier, Node, TagKind};
 use typst_library::layout::{Abs, Point, Rect};
 use typst_library::text::Lang;
 
@@ -30,6 +30,8 @@ pub type FigureId = Id<FigureCtx>;
 pub type ListId = Id<ListCtx>;
 pub type OutlineId = Id<OutlineCtx>;
 pub type BBoxId = Id<BBoxCtx>;
+pub type TagId = Id<TagKind>;
+pub type AnnotationId = Id<krilla::annotation::Annotation>;
 
 pub struct Tags {
     pub in_tiling: bool,
@@ -46,7 +48,7 @@ impl Tags {
             in_tiling: false,
             tree,
             text_attrs: TextAttrs::new(),
-            annotations: Annotations(Vec::new()),
+            annotations: Annotations::new(),
         }
     }
 
@@ -69,7 +71,6 @@ impl Tags {
     }
 }
 
-#[derive(Debug)]
 pub struct Ctx {
     pub tables: IdVec<TableCtx>,
     pub grids: IdVec<GridCtx>,
@@ -80,7 +81,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             tables: IdVec::new(),
             grids: IdVec::new(),
@@ -107,27 +108,28 @@ impl Ctx {
 pub struct Annotations(Vec<OnceCell<Identifier>>);
 
 impl Annotations {
+    pub const fn new() -> Self {
+        Self(Vec::new())
+    }
+
     pub fn reserve(&mut self) -> AnnotationId {
-        let idx = self.0.len();
+        let id = AnnotationId::new(self.0.len() as u32);
         self.0.push(OnceCell::new());
-        AnnotationId(idx as u32)
+        id
     }
 
     pub fn init(&mut self, id: AnnotationId, annot: Identifier) {
-        self.0[id.0 as usize]
+        self.0[id.idx()]
             .set(annot)
             .map_err(|_| ())
             .expect("annotation to be uninitialized");
     }
 
     pub fn take(&mut self, id: AnnotationId) -> Node {
-        let annot = self.0[id.0 as usize].take().expect("initialized annotation node");
+        let annot = self.0[id.idx()].take().expect("initialized annotation node");
         Node::Leaf(annot)
     }
 }
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct AnnotationId(u32);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BBoxCtx {

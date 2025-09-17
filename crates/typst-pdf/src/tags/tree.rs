@@ -52,10 +52,6 @@ impl Tree {
         }
     }
 
-    pub fn root(&self) -> GroupId {
-        self.progressions[0]
-    }
-
     pub fn current(&self) -> GroupId {
         self.progressions[self.prog_cursor]
     }
@@ -350,14 +346,13 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             }
         }
         GroupKind::Table(table, ..) => {
-            let table_ctx = tree.ctx.tables.get_mut(*table);
-            context::build_table(table_ctx, &mut tree.groups, id);
+            context::build_table(tree, *table, id);
             tree.groups.push_group(parent, id);
         }
-        GroupKind::TableCell(cell, ..) => {
-            if let GroupKind::Table(table, ..) = tree.groups.get(parent).kind {
+        GroupKind::TableCell(cell, tag, _) => {
+            if let GroupKind::Table(table, _, _) = tree.groups.get(parent).kind {
                 let table_ctx = tree.ctx.tables.get_mut(table);
-                table_ctx.insert(cell, id);
+                table_ctx.insert(cell, *tag, id);
             } else {
                 // Avoid panicking, the nesting will be validated later.
                 tree.groups.push_group(parent, id);
@@ -438,7 +433,6 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
     parent
 }
 
-#[derive(Debug)]
 struct TreeBuilder<'a> {
     options: &'a PdfOptions<'a>,
 
@@ -803,7 +797,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         if cell.is_repeated.val() {
             push_artifact(tree, elem, ArtifactType::Other)
         } else {
-            let tag = Tag::TD.into();
+            let tag = tree.groups.tags.push(Tag::TD);
             push_stack(tree, elem, GroupKind::TableCell(cell.clone(), tag, None))
         }
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
@@ -875,7 +869,8 @@ fn no_progress(tree: &TreeBuilder) -> GroupId {
 }
 
 fn push_tag(tree: &mut TreeBuilder, elem: &Content, tag: impl Into<TagKind>) -> GroupId {
-    push_stack(tree, elem, GroupKind::Standard(tag.into(), None))
+    let id = tree.groups.tags.push(tag.into());
+    push_stack(tree, elem, GroupKind::Standard(id, None))
 }
 
 fn push_stack(tree: &mut TreeBuilder, elem: &Content, kind: GroupKind) -> GroupId {
@@ -940,7 +935,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     let mut non_breakable_span = Span::detached();
     for e in tree.stack.iter().skip(stack_idx + 1) {
         let group = tree.groups.get(e.id);
-        if group.kind.is_breakable(tree.options.is_pdf_ua()) {
+        if tree.groups.is_breakable(&group.kind, tree.options.is_pdf_ua()) {
             continue;
         }
 

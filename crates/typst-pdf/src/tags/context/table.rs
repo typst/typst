@@ -4,8 +4,8 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use az::SaturatingAs;
-use krilla::tagging::{self as kt, NaiveRgbColor};
-use krilla::tagging::{Tag, TagId, TagKind};
+use krilla::tagging as kt;
+use krilla::tagging::{NaiveRgbColor, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_library::foundations::Packed;
@@ -15,10 +15,11 @@ use typst_library::model::{TableCell, TableElem};
 use typst_library::pdf::{TableCellKind, TableHeaderScope};
 use typst_library::visualize::{FixedStroke, Stroke};
 
-use crate::tags::context::TableId;
+use crate::tags::GroupId;
 use crate::tags::context::grid::{CtxCell, GridCells, GridEntry, GridExt};
+use crate::tags::context::{TableId, TagId};
+use crate::tags::tree::Tree;
 use crate::tags::util::{self, PropertyOptRef, PropertyValCopied, TableHeaderScopeExt};
-use crate::tags::{GroupId, GroupKind, Groups};
 use crate::util::{AbsExt, SidesExt};
 
 #[derive(Debug)]
@@ -33,8 +34,9 @@ pub struct TableCtx {
 
 #[derive(Clone, Debug)]
 pub struct TableCellData {
+    tag: TagId,
     kind: TableCellKind,
-    headers: SmallVec<[TagId; 1]>,
+    headers: SmallVec<[kt::TagId; 1]>,
     stroke: Sides<PrioritzedStroke>,
 }
 
@@ -91,7 +93,7 @@ impl TableCtx {
         }
     }
 
-    pub fn insert(&mut self, cell: &Packed<TableCell>, id: GroupId) {
+    pub fn insert(&mut self, cell: &Packed<TableCell>, tag: TagId, id: GroupId) {
         let x = cell.x.val().unwrap_or_else(|| unreachable!()).saturating_as();
         let y = cell.y.val().unwrap_or_else(|| unreachable!()).saturating_as();
         let rowspan = cell.rowspan.val();
@@ -113,7 +115,7 @@ impl TableCtx {
             },
         );
         self.cells.insert(CtxCell {
-            data: TableCellData { kind, headers: SmallVec::new(), stroke },
+            data: TableCellData { tag, kind, headers: SmallVec::new(), stroke },
             x,
             y,
             rowspan: rowspan.try_into().unwrap_or(NonZeroU32::MAX),
@@ -131,7 +133,9 @@ impl TableCtx {
     }
 }
 
-pub fn build_table(table_ctx: &mut TableCtx, groups: &mut Groups, table_id: GroupId) {
+pub fn build_table(tree: &mut Tree, table_id: TableId, table: GroupId) {
+    let table_ctx = tree.ctx.tables.get_mut(table_id);
+
     // Table layouting ensures that there are no overlapping cells, and that
     // any gaps left by the user are filled with empty cells.
     // A show rule, can prevent the table from being layed out, in which case
@@ -285,14 +289,14 @@ pub fn build_table(table_ctx: &mut TableCtx, groups: &mut Groups, table_id: Grou
                     TableCellKind::Data => Tag::TBody.into(),
                 };
                 chunk_kind = row_kind;
-                chunk_id = groups.push_tag(table_id, tag);
+                chunk_id = tree.groups.push_tag(table, tag);
             }
             chunk_id
         } else {
-            table_id
+            table
         };
 
-        let row_id = groups.push_tag(parent, Tag::TR);
+        let row_id = tree.groups.push_tag(parent, Tag::TR);
         let row_nodes = row
             .iter_mut()
             .filter_map(|entry| {
@@ -327,16 +331,13 @@ pub fn build_table(table_ctx: &mut TableCtx, groups: &mut Groups, table_id: Grou
                     &mut tag,
                 );
 
-                let cell_group = groups.get_mut(cell.id);
-                if let GroupKind::TableCell(_, t, _) = &mut cell_group.kind {
-                    *t = tag;
-                }
+                tree.groups.tags.set(cell.data.tag, tag);
 
                 Some(cell.id)
             })
             .collect::<Vec<_>>();
 
-        groups.extend_groups(row_id, row_nodes.into_iter());
+        tree.groups.extend_groups(row_id, row_nodes.into_iter());
     }
 }
 
@@ -355,7 +356,7 @@ struct HeaderCells {
     /// Currently this is only supported for multi row headers.
     region_range: Option<Range<u32>>,
     level: NonZeroU32,
-    cell_ids: SmallVec<[TagId; 1]>,
+    cell_ids: SmallVec<[kt::TagId; 1]>,
 }
 
 fn resolve_cell_headers<F>(
@@ -437,11 +438,11 @@ where
     header_stack.iter().rev().nth(1)
 }
 
-fn table_cell_id(table_id: TableId, x: u32, y: u32) -> TagId {
+fn table_cell_id(table_id: TableId, x: u32, y: u32) -> kt::TagId {
     // 32 bytes is the maximum length the ID string can have.
     let mut buf = SmallVec::<[u8; 32]>::new();
     _ = write!(&mut buf, "{}x{x}y{y}", table_id.get() + 1);
-    TagId::from(buf)
+    kt::TagId::from(buf)
 }
 
 fn place_explicit_lines<F>(
