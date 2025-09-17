@@ -545,10 +545,14 @@ impl OutputType for Pdftags {
 
     fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
         let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-        let doc = match output {
+        let mut doc = match output {
             Ok(doc) => doc,
             Err(errors) => return Warned { output: Err(errors), warnings },
         };
+        if doc.info.title.is_none() {
+            doc.info.title = Some("<test>".into());
+        }
+
         let options = PdfOptions {
             standards: PdfStandards::new(&[PdfStandard::Ua_1]).unwrap(),
             ..Default::default()
