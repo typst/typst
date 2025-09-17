@@ -937,7 +937,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.8.1"
-source = "git+https://github.com/typst/hayagriva?rev=03ae2acf168e65604e74f0361e74ba4ef7689f16#03ae2acf168e65604e74f0361e74ba4ef7689f16"
+source = "git+https://github.com/typst/hayagriva?rev=03ae2acf#03ae2acf168e65604e74f0361e74ba4ef7689f16"
 dependencies = [
  "biblatex",
  "ciborium",
