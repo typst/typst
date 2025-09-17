@@ -142,6 +142,11 @@ impl RealizationKind<'_> {
         matches!(self, Self::LayoutFragment { .. } | Self::HtmlFragment { .. })
     }
 
+    /// It this a realization for the whole document?
+    pub fn is_document(&self) -> bool {
+        matches!(self, Self::LayoutDocument { .. } | Self::HtmlDocument { .. })
+    }
+
     /// If this is a document-level realization, accesses the document info.
     pub fn as_document_mut(&mut self) -> Option<&mut DocumentInfo> {
         match self {

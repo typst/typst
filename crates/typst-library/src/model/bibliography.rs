@@ -1051,10 +1051,11 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
         citationberg::VerticalAlign::Baseline => {}
         citationberg::VerticalAlign::Sup => {
             // Add zero-width weak spacing to make the superscript "sticky".
-            content = HElem::hole().pack() + SuperElem::new(content).pack().spanned(span);
+            content =
+                HElem::hole().clone() + SuperElem::new(content).pack().spanned(span);
         }
         citationberg::VerticalAlign::Sub => {
-            content = HElem::hole().pack() + SubElem::new(content).pack().spanned(span);
+            content = HElem::hole().clone() + SubElem::new(content).pack().spanned(span);
         }
     }
 
