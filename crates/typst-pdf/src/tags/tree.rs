@@ -24,8 +24,9 @@ use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::tags::context::{self, Ctx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::context::{BBoxCtx, FigureCtx};
+use crate::tags::groups::{GroupId, GroupKind, Groups};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
-use crate::tags::{BBoxCtx, FigureCtx, GroupId, GroupKind, Groups};
 
 pub struct Tree {
     /// Points at the current group in the `progressions` list.
@@ -40,16 +41,8 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn empty() -> Self {
-        Self {
-            prog_cursor: 0,
-            progressions: Vec::new(),
-            break_cursor: 0,
-            breaks: Vec::new(),
-            state: TreeStates::new(),
-            groups: Groups::new(),
-            ctx: Ctx::new(),
-        }
+    pub fn empty(document: &PagedDocument, options: &PdfOptions) -> Self {
+        TreeBuilder::new(document, options).finish()
     }
 
     pub fn current(&self) -> GroupId {
@@ -490,6 +483,18 @@ impl<'a> TreeBuilder<'a> {
         }
     }
 
+    pub fn finish(self) -> Tree {
+        Tree {
+            prog_cursor: 0,
+            progressions: self.progressions,
+            break_cursor: 0,
+            breaks: self.breaks,
+            state: TreeStates::new(),
+            groups: self.groups,
+            ctx: self.ctx,
+        }
+    }
+
     pub fn root_document(&self) -> GroupId {
         self.progressions[0]
     }
@@ -639,15 +644,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         assert_ne!(group.parent, GroupId::INVALID);
     }
 
-    Ok(Tree {
-        prog_cursor: 0,
-        progressions: tree.progressions,
-        break_cursor: 0,
-        breaks: tree.breaks,
-        state: TreeStates::new(),
-        groups: tree.groups,
-        ctx: tree.ctx,
-    })
+    Ok(tree.finish())
 }
 
 fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {

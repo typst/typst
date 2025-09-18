@@ -4,10 +4,11 @@ use krilla::tagging::{self as kt, Tag};
 use typst_library::foundations::Packed;
 use typst_library::model::FigureElem;
 
-use crate::tags::context::{FigureId, TagNode};
+use crate::tags::context::FigureId;
+use crate::tags::groups::{GroupId, GroupKind};
+use crate::tags::resolve::TagNode;
 use crate::tags::tree::Tree;
 use crate::tags::util::PropertyOptRef;
-use crate::tags::{GroupId, GroupKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FigureCtx {

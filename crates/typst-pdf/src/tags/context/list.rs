@@ -1,6 +1,7 @@
 use krilla::tagging::Tag;
 
-use crate::tags::{GroupId, GroupKind, Groups, TagNode};
+use crate::tags::groups::{GroupId, GroupKind, Groups};
+use crate::tags::resolve::TagNode;
 
 #[derive(Clone, Debug)]
 pub struct ListCtx {
