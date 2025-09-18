@@ -123,13 +123,6 @@ fn resolve_group_node(
         for child in group.nodes().iter() {
             resolve_node(rs, lang, group_bbox, &mut nodes, child)?;
         }
-
-        // Insert logical children at the end of the parent.
-        if let GroupKind::LogicalParent(children) = &group.kind {
-            for child in children.iter() {
-                resolve_group_node(rs, lang, group_bbox, &mut nodes, *child)?;
-            }
-        }
     }
 
     // Update the parent bbox.

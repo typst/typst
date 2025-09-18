@@ -38,6 +38,7 @@ pub struct Tree {
     state: TreeStates,
     pub groups: Groups,
     pub ctx: Ctx,
+    pub logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
 }
 
 impl Tree {
@@ -316,13 +317,19 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 surface.end_tagged();
             }
         }
-        GroupKind::LogicalParent(_) => {
+        GroupKind::LogicalParent(elem) => {
+            let loc = elem.location().unwrap();
+            // Insert logical children when closing the logical parent, so they
+            // are at the end of the group.
+            if let Some(children) = tree.logical_children.get(&loc) {
+                tree.groups.extend_groups(id, children.iter().copied());
+            }
             tree.groups.push_group(parent, id);
         }
         GroupKind::LogicalChild => {
-            let parent_group = tree.groups.get_mut(parent);
-            if let GroupKind::LogicalParent(children) = &mut parent_group.kind {
-                children.push(id);
+            if let GroupKind::LogicalParent(_) = tree.groups.get(parent).kind {
+                // `GroupKind::LogicalParent` handles inserting of children at
+                // its end, see above.
             } else {
                 tree.groups.push_group(parent, id);
             }
@@ -438,9 +445,9 @@ struct TreeBuilder<'a> {
     breaks: Vec<Break>,
     groups: Groups,
     ctx: Ctx,
+    logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
 
     stack: TagStack,
-    logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -493,6 +500,7 @@ impl<'a> TreeBuilder<'a> {
             state: TreeStates::new(),
             groups: self.groups,
             ctx: self.ctx,
+            logical_children: self.logical_children,
         }
     }
 
@@ -827,7 +835,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(_) = elem.to_packed::<ParElem>() {
         push_tag(tree, elem, Tag::P)
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
-        push_stack(tree, elem, GroupKind::LogicalParent(SmallVec::new()))
+        push_stack(tree, elem, GroupKind::LogicalParent(elem.clone()))
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
         push_tag(tree, elem, Tag::Note)
     } else if let Some(quote) = elem.to_packed::<QuoteElem>() {
@@ -852,7 +860,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         }
     } else if let Some(place) = elem.to_packed::<PlaceElem>() {
         if place.float.val() {
-            push_stack(tree, elem, GroupKind::LogicalParent(SmallVec::new()))
+            push_stack(tree, elem, GroupKind::LogicalParent(elem.clone()))
         } else {
             no_progress(tree)
         }

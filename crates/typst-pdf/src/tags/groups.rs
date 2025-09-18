@@ -2,8 +2,7 @@ use std::collections::hash_map::Entry;
 
 use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
-use smallvec::SmallVec;
-use typst_library::foundations::{LinkMarker, Packed};
+use typst_library::foundations::{Content, LinkMarker, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::GridCell;
 use typst_library::math::EquationElem;
@@ -370,7 +369,7 @@ impl Group {
 pub enum GroupKind {
     Root(Option<Lang>),
     Artifact(ArtifactType),
-    LogicalParent(SmallVec<[GroupId; 4]>),
+    LogicalParent(Content),
     LogicalChild,
     Outline(OutlineId, Option<Lang>),
     OutlineEntry(Packed<OutlineEntry>, Option<Lang>),
