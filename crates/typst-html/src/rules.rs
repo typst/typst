@@ -7,7 +7,9 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry};
-use typst_library::layout::{BlockBody, BlockElem, BoxElem,HElem,  OuterVAlignment, Sizing};
+use typst_library::layout::{
+    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
+};
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
     FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,

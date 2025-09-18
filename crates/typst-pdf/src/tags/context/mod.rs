@@ -99,10 +99,6 @@ impl Ctx {
     pub fn bbox(&self, kind: &GroupKind) -> Option<&BBoxCtx> {
         Some(self.bboxes.get(kind.bbox()?))
     }
-
-    pub fn bbox_mut(&mut self, kind: &GroupKind) -> Option<&mut BBoxCtx> {
-        Some(self.bboxes.get_mut(kind.bbox()?))
-    }
 }
 
 pub struct Annotations(Vec<OnceCell<Identifier>>);

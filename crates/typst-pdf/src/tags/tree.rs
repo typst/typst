@@ -23,7 +23,7 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
-use crate::tags::context::{self, Ctx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::context::{self, BBoxId, Ctx, GridCtx, ListCtx, OutlineCtx, TableCtx};
 use crate::tags::context::{BBoxCtx, FigureCtx};
 use crate::tags::groups::{GroupId, GroupKind, Groups};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
@@ -47,14 +47,6 @@ impl Tree {
 
     pub fn current(&self) -> GroupId {
         self.progressions[self.prog_cursor]
-    }
-
-    fn pop_artifact(&mut self, id: GroupId) -> bool {
-        self.state.current_artifact.take_if(|(i, _)| *i == id).is_some()
-    }
-
-    fn pop_bbox(&mut self, id: GroupId) -> bool {
-        self.state.bbox_stack.pop_if(|i| *i == id).is_some()
     }
 
     /// Find the lowest link ancestor in the tree.
@@ -81,7 +73,7 @@ impl Tree {
     /// Find the lowest ancestor with a bounding box in the tree.
     pub fn parent_bbox(&mut self) -> Option<&mut BBoxCtx> {
         let id = *self.state.bbox_stack.last()?;
-        self.ctx.bbox_mut(&self.groups.get(id).kind)
+        Some(self.ctx.bboxes.get_mut(id))
     }
 
     pub fn finished_traversal(&self) -> bool {
@@ -127,12 +119,20 @@ struct TreeState {
     /// The highest artifact ancestor in the tree.
     current_artifact: Option<(GroupId, ArtifactType)>,
     /// The stack of ancestors that have a [`GroupKind::bbox`].
-    bbox_stack: Vec<GroupId>,
+    bbox_stack: Vec<BBoxId>,
 }
 
 impl TreeState {
     fn new() -> Self {
         Self { current_artifact: None, bbox_stack: Vec::new() }
+    }
+
+    fn pop_artifact(&mut self, id: GroupId) -> bool {
+        self.current_artifact.take_if(|(i, _)| *i == id).is_some()
+    }
+
+    fn pop_bbox(&mut self, id: BBoxId) {
+        self.bbox_stack.pop_if(|i| *i == id);
     }
 }
 
@@ -181,8 +181,8 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
             {
                 tree.state.current_artifact = Some((next, ty));
                 surface.start_tagged(ContentTag::Artifact(ty));
-            } else if tree.ctx.bbox(&next_group.kind).is_some() {
-                tree.state.bbox_stack.push(next);
+            } else if let Some(id) = &next_group.kind.bbox() {
+                tree.state.bbox_stack.push(*id);
             }
         }
         StepKind::EndTag => {
@@ -193,7 +193,6 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
                 tree.break_cursor += 1;
                 step_break(tree, surface, prev, next, *brk);
             } else {
-                tree.pop_bbox(prev);
                 close_group(tree, surface, prev);
             }
         }
@@ -214,8 +213,8 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
                 let group = tree.groups.get(current);
                 if let Some(ty) = group.kind.as_artifact() {
                     current_artifact = Some((current, ty));
-                } else if tree.ctx.bbox(&group.kind).is_some() {
-                    bbox_stack.insert(0, current);
+                } else if let Some(id) = group.kind.bbox() {
+                    bbox_stack.insert(0, id);
                 }
                 current = group.parent;
             }
@@ -284,8 +283,8 @@ fn step_break(
                 let group = tree.groups.get(current);
                 if let GroupKind::Artifact(ty) = group.kind {
                     new_artifact = Some((current, ty));
-                } else {
-                    tree.state.bbox_stack.insert(bbox_start, current);
+                } else if let Some(id) = group.kind.bbox() {
+                    tree.state.bbox_stack.insert(bbox_start, id);
                 }
                 current = group.parent;
             }
@@ -303,15 +302,17 @@ fn step_break(
 }
 
 fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
-    tree.pop_bbox(id);
-
     let group = tree.groups.get(id);
     let parent = group.parent;
+
+    if let Some(id) = group.kind.bbox() {
+        tree.state.pop_bbox(id);
+    }
 
     match &group.kind {
         GroupKind::Root(_) => unreachable!(),
         GroupKind::Artifact(_) => {
-            if tree.pop_artifact(id) {
+            if tree.state.pop_artifact(id) {
                 surface.end_tagged();
             }
         }
