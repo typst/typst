@@ -3,7 +3,7 @@ Hello @netwok
 And again: @netwok
 
 #pagebreak()
-#bibliography("/assets/bib/works.bib", style: "chicago-notes")
+#bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
 --- cite-form ---
 #set page(width: 200pt)
@@ -70,7 +70,7 @@ A @netwok @arrgh @quark, B.
 #context [Citation @distress on page #here().page()]
 
 #show bibliography: none
-#bibliography("/assets/bib/works.bib", style: "chicago-notes")
+#bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
 --- issue-1597-cite-footnote ---
 // Tests that when a citation footnote is pushed to next page, things still
