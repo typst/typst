@@ -75,7 +75,7 @@
 // When there's only a link, it will surround the paragraph.
 #case(
   link("A")[A],
-  "<a><p></p></a>"
+  "<p><a></a></p>"
 )
 
 --- tags-textual ---

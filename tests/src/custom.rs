@@ -38,8 +38,12 @@ pub fn check(test: &Test, world: &TestWorld, doc: Option<&PagedDocument>) -> Str
             test_eq!(sink, info.title.as_deref(), Some("Alternative"));
         }
         "tags-grouping" | "tags-textual" => {
-            if let Err(message) = check_balanced(doc.unwrap()) {
-                sink.push_str(message);
+            if let Some(doc) = doc {
+                if let Err(message) = check_balanced(doc) {
+                    sink.push_str(message);
+                }
+            } else {
+                sink.push_str("missing document");
             }
         }
         _ => {}

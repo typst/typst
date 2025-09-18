@@ -414,8 +414,15 @@ mod tests {
     }
 
     #[test]
-    fn test_backlink() {
+    fn test_footnote_links() {
         let s = "#footnote[Hi]";
-        test_click(s, point(10.0, 10.0), pos(1, 18.5, 37.1).map(Jump::Position));
+        test_click(s, point(10.0, 10.0), pos(1, 10.0, 31.58).map(Jump::Position));
+        test_click(s, point(19.0, 33.0), pos(1, 10.0, 16.58).map(Jump::Position));
+    }
+
+    #[test]
+    fn test_footnote_link_entry_customized() {
+        let s = "#show footnote.entry: [Replaced]; #footnote[Hi]";
+        test_click(s, point(10.0, 10.0), pos(1, 10.0, 31.58).map(Jump::Position));
     }
 }

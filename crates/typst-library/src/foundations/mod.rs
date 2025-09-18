@@ -74,6 +74,7 @@ use typst_syntax::SyntaxMode;
 pub use {
     ecow::{eco_format, eco_vec},
     indexmap::IndexMap,
+    smallvec::SmallVec,
 };
 
 use comemo::TrackedMut;
