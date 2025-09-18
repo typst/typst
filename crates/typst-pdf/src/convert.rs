@@ -45,8 +45,7 @@ pub fn convert(
 
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
-
-    let (doc_lang, tree) = tags::finish(&mut gc.tags);
+    let (doc_lang, tree) = tags::resolve(&mut gc)?;
 
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc, doc_lang));
@@ -62,8 +61,7 @@ pub fn tag_tree(
     let (mut document, mut gc) = setup(typst_document, options)?;
     convert_pages(&mut gc, &mut document)?;
     attach_files(&gc, &mut document)?;
-
-    let (doc_lang, tree) = tags::finish(&mut gc.tags);
+    let (doc_lang, tree) = tags::resolve(&mut gc)?;
 
     let mut output = String::new();
     if let Some(lang) = doc_lang
@@ -704,7 +702,7 @@ fn convert_error(
 }
 
 /// Convert a krilla location to a span.
-fn to_span(loc: Option<krilla::surface::Location>) -> Span {
+pub(crate) fn to_span(loc: Option<krilla::surface::Location>) -> Span {
     loc.map(Span::from_raw).unwrap_or(Span::detached())
 }
 

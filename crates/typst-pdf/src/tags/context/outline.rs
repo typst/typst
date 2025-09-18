@@ -2,7 +2,8 @@ use krilla::tagging as kt;
 use typst_library::foundations::Packed;
 use typst_library::model::OutlineEntry;
 
-use crate::tags::{GroupId, Groups};
+use crate::tags::GroupId;
+use crate::tags::groups::Groups;
 
 #[derive(Clone, Debug)]
 pub struct OutlineCtx {

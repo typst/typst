@@ -36,12 +36,13 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
+use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::groups::{GroupKind, Groups};
 use crate::tags::tree::{Break, BreakKind, TraversalStates, Tree};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
-use crate::tags::{GroupId, GroupKind, Groups};
 
-struct TreeBuilder<'a> {
+pub struct TreeBuilder<'a> {
     options: &'a PdfOptions<'a>,
 
     /// Each [`FrameItem::Tag`] and each [`FrameItem::Group`] with a parent
@@ -79,6 +80,19 @@ impl<'a> TreeBuilder<'a> {
 
             stack: TagStack::new(),
             unfinished_stacks: FxHashMap::default(),
+        }
+    }
+
+    pub fn finish(self) -> Tree {
+        Tree {
+            prog_cursor: 0,
+            progressions: self.progressions,
+            break_cursor: 0,
+            breaks: self.breaks,
+            state: TraversalStates::new(),
+            groups: self.groups,
+            ctx: self.ctx,
+            logical_children: self.logical_children,
         }
     }
 
@@ -233,16 +247,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         assert_ne!(group.parent, GroupId::INVALID);
     }
 
-    Ok(Tree {
-        prog_cursor: 0,
-        progressions: tree.progressions,
-        break_cursor: 0,
-        breaks: tree.breaks,
-        state: TraversalStates::new(),
-        groups: tree.groups,
-        ctx: tree.ctx,
-        logical_children: tree.logical_children,
-    })
+    Ok(tree.finish())
 }
 
 fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {

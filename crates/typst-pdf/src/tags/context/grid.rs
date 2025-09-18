@@ -5,8 +5,8 @@ use typst_library::foundations::Packed;
 use typst_library::layout::resolve::CellGrid;
 use typst_library::layout::{GridCell, GridElem};
 
+use crate::tags::groups::{GroupId, Groups};
 use crate::tags::util::PropertyValCopied;
-use crate::tags::{GroupId, Groups};
 
 pub(super) trait GridExt {
     /// Convert from "effective" positions inside the cell grid, which may

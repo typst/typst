@@ -1,11 +1,15 @@
-use crate::tags::context::{self, BBoxId, Ctx};
-use crate::tags::{BBoxCtx, GroupId, GroupKind, Groups};
+use crate::PdfOptions;
+use crate::tags::GroupId;
+use crate::tags::context::{self, BBoxCtx, BBoxId, Ctx};
+use crate::tags::groups::{GroupKind, Groups};
+use crate::tags::tree::build::TreeBuilder;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, Tag};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
+use typst_library::layout::PagedDocument;
 use typst_library::model::LinkMarker;
 
 pub use build::build;
@@ -26,17 +30,8 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn empty() -> Self {
-        Self {
-            prog_cursor: 0,
-            progressions: Vec::new(),
-            break_cursor: 0,
-            breaks: Vec::new(),
-            state: TraversalStates::new(),
-            groups: Groups::new(),
-            ctx: Ctx::new(),
-            logical_children: FxHashMap::default(),
-        }
+    pub fn empty(document: &PagedDocument, options: &PdfOptions) -> Self {
+        TreeBuilder::new(document, options).finish()
     }
 
     pub fn current(&self) -> GroupId {

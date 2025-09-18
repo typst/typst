@@ -6,10 +6,10 @@ use typst_library::layout::{Abs, Point, Rect};
 use typst_library::text::Lang;
 
 use crate::convert::FrameContext;
+use crate::tags::groups::GroupKind;
 use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
 use crate::tags::tree::Tree;
 use crate::tags::util::{Id, IdVec};
-use crate::tags::{GroupId, GroupKind};
 use crate::util::AbsExt;
 
 pub use crate::tags::context::figure::{FigureCtx, build_figure};
@@ -207,16 +207,4 @@ impl BBoxCtx {
         .unwrap();
         Some(BBox::new(page_idx, rect))
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum TagNode {
-    Group(GroupId),
-    Leaf(Identifier),
-    /// Allows inserting a annotation into the tag tree.
-    /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
-    Annotation(AnnotationId),
-    /// If the attributes are non-empty this will resolve to a [`Tag::Span`],
-    /// otherwise the items are inserted directly.
-    Text(ResolvedTextAttrs, Vec<Identifier>),
 }

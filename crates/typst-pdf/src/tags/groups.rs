@@ -12,8 +12,9 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::tags::context::{
-    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId, TagNode,
+    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
+use crate::tags::resolve::TagNode;
 use crate::tags::text::ResolvedTextAttrs;
 use crate::tags::util::{Id, IdVec};
 

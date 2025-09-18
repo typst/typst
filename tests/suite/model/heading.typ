@@ -1,6 +1,6 @@
 // Test headings.
 
---- heading-basic render pdftags ---
+--- heading-basic render ---
 // Different number of equals signs.
 
 = Level 1
