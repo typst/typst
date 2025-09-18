@@ -8,9 +8,7 @@
     right:   81.495
     bottom:  16.680
   /K:
-    - Tag: P
-      /K:
-        - Content: page=0 mcid=0
+    - Content: page=0 mcid=0
 - Tag: Figure
   /Alt: "Text saying: hello there"
   /Placement: Block
@@ -21,6 +19,4 @@
     right:   81.495
     bottom:  35.260
   /K:
-    - Tag: P
-      /K:
-        - Content: page=0 mcid=1
+    - Content: page=0 mcid=1

@@ -32,6 +32,17 @@ struct Resolver<'a> {
     tags: &'a mut TagStorage,
     annotations: &'a mut Annotations,
     last_heading_level: Option<NonZeroU16>,
+    flatten: bool,
+}
+
+impl<'a> Resolver<'a> {
+    fn with_flatten<T>(&mut self, flatten: bool, f: impl FnOnce(&mut Self) -> T) -> T {
+        let prev = self.flatten;
+        self.flatten |= flatten;
+        let res = f(self);
+        self.flatten = prev;
+        res
+    }
 }
 
 pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Lang>, TagTree)> {
@@ -51,6 +62,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Lang>, TagTree)> 
         tags: &mut gc.tags.tree.groups.tags,
         annotations: &mut gc.tags.annotations,
         last_heading_level: None,
+        flatten: false,
     };
 
     let mut children = Vec::with_capacity(root.nodes().len());
@@ -89,31 +101,46 @@ fn resolve_node(
 
 fn resolve_group_node(
     rs: &mut Resolver,
-    mut parent_lang: &mut Option<Lang>,
+    parent_lang: &mut Option<Lang>,
     mut parent_bbox: &mut Option<BBoxCtx>,
     accum: &mut Vec<Node>,
     id: GroupId,
 ) -> SourceResult<()> {
     let group = rs.groups.get(id);
 
-    let mut tag = build_group_tag(rs, group)?;
+    let tag = build_group_tag(rs, group)?;
+    let mut lang = group.kind.lang().filter(|_| tag.is_some());
     let mut bbox = rs.ctx.bbox(&group.kind).cloned();
     let mut nodes = Vec::new();
 
-    let group_bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
+    // If a tag has an alternative description specified, flatten the children
+    // tags, only retaining link tags, because they are required. The inner tags
+    // won't be ingested by AT anyway, but would still have to comply with all
+    // rules, which can be annoying.
+    let flatten = tag.as_ref().is_some_and(|t| t.alt_text().is_some());
+    rs.with_flatten(flatten, |rs| -> SourceResult<()> {
+        let lang = lang.as_mut().unwrap_or(parent_lang);
+        let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
 
-    // In PDF 1.7, don't include artifacts in the tag tree. In PDF 2.0
-    // this might become an `Artifact` tag.
-    if group.kind.is_artifact() {
-        for child in group.nodes().iter() {
-            resolve_artifact_node(rs, group_bbox, child);
+        // In PDF 1.7, don't include artifacts in the tag tree. In PDF 2.0
+        // this might become an `Artifact` tag.
+        if group.kind.is_artifact() {
+            for child in group.nodes().iter() {
+                resolve_artifact_node(rs, bbox, child);
+            }
+        } else {
+            nodes = Vec::with_capacity(group.nodes().len());
+            for child in group.nodes().iter() {
+                resolve_node(rs, lang, bbox, &mut nodes, child)?;
+            }
         }
-    } else {
-        nodes = Vec::with_capacity(group.nodes().len());
-        let lang = tag.as_mut().map(|(_, lang)| lang).unwrap_or(&mut parent_lang);
-        for child in group.nodes().iter() {
-            resolve_node(rs, lang, group_bbox, &mut nodes, child)?;
-        }
+        Ok(())
+    })?;
+
+    // Try to propagate the groups language to the parent tag.
+    let mut lang = lang.flatten();
+    if let Some(lang) = lang.take_if(|l| parent_lang.is_none_or(|p| p == *l)) {
+        *parent_lang = Some(lang);
     }
 
     // Update the parent bbox.
@@ -122,20 +149,12 @@ fn resolve_group_node(
     }
 
     // If this isn't a tagged group, forward the children to the parent.
-    let Some((mut tag, mut group_lang)) = tag else {
+    let Some(mut tag) = tag else {
         accum.extend(nodes);
         return Ok(());
     };
 
-    // Try to propagate the groups language to the parent tag.
-    if let Some(lang) = group_lang
-        && parent_lang.is_none_or(|l| l == lang)
-    {
-        *parent_lang = Some(lang);
-        group_lang = None;
-    }
-
-    tag.set_lang(group_lang.map(|l| l.as_str().to_string()));
+    tag.set_lang(lang.map(|l| l.as_str().to_string()));
     if let Some(bbox) = bbox {
         match &mut tag {
             TagKind::Table(tag) => tag.set_bbox(bbox.to_krilla()),
@@ -159,11 +178,13 @@ fn resolve_artifact_node(
     match &node {
         TagNode::Group(id) => {
             let group = rs.groups.get(*id);
-
             let mut bbox = rs.ctx.bbox(&group.kind).cloned();
-            let group_bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
-            for child in group.nodes().iter() {
-                resolve_artifact_node(rs, group_bbox, child);
+
+            {
+                let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
+                for child in group.nodes().iter() {
+                    resolve_artifact_node(rs, bbox, child);
+                }
             }
 
             // Update the parent bbox.
@@ -177,51 +198,49 @@ fn resolve_artifact_node(
     }
 }
 
-fn build_group_tag(
-    rs: &mut Resolver,
-    group: &Group,
-) -> SourceResult<Option<(TagKind, Option<Lang>)>> {
-    let (tag, lang) = match &group.kind {
+fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagKind>> {
+    let tag = match &group.kind {
         GroupKind::Root(_) => unreachable!(),
         GroupKind::Artifact(_) => return Ok(None),
         GroupKind::LogicalParent(_) => return Ok(None),
         GroupKind::LogicalChild => return Ok(None),
-        GroupKind::Outline(_, lang) => (Tag::TOC.into(), *lang),
-        GroupKind::OutlineEntry(_, lang) => (Tag::TOCI.into(), *lang),
-        GroupKind::Table(id, _, lang) => (rs.ctx.tables.get(*id).build_tag(), *lang),
-        GroupKind::TableCell(_, tag, lang) => (rs.tags.take(*tag), *lang),
-        GroupKind::Grid(_, lang) => (Tag::Div.into(), *lang),
-        GroupKind::GridCell(_, lang) => (Tag::Div.into(), *lang),
-        GroupKind::List(_, numbering, lang) => (Tag::L(*numbering).into(), *lang),
-        GroupKind::ListItemLabel(lang) => (Tag::Lbl.into(), *lang),
-        GroupKind::ListItemBody(lang) => (Tag::LBody.into(), *lang),
-        GroupKind::BibEntry(lang) => (Tag::BibEntry.into(), *lang),
-        GroupKind::Figure(id, _, lang) => {
-            let Some(tag) = rs.ctx.figures.get(*id).build_tag() else {
-                return Ok(None);
-            };
-            (tag, *lang)
+        GroupKind::Outline(_, _) => Tag::TOC.into(),
+        GroupKind::OutlineEntry(_, _) => Tag::TOCI.into(),
+        GroupKind::Table(id, _, _) => rs.ctx.tables.get(*id).build_tag(),
+        GroupKind::TableCell(_, tag, _) => rs.tags.take(*tag),
+        GroupKind::Grid(_, _) => Tag::Div.into(),
+        GroupKind::GridCell(_, _) => Tag::Div.into(),
+        GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
+        GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
+        GroupKind::ListItemBody(_) => Tag::LBody.into(),
+        GroupKind::BibEntry(_) => Tag::BibEntry.into(),
+        GroupKind::Figure(id, _, _) => {
+            let Some(tag) = rs.ctx.figures.get(*id).build_tag() else { return Ok(None) };
+            tag
         }
-        GroupKind::FigureCaption(_, lang) => (Tag::Caption.into(), *lang),
-        GroupKind::Image(image, _, lang) => {
+        GroupKind::FigureCaption(_, _) => Tag::Caption.into(),
+        GroupKind::Image(image, _, _) => {
             let alt = image.alt.opt_ref().map(String::from);
-            (Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into(), *lang)
+            Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into()
         }
-        GroupKind::Formula(equation, _, lang) => {
+        GroupKind::Formula(equation, _, _) => {
             let alt = equation.alt.opt_ref().map(String::from);
             let placement = equation.block.val().then_some(kt::Placement::Block);
-            (Tag::Formula(alt).with_placement(placement).into(), *lang)
+            Tag::Formula(alt).with_placement(placement).into()
         }
-        GroupKind::Link(_, lang) => (Tag::Link.into(), *lang),
-        GroupKind::CodeBlock(lang) => {
-            let tag = Tag::Code.with_placement(Some(kt::Placement::Block)).into();
-            (tag, *lang)
+        GroupKind::Link(_, _) => Tag::Link.into(),
+        GroupKind::CodeBlock(_) => {
+            Tag::Code.with_placement(Some(kt::Placement::Block)).into()
         }
-        GroupKind::CodeBlockLine(lang) => (Tag::P.into(), *lang),
-        GroupKind::Standard(tag, lang) => (rs.tags.take(*tag), *lang),
+        GroupKind::CodeBlockLine(_) => Tag::P.into(),
+        GroupKind::Standard(tag, _) => rs.tags.take(*tag),
     };
 
     let tag = tag.with_location(Some(group.span.into_raw()));
+
+    if rs.flatten && !group.kind.is_link() {
+        return Ok(None);
+    }
 
     // Check that no heading levels were skipped.
     if let TagKind::Hn(tag) = &tag {
@@ -245,5 +264,5 @@ fn build_group_tag(
         rs.last_heading_level = Some(next_level);
     }
 
-    Ok(Some((tag, lang)))
+    Ok(Some(tag))
 }

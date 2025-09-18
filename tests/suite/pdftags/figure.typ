@@ -33,3 +33,25 @@
   ),
   caption: [Some caption]
 )
+
+--- figure-tags-with-alt-flatten-content-basic pdftags ---
+// The inner tags are flattened
+#figure(alt: "alt text")[
+  $a^2 + b^2 = c^2$
+
+  $sum_(i=1)^n(i)$
+]
+
+
+--- figure-tags-with-alt-flatten-content-complex pdftags ---
+#figure(alt: "alt text")[
+  #table(
+    columns: 2,
+    // The link tag needs to be retained
+    link("https://github.com/typst/typst")[
+      #image("/assets/images/tiger.jpg")
+    ],
+    image("/assets/images/tiger.jpg"),
+    [Some more text],
+  )
+]

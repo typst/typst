@@ -414,6 +414,10 @@ impl GroupKind {
         matches!(self, Self::Artifact(_))
     }
 
+    pub fn is_link(&self) -> bool {
+        matches!(self, Self::Link(..))
+    }
+
     pub fn as_artifact(&self) -> Option<ArtifactType> {
         if let Self::Artifact(v) = self { Some(*v) } else { None }
     }
@@ -435,6 +439,33 @@ impl GroupKind {
             GroupKind::Formula(_, id, _) => Some(*id),
             _ => None,
         }
+    }
+
+    pub fn lang(&self) -> Option<Option<Lang>> {
+        Some(match *self {
+            GroupKind::Root(lang) => lang,
+            GroupKind::Artifact(_) => return None,
+            GroupKind::LogicalParent(_) => return None,
+            GroupKind::LogicalChild => return None,
+            GroupKind::Outline(_, lang) => lang,
+            GroupKind::OutlineEntry(_, lang) => lang,
+            GroupKind::Table(_, _, lang) => lang,
+            GroupKind::TableCell(_, _, lang) => lang,
+            GroupKind::Grid(_, lang) => lang,
+            GroupKind::GridCell(_, lang) => lang,
+            GroupKind::List(_, _, lang) => lang,
+            GroupKind::ListItemLabel(lang) => lang,
+            GroupKind::ListItemBody(lang) => lang,
+            GroupKind::BibEntry(lang) => lang,
+            GroupKind::Figure(_, _, lang) => lang,
+            GroupKind::FigureCaption(_, lang) => lang,
+            GroupKind::Image(_, _, lang) => lang,
+            GroupKind::Formula(_, _, lang) => lang,
+            GroupKind::Link(_, lang) => lang,
+            GroupKind::CodeBlock(lang) => lang,
+            GroupKind::CodeBlockLine(lang) => lang,
+            GroupKind::Standard(_, lang) => lang,
+        })
     }
 
     pub fn lang_mut(&mut self) -> Option<&mut Option<Lang>> {
