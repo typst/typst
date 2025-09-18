@@ -8,6 +8,25 @@ $ よ and 🏳️‍🌈 $
 // Test text properties.
 $text(#red, "time"^2) + sqrt("place")$
 
+--- math-text-single-grapheme-cluster ---
+// Test that single graph clusters are considered a single character in math.
+$ 𝒟 𝒟︀ 𝒟︁ $
+#show math.equation: set text(font: "Noto Sans Math")
+$ 𝒟 𝒟︀ 𝒟︁ $
+
+--- math-text-grapheme-cluster-fallback ---
+// Test fallback with grapheme clusters.
+#let bird = symbol("🐦‍⬛")
+#bird or 🐦‍⬛
+$bird "or" 🐦‍⬛$
+
+#set text(font: "Noto Color Emoji")
+#show math.equation: set text(font: "Noto Color Emoji")
+#bird or 🐦‍⬛
+// Warning: 1-16 current font is not designed for math
+// Hint: 1-16 rendering may be poor
+$bird "or" 🐦‍⬛$
+
 --- math-font-features ---
 $ nothing $
 $ "hi ∅ hey" $
