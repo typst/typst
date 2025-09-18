@@ -60,8 +60,7 @@ pub(crate) fn handle_link(
 
     if tags::disabled(gc) {
         if gc.tags.in_tiling && gc.options.is_pdf_ua() {
-            let validator = gc.options.standards.config.validator();
-            let validator = validator.as_str();
+            let validator = gc.options.standards.config.validator().as_str();
             bail!(
                 Span::detached(),
                 "{validator} error: PDF artifacts may not contain links";
@@ -89,8 +88,7 @@ pub(crate) fn handle_link(
 
     if gc.tags.tree.parent_artifact().is_some() {
         if gc.options.is_pdf_ua() {
-            let validator = gc.options.standards.config.validator();
-            let validator = validator.as_str();
+            let validator = gc.options.standards.config.validator().as_str();
             let span = link.span();
             bail!(
                 span,

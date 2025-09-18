@@ -60,8 +60,7 @@ impl TextAttrs {
                 .filter_map(|(_, a)| a.as_deco())
                 .any(|d| d.kind != deco.kind)
         {
-            let validator = options.standards.config.validator();
-            let validator = validator.as_str();
+            let validator = options.standards.config.validator().as_str();
             bail!(
                 elem.span(),
                 "{validator} error: cannot combine underline, overline, and or strike"

@@ -14,7 +14,7 @@ pub fn paint_to_color(paint: &Paint) -> Option<NaiveRgbColor> {
     match paint {
         Paint::Solid(color) => {
             let c = color.to_rgb();
-            Some(NaiveRgbColor::new(c.red, c.green, c.blue))
+            Some(NaiveRgbColor::new_f32(c.red, c.green, c.blue))
         }
         Paint::Gradient(_) => None,
         Paint::Tiling(_) => None,

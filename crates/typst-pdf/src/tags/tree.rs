@@ -620,8 +620,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         let located = tree.groups.by_loc(loc).expect("parent group");
 
         if options.is_pdf_ua() && located.multiple_parents {
-            let validator = options.standards.config.validator();
-            let validator = validator.as_str();
+            let validator = options.standards.config.validator().as_str();
             let group = tree.groups.get(located.id);
             bail!(
                 group.span,
@@ -947,8 +946,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     }
     if !is_breakable {
         if tree.options.is_pdf_ua() {
-            let validator = tree.options.standards.config.validator();
-            let validator = validator.as_str();
+            let validator = tree.options.standards.config.validator().as_str();
             bail!(
                 non_breakable_span,
                 "{validator} error: invalid semantic structure, \
