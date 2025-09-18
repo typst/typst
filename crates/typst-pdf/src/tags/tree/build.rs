@@ -28,7 +28,7 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
     LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell,
-    TableElem, TermsElem,
+    TableElem, TermsElem, TitleElem,
 };
 use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{RawElem, RawLine};
@@ -356,6 +356,8 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         }
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         push_stack(tree, elem, GroupKind::Link(link.clone(), None))
+    } else if let Some(_) = elem.to_packed::<TitleElem>() {
+        push_tag(tree, elem, Tag::Title)
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
         push_stack(tree, elem, GroupKind::OutlineEntry(entry.clone(), None))
     } else if let Some(_) = elem.to_packed::<ListElem>() {
