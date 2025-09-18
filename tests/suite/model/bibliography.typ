@@ -98,5 +98,5 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 --- bibliography-chicago-fullnotes-warning ---
 // Test warning for deprecated alias.
-// Warning: 47-66 style 'chicago-fullnotes' has been deprecated in favor of 'chicago-notes'
+// Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)

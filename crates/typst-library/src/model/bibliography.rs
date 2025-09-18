@@ -454,7 +454,7 @@ pub(super) fn check_csl_style<T: FromValue<Spanned<Value>>>(
     {
         engine.sink.warn(crate::diag::warning!(
             value.span,
-            "style 'chicago-fullnotes' has been deprecated in favor of 'chicago-notes'"
+            "style \"chicago-fullnotes\" has been deprecated in favor of \"chicago-notes\""
         ));
     }
 
