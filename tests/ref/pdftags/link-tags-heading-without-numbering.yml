@@ -2,9 +2,9 @@
   /T: "Heading"
   /K:
     - Content: page=0 mcid=0
-- Tag: Link
+- Tag: P
   /K:
-    - Annotation: page=0 index=0
-    - Tag: P
+    - Tag: Link
       /K:
         - Content: page=0 mcid=1
+        - Annotation: page=0 index=0

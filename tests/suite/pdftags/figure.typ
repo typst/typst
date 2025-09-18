@@ -12,12 +12,24 @@
   caption: [Some caption]
 )
 
---- figure-tags-equation-with-caption pdftags ---
+--- figure-tags-inline-equation-with-caption pdftags ---
 #figure(
-  // The alt description is used in the outer figure.
   math.equation(
     alt: "The Pythagorean theorem: a squared plus b squared is c squared",
     $a^2 + b^2 = c^2$,
+  ),
+  caption: [Some caption]
+)
+
+--- figure-tags-block-equation-with-caption pdftags ---
+#figure(
+  // The alt description is used in the outer figure.
+  math.equation(
+    block: true,
+    alt: "The Pythagorean theorem: a squared plus b squared is c squared",
+    $
+      a^2 + b^2 = c^2
+    $,
   ),
   caption: [Some caption]
 )

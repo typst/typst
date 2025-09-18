@@ -9,9 +9,9 @@ lang: "ar"
         - Content: page=0 mcid=1
         - Content: page=0 mcid=2
     - Content: page=0 mcid=3
-- Tag: InlineQuote
+- Tag: P
   /K:
-    - Tag: P
+    - Tag: InlineQuote
       /K:
         - Content: page=0 mcid=4
         - Content: page=0 mcid=5

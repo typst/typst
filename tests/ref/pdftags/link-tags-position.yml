@@ -1,6 +1,6 @@
-- Tag: Link
+- Tag: P
   /K:
-    - Annotation: page=0 index=0
-    - Tag: P
+    - Tag: Link
       /K:
         - Content: page=0 mcid=0
+        - Annotation: page=0 index=0
