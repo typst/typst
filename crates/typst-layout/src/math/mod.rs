@@ -9,6 +9,7 @@ mod lr;
 mod mat;
 mod root;
 mod run;
+mod shaping;
 mod stretch;
 mod text;
 mod underover;
