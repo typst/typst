@@ -480,7 +480,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         .references
         .as_ref()
         .ok_or_else(|| match elem.style.get_ref(styles).source {
-            CslSource::Named(style) => eco_format!(
+            CslSource::Named(style, _) => eco_format!(
                 "CSL style \"{}\" is not suitable for bibliographies",
                 style.display_name()
             ),
