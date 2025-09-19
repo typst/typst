@@ -1,6 +1,7 @@
 use std::any::TypeId;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
@@ -16,7 +17,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, PicoStr};
+use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::World;
 use crate::diag::{
@@ -189,6 +190,42 @@ impl BibliographyElem {
             }
         }
         vec
+    }
+}
+
+impl Packed<BibliographyElem> {
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<(Option<Content>, &References)> {
+        let span = self.span();
+        // Returns the optional heading,
+        let heading = if let Some(title) =
+            self.title.get_ref(styles).clone().unwrap_or_else(|| {
+                Some(TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles)))
+            }) {
+            Some(HeadingElem::new(title).with_depth(NonZeroUsize::ONE).pack())
+        } else {
+            None
+        };
+
+        let works = Works::generate(engine).at(span)?;
+        let references = works
+            .references
+            .as_ref()
+            .ok_or_else(|| match self.style.get_ref(styles).source {
+                CslSource::Named(style) => eco_format!(
+                    "CSL style \"{}\" is not suitable for bibliographies",
+                    style.display_name()
+                ),
+                CslSource::Normal(..) => {
+                    "CSL style is not suitable for bibliographies".into()
+                }
+            })
+            .at(span)?;
+
+        Ok((heading, references))
     }
 }
 
@@ -521,6 +558,8 @@ impl IntoValue for CslSource {
     }
 }
 
+pub type References = Vec<(Option<Content>, Content)>;
+
 /// Fully formatted citations and references, generated once (through
 /// memoization) for the whole document. This setup is necessary because
 /// citation formatting is inherently stateful and we need access to all
@@ -530,7 +569,7 @@ pub struct Works {
     pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(Option<Content>, Content)>>,
+    pub references: Option<References>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }

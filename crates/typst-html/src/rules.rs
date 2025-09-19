@@ -4,7 +4,8 @@ use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Packed, ShowFn, Smart, StyleChain,
+    Target,
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
@@ -12,18 +13,18 @@ use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
-    Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
-    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, EmphElem, EnumElem,
+    FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem,
+    LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    HighlightElem, LinebreakElem, LocalName, OverlineElem, RawElem, RawLine,
+    SmallcapsElem, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
-use typst_utils::singleton;
+use typst_utils::{NonZeroExt, singleton};
 
 use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -51,6 +52,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, OUTLINE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
+    rules.register(Html, BIBLIOGRAPHY_RULE);
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -437,6 +439,34 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+
+const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let span = elem.span();
+    let mut content_sequence = vec![];
+
+    // Add title if set
+    if let Some(title) = elem.title.get_ref(styles).clone().unwrap_or_else(|| {
+        Some(
+            TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles))
+                .spanned(span),
+        )
+    }) {
+        content_sequence.push(
+            HeadingElem::new(title)
+                .with_depth(NonZeroUsize::ONE)
+                .pack()
+                .spanned(span),
+        )
+    }
+
+    let works = Works::generate(engine).at(span)?;
+    let references = works.references.as_ref();
+
+    Ok(HtmlElem::new(tag::section)
+        .with_attr(attr::role, "doc-bibliography")
+        .with_body(Some(Content::sequence(content_sequence)))
+        .pack())
+};
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
     Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
