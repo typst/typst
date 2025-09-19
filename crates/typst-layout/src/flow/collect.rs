@@ -113,8 +113,8 @@ impl<'a> Collector<'a, '_, '_> {
         let (start, end) = self.children.split_prefix_suffix(|(c, _)| c.is::<TagElem>());
         let inner = &self.children[start..end];
 
-        // Compute the shared styles, ignoring tags.
-        let styles = StyleChain::trunk(inner.iter().map(|&(_, s)| s)).unwrap_or_default();
+        // Compute the shared styles.
+        let styles = StyleChain::trunk_from_pairs(inner).unwrap_or_default();
 
         // Layout the lines.
         let lines = crate::inline::layout_inline(

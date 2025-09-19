@@ -266,6 +266,6 @@ fn lines(
     (1..=count)
         .map(|n| numbering.apply(engine, context, &[n]))
         .collect::<SourceResult<Array>>()?
-        .join(Some('\n'.into_value()), None)
+        .join(Some('\n'.into_value()), None, None)
         .at(span)
 }

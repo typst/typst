@@ -601,7 +601,12 @@ fn layout_footnote(
     let loc = elem.location().unwrap();
     crate::layout_fragment(
         engine,
-        &FootnoteEntry::new(elem.clone()).pack(),
+        &FootnoteEntry::new(elem.clone())
+            .pack()
+            .spanned(elem.span())
+            // We attach a well-known derived location to the entry so that the
+            // note can link to this entry without first querying for it.
+            .located(loc.variant(1)),
         Locator::synthesize(loc),
         config.shared,
         pod,

@@ -1,14 +1,14 @@
 // Test footnotes.
 
---- footnote-basic ---
+--- footnote-basic render html ---
 #footnote[Hi]
 
---- footnote-space-collapsing ---
+--- footnote-space-collapsing render html ---
 // Test space collapsing before footnote.
 A#footnote[A] \
 A #footnote[A]
 
---- footnote-nested ---
+--- footnote-nested render html ---
 First \
 Second #footnote[A, #footnote[B, #footnote[C]]]
 Third #footnote[D, #footnote[E]] \
@@ -31,6 +31,37 @@ B #footnote[III]
 )
 
 Beautiful footnotes. #footnote[Wonderful, aren't they?]
+
+--- footnote-entry-html html ---
+#show footnote.entry: it => {
+  if it.note.body == [A] {
+    [The A is replaced!]
+  } else if it.note.body == [B] {
+    none
+  } else {
+    show "C": emph
+    it
+  }
+}
+
+A #footnote[A]
+B #footnote[B]
+C #footnote[C]
+
+--- footnote-container-set-rule-html html ---
+// Set rule applies to everything.
+//
+// This is similar to page-marginal-style-text-set.
+#set smartquote(quotes: ("[", "]"))
+An "A" #footnote[A "B"]
+
+--- footnote-container-show-set-rule-html html ---
+// Set rule does not apply to footnote even though the par
+// covers the whole document.
+//
+// This is similar to page-marginal-style-show-rule-with-set-page.
+#show par: set smartquote(quotes: ("[", "]"))
+An "A" #footnote[A "B"]
 
 --- footnote-break-across-pages ---
 #set page(height: 200pt)

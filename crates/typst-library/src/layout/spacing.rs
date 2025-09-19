@@ -1,6 +1,6 @@
-use typst_utils::Numeric;
+use typst_utils::{Numeric, singleton};
 
-use crate::foundations::{Content, cast, elem};
+use crate::foundations::{Content, NativeElement, cast, elem};
 use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 
 /// Inserts horizontal spacing into a paragraph.
@@ -67,8 +67,8 @@ pub struct HElem {
 
 impl HElem {
     /// Zero-width horizontal weak spacing that eats surrounding spaces.
-    pub fn hole() -> Self {
-        Self::new(Abs::zero().into()).with_weak(true)
+    pub fn hole() -> &'static Content {
+        singleton!(Content, HElem::new(Abs::zero().into()).with_weak(true).pack())
     }
 }
 

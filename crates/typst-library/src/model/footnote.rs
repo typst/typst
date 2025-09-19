@@ -3,15 +3,15 @@ use std::str::FromStr;
 
 use typst_utils::NonZeroExt;
 
-use crate::diag::{StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
     elem, scope,
 };
-use crate::introspection::{Count, CounterUpdate, Locatable, Location};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Numbering, NumberingPattern, ParElem};
+use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
 use crate::text::{TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -118,8 +118,21 @@ impl FootnoteElem {
 }
 
 impl Packed<FootnoteElem> {
+    /// Returns the linking location and the resolved numbers.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<(Destination, Content)> {
+        let loc = self.declaration_location(engine).at(self.span())?;
+        let numbering = self.numbering.get_ref(styles);
+        let counter = Counter::of(FootnoteElem::ELEM);
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        Ok((Destination::Location(loc.variant(1)), num))
+    }
+
     /// Returns the location of the definition of this footnote.
-    pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
+    fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
         match self.body {
             FootnoteBody::Reference(label) => {
                 let element = engine.introspector.query_label(label)?;
@@ -258,6 +271,30 @@ pub struct FootnoteEntry {
     /// ```
     #[default(Em::new(1.0).into())]
     pub indent: Length,
+}
+
+impl Packed<FootnoteEntry> {
+    /// Returns the location which should be attached to the entry, the linking
+    /// destination, the resolved numbers, and the body content.
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<(Destination, Content, Content)> {
+        let default = StyleChain::default();
+        let numbering = self.note.numbering.get_ref(default);
+        let counter = Counter::of(FootnoteElem::ELEM);
+        let Some(loc) = self.note.location() else {
+            bail!(
+                self.span(), "footnote entry must have a location";
+                hint: "try using a query or a show rule to customize the footnote instead"
+            );
+        };
+
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let body = self.note.body_content().unwrap().clone();
+        Ok((Destination::Location(loc), num, body))
+    }
 }
 
 impl ShowSet for Packed<FootnoteEntry> {
