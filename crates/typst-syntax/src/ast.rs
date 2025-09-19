@@ -859,7 +859,7 @@ node! {
 
 /// The underlying text kind.
 pub enum MathTextKind<'a> {
-    Character(char),
+    Grapheme(&'a EcoString),
     Number(&'a EcoString),
 }
 
@@ -867,15 +867,12 @@ impl<'a> MathText<'a> {
     /// Return the underlying text.
     pub fn get(self) -> MathTextKind<'a> {
         let text = self.0.text();
-        let mut chars = text.chars();
-        let c = chars.next().unwrap();
-        if c.is_numeric() {
+        if text.chars().next().unwrap().is_numeric() {
             // Numbers are potentially grouped as multiple characters. This is
             // done in `Lexer::math_text()`.
             MathTextKind::Number(text)
         } else {
-            assert!(chars.next().is_none());
-            MathTextKind::Character(c)
+            MathTextKind::Grapheme(text)
         }
     }
 }
