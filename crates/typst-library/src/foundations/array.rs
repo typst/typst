@@ -701,8 +701,18 @@ impl Array {
         /// An alternative separator between the last two items.
         #[named]
         last: Option<Value>,
+        /// What to return if the array is empty.
+        #[named]
+        default: Option<Value>,
     ) -> StrResult<Value> {
         let len = self.0.len();
+
+        if let Some(result) = default
+            && len == 0
+        {
+            return Ok(result);
+        }
+
         let separator = separator.unwrap_or(Value::None);
 
         let mut last = last;
