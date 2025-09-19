@@ -53,10 +53,6 @@ pub use crate::__dict as dict;
 /// another dictionary[^1] with the `..spread` operator. In each case, if a
 /// key appears multiple times, the last value will override the others.
 ///
-/// [^1]: When spreading into a dictionary, if all items between the parentheses
-/// are spread, you have to use the special `(:..spread)` syntax. Otherwise, it
-/// will spread into an array.
-///
 /// # Example
 /// ```example
 /// #let dict = (
@@ -73,6 +69,10 @@ pub use crate::__dict as dict;
 /// #dict.insert("city", "Berlin")
 /// #("name" in dict)
 /// ```
+///
+/// [^1]: When spreading into a dictionary, if all items between the parentheses
+/// are spread, you have to use the special `(:..spread)` syntax. Otherwise, it
+/// will spread into an array.
 #[ty(scope, cast, name = "dictionary")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
