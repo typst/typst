@@ -122,30 +122,16 @@ pub struct ParElem {
     /// // A sample text for measuring font metrics.
     /// #let sample-text = [A]
     ///
+    /// // Number of lines in each paragraph
+    /// #let n-lines = (4, 4, 2)
+    /// #let annotated-lines = (4, 8)
+    ///
     /// // The wide margin is for annotations
     /// #set page(width: 350pt, margin: (x: 20%))
     ///
     /// #context {
     ///   let text-height = measure(sample-text).height
     ///   let line-height = text-height + par.leading.to-absolute()
-    ///
-    ///   // Number of lines in each paragraph
-    ///   let n-lines = {
-    ///     // Calculate `n-lines` by querying `par.line`.
-    ///     let positions = query(<par-line>).map(it => it.location().position().y)
-    ///
-    ///     // Determine it's leading or spacing
-    ///     let kinds = positions
-    ///       .enumerate()
-    ///       .slice(1)
-    ///       .map(((i, y)) => {
-    ///         // Displacement from the last line relative to the line height
-    ///         let jump = (positions.at(i) - positions.at(i - 1)) / line-height
-    ///         if calc.abs(jump - 1) < 0.1 { "leading" } else { "spacing" }
-    ///       })
-    ///
-    ///     kinds.split("spacing").map(x => x.len() + 1)
-    ///   }
     ///
     ///   let jumps = n-lines
     ///     .map(n => ((text-height,) * n).intersperse(par.leading))
@@ -157,19 +143,10 @@ pub struct ParElem {
     ///       .enumerate()
     ///       .map(((i, h)) => if calc.even(i) {
     ///         // Draw a stripe for the line
-    ///         block(
-    ///           height: h,
-    ///           width: 100%,
-    ///           fill: c.par-line,
-    ///         )
+    ///         block(height: h, width: 100%, fill: c.par-line)
     ///       } else {
     ///         // Put an annotation for the gap
-    ///
-    ///         let sw(value-for-leading, value-for-spacing) = if h == par.leading {
-    ///           value-for-leading
-    ///         } else {
-    ///           value-for-spacing
-    ///         }
+    ///         let sw(a, b) = if h == par.leading { a } else { b }
     ///
     ///         align(end, block(
     ///           height: h,
@@ -178,11 +155,12 @@ pub struct ParElem {
     ///             left: none,
     ///             rest: 0.5pt + sw(c.leading-line, c.spacing-line),
     ///           ),
-    ///           if i / 2 <= sw(n-lines.first(), n-lines.slice(0, 2).sum()) {
-    ///             place(horizon, dx: 1.3em, {
-    ///               set text(0.8em, sw(c.leading-text, c.spacing-text))
-    ///               sw([leading], [spacing])
-    ///             })
+    ///           if i / 2 <= sw(..annotated-lines) {
+    ///             place(horizon, dx: 1.3em, text(
+    ///               0.8em,
+    ///               sw(c.leading-text, c.spacing-text),
+    ///               sw([leading], [spacing]),
+    ///             ))
     ///           },
     ///         ))
     ///       })
@@ -196,11 +174,7 @@ pub struct ParElem {
     ///     for (pos, dy, kind) in (
     ///       (bottom, text-height, "leading"),
     ///       (top, par.leading, "leading"),
-    ///       (
-    ///         bottom,
-    ///         (n-lines.first() - 1) * line-height - par.leading,
-    ///         "spacing",
-    ///       ),
+    ///       (bottom, (n-lines.first() - 1) * line-height - par.leading, "spacing"),
     ///       (top, par.spacing, "spacing"),
     ///     ) {
     ///       v(dy)
@@ -225,9 +199,6 @@ pub struct ParElem {
     ///     },
     ///   )
     /// }
-    ///
-    /// // Bury metadata for the main text
-    /// #set par.line(numbering: _ => [#metadata(none)<par-line>])
     ///
     /// #set par(justify: true)
     /// #set text(luma(50%), overhang: false)
