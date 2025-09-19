@@ -50,7 +50,7 @@ pub use crate::__dict as dict;
 ///
 /// Dictionaries can be added with the `+` operator and [joined together]($scripting/#blocks).
 /// They can also be [spread]($arguments/#spreading) into a function call or
-/// another dictionary[^1] with the `..spread` operator. In each method, if a
+/// another dictionary[^1] with the `..spread` operator. In each case, if a
 /// key appears multiple times, the last value will override the others.
 ///
 /// [^1]: When spreading into a dictionary, if all items between the parentheses
@@ -216,8 +216,8 @@ impl Dict {
     /// Inserts a new pair into the dictionary. If the dictionary already
     /// contains this key, the value is updated.
     ///
-    /// To insert multiple pairs at once, you can just add another dictionary
-    /// with the `+=` operator.
+    /// To insert multiple pairs at once, you can just alternatively another
+    /// dictionary with the `+=` operator.
     #[func]
     pub fn insert(
         &mut self,
