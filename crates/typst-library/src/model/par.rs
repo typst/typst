@@ -115,8 +115,8 @@ pub struct ParElem {
     ///   par-line: aqua.transparentize(60%),
     ///   leading-line: blue,
     ///   leading-text: blue.darken(20%),
-    ///   spacing-line: orange,
-    ///   spacing-text: orange.darken(10%),
+    ///   spacing-line: orange.mix(red).darken(15%),
+    ///   spacing-text: orange.mix(red).darken(20%),
     /// )
     ///
     /// // A sample text for measuring font metrics.
@@ -201,7 +201,7 @@ pub struct ParElem {
     /// }
     ///
     /// #set par(justify: true)
-    /// #set text(luma(50%), overhang: false)
+    /// #set text(luma(25%), overhang: false)
     /// #show ". ": it => it + parbreak()
     /// #lorem(55)
     /// ```
