@@ -1,158 +1,83 @@
-use std::num::NonZeroUsize;
-
 use krilla::destination::XyzDestination;
-use krilla::outline::{Outline, OutlineNode};
+use krilla::outline::{Outline as KrillaOutline, OutlineNode as KrillaOutlineNode};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
 use typst_library::layout::Abs;
-use typst_library::model::HeadingElem;
+use typst_library::model::{HeadingElem, OutlineNode};
 
 use crate::convert::GlobalContext;
 use crate::util::AbsExt;
 
-pub(crate) fn build_outline(gc: &GlobalContext) -> Outline {
-    let mut tree: Vec<HeadingNode> = vec![];
+pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
+    let elems = gc.document.introspector.query(&HeadingElem::ELEM.select());
 
-    // Stores the level of the topmost skipped ancestor of the next bookmarked
-    // heading. A skipped heading is a heading with 'bookmarked: false', that
-    // is, it is not added to the PDF outline, and so is not in the tree.
-    // Therefore, its next descendant must be added at its level, which is
-    // enforced in the manner shown below.
-    let mut last_skipped_level = None;
-    let elements = &gc.document.introspector.query(&HeadingElem::ELEM.select());
+    let flat = elems
+        .iter()
+        .map(|elem| {
+            let heading = elem.to_packed::<HeadingElem>().unwrap();
 
-    for elem in elements.iter() {
-        if let Some(page_ranges) = &gc.options.page_ranges
-            && !page_ranges
-                .includes_page(gc.document.introspector.page(elem.location().unwrap()))
-        {
-            // Don't bookmark headings in non-exported pages.
-            continue;
-        }
+            let level = heading.resolve_level(StyleChain::default());
+            let boomarked = heading
+                .bookmarked
+                .get(StyleChain::default())
+                .unwrap_or_else(|| heading.outlined.get(StyleChain::default()));
 
-        let heading = elem.to_packed::<HeadingElem>().unwrap();
-        let leaf = HeadingNode::leaf(heading);
+            let visible = gc.options.page_ranges.as_ref().is_none_or(|ranges| {
+                !ranges.includes_page(
+                    gc.document.introspector.page(elem.location().unwrap()),
+                )
+            });
 
-        if leaf.bookmarked {
-            let mut children = &mut tree;
+            let include = boomarked && visible;
+            (heading, level, include)
+        })
+        .collect::<Vec<_>>();
 
-            // Descend the tree through the latest bookmarked heading of each
-            // level until either:
-            // - you reach a node whose children would be brothers of this
-            // heading (=> add the current heading as a child of this node);
-            // - you reach a node with no children (=> this heading probably
-            // skipped a few nesting levels in Typst, or one or more ancestors
-            // of this heading weren't bookmarked, so add it as a child of this
-            // node, which is its deepest bookmarked ancestor);
-            // - or, if the latest heading(s) was(/were) skipped
-            // ('bookmarked: false'), then stop if you reach a node whose
-            // children would be brothers of the latest skipped heading
-            // of lowest level (=> those skipped headings would be ancestors
-            // of the current heading, so add it as a 'brother' of the least
-            // deep skipped ancestor among them, as those ancestors weren't
-            // added to the bookmark tree, and the current heading should not
-            // be mistakenly added as a descendant of a brother of that
-            // ancestor.)
-            //
-            // That is, if you had a bookmarked heading of level N, a skipped
-            // heading of level N, a skipped heading of level N + 1, and then
-            // a bookmarked heading of level N + 2, that last one is bookmarked
-            // as a level N heading (taking the place of its topmost skipped
-            // ancestor), so that it is not mistakenly added as a descendant of
-            // the previous level N heading.
-            //
-            // In other words, a heading can be added to the bookmark tree
-            // at most as deep as its topmost skipped direct ancestor (if it
-            // exists), or at most as deep as its actual nesting level in Typst
-            // (not exceeding whichever is the most restrictive depth limit
-            // of those two).
-            while children.last().is_some_and(|last| {
-                last_skipped_level.is_none_or(|l| last.level < l)
-                    && last.level < leaf.level
-            }) {
-                children = &mut children.last_mut().unwrap().children;
-            }
+    let tree = OutlineNode::build_tree(flat);
 
-            // Since this heading was bookmarked, the next heading, if it is a
-            // child of this one, won't have a skipped direct ancestor (indeed,
-            // this heading would be its most direct ancestor, and wasn't
-            // skipped). Therefore, it can be added as a child of this one, if
-            // needed, following the usual rules listed above.
-            last_skipped_level = None;
-            children.push(leaf);
-        } else if last_skipped_level.is_none_or(|l| leaf.level < l) {
-            // Only the topmost / lowest-level skipped heading matters when you
-            // have consecutive skipped headings (since none of them are being
-            // added to the bookmark tree), hence the condition above.
-            // This ensures the next bookmarked heading will be placed
-            // at most as deep as its topmost skipped ancestors. Deeper
-            // ancestors do not matter as the nesting structure they create
-            // won't be visible in the PDF outline.
-            last_skipped_level = Some(leaf.level);
-        }
-    }
-
-    let mut outline = Outline::new();
-
-    for child in convert_nodes(&tree, gc) {
+    let mut outline = KrillaOutline::new();
+    for child in convert_list(&tree, gc) {
         outline.push_child(child);
     }
 
     outline
 }
 
-#[derive(Debug)]
-struct HeadingNode<'a> {
-    element: &'a Packed<HeadingElem>,
-    level: NonZeroUsize,
-    bookmarked: bool,
-    children: Vec<HeadingNode<'a>>,
+fn convert_list(
+    nodes: &[OutlineNode<&Packed<HeadingElem>>],
+    gc: &GlobalContext,
+) -> Vec<KrillaOutlineNode> {
+    nodes.iter().flat_map(|node| convert_node(node, gc)).collect()
 }
 
-impl<'a> HeadingNode<'a> {
-    fn leaf(element: &'a Packed<HeadingElem>) -> Self {
-        HeadingNode {
-            level: element.resolve_level(StyleChain::default()),
-            // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
-            bookmarked: element
-                .bookmarked
-                .get(StyleChain::default())
-                .unwrap_or_else(|| element.outlined.get(StyleChain::default())),
-            element,
-            children: Vec::new(),
-        }
-    }
+fn convert_node(
+    node: &OutlineNode<&Packed<HeadingElem>>,
+    gc: &GlobalContext,
+) -> Option<KrillaOutlineNode> {
+    let loc = node.entry.location().unwrap();
+    let pos = gc.document.introspector.position(loc);
+    let page_index = pos.page.get() - 1;
 
-    fn to_krilla(&self, gc: &GlobalContext) -> Option<OutlineNode> {
-        let loc = self.element.location().unwrap();
-        let pos = gc.document.introspector.position(loc);
-        let page_index = pos.page.get() - 1;
+    // Prepend the numbers to the title if they exist.
+    let text = node.entry.body.plain_text();
+    let title = match &node.entry.numbers {
+        Some(num) => format!("{num} {text}"),
+        None => text.to_string(),
+    };
 
-        // Prepend the numbers to the title if they exist.
-        let text = self.element.body.plain_text();
-        let title = match &self.element.numbers {
-            Some(num) => format!("{num} {text}"),
-            None => text.to_string(),
-        };
+    if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+        let dest = XyzDestination::new(
+            index,
+            krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
+        );
 
-        if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
-            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-            let dest = XyzDestination::new(
-                index,
-                krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
-            );
-
-            let mut outline_node = OutlineNode::new(title, dest);
-            for child in convert_nodes(&self.children, gc) {
-                outline_node.push_child(child);
-            }
-
-            return Some(outline_node);
+        let mut outline_node = KrillaOutlineNode::new(title, dest);
+        for child in convert_list(&node.children, gc) {
+            outline_node.push_child(child);
         }
 
-        None
+        return Some(outline_node);
     }
-}
 
-fn convert_nodes(nodes: &[HeadingNode], gc: &GlobalContext) -> Vec<OutlineNode> {
-    nodes.iter().flat_map(|node| node.to_krilla(gc)).collect()
+    None
 }

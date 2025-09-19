@@ -19,7 +19,7 @@ use crate::layout::{
     VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{Lang, TextElem};
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -275,6 +275,16 @@ pub struct FigureElem {
 impl FigureElem {
     #[elem]
     type FigureCaption;
+}
+
+impl FigureElem {
+    /// Retrieves the locale separator.
+    pub fn resolve_separator(&self, styles: StyleChain) -> Content {
+        match self.caption.get_ref(styles) {
+            Some(caption) => caption.resolve_separator(styles),
+            None => FigureCaption::local_separator_in(styles),
+        }
+    }
 }
 
 impl Synthesize for Packed<FigureElem> {
@@ -554,29 +564,29 @@ impl FigureCaption {
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
-            realized = supplement + numbers + self.get_separator(styles) + realized;
+            realized = supplement + numbers + self.resolve_separator(styles) + realized;
         }
 
         Ok(realized)
     }
 
-    /// Gets the default separator in the given language and (optionally)
-    /// region.
-    fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::CHINESE => "\u{2003}",
-            Lang::FRENCH => ".\u{a0}– ",
-            Lang::RUSSIAN => ". ",
-            Lang::ENGLISH | _ => ": ",
-        }
+    /// Retrieves the locale separator.
+    fn resolve_separator(&self, styles: StyleChain) -> Content {
+        self.separator
+            .get_cloned(styles)
+            .unwrap_or_else(|| Self::local_separator_in(styles))
     }
 
-    fn get_separator(&self, styles: StyleChain) -> Content {
-        self.separator.get_cloned(styles).unwrap_or_else(|| {
-            TextElem::packed(Self::local_separator(
-                styles.get(TextElem::lang),
-                styles.get(TextElem::region),
-            ))
+    /// Gets the default separator in the given language and (optionally)
+    /// region.
+    fn local_separator_in(styles: StyleChain) -> Content {
+        styles.get_cloned(Self::separator).unwrap_or_else(|| {
+            TextElem::packed(match styles.get(TextElem::lang) {
+                Lang::CHINESE => "\u{2003}",
+                Lang::FRENCH => ".\u{a0}– ",
+                Lang::RUSSIAN => ". ",
+                Lang::ENGLISH | _ => ": ",
+            })
         })
     }
 }
@@ -584,7 +594,7 @@ impl FigureCaption {
 impl Synthesize for Packed<FigureCaption> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.separator.set(Smart::Custom(elem.get_separator(styles)));
+        elem.separator.set(Smart::Custom(elem.resolve_separator(styles)));
         Ok(())
     }
 }

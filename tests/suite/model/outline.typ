@@ -252,6 +252,31 @@ A
 = B
 = C
 
+--- outline-html html ---
+#set heading(numbering: "1.1.")
+
+#outline()
+
+= A <a>
+= B <b>
+= C <c>
+= D <d>
+== E <e>
+== F <f>
+#heading(outlined: false, [G])
+=== H // Should not be nested under F
+===== I
+#heading(level: 4, bookmarked: false)[J] // `bookmarked` has no effect
+= K
+
+--- outline-figure-html html ---
+#outline(target: figure, title: [List of Figures])
+#figure([A], caption: [The A])
+#set text(lang: "fr")
+#figure([B], caption: [Le B])
+#set text(lang: "de")
+#figure([C], caption: figure.caption(separator: " ~ ")[Das C])
+
 --- issue-2048-outline-multiline ---
 // Without the word joiner between the dots and the page number,
 // the page number would be alone in its line.

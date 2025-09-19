@@ -1,9 +1,10 @@
 use std::num::NonZeroUsize;
 
+use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
-    Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
@@ -13,8 +14,8 @@ use typst_library::layout::{
 use typst_library::model::{
     Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
     FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
-    ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
-    TermsElem, TitleElem,
+    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -46,6 +47,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FOOTNOTE_RULE);
     rules.register(Html, FOOTNOTE_CONTAINER_RULE);
     rules.register(Html, FOOTNOTE_ENTRY_RULE);
+    rules.register(Html, OUTLINE_RULE);
+    rules.register(Html, OUTLINE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
     rules.register(Html, TABLE_RULE);
@@ -366,6 +369,69 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
         .with_attr(attr::role, "doc-footnote note")
         .with_body(Some(link + body))
         .pack())
+};
+
+const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
+    fn convert_list(list: Vec<OutlineNode>) -> Content {
+        // The Digital Publishing ARIA spec also proposed to add
+        // `role="directory"` to the `<ol>` element, but this role is
+        // deprecated, so we don't do that. The elements are already easily
+        // selectable via `nav[role="doc-toc"] ol`.
+        HtmlElem::new(tag::ol)
+            .with_styles(css::Properties::new().with("list-style-type", "none"))
+            .with_body(Some(Content::sequence(list.into_iter().map(convert_node))))
+            .pack()
+    }
+
+    fn convert_node(node: OutlineNode) -> Content {
+        let body = if !node.children.is_empty() {
+            // The `<div>` is not technically necessary, but otherwise it
+            // auto-wraps in a `<p>`, which results in bad spacing. Perhaps, we
+            // can remove this in the future. See also:
+            // <https://github.com/typst/typst/issues/5907>
+            HtmlElem::new(tag::div).with_body(Some(node.entry.pack())).pack()
+                + convert_list(node.children)
+        } else {
+            node.entry.pack()
+        };
+        HtmlElem::new(tag::li).with_body(Some(body)).pack()
+    }
+
+    let title = elem.realize_title(styles);
+    let tree = elem.realize_tree(engine, styles)?;
+    let list = convert_list(tree);
+
+    Ok(HtmlElem::new(tag::nav)
+        .with_attr(attr::role, "doc-toc")
+        .with_body(Some(title.unwrap_or_default() + list))
+        .pack())
+};
+
+const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
+    let span = elem.span();
+    let context = Context::new(None, Some(styles));
+
+    let mut realized = elem.body().at(span)?;
+
+    if let Some(prefix) = elem.prefix(engine, context.track(), span)? {
+        let wrapped = HtmlElem::new(tag::span)
+            .with_attr(attr::class, "prefix")
+            .with_body(Some(prefix))
+            .pack()
+            .spanned(span);
+
+        let separator = match elem.element.to_packed::<FigureElem>() {
+            Some(elem) => elem.resolve_separator(styles),
+            None => SpaceElem::shared().clone(),
+        };
+
+        realized = Content::sequence([wrapped, separator, realized]);
+    }
+
+    let loc = elem.element_location().at(span)?;
+    let dest = Destination::Location(loc);
+
+    Ok(LinkElem::new(dest.into(), realized).pack())
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
