@@ -11,8 +11,10 @@ use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
-    Resolve, Smart, StyleChain, Value, cast, elem, scope,
+    Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
+use crate::introspection::Locatable;
+use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
@@ -168,7 +170,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope)]
+#[elem(scope, Synthesize, Locatable)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -392,6 +394,10 @@ pub struct GridElem {
     #[fold]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
+
     /// The contents of the grid cells, plus any extra grid lines specified with
     /// the [`grid.hline`] and [`grid.vline`] elements.
     ///
@@ -416,6 +422,18 @@ impl GridElem {
 
     #[elem]
     type GridFooter;
+}
+
+impl Synthesize for Packed<GridElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = grid_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
+    }
 }
 
 /// Track sizing definitions.
@@ -824,6 +842,10 @@ pub struct GridCell {
     /// The cell's [stroke]($grid.stroke) override.
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 
     /// Whether rows spanned by this cell can be placed in different pages.
     /// When equal to `{auto}`, a cell spanning only fixed-size rows is

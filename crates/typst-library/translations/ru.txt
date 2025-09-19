@@ -6,3 +6,6 @@ heading = Раздел
 outline = Содержание
 raw = Листинг
 page = с.
+# footnote =
+# email =
+# telephone =

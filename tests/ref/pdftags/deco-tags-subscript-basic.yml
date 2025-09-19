@@ -1,0 +1,14 @@
+- Tag: P
+  /K:
+    - Content: page=0 mcid=0
+    - Tag: Span
+      /BaselineShift:  -0.750
+      /LineHeight:   6.000
+      /K:
+        - Content: page=0 mcid=1
+    - Content: page=0 mcid=2
+    - Tag: Span
+      /BaselineShift:  -0.750
+      /LineHeight:   6.000
+      /K:
+        - Content: page=0 mcid=3

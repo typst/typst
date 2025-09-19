@@ -1,0 +1,57 @@
+--- link-tags-heading-without-numbering pdftags ---
+= Heading <heading>
+
+#link(<heading>)[link to heading]
+
+--- link-tags-heading-with-numbering pdftags ---
+#set heading(numbering: "1.")
+= Heading <heading>
+
+#link(<heading>)[link to heading]
+
+--- link-tags-non-refable-location pdftags ---
+A random location <somewhere>
+
+#link(<somewhere>)[link to somewhere]
+
+--- link-tags-contact-prefix pdftags ---
+#link("mailto:hello@typst.app")
+
+#link("tel:123")
+
+--- link-tags-position pdftags ---
+#context link(here().position())[somewhere]
+
+--- link-tags-link-in-artifact pdftags ---
+// Error: 2:4-2:42 PDF/UA1 error: PDF artifacts may not contain links
+// Hint: 2:4-2:42 references, citations, and footnotes are also considered links in PDF
+#pdf.artifact[
+  #link("https://github.com/typst/typst")
+]
+
+--- link-tags-reference-in-artifact pdftags ---
+// Error: 4:3-4:11 PDF/UA1 error: PDF artifacts may not contain links
+// Hint: 4:3-4:11 references, citations, and footnotes are also considered links in PDF
+#set heading(numbering: "1.")
+= Heading <heading>
+#pdf.artifact[
+  @heading
+]
+
+--- link-tags-citation-in-artifact pdftags ---
+// Error: 2:3-2:10 PDF/UA1 error: PDF artifacts may not contain links
+// Hint: 2:3-2:10 references, citations, and footnotes are also considered links in PDF
+#pdf.artifact[
+  @netwok
+]
+#show bibliography: none
+#bibliography("/assets/bib/works.bib")
+
+--- link-tags-place-within-artifact pdftags ---
+// Error: 2:4-4:4 PDF/UA1 error: PDF artifacts may not contain links
+// Hint: 2:4-4:4 references, citations, and footnotes are also considered links in PDF
+#pdf.artifact[
+  #link("tel:123")[
+    #place(float: true, top + left, rect(fill: red))
+  ]
+]

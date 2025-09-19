@@ -6,3 +6,6 @@ heading = 小节
 outline = 目录
 raw = 代码
 # page =
+# footnote =
+# email =
+# telephone =

@@ -6,3 +6,6 @@ heading = Poglavje
 outline = Kazalo
 raw = Program
 page = stran
+# footnote =
+# email =
+# telephone =

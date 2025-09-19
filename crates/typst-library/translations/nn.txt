@@ -6,3 +6,6 @@ heading = Kapittel
 outline = Innhald
 raw = Utskrift
 page = side
+# footnote =
+# email =
+# telephone =

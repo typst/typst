@@ -6,3 +6,6 @@ heading = 小節
 outline = 目錄
 raw = 程式
 # page =
+# footnote =
+# email =
+# telephone =

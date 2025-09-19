@@ -1,5 +1,5 @@
 use crate::foundations::{Cast, Content, Smart, elem};
-use crate::layout::{Abs, Corners, Length, Point, Rel, Sides, Size, Sizing};
+use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 
 /// A rectangle with optional content.
@@ -380,6 +380,24 @@ impl Geometry {
             fill: None,
             fill_rule: FillRule::default(),
             stroke: Some(stroke),
+        }
+    }
+
+    /// The bounding box of the geometry.
+    pub fn bbox(&self) -> Rect {
+        match self {
+            Self::Line(end) => {
+                let min = end.min(Point::zero());
+                let max = end.max(Point::zero());
+                Rect::new(min, max)
+            }
+            Self::Rect(size) => {
+                let p = size.to_point();
+                let min = p.min(Point::zero());
+                let max = p.max(Point::zero());
+                Rect::new(min, max)
+            }
+            Self::Curve(curve) => curve.bbox(),
         }
     }
 
