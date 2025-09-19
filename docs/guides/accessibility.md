@@ -10,7 +10,7 @@ Making a document accessible means that it can be used and understood by everyon
 - A user may print the document on paper
 - A user may read your document on a phone, with reflow in their PDF reader enabled
 - A user may have their computer read the document back to them
-- A user may ask an Artificial Intelligence to summarize your document for them
+- A user may ask artificial intelligence to summarize your document for them
 - A user may convert your document to another file format like HTML that is more accessible to them
 
 To accommodate all of these people and scenarios, you should design your document for **Universal Access.** Universal Access is a simple but powerful principle: instead of retrofitting a project for accessibility after the fact, design from the beginning to work for the broadest possible range of people and situations. This will improve the experience for all readers!
@@ -67,7 +67,7 @@ If you want to style the default appearance of an element, do not replace it wit
 When setting up your tents, *never forget* to secure the pegs
 ```
 
-The show-set rule completely changes the default appearance of the [`strong`] element, but its semantic meaning will be conserved. If you need even more customization, you can provide show rules with fully custom layouting code while Typst will still be able to track the semantic purpose of the element.
+The show-set rule completely changes the default appearance of the [`strong`] element, but its semantic meaning will be conserved. If you need even more customization, you can provide show rules with fully custom layout code while Typst will still be able to track the semantic purpose of the element.
 
 ## Reading order
 
@@ -108,7 +108,7 @@ Universal Access not only means that your documents works with AT, reflow, and r
 <div style="display:flex; gap: 16px;">
 <img
   src="chart-bad-regular.png"
-  alt="Bar chart showing Energy production in Germany by kind in Terrawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels"
+  alt="Bar chart showing Energy production in Germany by kind in terawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels"
   width="958"
   height="637"
   style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
@@ -198,9 +198,35 @@ Instead, in the given example, you could use this alternative text:
 
 There are more resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to all image formats. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
 
-Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If your figure contains an image, it suffices to set an alternative description on the image.
+Do not use images of text, likewise, do not use the path operations to draw text manually. Typst will not be able to process text in any images to make it accessible in the same way that native text is. There is one exception to this rule: Use an image of text when the appearance of the text is essential to the semantic meaning of the document and cannot be reproduced with Typst natively. In that case, you must describe both the textual content and the essential visual characteristics in the alternative description.
 
-Do not use images of text, likewise, do not use the path operations to draw text manually. Typst will not be able to process text in images to make it accessible in the same way that native text is. The only exceptions to this rule are images in which the appearance of the text is essential to the semantic meaning of the document and cannot be reproduced with Typst natively. In that case, you must describe both the textual content and the essential visual characteristics in the alternative description.
+Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If you specify both `alt` and `caption`, both will be read by AT. If your figure contains an image, it suffices to set an alternative description on the image.
+
+```typ
+#figure(
+  alt: "Star with a blue outline",
+  curve.with(
+    stroke: blue,
+    curve.move((25pt, 0pt)),
+    curve.line((10pt, 50pt)),
+    curve.line((50pt, 20pt)),
+    curve.line((0pt, 20pt)),
+    curve.line((40pt, 50pt)),
+    curve.close(),
+  ),
+)
+```
+
+Finally, you can specify an alternative description on math using [`math.equation`]. Describe your formula as if read out loud in natural language. Currently, adding an alternative description is required for accessible math for all export formats. In the future, Typst make math automatically accessible in HTML and PDF 2.0 by leveraging MathML technology. Not adding an alternative description for your formula will result in a failure of PDF/UA-1 export.
+
+```typ
+#math.equation(
+  alt: "a squared plus b squared equals c squared",
+  $ a^2 + b^2 = c^2 $,
+)
+```
+
+Another element that represents itself as text are links. It is best to avoid non-descriptive link texts such as _here_ or _go._ These link texts also hurt Search Engine Optimization (SEO) if that is a consideration for your document. Instead, try to have the link contain text about where it is pointing to. Note that, unless you are aiming for the highest level of accessibility, it is also okay if the link itself is not descriptive but its purpose can be understood from the content immediately surrounding it.
 
 ## Natural Language
 
