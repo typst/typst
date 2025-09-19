@@ -139,7 +139,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "biblatex"
 version = "0.10.0"
-source = "git+https://github.com/typst/biblatex.git#d6a0dc3b84412b6ac2e66516f4d434a971c540df"
+source = "git+https://github.com/typst/biblatex.git#8c9800eb79fb6c7e3df2fe7e05882086ae9f26d0"
 dependencies = [
  "numerals",
  "paste",
@@ -937,7 +937,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.8.1"
-source = "git+https://github.com/typst/hayagriva?rev=03ae2acf#03ae2acf168e65604e74f0361e74ba4ef7689f16"
+source = "git+https://github.com/typst/hayagriva?rev=d151bb5#d151bb5085563a46db707a90a8277cd77f0549dd"
 dependencies = [
  "biblatex",
  "ciborium",
