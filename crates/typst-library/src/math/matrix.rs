@@ -21,7 +21,7 @@ const DEFAULT_COL_GAP: Em = Em::new(0.5);
 /// [`align`]($math.vec.align) parameter, or the `&` symbol.
 ///
 /// This function is for typesetting vector components. To typeset a symbol that
-/// represents a vector, [`arrow`]($math.arrow) and [`bold`]($math.bold) are
+/// represents a vector, [`arrow`]($math.accent) and [`bold`]($math.bold) are
 /// commonly used.
 ///
 /// # Example
