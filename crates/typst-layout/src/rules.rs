@@ -20,8 +20,8 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem,
+    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::AttachElem;
 use typst_library::text::{
@@ -395,38 +395,11 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
-    let span = elem.span();
-
-    // Build the outline title.
-    let mut seq = vec![];
-    if let Some(title) = elem.title.get_cloned(styles).unwrap_or_else(|| {
-        Some(TextElem::packed(Packed::<OutlineElem>::local_name_in(styles)).spanned(span))
-    }) {
-        seq.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        );
-    }
-
-    let elems = engine.introspector.query(&elem.target.get_ref(styles).0);
-    let depth = elem.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
-
-    // Build the outline entries.
-    for elem in elems {
-        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-            bail!(span, "cannot outline {}", elem.func().name());
-        };
-
-        let level = outlinable.level();
-        if outlinable.outlined() && level <= depth {
-            let entry = OutlineEntry::new(level, elem);
-            seq.push(entry.pack().spanned(span));
-        }
-    }
-
-    Ok(Content::sequence(seq))
+    let title = elem.realize_title(styles);
+    let entries = elem.realize_flat(engine, styles)?;
+    Ok(Content::sequence(
+        title.into_iter().chain(entries.into_iter().map(|entry| entry.pack())),
+    ))
 };
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
@@ -437,6 +410,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let prefix = elem.prefix(engine, context, span)?;
     let inner = elem.inner(engine, context, span)?;
     let block = if elem.element.is::<EquationElem>() {
+        // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::new()
             .with_body(Some(BlockBody::Content(body)))
