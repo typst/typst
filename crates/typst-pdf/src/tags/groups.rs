@@ -45,10 +45,12 @@ impl Groups {
         self.locations.get(loc).copied()
     }
 
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn get(&self, id: GroupId) -> &Group {
         self.list.get(id)
     }
 
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn get_mut(&mut self, id: GroupId) -> &mut Group {
         self.list.get_mut(id)
     }
@@ -349,7 +351,6 @@ impl Group {
     }
 }
 
-#[derive(Debug)]
 pub enum GroupKind {
     Root(Option<Lang>),
     Artifact(ArtifactType),
@@ -376,6 +377,35 @@ pub enum GroupKind {
     CodeBlock(Option<Lang>),
     CodeBlockLine(Option<Lang>),
     Standard(TagId, Option<Lang>),
+}
+
+impl std::fmt::Debug for GroupKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Root(_) => write!(f, "Root"),
+            Self::Artifact(_) => write!(f, "Artifact"),
+            Self::LogicalParent(_) => write!(f, "LogicalParent"),
+            Self::LogicalChild => write!(f, "LogicalChild"),
+            Self::Outline(..) => write!(f, "Outline"),
+            Self::OutlineEntry(..) => write!(f, "OutlineEntry"),
+            Self::Table(..) => write!(f, "Table"),
+            Self::TableCell(..) => write!(f, "TableCell"),
+            Self::Grid(..) => write!(f, "Grid"),
+            Self::GridCell(..) => write!(f, "GridCell"),
+            Self::List(..) => write!(f, "List"),
+            Self::ListItemLabel(..) => write!(f, "ListItemLabel"),
+            Self::ListItemBody(..) => write!(f, "ListItemBody"),
+            Self::BibEntry(..) => write!(f, "BibEntry"),
+            Self::Figure(..) => write!(f, "Figure"),
+            Self::FigureCaption(..) => write!(f, "FigureCaption"),
+            Self::Image(..) => write!(f, "Image"),
+            Self::Formula(..) => write!(f, "Formula"),
+            Self::Link(..) => write!(f, "Link"),
+            Self::CodeBlock(..) => write!(f, "CodeBlock"),
+            Self::CodeBlockLine(..) => write!(f, "CodeBlockLine"),
+            Self::Standard(..) => write!(f, "Standard"),
+        }
+    }
 }
 
 impl GroupKind {

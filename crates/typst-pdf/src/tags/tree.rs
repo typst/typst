@@ -222,7 +222,7 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
 
             tree.state.push(TreeState { current_artifact, bbox_stack });
 
-            // Reopen any artifact in the next location.
+            // Reopen any artifact in the logical child.
             if let Some(ty) = tree.parent_artifact() {
                 surface.start_tagged(ContentTag::Artifact(ty));
             }
@@ -230,21 +230,19 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
         StepKind::LeaveLogicalChild => {
             // This moves back to the previous location in the tree.
 
-            // Logical children groups are always properly nested by
-            // construction because they are frames, and thus cannot span across
-            // regions. This means we can find the right logical child by just
-            // walking up in the parent hierarchy.
-            let mut current = prev;
-            loop {
-                let group = tree.groups.get(current);
-                if matches!(group.kind, GroupKind::LogicalChild) {
-                    close_group(tree, surface, prev);
-                    break;
-                }
-                current = group.parent;
+            // The stack within a logical child, could also be unfinished, in
+            // which case a `BreakKind::Unfinished` is inserted to close the
+            // `LogicalChild` group.
+            if let Some(brk) = tree.breaks.get(tree.break_cursor)
+                && brk.progression_idx as usize == tree.prog_cursor
+            {
+                tree.break_cursor += 1;
+                step_break(tree, surface, prev, next, *brk);
+            } else {
+                close_group(tree, surface, prev);
             }
 
-            // Close any artifact.
+            // Close any artifact in the logical child.
             if tree.state.current_artifact.is_some() {
                 surface.end_tagged();
             }
@@ -252,7 +250,7 @@ pub fn step<S: Step>(tree: &mut Tree, surface: &mut Surface) {
             // Just pop the state off.
             tree.state.pop();
 
-            // Reopen any artifact.
+            // Reopen any artifact in the restored location of the tree.
             if let Some(ty) = tree.parent_artifact() {
                 surface.start_tagged(ContentTag::Artifact(ty));
             }
@@ -604,11 +602,12 @@ impl TagStack {
     }
 
     /// Remove all stack entries after the idx.
-    pub fn take_unfinished_stack(
-        &mut self,
-        idx: usize,
-    ) -> Option<std::vec::Drain<'_, StackEntry>> {
-        if idx + 1 < self.items.len() { Some(self.items.drain(idx + 1..)) } else { None }
+    pub fn take_unfinished_stack(&mut self, idx: usize) -> Option<Vec<StackEntry>> {
+        if idx + 1 < self.items.len() {
+            Some(self.items.drain(idx + 1..).collect())
+        } else {
+            None
+        }
     }
 }
 
@@ -715,7 +714,8 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
     visit_frame(tree, &group.frame)?;
 
     if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-        tree.unfinished_stacks.insert(parent_loc, stack.collect());
+        tree.unfinished_stacks.insert(parent_loc, stack);
+        tree.insert_break(BreakKind::Unfinished { group_to_close: id });
     }
     tree.stack.pop().expect("stack entry");
     tree.progressions.push(prev);
@@ -931,12 +931,12 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     // Table/grid cells can only have overlapping tags if they are broken across
     // multiple regions. In that case store the unfinished stack entries, and
     // push them back on when processing the logical children.
-    let entry = &tree.stack[stack_idx];
-    let group = tree.groups.get(entry.id);
+    let entry_id = tree.stack[stack_idx].id;
+    let group = tree.groups.get(entry_id);
     if matches!(group.kind, GroupKind::TableCell(..) | GroupKind::GridCell(..)) {
-        tree.insert_break(BreakKind::Unfinished { group_to_close: entry.id });
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-            tree.unfinished_stacks.insert(loc, stack.collect());
+            tree.unfinished_stacks.insert(loc, stack);
+            tree.insert_break(BreakKind::Unfinished { group_to_close: entry_id });
         }
         tree.stack.pop().unwrap();
         return Ok(tree.parent());
