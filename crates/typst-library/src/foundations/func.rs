@@ -375,13 +375,32 @@ impl Func {
     }
 
     /// Returns a selector that filters for elements belonging to this function
-    /// whose fields have the values of the given arguments.
+    /// whose fields satisfy certain properties.
+    ///
+    /// For an element to match, all arguments given to the where selector must
+    /// have corresponding matching fields in the element.
+    ///
+    /// A field argument takes one of two forms:
+    ///
+    /// - If it is a type, the field matches if its value is of the given type.
+    /// - If it is another value, the field matches if its value is equal to the
+    ///   given one.
+    ///
+    /// Note: Currently field arguments only support filtering for concrete
+    /// values and types. They might be extended to cover more use cases like
+    /// alternation in the future, unifying them with selectors themselves.
     ///
     /// ```example
+    /// // Match on concrete value.
     /// #show heading.where(level: 2): set text(blue)
-    /// = Section
+    /// = Section <section>
     /// == Subsection
     /// === Sub-subsection
+    ///
+    /// // Match on type.
+    /// #show link.where(dest: str): underline
+    /// #link("https://typst.app")[Underlined]
+    /// #link(<section>)[Not underlined]
     /// ```
     #[func]
     pub fn where_(
