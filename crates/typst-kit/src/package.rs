@@ -21,6 +21,24 @@ pub const DEFAULT_NAMESPACE: &str = "preview";
 /// The default packages sub directory within the package and package cache paths.
 pub const DEFAULT_PACKAGES_SUBDIR: &str = "typst/packages";
 
+/// Attempts to infer the default package cache directory from the current
+/// environment.
+///
+/// This simply joins [`DEFAULT_PACKAGES_SUBDIR`] to the output of
+/// [`dirs::cache_dir`].
+pub fn default_package_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
+
+/// Attempts to infer the default package directory from the current
+/// environment.
+///
+/// This simply joins [`DEFAULT_PACKAGES_SUBDIR`] to the output of
+/// [`dirs::data_dir`].
+pub fn default_package_path() -> Option<PathBuf> {
+    dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
+}
+
 /// Holds information about where packages should be stored and downloads them
 /// on demand, if possible.
 #[derive(Debug)]
@@ -56,12 +74,8 @@ impl PackageStorage {
         index: OnceCell<Vec<serde_json::Value>>,
     ) -> Self {
         Self {
-            package_cache_path: package_cache_path.or_else(|| {
-                dirs::cache_dir().map(|cache_dir| cache_dir.join(DEFAULT_PACKAGES_SUBDIR))
-            }),
-            package_path: package_path.or_else(|| {
-                dirs::data_dir().map(|data_dir| data_dir.join(DEFAULT_PACKAGES_SUBDIR))
-            }),
+            package_cache_path: package_cache_path.or_else(default_package_cache_path),
+            package_path: package_path.or_else(default_package_path),
             downloader,
             index,
         }
