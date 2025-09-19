@@ -50,7 +50,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
 #show bibliography: none
-#bibliography("/assets/bib/works.bib", style: "chicago-notes")
+#bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
 --- quote-cite-format-author-date ---
 // Citation-format: author-date or author
