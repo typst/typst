@@ -61,7 +61,7 @@ fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 rustc-hash = "2.1"
 glidesort = "0.1.2"
-hayagriva = "0.8.1"
+hayagriva = { git = "https://github.com/typst/hayagriva", rev = "03ae2acf" }
 hayro-syntax = "0.2.0"
 hayro = "0.2.0"
 heck = "0.5"

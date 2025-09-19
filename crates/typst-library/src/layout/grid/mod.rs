@@ -106,7 +106,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Styling the grid { #styling }
 /// The grid and table elements work similarly. For a hands-on explanation,
-/// refer to the [table guide]($guides/table-guide/#fills); for a quick overview,
+/// refer to the [Table Guide]($guides/table-guide/#fills); for a quick overview,
 /// continue reading.
 ///
 /// The grid's appearance can be customized through different parameters. These

@@ -4,7 +4,7 @@ description: |
   explains all you need to know about tables in Typst.
 ---
 
-# Table guide
+# Table Guide
 Tables are a great way to present data to your readers in an easily readable,
 compact, and organized manner. They are not only used for numerical values, but
 also survey responses, task planning, schedules, and more. Because of this wide

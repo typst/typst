@@ -21,6 +21,7 @@ pub use self::rules::{html_span_filled, register};
 use ecow::EcoString;
 use typst_library::Category;
 use typst_library::foundations::{Content, Module, Scope};
+use typst_library::introspection::Location;
 use typst_macros::elem;
 
 /// Creates the module with all HTML definitions.
@@ -68,6 +69,20 @@ pub struct HtmlElem {
     /// The body can be arbitrary Typst content.
     #[positional]
     pub body: Option<Content>,
+
+    /// The element's logical parent, if any.
+    #[internal]
+    #[synthesized]
+    pub parent: Location,
+
+    /// A role that should be applied to the top-level styled HTML element, but
+    /// not its descendants. If we ever get set rules that apply to a specific
+    /// element instead of a subtree, they could supplant this. If we need the
+    /// same mechanism for things like `class`, this could potentially also be
+    /// extended to arbitrary attributes. It's minimal for now.
+    #[internal]
+    #[ghost]
+    pub role: Option<EcoString>,
 }
 
 impl HtmlElem {
