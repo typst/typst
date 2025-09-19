@@ -98,9 +98,9 @@ pub struct CiteElem {
     /// - A path string to a [CSL file](https://citationstyles.org/). For more
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which a CSL style should be decoded.
-    #[parse(match super::bibliography::check_csl_style::<Spanned<Smart<CslSource>>>(args.named("style")?, engine)? {
+    #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
-            CslStyle::load(engine.world, Spanned::new(source, span))?
+            CslStyle::load(engine, Spanned::new(source, span))?
         )),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,
