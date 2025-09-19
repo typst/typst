@@ -7,3 +7,5 @@ outline = Innhold
 raw = Utskrift
 page = side
 # footnote =
+# email =
+# telephone =

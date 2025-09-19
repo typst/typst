@@ -7,3 +7,5 @@ outline = Table des matières
 raw = Liste
 page = page
 # footnote =
+# email =
+# telephone =

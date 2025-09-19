@@ -7,3 +7,5 @@ outline = المحتويات
 raw = قائمة
 page = صفحة
 # footnote =
+# email =
+# telephone =

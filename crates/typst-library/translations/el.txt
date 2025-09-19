@@ -6,3 +6,5 @@ heading = Κεφάλαιο
 outline = Περιεχόμενα
 raw = Παράθεση
 # footnote =
+# email =
+# telephone =

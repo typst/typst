@@ -7,3 +7,5 @@ outline = Index capitum
 raw = Exemplum
 page = charta
 # footnote =
+# email =
+# telephone =

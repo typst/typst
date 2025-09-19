@@ -7,3 +7,5 @@ outline = Obsah
 raw = Výpis
 page = strana
 # footnote =
+# email =
+# telephone =

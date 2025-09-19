@@ -7,3 +7,5 @@ outline = Përmbajtja
 raw = List
 page = faqe
 # footnote =
+# email =
+# telephone =

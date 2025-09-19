@@ -8,3 +8,5 @@ outline = Cuprins
 raw = Listă
 page = pagina
 # footnote =
+# email =
+# telephone =

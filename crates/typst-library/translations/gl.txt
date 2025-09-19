@@ -7,3 +7,5 @@ outline = Índice
 raw = Listado
 page = páxina
 # footnote =
+# email =
+# telephone =

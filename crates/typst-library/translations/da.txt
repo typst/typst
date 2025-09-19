@@ -7,3 +7,5 @@ outline = Indhold
 raw = Liste
 page = side
 # footnote =
+# email =
+# telephone =

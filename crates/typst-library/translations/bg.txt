@@ -7,3 +7,5 @@ outline = Съдържание
 raw = Приложение
 page = стр.
 # footnote =
+# email =
+# telephone =

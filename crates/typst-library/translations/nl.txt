@@ -7,3 +7,5 @@ outline = Inhoudsopgave
 raw = Listing
 page = pagina
 # footnote =
+# email =
+# telephone =

@@ -7,3 +7,5 @@ outline = Efnisyfirlit
 raw = Sýnishorn
 page = blaðsíða
 # footnote =
+# email =
+# telephone =

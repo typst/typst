@@ -7,3 +7,5 @@ outline = Aurkibidea
 raw = Kodea
 page = orria
 # footnote =
+# email =
+# telephone =

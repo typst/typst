@@ -7,3 +7,5 @@ outline = Зміст
 raw = Лістинг
 page = c.
 # footnote =
+# email =
+# telephone =

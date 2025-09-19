@@ -7,3 +7,5 @@ outline = Tartalomjegyzék
 # raw =
 page = oldal
 # footnote =
+# email =
+# telephone =
