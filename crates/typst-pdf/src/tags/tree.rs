@@ -448,6 +448,10 @@ struct TreeBuilder<'a> {
     logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
 
     stack: TagStack,
+    /// Currently only used for table/grid cells that are broken across multiple
+    /// regions, and thus can have opening/closing introspection tags that are
+    /// in completely different frames, due to the logical parenting mechanism.
+    unfinished_stacks: FxHashMap<Location, Vec<StackEntry>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -485,9 +489,10 @@ impl<'a> TreeBuilder<'a> {
             breaks: Vec::new(),
             groups,
             ctx: Ctx::new(),
+            logical_children: FxHashMap::default(),
 
             stack: TagStack::new(),
-            logical_children: FxHashMap::default(),
+            unfinished_stacks: FxHashMap::default(),
         }
     }
 
@@ -608,11 +613,11 @@ impl TagStack {
 }
 
 #[derive(Debug)]
-pub struct StackEntry {
+struct StackEntry {
     /// The location of the stack entry. If this is `None` the stack entry has
     /// to be manually popped.
-    pub loc: Option<Location>,
-    pub id: GroupId,
+    loc: Option<Location>,
+    id: GroupId,
 }
 
 pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
@@ -622,6 +627,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
     }
 
     assert!(tree.stack.is_empty(), "tags weren't properly closed");
+    assert!(tree.unfinished_stacks.is_empty(), "tags weren't properly closed");
     assert_eq!(
         tree.progressions.first(),
         tree.progressions.last(),
@@ -700,7 +706,7 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
 
     let stack_idx = tree.stack.len();
     push_stack_entry(tree, None, id);
-    if let Some(stack) = tree.groups.take_unfinished_stack(parent_loc) {
+    if let Some(stack) = tree.unfinished_stacks.remove(&parent_loc) {
         tree.stack.extend(stack);
     }
     // Move to the top of the stack, including the pushed on unfinished stack.
@@ -709,7 +715,7 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
     visit_frame(tree, &group.frame)?;
 
     if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-        tree.groups.store_unfinished_stack(parent_loc, stack.collect());
+        tree.unfinished_stacks.insert(parent_loc, stack.collect());
     }
     tree.stack.pop().expect("stack entry");
     tree.progressions.push(prev);
@@ -930,7 +936,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     if matches!(group.kind, GroupKind::TableCell(..) | GroupKind::GridCell(..)) {
         tree.insert_break(BreakKind::Unfinished { group_to_close: entry.id });
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-            tree.groups.store_unfinished_stack(loc, stack.collect());
+            tree.unfinished_stacks.insert(loc, stack.collect());
         }
         tree.stack.pop().unwrap();
         return Ok(tree.parent());

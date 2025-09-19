@@ -16,7 +16,6 @@ use crate::tags::context::{
 };
 use crate::tags::resolve::TagNode;
 use crate::tags::text::ResolvedTextAttrs;
-use crate::tags::tree::StackEntry;
 use crate::tags::util::{Id, IdVec};
 
 pub type GroupId = Id<Group>;
@@ -31,12 +30,6 @@ pub struct Groups {
     locations: FxHashMap<Location, LocatedGroup>,
     pub list: IdVec<Group>,
     pub tags: TagStorage,
-
-    // TODO: move to tree builder
-    /// Currently only used for table/grid cells that are broken across multiple
-    /// regions, and thus can have opening/closing introspection tags that are
-    /// in completely different frames, due to the logical parenting mechanism.
-    unfinished_stacks: FxHashMap<Location, Vec<StackEntry>>,
 }
 
 impl Groups {
@@ -45,7 +38,6 @@ impl Groups {
             locations: FxHashMap::default(),
             list: IdVec::new(),
             tags: TagStorage::new(),
-            unfinished_stacks: FxHashMap::default(),
         }
     }
 
@@ -63,14 +55,6 @@ impl Groups {
 
     pub fn iter(&self) -> impl Iterator<Item = &Group> {
         self.list.iter()
-    }
-
-    pub fn store_unfinished_stack(&mut self, loc: Location, entries: Vec<StackEntry>) {
-        self.unfinished_stacks.insert(loc, entries);
-    }
-
-    pub fn take_unfinished_stack(&mut self, loc: Location) -> Option<Vec<StackEntry>> {
-        self.unfinished_stacks.remove(&loc)
     }
 
     pub fn try_set_lang(&mut self, id: GroupId, lang: Lang) -> Option<Lang> {
