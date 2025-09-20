@@ -7,13 +7,13 @@ use az::SaturatingAs;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
 use ttf_parser::gsub::SubstitutionSubtable;
-use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
     Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
-    TextElem, TextItem, families, features, is_default_ignorable, language, variant,
+    TextElem, TextItem, families, features, is_default_ignorable, language, resolver_for,
+    variant,
 };
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -441,13 +441,9 @@ impl<'a> ShapedText<'a> {
         if self.glyphs.is_fully_empty() {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
-            let world = engine.world;
+            let resolver = resolver_for(self.styles, engine.world);
             for family in families(self.styles) {
-                if let Some(font) = world
-                    .book()
-                    .select(family.as_str(), self.variant)
-                    .and_then(|id| world.font(id))
-                {
+                if let Some(font) = resolver.select(family.as_str(), self.variant) {
                     expand(&font, TextEdgeBounds::Zero);
                     break;
                 }
@@ -540,21 +536,23 @@ impl<'a> ShapedText<'a> {
         pos: usize,
         soft: bool,
     ) -> Option<Self> {
-        let world = engine.world;
-        let book = world.book();
+        let resolver = resolver_for(base.styles, engine.world);
+        let book = resolver.book();
         let fallback_func = if fallback {
-            Some(|| book.select_fallback(None, base.variant, "-"))
+            Some(|| {
+                book.select_fallback(None, base.variant, "-")
+                    .and_then(|id| resolver.font(id))
+            })
         } else {
             None
         };
         let mut chain = families(base.styles)
             .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
-            .map(|family| book.select(family.as_str(), base.variant))
+            .map(|family| resolver.select(family.as_str(), base.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
-        chain.find_map(|id| {
-            let font = world.font(id)?;
+        chain.find_map(|font| {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
@@ -815,14 +813,14 @@ fn shape_segment<'a>(
     }
 
     // Find the next available family.
-    let world = ctx.engine.world;
-    let book = world.book();
+    let resolver = resolver_for(ctx.styles, ctx.engine.world);
+    let book = resolver.book();
     let mut selection = None;
     let mut covers = None;
     for family in families.by_ref() {
         selection = book
             .select(family.as_str(), ctx.variant)
-            .and_then(|id| world.font(id))
+            .and_then(|id| resolver.font(id))
             .filter(|font| !ctx.used.contains(font));
         if selection.is_some() {
             covers = family.covers();
@@ -835,7 +833,7 @@ fn shape_segment<'a>(
         let first = ctx.used.first().map(Font::info);
         selection = book
             .select_fallback(first, ctx.variant, text)
-            .and_then(|id| world.font(id))
+            .and_then(|id| resolver.font(id))
             .filter(|font| !ctx.used.contains(font));
     }
 

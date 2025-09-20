@@ -108,6 +108,15 @@ I
   text(fill: t, "Hello")
 })
 
+--- text-font-from-path ---
+// Load a font from a local filepath and use it.
+#set text(font: (name: "Imposter", paths: ("assets/fonts/Ubuntu-Regular.ttf",)))
+
+Imposter
+
+// The above should be the same as:
+#strike(text(font: "Ubuntu", "Imposter"))
+
 --- text-font-types ---
 #let ubuntu = (name: "Ubuntu", covers: regex("[\u{20}-\u{FFFF}]"))
 #set text(font: ubuntu)

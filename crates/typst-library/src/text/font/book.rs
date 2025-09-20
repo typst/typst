@@ -26,6 +26,11 @@ impl FontBook {
         Self { families: BTreeMap::new(), infos: vec![] }
     }
 
+    /// The number of fonts (faces) in the book.
+    pub fn len(&self) -> usize {
+        self.infos.len()
+    }
+
     /// Create a font book from a collection of font infos.
     pub fn from_infos(infos: impl IntoIterator<Item = FontInfo>) -> Self {
         let mut book = Self::new();

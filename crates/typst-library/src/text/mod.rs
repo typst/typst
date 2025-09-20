@@ -28,6 +28,7 @@ pub use self::smallcaps_::*;
 pub use self::smartquote::*;
 pub use self::space::*;
 
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::str::FromStr;
@@ -40,7 +41,7 @@ use icu_provider_blob::BlobDataProvider;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
-use typst_syntax::Spanned;
+use typst_syntax::{FileId, Spanned};
 use typst_utils::singleton;
 
 use crate::World;
@@ -54,6 +55,7 @@ use crate::foundations::{
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
+use comemo::Tracked;
 
 /// Hook up all `text` definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -98,6 +100,10 @@ pub struct TextElem {
     /// name or a dictionary with the following keys:
     ///
     /// - `name` (required): The font family name.
+    /// - `paths` (optional): An array of file paths for all faces that belong
+    ///   to this family (e.g. regular, bold, italic variants). When provided,
+    ///   these fonts are loaded for this location and treated as the named
+    ///   family, regardless of the internal name recorded in the font file.
     /// - `covers` (optional): Defines the Unicode codepoints for which the
     ///   family shall be used. This can be:
     ///   - A predefined coverage set:
@@ -156,6 +162,12 @@ pub struct TextElem {
     ///   "Noto Serif CJK SC"
     /// ))
     /// 分别设置“中文”和English字体
+    ///
+    /// // Load a custom font from project assets and refer to it by alias.
+    /// #set text(font: (
+    ///   (name: "Linux Font", paths: ("assets/fonts/Ubuntu-Regular.ttf",)),
+    ///   "Ubuntu"
+    /// ))
     /// ```
     #[parse({
         let font_list: Option<Spanned<FontList>> = args.named("font")?;
@@ -804,17 +816,36 @@ pub struct FontFamily {
     name: EcoString,
     // A regex that defines the Unicode codepoints supported by the font.
     covers: Option<Covers>,
+    // The paths to files that contain the font faces of this family.
+    paths: Vec<EcoString>,
 }
 
 impl FontFamily {
-    /// Create a named font family variant.
+    /// Create a font family with the given name, no coverage, and empty paths.
     pub fn new(string: &str) -> Self {
-        Self::with_coverage(string, None)
+        Self {
+            name: string.to_lowercase().into(),
+            covers: None,
+            paths: Vec::new(),
+        }
     }
 
-    /// Create a font family by name and optional Unicode coverage.
-    pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
-        Self { name: string.to_lowercase().into(), covers }
+    /// Set optional Unicode coverage.
+    pub fn with_coverage(mut self, covers: Option<Covers>) -> Self {
+        self.covers = covers;
+        self
+    }
+
+    /// Add multiple associated font paths.
+    pub fn with_paths<I, S>(mut self, paths: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        for path in paths {
+            self.paths.push(path.as_ref().into());
+        }
+        self
     }
 
     /// The lowercased family name.
@@ -826,6 +857,11 @@ impl FontFamily {
     pub fn covers(&self) -> Option<&Regex> {
         self.covers.as_ref().map(|covers| covers.as_regex())
     }
+
+    /// The optional font paths associated with this family.
+    pub fn paths(&self) -> &[EcoString] {
+        &self.paths
+    }
 }
 
 cast! {
@@ -833,11 +869,20 @@ cast! {
     self => self.name.into_value(),
     string: EcoString => Self::new(&string),
     mut v: Dict => {
-        let ret = Self::with_coverage(
-            &v.take("name")?.cast::<EcoString>()?,
-            v.take("covers").ok().map(|v| v.cast()).transpose()?
-        );
-        v.finish(&["name", "covers"])?;
+        let name = v.take("name")?.cast::<EcoString>()?;
+        let covers = v.take("covers").ok().map(|v| v.cast()).transpose()?;
+        // Parse `paths` as an array of strings via Cast machinery.
+        let paths: Vec<EcoString> = v
+            .take("paths")
+            .ok()
+            .map(|val| val.cast::<Vec<EcoString>>())
+            .transpose()?
+            .unwrap_or_default();
+
+        let ret = Self::new(&name)
+            .with_paths(paths)
+            .with_coverage(covers);
+        v.finish(&["name", "covers", "paths"])?;
         ret
     },
 }
@@ -909,6 +954,156 @@ impl FontList {
             bail!("font fallback list must not be empty")
         } else {
             Ok(Self(fonts))
+        }
+    }
+}
+
+/// Helper to build an augmented font book, where 'augmented' means the font book is
+/// extended with custom font files loaded from local paths in addition to the base font book.
+#[derive(Debug, Clone)]
+struct FontBookExtender {
+    book: FontBook,
+    fonts: Vec<Font>,
+    // Maps indices from the augmented font book to indices in the local fonts vector,
+    // enabling correct resolution of fonts added via local paths.
+    local_map: HashMap<usize, usize>,
+}
+
+impl FontBookExtender {
+    fn new(base: &FontBook) -> Self {
+        Self {
+            book: base.clone(),
+            fonts: Vec::new(),
+            local_map: HashMap::new(),
+        }
+    }
+
+    fn add(&mut self, font: Font, family_name: &str) {
+        let mut info = font.info().clone();
+        info.family = family_name.into();
+        let idx = self.book.len();
+        let font_idx = self.fonts.len();
+        self.book.push(info);
+        self.fonts.push(font);
+        self.local_map.insert(idx, font_idx);
+    }
+}
+
+/// Public resolver that exposes the effective book and resolves fonts,
+/// taking a local augmented book into account when present.
+#[derive(Clone)]
+pub struct ScopedFontResolver<'w> {
+    augmented_book: Option<FontBook>,
+    world: Tracked<'w, dyn World + 'w>,
+    fonts: Vec<Font>,
+    local_map: HashMap<usize, usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct FontFamilyAlias {
+    name: EcoString,
+    paths: Vec<EcoString>,
+}
+
+/// Build an augmented font book containing in-scope family aliases.
+/// Memoized to avoid re-reading and re-wrapping font files across
+/// repeated shaping with the same world + aliases.
+#[comemo::memoize]
+fn extend_book_with_aliases(
+    world: Tracked<dyn World + '_>,
+    aliases: Vec<FontFamilyAlias>,
+) -> (FontBook, HashMap<usize, usize>, Vec<Font>) {
+    let base_book: &FontBook = &*world.book();
+    let mut ext = FontBookExtender::new(base_book);
+
+    for alias in aliases {
+        for path in &alias.paths {
+            if let Some(data) = world
+                .file(FileId::new(None, typst_syntax::VirtualPath::new(path.as_ref())))
+                .ok()
+            {
+                for font in Font::iter(data) {
+                    ext.add(font, alias.name.as_str());
+                }
+            }
+        }
+    }
+
+    (ext.book, ext.local_map, ext.fonts)
+}
+
+impl<'w> ScopedFontResolver<'w> {
+    pub fn book(&self) -> &FontBook {
+        match &self.augmented_book {
+            Some(b) => b,
+            None => &*self.world.book(),
+        }
+    }
+
+    pub fn font(&self, id: usize) -> Option<Font> {
+        if let Some(&local_idx) = self.local_map.get(&id) {
+            self.fonts.get(local_idx).cloned()
+        } else {
+            self.world.font(id)
+        }
+    }
+
+    /// Select a concrete font for a family + variant, honoring aliases.
+    pub fn select(&self, family: &str, variant: FontVariant) -> Option<Font> {
+        self.book().select(family, variant).and_then(|id| self.font(id))
+    }
+
+    /// Select a fallback font, honoring aliases.
+    pub fn select_fallback(
+        &self,
+        like: Option<&FontInfo>,
+        variant: FontVariant,
+        text: &str,
+    ) -> Option<Font> {
+        self.book()
+            .select_fallback(like, variant, text)
+            .and_then(|id| self.font(id))
+    }
+
+    /// Build a scoped font resolver for the current styles.
+    pub fn new(styles: StyleChain<'_>, world: Tracked<'w, dyn World + 'w>) -> Self {
+        // Delegate to family-based constructor for simplicity and consistency.
+        Self::from_families(families(styles), world)
+    }
+
+    /// Build a scoped font resolver from an explicit list of families.
+    pub fn from_families<'a>(
+        families: impl IntoIterator<Item = &'a FontFamily>,
+        world: Tracked<'w, dyn World + 'w>,
+    ) -> Self {
+        let base_book: &FontBook = &*world.book();
+        let aliases: Vec<FontFamilyAlias> = families
+            .into_iter()
+            .filter(|family| {
+                base_book.select_family(family.as_str()).next().is_none()
+                    && !family.paths().is_empty()
+            })
+            .map(|family| FontFamilyAlias {
+                name: family.name.clone(),
+                paths: family.paths().to_vec(),
+            })
+            .collect();
+
+        if aliases.is_empty() {
+            Self {
+                augmented_book: None,
+                world,
+                fonts: Vec::new(),
+                local_map: HashMap::new(),
+            }
+        } else {
+            let (book, local_map, fonts) = extend_book_with_aliases(world, aliases);
+            Self {
+                augmented_book: Some(book),
+                world,
+                fonts,
+                local_map,
+            }
         }
     }
 }
@@ -1312,6 +1507,14 @@ pub fn language(styles: StyleChain) -> rustybuzz::Language {
     rustybuzz::Language::from_str(&bcp).unwrap()
 }
 
+/// Convenience helper to build a font resolver from styles and world.
+pub fn resolver_for<'w>(
+    styles: StyleChain<'_>,
+    world: Tracked<'w, dyn World + 'w>,
+) -> ScopedFontResolver<'w> {
+    ScopedFontResolver::new(styles, world)
+}
+
 /// A toggle that turns on and off alternatingly if folded.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ItalicToggle(pub bool);
@@ -1429,11 +1632,31 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                     ))
                 }
             }
-            None => engine.sink.warn(warning!(
-                list.span,
-                "unknown font family: {}",
-                family.as_str(),
-            )),
+            None => {
+                // If user provided explicit paths for this family, do not warn about
+                // unknown family name; instead, validate the paths and warn if missing.
+                if !family.paths.is_empty() {
+                    for path in family.paths() {
+                        let file_id = FileId::new(
+                            None,
+                            typst_syntax::VirtualPath::new(path.as_ref()),
+                        );
+                        if engine.world.file(file_id).is_err() {
+                            engine.sink.warn(warning!(
+                                list.span,
+                                "font path not found: {}",
+                                path,
+                            ));
+                        }
+                    }
+                } else {
+                    engine.sink.warn(warning!(
+                        list.span,
+                        "unknown font family: {}",
+                        family.as_str(),
+                    ))
+                }
+            }
         }
     }
 }
