@@ -1,0 +1,8 @@
+figure = Figura
+table = Tabella
+# equation =
+bibliography = Bibliographia
+# heading =
+outline = Contento
+# raw =
+page = Pagina

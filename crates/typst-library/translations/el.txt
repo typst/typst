@@ -5,3 +5,4 @@ bibliography = Βιβλιογραφία
 heading = Κεφάλαιο
 outline = Περιεχόμενα
 raw = Παράθεση
+page = Σελίδα

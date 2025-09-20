@@ -1,0 +1,8 @@
+figure = Surat
+table = Tablisa
+# equation =
+bibliography = Çeşmeler
+# heading =
+outline = Mazmuny
+# raw =
+page = Sahypa

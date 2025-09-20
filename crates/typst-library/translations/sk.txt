@@ -1,0 +1,8 @@
+figure = Obr.
+table = Tabuľka
+# equation =
+bibliography = Literatúra
+# heading =
+outline = Obsah
+# raw =
+page = Str.
