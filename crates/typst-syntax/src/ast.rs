@@ -1531,7 +1531,7 @@ impl UnOp {
     }
 
     /// The precedence of this operator.
-    pub fn precedence(self) -> usize {
+    pub fn precedence(self) -> u8 {
         match self {
             Self::Pos | Self::Neg => 7,
             Self::Not => 4,
@@ -1651,7 +1651,7 @@ impl BinOp {
     }
 
     /// The precedence of this operator.
-    pub fn precedence(self) -> usize {
+    pub fn precedence(self) -> u8 {
         match self {
             Self::Mul => 6,
             Self::Div => 6,
