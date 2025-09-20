@@ -133,14 +133,14 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     // Start of a reference: "@|".
     if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
         ctx.from = ctx.cursor;
-        ctx.label_completions();
+        ctx.label_completions(false);
         return true;
     }
 
     // An existing reference: "@he|".
     if ctx.leaf.kind() == SyntaxKind::RefMarker {
         ctx.from = ctx.leaf.offset() + 1;
-        ctx.label_completions();
+        ctx.label_completions(false);
         return true;
     }
 
@@ -489,7 +489,7 @@ fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
     // A label anywhere in code: "(<la|".
     if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
         ctx.from = ctx.leaf.offset() + 1;
-        ctx.label_completions();
+        ctx.label_completions(false);
         return true;
     }
 
@@ -907,7 +907,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     // A potential label (only at the start of an argument list): "(<|".
     if ctx.before.ends_with("(<") {
         ctx.from = ctx.cursor;
-        ctx.label_completions();
+        ctx.label_completions(false);
         return true;
     }
 
@@ -1277,7 +1277,7 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for labels and references.
-    fn label_completions(&mut self) {
+    fn label_completions(&mut self, include_suppressed: bool) {
         let Some(document) = self.document else { return };
         let (labels, split) = analyze_labels(document);
 
@@ -1296,17 +1296,21 @@ impl<'a> CompletionContext<'a> {
         };
 
         for (label, detail) in labels.into_iter().skip(skip).take(take) {
+            let name = label.resolve();
+            if !include_suppressed && !typst_syntax::is_valid_label_literal_id(&name) {
+                continue;
+            }
             self.completions.push(Completion {
                 kind: CompletionKind::Label,
                 apply: (open || close).then(|| {
                     eco_format!(
                         "{}{}{}",
                         if open { "<" } else { "" },
-                        label.resolve(),
+                        name,
                         if close { ">" } else { "" }
                     )
                 }),
-                label: label.resolve().as_str().into(),
+                label: name.as_str().into(),
                 detail,
             });
         }
@@ -1453,7 +1457,7 @@ impl<'a> CompletionContext<'a> {
                     );
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Label>() {
-                    self.label_completions()
+                    self.label_completions(true)
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(
                         "function",
@@ -1751,6 +1755,18 @@ mod tests {
     #[test]
     fn test_autocomplete_ref_shorthand_with_partial_identifier() {
         test_with_addition("x<test>", " @te", -1).must_include(["test"]);
+    }
+
+    #[test]
+    fn test_autocomplete_ref_and_label_invalid_labels_skipped() {
+        let test = r#"a1<test> a2<test.:1> b#label("test,1") c#label("test@1") d#label("test/1")"#;
+        let exclude_list = ["test,1", "test@1", "test/1"];
+        test_with_addition(test, " #ref(<)", -2)
+            .must_include(["test", "test.:1"])
+            .must_exclude(exclude_list);
+        test_with_addition(test, " @", -1)
+            .must_include(["test", "test.:1"])
+            .must_exclude(exclude_list);
     }
 
     #[test]
