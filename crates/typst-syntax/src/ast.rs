@@ -1068,7 +1068,7 @@ node! {
 
 impl<'a> MathRoot<'a> {
     /// The index of the root.
-    pub fn index(self) -> Option<usize> {
+    pub fn index(self) -> Option<u8> {
         match self.0.children().next().map(|node| node.text().as_str()) {
             Some("∜") => Some(4),
             Some("∛") => Some(3),
