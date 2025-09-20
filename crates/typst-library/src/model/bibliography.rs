@@ -21,7 +21,7 @@ use typst_utils::{ManuallyHash, PicoStr};
 use crate::World;
 use crate::diag::{
     At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
-    StrResult, bail, error,
+    StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
@@ -133,12 +133,12 @@ pub struct BibliographyElem {
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
-        Some(source) => Some(CslStyle::load(engine.world, source)?),
+        Some(source) => Some(CslStyle::load(engine, source)?),
         None => None,
     })]
     #[default({
         let default = ArchivedStyle::InstituteOfElectricalAndElectronicsEngineers;
-        Derived::new(CslSource::Named(default), CslStyle::from_archived(default))
+        Derived::new(CslSource::Named(default, None), CslStyle::from_archived(default))
     })]
     pub style: Derived<CslSource, CslStyle>,
 
@@ -381,13 +381,18 @@ pub struct CslStyle(Arc<ManuallyHash<citationberg::IndependentStyle>>);
 impl CslStyle {
     /// Load a CSL style from a data source.
     pub fn load(
-        world: Tracked<dyn World + '_>,
+        engine: &mut Engine,
         Spanned { v: source, span }: Spanned<CslSource>,
     ) -> SourceResult<Derived<CslSource, Self>> {
         let style = match &source {
-            CslSource::Named(style) => Self::from_archived(*style),
+            CslSource::Named(style, deprecation) => {
+                if let Some(message) = deprecation {
+                    engine.sink.warn(warning!(span, "{message}"));
+                }
+                Self::from_archived(*style)
+            }
             CslSource::Normal(source) => {
-                let loaded = Spanned::new(source, span).load(world)?;
+                let loaded = Spanned::new(source, span).load(engine.world)?;
                 Self::from_data(&loaded.data).within(&loaded)?
             }
         };
@@ -432,8 +437,8 @@ impl CslStyle {
 /// Source for a CSL style.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CslSource {
-    /// A predefined named style.
-    Named(ArchivedStyle),
+    /// A predefined named style and potentially a deprecation warning.
+    Named(ArchivedStyle, Option<&'static str>),
     /// A normal data source.
     Normal(DataSource),
 }
@@ -488,9 +493,17 @@ impl FromValue for CslSource {
         if EcoString::castable(&value) {
             let string = EcoString::from_value(value.clone())?;
             if Path::new(string.as_str()).extension().is_none() {
+                let mut warning = None;
+                if string.as_str() == "chicago-fullnotes" {
+                    warning = Some(
+                        "style \"chicago-fullnotes\" has been deprecated \
+                         in favor of \"chicago-notes\"",
+                    );
+                }
+
                 let style = ArchivedStyle::by_name(&string)
                     .ok_or_else(|| eco_format!("unknown style: {}", string))?;
-                return Ok(CslSource::Named(style));
+                return Ok(CslSource::Named(style, warning));
             }
         }
 
@@ -502,7 +515,7 @@ impl IntoValue for CslSource {
     fn into_value(self) -> Value {
         match self {
             // We prefer the shorter names which are at the back of the array.
-            Self::Named(v) => v.names().last().unwrap().into_value(),
+            Self::Named(v, _) => v.names().last().unwrap().into_value(),
             Self::Normal(v) => v.into_value(),
         }
     }
@@ -1051,10 +1064,11 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
         citationberg::VerticalAlign::Baseline => {}
         citationberg::VerticalAlign::Sup => {
             // Add zero-width weak spacing to make the superscript "sticky".
-            content = HElem::hole().pack() + SuperElem::new(content).pack().spanned(span);
+            content =
+                HElem::hole().clone() + SuperElem::new(content).pack().spanned(span);
         }
         citationberg::VerticalAlign::Sub => {
-            content = HElem::hole().pack() + SubElem::new(content).pack().spanned(span);
+            content = HElem::hole().clone() + SubElem::new(content).pack().spanned(span);
         }
     }
 

@@ -57,7 +57,7 @@ pub fn realize<'a>(
         },
         sink: vec![],
         groupings: ArrayVec::new(),
-        outside: matches!(kind, RealizationKind::LayoutDocument { .. }),
+        outside: kind.is_document(),
         may_attach: false,
         saw_parbreak: false,
         kind,

@@ -247,6 +247,150 @@ impl OutlineElem {
     type OutlineEntry;
 }
 
+impl Packed<OutlineElem> {
+    /// Produces the heading for the outline, if any.
+    pub fn realize_title(&self, styles: StyleChain) -> Option<Content> {
+        let span = self.span();
+        self.title
+            .get_cloned(styles)
+            .unwrap_or_else(|| {
+                Some(
+                    TextElem::packed(Packed::<OutlineElem>::local_name_in(styles))
+                        .spanned(span),
+                )
+            })
+            .map(|title| {
+                HeadingElem::new(title)
+                    .with_depth(NonZeroUsize::ONE)
+                    .pack()
+                    .spanned(span)
+            })
+    }
+
+    /// Realizes the entries in a flat fashion.
+    pub fn realize_flat(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Packed<OutlineEntry>>> {
+        let mut entries = vec![];
+        for result in self.realize_iter(engine, styles) {
+            let (entry, _, included) = result?;
+            if included {
+                entries.push(entry);
+            }
+        }
+        Ok(entries)
+    }
+
+    /// Realizes the entries in a tree fashion.
+    pub fn realize_tree(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<OutlineNode>> {
+        let flat = self.realize_iter(engine, styles).collect::<SourceResult<Vec<_>>>()?;
+        Ok(OutlineNode::build_tree(flat))
+    }
+
+    /// Realizes the entries as a lazy iterator.
+    fn realize_iter(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> impl Iterator<Item = SourceResult<(Packed<OutlineEntry>, NonZeroUsize, bool)>>
+    {
+        let span = self.span();
+        let elems = engine.introspector.query(&self.target.get_ref(styles).0);
+        let depth = self.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
+        elems.into_iter().map(move |elem| {
+            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+                bail!(self.span(), "cannot outline {}", elem.func().name());
+            };
+            let level = outlinable.level();
+            let include = outlinable.outlined() && level <= depth;
+            let entry = Packed::new(OutlineEntry::new(level, elem)).spanned(span);
+            Ok((entry, level, include))
+        })
+    }
+}
+
+/// A node in a tree of outline entry.
+#[derive(Debug)]
+pub struct OutlineNode<T = Packed<OutlineEntry>> {
+    /// The entry itself.
+    pub entry: T,
+    /// The entry's level.
+    pub level: NonZeroUsize,
+    /// Its descendants.
+    pub children: Vec<OutlineNode<T>>,
+}
+
+impl<T> OutlineNode<T> {
+    /// Turns a flat list of entries into a tree.
+    ///
+    /// Each entry in the iterator should be accompanied by
+    /// - a level
+    /// - a boolean indicating whether it is included (`true`) or skipped (`false`)
+    pub fn build_tree(
+        flat: impl IntoIterator<Item = (T, NonZeroUsize, bool)>,
+    ) -> Vec<Self> {
+        // Stores the level of the topmost skipped ancestor of the next included
+        // heading.
+        let mut last_skipped_level = None;
+        let mut tree: Vec<OutlineNode<T>> = vec![];
+
+        for (entry, level, include) in flat {
+            if include {
+                let mut children = &mut tree;
+
+                // Descend the tree through the latest included heading of each
+                // level until either:
+                // - reaching a node whose children would be siblings of this
+                //   heading (=> add the current heading as a child of this
+                //   node)
+                // - reaching a node with no children (=> this heading probably
+                //   skipped a few nesting levels in Typst, or one or more
+                //   ancestors of this heading weren't included, so add it as a
+                //   child of this node, which is its deepest included ancestor)
+                // - or, if the latest heading(s) was(/were) skipped, then stop
+                //   if reaching a node whose children would be siblings of the
+                //   latest skipped heading of lowest level (=> those skipped
+                //   headings would be ancestors of the current heading, so add
+                //   it as a sibling of the least deep skipped ancestor among
+                //   them, as those ancestors weren't added to the tree, and the
+                //   current heading should not be mistakenly added as a
+                //   descendant of a siblibg of that ancestor.)
+                //
+                // That is, if you had an included heading of level N, a skipped
+                // heading of level N, a skipped heading of level N + 1, and
+                // then an included heading of level N + 2, that last one is
+                // included as a level N heading (taking the place of its
+                // topmost skipped ancestor), so that it is not mistakenly added
+                // as a descendant of the previous level N heading.
+                while children.last().is_some_and(|last| {
+                    last_skipped_level.is_none_or(|l| last.level < l)
+                        && last.level < level
+                }) {
+                    children = &mut children.last_mut().unwrap().children;
+                }
+
+                // Since this heading was bookmarked, the next heading (if it is
+                // a child of this one) won't have a skipped direct ancestor.
+                last_skipped_level = None;
+                children.push(OutlineNode { entry, level, children: vec![] });
+            } else if last_skipped_level.is_none_or(|l| level < l) {
+                // Only the topmost / lowest-level skipped heading matters when
+                // we have consecutive skipped headings, hence the condition
+                // above.
+                last_skipped_level = Some(level);
+            }
+        }
+
+        tree
+    }
+}
+
 impl ShowSet for Packed<OutlineElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
