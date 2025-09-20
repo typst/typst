@@ -1,6 +1,6 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 
 use crate::World;
 use crate::diag::{At, SourceResult, bail};
@@ -87,7 +87,7 @@ use crate::routines::Routines;
 /// Our initial example would now look like this:
 ///
 /// ```example
-/// #let s = state("x", 0)
+/// #let s = state(0)
 /// #let compute(expr) = [
 ///   #s.update(x =>
 ///     eval(expr.replace("x", str(x)))
@@ -109,7 +109,7 @@ use crate::routines::Routines;
 /// but they still show the correct results:
 ///
 /// ```example
-/// >>> #let s = state("x", 0)
+/// >>> #let s = state(0)
 /// >>> #let compute(expr) = [
 /// >>>   #s.update(x =>
 /// >>>     eval(expr.replace("x", str(x)))
@@ -140,7 +140,7 @@ use crate::routines::Routines;
 /// methods gives us the value of the state at the end of the document.
 ///
 /// ```example
-/// >>> #let s = state("x", 0)
+/// >>> #let s = state(0)
 /// >>> #let compute(expr) = [
 /// >>>   #s.update(x => {
 /// >>>     eval(expr.replace("x", str(x)))
@@ -159,6 +159,63 @@ use crate::routines::Routines;
 /// #compute("x - 5")
 /// ```
 ///
+/// # State Keys { #keys }
+/// States are primarily identified by the location of their `state(...)` call.
+/// This location is _not_ determined when the call happens, like you might expect,
+/// but all the way at the start of compilation after typst has read your file.
+///
+/// This means that two different calls can result in an identical state,
+/// as long as they go through the same call expression in the file.
+/// ```example
+/// // All calls to `same-state` go through the same `state(...)` call here.
+/// #let same-state() = state(0)
+///
+/// #let s1 = same-state()
+/// #let s2 = same-state()
+/// #s1.update(1)
+/// #context s2.get()
+/// ```
+///
+/// To remedy this, you can specify a key; States with different keys will be
+/// different even when they go through the same `state(...)` call.
+/// ```example
+/// #let same-state(key) = state(key, 0)
+///
+/// #let s1 = same-state("a")
+/// #let s2 = same-state("b")
+/// #s1.update(1)
+/// #context s2.get()
+/// ```
+///
+/// On the other hand, states from different locations are still different even
+/// when they have the same key.
+/// ```example
+/// #let s1 = state("key", 0)
+/// #let s2 = state("key", 0)
+/// #s1.update(1)
+/// #context s2.get()
+/// ```
+///
+/// If you construct two states with identical locations and keys but different
+/// initial values, then they will each use their own initial value but share
+/// updates. Specifically, the value of a state at some location in the document
+/// will be computed from that state's initial value and all preceding updates
+/// for the state's location-key combination.
+/// ```example
+/// #let same-state(init) = state(init)
+///
+/// #let banana = same-state("🍌")
+/// #let broccoli = same-state("🥦")
+///
+/// #banana.update(it => it + "😋")
+///
+/// #context [
+///   - #same-state("🍎").get()
+///   - #banana.get()
+///   - #broccoli.get()
+/// ]
+/// ```
+///
 /// # A word of caution { #caution }
 /// To resolve the values of all states, Typst evaluates parts of your code
 /// multiple times. However, there is no guarantee that your state manipulation
@@ -173,7 +230,7 @@ use crate::routines::Routines;
 ///
 /// ```example
 /// // This is bad!
-/// #let s = state("x", 1)
+/// #let s = state(1)
 /// #context s.update(s.final() + 1)
 /// #context s.get()
 /// ```
@@ -187,14 +244,14 @@ use crate::routines::Routines;
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct State {
     /// The key that identifies the state.
-    key: Str,
+    key: Spanned<Str>,
     /// The initial value of the state.
     init: Value,
 }
 
 impl State {
     /// Create a new state identified by a key.
-    pub fn new(key: Str, init: Value) -> State {
+    pub fn new(key: Spanned<Str>, init: Value) -> State {
         Self { key, init }
     }
 
@@ -269,39 +326,42 @@ impl State {
 
 #[scope]
 impl State {
-    /// Create a new state identified by a key.
+    /// Create a new state.
     #[func(constructor)]
     pub fn construct(
+        engine: &mut Engine,
+        args: &mut Args,
         /// The key that identifies this state.
         ///
-        /// Any [updates]($state.update) to the state will be identified with
-        /// the string key. If you construct multiple states with the same
-        /// `key`, then updating any one will affect all of them.
+        /// See {#keys} for details.
+        #[external]
+        #[default("".into())]
         key: Str,
         /// The initial value of the state.
         ///
-        /// If you construct multiple states with the same `key` but different
-        /// `init` values, they will each use their own initial value but share
-        /// updates. Specifically, the value of a state at some location in the
-        /// document will be computed from that state's initial value and all
-        /// preceding updates for the state's key.
-        ///
-        /// ```example
-        /// #let banana = state("key", "🍌")
-        /// #let broccoli = state("key", "🥦")
-        ///
-        /// #banana.update(it => it + "😋")
-        ///
-        /// #context [
-        ///   - #state("key", "🍎").get()
-        ///   - #banana.get()
-        ///   - #broccoli.get()
-        /// ]
-        /// ```
-        #[default]
+        /// See {#keys} for details.
+        #[external]
         init: Value,
-    ) -> State {
-        Self::new(key, init)
+    ) -> SourceResult<State> {
+        let key: Str;
+        let init: Value;
+        if args.remaining() <= 1 {
+            let arg: Spanned<Value> = args.expect("key or init")?;
+            key = "".into();
+            init = arg.v;
+            if let Value::Str(s) = &init {
+                engine.sink.warn(crate::diag::warning!(arg.span,
+                    "This constructs an anonymous state with initial value `{}`", s.repr();
+                    hint: "If this was what you wanted, use `state(\"\", {})` to silence this warning.", s.repr();
+                    hint: "If you wanted a state with key {}, use `state({0}, none)`.", s.repr()
+                ))
+            }
+        } else {
+            key = args.eat()?.unwrap();
+            init = args.eat()?.unwrap();
+        }
+
+        Ok(Self::new(Spanned { span: args.span, v: key }, init))
     }
 
     /// Retrieves the value of the state at the current location.
@@ -356,7 +416,7 @@ impl State {
     /// The update will be in effect at the position where the returned content
     /// is inserted into the document. If you don't put the output into the
     /// document, nothing happens! This would be the case, for example, if you
-    /// write `{let _ = state("key").update(7)}`. State updates are always
+    /// write `{let _ = my-state.update(7)}`. State updates are always
     /// applied in layout order and in that case, Typst wouldn't know when to
     /// update the state.
     ///
@@ -405,7 +465,7 @@ impl State {
 
 impl Repr for State {
     fn repr(&self) -> EcoString {
-        eco_format!("state({}, {})", self.key.repr(), self.init.repr())
+        eco_format!("state({}, {})", self.key.v.repr(), self.init.repr())
     }
 }
 
@@ -429,7 +489,7 @@ cast! {
 pub struct StateUpdateElem {
     /// The key that identifies the state.
     #[required]
-    key: Str,
+    key: Spanned<Str>,
 
     /// The update to perform on the state.
     #[required]
