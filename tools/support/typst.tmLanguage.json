@@ -43,6 +43,10 @@
           "match": "~"
         },
         {
+          "name": "punctuation.definition.nonbreaking-hyphen.typst",
+          "match": "-!"
+        },
+        {
           "name": "punctuation.definition.shy.typst",
           "match": "-\\?"
         },
