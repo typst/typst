@@ -3,15 +3,16 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
 use typst_utils::ArcExt;
 
 use crate::diag::{Hint, HintedStrResult, StrResult};
 use crate::foundations::{
-    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+    Array, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -20,7 +21,7 @@ use crate::foundations::{
 macro_rules! __dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
-        let mut map = $crate::foundations::IndexMap::new();
+        let mut map = $crate::foundations::IndexMap::default();
         $(map.insert($key.into(), $crate::foundations::IntoValue::into_value($value));)*
         $crate::foundations::Dict::from(map)
     }};
@@ -36,17 +37,21 @@ pub use crate::__dict as dict;
 /// empty parentheses already yield an empty array, you have to use the special
 /// `(:)` syntax to create an empty dictionary.
 ///
-/// A dictionary is conceptually similar to an array, but it is indexed by
+/// A dictionary is conceptually similar to an [array], but it is indexed by
 /// strings instead of integers. You can access and create dictionary entries
 /// with the `.at()` method. If you know the key statically, you can
 /// alternatively use [field access notation]($scripting/#fields) (`.key`) to
-/// access the value. Dictionaries can be added with the `+` operator and
-/// [joined together]($scripting/#blocks). To check whether a key is present in
-/// the dictionary, use the `in` keyword.
+/// access the value. To check whether a key is present in the dictionary, use
+/// the `in` keyword.
 ///
 /// You can iterate over the pairs in a dictionary using a [for
 /// loop]($scripting/#loops). This will iterate in the order the pairs were
-/// inserted / declared.
+/// inserted / declared initially.
+///
+/// Dictionaries can be added with the `+` operator and [joined together]($scripting/#blocks).
+/// They can also be [spread]($arguments/#spreading) into a function call or
+/// another dictionary[^1] with the `..spread` operator. In each case, if a
+/// key appears multiple times, the last value will override the others.
 ///
 /// # Example
 /// ```example
@@ -61,12 +66,16 @@ pub use crate::__dict as dict;
 /// #dict.keys() \
 /// #dict.values() \
 /// #dict.at("born") \
-/// #dict.insert("city", "Berlin ")
+/// #dict.insert("city", "Berlin")
 /// #("name" in dict)
 /// ```
+///
+/// [^1]: When spreading into a dictionary, if all items between the parentheses
+/// are spread, you have to use the special `(:..spread)` syntax. Otherwise, it
+/// will spread into an array.
 #[ty(scope, cast, name = "dictionary")]
 #[derive(Default, Clone, PartialEq)]
-pub struct Dict(Arc<IndexMap<Str, Value>>);
+pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -206,6 +215,9 @@ impl Dict {
 
     /// Inserts a new pair into the dictionary. If the dictionary already
     /// contains this key, the value is updated.
+    ///
+    /// To insert multiple pairs at once, you can just alternatively another
+    /// dictionary with the `+=` operator.
     #[func]
     pub fn insert(
         &mut self,
@@ -343,7 +355,7 @@ impl<'de> Deserialize<'de> for Dict {
     where
         D: Deserializer<'de>,
     {
-        Ok(IndexMap::<Str, Value>::deserialize(deserializer)?.into())
+        Ok(IndexMap::<Str, Value, FxBuildHasher>::deserialize(deserializer)?.into())
     }
 }
 
@@ -377,8 +389,8 @@ impl<'a> IntoIterator for &'a Dict {
     }
 }
 
-impl From<IndexMap<Str, Value>> for Dict {
-    fn from(map: IndexMap<Str, Value>) -> Self {
+impl From<IndexMap<Str, Value, FxBuildHasher>> for Dict {
+    fn from(map: IndexMap<Str, Value, FxBuildHasher>) -> Self {
         Self(Arc::new(map))
     }
 }

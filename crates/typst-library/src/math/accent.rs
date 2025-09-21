@@ -1,12 +1,12 @@
 use std::sync::LazyLock;
 
-use icu_properties::maps::CodePointMapData;
 use icu_properties::CanonicalCombiningClass;
+use icu_properties::maps::CodePointMapData;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_blob::BlobDataProvider;
 
 use crate::diag::bail;
-use crate::foundations::{cast, elem, func, Content, NativeElement, SymbolElem};
+use crate::foundations::{Content, NativeElement, SymbolElem, cast, elem, func};
 use crate::layout::{Length, Rel};
 use crate::math::Mathy;
 
@@ -187,8 +187,8 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to_packed::<SymbolElem>() {
-        Some(elem) => Self::new(elem.text),
-        None => bail!("expected a symbol"),
+    v: Content => match v.to_packed::<SymbolElem>().and_then(|elem| elem.text.parse::<char>().ok()) {
+        Some(c) => Self::new(c),
+        _ => bail!("expected a single-codepoint symbol"),
     },
 }

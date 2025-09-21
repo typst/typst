@@ -4,16 +4,16 @@ use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{EcoString, EcoVec, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, func, ops, repr, scope, ty, Args, Bytes, CastInfo, Context, Dict, FromValue,
-    Func, IntoValue, Reflect, Repr, Str, Value, Version,
+    Args, Bytes, CastInfo, Context, Dict, FromValue, Func, IntoValue, Reflect, Repr, Str,
+    Value, Version, cast, func, ops, repr, scope, ty,
 };
 
 /// Create a new [`Array`] from values.
@@ -286,11 +286,8 @@ impl Array {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Array> {
-        let mut end = end;
-        if end.is_none() {
-            end = count.map(|c: i64| start + c);
-        }
         let start = self.locate(start, true)?;
+        let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
         Ok(self.0[start..end].into())
     }
@@ -704,8 +701,18 @@ impl Array {
         /// An alternative separator between the last two items.
         #[named]
         last: Option<Value>,
+        /// What to return if the array is empty.
+        #[named]
+        default: Option<Value>,
     ) -> StrResult<Value> {
         let len = self.0.len();
+
+        if let Some(result) = default
+            && len == 0
+        {
+            return Ok(result);
+        }
+
         let separator = separator.unwrap_or(Value::None);
 
         let mut last = last;
@@ -828,16 +835,18 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
-        /// If given, applies this function to the elements in the array to
+        /// If given, applies this function to each element in the array to
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
-        /// If given, uses this function to compare elements in the array.
+        /// If given, uses this function to compare every two elements in the
+        /// array.
         ///
-        /// This function should return a boolean: `{true}` indicates that the
-        /// elements are in order, while `{false}` indicates that they should be
-        /// swapped. To keep the sort stable, if the two elements are equal, the
-        /// function should return `{true}`.
+        /// The function will receive two elements in the array for comparison,
+        /// and should return a boolean indicating their order: `{true}`
+        /// indicates that the elements are in order, while `{false}` indicates
+        /// that they should be swapped. To keep the sort stable, if the two
+        /// elements are equal, the function should return `{true}`.
         ///
         /// If this function does not order the elements properly (e.g., by
         /// returning `{false}` for both `{(x, y)}` and `{(y, x)}`, or for
@@ -975,8 +984,12 @@ impl Array {
         self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        /// If given, applies this function to the elements in the array to
+        /// If given, applies this function to each element in the array to
         /// determine the keys to deduplicate by.
+        ///
+        /// ```example
+        /// #("apple", "banana", " apple ").dedup(key: s => s.trim())
+        /// ```
         #[named]
         key: Option<Func>,
     ) -> SourceResult<Array> {

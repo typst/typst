@@ -1,7 +1,5 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
-use crate::layout::{Abs, Angle, Axes, BlockElem, Length, Rel};
+use crate::foundations::elem;
+use crate::layout::{Abs, Angle, Axes, Length, Rel};
 use crate::visualize::Stroke;
 
 /// A line from one point to another.
@@ -17,7 +15,7 @@ use crate::visualize::Stroke;
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct LineElem {
     /// The start point of the line.
     ///
@@ -49,12 +47,4 @@ pub struct LineElem {
     /// ```
     #[fold]
     pub stroke: Stroke,
-}
-
-impl Show for Packed<LineElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::single_layouter(self.clone(), engine.routines.layout_line)
-            .pack()
-            .spanned(self.span()))
-    }
 }

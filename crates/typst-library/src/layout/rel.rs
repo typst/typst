@@ -2,10 +2,10 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::Numeric;
 
-use crate::foundations::{cast, ty, Fold, Repr, Resolve, StyleChain};
+use crate::foundations::{Fold, Repr, Resolve, StyleChain, cast, ty};
 use crate::layout::{Abs, Em, Length, Ratio};
 
 /// A length in relation to some known length.

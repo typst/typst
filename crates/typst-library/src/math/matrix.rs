@@ -1,12 +1,12 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::Spanned;
-use typst_utils::{default_math_class, Numeric};
+use typst_utils::{Numeric, default_math_class};
 use unicode_math_class::MathClass;
 
-use crate::diag::{bail, At, HintedStrResult, StrResult};
+use crate::diag::{At, HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    array, cast, dict, elem, Array, Content, Dict, Fold, NoneValue, Resolve, Smart,
-    StyleChain, Symbol, Value,
+    Array, Content, Dict, Fold, NoneValue, Resolve, Smart, StyleChain, Symbol, Value,
+    array, cast, dict, elem,
 };
 use crate::layout::{Abs, Em, HAlignment, Length, Rel};
 use crate::math::Mathy;
@@ -19,6 +19,10 @@ const DEFAULT_COL_GAP: Em = Em::new(0.5);
 ///
 /// Content in the vector's elements can be aligned with the
 /// [`align`]($math.vec.align) parameter, or the `&` symbol.
+///
+/// This function is for typesetting vector components. To typeset a symbol that
+/// represents a vector, [`arrow`]($math.accent) and [`bold`]($math.bold) are
+/// commonly used.
 ///
 /// # Example
 /// ```example
@@ -127,7 +131,7 @@ pub struct MatElem {
     ///     integer for a single line, or an array of integers
     ///     for multiple lines. Like for a single number, negative numbers start from the end.
     ///   - `stroke`: How to [stroke]($stroke) the line. If set to `{auto}`,
-    ///     takes on a thickness of 0.05em and square line caps.
+    ///     takes on a thickness of 0.05 em and square line caps.
     ///
     /// ```example
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
@@ -274,7 +278,7 @@ cast! {
     Delimiter,
     self => self.0.into_value(),
     _: NoneValue => Self::none(),
-    v: Symbol => Self::char(v.get())?,
+    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "expected a single-codepoint symbol")?)?,
     v: char => Self::char(v)?,
 }
 

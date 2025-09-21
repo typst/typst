@@ -1,8 +1,8 @@
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
 use crate::diag::StrResult;
-use crate::foundations::{bail, func, scope, ty, Repr, Str};
+use crate::foundations::{Repr, Str, bail, func, scope, ty};
 
 /// A label for an element.
 ///
@@ -75,7 +75,10 @@ impl Label {
     /// Creates a label from a string.
     #[func(constructor)]
     pub fn construct(
-        /// The name of the label. Must not be empty.
+        /// The name of the label.
+        ///
+        /// Unlike the [dedicated syntax](#syntax), this constructor accepts
+        /// any non-empty string, including names with special characters.
         name: Str,
     ) -> StrResult<Label> {
         if name.is_empty() {

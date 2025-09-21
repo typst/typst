@@ -6,14 +6,14 @@ use typst_library::layout::{
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
-    is_default_ignorable, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes,
-    SpaceElem, TextElem,
+    LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    is_default_ignorable,
 };
 use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{layout_and_modify, FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -46,6 +46,11 @@ pub enum Item<'a> {
 }
 
 impl<'a> Item<'a> {
+    /// Whether this is a tag item.
+    pub fn is_tag(&self) -> bool {
+        matches!(self, Self::Tag(_))
+    }
+
     /// If this a text item, return it.
     pub fn text(&self) -> Option<&ShapedText<'a>> {
         match self {
@@ -82,7 +87,7 @@ impl<'a> Item<'a> {
     /// The natural layouted width of the item.
     pub fn natural_width(&self) -> Abs {
         match self {
-            Self::Text(shaped) => shaped.width,
+            Self::Text(shaped) => shaped.width(),
             Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
@@ -196,7 +201,7 @@ pub fn collect<'a>(
                 let quote = quoter.quote(before, &quotes, double);
                 collector.push_text(quote, styles);
             } else {
-                collector.push_text(if double { "\"" } else { "'" }, styles);
+                collector.push_text(SmartQuotes::fallback(double), styles);
             }
         } else if let Some(elem) = child.to_packed::<InlineElem>() {
             collector.push_item(Item::Skip(LTR_ISOLATE));
@@ -274,11 +279,11 @@ impl<'a> Collector<'a> {
         let segment_len = self.full.len() - prev;
 
         // Merge adjacent text segments with the same styles.
-        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut() {
-            if *last_styles == styles {
-                *last_len += segment_len;
-                return;
-            }
+        if let Some(Segment::Text(last_len, last_styles)) = self.segments.last_mut()
+            && *last_styles == styles
+        {
+            *last_len += segment_len;
+            return;
         }
 
         self.segments.push(Segment::Text(segment_len, styles));

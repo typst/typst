@@ -5,7 +5,7 @@ use typst_library::math::{EquationElem, LrElem, MidElem};
 use typst_utils::SliceExt;
 use unicode_math_class::MathClass;
 
-use super::{stretch_fragment, MathContext, MathFragment, DELIM_SHORT_FALL};
+use super::{DELIM_SHORT_FALL, MathContext, MathFragment, stretch_fragment};
 
 /// Lays out an [`LrElem`].
 #[typst_macros::time(name = "math.lr", span = elem.span())]
@@ -21,10 +21,10 @@ pub fn layout_lr(
     }
 
     // Extract implicit LrElem.
-    if let Some(lr) = body.to_packed::<LrElem>() {
-        if lr.size.get(styles).is_one() {
-            body = &lr.body;
-        }
+    if let Some(lr) = body.to_packed::<LrElem>()
+        && lr.size.get(styles).is_one()
+    {
+        body = &lr.body;
     }
 
     let mut fragments = ctx.layout_into_fragments(body, styles)?;
@@ -33,12 +33,13 @@ pub fn layout_lr(
     let (start_idx, end_idx) = fragments.split_prefix_suffix(|f| f.is_ignorant());
     let inner_fragments = &mut fragments[start_idx..end_idx];
 
-    let axis = scaled!(ctx, styles, axis_height);
-    let max_extent = inner_fragments
-        .iter()
-        .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
-        .max()
-        .unwrap_or_default();
+    let mut max_extent = Abs::zero();
+    for fragment in inner_fragments.iter() {
+        let (font, size) = fragment.font(ctx, styles);
+        let axis = font.math().axis_height.at(size);
+        let extent = (fragment.ascent() - axis).max(fragment.descent() + axis);
+        max_extent = max_extent.max(extent);
+    }
 
     let relative_to = 2.0 * max_extent;
     let height = elem.size.resolve(styles);
@@ -55,11 +56,11 @@ pub fn layout_lr(
 
     // Handle MathFragment::Glyph fragments that should be scaled up.
     for fragment in inner_fragments.iter_mut() {
-        if let MathFragment::Glyph(ref mut glyph) = fragment {
-            if glyph.mid_stretched == Some(false) {
-                glyph.mid_stretched = Some(true);
-                scale(ctx, fragment, relative_to, height);
-            }
+        if let MathFragment::Glyph(glyph) = fragment
+            && glyph.mid_stretched == Some(false)
+        {
+            glyph.mid_stretched = Some(true);
+            scale(ctx, fragment, relative_to, height);
         }
     }
 
@@ -95,7 +96,7 @@ pub fn layout_mid(
     let mut fragments = ctx.layout_into_fragments(&elem.body, styles)?;
 
     for fragment in &mut fragments {
-        if let MathFragment::Glyph(ref mut glyph) = fragment {
+        if let MathFragment::Glyph(glyph) = fragment {
             glyph.mid_stretched = Some(false);
             glyph.class = MathClass::Relation;
         }

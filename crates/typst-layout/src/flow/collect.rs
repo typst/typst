@@ -2,10 +2,11 @@ use std::cell::{LazyCell, RefCell};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
-use bumpalo::boxed::Box as BumpBox;
 use bumpalo::Bump;
+use bumpalo::boxed::Box as BumpBox;
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{bail, warning, SourceResult};
+use typst_library::World;
+use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
 use typst_library::introspection::{
@@ -19,10 +20,9 @@ use typst_library::layout::{
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::TextElem;
-use typst_library::World;
 use typst_utils::SliceExt;
 
-use super::{layout_multi_block, layout_single_block, FlowMode};
+use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;
 use crate::modifiers::layout_and_modify;
 
@@ -113,8 +113,8 @@ impl<'a> Collector<'a, '_, '_> {
         let (start, end) = self.children.split_prefix_suffix(|(c, _)| c.is::<TagElem>());
         let inner = &self.children[start..end];
 
-        // Compute the shared styles, ignoring tags.
-        let styles = StyleChain::trunk(inner.iter().map(|&(_, s)| s)).unwrap_or_default();
+        // Compute the shared styles.
+        let styles = StyleChain::trunk_from_pairs(inner).unwrap_or_default();
 
         // Layout the lines.
         let lines = crate::inline::layout_inline(
@@ -459,6 +459,7 @@ impl<'a> MultiChild<'a> {
         regions: Regions,
     ) -> SourceResult<(Frame, Option<MultiSpill<'a, 'b>>)> {
         let fragment = self.layout_full(engine, regions)?;
+        let exist_non_empty_frame = fragment.iter().any(|f| !f.is_empty());
 
         // Extract the first frame.
         let mut frames = fragment.into_iter();
@@ -468,6 +469,7 @@ impl<'a> MultiChild<'a> {
         let mut spill = None;
         if frames.next().is_some() {
             spill = Some(MultiSpill {
+                exist_non_empty_frame,
                 multi: self,
                 full: regions.full,
                 first: regions.size.y,
@@ -539,6 +541,7 @@ fn layout_multi_impl(
 /// The spilled remains of a `MultiChild` that broke across two regions.
 #[derive(Debug, Clone)]
 pub struct MultiSpill<'a, 'b> {
+    pub(super) exist_non_empty_frame: bool,
     multi: &'b MultiChild<'a>,
     first: Abs,
     full: Abs,
@@ -684,10 +687,10 @@ impl<T> CachedCell<T> {
         let input_hash = typst_utils::hash128(&input);
 
         let mut slot = self.0.borrow_mut();
-        if let Some((hash, output)) = &*slot {
-            if *hash == input_hash {
-                return output.clone();
-            }
+        if let Some((hash, output)) = &*slot
+            && *hash == input_hash
+        {
+            return output.clone();
         }
 
         let output = f(input);

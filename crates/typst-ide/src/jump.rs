@@ -1,10 +1,10 @@
 use std::num::NonZeroUsize;
 
+use typst::WorldExt;
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
-use typst::WorldExt;
 
 use crate::IdeWorld;
 
@@ -36,28 +36,28 @@ pub fn jump_from_click(
 ) -> Option<Jump> {
     // Try to find a link first.
     for (pos, item) in frame.items() {
-        if let FrameItem::Link(dest, size) = item {
-            if is_in_rect(*pos, *size, click) {
-                return Some(match dest {
-                    Destination::Url(url) => Jump::Url(url.clone()),
-                    Destination::Position(pos) => Jump::Position(*pos),
-                    Destination::Location(loc) => {
-                        Jump::Position(document.introspector.position(*loc))
-                    }
-                });
-            }
+        if let FrameItem::Link(dest, size) = item
+            && is_in_rect(*pos, *size, click)
+        {
+            return Some(match dest {
+                Destination::Url(url) => Jump::Url(url.clone()),
+                Destination::Position(pos) => Jump::Position(*pos),
+                Destination::Location(loc) => {
+                    Jump::Position(document.introspector.position(*loc))
+                }
+            });
         }
     }
 
     // If there's no link, search for a jump target.
-    for (mut pos, item) in frame.items().rev() {
+    for &(mut pos, ref item) in frame.items().rev() {
         match item {
             FrameItem::Group(group) => {
                 let pos = click - pos;
-                if let Some(clip) = &group.clip {
-                    if !clip.contains(FillRule::NonZero, pos) {
-                        continue;
-                    }
+                if let Some(clip) = &group.clip
+                    && !clip.contains(FillRule::NonZero, pos)
+                {
+                    continue;
                 }
                 // Realistic transforms should always be invertible.
                 // An example of one that isn't is a scale of 0, which would
@@ -177,11 +177,11 @@ pub fn jump_from_cursor(
 
 /// Find the position of a span in a frame.
 fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
-    for (mut pos, item) in frame.items() {
-        if let FrameItem::Group(group) = item {
-            if let Some(point) = find_in_frame(&group.frame, span) {
-                return Some(pos + point.transform(group.transform));
-            }
+    for &(mut pos, ref item) in frame.items() {
+        if let FrameItem::Group(group) = item
+            && let Some(point) = find_in_frame(&group.frame, span)
+        {
+            return Some(pos + point.transform(group.transform));
         }
 
         if let FrameItem::Text(text) = item {
@@ -222,7 +222,7 @@ mod tests {
 
     use typst::layout::{Abs, Point, Position};
 
-    use super::{jump_from_click, jump_from_cursor, Jump};
+    use super::{Jump, jump_from_click, jump_from_cursor};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     fn point(x: f64, y: f64) -> Point {
@@ -414,8 +414,15 @@ mod tests {
     }
 
     #[test]
-    fn test_backlink() {
+    fn test_footnote_links() {
         let s = "#footnote[Hi]";
-        test_click(s, point(10.0, 10.0), pos(1, 18.5, 37.1).map(Jump::Position));
+        test_click(s, point(10.0, 10.0), pos(1, 10.0, 31.58).map(Jump::Position));
+        test_click(s, point(19.0, 33.0), pos(1, 10.0, 16.58).map(Jump::Position));
+    }
+
+    #[test]
+    fn test_footnote_link_entry_customized() {
+        let s = "#show footnote.entry: [Replaced]; #footnote[Hi]";
+        test_click(s, point(10.0, 10.0), pos(1, 10.0, 31.58).map(Jump::Position));
     }
 }

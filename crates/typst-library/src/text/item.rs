@@ -5,7 +5,7 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::layout::{Abs, Em};
-use crate::text::{is_default_ignorable, Font, Lang, Region};
+use crate::text::{Font, Lang, Region, is_default_ignorable};
 use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.

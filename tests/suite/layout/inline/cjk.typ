@@ -84,6 +84,19 @@ abc字#linebreak()
 abc字\
 母
 
+--- issue-6539-cjk-latin-spacing-at-manual-linebreak ---
+// Issue #6539
+#set text(cjk-latin-spacing: auto)
+#set box(width: 2.3em, stroke: (x: green))
+
+#box(align(end)[甲国\ T国])
+
+#box(align(end)[乙国 \ T国])
+
+#box(align(end)[丙国 T国])
+
+#box(align(end)[丁国T国])
+
 --- issue-2650-cjk-latin-spacing-meta ---
 测a试
 

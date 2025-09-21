@@ -44,6 +44,11 @@ break you can force a break without #linebreak(justify: true)
 breaking justification. #linebreak(justify: false)
 Nice!
 
+--- linebreak-whitespace-trimming ---
+// Ensure that even spaces across multiple layout items are trimmed during
+// line breaking.
+#block(width: 15pt, box(fill: aqua, underline("A   " + text(fill: blue, " ") + "    B")))
+
 --- linebreak-thai ---
 // Test linebreak for East Asian languages
 ทีวีตรวจทานนอร์ทแฟรีเลคเชอร์โกลด์อัลบัมเชอร์รี่เย้วสโตร์กฤษณ์เคลมเยอบีร่าพ่อค้าบลูเบอร์รี่สหัสวรรษโฮปแคนูโยโย่จูนสตรอว์เบอร์รีซื่อบื้อเยนแบ็กโฮเป็นไงโดนัททอมสเตริโอแคนูวิทย์แดรี่โดนัทวิทย์แอปพริคอทเซอร์ไพรส์ไฮบริดกิฟท์อินเตอร์โซนเซอร์วิสเทียมทานโคโยตี้ม็อบเที่ยงคืนบุญคุณ
@@ -147,3 +152,7 @@ pleasing way.
   stroke: 0.6pt,
   [$mat(2241/2210,-71/1105;-71/1105,147/1105)$],
 )
+
+--- linebreak-default-ignorables ---
+#set text(font: "Noto Sans Math")
+\u{2295}\u{FE00} vs \u{2295}\u{FE00}

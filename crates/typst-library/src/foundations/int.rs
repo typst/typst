@@ -2,12 +2,12 @@ use std::num::{
     NonZeroI64, NonZeroIsize, NonZeroU32, NonZeroU64, NonZeroUsize, ParseIntError,
 };
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    cast, func, repr, scope, ty, Bytes, Cast, Decimal, Repr, Str, Value,
+    Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
 
 /// A whole number.
@@ -46,7 +46,7 @@ impl i64 {
     /// or smaller than the minimum 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
-    /// - Floats and decimals are truncated to the next 64-bit integer.
+    /// - Floats and decimals are rounded to the next 64-bit integer towards zero.
     /// - Strings are parsed in base 10.
     ///
     /// ```example
@@ -400,7 +400,17 @@ macro_rules! signed_int {
     ($($ty:ty)*) => {
         $(cast! {
             $ty,
-            self => Value::Int(self as _),
+            self => {
+                #[allow(irrefutable_let_patterns)]
+                if let Ok(int) = i64::try_from(self) {
+                    Value::Int(int)
+                } else {
+                    // Some numbers (i128) are too large to be cast as i64
+                    // In that case, we accept that there may be a
+                    // precision loss, and use a floating point number
+                    Value::Float(self as _)
+                }
+            },
             v: i64 => v.try_into().map_err(|_| "number too large")?,
         })*
     }
@@ -415,7 +425,7 @@ macro_rules! unsigned_int {
                 if let Ok(int) = i64::try_from(self) {
                     Value::Int(int)
                 } else {
-                    // Some u64 are too large to be cast as i64
+                    // Some numbers (u64, u128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
                     Value::Float(self as _)
@@ -432,8 +442,8 @@ macro_rules! unsigned_int {
     }
 }
 
-signed_int! { i8 i16 i32 isize }
-unsigned_int! { u8 u16 u32 u64 usize }
+signed_int! { i8 i16 i32 i128 isize }
+unsigned_int! { u8 u16 u32 u64 u128 usize }
 
 cast! {
     NonZeroI64,

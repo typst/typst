@@ -10,14 +10,14 @@ use ecow::eco_format;
 use parking_lot::RwLock;
 use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use typst::WorldExt;
 use typst::diag::{
-    bail, At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+    At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::html::HtmlDocument;
-use typst::layout::{Frame, Page, PageRanges, PagedDocument};
+use typst::layout::{Page, PageRanges, PagedDocument};
 use typst::syntax::{FileId, Lines, Span};
-use typst::WorldExt;
+use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
@@ -380,7 +380,7 @@ fn export_image(
                     // If the frame is in the cache, skip it.
                     // If the file does not exist, always create it.
                     if config.watching
-                        && config.export_cache.is_cached(*i, &page.frame)
+                        && config.export_cache.is_cached(*i, page)
                         && path.exists()
                     {
                         return Ok(Output::Path(path.to_path_buf()));
@@ -483,8 +483,8 @@ impl ExportCache {
 
     /// Returns true if the entry is cached and appends the new hash to the
     /// cache (for the next compilation).
-    pub fn is_cached(&self, i: usize, frame: &Frame) -> bool {
-        let hash = typst::utils::hash128(frame);
+    pub fn is_cached(&self, i: usize, page: &Page) -> bool {
+        let hash = typst::utils::hash128(page);
 
         let mut cache = self.cache.upgradable_read();
         if i >= cache.len() {
@@ -513,7 +513,9 @@ fn write_make_deps(
         })
         .collect::<Result<Vec<_>, _>>()
     else {
-        bail!("failed to create make dependencies file because output path was not valid unicode")
+        bail!(
+            "failed to create make dependencies file because output path was not valid unicode"
+        )
     };
     if output_paths.is_empty() {
         bail!("failed to create make dependencies file because output was stdout")

@@ -1,12 +1,11 @@
 use std::ops::Add;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 
-use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
-use crate::engine::Engine;
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
-    Reflect, Repr, Resolve, Show, StyleChain, Value,
+    CastInfo, Content, Fold, FromValue, IntoValue, Reflect, Repr, Resolve, StyleChain,
+    Value, cast, elem, func, scope, ty,
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
@@ -73,7 +72,7 @@ use crate::text::TextElem;
 /// ```example
 /// Start #h(1fr) End
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct AlignElem {
     /// The [alignment] along both axes.
     ///
@@ -95,13 +94,6 @@ pub struct AlignElem {
     /// The content to align.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<AlignElem> {
-    #[typst_macros::time(name = "align", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().aligned(self.alignment.get(styles)))
-    }
 }
 
 /// Where to align something along an axis.

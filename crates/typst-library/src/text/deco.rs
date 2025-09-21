@@ -1,13 +1,6 @@
-use smallvec::smallvec;
-
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, Smart, StyleChain, TargetElem,
-};
-use crate::html::{attr, tag, HtmlElem};
+use crate::foundations::{Content, Smart, elem};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
-use crate::text::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
+use crate::text::{BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};
 
 /// Underlines text.
@@ -16,7 +9,7 @@ use crate::visualize::{Color, FixedStroke, Paint, Stroke};
 /// ```example
 /// This is #underline[important].
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct UnderlineElem {
     /// How to [stroke] the line.
     ///
@@ -78,41 +71,13 @@ pub struct UnderlineElem {
     pub body: Content,
 }
 
-impl Show for Packed<UnderlineElem> {
-    #[typst_macros::time(name = "underline", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if styles.get(TargetElem::target).is_html() {
-            // Note: In modern HTML, `<u>` is not the underline element, but
-            // rather an "Unarticulated Annotation" element (see HTML spec
-            // 4.5.22). Using `text-decoration` instead is recommended by MDN.
-            return Ok(HtmlElem::new(tag::span)
-                .with_attr(attr::style, "text-decoration: underline")
-                .with_body(Some(self.body.clone()))
-                .pack());
-        }
-
-        Ok(self.body.clone().set(
-            TextElem::deco,
-            smallvec![Decoration {
-                line: DecoLine::Underline {
-                    stroke: self.stroke.resolve(styles).unwrap_or_default(),
-                    offset: self.offset.resolve(styles),
-                    evade: self.evade.get(styles),
-                    background: self.background.get(styles),
-                },
-                extent: self.extent.resolve(styles),
-            }],
-        ))
-    }
-}
-
 /// Adds a line over text.
 ///
 /// # Example
 /// ```example
 /// #overline[A line over text.]
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct OverlineElem {
     /// How to [stroke] the line.
     ///
@@ -180,38 +145,13 @@ pub struct OverlineElem {
     pub body: Content,
 }
 
-impl Show for Packed<OverlineElem> {
-    #[typst_macros::time(name = "overline", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(tag::span)
-                .with_attr(attr::style, "text-decoration: overline")
-                .with_body(Some(self.body.clone()))
-                .pack());
-        }
-
-        Ok(self.body.clone().set(
-            TextElem::deco,
-            smallvec![Decoration {
-                line: DecoLine::Overline {
-                    stroke: self.stroke.resolve(styles).unwrap_or_default(),
-                    offset: self.offset.resolve(styles),
-                    evade: self.evade.get(styles),
-                    background: self.background.get(styles),
-                },
-                extent: self.extent.resolve(styles),
-            }],
-        ))
-    }
-}
-
 /// Strikes through text.
 ///
 /// # Example
 /// ```example
 /// This is #strike[not] relevant.
 /// ```
-#[elem(title = "Strikethrough", Show)]
+#[elem(title = "Strikethrough")]
 pub struct StrikeElem {
     /// How to [stroke] the line.
     ///
@@ -264,35 +204,13 @@ pub struct StrikeElem {
     pub body: Content,
 }
 
-impl Show for Packed<StrikeElem> {
-    #[typst_macros::time(name = "strike", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(tag::s).with_body(Some(self.body.clone())).pack());
-        }
-
-        Ok(self.body.clone().set(
-            TextElem::deco,
-            smallvec![Decoration {
-                // Note that we do not support evade option for strikethrough.
-                line: DecoLine::Strikethrough {
-                    stroke: self.stroke.resolve(styles).unwrap_or_default(),
-                    offset: self.offset.resolve(styles),
-                    background: self.background.get(styles),
-                },
-                extent: self.extent.resolve(styles),
-            }],
-        ))
-    }
-}
-
 /// Highlights text with a background color.
 ///
 /// # Example
 /// ```example
 /// This is #highlight[important].
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct HighlightElem {
     /// The color to highlight the text with.
     ///
@@ -361,35 +279,6 @@ pub struct HighlightElem {
     /// The content that should be highlighted.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<HighlightElem> {
-    #[typst_macros::time(name = "highlight", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(tag::mark)
-                .with_body(Some(self.body.clone()))
-                .pack());
-        }
-
-        Ok(self.body.clone().set(
-            TextElem::deco,
-            smallvec![Decoration {
-                line: DecoLine::Highlight {
-                    fill: self.fill.get_cloned(styles),
-                    stroke: self
-                        .stroke
-                        .resolve(styles)
-                        .unwrap_or_default()
-                        .map(|stroke| stroke.map(Stroke::unwrap_or_default)),
-                    top_edge: self.top_edge.get(styles),
-                    bottom_edge: self.bottom_edge.get(styles),
-                    radius: self.radius.resolve(styles).unwrap_or_default(),
-                },
-                extent: self.extent.resolve(styles),
-            }],
-        ))
-    }
 }
 
 /// A text decoration.

@@ -1,9 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, NativeElement, Packed, Show, StyleChain};
-use crate::layout::{BlockElem, Dir, Spacing};
+use crate::foundations::{Content, cast, elem};
+use crate::layout::{Dir, Spacing};
 
 /// Arranges content and spacing horizontally or vertically.
 ///
@@ -19,7 +17,7 @@ use crate::layout::{BlockElem, Dir, Spacing};
 ///   rect(width: 90pt),
 /// )
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
@@ -45,14 +43,6 @@ pub struct StackElem {
     /// The children to stack along the axis.
     #[variadic]
     pub children: Vec<StackChild>,
-}
-
-impl Show for Packed<StackElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_stack)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// A child of a stack element.

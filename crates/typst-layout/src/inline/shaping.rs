@@ -1,25 +1,31 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use az::SaturatingAs;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
-use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::Tag;
+use ttf_parser::gsub::SubstitutionSubtable;
+use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
-    families, features, is_default_ignorable, language, variant, Font, FontFamily,
-    FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds, TextElem, TextItem,
+    Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
+    TextElem, TextItem, families, features, is_default_ignorable, language, variant,
 };
-use typst_library::World;
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::{decorate, Item, Range, SpanMapper};
+use super::{Item, Range, SpanMapper, decorate};
 use crate::modifiers::FrameModifyText;
+
+const SHY: char = '\u{ad}';
+const SHY_STR: &str = "\u{ad}";
+const HYPHEN: char = '-';
+const HYPHEN_STR: &str = "-";
 
 /// The result of shaping text.
 ///
@@ -42,10 +48,86 @@ pub struct ShapedText<'a> {
     pub styles: StyleChain<'a>,
     /// The font variant.
     pub variant: FontVariant,
-    /// The width of the text's bounding box.
-    pub width: Abs,
     /// The shaped glyphs.
-    pub glyphs: Cow<'a, [ShapedGlyph]>,
+    pub glyphs: Glyphs<'a>,
+}
+
+/// A copy-on-write collection of glyphs.
+///
+/// At the edges of the collection, there can be _trimmed_ glyphs for end-of-line
+/// whitespace that should not affect layout, but should be emitted into the PDF
+/// to keep things accessible.
+///
+/// These glyphs are not visible when deref-ing the `Glyphs` to a slice as they
+/// should be ignored in almost all circumstances. They are only visible when
+/// explicitly accessing [`all`](Self::all) glyphs.
+#[derive(Clone)]
+pub struct Glyphs<'a> {
+    /// All glyphs, including the trimmed ones.
+    inner: Cow<'a, [ShapedGlyph]>,
+    /// The range of untrimmed glyphs.
+    kept: Range,
+}
+
+impl<'a> Glyphs<'a> {
+    /// Create a borrowed glyph collection from an existing slice.
+    ///
+    /// This happens after reshaping.
+    pub fn from_slice(glyphs: &'a [ShapedGlyph]) -> Self {
+        Self {
+            inner: Cow::Borrowed(glyphs),
+            kept: 0..glyphs.len(),
+        }
+    }
+
+    /// Create an owned glyph collection from an vector.
+    ///
+    /// This happens after initial shaping.
+    pub fn from_vec(glyphs: Vec<ShapedGlyph>) -> Self {
+        let len = glyphs.len();
+        Self { inner: Cow::Owned(glyphs), kept: 0..len }
+    }
+
+    /// Whether this glyph collection is using the owned representation.
+    pub fn is_owned(&self) -> bool {
+        matches!(self.inner, Cow::Owned(_))
+    }
+
+    /// Clone the internal glyph data to make it modifiable. Should be avoided
+    /// if possible on potentially borrowed glyphs as it can be expensive
+    /// (benchmarks have shown ~10% slowdown on a text-heavy document if no
+    /// borrowing is used).
+    pub fn to_mut(&mut self) -> &mut [ShapedGlyph] {
+        &mut self.inner.to_mut()[self.kept.clone()]
+    }
+
+    /// Trims glyphs that satisfy the given condition from the start and end.
+    ///
+    /// Those glyphs will not be visible during normal operation anymore, only
+    /// through [`all`](Self::all).
+    pub fn trim(&mut self, f: impl FnMut(&ShapedGlyph) -> bool + Copy) {
+        let (start, end) = self.inner.split_prefix_suffix(f);
+        self.kept = start..end;
+    }
+
+    /// Accesses all glyphs, not just the untrimmed ones.
+    pub fn all(&self) -> &[ShapedGlyph] {
+        self.inner.as_ref()
+    }
+
+    /// Whether this contains neither kept nor trimmed glyphs.
+    pub fn is_fully_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<'a> Deref for Glyphs<'a> {
+    type Target = [ShapedGlyph];
+
+    /// Returns only the kept (untrimmed) glyphs.
+    fn deref(&self) -> &Self::Target {
+        &self.inner[self.kept.clone()]
+    }
 }
 
 /// A single glyph resulting from shaping.
@@ -196,14 +278,6 @@ impl ShapedGlyph {
     }
 }
 
-/// A side you can go toward.
-enum Side {
-    /// To the left-hand side.
-    Left,
-    /// To the right-hand side.
-    Right,
-}
-
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
     ///
@@ -217,7 +291,7 @@ impl<'a> ShapedText<'a> {
         extra_justification: Abs,
     ) -> Frame {
         let (top, bottom) = self.measure(engine);
-        let size = Size::new(self.width, top + bottom);
+        let size = Size::new(self.width(), top + bottom);
 
         let mut offset = Abs::zero();
         let mut frame = Frame::soft(size);
@@ -230,9 +304,10 @@ impl<'a> ShapedText<'a> {
         let stroke = self.styles.resolve(TextElem::stroke);
         let span_offset = self.styles.get(TextElem::span_offset);
 
+        let mut i = 0;
         for ((font, y_offset, glyph_size), group) in self
             .glyphs
-            .as_ref()
+            .all()
             .group_by_key(|g| (g.font.clone(), g.y_offset, g.size))
         {
             let mut range = group[0].range.clone();
@@ -273,6 +348,14 @@ impl<'a> ShapedText<'a> {
                     let mut span = spans.span_at(shaped.range.start);
                     span.1 = span.1.saturating_add(span_offset.saturating_as());
 
+                    // Zero out the advance if the glyph was trimmed.
+                    let x_advance = if self.glyphs.kept.contains(&i) {
+                        shaped.x_advance + justification_left + justification_right
+                    } else {
+                        Em::zero()
+                    };
+                    i += 1;
+
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--
                     // +---+-----------+---+
@@ -293,9 +376,7 @@ impl<'a> ShapedText<'a> {
                     // A+B+C+D: Glyph's x_advance
                     Glyph {
                         id: shaped.glyph_id,
-                        x_advance: shaped.x_advance
-                            + justification_left
-                            + justification_right,
+                        x_advance,
                         x_offset: shaped.x_offset + justification_left,
                         y_advance: Em::zero(),
                         y_offset: Em::zero(),
@@ -335,6 +416,12 @@ impl<'a> ShapedText<'a> {
         frame
     }
 
+    /// Computes the width of a run of glyphs relative to the font size,
+    /// accounting for their individual scaling factors and other font metrics.
+    pub fn width(&self) -> Abs {
+        self.glyphs.iter().map(|g| g.x_advance.at(g.size)).sum()
+    }
+
     /// Measure the top and bottom extent of this text.
     pub fn measure(&self, engine: &Engine) -> (Abs, Abs) {
         let mut top = Abs::zero();
@@ -351,7 +438,7 @@ impl<'a> ShapedText<'a> {
             bottom.set_max(b);
         };
 
-        if self.glyphs.is_empty() {
+        if self.glyphs.is_fully_empty() {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             let world = engine.world;
@@ -422,8 +509,7 @@ impl<'a> ShapedText<'a> {
                 region: self.region,
                 styles: self.styles,
                 variant: self.variant,
-                width: glyphs_width(glyphs),
-                glyphs: Cow::Borrowed(glyphs),
+                glyphs: Glyphs::from_slice(glyphs),
             }
         } else {
             shape(
@@ -440,35 +526,30 @@ impl<'a> ShapedText<'a> {
 
     /// Derive an empty text run with the same properties as this one.
     pub fn empty(&self) -> Self {
-        Self {
-            text: "",
-            width: Abs::zero(),
-            glyphs: Cow::Borrowed(&[]),
-            ..*self
-        }
+        Self { text: "", glyphs: Glyphs::from_slice(&[]), ..*self }
     }
 
-    /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, engine: &Engine, fallback: bool) {
-        self.insert_hyphen(engine, fallback, Side::Right)
-    }
-
-    /// Prepend a hyphen to start of the text.
-    pub fn prepend_hyphen(&mut self, engine: &Engine, fallback: bool) {
-        self.insert_hyphen(engine, fallback, Side::Left)
-    }
-
-    fn insert_hyphen(&mut self, engine: &Engine, fallback: bool, side: Side) {
+    /// Creates shaped text containing a hyphen.
+    ///
+    /// If `soft` is true, the item will map to plain text as a soft hyphen.
+    /// Otherwise, it will map to a normal hyphen.
+    pub fn hyphen(
+        engine: &Engine,
+        fallback: bool,
+        base: &ShapedText<'a>,
+        pos: usize,
+        soft: bool,
+    ) -> Option<Self> {
         let world = engine.world;
         let book = world.book();
         let fallback_func = if fallback {
-            Some(|| book.select_fallback(None, self.variant, "-"))
+            Some(|| book.select_fallback(None, base.variant, "-"))
         } else {
             None
         };
-        let mut chain = families(self.styles)
+        let mut chain = families(base.styles)
             .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
-            .map(|family| book.select(family.as_str(), self.variant))
+            .map(|family| book.select(family.as_str(), base.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
@@ -477,37 +558,33 @@ impl<'a> ShapedText<'a> {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            let range = match side {
-                Side::Left => self.glyphs.first().map(|g| g.range.start..g.range.start),
-                Side::Right => self.glyphs.last().map(|g| g.range.end..g.range.end),
-            }
-            // In the unlikely chance that we hyphenate after an empty line,
-            // ensure that the glyph range still falls after self.base so
-            // that subtracting either of the endpoints by self.base doesn't
-            // underflow. See <https://github.com/typst/typst/issues/2283>.
-            .unwrap_or_else(|| self.base..self.base);
-            let size = self.styles.resolve(TextElem::size);
-            self.width += x_advance.at(size);
-            let glyph = ShapedGlyph {
-                font,
-                glyph_id: glyph_id.0,
-                x_advance,
-                x_offset: Em::zero(),
-                y_offset: Em::zero(),
-                size,
-                adjustability: Adjustability::default(),
-                range,
-                safe_to_break: true,
-                c: '-',
-                is_justifiable: false,
-                script: Script::Common,
-            };
-            match side {
-                Side::Left => self.glyphs.to_mut().insert(0, glyph),
-                Side::Right => self.glyphs.to_mut().push(glyph),
-            }
-            Some(())
-        });
+            let size = base.styles.resolve(TextElem::size);
+            let (c, text) = if soft { (SHY, SHY_STR) } else { (HYPHEN, HYPHEN_STR) };
+
+            Some(ShapedText {
+                base: pos,
+                text,
+                dir: base.dir,
+                lang: base.lang,
+                region: base.region,
+                styles: base.styles,
+                variant: base.variant,
+                glyphs: Glyphs::from_vec(vec![ShapedGlyph {
+                    font,
+                    glyph_id: glyph_id.0,
+                    x_advance,
+                    x_offset: Em::zero(),
+                    y_offset: Em::zero(),
+                    size,
+                    adjustability: Adjustability::default(),
+                    range: pos..pos + text.len(),
+                    safe_to_break: true,
+                    c,
+                    is_justifiable: false,
+                    script: Script::Common,
+                }]),
+            })
+        })
     }
 
     /// Find the subslice of glyphs that represent the given text range if both
@@ -539,11 +616,7 @@ impl<'a> ShapedText<'a> {
         // Find any glyph with the text index.
         let found = self.glyphs.binary_search_by(|g: &ShapedGlyph| {
             let ordering = g.range.start.cmp(&text_index);
-            if ltr {
-                ordering
-            } else {
-                ordering.reverse()
-            }
+            if ltr { ordering } else { ordering.reverse() }
         });
 
         let mut idx = match found {
@@ -704,21 +777,18 @@ fn shape<'a>(
         region,
         styles,
         variant: ctx.variant,
-        width: glyphs_width(&ctx.glyphs),
-        glyphs: Cow::Owned(ctx.glyphs),
+        glyphs: Glyphs::from_vec(ctx.glyphs),
     }
-}
-
-/// Computes the width of a run of glyphs relative to the font size, accounting
-/// for their individual scaling factors and other font metrics.
-fn glyphs_width(glyphs: &[ShapedGlyph]) -> Abs {
-    glyphs.iter().map(|g| g.x_advance.at(g.size)).sum()
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
     engine: &'a Engine<'v>,
     glyphs: Vec<ShapedGlyph>,
+    /// Font families that have been used with unlimited coverage.
+    ///
+    /// These font families are considered exhausted and will not be used again,
+    /// even if they are declared again (e.g., during fallback after normal selection).
     used: Vec<Font>,
     styles: StyleChain<'a>,
     size: Abs,
@@ -777,7 +847,10 @@ fn shape_segment<'a>(
         return;
     };
 
-    ctx.used.push(font.clone());
+    // This font has been exhausted and will not be used again.
+    if covers.is_none() {
+        ctx.used.push(font.clone());
+    }
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
@@ -1134,8 +1207,9 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
 /// Difference between non-breaking and normal space.
 fn nbsp_delta(font: &Font) -> Option<Em> {
+    let space = font.ttf().glyph_index(' ')?.0;
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
-    Some(font.x_advance(nbsp)? - font.space_width()?)
+    Some(font.x_advance(nbsp)? - font.x_advance(space)?)
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.

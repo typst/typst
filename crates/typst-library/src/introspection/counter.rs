@@ -2,24 +2,24 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
-use smallvec::{smallvec, SmallVec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{bail, At, HintedStrResult, SourceResult};
+use crate::World;
+use crate::diag::{At, HintedStrResult, SourceResult, bail};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
-    Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
-    Selector, Show, Smart, Str, StyleChain, Value,
+    Args, Array, Construct, Content, Context, Element, Func, IntoValue, Label,
+    LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
+    StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{Introspector, Locatable, Location, Tag};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
 use crate::routines::Routines;
-use crate::World;
 
 /// Counts through pages, elements, and more.
 ///
@@ -407,14 +407,16 @@ impl Counter {
     /// Create a new counter identified by a key.
     #[func(constructor)]
     pub fn construct(
-        /// The key that identifies this counter.
+        /// The key that identifies this counter globally.
         ///
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
         /// - If it is the [`page`] function, counts through pages,
-        /// - If it is a [selector], counts through elements that matches with the
+        /// - If it is a [selector], counts through elements that match the
         ///   selector. For example,
         ///   - provide an element function: counts elements of that type,
+        ///   - provide a [`where`]($function.where) selector:
+        ///     counts a type of element with specific fields,
         ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
@@ -683,8 +685,8 @@ cast! {
 }
 
 /// Executes an update of a counter.
-#[elem(Construct, Locatable, Show, Count)]
-struct CounterUpdateElem {
+#[elem(Construct, Locatable, Count)]
+pub struct CounterUpdateElem {
     /// The key that identifies the counter.
     #[required]
     key: CounterKey,
@@ -701,12 +703,6 @@ impl Construct for CounterUpdateElem {
     }
 }
 
-impl Show for Packed<CounterUpdateElem> {
-    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::empty())
-    }
-}
-
 impl Count for Packed<CounterUpdateElem> {
     fn update(&self) -> Option<CounterUpdate> {
         Some(self.update.clone())
@@ -714,7 +710,7 @@ impl Count for Packed<CounterUpdateElem> {
 }
 
 /// Executes a display of a counter.
-#[elem(Construct, Locatable, Show)]
+#[elem(Construct, Locatable)]
 pub struct CounterDisplayElem {
     /// The counter.
     #[required]
@@ -738,20 +734,18 @@ impl Construct for CounterDisplayElem {
     }
 }
 
-impl Show for Packed<CounterDisplayElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self
-            .counter
-            .display_impl(
-                engine,
-                self.location().unwrap(),
-                self.numbering.clone(),
-                self.both,
-                Some(styles),
-            )?
-            .display())
-    }
-}
+pub const COUNTER_DISPLAY_RULE: ShowFn<CounterDisplayElem> = |elem, engine, styles| {
+    Ok(elem
+        .counter
+        .display_impl(
+            engine,
+            elem.location().unwrap(),
+            elem.numbering.clone(),
+            elem.both,
+            Some(styles),
+        )?
+        .display())
+};
 
 /// An specialized handler of the page counter that tracks both the physical
 /// and the logical page counter.

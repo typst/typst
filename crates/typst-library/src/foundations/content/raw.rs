@@ -5,7 +5,7 @@ use std::ptr::NonNull;
 use std::sync::atomic::{self, AtomicUsize, Ordering};
 
 use typst_syntax::Span;
-use typst_utils::{fat, HashLock, SmallBitSet};
+use typst_utils::{HashLock, SmallBitSet, fat};
 
 use super::vtable;
 use crate::foundations::{Element, Label, NativeElement, Packed};
@@ -141,7 +141,7 @@ impl RawContent {
 
     /// Clones a packed element into new raw content.
     pub(super) fn clone_impl<E: NativeElement>(elem: &Packed<E>) -> Self {
-        let raw = &elem.as_content().0;
+        let raw = &elem.pack_ref().0;
         let header = raw.header();
         RawContent::create(
             elem.as_ref().clone(),

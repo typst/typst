@@ -1,9 +1,9 @@
 use az::SaturatingAs;
 use typst_syntax::Spanned;
 
-use crate::diag::{bail, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
+use crate::diag::{LineCol, LoadError, LoadedWithin, ReportPos, SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
+use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a CSV file.
@@ -95,7 +95,10 @@ pub fn csv(
 impl csv {
     /// Reads structured data from a CSV string/bytes.
     #[func(title = "Decode CSV")]
-    #[deprecated = "`csv.decode` is deprecated, directly pass bytes to `csv` instead"]
+    #[deprecated(
+        message = "`csv.decode` is deprecated, directly pass bytes to `csv` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// CSV data.

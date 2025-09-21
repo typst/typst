@@ -3,20 +3,48 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, Bytes, Value};
+use crate::foundations::{Bytes, Value, func, scope};
 use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a CBOR file.
 ///
-/// The file must contain a valid CBOR serialization. Mappings will be
-/// converted into Typst dictionaries, and sequences will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
-/// `{none}`, and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers.
+/// The file must contain a valid CBOR serialization. The CBOR values will be
+/// converted into corresponding Typst values as listed in the
+/// [table below](#conversion).
 ///
-/// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
-/// floating point numbers, which may result in an approximative value.
+/// The function returns a dictionary, an array or, depending on the CBOR file,
+/// another CBOR data type.
+///
+/// # Conversion details { #conversion }
+///
+/// | CBOR value | Converted into Typst   |
+/// | ---------- | ---------------------- |
+/// | integer    | [`int`] (or [`float`]) |
+/// | bytes      | [`bytes`]              |
+/// | float      | [`float`]              |
+/// | text       | [`str`]                |
+/// | bool       | [`bool`]               |
+/// | null       | `{none}`               |
+/// | array      | [`array`]              |
+/// | map        | [`dictionary`]         |
+///
+/// | Typst value                           | Converted into CBOR          |
+/// | ------------------------------------- | ---------------------------- |
+/// | types that can be converted from CBOR | corresponding CBOR value     |
+/// | [`symbol`]                            | text                         |
+/// | [`content`]                           | a map describing the content |
+/// | other types ([`length`], etc.)        | text via [`repr`]            |
+///
+/// ## Notes
+///
+/// - Be aware that CBOR integers larger than 2<sup>63</sup>-1 or smaller than
+///   -2<sup>63</sup> will be converted to floating point numbers, which may
+///   result in an approximative value.
+///
+/// - CBOR tags are not supported, and an error will be thrown.
+///
+/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "CBOR")]
 pub fn cbor(
     engine: &mut Engine,
@@ -33,7 +61,10 @@ pub fn cbor(
 impl cbor {
     /// Reads structured data from CBOR bytes.
     #[func(title = "Decode CBOR")]
-    #[deprecated = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead"]
+    #[deprecated(
+        message = "`cbor.decode` is deprecated, directly pass bytes to `cbor` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// CBOR data.

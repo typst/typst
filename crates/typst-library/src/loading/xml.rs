@@ -1,9 +1,9 @@
 use roxmltree::ParsingOptions;
 use typst_syntax::Spanned;
 
-use crate::diag::{format_xml_like_error, LoadError, LoadedWithin, SourceResult};
+use crate::diag::{LoadError, LoadedWithin, SourceResult, format_xml_like_error};
 use crate::engine::Engine;
-use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
+use crate::foundations::{Array, Dict, IntoValue, Str, Value, dict, func, scope};
 use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from an XML file.
@@ -75,7 +75,10 @@ pub fn xml(
 impl xml {
     /// Reads structured data from an XML string/bytes.
     #[func(title = "Decode XML")]
-    #[deprecated = "`xml.decode` is deprecated, directly pass bytes to `xml` instead"]
+    #[deprecated(
+        message = "`xml.decode` is deprecated, directly pass bytes to `xml` instead",
+        until = "0.15.0"
+    )]
     pub fn decode(
         engine: &mut Engine,
         /// XML data.

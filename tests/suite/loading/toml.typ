@@ -42,4 +42,47 @@
 
 --- toml-decode-deprecated ---
 // Warning: 15-21 `toml.decode` is deprecated, directly pass bytes to `toml` instead
+// Hint: 15-21 it will be removed in Typst 0.15.0
 #let _ = toml.decode
+
+--- toml-decode-integer ---
+#import "edge-case.typ": representable-integer
+
+#for (name, source) in representable-integer {
+  assert.eq(
+    // The `key` trick is necessary because a TOML documents must be a table.
+    type(toml(bytes("key = " + source)).key),
+    int,
+    message: "failed to decode " + name,
+  )
+}
+
+--- toml-decode-integer-too-large ---
+// If an integer cannot be represented losslessly, an error must be thrown.
+// https://toml.io/en/v1.0.0#integer
+
+#import "edge-case.typ": large-integer
+// Error: 7-55 failed to parse TOML (number too large to fit in target type at 1:7)
+#toml(bytes("key = " + large-integer.i64-max-plus-one))
+
+--- toml-decode-integer-too-small ---
+#import "edge-case.typ": large-integer
+// Error: 7-56 failed to parse TOML (number too small to fit in target type at 1:7)
+#toml(bytes("key = " + large-integer.i64-min-minus-one))
+
+--- toml-encode-any ---
+#import "edge-case.typ": special-types-for-human
+#for value in special-types-for-human {
+  test(
+    toml.encode((key: value)),
+    toml.encode((key: repr(value))),
+  )
+}
+
+--- toml-encode-non-table ---
+// Error: 14-15 expected dictionary, found integer
+#toml.encode(3)
+
+--- toml-decode-non-table ---
+// Error: 7-17 failed to parse TOML (expected `.`, `=` at 1:2)
+#toml(bytes("3"))

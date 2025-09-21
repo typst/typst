@@ -51,7 +51,7 @@ Let's start by writing some set rules for the document.
 
 ```example
 #set page(
->>>  margin: auto,
+>>> margin: auto,
   paper: "us-letter",
   header: align(right)[
     A fluid dynamic model for
@@ -141,8 +141,6 @@ Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
 
 ```example:0,0,612,317.5
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
@@ -152,6 +150,8 @@ be set ragged and centered.
 >>>   ],
 >>>   numbering: "1",
 >>> )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 >>> #align(center, text(17pt)[
 >>>   *A fluid dynamic model
@@ -200,18 +200,18 @@ keyword:
 
 <<< ...
 
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 #set page(
->>>   "us-letter",
->>>   margin: auto,
+>>> "us-letter",
+>>> margin: auto,
   header: align(
     right + horizon,
     title
   ),
 <<<   ...
->>>   numbering: "1",
+>>> numbering: "1",
 )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 
 #align(center, text(17pt)[
   *#title*
@@ -283,9 +283,6 @@ or bottom of the page is not occupied by any other content.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
->>>
 #set page(
 >>> margin: auto,
   paper: "us-letter",
@@ -296,6 +293,8 @@ or bottom of the page is not occupied by any other content.
   numbering: "1",
   columns: 2,
 )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 
 #place(
   top + center,
@@ -303,25 +302,25 @@ or bottom of the page is not occupied by any other content.
   scope: "parent",
   clearance: 2em,
 )[
->>>  #text(
->>>    17pt,
->>>    weight: "bold",
->>>    title,
->>>  )
+>>> #text(
+>>>   17pt,
+>>>   weight: "bold",
+>>>   title,
+>>> )
 >>>
->>>  #grid(
->>>    columns: (1fr, 1fr),
->>>    [
->>>      Therese Tungsten \
->>>      Artos Institute \
->>>      #link("mailto:tung@artos.edu")
->>>    ],
->>>    [
->>>      Dr. John Doe \
->>>      Artos Institute \
->>>      #link("mailto:doe@artos.edu")
->>>    ]
->>>  )
+>>> #grid(
+>>>   columns: (1fr, 1fr),
+>>>   [
+>>>     Therese Tungsten \
+>>>     Artos Institute \
+>>>     #link("mailto:tung@artos.edu")
+>>>   ],
+>>>   [
+>>>     Dr. John Doe \
+>>>     Artos Institute \
+>>>     #link("mailto:doe@artos.edu")
+>>>   ]
+>>> )
 <<<   ...
 
   #par(justify: false)[
@@ -352,8 +351,6 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
@@ -364,6 +361,8 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 #show heading: it => [
   #set align(center)
   #set text(13pt, weight: "regular")
@@ -371,7 +370,6 @@ a way to set any of that, we need to write our own heading show rule.
 ]
 
 <<< ...
->>>
 >>> #place(
 >>>   top + center,
 >>>   float: true,
@@ -403,11 +401,13 @@ a way to set any of that, we need to write our own heading show rule.
 >>>     #lorem(80)
 >>>   ]
 >>> ]
->>>
->>> = Introduction
+
+= Introduction
+<<< ...
 >>> #lorem(35)
->>>
->>> == Motivation
+
+== Motivation
+<<< ...
 >>> #lorem(45)
 ```
 
@@ -432,8 +432,6 @@ differentiate between section and subsection headings:
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(font: "Libertinus Serif", 11pt)
->>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
@@ -444,6 +442,8 @@ differentiate between section and subsection headings:
 >>>   numbering: "1",
 >>>   columns: 2,
 >>> )
+>>> #set par(justify: true)
+>>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 #show heading.where(
   level: 1
@@ -474,19 +474,19 @@ differentiate between section and subsection headings:
 >>>     title,
 >>>   )
 >>>
->>>  #grid(
->>>    columns: (1fr, 1fr),
->>>    [
->>>      Therese Tungsten \
->>>      Artos Institute \
->>>      #link("mailto:tung@artos.edu")
->>>    ],
->>>    [
->>>      Dr. John Doe \
->>>      Artos Institute \
->>>      #link("mailto:doe@artos.edu")
->>>    ]
->>>  )
+>>>   #grid(
+>>>     columns: (1fr, 1fr),
+>>>     [
+>>>       Therese Tungsten \
+>>>       Artos Institute \
+>>>       #link("mailto:tung@artos.edu")
+>>>     ],
+>>>     [
+>>>       Dr. John Doe \
+>>>       Artos Institute \
+>>>       #link("mailto:doe@artos.edu")
+>>>     ]
+>>>   )
 >>>
 >>>   #par(justify: false)[
 >>>     *Abstract* \

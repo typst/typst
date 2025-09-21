@@ -9,6 +9,9 @@
 #set page(height: 60pt)
 #image("/assets/images/tiger.jpg")
 
+--- image-jpg-html-base64 html ---
+#image("/assets/images/f2t.jpg", alt: "The letter F")
+
 --- image-sizing ---
 // Test configuring the size and fitting behaviour of images.
 
@@ -76,6 +79,93 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
+--- image-svg-linked-jpg1 ---
+#set page(fill: gray)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
+    <image href="../../../assets/images/f2t.jpg" />
+    <circle r="32" cx="24" cy="40" fill="none" stroke="red" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-jpg2 ---
+#set page(fill: gray)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" height="80" width="48">
+    <image href="file://../../../assets/images/f2t.jpg" />
+    <circle r="32" cx="24" cy="40" fill="none" stroke="blue" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-many-formats ---
+#set page(width: auto, height: auto, margin: 1pt)
+#set text(1pt)
+#image("../../../assets/images/linked.svg", width: 39pt)
+
+--- image-svg-linked-file-not-found ---
+// Error: 8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="do-not-add-image-with-this-name.png" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-url ---
+// Error: 8-7:2 failed to load linked image https://somedomain.com/image.png in SVG (URLs are not allowed)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="https://somedomain.com/image.png" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-pdf ---
+// Error: 8-7:2 failed to load linked image ../../../assets/images/diagrams.pdf in SVG (PDF documents are not supported)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="../../../assets/images/diagrams.pdf" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-csv ---
+// Error: 8-7:2 failed to load linked image ../../../assets/data/bad.csv in SVG (unknown image format)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="../../../assets/data/bad.csv" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-absolute1 ---
+// Error: 8-7:2 failed to load linked image /home/user/foo.svg in SVG (absolute paths are not allowed)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="/home/user/foo.svg" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-absolute2 ---
+// Error: 8-7:2 failed to load linked image file:///home/user/foo.svg in SVG (absolute paths are not allowed)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="file:///home/user/foo.svg" />
+  </svg>
+  ```.text
+))
+
 --- image-pixmap-rgb8 ---
 #image(
   bytes((
@@ -128,7 +218,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   width: 1cm,
 )
 
---- image-scaling-methods ---
+--- image-scaling-methods render html ---
 #let img(scaling) = image(
   bytes((
     0xFF, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0xFF,
@@ -144,13 +234,25 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   scaling: scaling,
 )
 
-#stack(
-  dir: ltr,
-  spacing: 4pt,
+#let images = (
   img(auto),
   img("smooth"),
   img("pixelated"),
 )
+
+#context if target() == "html" {
+  // TODO: Remove this once `stack` is supported in HTML export.
+  html.div(
+    style: "display: flex; flex-direction: row; gap: 4pt",
+    images.join(),
+  )
+} else {
+  stack(
+    dir: ltr,
+    spacing: 4pt,
+    ..images,
+  )
+}
 
 --- image-natural-dpi-sizing ---
 // Test that images aren't upscaled.
@@ -173,26 +275,31 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-decode-svg ---
 // Test parsing from svg data
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-bad-svg ---
 // Error: 15-152 failed to parse SVG (missing root node at 1:1)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
 --- image-decode-detect-format ---
 // Test format auto detect
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), width: 80%)
 
 --- image-decode-specify-format ---
 // Test format manual
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "jpg", width: 80%)
 
 --- image-decode-specify-wrong-format ---
 // Error: 2-91 failed to decode image (Format error decoding Png: Invalid PNG signature.)
 // Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
+// Hint: 8-14 it will be removed in Typst 0.15.0
 #image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
 
 --- image-pixmap-empty ---
@@ -243,7 +350,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-png-but-pixmap-format ---
 #image(
   read("/assets/images/tiger.jpg", encoding: none),
-  // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", or auto
+  // Error: 11-18 expected "png", "jpg", "gif", "webp", dictionary, "svg", "pdf", or auto
   format: "rgba8",
 )
 
@@ -274,3 +381,16 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ..rotations.map(v => raw(str(v), lang: "typc")),
   ..rotations.map(rotated)
 )
+
+--- image-pdf ---
+#image("/assets/images/matplotlib.pdf")
+
+--- image-pdf-multiple-pages ---
+#image("/assets/images/diagrams.pdf", page: 1)
+#image("/assets/images/diagrams.pdf", page: 3)
+#image("/assets/images/diagrams.pdf", page: 2)
+
+--- image-pdf-invalid-page ---
+// Error: 2-49 page 2 does not exist
+// Hint: 2-49 the document only has 1 page
+#image("/assets/images/matplotlib.pdf", page: 2)

@@ -1,13 +1,8 @@
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, Content, NativeElement, Packed, Show, Smart, StyleChain, TargetElem,
-};
-use crate::html::{tag, HtmlElem};
-use crate::layout::{Em, Length};
-use crate::text::{FontMetrics, TextElem, TextSize};
 use ttf_parser::Tag;
-use typst_library::text::ScriptMetrics;
+
+use crate::foundations::{Content, Smart, elem};
+use crate::layout::{Em, Length};
+use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 
 /// Renders text in subscript.
 ///
@@ -17,13 +12,13 @@ use typst_library::text::ScriptMetrics;
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript", Show)]
+#[elem(title = "Subscript")]
 pub struct SubElem {
-    /// Whether to create artificial subscripts by lowering and scaling down
-    /// regular glyphs.
+    /// Whether to use subscript glyphs from the font if available.
     ///
     /// Ideally, subscripts glyphs are provided by the font (using the `subs`
-    /// OpenType feature). Otherwise, Typst is able to synthesize subscripts.
+    /// OpenType feature). Otherwise, Typst is able to synthesize subscripts by
+    /// lowering and scaling down regular glyphs.
     ///
     /// When this is set to `{false}`, synthesized glyphs will be used
     /// regardless of whether the font provides dedicated subscript glyphs. When
@@ -64,29 +59,6 @@ pub struct SubElem {
     pub body: Content,
 }
 
-impl Show for Packed<SubElem> {
-    #[typst_macros::time(name = "sub", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body.clone();
-
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(tag::sub)
-                .with_body(Some(body))
-                .pack()
-                .spanned(self.span()));
-        }
-
-        show_script(
-            styles,
-            body,
-            self.typographic.get(styles),
-            self.baseline.get(styles),
-            self.size.get(styles),
-            ScriptKind::Sub,
-        )
-    }
-}
-
 /// Renders text in superscript.
 ///
 /// The text is rendered smaller and its baseline is raised.
@@ -95,13 +67,13 @@ impl Show for Packed<SubElem> {
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript", Show)]
+#[elem(title = "Superscript")]
 pub struct SuperElem {
-    /// Whether to create artificial superscripts by raising and scaling down
-    /// regular glyphs.
+    /// Whether to use superscript glyphs from the font if available.
     ///
     /// Ideally, superscripts glyphs are provided by the font (using the `sups`
-    /// OpenType feature). Otherwise, Typst is able to synthesize superscripts.
+    /// OpenType feature). Otherwise, Typst is able to synthesize superscripts
+    /// by raising and scaling down regular glyphs.
     ///
     /// When this is set to `{false}`, synthesized glyphs will be used
     /// regardless of whether the font provides dedicated superscript glyphs.
@@ -144,49 +116,6 @@ pub struct SuperElem {
     /// The text to display in superscript.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<SuperElem> {
-    #[typst_macros::time(name = "super", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body.clone();
-
-        if styles.get(TargetElem::target).is_html() {
-            return Ok(HtmlElem::new(tag::sup)
-                .with_body(Some(body))
-                .pack()
-                .spanned(self.span()));
-        }
-
-        show_script(
-            styles,
-            body,
-            self.typographic.get(styles),
-            self.baseline.get(styles),
-            self.size.get(styles),
-            ScriptKind::Super,
-        )
-    }
-}
-
-fn show_script(
-    styles: StyleChain,
-    body: Content,
-    typographic: bool,
-    baseline: Smart<Length>,
-    size: Smart<TextSize>,
-    kind: ScriptKind,
-) -> SourceResult<Content> {
-    let font_size = styles.resolve(TextElem::size);
-    Ok(body.set(
-        TextElem::shift_settings,
-        Some(ShiftSettings {
-            typographic,
-            shift: baseline.map(|l| -Em::from_length(l, font_size)),
-            size: size.map(|t| Em::from_length(t.0, font_size)),
-            kind,
-        }),
-    ))
 }
 
 /// Configuration values for sub- or superscript text.
@@ -247,14 +176,14 @@ impl ScriptKind {
         }
     }
 }
-static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+pub static DEFAULT_SUBSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
     width: Em::new(0.6),
     height: Em::new(0.6),
     horizontal_offset: Em::zero(),
     vertical_offset: Em::new(-0.2),
 };
 
-static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
+pub static DEFAULT_SUPERSCRIPT_METRICS: ScriptMetrics = ScriptMetrics {
     width: Em::new(0.6),
     height: Em::new(0.6),
     horizontal_offset: Em::zero(),

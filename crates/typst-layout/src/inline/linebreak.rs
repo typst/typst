@@ -2,8 +2,8 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
-use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_properties::LineBreak;
+use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
@@ -11,7 +11,7 @@ use icu_segmenter::LineSegmenter;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::{is_default_ignorable, Lang, TextElem};
+use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -57,6 +57,9 @@ static LINEBREAK_DATA: LazyLock<CodePointMapData<LineBreak>> = LazyLock::new(|| 
     icu_properties::maps::load_line_break(&blob().as_deserializing()).unwrap()
 });
 
+// Zero width space.
+const ZWS: char = '\u{200B}';
+
 /// A line break opportunity.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Breakpoint {
@@ -71,18 +74,28 @@ pub enum Breakpoint {
 
 impl Breakpoint {
     /// Trim a line before this breakpoint.
-    pub fn trim(self, line: &str) -> &str {
-        // Trim default ignorables.
-        let line = line.trim_end_matches(is_default_ignorable);
-
+    pub fn trim(self, start: usize, line: &str) -> Trim {
         match self {
-            // Trim whitespace.
-            Self::Normal => line.trim_end_matches(char::is_whitespace),
+            // Trailing whitespace should be shaped, but the glyphs should have
+            // their advance width zeroed. This way, they are available for copy
+            // paste, but don't influence layout. The zero width space already
+            // has zero advance width, so would not need to be trimmed for that
+            // reason, but it can interfere with end-of-line adjustments in CJK
+            // layout, so it is included here. Unfortunately, there isn't
+            // currently a test for this.
+            Self::Normal => {
+                let trimmed =
+                    line.trim_end_matches(|c: char| c.is_whitespace() || c == ZWS);
+                Trim {
+                    layout: start + trimmed.len(),
+                    shaping: start + line.len(),
+                }
+            }
 
             // Trim linebreaks.
             Self::Mandatory => {
                 let lb = LINEBREAK_DATA.as_borrowed();
-                line.trim_end_matches(|c| {
+                let trimmed = line.trim_end_matches(|c| {
                     matches!(
                         lb.get(c),
                         LineBreak::MandatoryBreak
@@ -90,17 +103,38 @@ impl Breakpoint {
                             | LineBreak::LineFeed
                             | LineBreak::NextLine
                     )
-                })
+                });
+                Trim::uniform(start + trimmed.len())
             }
 
-            // Trim nothing further.
-            Self::Hyphen(..) => line,
+            // Trim nothing.
+            Self::Hyphen(..) => Trim::uniform(start + line.len()),
         }
     }
 
     /// Whether this is a hyphen breakpoint.
     pub fn is_hyphen(self) -> bool {
         matches!(self, Self::Hyphen(..))
+    }
+}
+
+/// How to trim the end of a line.
+///
+/// It's an invariant that `self.layout <= self.shaping`.
+pub struct Trim {
+    /// The text in the range `layout..shaping` should be shaped but should not
+    /// affect layout. This ensures that we trim spaces for layout purposes, but
+    /// still render zero-advance space glyphs for copy paste.
+    pub layout: usize,
+    /// The text should only be shaped up until the given text offset. Newlines
+    /// are already trimmed here.
+    pub shaping: usize,
+}
+
+impl Trim {
+    /// Create an instance with equal layout and shaping trim.
+    fn uniform(trim: usize) -> Self {
+        Self { layout: trim, shaping: trim }
     }
 }
 
@@ -136,12 +170,12 @@ fn linebreak_simple<'a>(
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
-        if !width.fits(attempt.width) {
-            if let Some((last_attempt, last_end)) = last.take() {
-                lines.push(last_attempt);
-                start = last_end;
-                attempt = line(engine, p, start..end, breakpoint, lines.last());
-            }
+        if !width.fits(attempt.width)
+            && let Some((last_attempt, last_end)) = last.take()
+        {
+            lines.push(last_attempt);
+            start = last_end;
+            attempt = line(engine, p, start..end, breakpoint, lines.last());
         }
 
         // Finish the current line if there is a mandatory line break (i.e. due
@@ -894,11 +928,7 @@ impl CostMetrics {
     /// we allow less because otherwise we get an invalid layout fairly often,
     /// which makes our bound useless.
     fn min_ratio(&self, approx: bool) -> f64 {
-        if approx {
-            self.min_approx_ratio
-        } else {
-            self.min_ratio
-        }
+        if approx { self.min_approx_ratio } else { self.min_ratio }
     }
 }
 

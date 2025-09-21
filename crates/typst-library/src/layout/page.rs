@@ -2,13 +2,13 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use typst_utils::{singleton, NonZeroExt, Scalar};
+use typst_utils::{NonZeroExt, Scalar, singleton};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement,
-    Set, Smart, Value,
+    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
+    Value, cast, elem,
 };
 use crate::introspection::Introspector;
 use crate::layout::{
@@ -109,7 +109,7 @@ pub struct PageElem {
     /// The page's margins.
     ///
     /// - `{auto}`: The margins are set automatically to 2.5/21 times the smaller
-    ///   dimension of the page. This results in 2.5cm margins for an A4 page.
+    ///   dimension of the page. This results in 2.5 cm margins for an A4 page.
     /// - A single length: The same margin on all sides.
     /// - A dictionary: With a dictionary, the margins can be set individually.
     ///   The dictionary can contain the following keys in order of precedence:
@@ -126,8 +126,10 @@ pub struct PageElem {
     ///   - `rest`: The margins on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
-    /// The values for `left` and `right` are mutually exclusive with
-    /// the values for `inside` and `outside`.
+    /// All keys are optional; omitted keys will use their previously set value,
+    /// or the default margin if never set. In addition, the values for `left`
+    /// and `right` are mutually exclusive with the values for `inside` and
+    /// `outside`.
     ///
     /// ```example
     /// #set page(
@@ -202,10 +204,25 @@ pub struct PageElem {
     #[ghost]
     pub fill: Smart<Option<Paint>>,
 
-    /// How to [number]($numbering) the pages.
+    /// How to number the pages. You can refer to the Page Setup Guide for
+    /// [customizing page numbers]($guides/page-setup-guide/#page-numbers).
     ///
-    /// If an explicit `footer` (or `header` for top-aligned numbering) is
-    /// given, the numbering is ignored.
+    /// Accepts a [numbering pattern or function]($numbering) taking one or two
+    /// numbers:
+    /// 1. The first number is the current page number.
+    /// 2. The second number is the total number of pages. In a numbering
+    ///    pattern, the second number can be omitted. If a function is passed,
+    ///    it will always receive both numbers.
+    ///
+    /// These are logical numbers controlled by the page counter, and may thus
+    /// not match the physical numbers. Specifically, they are the
+    /// [current]($counter.get) and the [final]($counter.final) value of
+    /// `{counter(page)}`. See the [`counter`]($counter/#page-counter)
+    /// documentation for more details.
+    ///
+    /// If an explicit [`footer`]($page.footer) (or [`header`]($page.header) for
+    /// [top-aligned]($page.number-align) numbering) is given, the numbering is
+    /// ignored.
     ///
     /// ```example
     /// #set page(
@@ -255,8 +272,8 @@ pub struct PageElem {
     /// The page's header. Fills the top margin of each page.
     ///
     /// - Content: Shows the content as the header.
-    /// - `{auto}`: Shows the page number if a `numbering` is set and
-    ///   `number-align` is `top`.
+    /// - `{auto}`: Shows the page number if a [`numbering`]($page.numbering) is
+    ///   set and [`number-align`]($page.number-align) is `top`.
     /// - `{none}`: Suppresses the header.
     ///
     /// ```example
@@ -283,8 +300,8 @@ pub struct PageElem {
     /// The page's footer. Fills the bottom margin of each page.
     ///
     /// - Content: Shows the content as the footer.
-    /// - `{auto}`: Shows the page number if a `numbering` is set and
-    ///   `number-align` is `bottom`.
+    /// - `{auto}`: Shows the page number if a [`numbering`]($page.numbering) is
+    ///   set and [`number-align`]($page.number-align) is `bottom`.
     /// - `{none}`: Suppresses the footer.
     ///
     /// For just a page number, the `numbering` property typically suffices. If
@@ -340,7 +357,7 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// ```example
-    /// #set page(foreground: text(24pt)[🥸])
+    /// #set page(foreground: text(24pt)[🤓])
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did
@@ -397,6 +414,15 @@ impl LocalName for PageElem {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
+///
+/// Even without manual page breaks, content will be automatically paginated
+/// based on the configured page size. You can set [the page height]($page.height)
+/// to `{auto}` to let the page grow dynamically until a manual page break
+/// occurs.
+///
+/// Pagination tries to avoid single lines of text at the top or bottom of a
+/// page (these are called _widows_ and _orphans_). You can adjust the
+/// [`text.costs`] parameter to disable this behavior.
 #[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
@@ -453,7 +479,7 @@ pub struct PagedDocument {
 }
 
 /// A finished page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
@@ -530,11 +556,10 @@ cast! {
     Margin,
     self => {
         let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
+        if !two_sided && self.sides.is_uniform()
+            && let Some(left) = self.sides.left {
                 return left.into_value();
             }
-        }
 
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {

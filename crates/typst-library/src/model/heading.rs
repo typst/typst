@@ -1,21 +1,17 @@
 use std::num::NonZeroUsize;
 
-use ecow::eco_format;
-use typst_utils::{Get, NonZeroExt};
+use ecow::EcoString;
+use typst_utils::NonZeroExt;
 
-use crate::diag::{warning, SourceResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Show, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, TargetElem,
+    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::html::{attr, tag, HtmlElem};
-use crate::introspection::{
-    Count, Counter, CounterUpdate, Locatable, Locator, LocatorLink,
-};
-use crate::layout::{Abs, Axes, BlockBody, BlockElem, Em, HElem, Length, Region, Sides};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::layout::{BlockElem, Em, Length};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
-use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
+use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 
 /// A section heading.
 ///
@@ -49,7 +45,7 @@ use crate::text::{FontWeight, LocalName, SpaceElem, TextElem, TextSize};
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth. The `{offset}` field
 /// can be set to configure the starting depth.
-#[elem(Locatable, Synthesize, Count, Show, ShowSet, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set
     /// to `{auto}`, it is computed from `{offset + depth}`.
@@ -97,7 +93,7 @@ pub struct HeadingElem {
     pub offset: usize,
 
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking multiple numbers.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
@@ -107,6 +103,18 @@ pub struct HeadingElem {
     /// === A sub-subsection
     /// ```
     pub numbering: Option<Numbering>,
+
+    /// The resolved plain-text numbers.
+    ///
+    /// This field is internal and only used for creating PDF bookmarks. We
+    /// don't currently have access to `World`, `Engine`, or `styles` in export,
+    /// which is needed to resolve the counter and numbering pattern into a
+    /// concrete string.
+    ///
+    /// This remains unset if `numbering` is `None`.
+    #[internal]
+    #[synthesized]
+    pub numbers: EcoString,
 
     /// A supplement for the heading.
     ///
@@ -169,12 +177,16 @@ pub struct HeadingElem {
 
     /// The indent all but the first line of a heading should have.
     ///
-    /// The default value of `{auto}` indicates that the subsequent heading
-    /// lines will be indented based on the width of the numbering.
+    /// The default value of `{auto}` uses the width of the numbering as indent
+    /// if the heading is aligned at the [start]($direction.start) of the [text
+    /// direction]($text.dir), and no indent for center and other alignments.
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #heading[A very, very, very, very, very, very long heading]
+    /// = A very, very, very, very, very, very long heading
+    ///
+    /// #show heading: set align(center)
+    /// == A very long heading\ with center alignment
     /// ```
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
@@ -207,101 +219,21 @@ impl Synthesize for Packed<HeadingElem> {
             }
         };
 
+        if let Some((numbering, location)) =
+            self.numbering.get_ref(styles).as_ref().zip(self.location())
+        {
+            self.numbers = Some(
+                self.counter()
+                    .display_at_loc(engine, location, styles, numbering)?
+                    .plain_text(),
+            );
+        }
+
         let elem = self.as_mut();
         elem.level.set(Smart::Custom(elem.resolve_level(styles)));
         elem.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
-    }
-}
-
-impl Show for Packed<HeadingElem> {
-    #[typst_macros::time(name = "heading", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let html = styles.get(TargetElem::target).is_html();
-
-        const SPACING_TO_NUMBERING: Em = Em::new(0.3);
-
-        let span = self.span();
-        let mut realized = self.body.clone();
-
-        let hanging_indent = self.hanging_indent.get(styles);
-        let mut indent = match hanging_indent {
-            Smart::Custom(length) => length.resolve(styles),
-            Smart::Auto => Abs::zero(),
-        };
-
-        if let Some(numbering) = self.numbering.get_ref(styles).as_ref() {
-            let location = self.location().unwrap();
-            let numbering = Counter::of(HeadingElem::ELEM)
-                .display_at_loc(engine, location, styles, numbering)?
-                .spanned(span);
-
-            if hanging_indent.is_auto() && !html {
-                let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
-
-                // We don't have a locator for the numbering here, so we just
-                // use the measurement infrastructure for now.
-                let link = LocatorLink::measure(location);
-                let size = (engine.routines.layout_frame)(
-                    engine,
-                    &numbering,
-                    Locator::link(&link),
-                    styles,
-                    pod,
-                )?
-                .size();
-
-                indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
-            }
-
-            let spacing = if html {
-                SpaceElem::shared().clone()
-            } else {
-                HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack()
-            };
-
-            realized = numbering + spacing + realized;
-        }
-
-        Ok(if html {
-            // HTML's h1 is closer to a title element. There should only be one.
-            // Meanwhile, a level 1 Typst heading is a section heading. For this
-            // reason, levels are offset by one: A Typst level 1 heading becomes
-            // a `<h2>`.
-            let level = self.resolve_level(styles).get();
-            if level >= 6 {
-                engine.sink.warn(warning!(span,
-                    "heading of level {} was transformed to \
-                    <div role=\"heading\" aria-level=\"{}\">, which is not \
-                    supported by all assistive technology",
-                    level, level + 1;
-                    hint: "HTML only supports <h1> to <h6>, not <h{}>", level + 1;
-                    hint: "you may want to restructure your document so that \
-                          it doesn't contain deep headings"));
-                HtmlElem::new(tag::div)
-                    .with_body(Some(realized))
-                    .with_attr(attr::role, "heading")
-                    .with_attr(attr::aria_level, eco_format!("{}", level + 1))
-                    .pack()
-                    .spanned(span)
-            } else {
-                let t = [tag::h2, tag::h3, tag::h4, tag::h5, tag::h6][level - 1];
-                HtmlElem::new(t).with_body(Some(realized)).pack().spanned(span)
-            }
-        } else {
-            let block = if indent != Abs::zero() {
-                let body = HElem::new((-indent).into()).pack() + realized;
-                let inset = Sides::default()
-                    .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
-                BlockElem::new()
-                    .with_body(Some(BlockBody::Content(body)))
-                    .with_inset(inset)
-            } else {
-                BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-            };
-            block.pack().spanned(span)
-        })
     }
 }
 

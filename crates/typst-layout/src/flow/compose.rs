@@ -18,7 +18,7 @@ use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
 use super::{
-    distribute, Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work,
+    Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,
 };
 
 /// Composes the contents of a single page/region. A region can have multiple
@@ -319,11 +319,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             let used = base.y - remaining;
             let half = need / 2.0;
             let ratio = (used + half) / base.y;
-            if ratio <= 0.5 {
-                FixedAlignment::Start
-            } else {
-                FixedAlignment::End
-            }
+            if ratio <= 0.5 { FixedAlignment::Start } else { FixedAlignment::End }
         });
 
         // Select the insertion area where we'll put this float.
@@ -605,7 +601,12 @@ fn layout_footnote(
     let loc = elem.location().unwrap();
     crate::layout_fragment(
         engine,
-        &FootnoteEntry::new(elem.clone()).pack(),
+        &FootnoteEntry::new(elem.clone())
+            .pack()
+            .spanned(elem.span())
+            // We attach a well-known derived location to the entry so that the
+            // note can link to this entry without first querying for it.
+            .located(loc.variant(1)),
         Locator::synthesize(loc),
         config.shared,
         pod,
@@ -667,7 +668,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
         self.footnote_separator = Some(frame);
     }
 
-    /// The combined height of the top and bottom area (includings clearances).
+    /// The combined height of the top and bottom area (including clearances).
     /// Subtracting this from the total region size yields the available space
     /// for distribution.
     fn height(&self) -> Abs {

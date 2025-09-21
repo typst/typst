@@ -1,9 +1,9 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Construct, Content, NativeElement, Packed, Unlabellable,
+    Args, Construct, Content, NativeElement, Packed, Unlabellable, elem,
 };
 use crate::introspection::Location;
 
@@ -35,9 +35,10 @@ impl Tag {
 
 impl Debug for Tag {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let loc = self.location();
         match self {
-            Tag::Start(elem) => write!(f, "Start({:?})", elem.elem().name()),
-            Tag::End(..) => f.pad("End"),
+            Tag::Start(elem) => write!(f, "Start({:?}, {loc:?})", elem.elem().name()),
+            Tag::End(..) => write!(f, "End({loc:?})"),
         }
     }
 }

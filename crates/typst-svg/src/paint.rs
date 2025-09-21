@@ -1,6 +1,6 @@
 use std::f32::consts::TAU;
 
-use ecow::{eco_format, EcoString};
+use ecow::{EcoString, eco_format};
 use ttf_parser::OutlineBuilder;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Angle, Axes, Frame, Quadrant, Ratio, Size, Transform};
@@ -15,7 +15,7 @@ use crate::{Id, SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 /// Smaller values could be interesting for optimization.
 const CONIC_SEGMENT: usize = 360;
 
-impl SVGRenderer {
+impl SVGRenderer<'_> {
     /// Render a frame to a string.
     pub(super) fn render_tiling_frame(
         &mut self,

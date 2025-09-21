@@ -1,27 +1,23 @@
 use ecow::EcoString;
-use typst_library::foundations::Target;
 use typst_syntax::Spanned;
 
-use crate::diag::{warning, At, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{
-    elem, Bytes, Cast, Content, Derived, Packed, Show, StyleChain, TargetElem,
-};
-use crate::introspection::Locatable;
 use crate::World;
+use crate::diag::At;
+use crate::foundations::{Bytes, Cast, Derived, elem};
+use crate::introspection::Locatable;
 
-/// A file that will be embedded into the output PDF.
+/// A file that will be attached to the output PDF.
 ///
-/// This can be used to distribute additional files that are related to the PDF
+/// This can be used to distribute additional files associated with the PDF
 /// within it. PDF readers will display the files in a file listing.
 ///
-/// Some international standards use this mechanism to embed machine-readable
+/// Some international standards use this mechanism to attach machine-readable
 /// data (e.g., ZUGFeRD/Factur-X for invoices) that mirrors the visual content
 /// of the PDF.
 ///
 /// # Example
 /// ```typ
-/// #pdf.embed(
+/// #pdf.attach(
 ///   "experiment.csv",
 ///   relationship: "supplement",
 ///   mime-type: "text/csv",
@@ -31,11 +27,11 @@ use crate::World;
 ///
 /// # Notes
 /// - This element is ignored if exporting to a format other than PDF.
-/// - File embeddings are not currently supported for PDF/A-2, even if the
-///   embedded file conforms to PDF/A-1 or PDF/A-2.
-#[elem(Show, Locatable)]
-pub struct EmbedElem {
-    /// The [path]($syntax/#paths) of the file to be embedded.
+/// - File attachments are not currently supported for PDF/A-2, even if the
+///   attached file conforms to PDF/A-1 or PDF/A-2.
+#[elem(keywords = ["embed"], Locatable)]
+pub struct AttachElem {
+    /// The [path]($syntax/#paths) of the file to be attached.
     ///
     /// Must always be specified, but is only read from if no data is provided
     /// in the following argument.
@@ -65,32 +61,21 @@ pub struct EmbedElem {
     )]
     pub data: Bytes,
 
-    /// The relationship of the embedded file to the document.
+    /// The relationship of the attached file to the document.
     ///
     /// Ignored if export doesn't target PDF/A-3.
-    pub relationship: Option<EmbeddedFileRelationship>,
+    pub relationship: Option<AttachedFileRelationship>,
 
-    /// The MIME type of the embedded file.
+    /// The MIME type of the attached file.
     pub mime_type: Option<EcoString>,
 
-    /// A description for the embedded file.
+    /// A description for the attached file.
     pub description: Option<EcoString>,
 }
 
-impl Show for Packed<EmbedElem> {
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        if styles.get(TargetElem::target) == Target::Html {
-            engine
-                .sink
-                .warn(warning!(self.span(), "embed was ignored during HTML export"));
-        }
-        Ok(Content::empty())
-    }
-}
-
-/// The relationship of an embedded file with the document.
+/// The relationship of an attached file with the document.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum EmbeddedFileRelationship {
+pub enum AttachedFileRelationship {
     /// The PDF document was created from the source file.
     Source,
     /// The file was used to derive a visual presentation in the PDF.

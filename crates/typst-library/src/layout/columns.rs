@@ -1,9 +1,7 @@
 use std::num::NonZeroUsize;
 
-use crate::diag::SourceResult;
-use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Packed, Show, StyleChain};
-use crate::layout::{BlockElem, Length, Ratio, Rel};
+use crate::foundations::{Content, elem};
+use crate::layout::{Length, Ratio, Rel};
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -41,7 +39,7 @@ use crate::layout::{BlockElem, Length, Ratio, Rel};
 ///
 /// #lorem(40)
 /// ```
-#[elem(Show)]
+#[elem]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -55,14 +53,6 @@ pub struct ColumnsElem {
     /// The content that should be layouted into the columns.
     #[required]
     pub body: Content,
-}
-
-impl Show for Packed<ColumnsElem> {
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockElem::multi_layouter(self.clone(), engine.routines.layout_columns)
-            .pack()
-            .spanned(self.span()))
-    }
 }
 
 /// Forces a column break.

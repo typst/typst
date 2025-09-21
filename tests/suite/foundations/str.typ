@@ -103,6 +103,10 @@
 #test("Hello".last(), "o")
 #test("🏳️‍🌈A🏳️‍⚧️".first(), "🏳️‍🌈")
 #test("🏳️‍🌈A🏳️‍⚧️".last(), "🏳️‍⚧️")
+#test("hey".first(default: "d"), "h")
+#test("".first(default: "d"), "d")
+#test("hey".last(default: "d"), "y")
+#test("".last(default: "d"), "d")
 
 --- string-first-empty ---
 // Error: 2-12 string is empty
@@ -141,6 +145,8 @@
 #test("abc🏡def".slice(2, 7), "c🏡")
 #test("abc🏡def".slice(2, -2), "c🏡d")
 #test("abc🏡def".slice(-3, -1), "de")
+#test("x🏡yz".slice(-2, count: 2), "yz")
+#test("x🏡yz".slice(-7, count: 7), "x🏡yz")
 
 --- string-slice-not-a-char-boundary ---
 // Error: 2-21 string index -1 is not a character boundary
