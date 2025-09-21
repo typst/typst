@@ -175,6 +175,33 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
+    /// Override the heading's nesting level for the exported PDF's bookmark
+    /// outline. This only affects PDF export and has no effect on Typst's
+    /// document outline (`outline()`), HTML, or other outputs.
+    ///
+    /// The default `{auto}` uses the heading's structural level. Setting this
+    /// to `{1}` makes the heading a top-level entry in the PDF outline
+    /// (commonly useful for starting appendices at the root). Other values can
+    /// be used to intentionally flatten or deepen the PDF bookmark hierarchy.
+    ///
+    /// Tip: Because `heading()` defaults to level 1, the most useful way to
+    /// apply this is typically via a show rule by level:
+    ///
+    /// ```example
+    /// #outline()
+    ///
+    /// = Part I
+    /// == Chapter 1
+    ///
+    /// // Make all level-2 headings top-level in the PDF bookmarks.
+    /// #show heading.where(level: 2): set heading(bookmark-level: 1)
+    ///
+    /// == Appendix A
+    /// === Appendix A.1
+    /// ```
+    #[default(Smart::Auto)]
+    pub bookmark_level: Smart<NonZeroUsize>,
+
     /// The indent all but the first line of a heading should have.
     ///
     /// The default value of `{auto}` uses the width of the numbering as indent

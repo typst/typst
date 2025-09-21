@@ -217,6 +217,23 @@ A
 
 = A
 
+--- outline-bookmark-level-reset ---
+// Demonstrates using a show rule to start level-2 headings at the root
+// of the PDF bookmark outline. Document outline (#outline()) remains
+// structurally the same; only PDF bookmarks are affected by bookmark-level.
+
+#outline()
+
+= Part I
+== Chapter 1
+
+#show heading.where(level: 2): set heading(bookmark-level: 1)
+
+// The following level-2 heading will appear as a top-level bookmark in the PDF.
+// Its subsections will nest under it accordingly.
+== Appendix A
+=== Appendix A.1
+
 --- outline-styled-text ---
 #outline(title: none)
 

@@ -15,7 +15,13 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
         .map(|elem| {
             let heading = elem.to_packed::<HeadingElem>().unwrap();
 
-            let level = heading.resolve_level(StyleChain::default());
+            let structural_level = heading.resolve_level(StyleChain::default());
+
+            let level = heading
+                .bookmark_level
+                .get(StyleChain::default())
+                .unwrap_or(structural_level);
+
             let boomarked = heading
                 .bookmarked
                 .get(StyleChain::default())
