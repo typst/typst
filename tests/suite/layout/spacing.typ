@@ -76,3 +76,57 @@ This is the first line \ #h(2cm, weak: false) A new line
 
 --- issue-5253-consecutive-weak-space-math paged ---
 $= thin thin$ a
+
+--- pr-6650-fr-collapse ---
+#set page(height: 200pt)
+// Fractional weak spacing should collapse like rel weak spacing.
+A
+#v(1fr, weak: true)
+#v(1fr, weak: false)
+B
+#v(1fr, weak: false)
+
+--- pr-6650-fr-standalone ---
+#set page(height: 200pt)
+// Standalone fractional weak spacing should collapse.
+#v(1fr, weak: true)
+Standalone
+
+--- pr-6650-fr-standalone-end ---
+#set page(height: 200pt)
+// Standalone factional weak spacing at the end should collapse.
+#v(1fr, weak: false)
+Standalone
+#v(1fr, weak: true)
+
+--- pr-6650-fr-destructs-rel-abs ---
+#set page(height: 200pt)
+// fr spacing destructs rel/abs spacing
+Destructs
+#v(1fr, weak: true)
+#v(2em, weak: true)
+Destructs
+#v(1fr, weak: true)
+#v(2em, weak: true)
+Destructs
+
+--- pr-6650-fr-destructs-smaller ---
+#set page(height: 200pt)
+// Larger fr destructs smaller fr
+First 2fr
+#v(1fr, weak: true)
+#v(2fr, weak: true)
+Second 5fr
+#v(2fr, weak: true)
+#v(5fr, weak: true)
+End
+
+--- pr-6650-fr-survives-with-strong ---
+#set page(height: 200pt)
+// Weak fr survives with strong fr
+#v(1fr, weak: false)
+#v(1fr, weak: true)
+First 2fr
+#v(1fr, weak: false)
+#v(2fr, weak: true)
+Second 3fr
