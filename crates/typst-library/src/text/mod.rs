@@ -28,7 +28,6 @@ pub use self::smallcaps_::*;
 pub use self::smartquote::*;
 pub use self::space::*;
 
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::str::FromStr;
@@ -964,28 +963,18 @@ impl FontList {
 struct FontBookExtender {
     book: FontBook,
     fonts: Vec<Font>,
-    // Maps indices from the augmented font book to indices in the local fonts vector,
-    // enabling correct resolution of fonts added via local paths.
-    local_map: HashMap<usize, usize>,
 }
 
 impl FontBookExtender {
     fn new(base: &FontBook) -> Self {
-        Self {
-            book: base.clone(),
-            fonts: Vec::new(),
-            local_map: HashMap::new(),
-        }
+        Self { book: base.clone(), fonts: Vec::new() }
     }
 
     fn add(&mut self, font: Font, family_name: &str) {
         let mut info = font.info().clone();
         info.family = family_name.into();
-        let idx = self.book.len();
-        let font_idx = self.fonts.len();
         self.book.push(info);
         self.fonts.push(font);
-        self.local_map.insert(idx, font_idx);
     }
 }
 
@@ -996,7 +985,6 @@ pub struct ScopedFontResolver<'w> {
     augmented_book: Option<FontBook>,
     world: Tracked<'w, dyn World + 'w>,
     fonts: Vec<Font>,
-    local_map: HashMap<usize, usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1012,7 +1000,7 @@ struct FontFamilyAlias {
 fn extend_book_with_aliases(
     world: Tracked<dyn World + '_>,
     aliases: Vec<FontFamilyAlias>,
-) -> (FontBook, HashMap<usize, usize>, Vec<Font>) {
+) -> (FontBook, Vec<Font>) {
     let base_book: &FontBook = &*world.book();
     let mut ext = FontBookExtender::new(base_book);
 
@@ -1029,7 +1017,7 @@ fn extend_book_with_aliases(
         }
     }
 
-    (ext.book, ext.local_map, ext.fonts)
+    (ext.book, ext.fonts)
 }
 
 impl<'w> ScopedFontResolver<'w> {
@@ -1041,11 +1029,7 @@ impl<'w> ScopedFontResolver<'w> {
     }
 
     pub fn font(&self, id: usize) -> Option<Font> {
-        if let Some(&local_idx) = self.local_map.get(&id) {
-            self.fonts.get(local_idx).cloned()
-        } else {
-            self.world.font(id)
-        }
+        self.fonts.get(id).cloned().or_else(|| self.world.font(id))
     }
 
     /// Select a concrete font for a family + variant, honoring aliases.
@@ -1090,20 +1074,10 @@ impl<'w> ScopedFontResolver<'w> {
             .collect();
 
         if aliases.is_empty() {
-            Self {
-                augmented_book: None,
-                world,
-                fonts: Vec::new(),
-                local_map: HashMap::new(),
-            }
+            Self { augmented_book: None, world, fonts: Vec::new() }
         } else {
-            let (book, local_map, fonts) = extend_book_with_aliases(world, aliases);
-            Self {
-                augmented_book: Some(book),
-                world,
-                fonts,
-                local_map,
-            }
+            let (book, fonts) = extend_book_with_aliases(world, aliases);
+            Self { augmented_book: Some(book), world, fonts }
         }
     }
 }
