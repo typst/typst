@@ -1001,14 +1001,13 @@ fn extend_book_with_aliases(
     world: Tracked<dyn World + '_>,
     aliases: Vec<FontFamilyAlias>,
 ) -> (FontBook, Vec<Font>) {
-    let base_book: &FontBook = &*world.book();
+    let base_book: &FontBook = world.book();
     let mut ext = FontBookExtender::new(base_book);
 
     for alias in aliases {
         for path in &alias.paths {
-            if let Some(data) = world
+            if let Ok(data) = world
                 .file(FileId::new(None, typst_syntax::VirtualPath::new(path.as_ref())))
-                .ok()
             {
                 for font in Font::iter(data) {
                     ext.add(font, alias.name.as_str());
@@ -1024,7 +1023,7 @@ impl<'w> ScopedFontResolver<'w> {
     pub fn book(&self) -> &FontBook {
         match &self.augmented_book {
             Some(b) => b,
-            None => &*self.world.book(),
+            None => self.world.book(),
         }
     }
 
@@ -1060,7 +1059,7 @@ impl<'w> ScopedFontResolver<'w> {
         families: impl IntoIterator<Item = &'a FontFamily>,
         world: Tracked<'w, dyn World + 'w>,
     ) -> Self {
-        let base_book: &FontBook = &*world.book();
+        let base_book: &FontBook = world.book();
         let aliases: Vec<FontFamilyAlias> = families
             .into_iter()
             .filter(|family| {
