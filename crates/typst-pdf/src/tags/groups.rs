@@ -123,6 +123,8 @@ impl Groups {
             GroupKind::List(..) => false,
             GroupKind::ListItemLabel(..) => false,
             GroupKind::ListItemBody(..) => false,
+            GroupKind::TermsItemLabel(..) => false,
+            GroupKind::TermsItemBody(..) => false,
             GroupKind::BibEntry(..) => false,
             GroupKind::Figure(..) => false,
             GroupKind::FigureCaption(..) => false,
@@ -199,6 +201,8 @@ impl Groups {
             | GroupKind::List(..)
             | GroupKind::ListItemLabel(..)
             | GroupKind::ListItemBody(..)
+            | GroupKind::TermsItemLabel(..)
+            | GroupKind::TermsItemBody(..)
             | GroupKind::BibEntry(..)
             | GroupKind::Figure(..)
             | GroupKind::FigureCaption(..)
@@ -366,6 +370,8 @@ pub enum GroupKind {
     List(ListId, ListNumbering, Option<Lang>),
     ListItemLabel(Option<Lang>),
     ListItemBody(Option<Lang>),
+    TermsItemLabel(Option<Lang>),
+    TermsItemBody(Option<GroupId>, Option<Lang>),
     BibEntry(Option<Lang>),
     Figure(FigureId, BBoxId, Option<Lang>),
     /// The figure caption has a bbox so marked content sequences won't expand
@@ -396,6 +402,8 @@ impl std::fmt::Debug for GroupKind {
             Self::List(..) => "List",
             Self::ListItemLabel(..) => "ListItemLabel",
             Self::ListItemBody(..) => "ListItemBody",
+            Self::TermsItemLabel(..) => "TermsItemLabel",
+            Self::TermsItemBody(..) => "TermsItemBody",
             Self::BibEntry(..) => "BibEntry",
             Self::Figure(..) => "Figure",
             Self::FigureCaption(..) => "FigureCaption",
@@ -456,6 +464,8 @@ impl GroupKind {
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
+            GroupKind::TermsItemLabel(lang) => lang,
+            GroupKind::TermsItemBody(_, lang) => lang,
             GroupKind::BibEntry(lang) => lang,
             GroupKind::Figure(_, _, lang) => lang,
             GroupKind::FigureCaption(_, lang) => lang,
@@ -483,6 +493,8 @@ impl GroupKind {
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
+            GroupKind::TermsItemLabel(lang) => lang,
+            GroupKind::TermsItemBody(_, lang) => lang,
             GroupKind::BibEntry(lang) => lang,
             GroupKind::Figure(_, _, lang) => lang,
             GroupKind::FigureCaption(_, lang) => lang,

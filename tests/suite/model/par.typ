@@ -194,7 +194,7 @@ Even the first.
 
 + D
 
---- par-first-line-indent-all-terms ---
+--- par-first-line-indent-all-terms render pdftags ---
 #show terms.where(tight: false): set terms(spacing: 1.2em)
 #set terms(hanging-indent: 10pt)
 #set par(

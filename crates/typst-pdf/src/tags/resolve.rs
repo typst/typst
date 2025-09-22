@@ -213,6 +213,8 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
         GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
         GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
         GroupKind::ListItemBody(_) => Tag::LBody.into(),
+        GroupKind::TermsItemLabel(_) => Tag::Lbl.into(),
+        GroupKind::TermsItemBody(_, _) => Tag::LBody.into(),
         GroupKind::BibEntry(_) => Tag::BibEntry.into(),
         GroupKind::Figure(id, _, _) => {
             let Some(tag) = rs.ctx.figures.get(*id).build_tag() else { return Ok(None) };

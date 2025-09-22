@@ -352,6 +352,12 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             PdfMarkerTagKind::ListItemBody => {
                 push_stack(tree, elem, GroupKind::ListItemBody(None))
             }
+            PdfMarkerTagKind::TermsItemLabel => {
+                push_stack(tree, elem, GroupKind::TermsItemLabel(None))
+            }
+            PdfMarkerTagKind::TermsItemBody => {
+                push_stack(tree, elem, GroupKind::TermsItemBody(None, None))
+            }
             PdfMarkerTagKind::Label => push_tag(tree, elem, Tag::Lbl),
         }
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {

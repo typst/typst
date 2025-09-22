@@ -380,6 +380,32 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             let list_ctx = tree.ctx.lists.get_mut(list);
             list_ctx.push_body(&mut tree.groups, parent, id);
         }
+        GroupKind::TermsItemLabel(..) => {
+            let parent_group = tree.groups.get_mut(parent);
+            let grand_parent = parent_group.parent;
+            // Move the terms label out of the body.
+            if let GroupKind::TermsItemBody(lbl, _) = &mut parent_group.kind {
+                *lbl = Some(id);
+            // The terms body might contain a paragraph, so check if the grand
+            // parent is a terms body.
+            } else if let GroupKind::Standard(..) = parent_group.kind
+                && let GroupKind::TermsItemBody(lbl, _) =
+                    &mut tree.groups.get_mut(grand_parent).kind
+            {
+                *lbl = Some(id);
+            } else {
+                tree.groups.push_group(parent, id);
+            }
+        }
+        &GroupKind::TermsItemBody(lbl, ..) => {
+            let list = tree.groups.get(parent).kind.as_list().expect("parent list");
+            let list_ctx = tree.ctx.lists.get_mut(list);
+            if let Some(lbl) = lbl {
+                tree.groups.get_mut(lbl).parent = parent;
+                list_ctx.push_label(&mut tree.groups, parent, lbl);
+            }
+            list_ctx.push_body(&mut tree.groups, parent, id);
+        }
         GroupKind::BibEntry(..) => {
             let list = tree.groups.get(parent).kind.as_list().expect("parent list");
             let list_ctx = tree.ctx.lists.get_mut(list);

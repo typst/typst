@@ -145,16 +145,20 @@ macro_rules! pdf_marker_tag {
 }
 
 pdf_marker_tag! {
-    /// `TOC`
+    /// `TOC`.
     OutlineBody,
-    /// `L` bibliography list
+    /// `L` bibliography list.
     Bibliography(numbered: bool),
-    /// `LBody` wrapping `BibEntry`
+    /// `LBody` wrapping `BibEntry`.
     BibEntry,
-    /// `Lbl` (marker) of the list item
+    /// `Lbl` (marker) of the list item.
     ListItemLabel,
-    /// `LBody` of the enum item
+    /// `LBody` of the list item.
     ListItemBody,
-    /// A generic `Lbl`
+    /// `Lbl` of the term item.
+    TermsItemLabel,
+    /// `LBody` the term item including the label.
+    TermsItemBody,
+    /// A generic `Lbl`.
     Label,
 }

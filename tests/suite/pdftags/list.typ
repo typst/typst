@@ -16,6 +16,21 @@
   + e
 - f
 
+--- list-tags-wide-with-nested-list pdftags ---
+- a
+
+  - 1
+
+- b
+
+  - c
+
+    - d
+
+  - e
+
+- f
+
 --- list-tags-complex-item-with-sub-list pdftags ---
 - #[#quote(block: true)[hi] #footnote[1].]
   - a
@@ -32,3 +47,32 @@
   ]
 - c
 - d
+
+--- list-tags-terms-basic pdftags ---
+/ A: 1
+/ B: 2
+/ C: 3
+
+--- list-tags-terms-basic-wide pdftags ---
+/ A: 1
+
+/ B: 2
+
+/ C: 3
+
+--- list-tags-terms-indented pdftags ---
+/ A: 1
+/ B: 2
+  / B1: wow
+  / B2: amazing
+
+--- list-tags-terms-body-with-parbreak pdftags ---
+/ A: 1 #parbreak() 232
+/ B: 2
+
+--- list-tags-terms-label-with-parbreak pdftags ---
+// Error: PDF/UA-1 error: invalid semantic structure, this element's tag would be split up
+// Hint: maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`
+// TODO: This should have the span of the term label.
+/ A #parbreak() A: 1
+/ B: 2

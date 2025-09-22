@@ -30,10 +30,19 @@ impl ListCtx {
         self.last_item = Some(ListItem { id: parent });
     }
 
-    pub fn push_body(&mut self, groups: &mut Groups, list: GroupId, body: GroupId) {
-        let item = self.last_item.take().expect("ListItemLabel");
+    fn ensure_within_item(&mut self, groups: &mut Groups, list: GroupId) -> GroupId {
+        if let Some(item) = self.last_item.take() {
+            item.id
+        } else {
+            let item = groups.push_tag(list, Tag::LI);
+            groups.push_tag(item, Tag::Lbl);
+            item
+        }
+    }
 
-        groups.push_group(item.id, body);
+    pub fn push_body(&mut self, groups: &mut Groups, list: GroupId, body: GroupId) {
+        let item = self.ensure_within_item(groups, list);
+        groups.push_group(item, body);
 
         // Nested lists are expected to have the following structure:
         //
@@ -83,15 +92,10 @@ impl ListCtx {
         list: GroupId,
         bib_entry: GroupId,
     ) {
-        // Bibliography lists cannot be nested, but may be missing labels.
-        let item = if let Some(item) = self.last_item.take() {
-            item.id
-        } else {
-            let item = groups.push_tag(list, Tag::LI);
-            groups.push_tag(item, Tag::Lbl);
-            item
-        };
-
+        // Bibliography lists are always flat, so there is no need to check for
+        // an inner list. If they do contain a list it is semantically unrelated
+        // and can be left within the list body.
+        let item = self.ensure_within_item(groups, list);
         let body = groups.push_tag(item, Tag::LBody);
         groups.push_group(body, bib_entry);
     }

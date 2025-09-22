@@ -178,16 +178,17 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     for child in elem.children.iter() {
         let mut seq = vec![];
         seq.extend(unpad.clone());
-        seq.push(PdfMarkerTag::ListItemLabel(child.term.clone().strong()));
+        seq.push(PdfMarkerTag::TermsItemLabel(child.term.clone().strong()));
         seq.push(separator.clone().artifact(ArtifactKind::Other));
-        seq.push(PdfMarkerTag::ListItemBody(child.description.clone()));
+        seq.push(child.description.clone());
 
         // Text in wide term lists shall always turn into paragraphs.
         if !tight {
             seq.push(ParbreakElem::shared().clone());
         }
 
-        children.push(StackChild::Block(Content::sequence(seq)));
+        let item = Content::sequence(seq).spanned(child.span());
+        children.push(StackChild::Block(PdfMarkerTag::TermsItemBody(item)));
     }
 
     let padding =
