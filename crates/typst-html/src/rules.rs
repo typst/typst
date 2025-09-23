@@ -438,7 +438,27 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
+    let content = elem.realize(engine)?;
+
+    // Try to find the bibliography to get entry locations for linking
+    if let Ok(bibliography) = BibliographyElem::find(engine.introspector) {
+        if let Ok(_works) = bibliography.realize_works(engine, StyleChain::default()) {
+            // For HTML export, create proper LinkElem with bibliography destination
+            let bibliography_location = bibliography.location().unwrap();
+
+            // Link to the bibliography section for now
+            // Individual citation -> bibliography entry linking requires more complex processing
+            let dest = Destination::Location(bibliography_location);
+            let link = LinkElem::new(dest.into(), content)
+                .pack()
+                .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+            return Ok(link);
+        }
+    }
+
+    Ok(content)
+};
 
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
@@ -452,17 +472,60 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     // Add bibliography references as a list
     let works = elem.realize_works(engine, styles)?;
     let references = works.references.as_ref().unwrap();
-    let list_items = references.iter().map(|(prefix, reference)| {
+
+    // Get all citation groups to create backlinks
+    let cite_groups = engine.introspector.query(&CiteGroup::ELEM.select());
+    let mut first_occurrences = std::collections::HashMap::new();
+
+    // Build a map from citation keys to their first occurrence locations
+    for group_elem in cite_groups {
+        if let Some(group) = group_elem.to_packed::<CiteGroup>() {
+            if let Some(location) = group_elem.location() {
+                for cite_elem in &group.children {
+                    let key = cite_elem.key.resolve();
+                    first_occurrences.entry(key).or_insert(location);
+                }
+            }
+        }
+    }
+
+    // Get the bibliography keys in order
+    let bibliography_keys: Vec<_> = BibliographyElem::keys(engine.introspector)
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect();
+
+    let list_items = references.iter().enumerate().map(|(index, (prefix, reference))| {
         let mut item_content = vec![];
 
         if let Some(prefix) = prefix {
-            item_content.push(
-                HtmlElem::new(tag::span)
-                    .with_attr(attr::class, "prefix")
-                    .with_body(Some(prefix.clone()))
-                    .pack()
-                    .spanned(span)
-            );
+            // Create backlink from bibliography entry to first citation occurrence
+            let mut prefix_content = HtmlElem::new(tag::span)
+                .with_attr(attr::class, "prefix")
+                .with_body(Some(prefix.clone()))
+                .pack()
+                .spanned(span);
+
+            // Try to create a backlink if we can map this entry to a citation
+            if let Some(key) = bibliography_keys.get(index) {
+                if let Some(&first_location) = first_occurrences.get(&key.resolve()) {
+                    // Found the first citation for this bibliography entry
+                    let dest = Destination::Location(first_location);
+                    prefix_content = LinkElem::new(dest.into(), prefix_content)
+                        .pack()
+                        .styled(HtmlElem::role.set(Some("doc-backlink".into())));
+                } else {
+                    // Citation key exists but no citation found, just add role
+                    prefix_content = prefix_content
+                        .styled(HtmlElem::role.set(Some("doc-backlink".into())));
+                }
+            } else {
+                // No key mapping found, just add role
+                prefix_content = prefix_content
+                    .styled(HtmlElem::role.set(Some("doc-backlink".into())));
+            }
+
+            item_content.push(prefix_content);
             item_content.push(SpaceElem::shared().clone());
         }
 
