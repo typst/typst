@@ -577,7 +577,7 @@ pub struct Works {
     /// `None` if the citation style can't be used for bibliographies.
     pub references: Option<References>,
     /// Maps from an item key to the location in the bibliography of that item.
-    pub locations: FxHashMap<String, Location>,
+    pub locations: FxHashMap<EcoString, Location>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -792,7 +792,7 @@ impl<'a> Generator<'a> {
         rendered: &hayagriva::Rendered,
     ) -> StrResult<(
         FxHashMap<Location, SourceResult<Content>>,
-        FxHashMap<String, Location>,
+        FxHashMap<EcoString, Location>,
     )> {
         // Determine for each citation key where in the bibliography it is,
         // so that we can link there.
@@ -800,7 +800,7 @@ impl<'a> Generator<'a> {
         if let Some(bibliography) = &rendered.bibliography {
             let location = self.bibliography.location().unwrap();
             for (k, item) in bibliography.items.iter().enumerate() {
-                links.insert(item.key.clone(), location.variant(k + 1));
+                links.insert(item.key.clone().into(), location.variant(k + 1));
             }
         }
 
