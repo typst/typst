@@ -463,6 +463,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                     .pack()
                     .spanned(span)
             );
+            item_content.push(SpaceElem::shared().clone());
         }
 
         item_content.push(reference.clone());
