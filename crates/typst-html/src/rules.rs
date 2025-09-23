@@ -449,10 +449,10 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         content_sequence.push(title);
     }
 
-    // Add bibliography references
+    // Add bibliography references as a list
     let works = elem.realize_works(engine, styles)?;
     let references = works.references.as_ref().unwrap();
-    for (prefix, reference) in references {
+    let list_items = references.iter().map(|(prefix, reference)| {
         let mut item_content = vec![];
 
         if let Some(prefix) = prefix {
@@ -467,14 +467,18 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
         item_content.push(reference.clone());
 
-        content_sequence.push(
-            HtmlElem::new(tag::div)
-                .with_attr(attr::class, "bibliography-entry")
-                .with_body(Some(Content::sequence(item_content)))
-                .pack()
-                .spanned(span)
-        );
-    }
+        HtmlElem::new(tag::li)
+            .with_body(Some(Content::sequence(item_content)))
+            .pack()
+            .spanned(span)
+    });
+
+    let bibliography_list = HtmlElem::new(tag::ul)
+        .with_body(Some(Content::sequence(list_items)))
+        .pack()
+        .spanned(span);
+
+    content_sequence.push(bibliography_list);
 
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
