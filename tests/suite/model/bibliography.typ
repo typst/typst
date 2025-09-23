@@ -101,31 +101,31 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 // Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
---- bibliography-refactor-with-default-title-html html ---
+--- bibliography-with-default-title-html html ---
 // Test refactored bibliography with default title in HTML
 This tests the refactored implementation @arrgh and @distress.
 
 #bibliography("/assets/bib/works.bib")
 
---- bibliography-refactor-with-custom-title-html html ---
+--- bibliography-with-custom-title-html html ---
 // Test refactored bibliography with custom title in HTML
 This tests custom titles @arrgh and @quark.
 
 #bibliography("/assets/bib/works.bib", title: [Custom References])
 
---- bibliography-refactor-no-title-html html ---
+--- bibliography-no-title-html html ---
 // Test refactored bibliography with no title in HTML
 This tests no title variant @netwok and @distress.
 
 #bibliography("/assets/bib/works.bib", title: none)
 
---- bibliography-refactor-chicago-style-html html ---
+--- bibliography-chicago-style-html html ---
 // Test refactored bibliography with Chicago style in HTML (uses grid layout)
 Testing Chicago style with prefixes @mcintosh_anxiety and @psychology25.
 
 #bibliography("/assets/bib/works.bib", style: "chicago-author-date")
 
---- bibliography-refactor-mla-style-html html ---
+--- bibliography-mla-style-html html ---
 // Test refactored bibliography with MLA style in HTML (uses hanging indent)
 Testing MLA style with hanging indent @keshav2007read.
 

@@ -443,7 +443,7 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
     if let Some(bibliography_destination) = dest {
         let link = LinkElem::new(bibliography_destination.into(), content)
             .pack()
-            .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+            .styled(HtmlElem::role.set(Some("doc-biblioref".into())));
         return Ok(link);
     }
 
@@ -462,22 +462,6 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     // Add bibliography references as a list
     let works = elem.realize_works(engine, styles)?;
     let references = works.references.as_ref().unwrap();
-
-    // Get all citation groups to create backlinks
-    let cite_groups = engine.introspector.query(&CiteGroup::ELEM.select());
-    let mut first_occurrences = std::collections::HashMap::new();
-
-    // Build a map from citation keys to their first occurrence locations
-    for group_elem in cite_groups {
-        if let Some(group) = group_elem.to_packed::<CiteGroup>() {
-            if let Some(location) = group_elem.location() {
-                for cite_elem in &group.children {
-                    let key = cite_elem.key.resolve();
-                    first_occurrences.entry(key).or_insert(location);
-                }
-            }
-        }
-    }
 
     let list_items = references.iter().map(|(prefix, reference)| {
         let mut item_content = vec![];
