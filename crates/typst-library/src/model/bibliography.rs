@@ -194,28 +194,34 @@ impl BibliographyElem {
 }
 
 impl Packed<BibliographyElem> {
-    pub fn realize(
+    /// Produces the heading for the bibliography, if any.
+    pub fn realize_title(&self, styles: StyleChain) -> Option<Content> {
+        let span = self.span();
+        self.title
+            .get_ref(styles)
+            .clone()
+            .unwrap_or_else(|| {
+                Some(TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles)))
+            })
+            .map(|title| {
+                HeadingElem::new(title)
+                    .with_depth(NonZeroUsize::ONE)
+                    .pack()
+                    .spanned(span)
+            })
+    }
+
+    /// Fetches and validates the bibliography works.
+    pub fn realize_works(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<(Option<Content>, &References)> {
+    ) -> SourceResult<std::sync::Arc<Works>> {
         let span = self.span();
-        // Returns the optional heading,
-        let heading = if let Some(title) =
-            self.title.get_ref(styles).clone().unwrap_or_else(|| {
-                Some(TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles)))
-            }) {
-            Some(HeadingElem::new(title).with_depth(NonZeroUsize::ONE).pack())
-        } else {
-            None
-        };
-
         let works = Works::generate(engine).at(span)?;
-        let references = works
-            .references
-            .as_ref()
-            .ok_or_else(|| match self.style.get_ref(styles).source {
-                CslSource::Named(style) => eco_format!(
+        if works.references.is_none() {
+            return Err(match self.style.get_ref(styles).source {
+                CslSource::Named(style, _) => eco_format!(
                     "CSL style \"{}\" is not suitable for bibliographies",
                     style.display_name()
                 ),
@@ -223,10 +229,11 @@ impl Packed<BibliographyElem> {
                     "CSL style is not suitable for bibliographies".into()
                 }
             })
-            .at(span)?;
-
-        Ok((heading, references))
+            .at(span);
+        }
+        Ok(works)
     }
+
 }
 
 impl Synthesize for Packed<BibliographyElem> {

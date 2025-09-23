@@ -4,7 +4,7 @@ use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, ShowFn, Smart, StyleChain,
+    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain,
     Target,
 };
 use typst_library::introspection::Counter;
@@ -16,15 +16,15 @@ use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, EmphElem, EnumElem,
     FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem,
     LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, LocalName, OverlineElem, RawElem, RawLine,
-    SmallcapsElem, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, UnderlineElem,
+    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine,
+    SmallcapsElem, SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
-use typst_utils::{NonZeroExt, singleton};
+use typst_utils::singleton;
 
 use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -445,22 +445,36 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let mut content_sequence = vec![];
 
     // Add title if set
-    if let Some(title) = elem.title.get_ref(styles).clone().unwrap_or_else(|| {
-        Some(
-            TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles))
-                .spanned(span),
-        )
-    }) {
-        content_sequence.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        )
+    if let Some(title) = elem.realize_title(styles) {
+        content_sequence.push(title);
     }
 
-    let works = Works::generate(engine).at(span)?;
-    let references = works.references.as_ref();
+    // Add bibliography references
+    let works = elem.realize_works(engine, styles)?;
+    let references = works.references.as_ref().unwrap();
+    for (prefix, reference) in references {
+        let mut item_content = vec![];
+
+        if let Some(prefix) = prefix {
+            item_content.push(
+                HtmlElem::new(tag::span)
+                    .with_attr(attr::class, "prefix")
+                    .with_body(Some(prefix.clone()))
+                    .pack()
+                    .spanned(span)
+            );
+        }
+
+        item_content.push(reference.clone());
+
+        content_sequence.push(
+            HtmlElem::new(tag::div)
+                .with_attr(attr::class, "bibliography-entry")
+                .with_body(Some(Content::sequence(item_content)))
+                .pack()
+                .spanned(span)
+        );
+    }
 
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
