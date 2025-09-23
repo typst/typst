@@ -17,7 +17,7 @@ To accommodate all of these people and scenarios, you should design your documen
 
 Typst can help you to create accessible files that read well on screen readers, look good even when reflowed for a different screen size, and pass automated accessibility checkers. However, to create accessible files, you will have to keep some rules in mind. This guide will help you learn what issues impact accessibility, how to design for Universal Access, and what tools Typst gives you to accomplish this. Much of the guidance here applies to all export targets, but the guide focuses on PDF export. Notable differences to HTML export are called out.
 
-## Basics of Accessibility
+## Basics of Accessibility <basics>
 
 Accessible files allow software to do more with them than to just lay them out. Instead, your computer can understand what each part of the document is supposed to represent and use this information to present the document to the user.
 
@@ -287,6 +287,8 @@ There are international standards that help you to assert that a Typst document 
 - **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide alternative description for images, and disallows the use of characters in the [Unicode Private Use Area][unic-pua] whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (the latter is not yet supported by Typst).
 
 - **PDF/UA-1:** The PDF/UA standard explains how to write a PDF 1.7 file optimized for Universal Access. It implies Tagged PDF, forces alternative descriptions for images and mathematics, requires a document title, and introduces rules how document contents like tables should be structured. If you are following this guide, you should be in compliance with most rules in PDF/UA-1 already.
+
+To enable either PDF/A-2a, PDF/A-3a, or PDF/UA, use the export dropdown in the web app and click on PDF or the [appropriate CLI flag]($pdf).
 
 There are also a more recent part of the PDF/UA standard that targets PDF 2.0 files, PDF/UA-2. Support for PDF/UA-2 not yet available in Typst. [Both parts of the PDF/UA specification are available free of charge from the PDF Association.][pdf-ua-free] The industry standard [Well Tagged PDF (WTPDF)][WTPDF] is very similar to PDF/UA-2. All files conforming to WTPDF can also declare conformance with PDF/UA-2.
 

@@ -18,8 +18,9 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// With headings, you can structure your document into sections. Each heading
 /// has a _level,_ which starts at one and is unbounded upwards. This level
 /// indicates the logical role of the following content (section, subsection,
-/// etc.) A top-level heading indicates a top-level section of the document
-/// (not the document's title).
+/// etc.) A top-level heading indicates a top-level section of the document (not
+/// the document's title). To insert a title, use the [`title`]($title) element
+/// instead.
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
 /// specify how you want your headings to be numbered with a
@@ -45,6 +46,18 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth. The `{offset}` field
 /// can be set to configure the starting depth.
+///
+/// # Accessibility
+/// Headings are important for accessibility, as they help users of Assistive
+/// Technologies (AT) like screen readers to navigate within your document.
+/// Screen reader users will be able to skip from heading to heading, or get an
+/// overview of all headings in the document.
+///
+/// To make your headings accessible, you should not skip heading levels. This
+/// means that you should start with a first-level heading. Also, when the
+/// previous heading was of level 3, the next heading should be of level 3
+/// (staying at the same depth), level 4 (going one level deeper), or level 1 or
+/// 2 (new hierarchically higher headings).
 #[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set

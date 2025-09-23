@@ -37,10 +37,10 @@ use crate::visualize::{Paint, Stroke};
 /// of related data points or similar or whether you are just want to enhance
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
-/// appropriate. Furthermore, Typst will annotate its output in the future such
-/// that screenreaders will announce content in `table` as tabular while a
-/// grid's content will be announced no different than multiple content blocks
-/// in the document flow.
+/// appropriate. Furthermore, Assistive Technology (AT) like screen readers will
+/// announce content in `table` as tabular while a grid's content will be
+/// announced no different than multiple content blocks in the document flow. AT
+/// users will be able to navigate tables two-dimensionally by cell.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
 /// table cells, you can use the [`table.cell`] element. See its documentation
@@ -123,6 +123,18 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
+///
+/// # Accessibility
+/// Tables are challenging to consume for users of Assistive Technologies (AT).
+/// To make the life of AT users easier, we strongly recommend that you use
+/// [`table.header`] and [`table.footer`] to mark the header and footer sections
+/// of your table. This will allow AT to announce the column labels for each
+/// cell.
+///
+/// Because navigating a table by cell is more cumbersome than reading it
+/// visually, you should consider making the core information in your table
+/// available as text as well. You can do this by wrapping your table in a
+/// [figure] and using its caption to summarize the table's content.
 #[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
@@ -259,9 +271,53 @@ pub struct TableElem {
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
-    /// A summary of the table's purpose and structure.
+    /// A summary of the purpose and structure of complex tables.
     ///
-    /// This will be available for assistive techonologies (such as screen readers).
+    /// This will be available for Assistive Technologies (such as screen
+    /// readers) when exporting to PDF, but not for sighted readers of your
+    /// file.
+    ///
+    /// This field is intended for instructions that help the user navigate the
+    /// table using AT. It is not an alternative description, so do not
+    /// duplicate the contents of the table within. Likewise, do not use this
+    /// for the core takeaway of the table. Instead, include that in the text
+    /// around the table or, even better, in a [figure
+    /// caption]($figure.caption).
+    ///
+    /// If in doubt whether your table is complex enough to warrant a summary,
+    /// err on the side of not including one. If you are certain that your table
+    /// is complex enough, consider whether a sighted user might find it
+    /// challenging. They might benefit from the instructions you put here, so
+    /// consider printing them visibly in the document instead.
+    ///
+    /// ```example
+    /// #figure(
+    ///   table(
+    ///     // The summary just provides orientation
+    ///     // and structural information for AT users.
+    ///     summary: "The first two columns list the
+    ///       names of each participant. The last
+    ///       column contains cells spanning multiple
+    ///       rows for their assigned group.",
+    ///     columns: 3,
+    ///     table.header(
+    ///       [First Name],
+    ///       [Given Name],
+    ///       [Group],
+    ///     ),
+    ///     [Mike], [Davis],
+    ///       table.cell(rowspan: 3)[Sales],
+    ///     [Anna], [Smith],
+    ///     [John], [Johnson],
+    ///     [Sara], [Wilkins],
+    ///       table.cell(rowspan: 2)[Operations],
+    ///     [Tom], [Brown],
+    ///   ),
+    ///   // This is the key takeaway of the table, so we
+    ///   // put it in the caption.
+    ///   caption: [The Sales Org now has a new member],
+    /// )
+    /// ```
     #[internal]
     #[parse(None)]
     pub summary: Option<EcoString>,

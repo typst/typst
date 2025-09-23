@@ -200,6 +200,10 @@ cast! {
 /// page run is a sequence of pages without an explicit pagebreak in between).
 /// For this reason, set and show rules for footnote entries should be defined
 /// before any page content, typically at the very start of the document.
+///
+/// # Accessibility
+/// Footnotes will be read by Assistive Technologies immediately after the spot
+/// in the text where they are referenced, not unlike how they appear in markup.
 #[elem(name = "entry", title = "Footnote Entry", Locatable, Tagged, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. Its location can be used to determine

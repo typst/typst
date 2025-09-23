@@ -32,11 +32,10 @@ use crate::visualize::{Paint, Stroke};
 /// different use cases and carry different semantics. The grid element is
 /// intended for presentational and layout purposes, while the
 /// [`{table}`]($table) element is intended for, in broad terms, presenting
-/// multiple related data points. In the future, Typst will annotate its output
-/// such that screenreaders will announce content in `table` as tabular while a
-/// grid's content will be announced no different than multiple content blocks
-/// in the document flow. Set and show rules on one of these elements do not
-/// affect the other.
+/// multiple related data points. Refer to the [Accessibility
+/// Section]($grid#accessibility) to learn how grids and tables are presented to
+/// users of Assistive Technology (AT) like screen readers. Set and show rules
+/// on one of these elements do not affect the other.
 ///
 /// # Sizing the tracks { #track-size }
 ///
@@ -170,6 +169,17 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
+///
+/// # Accessibility
+/// Grids do not carry any special semantics. AT does not offer the ability to
+/// navigate two-dimensionally by cell in grids. If you want to present tabular
+/// data, use the [`{table}`]($table) element instead.
+///
+/// AT will read the grid cells in their semantic order. Usually, this is the
+/// order in which you passed them to the grid. However, if you manually
+/// positioned them using [`grid.cell`'s `x` and `y` arguments]($grid.cell.x),
+/// cells will be read row by row, from left to right (in left-to-right
+/// documents). A cell will be read when its position is first reached.
 #[elem(scope, Synthesize, Tagged)]
 pub struct GridElem {
     /// The column sizes.

@@ -65,6 +65,11 @@ use crate::layout::{Alignment, Em, Length, Rel};
 ///
 /// The zero-width weak spacing serves to discard spaces between the function
 /// call and the next word.
+///
+/// # Accessibility
+/// AT will always read the placed element at the point where it appears in the
+/// document, regardless of where this function moved it. Put its markup
+/// where it would make the most sense in the reading order.
 #[elem(scope, Unqueriable, Locatable, Tagged)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
