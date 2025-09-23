@@ -564,7 +564,14 @@ impl IntoValue for CslSource {
     }
 }
 
-pub type References = Vec<(Option<Content>, Content)>;
+/// Lists all references in the bibliography, with optional prefix
+type References = Vec<(Option<Content>, Content)>;
+
+/// Maps from the location of a citation group to its rendered content.
+type CitationLocationContentMap = FxHashMap<Location, SourceResult<Content>>;
+
+/// Maps from an item key to the location in the bibliography of that item.
+type CitationKeyReferenceLocationMap = FxHashMap<EcoString, Location>;
 
 /// Fully formatted citations and references, generated once (through
 /// memoization) for the whole document. This setup is necessary because
@@ -572,12 +579,12 @@ pub type References = Vec<(Option<Content>, Content)>;
 /// citations to do it.
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
-    pub citations: FxHashMap<Location, SourceResult<Content>>,
+    pub citations: CitationLocationContentMap,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
     pub references: Option<References>,
     /// Maps from an item key to the location in the bibliography of that item.
-    pub locations: FxHashMap<EcoString, Location>,
+    pub locations: CitationKeyReferenceLocationMap,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -790,10 +797,7 @@ impl<'a> Generator<'a> {
     fn display_citations(
         &mut self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<(
-        FxHashMap<Location, SourceResult<Content>>,
-        FxHashMap<EcoString, Location>,
-    )> {
+    ) -> StrResult<(CitationLocationContentMap, CitationKeyReferenceLocationMap)> {
         // Determine for each citation key where in the bibliography it is,
         // so that we can link there.
         let mut links = FxHashMap::default();

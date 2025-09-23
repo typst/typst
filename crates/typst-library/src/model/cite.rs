@@ -175,7 +175,7 @@ impl Packed<CiteGroup> {
             .locations
             .get(first_citation.key.resolve().as_str())
             .cloned()
-            .map(|d| Destination::Location(d));
+            .map(Destination::Location);
         let content = works
             .citations
             .get(&location)
