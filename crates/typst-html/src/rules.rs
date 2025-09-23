@@ -479,41 +479,15 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         }
     }
 
-    // Get the bibliography keys in order
-    let bibliography_keys: Vec<_> = BibliographyElem::keys(engine.introspector)
-        .into_iter()
-        .map(|(key, _)| key)
-        .collect();
-
-    let list_items = references.iter().enumerate().map(|(index, (prefix, reference))| {
+    let list_items = references.iter().map(|(prefix, reference)| {
         let mut item_content = vec![];
 
         if let Some(prefix) = prefix {
             // Create backlink from bibliography entry to first citation occurrence
-            let mut prefix_content = HtmlElem::new(tag::span)
-                .with_attr(attr::class, "prefix")
+            let prefix_content = HtmlElem::new(tag::span)
                 .with_body(Some(prefix.clone()))
                 .pack()
                 .spanned(span);
-
-            // Try to create a backlink if we can map this entry to a citation
-            if let Some(key) = bibliography_keys.get(index) {
-                if let Some(&first_location) = first_occurrences.get(&key.resolve()) {
-                    // Found the first citation for this bibliography entry
-                    let dest = Destination::Location(first_location);
-                    prefix_content = LinkElem::new(dest.into(), prefix_content)
-                        .pack()
-                        .styled(HtmlElem::role.set(Some("doc-backlink".into())));
-                } else {
-                    // Citation key exists but no citation found, just add role
-                    prefix_content = prefix_content
-                        .styled(HtmlElem::role.set(Some("doc-backlink".into())));
-                }
-            } else {
-                // No key mapping found, just add role
-                prefix_content = prefix_content
-                    .styled(HtmlElem::role.set(Some("doc-backlink".into())));
-            }
 
             item_content.push(prefix_content);
             item_content.push(SpaceElem::shared().clone());
