@@ -4,8 +4,7 @@ use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, bail, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain,
-    Target,
+    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
@@ -19,8 +18,8 @@ use typst_library::model::{
     QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
-    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine,
-    SmallcapsElem, SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_macros::elem;
@@ -439,22 +438,13 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
-    let content = elem.realize(engine)?;
+    let (dest, content) = elem.realize(engine)?;
 
-    // Try to find the bibliography to get entry locations for linking
-    if let Ok(bibliography) = BibliographyElem::find(engine.introspector) {
-        if let Ok(_works) = bibliography.realize_works(engine, StyleChain::default()) {
-            // For HTML export, create proper LinkElem with bibliography destination
-            let bibliography_location = bibliography.location().unwrap();
-
-            // Link to the bibliography section for now
-            // Individual citation -> bibliography entry linking requires more complex processing
-            let dest = Destination::Location(bibliography_location);
-            let link = LinkElem::new(dest.into(), content)
-                .pack()
-                .styled(HtmlElem::role.set(Some("doc-noteref".into())));
-            return Ok(link);
-        }
+    if let Some(bibliography_destination) = dest {
+        let link = LinkElem::new(bibliography_destination.into(), content)
+            .pack()
+            .styled(HtmlElem::role.set(Some("doc-noteref".into())));
+        return Ok(link);
     }
 
     Ok(content)

@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
-use crate::model::{CslSource, CslStyle};
+use crate::model::{CslSource, CslStyle, Destination};
 use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
@@ -160,16 +160,29 @@ pub struct CiteGroup {
 }
 
 impl Packed<CiteGroup> {
-    pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
+    pub fn realize(
+        &self,
+        engine: &mut Engine,
+    ) -> SourceResult<(Option<Destination>, Content)> {
         let location = self.location().unwrap();
         let span = self.span();
-        Works::generate(engine)
-            .at(span)?
+        let works = Works::generate(engine).at(span)?;
+        // When there are multiple citations in a group, we just link to the first one.
+        let first_citation = self.children.first().unwrap();
+        // The location here could be nothing, as the user might have chosen not to show it in the
+        // bibliography or not included one.
+        let dest = works
+            .locations
+            .get(first_citation.key.resolve().as_str())
+            .cloned()
+            .map(|d| Destination::Location(d));
+        let content = works
             .citations
             .get(&location)
             .cloned()
             .ok_or_else(failed_to_format_citation)
-            .at(span)?
+            .at(span)?;
+        Ok((dest, content?))
     }
 }
 

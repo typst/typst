@@ -16,17 +16,16 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, EmphElem,
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, EmphElem, EnumElem,
+    FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem,
+    ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::pdf::AttachElem;
 use typst_library::text::{
-    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem,
-    OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
-    WeightDelta,
+    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, OverlineElem,
+    RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem, SpaceElem,
+    StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
@@ -424,7 +423,10 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
+    let (_, content) = elem.realize(engine)?;
+    Ok(content)
+};
 
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     const COLUMN_GUTTER: Em = Em::new(0.65);

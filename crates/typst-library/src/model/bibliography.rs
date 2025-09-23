@@ -233,7 +233,6 @@ impl Packed<BibliographyElem> {
         }
         Ok(works)
     }
-
 }
 
 impl Synthesize for Packed<BibliographyElem> {
@@ -577,6 +576,8 @@ pub struct Works {
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
     pub references: Option<References>,
+    /// Maps from an item key to the location in the bibliography of that item.
+    pub locations: FxHashMap<String, Location>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -778,25 +779,28 @@ impl<'a> Generator<'a> {
 
     /// Displays hayagriva's output as content for the citations and references.
     fn display(&mut self, rendered: &hayagriva::Rendered) -> StrResult<Works> {
-        let citations = self.display_citations(rendered)?;
+        let (citations, locations) = self.display_citations(rendered)?;
         let references = self.display_references(rendered)?;
         let hanging_indent =
             rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
-        Ok(Works { citations, references, hanging_indent })
+        Ok(Works { citations, references, locations, hanging_indent })
     }
 
     /// Display the citation groups.
     fn display_citations(
         &mut self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<FxHashMap<Location, SourceResult<Content>>> {
+    ) -> StrResult<(
+        FxHashMap<Location, SourceResult<Content>>,
+        FxHashMap<String, Location>,
+    )> {
         // Determine for each citation key where in the bibliography it is,
         // so that we can link there.
         let mut links = FxHashMap::default();
         if let Some(bibliography) = &rendered.bibliography {
             let location = self.bibliography.location().unwrap();
             for (k, item) in bibliography.items.iter().enumerate() {
-                links.insert(item.key.as_str(), location.variant(k + 1));
+                links.insert(item.key.clone(), location.variant(k + 1));
             }
         }
 
@@ -834,7 +838,7 @@ impl<'a> Generator<'a> {
             output.insert(info.location, Ok(content));
         }
 
-        Ok(output)
+        Ok((output, links))
     }
 
     /// Display the bibliography references.
