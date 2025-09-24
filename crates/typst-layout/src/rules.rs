@@ -1,5 +1,5 @@
 use comemo::Track;
-use ecow::EcoVec;
+use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
@@ -10,23 +10,24 @@ use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
     FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
-    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PlaceElem,
-    PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing,
-    SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
+    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
+    PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
+    Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
     FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    OutlineBody, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, AttachElem};
 use typst_library::text::{
-    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, OverlineElem,
-    RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem, SpaceElem,
-    StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem, WeightDelta,
+    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
+    OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
+    WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
@@ -55,6 +56,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, FOOTNOTE_RULE);
     rules.register(Paged, FOOTNOTE_ENTRY_RULE);
     rules.register(Paged, OUTLINE_RULE);
+    rules.register(Paged, OUTLINE_BODY_RULE);
     rules.register(Paged, OUTLINE_ENTRY_RULE);
     rules.register(Paged, REF_RULE);
     rules.register(Paged, CITE_GROUP_RULE);
@@ -407,10 +409,12 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     let title = elem.realize_title(styles);
     let entries = elem.realize_flat(engine, styles)?;
-    Ok(Content::sequence(
-        title.into_iter().chain(entries.into_iter().map(|entry| entry.pack())),
-    ))
+    let entries = entries.into_iter().map(|entry| entry.pack());
+    let body = OutlineBody::new(Content::sequence(entries)).pack();
+    Ok(Content::sequence(title.into_iter().chain(Some(body))))
 };
+
+const OUTLINE_BODY_RULE: ShowFn<OutlineBody> = |elem, _, _| Ok(elem.body.clone());
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let span = elem.span();
@@ -418,7 +422,16 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let context = context.track();
 
     let prefix = elem.prefix(engine, context, span)?;
-    let inner = elem.inner(engine, context, span)?;
+    let body = elem.body().at(span)?;
+    let page = elem.page(engine, context, span)?;
+    let alt = {
+        let prefix = prefix.as_ref().map(|p| p.plain_text()).unwrap_or_default();
+        let body = body.plain_text();
+        let page_str = PageElem::local_name_in(styles);
+        let page_nr = page.plain_text();
+        eco_format!("{prefix} \"{body}\", {page_str} {page_nr}")
+    };
+    let inner = elem.build_inner(context, span, body, page)?;
     let block = if elem.element.is::<EquationElem>() {
         // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
@@ -431,8 +444,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     };
 
     let loc = elem.element_location().at(span)?;
-    // TODO: generate alt text
-    Ok(block.linked(Destination::Location(loc), None))
+    Ok(block.linked(Destination::Location(loc), Some(alt)))
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);

@@ -12,7 +12,8 @@ use typst_library::foundations::{Content, Packed, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
-    FigureCaption, FigureElem, HeadingElem, LinkMarker, Outlinable, TableCell, TableElem,
+    FigureCaption, FigureElem, HeadingElem, LinkMarker, Outlinable, OutlineBody,
+    OutlineEntry, TableCell, TableElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind};
 use typst_library::visualize::ImageElem;
@@ -42,14 +43,92 @@ pub struct StackEntry {
 #[derive(Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
+    Outline(OutlineCtx),
+    OutlineEntry(Packed<OutlineEntry>),
     Table(TableCtx),
     TableCell(Packed<TableCell>),
     Link(LinkId, Packed<LinkMarker>),
 }
 
 impl StackEntryKind {
+    pub fn as_outline_mut(&mut self) -> Option<&mut OutlineCtx> {
+        if let Self::Outline(v) = self { Some(v) } else { None }
+    }
+
+    pub fn as_outline_entry_mut(&mut self) -> Option<&mut OutlineEntry> {
+        if let Self::OutlineEntry(v) = self { Some(v) } else { None }
+    }
+
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+    }
+}
+
+#[derive(Debug)]
+pub struct OutlineCtx {
+    stack: Vec<OutlineSection>,
+}
+
+#[derive(Debug)]
+pub struct OutlineSection {
+    entries: Vec<TagNode>,
+}
+
+impl OutlineSection {
+    const fn new() -> Self {
+        OutlineSection { entries: Vec::new() }
+    }
+
+    fn push(&mut self, entry: TagNode) {
+        self.entries.push(entry);
+    }
+
+    fn into_tag(self) -> TagNode {
+        TagNode::Group(Tag::TOC.into(), self.entries)
+    }
+}
+
+impl OutlineCtx {
+    fn new() -> Self {
+        Self { stack: Vec::new() }
+    }
+
+    fn insert(
+        &mut self,
+        outline_nodes: &mut Vec<TagNode>,
+        entry: Packed<OutlineEntry>,
+        nodes: Vec<TagNode>,
+    ) {
+        let expected_len = entry.level.get() - 1;
+        if self.stack.len() < expected_len {
+            self.stack.resize_with(expected_len, || OutlineSection::new());
+        } else {
+            while self.stack.len() > expected_len {
+                self.finish_section(outline_nodes);
+            }
+        }
+
+        let section_entry = TagNode::group(Tag::TOCI, nodes);
+        self.push(outline_nodes, section_entry);
+    }
+
+    fn finish_section(&mut self, outline_nodes: &mut Vec<TagNode>) {
+        let sub_section = self.stack.pop().unwrap().into_tag();
+        self.push(outline_nodes, sub_section);
+    }
+
+    fn push(&mut self, outline_nodes: &mut Vec<TagNode>, entry: TagNode) {
+        match self.stack.last_mut() {
+            Some(section) => section.push(entry),
+            None => outline_nodes.push(entry),
+        }
+    }
+
+    fn build_outline(mut self, mut outline_nodes: Vec<TagNode>) -> Vec<TagNode> {
+        while self.stack.len() > 0 {
+            self.finish_section(&mut outline_nodes);
+        }
+        outline_nodes
     }
 }
 
@@ -60,6 +139,10 @@ pub struct TableCtx {
 }
 
 impl TableCtx {
+    fn new(table: Packed<TableElem>) -> Self {
+        Self { table: table.clone(), rows: Vec::new() }
+    }
+
     fn insert(&mut self, cell: Packed<TableCell>, nodes: Vec<TagNode>) {
         let x = cell.x.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
         let y = cell.y.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
@@ -169,6 +252,10 @@ impl Tags {
     /// In case of the document root the structure type will be `None`.
     pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
         self.stack.last_mut().map(|e| &mut e.kind)
+    }
+
+    pub fn parent_outline_entry(&mut self) -> Option<&mut OutlineEntry> {
+        self.parent()?.as_outline_entry_mut()
     }
 
     pub fn find_parent_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
@@ -310,6 +397,12 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
         Tag::Hn(level, Some(name)).into()
+    } else if let Some(_) = elem.to_packed::<OutlineBody>() {
+        push_stack(gc, loc, StackEntryKind::Outline(OutlineCtx::new()));
+        return;
+    } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
+        push_stack(gc, loc, StackEntryKind::OutlineEntry(entry.clone()));
+        return;
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
         let alt = figure.alt.get_cloned(StyleChain::default()).map(|s| s.to_string());
         Tag::Figure(alt).into()
@@ -328,8 +421,7 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
     } else if let Some(table) = elem.to_packed::<TableElem>() {
-        let ctx = TableCtx { table: table.clone(), rows: Vec::new() };
-        push_stack(gc, loc, StackEntryKind::Table(ctx));
+        push_stack(gc, loc, StackEntryKind::Table(TableCtx::new(table.clone())));
         return;
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
         push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
@@ -363,6 +455,26 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
 
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => TagNode::group(tag, entry.nodes),
+        StackEntryKind::Outline(ctx) => {
+            let nodes = ctx.build_outline(entry.nodes);
+            TagNode::group(Tag::TOC, nodes)
+        }
+        StackEntryKind::OutlineEntry(outline_entry) => {
+            let parent = gc.tags.stack.last_mut().and_then(|parent| {
+                let ctx = parent.kind.as_outline_mut()?;
+                Some((&mut parent.nodes, ctx))
+            });
+            let Some((parent_nodes, outline_ctx)) = parent else {
+                // PDF/UA compliance of the structure hierarchy is checked
+                // elsewhere. While this doesn't make a lot of sense, just
+                // avoid crashing here.
+                gc.tags.push(TagNode::group(Tag::TOCI, entry.nodes));
+                return;
+            };
+
+            outline_ctx.insert(parent_nodes, outline_entry, entry.nodes);
+            return;
+        }
         StackEntryKind::Table(ctx) => {
             let summary = ctx
                 .table
@@ -383,7 +495,14 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
 
             return;
         }
-        StackEntryKind::Link(_, _) => TagNode::group(Tag::Link, entry.nodes),
+        StackEntryKind::Link(_, _) => {
+            let mut node = TagNode::group(Tag::Link, entry.nodes);
+            // Wrap link in reference tag if inside an outline entry.
+            if gc.tags.parent_outline_entry().is_some() {
+                node = TagNode::group(Tag::Reference, vec![node]);
+            }
+            node
+        }
     };
 
     gc.tags.push(node);

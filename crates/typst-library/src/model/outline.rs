@@ -409,6 +409,13 @@ impl LocalName for Packed<OutlineElem> {
     const KEY: &'static str = "outline";
 }
 
+/// Only used to delimit the outline in tagged PDF.
+#[elem(Locatable)]
+pub struct OutlineBody {
+    #[required]
+    pub body: Content,
+}
+
 /// Defines how an outline is indented.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OutlineIndent {
@@ -649,53 +656,9 @@ impl OutlineEntry {
         context: Tracked<Context>,
         span: Span,
     ) -> SourceResult<Content> {
-        let styles = context.styles().at(span)?;
-
-        let mut seq = vec![];
-
-        // Isolate the entry body in RTL because the page number is typically
-        // LTR. I'm not sure whether LTR should conceptually also be isolated,
-        // but in any case we don't do it for now because the text shaping
-        // pipeline does tend to choke a bit on default ignorables (in
-        // particular the CJK-Latin spacing).
-        //
-        // See also:
-        // - https://github.com/typst/typst/issues/4476
-        // - https://github.com/typst/typst/issues/5176
-        let rtl = styles.resolve(TextElem::dir) == Dir::RTL;
-        if rtl {
-            // "Right-to-Left Embedding"
-            seq.push(TextElem::packed("\u{202B}"));
-        }
-
-        seq.push(self.body().at(span)?);
-
-        if rtl {
-            // "Pop Directional Formatting"
-            seq.push(TextElem::packed("\u{202C}"));
-        }
-
-        // Add the filler between the section name and page number.
-        if let Some(filler) = self.fill.get_cloned(styles) {
-            seq.push(SpaceElem::shared().clone());
-            seq.push(
-                BoxElem::new()
-                    .with_body(Some(filler))
-                    .with_width(Fr::one().into())
-                    .pack()
-                    .spanned(span),
-            );
-            seq.push(SpaceElem::shared().clone());
-        } else {
-            seq.push(HElem::new(Fr::one().into()).pack().spanned(span));
-        }
-
-        // Add the page number. The word joiner in front ensures that the page
-        // number doesn't stand alone in its line.
-        seq.push(TextElem::packed("\u{2060}"));
-        seq.push(self.page(engine, context, span)?);
-
-        Ok(Content::sequence(seq))
+        let body = self.body().at(span)?;
+        let page = self.page(engine, context, span)?;
+        self.build_inner(context, span, body, page)
     }
 
     /// The content which is displayed in place of the referred element at its
@@ -728,6 +691,62 @@ impl OutlineEntry {
 }
 
 impl OutlineEntry {
+    pub fn build_inner(
+        &self,
+        context: Tracked<Context>,
+        span: Span,
+        body: Content,
+        page: Content,
+    ) -> SourceResult<Content> {
+        let styles = context.styles().at(span)?;
+
+        let mut seq = vec![];
+
+        // Isolate the entry body in RTL because the page number is typically
+        // LTR. I'm not sure whether LTR should conceptually also be isolated,
+        // but in any case we don't do it for now because the text shaping
+        // pipeline does tend to choke a bit on default ignorables (in
+        // particular the CJK-Latin spacing).
+        //
+        // See also:
+        // - https://github.com/typst/typst/issues/4476
+        // - https://github.com/typst/typst/issues/5176
+        let rtl = styles.resolve(TextElem::dir) == Dir::RTL;
+        if rtl {
+            // "Right-to-Left Embedding"
+            seq.push(TextElem::packed("\u{202B}"));
+        }
+
+        seq.push(body);
+
+        if rtl {
+            // "Pop Directional Formatting"
+            seq.push(TextElem::packed("\u{202C}"));
+        }
+
+        // Add the filler between the section name and page number.
+        if let Some(filler) = self.fill.get_cloned(styles) {
+            seq.push(SpaceElem::shared().clone());
+            seq.push(
+                BoxElem::new()
+                    .with_body(Some(filler))
+                    .with_width(Fr::one().into())
+                    .pack()
+                    .spanned(span),
+            );
+            seq.push(SpaceElem::shared().clone());
+        } else {
+            seq.push(HElem::new(Fr::one().into()).pack().spanned(span));
+        }
+
+        // Add the page number. The word joiner in front ensures that the page
+        // number doesn't stand alone in its line.
+        seq.push(TextElem::packed("\u{2060}"));
+        seq.push(page);
+
+        Ok(Content::sequence(seq))
+    }
+
     fn outlinable(&self) -> StrResult<&dyn Outlinable> {
         self.element
             .with::<dyn Outlinable>()
