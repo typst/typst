@@ -6,6 +6,7 @@ use crate::foundations::{
     Array, Content, Context, Depth, Func, NativeElement, Packed, Smart, StyleChain,
     Styles, Value, cast, elem, scope,
 };
+use crate::introspection::Locatable;
 use crate::layout::{Em, Length};
 use crate::text::TextElem;
 
@@ -40,7 +41,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List")]
+#[elem(scope, title = "Bullet List", Locatable)]
 pub struct ListElem {
     /// Defines the default [spacing]($list.spacing) of the list. If it is
     /// `{false}`, the items are spaced apart with
@@ -135,7 +136,7 @@ impl ListElem {
 }
 
 /// A bullet list item.
-#[elem(name = "item", title = "Bullet List Item")]
+#[elem(name = "item", title = "Bullet List Item", Locatable)]
 pub struct ListItem {
     /// The item's body.
     #[required]

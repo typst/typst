@@ -5,6 +5,7 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, bail};
 use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
+use crate::introspection::Locatable;
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
@@ -116,7 +117,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, LocalName, Figurable)]
+#[elem(scope, Locatable, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
     /// more information on track sizing.
@@ -675,7 +676,7 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell")]
+#[elem(name = "cell", title = "Table Cell", Locatable)]
 pub struct TableCell {
     /// The cell's body.
     #[required]

@@ -467,7 +467,7 @@ pub trait Outlinable: Refable {
 /// With show-set and show rules on outline entries, you can richly customize
 /// the outline's appearance. See the
 /// [section on styling the outline]($outline/#styling-the-outline) for details.
-#[elem(scope, name = "entry", title = "Outline Entry")]
+#[elem(scope, name = "entry", title = "Outline Entry", Locatable)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
