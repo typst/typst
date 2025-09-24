@@ -97,7 +97,7 @@ In general, every element on a page must either have some way for AT to announce
 
 Typst automatically tags many layout artifacts such as headers, footers, page back- and foregrounds, and automatic hyphenation as artifacts. However, if you'd like to add purely decorative content to your document, you can use the [`pdf.artifact`] function to mark a piece of content as an artifact. If you are unsure if you should mark an element as an artifact, ask yourself this: Would it be purely annoying if a screen reader announced the element to you? Then, it may be an artifact. If, instead, it could be useful to have it announced, then it is not an artifact.
 
-For technical reasons, once you are in an artifact, you cannot become semantic content ingested by AI again. To stack artifacts and semantic contents, use [`place`] to move the content on top of one another.
+For technical reasons, once you are in an artifact, you cannot become semantic content ingested by AT again. To stack artifacts and semantic contents, use [`place`] to move the content on top of one another.
 
 Please note that Typst will mark shapes and paths like [`square`] and [`circle`] as artifacts while their content will remain semantically relevant and accessible to AT. If your shapes have a semantic meaning, please wrap them in the [`figure`] element to provide an alternative textual description.
 
