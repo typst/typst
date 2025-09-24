@@ -294,7 +294,8 @@ impl Packed<FootnoteEntry> {
 
         let num = counter.display_at_loc(engine, loc, styles, numbering)?;
         let sup = SuperElem::new(num).pack().spanned(span);
-        let prefix = DirectLinkElem::new(loc, sup).pack().spanned(span);
+        // TODO: generate alt text
+        let prefix = DirectLinkElem::new(loc, sup, None).pack().spanned(span);
         let body = self.note.body_content().unwrap().clone();
 
         Ok((prefix, body))

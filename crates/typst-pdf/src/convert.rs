@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use ecow::{EcoVec, eco_format};
-use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
@@ -27,7 +26,7 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::attach::attach_files;
 use crate::image::handle_image;
-use crate::link::handle_link;
+use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
 use crate::page::PageLabelExt;
@@ -119,9 +118,7 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
             surface.finish();
 
-            for annotation in fc.annotations {
-                page.add_annotation(annotation);
-            }
+            tags::add_link_annotations(gc, &mut page, fc.link_annotations);
         }
     }
 
@@ -175,14 +172,14 @@ impl State {
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     states: Vec<State>,
-    annotations: Vec<Annotation>,
+    link_annotations: Vec<LinkAnnotation>,
 }
 
 impl FrameContext {
     pub(crate) fn new(size: Size) -> Self {
         Self {
             states: vec![State::new(size)],
-            annotations: vec![],
+            link_annotations: Vec::new(),
         }
     }
 
@@ -202,8 +199,15 @@ impl FrameContext {
         self.states.last_mut().unwrap()
     }
 
-    pub(crate) fn push_annotation(&mut self, annotation: Annotation) {
-        self.annotations.push(annotation);
+    pub(crate) fn get_link_annotation(
+        &mut self,
+        link_id: tags::LinkId,
+    ) -> Option<&mut LinkAnnotation> {
+        self.link_annotations.iter_mut().rfind(|a| a.id == link_id)
+    }
+
+    pub(crate) fn push_link_annotation(&mut self, annotation: LinkAnnotation) {
+        self.link_annotations.push(annotation);
     }
 }
 

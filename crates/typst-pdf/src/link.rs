@@ -1,12 +1,23 @@
+use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
-use krilla::annotation::{LinkAnnotation, Target};
+use krilla::annotation::Target;
+use krilla::configure::Validator;
 use krilla::destination::XyzDestination;
-use krilla::geom::Rect;
+use krilla::geom as kg;
 use typst_library::layout::{Abs, Point, Position, Size};
 use typst_library::model::Destination;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
+use crate::tags::{LinkId, Placeholder, TagNode};
 use crate::util::{AbsExt, PointExt};
+
+pub struct LinkAnnotation {
+    pub id: LinkId,
+    pub placeholder: Placeholder,
+    pub alt: Option<String>,
+    pub quad_points: Vec<kg::Quadrilateral>,
+    pub target: Target,
+}
 
 pub(crate) fn handle_link(
     fc: &mut FrameContext,
@@ -14,77 +25,77 @@ pub(crate) fn handle_link(
     dest: &Destination,
     size: Size,
 ) {
-    let mut min_x = Abs::inf();
-    let mut min_y = Abs::inf();
-    let mut max_x = -Abs::inf();
-    let mut max_y = -Abs::inf();
-
-    let pos = Point::zero();
-
-    // Compute the bounding box of the transformed link.
-    for point in [
-        pos,
-        pos + Point::with_x(size.x),
-        pos + Point::with_y(size.y),
-        pos + size.to_point(),
-    ] {
-        let t = point.transform(fc.state().transform());
-        min_x.set_min(t.x);
-        min_y.set_min(t.y);
-        max_x.set_max(t.x);
-        max_y.set_max(t.y);
-    }
-
-    let x1 = min_x.to_f32();
-    let x2 = max_x.to_f32();
-    let y1 = min_y.to_f32();
-    let y2 = max_y.to_f32();
-
-    let rect = Rect::from_ltrb(x1, y1, x2, y2).unwrap();
-
-    // TODO: Support quad points.
-
-    let pos = match dest {
+    let target = match dest {
         Destination::Url(u) => {
-            fc.push_annotation(
-                LinkAnnotation::new(
-                    rect,
-                    Target::Action(Action::Link(LinkAction::new(u.to_string()))),
-                )
-                .into(),
-            );
-            return;
+            Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
-        Destination::Position(p) => *p,
+        Destination::Position(p) => {
+            let Some(dest) = pos_to_xyz(&gc.page_index_converter, *p) else { return };
+            Target::Destination(krilla::destination::Destination::Xyz(dest))
+        }
         Destination::Location(loc) => {
             if let Some(nd) = gc.loc_to_names.get(loc) {
                 // If a named destination has been registered, it's already guaranteed to
                 // not point to an excluded page.
-                fc.push_annotation(
-                    LinkAnnotation::new(
-                        rect,
-                        Target::Destination(krilla::destination::Destination::Named(
-                            nd.clone(),
-                        )),
-                    )
-                    .into(),
-                );
-                return;
+                Target::Destination(krilla::destination::Destination::Named(nd.clone()))
             } else {
-                gc.document.introspector.position(*loc)
+                let pos = gc.document.introspector.position(*loc);
+                let Some(dest) = pos_to_xyz(&gc.page_index_converter, pos) else {
+                    return;
+                };
+                Target::Destination(krilla::destination::Destination::Xyz(dest))
             }
         }
     };
 
-    if let Some(xyz) = pos_to_xyz(&gc.page_index_converter, pos) {
-        fc.push_annotation(
-            LinkAnnotation::new(
-                rect,
-                Target::Destination(krilla::destination::Destination::Xyz(xyz)),
-            )
-            .into(),
-        );
+    let Some((link_id, link)) = gc.tags.find_parent_link() else {
+        unreachable!("expected a link parent")
+    };
+    let alt = link.alt.as_ref().map(EcoString::to_string);
+
+    let quad = to_quadrilateral(fc, size);
+
+    // Unfortunately quadpoints still aren't well supported by most PDF readers.
+    // So only add multiple quadpoint entries to one annotation when targeting
+    // PDF/UA. Otherwise generate multiple annotations, to avoid pdf readers
+    // falling back to the bounding box rectangle, which can span parts unrelated
+    // to the link. For example if there is a linebreak:
+    // ```
+    // Imagine this is a paragraph containing a link. It starts here https://github.com/
+    // typst/typst and then ends on another line.
+    // ```
+    // The bounding box would span the entire paragraph, which is undesirable.
+    let join_annotations = gc.options.standards.config.validator() == Validator::UA1;
+    match fc.get_link_annotation(link_id) {
+        Some(annotation) if join_annotations => annotation.quad_points.push(quad),
+        _ => {
+            let placeholder = gc.tags.reserve_placeholder();
+            gc.tags.push(TagNode::Placeholder(placeholder));
+            fc.push_link_annotation(LinkAnnotation {
+                id: link_id,
+                placeholder,
+                quad_points: vec![quad],
+                alt,
+                target,
+            });
+        }
     }
+}
+
+/// Compute the quadrilateral representing the transformed rectangle of this frame.
+fn to_quadrilateral(fc: &FrameContext, size: Size) -> kg::Quadrilateral {
+    let pos = Point::zero();
+    let points = [
+        pos + Point::with_y(size.y),
+        pos + size.to_point(),
+        pos + Point::with_x(size.x),
+        pos,
+    ];
+
+    kg::Quadrilateral(points.map(|point| {
+        let p = point.transform(fc.state().transform());
+        kg::Point::from_xy(p.x.to_f32(), p.y.to_f32())
+    }))
 }
 
 /// Turns a position link into a PDF XYZ destination.

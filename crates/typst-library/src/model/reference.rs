@@ -346,7 +346,7 @@ fn realize_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
-    Ok(DirectLinkElem::new(loc, content).pack())
+    Ok(DirectLinkElem::new(loc, content, None).pack())
 }
 
 /// Turn a reference into a citation.

@@ -87,6 +87,9 @@ use crate::text::TextElem;
 ///   generated.
 #[elem(Locatable)]
 pub struct LinkElem {
+    /// A text describing the link.
+    pub alt: Option<EcoString>,
+
     /// The destination the link points to.
     ///
     /// - To link to web pages, `dest` should be a valid URL string. If the URL
@@ -287,9 +290,31 @@ pub struct DirectLinkElem {
     #[required]
     #[internal]
     pub body: Content,
+    #[required]
+    #[internal]
+    pub alt: Option<EcoString>,
 }
 
 impl Construct for DirectLinkElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+/// An element that wraps all conent that is [`Content::linked`] to a
+/// destination.
+#[elem(Locatable, Construct)]
+pub struct LinkMarker {
+    /// The content.
+    #[internal]
+    #[required]
+    pub body: Content,
+    #[internal]
+    #[required]
+    pub alt: Option<EcoString>,
+}
+
+impl Construct for LinkMarker {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
     }

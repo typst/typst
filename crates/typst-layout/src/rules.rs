@@ -3,8 +3,8 @@ use ecow::EcoVec;
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn,
-    Smart, StyleChain, Target, dict,
+    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
+    StyleChain, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -18,9 +18,9 @@ use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, ListElem, OutlineElem,
-    OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell,
-    TableElem, TermsElem, TitleElem, Works,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
+    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::{ArtifactElem, AttachElem};
 use typst_library::text::{
@@ -44,6 +44,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LIST_RULE);
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
+    rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
     rules.register(Paged, DIRECT_LINK_RULE);
     rules.register(Paged, TITLE_RULE);
@@ -213,14 +214,19 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
+const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
+
+const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
-    Ok(body.linked(dest))
+    let alt = elem.alt.get_cloned(styles);
+    Ok(body.linked(dest, alt))
 };
 
-const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> =
-    |elem, _, _| Ok(elem.body.clone().linked(Destination::Location(elem.loc)));
+const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
+    let dest = Destination::Location(elem.loc);
+    Ok(elem.body.clone().linked(dest, elem.alt.clone()))
+};
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(BlockElem::new()
@@ -383,7 +389,8 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num) = elem.realize(engine, styles)?;
     let sup = SuperElem::new(num).pack().spanned(span);
-    Ok(HElem::hole().clone() + sup.linked(dest))
+    // TODO: generate alt text
+    Ok(HElem::hole().clone() + sup.linked(dest, None))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -424,7 +431,8 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     };
 
     let loc = elem.element_location().at(span)?;
-    Ok(block.linked(Destination::Location(loc)))
+    // TODO: generate alt text
+    Ok(block.linked(Destination::Location(loc), None))
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);

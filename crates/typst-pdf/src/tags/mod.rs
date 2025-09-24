@@ -1,22 +1,30 @@
+use std::cell::OnceCell;
 use std::num::NonZeroU16;
 
+use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
     ArtifactType, ContentTag, Identifier, Node, SpanTag, Tag, TagGroup, TagKind, TagTree,
 };
-use typst_library::foundations::{Content, StyleChain};
+use typst_library::foundations::{Content, Packed, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
-use typst_library::model::{FigureCaption, FigureElem, HeadingElem, Outlinable};
+use typst_library::model::{
+    FigureCaption, FigureElem, HeadingElem, LinkMarker, Outlinable,
+};
 use typst_library::pdf::{ArtifactElem, ArtifactKind};
 use typst_library::visualize::ImageElem;
 
 use crate::convert::GlobalContext;
+use crate::link::LinkAnnotation;
 
 pub struct Tags {
     /// The intermediary stack of nested tag groups.
     pub stack: Vec<StackEntry>,
+    /// A list of placeholders corresponding to a [`TagNode::Placeholder`].
+    pub placeholders: Vec<OnceCell<Node>>,
     pub in_artifact: Option<(Location, ArtifactKind)>,
+    pub link_id: LinkId,
 
     /// The output.
     pub tree: Vec<TagNode>,
@@ -32,12 +40,22 @@ pub struct StackEntry {
 #[derive(Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
+    Link(LinkId, Packed<LinkMarker>),
+}
+
+impl StackEntryKind {
+    pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
+        if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+    }
 }
 
 #[derive(Debug)]
 pub enum TagNode {
     Group(TagKind, Vec<TagNode>),
     Leaf(Identifier),
+    /// Allows inserting a placeholder into the tag tree.
+    /// Currently used for [`krilla::page::Page::add_tagged_annotation`].
+    Placeholder(Placeholder),
 }
 
 impl TagNode {
@@ -46,20 +64,51 @@ impl TagNode {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct LinkId(u32);
+
+#[derive(Clone, Copy, Debug)]
+pub struct Placeholder(usize);
+
 impl Tags {
     pub fn new() -> Self {
         Self {
             stack: Vec::new(),
+            placeholders: Vec::new(),
             in_artifact: None,
 
             tree: Vec::new(),
+            link_id: LinkId(0),
         }
+    }
+
+    pub fn reserve_placeholder(&mut self) -> Placeholder {
+        let idx = self.placeholders.len();
+        self.placeholders.push(OnceCell::new());
+        Placeholder(idx)
+    }
+
+    pub fn init_placeholder(&mut self, placeholder: Placeholder, node: Node) {
+        self.placeholders[placeholder.0]
+            .set(node)
+            .map_err(|_| ())
+            .expect("placeholder to be uninitialized");
+    }
+
+    pub fn take_placeholder(&mut self, placeholder: Placeholder) -> Node {
+        self.placeholders[placeholder.0]
+            .take()
+            .expect("initialized placeholder node")
     }
 
     /// Returns the current parent's list of children and the structure type ([Tag]).
     /// In case of the document root the structure type will be `None`.
     pub fn parent(&mut self) -> Option<&mut StackEntryKind> {
         self.stack.last_mut().map(|e| &mut e.kind)
+    }
+
+    pub fn find_parent_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
+        self.stack.iter().rev().find_map(|entry| entry.kind.as_link())
     }
 
     pub fn push(&mut self, node: TagNode) {
@@ -91,7 +140,13 @@ impl Tags {
                 Node::Group(TagGroup::with_children(tag, children))
             }
             TagNode::Leaf(identifier) => Node::Leaf(identifier),
+            TagNode::Placeholder(placeholder) => self.take_placeholder(placeholder),
         }
+    }
+
+    fn next_link_id(&mut self) -> LinkId {
+        self.link_id.0 += 1;
+        self.link_id
     }
 }
 
@@ -147,6 +202,25 @@ fn start_content<'a, 'b>(
     TagHandle { surface }
 }
 
+/// Add all annotations that were found in the page frame.
+pub fn add_link_annotations(
+    gc: &mut GlobalContext,
+    page: &mut Page,
+    annotations: Vec<LinkAnnotation>,
+) {
+    for a in annotations.into_iter() {
+        let annotation = krilla::annotation::Annotation::new_link(
+            krilla::annotation::LinkAnnotation::new_with_quad_points(
+                a.quad_points,
+                a.target,
+            ),
+            a.alt,
+        );
+        let annot_id = page.add_tagged_annotation(annotation);
+        gc.tags.init_placeholder(a.placeholder, Node::Leaf(annot_id));
+    }
+}
+
 pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
     if gc.tags.in_artifact.is_some() {
         // Don't nest artifacts
@@ -185,6 +259,10 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
         }
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
+    } else if let Some(link) = elem.to_packed::<LinkMarker>() {
+        let link_id = gc.tags.next_link_id();
+        push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()));
+        return;
     } else {
         return;
     };
@@ -210,6 +288,7 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
 
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => TagNode::group(tag, entry.nodes),
+        StackEntryKind::Link(_, _) => TagNode::group(Tag::Link, entry.nodes),
     };
 
     gc.tags.push(node);
