@@ -500,7 +500,7 @@ impl FromValue for CslSource {
                          in favor of \"chicago-notes\"",
                     );
                 } else if string.as_str() == "modern-humanities-research-association" {
-                    warning  = Some(
+                    warning = Some(
                         "style \"modern-humanities-research-association\" \
                          has been deprecated in favor of \
                          \"modern-humanities-research-association-notes\"",

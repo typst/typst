@@ -104,4 +104,4 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 --- bibliography-modern-humanities-research-association-warning ---
 // Test warning for deprecated alias.
 // Warning: 47-88 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
-#bibliography("/assets/bib/works.bib", style: ""modern-humanities-research-association", title: none)
+#bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
