@@ -1,16 +1,18 @@
 use std::cell::OnceCell;
-use std::num::NonZeroU16;
+use std::num::{NonZeroU16, NonZeroU32};
 
+use ecow::EcoString;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{
-    ArtifactType, ContentTag, Identifier, Node, SpanTag, Tag, TagGroup, TagKind, TagTree,
+    ArtifactType, ContentTag, Identifier, Node, SpanTag, TableHeaderScope, Tag, TagGroup,
+    TagKind, TagTree,
 };
 use typst_library::foundations::{Content, Packed, StyleChain};
 use typst_library::introspection::Location;
 use typst_library::layout::RepeatElem;
 use typst_library::model::{
-    FigureCaption, FigureElem, HeadingElem, LinkMarker, Outlinable,
+    FigureCaption, FigureElem, HeadingElem, LinkMarker, Outlinable, TableCell, TableElem,
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind};
 use typst_library::visualize::ImageElem;
@@ -40,12 +42,74 @@ pub struct StackEntry {
 #[derive(Debug)]
 pub enum StackEntryKind {
     Standard(TagKind),
+    Table(TableCtx),
+    TableCell(Packed<TableCell>),
     Link(LinkId, Packed<LinkMarker>),
 }
 
 impl StackEntryKind {
     pub fn as_link(&self) -> Option<(LinkId, &Packed<LinkMarker>)> {
         if let Self::Link(id, link) = self { Some((*id, link)) } else { None }
+    }
+}
+
+#[derive(Debug)]
+pub struct TableCtx {
+    table: Packed<TableElem>,
+    rows: Vec<Vec<Option<(Packed<TableCell>, TagKind, Vec<TagNode>)>>>,
+}
+
+impl TableCtx {
+    fn insert(&mut self, cell: Packed<TableCell>, nodes: Vec<TagNode>) {
+        let x = cell.x.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
+        let y = cell.y.get(StyleChain::default()).unwrap_or_else(|| unreachable!());
+        let rowspan = cell.rowspan.get(StyleChain::default()).get();
+        let colspan = cell.colspan.get(StyleChain::default()).get();
+
+        let tag = {
+            // TODO: possibly set internal field on TableCell when resolving
+            // the cell grid.
+            let is_header = false;
+            let rowspan =
+                (rowspan != 1).then_some(NonZeroU32::new(rowspan as u32).unwrap());
+            let colspan =
+                (colspan != 1).then_some(NonZeroU32::new(colspan as u32).unwrap());
+            if is_header {
+                let scope = TableHeaderScope::Column; // TODO
+                Tag::TH(scope).with_row_span(rowspan).with_col_span(colspan).into()
+            } else {
+                Tag::TD.with_row_span(rowspan).with_col_span(colspan).into()
+            }
+        };
+
+        let required_height = y + rowspan;
+        if self.rows.len() < required_height {
+            self.rows.resize_with(required_height, Vec::new);
+        }
+
+        let required_width = x + colspan;
+        let row = &mut self.rows[y];
+        if row.len() < required_width {
+            row.resize_with(required_width, || None);
+        }
+
+        row[x] = Some((cell, tag, nodes));
+    }
+
+    fn build_table(self, mut nodes: Vec<TagNode>) -> Vec<TagNode> {
+        // Table layouting ensures that there are no overlapping cells, and that
+        // any gaps left by the user are filled with empty cells.
+        for row in self.rows.into_iter() {
+            let mut row_nodes = Vec::new();
+            for (_, tag, nodes) in row.into_iter().flatten() {
+                row_nodes.push(TagNode::group(tag, nodes));
+            }
+
+            // TODO: generate `THead`, `TBody`, and `TFoot`
+            nodes.push(TagNode::group(Tag::TR, row_nodes));
+        }
+
+        nodes
     }
 }
 
@@ -194,6 +258,10 @@ fn start_content<'a, 'b>(
     let content = if let Some((_, kind)) = gc.tags.in_artifact {
         let ty = artifact_type(kind);
         ContentTag::Artifact(ty)
+    } else if let Some(StackEntryKind::Table(_)) = gc.tags.stack.last().map(|e| &e.kind) {
+        // Mark any direct child of a table as an aritfact. Any real content
+        // will be wrapped inside a `TableCell`.
+        ContentTag::Artifact(ArtifactType::Other)
     } else {
         content
     };
@@ -259,6 +327,13 @@ pub fn handle_start(gc: &mut GlobalContext, elem: &Content) {
         }
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         Tag::Caption.into()
+    } else if let Some(table) = elem.to_packed::<TableElem>() {
+        let ctx = TableCtx { table: table.clone(), rows: Vec::new() };
+        push_stack(gc, loc, StackEntryKind::Table(ctx));
+        return;
+    } else if let Some(cell) = elem.to_packed::<TableCell>() {
+        push_stack(gc, loc, StackEntryKind::TableCell(cell.clone()));
+        return;
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         let link_id = gc.tags.next_link_id();
         push_stack(gc, loc, StackEntryKind::Link(link_id, link.clone()));
@@ -288,6 +363,26 @@ pub fn handle_end(gc: &mut GlobalContext, loc: Location) {
 
     let node = match entry.kind {
         StackEntryKind::Standard(tag) => TagNode::group(tag, entry.nodes),
+        StackEntryKind::Table(ctx) => {
+            let summary = ctx
+                .table
+                .summary
+                .get_ref(StyleChain::default())
+                .as_ref()
+                .map(EcoString::to_string);
+            let nodes = ctx.build_table(entry.nodes);
+            TagNode::group(Tag::Table.with_summary(summary), nodes)
+        }
+        StackEntryKind::TableCell(cell) => {
+            let parent = gc.tags.stack.last_mut().expect("table");
+            let StackEntryKind::Table(table_ctx) = &mut parent.kind else {
+                unreachable!("expected table")
+            };
+
+            table_ctx.insert(cell, entry.nodes);
+
+            return;
+        }
         StackEntryKind::Link(_, _) => TagNode::group(Tag::Link, entry.nodes),
     };
 

@@ -1,6 +1,7 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, bail};
@@ -252,6 +253,11 @@ pub struct TableElem {
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
+
+    /// A summary of the table's purpose and structure.
+    ///
+    /// This will be available for assistive techonologies (such as screen readers).
+    pub summary: Option<EcoString>,
 
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
