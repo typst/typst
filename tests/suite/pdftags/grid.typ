@@ -25,3 +25,14 @@
   [Decorum],
   [Rampage],
 )
+
+--- grid-tags-rowspan-split-3 pdftags ---
+#set page(height: 5em)
+#grid(
+  columns: 2,
+  fill: red,
+  inset: 0pt,
+  grid.cell(fill: orange, rowspan: 10, place(bottom)[*Z*] + [x\ ] * 10 + place(bottom)[*ZZ*]),
+  ..([y],) * 10,
+  [a], [b],
+)

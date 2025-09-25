@@ -390,7 +390,19 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             let list_ctx = tree.ctx.lists.get_mut(list);
             list_ctx.push_bib_entry(&mut tree.groups, parent, id);
         }
-        GroupKind::Figure(..) => {
+        GroupKind::Figure(figure, ..) => {
+            context::build_figure(tree, *figure, parent, id);
+        }
+        GroupKind::FigureCaption(..) => {
+            let parent_group = tree.groups.get_mut(parent);
+            if let GroupKind::Figure(figure, _, _) = &mut parent_group.kind {
+                let figure_ctx = tree.ctx.figures.get_mut(*figure);
+                figure_ctx.caption = Some(id);
+            } else {
+                tree.groups.push_group(parent, id);
+            }
+        }
+        GroupKind::Image(..) => {
             tree.groups.push_group(parent, id);
         }
         GroupKind::Formula(..) => {

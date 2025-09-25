@@ -12,11 +12,13 @@ use crate::tags::util::{Id, IdVec};
 use crate::tags::{GroupId, GroupKind};
 use crate::util::AbsExt;
 
+pub use crate::tags::context::figure::{FigureCtx, build_figure};
 pub use crate::tags::context::grid::{GridCtx, build_grid};
 pub use crate::tags::context::list::ListCtx;
 pub use crate::tags::context::outline::OutlineCtx;
 pub use crate::tags::context::table::{TableCtx, build_table};
 
+mod figure;
 mod grid;
 mod list;
 mod outline;
@@ -24,6 +26,7 @@ mod table;
 
 pub type TableId = Id<TableCtx>;
 pub type GridId = Id<GridCtx>;
+pub type FigureId = Id<FigureCtx>;
 pub type ListId = Id<ListCtx>;
 pub type OutlineId = Id<OutlineCtx>;
 pub type BBoxId = Id<BBoxCtx>;
@@ -71,6 +74,7 @@ impl Tags {
 pub struct Ctx {
     pub tables: IdVec<TableCtx>,
     pub grids: IdVec<GridCtx>,
+    pub figures: IdVec<FigureCtx>,
     pub lists: IdVec<ListCtx>,
     pub outlines: IdVec<OutlineCtx>,
     pub bboxes: IdVec<BBoxCtx>,
@@ -81,6 +85,7 @@ impl Ctx {
         Self {
             tables: IdVec::new(),
             grids: IdVec::new(),
+            figures: IdVec::new(),
             lists: IdVec::new(),
             outlines: IdVec::new(),
             bboxes: IdVec::new(),

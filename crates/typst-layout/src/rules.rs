@@ -300,8 +300,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     let span = elem.span();
-    let mut realized =
-        PdfMarkerTag::FigureBody(elem.alt.get_cloned(styles), elem.body.clone());
+    let mut realized = elem.body.clone();
 
     // Build the caption, if any.
     if let Some(caption) = elem.caption.get_cloned(styles) {

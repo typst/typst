@@ -22,10 +22,12 @@ impl<T> IdVec<T> {
         id
     }
 
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn get(&self, id: Id<T>) -> &T {
         &self.inner[id.idx()]
     }
 
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn get_mut(&mut self, id: Id<T>) -> &mut T {
         &mut self.inner[id.idx()]
     }

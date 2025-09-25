@@ -36,11 +36,9 @@ use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
-use crate::tags::context::{Ctx, GridCtx, ListCtx, OutlineCtx, TableCtx};
-use crate::tags::tree::{Break, BreakKind, Tree, TraversalStates};
-use crate::tags::util::{
-    ArtifactKindExt, PropertyOptRef, PropertyValCloned, PropertyValCopied,
-};
+use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::tree::{Break, BreakKind, TraversalStates, Tree};
+use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 use crate::tags::{GroupId, GroupKind, Groups};
 
 struct TreeBuilder<'a> {
@@ -100,10 +98,6 @@ impl<'a> TreeBuilder<'a> {
 
     pub fn parent_kind(&self) -> &GroupKind {
         &self.groups.get(self.parent()).kind
-    }
-
-    pub fn parent_kind_mut(&mut self) -> &mut GroupKind {
-        &mut self.groups.get_mut(self.parent()).kind
     }
 
     pub fn insert_break(&mut self, kind: BreakKind) {
@@ -338,11 +332,6 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
                 let id = tree.ctx.outlines.push(OutlineCtx::new());
                 push_stack(tree, elem, GroupKind::Outline(id, None))
             }
-            PdfMarkerTagKind::FigureBody(alt) => {
-                let bbox = tree.ctx.new_bbox();
-                let kind = GroupKind::Figure(alt.clone(), bbox, None);
-                push_stack(tree, elem, kind)
-            }
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
@@ -379,31 +368,16 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let id = tree.ctx.lists.push(ListCtx::new());
         push_stack(tree, elem, GroupKind::List(id, numbering, None))
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
-        if figure.caption.opt_ref().is_some() {
-            push_tag(tree, elem, Tag::NonStruct)
-        } else {
-            no_progress(tree)
-        }
+        let bbox = tree.ctx.new_bbox();
+        let figure = tree.ctx.figures.push(FigureCtx::new(figure.clone()));
+        push_stack(tree, elem, GroupKind::Figure(figure, bbox, None))
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
-        push_tag(tree, elem, Tag::Caption)
+        let bbox = tree.ctx.new_bbox();
+        push_stack(tree, elem, GroupKind::FigureCaption(bbox, None))
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
-        let alt = image.alt.val_cloned();
-        if let GroupKind::Figure(figure_alt, ..) = tree.parent_kind_mut() {
-            if figure_alt.is_none() {
-                *figure_alt = alt;
-            }
-            no_progress(tree)
-        } else {
-            let bbox = tree.ctx.new_bbox();
-            push_stack(tree, elem, GroupKind::Figure(alt, bbox, None))
-        }
+        let bbox = tree.ctx.new_bbox();
+        push_stack(tree, elem, GroupKind::Image(image.clone(), bbox, None))
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
-        let alt = equation.alt.val_cloned();
-        if let GroupKind::Figure(figure_alt, ..) = tree.parent_kind_mut() {
-            if figure_alt.is_none() {
-                *figure_alt = alt;
-            }
-        }
         let bbox = tree.ctx.new_bbox();
         push_stack(tree, elem, GroupKind::Formula(equation.clone(), bbox, None))
     } else if let Some(table) = elem.to_packed::<TableElem>() {

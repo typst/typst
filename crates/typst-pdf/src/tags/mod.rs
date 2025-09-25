@@ -223,13 +223,16 @@ fn build_group_tag(
         GroupKind::ListItemLabel(lang) => (Tag::Lbl.into(), *lang),
         GroupKind::ListItemBody(lang) => (Tag::LBody.into(), *lang),
         GroupKind::BibEntry(lang) => (Tag::BibEntry.into(), *lang),
-        GroupKind::Figure(alt, _, lang) => {
-            let alt = alt.as_ref().map(String::from);
-            (Tag::Figure(alt).into(), *lang)
+        GroupKind::Figure(id, _, lang) => (ctx.figures.get(*id).build_tag()?, *lang),
+        GroupKind::FigureCaption(_, lang) => (Tag::Caption.into(), *lang),
+        GroupKind::Image(image, _, lang) => {
+            let alt = image.alt.opt_ref().map(String::from);
+            (Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into(), *lang)
         }
         GroupKind::Formula(equation, _, lang) => {
             let alt = equation.alt.opt_ref().map(String::from);
-            (Tag::Formula(alt).into(), *lang)
+            let placement = equation.block.val().then_some(kt::Placement::Block);
+            (Tag::Formula(alt).with_placement(placement).into(), *lang)
         }
         GroupKind::Link(_, lang) => (Tag::Link.into(), *lang),
         GroupKind::CodeBlock(lang) => {

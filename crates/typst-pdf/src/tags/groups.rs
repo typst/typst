@@ -1,6 +1,5 @@
 use std::collections::hash_map::Entry;
 
-use ecow::EcoString;
 use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
@@ -9,10 +8,11 @@ use typst_library::layout::GridCell;
 use typst_library::math::EquationElem;
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::text::Lang;
+use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::tags::context::{
-    AnnotationId, BBoxId, GridId, ListId, OutlineId, TableId, TagId, TagNode,
+    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId, TagNode,
 };
 use crate::tags::text::ResolvedTextAttrs;
 use crate::tags::util::{Id, IdVec};
@@ -44,10 +44,12 @@ impl Groups {
         self.locations.get(loc).copied()
     }
 
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn get(&self, id: GroupId) -> &Group {
         self.list.get(id)
     }
 
+    #[cfg_attr(debug_assertions, track_caller)]
     pub fn get_mut(&mut self, id: GroupId) -> &mut Group {
         self.list.get_mut(id)
     }
@@ -122,6 +124,8 @@ impl Groups {
             GroupKind::ListItemBody(..) => false,
             GroupKind::BibEntry(..) => false,
             GroupKind::Figure(..) => false,
+            GroupKind::FigureCaption(..) => false,
+            GroupKind::Image(..) => false,
             GroupKind::Formula(..) => false,
             GroupKind::Link(..) => !is_pdf_ua,
             GroupKind::CodeBlock(..) => false,
@@ -196,6 +200,8 @@ impl Groups {
             | GroupKind::ListItemBody(..)
             | GroupKind::BibEntry(..)
             | GroupKind::Figure(..)
+            | GroupKind::FigureCaption(..)
+            | GroupKind::Image(..)
             | GroupKind::Formula(..)
             | GroupKind::CodeBlock(..)
             | GroupKind::CodeBlockLine(..) => unreachable!(),
@@ -214,6 +220,13 @@ impl Groups {
         let id = self.list.push(Group::new(parent, Span::detached(), kind));
         self.get_mut(parent).nodes.push(TagNode::Group(id));
         id
+    }
+
+    /// Prepend an existing group to the start of the parent.
+    #[cfg_attr(debug_assertions, track_caller)]
+    pub fn prepend_group(&mut self, parent: GroupId, child: GroupId) {
+        debug_assert!(self.check_ancestor(parent, child));
+        self.get_mut(parent).nodes.insert(0, TagNode::Group(child));
     }
 
     /// Append an existing group to the end of the parent.
@@ -338,7 +351,6 @@ impl Group {
     }
 }
 
-#[derive(Debug)]
 pub enum GroupKind {
     Root(Option<Lang>),
     Artifact(ArtifactType),
@@ -354,12 +366,46 @@ pub enum GroupKind {
     ListItemLabel(Option<Lang>),
     ListItemBody(Option<Lang>),
     BibEntry(Option<Lang>),
-    Figure(Option<EcoString>, BBoxId, Option<Lang>),
+    Figure(FigureId, BBoxId, Option<Lang>),
+    /// The figure caption has a bbox so marked content sequences won't expand
+    /// the bbox of the parent figure group kind. The caption might be moved
+    /// into table, or next to to the figure tag.
+    FigureCaption(BBoxId, Option<Lang>),
+    Image(Packed<ImageElem>, BBoxId, Option<Lang>),
     Formula(Packed<EquationElem>, BBoxId, Option<Lang>),
     Link(Packed<LinkMarker>, Option<Lang>),
     CodeBlock(Option<Lang>),
     CodeBlockLine(Option<Lang>),
     Standard(TagId, Option<Lang>),
+}
+
+impl std::fmt::Debug for GroupKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.pad(match self {
+            Self::Root(_) => "Root",
+            Self::Artifact(_) => "Artifact",
+            Self::LogicalParent(_) => "LogicalParent",
+            Self::LogicalChild => "LogicalChild",
+            Self::Outline(..) => "Outline",
+            Self::OutlineEntry(..) => "OutlineEntry",
+            Self::Table(..) => "Table",
+            Self::TableCell(..) => "TableCell",
+            Self::Grid(..) => "Grid",
+            Self::GridCell(..) => "GridCell",
+            Self::List(..) => "List",
+            Self::ListItemLabel(..) => "ListItemLabel",
+            Self::ListItemBody(..) => "ListItemBody",
+            Self::BibEntry(..) => "BibEntry",
+            Self::Figure(..) => "Figure",
+            Self::FigureCaption(..) => "FigureCaption",
+            Self::Image(..) => "Image",
+            Self::Formula(..) => "Formula",
+            Self::Link(..) => "Link",
+            Self::CodeBlock(..) => "CodeBlock",
+            Self::CodeBlockLine(..) => "CodeBlockLine",
+            Self::Standard(..) => "Standard",
+        })
+    }
 }
 
 impl GroupKind {
@@ -383,6 +429,8 @@ impl GroupKind {
         match self {
             GroupKind::Table(_, id, _) => Some(*id),
             GroupKind::Figure(_, id, _) => Some(*id),
+            GroupKind::FigureCaption(id, _) => Some(*id),
+            GroupKind::Image(_, id, _) => Some(*id),
             GroupKind::Formula(_, id, _) => Some(*id),
             _ => None,
         }
@@ -405,6 +453,8 @@ impl GroupKind {
             GroupKind::ListItemBody(lang) => lang,
             GroupKind::BibEntry(lang) => lang,
             GroupKind::Figure(_, _, lang) => lang,
+            GroupKind::FigureCaption(_, lang) => lang,
+            GroupKind::Image(_, _, lang) => lang,
             GroupKind::Formula(_, _, lang) => lang,
             GroupKind::Link(_, lang) => lang,
             GroupKind::CodeBlock(lang) => lang,

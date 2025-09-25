@@ -1,15 +1,12 @@
-- Tag: NonStruct
+- Tag: Div
   /K:
-    - Tag: P
+    - Tag: Caption
       /K:
-        - Tag: Figure
-          /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
-          /BBox:
-            page: 0
-            left:    33.655
-            top:      8.552
-            right:   85.743
-            bottom:  17.660
+        - Content: page=0 mcid=8
+    - Tag: Div
+      /Placement: Block
+      /K:
+        - Tag: P
           /K:
             - Tag: Formula
               /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
@@ -28,6 +25,3 @@
                 - Content: page=0 mcid=5
                 - Content: page=0 mcid=6
                 - Content: page=0 mcid=7
-    - Tag: Caption
-      /K:
-        - Content: page=0 mcid=8
