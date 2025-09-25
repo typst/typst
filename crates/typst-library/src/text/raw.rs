@@ -912,7 +912,7 @@ fn align_tabs(text: &str, tab_size: usize) -> EcoString {
                 res.push_str(&replacement[..required]);
                 column += required;
             }
-            "\n" => {
+            "\n" | "\r\n" => {
                 res.push_str(grapheme);
                 column = 0;
             }
