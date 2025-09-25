@@ -12,7 +12,7 @@ use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::{FileId, Lines};
 
-use crate::collect::{Attr, FileSize, NoteKind, Test};
+use crate::collect::{FileSize, NoteKind, Targets, Test};
 use crate::logger::TestResult;
 use crate::world::{TestWorld, system_path};
 
@@ -64,16 +64,13 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        let html = self.test.attrs.contains(&Attr::Html);
-        let pdftags = self.test.attrs.contains(&Attr::Pdftags);
-        let render = !html && !pdftags || self.test.attrs.contains(&Attr::Render);
-        if render {
+        if self.test.attrs.targets.contains(Targets::RENDER) {
             self.run_test::<PagedDocument>();
         }
-        if html {
+        if self.test.attrs.targets.contains(Targets::HTML) {
             self.run_test::<HtmlDocument>();
         }
-        if pdftags {
+        if self.test.attrs.targets.contains(Targets::PDFTAGS) {
             self.run_test::<Pdftags>();
         }
 
@@ -198,9 +195,7 @@ impl<'a> Runner<'a> {
                 );
             } else {
                 let ref_data = D::make_ref(live);
-                if !self.test.attrs.contains(&Attr::Large)
-                    && ref_data.len() > crate::REF_LIMIT
-                {
+                if !self.test.attrs.large && ref_data.len() > crate::REF_LIMIT {
                     log!(self, "reference output would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));

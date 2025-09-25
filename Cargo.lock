@@ -3345,6 +3345,7 @@ dependencies = [
 name = "typst-tests"
 version = "0.13.1"
 dependencies = [
+ "bitflags 2.9.1",
  "clap",
  "comemo",
  "ecow",
