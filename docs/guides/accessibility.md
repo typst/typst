@@ -304,7 +304,7 @@ Keep in mind that in order to conform with EN 301 549 and the relevant WCAG prov
 Many territories have accessibility legislation that requires you to create accessible files under some circumstances. Here are only some of them:
 
 - **[European Accessibility Act (EAA, EU 2019/882)][EAA]**: This regulation applies to e-books, consumer banking services, e-commerce services, and more. It requires the files distributed in these applications to be accessible.
-- **[Americans with Disabilities Act (ADA) Title II][ADA-2]**: This amendment of the ADA requires public sector organizations to provide files in accordance to WCAG by 2026.
+- **Americans with Disabilities Act (ADA)**: The Department of Justice will [require public sector organizations to provide files][ADA-2] in accordance to WCAG under Title II of the ADA by 2026. Likewise, [private organizations can be held liable][ADA-dominos] for inaccessible digital services under the ADA and state law.
 
 Using this guide can help you reach compliance with either regulation.
 
@@ -362,6 +362,7 @@ As mentioned above, files created by PNG and SVG export are not accessible.
 [EN301549]: https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/en_301549v030201p.pdf
 [EAA]: https://eur-lex.europa.eu/eli/dir/2019/882/oj "Directive (EU) 2019/882 of the European Parliament and of the Council of 17 April 2019 on the accessibility requirements for products and services (Text with EEA relevance)"
 [ADA-2]: https://www.ada.gov/law-and-regs/regulations/title-ii-2010-regulations/ "Americans with Disabilities Act Title II Regulations"
+[ADA-dominos]: https://www.boia.org/blog/the-robles-v.-dominos-settlement-and-why-it-matters "The Robles v. Domino’s Settlement (And Why It Matters)"
 [color-blind-simulator]: https://daltonlens.org/colorblindness-simulator "Online Color Blindness Simulators"
 [unic-pua]: https://en.wikipedia.org/wiki/Private_Use_Areas "Private Use Areas"
 [pdf-ua-free]: https://pdfa.org/sponsored-standards/ "Sponsored ISO standards for PDF technology"
