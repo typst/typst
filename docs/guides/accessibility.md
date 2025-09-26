@@ -136,7 +136,7 @@ How can we improve the chart? First, make sure that no information is solely com
 >
 </div>
 
-This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. We aim to add simulation of color blindness to the Typst web app in the future so you can check how your document performs without exporting it. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. The Typst web app can simulate color blindness in the preview so you can check how your document performs without exporting it. You can find the options for this in the "View" menu. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
 
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
