@@ -494,6 +494,7 @@ display_possible_values!(DiagnosticFormat);
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum Feature {
     Html,
+    A11yExtras,
 }
 
 display_possible_values!(Feature);

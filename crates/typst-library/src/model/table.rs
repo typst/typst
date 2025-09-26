@@ -262,6 +262,8 @@ pub struct TableElem {
     /// A summary of the table's purpose and structure.
     ///
     /// This will be available for assistive techonologies (such as screen readers).
+    #[internal]
+    #[parse(None)]
     pub summary: Option<EcoString>,
 
     #[internal]
@@ -309,6 +311,11 @@ impl LocalName for Packed<TableElem> {
 }
 
 impl Figurable for Packed<TableElem> {}
+
+cast! {
+    TableElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected table")?,
+}
 
 /// Any child of a table element.
 #[derive(Debug, PartialEq, Clone, Hash)]

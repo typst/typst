@@ -1,5 +1,6 @@
 use std::num::NonZeroU32;
 
+use ecow::EcoString;
 use typst_macros::{Cast, elem, func};
 use typst_utils::NonZeroExt;
 
@@ -8,7 +9,7 @@ use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
 use crate::introspection::Locatable;
-use crate::model::TableCell;
+use crate::model::{TableCell, TableElem};
 
 /// Mark content as a PDF artifact.
 // TODO: maybe generalize this and use it to mark html elements with `aria-hidden="true"`?
@@ -37,8 +38,26 @@ pub enum ArtifactKind {
     Other,
 }
 
-// TODO: feature gate
-/// Explicitly define this cell as a header cell.
+/// Add a summary of the table's purpose and structure.
+///
+/// This will be available for assistive technologies (AT), such as screen
+/// readers.
+///
+/// This function exists as a temporary solution and will either be removed or
+/// replaced by another mechanism in a future release.
+#[func]
+pub fn table_summary(
+    #[named] summary: Option<EcoString>,
+    /// The table.
+    table: TableElem,
+) -> Content {
+    table.with_summary(summary).pack()
+}
+
+/// Explicitly define this cell as a PDF header cell (`TH`).
+///
+/// This function exists as a temporary solution and will be replaced by another
+/// mechanism in a future release.
 #[func]
 pub fn header_cell(
     #[named]
@@ -54,8 +73,10 @@ pub fn header_cell(
         .pack()
 }
 
-// TODO: feature gate
-/// Explicitly define this cell as a data cell.
+/// Explicitly define this cell as a PDF data cell (`TD`).
+///
+/// This function exists as a temporary solution and will be replaced by another
+/// mechanism in a future release.
 #[func]
 pub fn data_cell(
     /// The table cell.

@@ -101,3 +101,25 @@
 
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
+
+--- table-tags-private-table-summary pdftags ---
+// Error: 2:3-2:18 unexpected argument: summary
+#table(
+  summary: "nope",
+  [A],
+)
+
+--- table-tags-private-cell-kind pdftags ---
+// Error: 13-25 unexpected argument: kind
+#table.cell(kind: "nope")[A]
+
+--- table-tags-unstable-functions pdftags ---
+#pdf.table-summary(
+  summary: "The table summary",
+  table(
+    columns: 2,
+    // Exclude the top-left cell from being a header cell.
+    table.header(pdf.data-cell[], [Column header]),
+    pdf.header-cell(scope: "row")[Row header], [thing]
+  )
+)
