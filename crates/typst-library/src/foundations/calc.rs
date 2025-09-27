@@ -401,6 +401,20 @@ pub fn tanh(
     value.tanh()
 }
 
+/// Calculates the inverse hyperbolic sine of a number.
+///
+/// ```example
+/// #calc.asinh(0) \
+/// #calc.asinh(1)
+/// ```
+#[func(title = "Arsinh")]
+pub fn asinh(
+    /// The number whose inverse hyperbolic sine to calculate.
+    value: Num,
+) -> Angle {
+    Angle::rad(value.float().asinh())
+}
+
 /// Calculates the logarithm of a number.
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
