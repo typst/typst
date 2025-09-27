@@ -9,7 +9,7 @@ use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
-use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Ratio, Rel, Size};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
     Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
@@ -1131,7 +1131,26 @@ fn track_and_space(ctx: &mut ShapingContext) {
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
-    let justification_limits = ctx.styles.get(ParElem::justification_limits);
+    let justification_limits = {
+        if let Some(limits) = ctx.styles.get(ParElem::justification_limits) {
+            match limits {
+                Smart::Auto => JustificationLimits {
+                    word_min: Rel::new(Ratio::new(0.8), Abs::zero().into()),
+                    word_max: Rel::new(Ratio::new(1.33), Abs::zero().into()),
+                    glyph_min: Rel::new(Ratio::new(0.98), Abs::zero().into()),
+                    glyph_max: Rel::new(Ratio::new(1.02), Abs::zero().into())
+                },
+                Smart::Custom(limits) => limits,
+            }
+        } else {
+            JustificationLimits {
+                word_min: Rel::new(Ratio::new(1.0), Abs::zero().into()),
+                word_max: Rel::new(Ratio::new(1.0), Abs::zero().into()),
+                glyph_min: Rel::new(Ratio::new(1.0), Abs::zero().into()),
+                glyph_max: Rel::new(Ratio::new(1.0), Abs::zero().into())
+            }
+        }
+    };
     let font_size = ctx.size;
 
     for glyph in &mut ctx.glyphs {

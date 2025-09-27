@@ -137,13 +137,7 @@ pub struct ParElem {
     pub justify: bool,
 
     /// Microtypographical settings that are used during justification.
-    #[default(JustificationLimits {
-        word_min: Rel::new(Ratio::new(0.8), Abs::zero().into()),
-        word_max: Rel::new(Ratio::new(1.33), Abs::zero().into()),
-        glyph_min: Rel::new(Ratio::new(0.98), Abs::zero().into()),
-        glyph_max: Rel::new(Ratio::new(1.02), Abs::zero().into())
-    })]
-    pub justification_limits: JustificationLimits,
+    pub justification_limits: Option<Smart<JustificationLimits>>,
 
     /// How to determine line breaks.
     ///
