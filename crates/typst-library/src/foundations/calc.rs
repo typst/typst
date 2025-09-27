@@ -433,6 +433,24 @@ pub fn acosh(
     Ok(Angle::rad(val.acosh()))
 }
 
+/// Calculates the inverse hyperbolic tangent of a number.
+///
+/// ```example
+/// #calc.atanh(0) \
+/// #calc.atanh(0.5)
+/// ```
+#[func(title = "Artanh")]
+pub fn atanh(
+    /// The number whose inverse hyperbolic tangent to calculate. Must be between -1 and 1 (exclusive).
+    value: Spanned<Num>,
+) -> SourceResult<Angle> {
+    let val = value.v.float();
+    if val <= -1.0 || val >= 1.0 {
+        bail!(value.span, "value must be between -1 and 1 (exclusive)");
+    }
+    Ok(Angle::rad(val.atanh()))
+}
+
 /// Calculates the logarithm of a number.
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
