@@ -4,7 +4,7 @@ lang: "nl"
   /K:
     - Content: page=0 mcid=0
 - Tag: L
-  /Lang: "es"
+  /Lang: "es-CO"
   /Numbering: Circle
   /K:
     - Tag: LI
@@ -27,7 +27,7 @@ lang: "nl"
               /K:
                 - Content: page=0 mcid=3
             - Tag: LBody
-              /Lang: "de"
+              /Lang: "de-AT"
               /K:
                 - Content: page=0 mcid=4
         - Tag: LI

@@ -1,19 +1,19 @@
 use ecow::EcoString;
 use krilla::metadata::{Metadata, TextDirection};
-use typst_library::foundations::{Datetime, Smart, StyleChain};
+use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
-use typst_library::text::{Lang, TextElem};
+use typst_library::text::Locale;
 
 use crate::convert::GlobalContext;
 
-pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Lang>) -> Metadata {
+pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Metadata {
     let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
 
     // Always write a language, PDF/UA-1 implicitly requires a document language
     // so the metadata and outline entries have an applicable language.
-    let lang = doc_lang.unwrap_or(StyleChain::default().get(TextElem::lang));
+    let lang = doc_lang.unwrap_or(Locale::DEFAULT);
 
-    let dir = if lang.dir() == Dir::RTL {
+    let dir = if lang.lang.dir() == Dir::RTL {
         TextDirection::RightToLeft
     } else {
         TextDirection::LeftToRight
@@ -23,7 +23,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Lang>) -> Meta
         .creator(creator)
         .keywords(gc.document.info.keywords.iter().map(EcoString::to_string).collect())
         .authors(gc.document.info.author.iter().map(EcoString::to_string).collect())
-        .language(lang.as_str().to_string());
+        .language(lang.rfc_3066().to_string());
 
     if let Some(title) = &gc.document.info.title {
         metadata = metadata.title(title.to_string());

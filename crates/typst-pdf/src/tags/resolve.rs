@@ -3,14 +3,14 @@ use std::num::NonZeroU16;
 use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use typst_library::diag::{SourceResult, bail};
-use typst_library::text::Lang;
+use typst_library::text::Locale;
 
 use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
 use crate::tags::text::ResolvedTextAttrs;
-use crate::tags::util::{IdVec, PropertyOptRef, PropertyValCopied};
+use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,7 +45,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Lang>, TagTree)> {
+pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)> {
     assert!(gc.tags.tree.finished_traversal(), "tree traversal didn't complete properly");
 
     let root = gc.tags.tree.groups.list.get(GroupId::ROOT);
@@ -77,7 +77,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Lang>, TagTree)> 
 /// Resolves nodes into an accumulator.
 fn resolve_node(
     rs: &mut Resolver,
-    parent_lang: &mut Option<Lang>,
+    parent_lang: &mut Option<Locale>,
     parent_bbox: &mut Option<BBoxCtx>,
     accum: &mut Vec<Node>,
     node: &TagNode,
@@ -101,7 +101,7 @@ fn resolve_node(
 
 fn resolve_group_node(
     rs: &mut Resolver,
-    parent_lang: &mut Option<Lang>,
+    parent_lang: &mut Option<Locale>,
     mut parent_bbox: &mut Option<BBoxCtx>,
     accum: &mut Vec<Node>,
     id: GroupId,
@@ -137,11 +137,8 @@ fn resolve_group_node(
         Ok(())
     })?;
 
-    // Try to propagate the groups language to the parent tag.
-    let mut lang = lang.flatten();
-    if let Some(lang) = lang.take_if(|l| parent_lang.is_none_or(|p| p == *l)) {
-        *parent_lang = Some(lang);
-    }
+    // Try to propagate the group's language to the parent tag.
+    let lang = util::propagate_lang(parent_lang, lang.flatten());
 
     // Update the parent bbox.
     if let Some((parent, child)) = parent_bbox.as_mut().zip(bbox.as_ref()) {
@@ -154,7 +151,7 @@ fn resolve_group_node(
         return Ok(());
     };
 
-    tag.set_lang(lang.map(|l| l.as_str().to_string()));
+    tag.set_lang(lang.map(|l| l.rfc_3066().to_string()));
     if let Some(bbox) = bbox {
         match &mut tag {
             TagKind::Table(tag) => tag.set_bbox(bbox.to_krilla()),

@@ -13,8 +13,8 @@ Par 3.
 A paragraph.
 
 // The list bullets are in spanish :)
-#set text(lang: "es")
-- #text(lang: "de", "a")
-  - #text(lang: "de", "b")
-  - #text(lang: "de", "c")
-- #text(lang: "de", "d")
+#set text(lang: "es", region: "co")
+- #text(lang: "de", region: none, "a")
+  - #text(lang: "de", region: "at", "b")
+  - #text(lang: "de", region: none, "c")
+- #text(lang: "de", region: none, "d")

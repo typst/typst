@@ -6,7 +6,7 @@ use crate::foundations::{
     Args, Array, Construct, Content, Datetime, OneOrMultiple, Smart, StyleChain, Styles,
     Value, cast, elem,
 };
-use crate::text::Lang;
+use crate::text::{Locale, TextElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -105,9 +105,9 @@ pub struct DocumentInfo {
     /// The document's language, set from the first top-level set rule, e.g.
     ///
     /// ```typc
-    /// set text(lang: "...")
+    /// set text(lang: "...", region: "...")
     /// ```
-    pub lang: Smart<Lang>,
+    pub locale: Smart<Locale>,
 }
 
 impl DocumentInfo {
@@ -137,5 +137,22 @@ impl DocumentInfo {
         if styles.has(DocumentElem::date) {
             self.date = chain.get(DocumentElem::date);
         }
+    }
+
+    /// Populate this document info with locale details from the given styles.
+    pub fn populate_locale(&mut self, styles: &Styles) {
+        if self.locale.is_custom() {
+            return;
+        }
+
+        let chain = StyleChain::new(styles);
+        let mut locale: Option<Locale> = None;
+        if styles.has(TextElem::lang) {
+            locale.get_or_insert_default().lang = chain.get(TextElem::lang);
+        }
+        if styles.has(TextElem::region) {
+            locale.get_or_insert_default().region = chain.get(TextElem::region);
+        }
+        self.locale = Smart::from(locale);
     }
 }

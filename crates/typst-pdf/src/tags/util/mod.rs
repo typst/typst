@@ -1,6 +1,7 @@
 use krilla::tagging as kt;
 use krilla::tagging::{ArtifactType, NaiveRgbColor};
 use typst_library::pdf::{ArtifactKind, TableHeaderScope};
+use typst_library::text::Locale;
 use typst_library::visualize::Paint;
 
 mod idvec;
@@ -48,4 +49,19 @@ impl TableHeaderScopeExt for TableHeaderScope {
             Self::Row => kt::TableHeaderScope::Row,
         }
     }
+}
+
+/// Try to propagate the child language to the parent. If the parent language
+/// is absent or the same as the child, the language is propagated successfully,
+/// this function will return `None`, and the language is written to the parent.
+/// Otherwise this function will return `Some`, and the language should be
+/// specified for the child.
+pub fn propagate_lang(
+    parent: &mut Option<Locale>,
+    mut child: Option<Locale>,
+) -> Option<Locale> {
+    if let Some(child) = child.take_if(|c| parent.is_none_or(|p| p == *c)) {
+        *parent = Some(child);
+    }
+    child
 }

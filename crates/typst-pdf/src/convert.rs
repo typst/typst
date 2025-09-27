@@ -20,7 +20,7 @@ use typst_library::layout::{
     Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
-use typst_library::text::{Font, Lang};
+use typst_library::text::{Font, Locale};
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -65,9 +65,9 @@ pub fn tag_tree(
 
     let mut output = String::new();
     if let Some(lang) = doc_lang
-        && lang != Lang::ENGLISH
+        && lang != Locale::DEFAULT
     {
-        output = format!("lang: \"{}\"\n---\n", lang.as_str());
+        output = format!("lang: \"{}\"\n---\n", lang.rfc_3066());
     }
     tree.output(&mut output).unwrap();
 

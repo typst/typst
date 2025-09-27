@@ -213,6 +213,15 @@ impl<T> Default for Smart<T> {
     }
 }
 
+impl<T> From<Option<T>> for Smart<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => Smart::Custom(v),
+            None => Smart::Auto,
+        }
+    }
+}
+
 impl<T: Reflect> Reflect for Smart<T> {
     fn input() -> CastInfo {
         T::input() + AutoValue::input()

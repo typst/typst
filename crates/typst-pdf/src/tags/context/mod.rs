@@ -3,7 +3,6 @@ use std::cell::OnceCell;
 use krilla::geom as kg;
 use krilla::tagging::{BBox, Identifier, Node, TagKind};
 use typst_library::layout::{Abs, Point, Rect};
-use typst_library::text::Lang;
 
 use crate::convert::FrameContext;
 use crate::tags::groups::GroupKind;
@@ -60,14 +59,6 @@ impl Tags {
     pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, text_id: Identifier) {
         let group = self.tree.groups.get_mut(self.tree.current());
         group.push_text(new_attrs, text_id);
-    }
-
-    /// Try to set the language of the direct parent tag, or the entire document.
-    /// If the language couldn't be set and is different from the existing one,
-    /// this will return `Some`, and the language should be specified on the
-    /// marked content directly.
-    pub fn try_set_lang(&mut self, lang: Lang) -> Option<Lang> {
-        self.tree.groups.try_set_lang(self.tree.current(), lang)
     }
 }
 

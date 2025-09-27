@@ -8,7 +8,7 @@ use typst_library::introspection::Location;
 use typst_library::layout::{PagedDocument, Point, Rect, Size};
 use typst_library::model::{EmphElem, StrongElem};
 use typst_library::text::{
-    HighlightElem, Lang, OverlineElem, ScriptKind, StrikeElem, SubElem, SuperElem,
+    HighlightElem, Locale, OverlineElem, ScriptKind, StrikeElem, SubElem, SuperElem,
     TextItem, UnderlineElem,
 };
 use typst_library::visualize::{Image, Shape};
@@ -241,10 +241,12 @@ pub fn text<'a, 'b>(
 
     let attrs = gc.tags.text_attrs.resolve(text);
 
-    // Marked content
-    let lang = gc.tags.try_set_lang(text.lang);
-    let lang = lang.as_ref().map(Lang::as_str);
-    let content = ContentTag::Span(SpanTag::empty().with_lang(lang));
+    let lang = {
+        let locale = Locale::new(text.lang, text.region);
+        gc.tags.tree.groups.propagate_lang(gc.tags.tree.current(), locale)
+    };
+    let lang_str = lang.map(Locale::rfc_3066);
+    let content = ContentTag::Span(SpanTag::empty().with_lang(lang_str.as_deref()));
     let id = surface.start_tagged(content);
 
     gc.tags.push_text(attrs, id);

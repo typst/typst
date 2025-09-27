@@ -64,11 +64,12 @@ pub struct TreeBuilder<'a> {
 
 impl<'a> TreeBuilder<'a> {
     pub fn new(document: &PagedDocument, options: &'a PdfOptions) -> Self {
+        let doc_lang = document.info.locale.custom();
         let mut groups = Groups::new();
         let doc = groups.new_virtual(
             GroupId::INVALID,
             Span::detached(),
-            GroupKind::Root(document.info.lang.custom()),
+            GroupKind::Root(doc_lang),
         );
         Self {
             options,

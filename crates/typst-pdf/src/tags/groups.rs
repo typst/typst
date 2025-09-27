@@ -7,7 +7,7 @@ use typst_library::introspection::Location;
 use typst_library::layout::GridCell;
 use typst_library::math::EquationElem;
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
-use typst_library::text::Lang;
+use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
@@ -16,7 +16,7 @@ use crate::tags::context::{
 };
 use crate::tags::resolve::TagNode;
 use crate::tags::text::ResolvedTextAttrs;
-use crate::tags::util::{Id, IdVec};
+use crate::tags::util::{self, Id, IdVec};
 
 pub type GroupId = Id<Group>;
 
@@ -59,16 +59,14 @@ impl Groups {
         self.list.iter()
     }
 
-    pub fn try_set_lang(&mut self, id: GroupId, lang: Lang) -> Option<Lang> {
+    /// See [`util::propagate_lang`].
+    pub fn propagate_lang(&mut self, id: GroupId, lang: Locale) -> Option<Locale> {
         // TODO: walk up to the first parent that has a language.
         let group = &mut self.get_mut(id);
-        if let Some(parent_lang) = group.kind.lang_mut()
-            && parent_lang.is_none_or(|l| l == lang)
-        {
-            *parent_lang = Some(lang);
-            return None;
-        }
-        Some(lang)
+
+        let Some(parent) = group.kind.lang_mut() else { return Some(lang) };
+
+        util::propagate_lang(parent, Some(lang))
     }
 
     /// Create a located group. If the location has already been taken,
@@ -357,33 +355,33 @@ impl Group {
 }
 
 pub enum GroupKind {
-    Root(Option<Lang>),
+    Root(Option<Locale>),
     Artifact(ArtifactType),
     LogicalParent(Content),
     LogicalChild,
-    Outline(OutlineId, Option<Lang>),
-    OutlineEntry(Packed<OutlineEntry>, Option<Lang>),
-    Table(TableId, BBoxId, Option<Lang>),
-    TableCell(Packed<TableCell>, TagId, Option<Lang>),
-    Grid(GridId, Option<Lang>),
-    GridCell(Packed<GridCell>, Option<Lang>),
-    List(ListId, ListNumbering, Option<Lang>),
-    ListItemLabel(Option<Lang>),
-    ListItemBody(Option<Lang>),
-    TermsItemLabel(Option<Lang>),
-    TermsItemBody(Option<GroupId>, Option<Lang>),
-    BibEntry(Option<Lang>),
-    Figure(FigureId, BBoxId, Option<Lang>),
+    Outline(OutlineId, Option<Locale>),
+    OutlineEntry(Packed<OutlineEntry>, Option<Locale>),
+    Table(TableId, BBoxId, Option<Locale>),
+    TableCell(Packed<TableCell>, TagId, Option<Locale>),
+    Grid(GridId, Option<Locale>),
+    GridCell(Packed<GridCell>, Option<Locale>),
+    List(ListId, ListNumbering, Option<Locale>),
+    ListItemLabel(Option<Locale>),
+    ListItemBody(Option<Locale>),
+    TermsItemLabel(Option<Locale>),
+    TermsItemBody(Option<GroupId>, Option<Locale>),
+    BibEntry(Option<Locale>),
+    Figure(FigureId, BBoxId, Option<Locale>),
     /// The figure caption has a bbox so marked content sequences won't expand
     /// the bbox of the parent figure group kind. The caption might be moved
     /// into table, or next to to the figure tag.
-    FigureCaption(BBoxId, Option<Lang>),
-    Image(Packed<ImageElem>, BBoxId, Option<Lang>),
-    Formula(Packed<EquationElem>, BBoxId, Option<Lang>),
-    Link(Packed<LinkMarker>, Option<Lang>),
-    CodeBlock(Option<Lang>),
-    CodeBlockLine(Option<Lang>),
-    Standard(TagId, Option<Lang>),
+    FigureCaption(BBoxId, Option<Locale>),
+    Image(Packed<ImageElem>, BBoxId, Option<Locale>),
+    Formula(Packed<EquationElem>, BBoxId, Option<Locale>),
+    Link(Packed<LinkMarker>, Option<Locale>),
+    CodeBlock(Option<Locale>),
+    CodeBlockLine(Option<Locale>),
+    Standard(TagId, Option<Locale>),
 }
 
 impl std::fmt::Debug for GroupKind {
@@ -449,7 +447,7 @@ impl GroupKind {
         }
     }
 
-    pub fn lang(&self) -> Option<Option<Lang>> {
+    pub fn lang(&self) -> Option<Option<Locale>> {
         Some(match *self {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
@@ -478,7 +476,7 @@ impl GroupKind {
         })
     }
 
-    pub fn lang_mut(&mut self) -> Option<&mut Option<Lang>> {
+    pub fn lang_mut(&mut self) -> Option<&mut Option<Locale>> {
         Some(match self {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,

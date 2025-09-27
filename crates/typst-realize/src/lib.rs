@@ -16,8 +16,8 @@ use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
-    Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Smart, Style, StyleChain,
-    StyledElem, Styles, SymbolElem, Synthesize, TargetElem, Transformation,
+    Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
+    Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
 use typst_library::introspection::{Locatable, LocationKey, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
@@ -595,6 +595,11 @@ fn visit_styled<'a>(
                     "document set rules are not allowed inside of containers"
                 );
             }
+        } else if elem == TextElem::ELEM {
+            // Infer the document locale from the first toplevel set rule.
+            if let Some(info) = s.kind.as_document_mut() {
+                info.populate_locale(&local)
+            }
         } else if elem == PageElem::ELEM {
             if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {
                 bail!(
@@ -606,15 +611,6 @@ fn visit_styled<'a>(
             // When there are page styles, we "break free" from our show rule cage.
             pagebreak = true;
             s.outside = true;
-        } else if elem == TextElem::ELEM {
-            // Infer the document language from the first toplevel set rule.
-            if let Some(prop) = style.property()
-                && let Some(lang) = prop.get_ref(TextElem::lang)
-                && let Some(info) = s.kind.as_document_mut()
-                && info.lang.is_auto()
-            {
-                info.lang = Smart::Custom(*lang)
-            }
         }
     }
 
