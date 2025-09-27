@@ -255,11 +255,15 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
     for (_, item) in frame.items() {
         match item {
             FrameItem::Group(group) => visit_group_frame(tree, group)?,
-            FrameItem::Tag(typst_library::introspection::Tag::Start(elem)) => {
-                visit_start_tag(tree, elem);
+            FrameItem::Tag(typst_library::introspection::Tag::Start(elem, flags)) => {
+                if flags.tagged {
+                    visit_start_tag(tree, elem);
+                }
             }
-            FrameItem::Tag(typst_library::introspection::Tag::End(loc, _)) => {
-                visit_end_tag(tree, *loc)?;
+            FrameItem::Tag(typst_library::introspection::Tag::End(loc, _, flags)) => {
+                if flags.tagged {
+                    visit_end_tag(tree, *loc)?;
+                }
             }
             FrameItem::Text(_) => (),
             FrameItem::Shape(..) => (),

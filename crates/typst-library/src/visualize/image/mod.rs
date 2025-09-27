@@ -26,7 +26,7 @@ use crate::foundations::{
     Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, cast, elem,
     func, scope,
 };
-use crate::introspection::Locatable;
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
@@ -51,7 +51,7 @@ use crate::visualize::image::pdf::PdfDocument;
 ///   ],
 /// )
 /// ```
-#[elem(scope, Locatable, LocalName, Figurable)]
+#[elem(scope, Locatable, Tagged, LocalName, Figurable)]
 pub struct ImageElem {
     /// A [path]($syntax/#paths) to an image file or raw bytes making up an
     /// image in one of the supported [formats]($image.format).

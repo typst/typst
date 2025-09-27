@@ -10,7 +10,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
@@ -46,7 +46,7 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 /// whitespace lifts it into a separate block that is centered horizontally.
 /// For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(Locatable, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Tagged, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]

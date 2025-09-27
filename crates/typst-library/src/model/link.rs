@@ -10,7 +10,9 @@ use crate::foundations::{
     Args, Construct, Content, Label, Packed, Repr, Selector, ShowSet, Smart, StyleChain,
     Styles, cast, elem,
 };
-use crate::introspection::{Counter, CounterKey, Introspector, Locatable, Location};
+use crate::introspection::{
+    Counter, CounterKey, Introspector, Locatable, Location, Tagged,
+};
 use crate::layout::{PageElem, Position};
 use crate::model::{NumberingPattern, Refable};
 use crate::text::{LocalName, TextElem};
@@ -365,7 +367,7 @@ impl Construct for DirectLinkElem {
 
 /// An element that wraps all conent that is [`Content::linked`] to a
 /// destination.
-#[elem(Locatable, Construct)]
+#[elem(Tagged, Construct)]
 pub struct LinkMarker {
     /// The content.
     #[internal]

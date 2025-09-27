@@ -422,14 +422,18 @@ impl IntrospectorBuilder {
         position: Position,
     ) {
         match tag {
-            Tag::Start(elem) => {
-                let loc = elem.location().unwrap();
-                if self.seen.insert(loc) {
-                    sink.push((elem.clone(), position));
+            Tag::Start(elem, flags) => {
+                if flags.locatable || flags.labelled {
+                    let loc = elem.location().unwrap();
+                    if self.seen.insert(loc) {
+                        sink.push((elem.clone(), position));
+                    }
                 }
             }
-            Tag::End(loc, key) => {
-                self.keys.insert(*key, *loc);
+            Tag::End(loc, key, flags) => {
+                if flags.locatable || flags.labelled {
+                    self.keys.insert(*key, *loc);
+                }
             }
         }
     }

@@ -9,7 +9,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
 };
-use crate::introspection::Locatable;
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
@@ -123,7 +123,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, Synthesize, Locatable, LocalName, Figurable)]
+#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
     /// more information on track sizing.

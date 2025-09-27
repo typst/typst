@@ -12,7 +12,7 @@ use crate::foundations::{
     Styles, Synthesize, cast, elem, scope, select_where,
 };
 use crate::introspection::{
-    Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
+    Count, Counter, CounterKey, CounterUpdate, Locatable, Location, Tagged,
 };
 use crate::layout::{
     AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
@@ -101,7 +101,7 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, ShowSet, Refable, Outlinable)]
+#[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image].
     #[required]
@@ -456,7 +456,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Locatable, Synthesize)]
+#[elem(name = "caption", Locatable, Tagged, Synthesize)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///

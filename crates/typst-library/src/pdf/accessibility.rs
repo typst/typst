@@ -8,12 +8,12 @@ use crate::diag::SourceResult;
 use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
-use crate::introspection::Locatable;
+use crate::introspection::Tagged;
 use crate::model::{TableCell, TableElem};
 
 /// Mark content as a PDF artifact.
 // TODO: maybe generalize this and use it to mark html elements with `aria-hidden="true"`?
-#[elem(Locatable)]
+#[elem(Tagged)]
 pub struct ArtifactElem {
     /// The artifact kind.
     #[default(ArtifactKind::Other)]
@@ -124,7 +124,7 @@ impl TableHeaderScope {
 }
 
 /// Used to delimit content for tagged PDF.
-#[elem(Locatable, Construct)]
+#[elem(Construct, Tagged)]
 pub struct PdfMarkerTag {
     #[internal]
     #[required]

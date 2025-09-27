@@ -1,5 +1,5 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::Locatable;
+use crate::introspection::Tagged;
 
 /// Hides content without affecting layout.
 ///
@@ -13,7 +13,7 @@ use crate::introspection::Locatable;
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
-#[elem(Locatable)]
+#[elem(Tagged)]
 pub struct HideElem {
     /// The content to hide.
     #[required]

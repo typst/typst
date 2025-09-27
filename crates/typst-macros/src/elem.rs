@@ -49,6 +49,11 @@ impl Elem {
     fn cannot(&self, name: &str) -> bool {
         !self.can(name)
     }
+
+    /// Whether the element has the given trait listed as a capability.
+    fn with(&self, name: &str) -> Option<&Ident> {
+        self.capabilities.iter().find(|capability| *capability == name)
+    }
 }
 
 impl Elem {
@@ -252,7 +257,15 @@ fn create(element: &Elem) -> Result<TokenStream> {
     let construct_impl =
         element.cannot("Construct").then(|| create_construct_impl(element));
     let set_impl = element.cannot("Set").then(|| create_set_impl(element));
-    let locatable_impl = element.can("Locatable").then(|| create_locatable_impl(element));
+    let unqueriable_impl = element
+        .with("Unqueriable")
+        .map(|cap| create_introspection_impl(element, cap));
+    let locatable_impl = element
+        .with("Locatable")
+        .map(|cap| create_introspection_impl(element, cap));
+    let tagged_impl = element
+        .with("Tagged")
+        .map(|cap| create_introspection_impl(element, cap));
     let mathy_impl = element.can("Mathy").then(|| create_mathy_impl(element));
 
     // We use a const block to create an anonymous scope, as to not leak any
@@ -266,7 +279,9 @@ fn create(element: &Elem) -> Result<TokenStream> {
             #(#field_impls)*
             #construct_impl
             #set_impl
+            #unqueriable_impl
             #locatable_impl
+            #tagged_impl
             #mathy_impl
         };
     })
@@ -662,10 +677,10 @@ fn create_capable_func(element: &Elem) -> TokenStream {
     }
 }
 
-/// Creates the element's `Locatable` implementation.
-fn create_locatable_impl(element: &Elem) -> TokenStream {
+/// Creates the element's introspection capability implementation.
+fn create_introspection_impl(element: &Elem, capability: &Ident) -> TokenStream {
     let ident = &element.ident;
-    quote! { impl ::typst_library::introspection::Locatable for #foundations::Packed<#ident> {} }
+    quote! { impl ::typst_library::introspection::#capability for #foundations::Packed<#ident> {} }
 }
 
 /// Creates the element's `Mathy` implementation.

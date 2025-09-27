@@ -6,7 +6,7 @@ use crate::foundations::{
     Args, Cast, Construct, Content, Dict, NativeElement, Packed, Smart, Unlabellable,
     Value, cast, dict, elem, scope,
 };
-use crate::introspection::{Count, CounterUpdate, Locatable};
+use crate::introspection::{Count, CounterUpdate, Locatable, Tagged, Unqueriable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment};
 use crate::model::Numbering;
 
@@ -92,7 +92,7 @@ use crate::model::Numbering;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(scope, title = "Paragraph", Locatable)]
+#[elem(scope, title = "Paragraph", Locatable, Tagged)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -574,7 +574,7 @@ pub enum LineNumberingScope {
 ///
 /// This element is added to each line in a paragraph and later searched to
 /// find out where to add line numbers.
-#[elem(Construct, Locatable, Count)]
+#[elem(Construct, Unqueriable, Locatable, Count)]
 pub struct ParLineMarker {
     #[internal]
     #[required]

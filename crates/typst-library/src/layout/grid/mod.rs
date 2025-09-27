@@ -13,7 +13,7 @@ use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
     Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
-use crate::introspection::Locatable;
+use crate::introspection::Tagged;
 use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
@@ -170,7 +170,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Furthermore, strokes of a repeated grid header or footer will take
 /// precedence over regular cell strokes.
-#[elem(scope, Synthesize, Locatable)]
+#[elem(scope, Synthesize, Tagged)]
 pub struct GridElem {
     /// The column sizes.
     ///

@@ -10,7 +10,7 @@ use crate::foundations::{
     Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
     elem, scope,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location, Tagged};
 use crate::layout::{Abs, Em, Length, Ratio};
 use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
@@ -52,7 +52,7 @@ use crate::visualize::{LineElem, Stroke};
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-#[elem(scope, Locatable, Count)]
+#[elem(scope, Locatable, Tagged, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes. Accepts a
     /// [numbering pattern or function]($numbering) taking a single number.
@@ -200,7 +200,7 @@ cast! {
 /// page run is a sequence of pages without an explicit pagebreak in between).
 /// For this reason, set and show rules for footnote entries should be defined
 /// before any page content, typically at the very start of the document.
-#[elem(name = "entry", title = "Footnote Entry", Locatable, ShowSet)]
+#[elem(name = "entry", title = "Footnote Entry", Locatable, Tagged, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. Its location can be used to determine
     /// the footnote counter state.

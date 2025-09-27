@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 
 use crate::diag::bail;
 use crate::foundations::{Array, Content, Packed, Smart, Styles, cast, elem, scope};
-use crate::introspection::Locatable;
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
@@ -64,7 +64,7 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Locatable)]
+#[elem(scope, title = "Numbered List", Locatable, Tagged)]
 pub struct EnumElem {
     /// Defines the default [spacing]($enum.spacing) of the enumeration. If it
     /// is `{false}`, the items are spaced apart with
@@ -217,7 +217,7 @@ impl EnumElem {
 }
 
 /// An enumeration item.
-#[elem(name = "item", title = "Numbered List Item", Locatable)]
+#[elem(name = "item", title = "Numbered List Item", Tagged)]
 pub struct EnumItem {
     /// The item's number.
     #[positional]

@@ -13,7 +13,8 @@ use crate::foundations::{
     Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
 };
 use crate::introspection::{
-    Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink,
+    Counter, CounterKey, Introspector, Locatable, Location, Locator, LocatorLink, Tagged,
+    Unqueriable,
 };
 use crate::layout::{
     Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,
@@ -146,7 +147,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 ///
 /// [^1]: The outline of equations is the exception to this rule as it does not
 ///       have a body and thus does not use indented layout.
-#[elem(scope, keywords = ["Table of Contents", "toc"], ShowSet, LocalName, Locatable)]
+#[elem(scope, keywords = ["Table of Contents", "toc"], ShowSet, LocalName, Locatable, Tagged)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -468,7 +469,7 @@ pub trait Outlinable: Refable {
 /// With show-set and show rules on outline entries, you can richly customize
 /// the outline's appearance. See the
 /// [section on styling the outline]($outline/#styling-the-outline) for details.
-#[elem(scope, name = "entry", title = "Outline Entry", Locatable)]
+#[elem(scope, name = "entry", title = "Outline Entry", Locatable, Tagged)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
@@ -751,7 +752,7 @@ impl OutlineEntry {
     pub fn element_location(&self) -> HintedStrResult<Location> {
         let elem = &self.element;
         elem.location().ok_or_else(|| {
-            if elem.can::<dyn Locatable>() && elem.can::<dyn Outlinable>() {
+            if elem.can::<dyn Outlinable>() {
                 error!(
                     "{} must have a location", elem.func().name();
                     hint: "try using a show rule to customize the outline.entry instead",
@@ -824,7 +825,7 @@ fn query_prefix_widths(
 }
 
 /// Helper type for introspection-based prefix alignment.
-#[elem(Construct, Locatable)]
+#[elem(Construct, Unqueriable, Locatable)]
 pub(crate) struct PrefixInfo {
     /// The location of the outline this prefix is part of. This is used to
     /// scope prefix computations to a specific outline.
