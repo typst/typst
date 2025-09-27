@@ -459,6 +459,15 @@ pub struct ParLine {
     /// Violets are blue. \
     /// Typst is there for you.
     /// ```
+    ///
+    /// ```example
+    /// >>> #set page(width: 200pt, margin: (left: 3em))
+    /// #set par.line(
+    ///   numbering: i => if calc.rem(i, 5) == 0 or i == 1 { i },
+    /// )
+    ///
+    /// #lorem(60)
+    /// ```
     #[ghost]
     pub numbering: Option<Numbering>,
 
