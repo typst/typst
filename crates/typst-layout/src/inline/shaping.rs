@@ -236,6 +236,7 @@ impl ShapedGlyph {
         let width = self.x_advance;
 
         if self.is_space() {
+            // The stretch/shrink constants for spaces are from Knuth-Plass' paper.
             Adjustability {
                 stretchability: (
                     Em::zero(),
