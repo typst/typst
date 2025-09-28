@@ -1138,7 +1138,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
                     word_min: Rel::new(Ratio::new(0.8), Abs::zero().into()),
                     word_max: Rel::new(Ratio::new(1.33), Abs::zero().into()),
                     glyph_min: Rel::new(Ratio::new(0.98), Abs::zero().into()),
-                    glyph_max: Rel::new(Ratio::new(1.02), Abs::zero().into())
+                    glyph_max: Rel::new(Ratio::new(1.02), Abs::zero().into()),
                 },
                 Smart::Custom(limits) => limits,
             }
@@ -1147,7 +1147,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
                 word_min: Rel::new(Ratio::new(1.0), Abs::zero().into()),
                 word_max: Rel::new(Ratio::new(1.0), Abs::zero().into()),
                 glyph_min: Rel::new(Ratio::new(1.0), Abs::zero().into()),
-                glyph_max: Rel::new(Ratio::new(1.0), Abs::zero().into())
+                glyph_max: Rel::new(Ratio::new(1.0), Abs::zero().into()),
             }
         }
     };
