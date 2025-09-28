@@ -1,11 +1,11 @@
 use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_vec};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -16,7 +16,7 @@ use crate::foundations::{
     Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,
     RefableProperty, Repr, Selector, SettableProperty, Target, cast, ty,
 };
-use crate::text::{FontFamily, FontList, TextElem};
+use crate::introspection::TagElem;
 
 /// A list of style properties.
 #[ty(cast)]
@@ -119,17 +119,57 @@ impl Styles {
             .any(|property| property.is_of(elem) && property.id == I)
     }
 
-    /// Set a font family composed of a preferred family and existing families
-    /// from a style chain.
-    pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(
-            TextElem::font,
-            FontList(
-                std::iter::once(preferred)
-                    .chain(existing.get_ref(TextElem::font).into_iter().cloned())
-                    .collect(),
-            ),
-        );
+    /// Determines the styles used for content that it at the root, outside of
+    /// the user-controlled content (e.g. page marginals and footnotes). This
+    /// applies to both paged and HTML export.
+    ///
+    /// As a base, we collect the styles that are shared by all elements in the
+    /// children (this can be a whole document in HTML or a page run in paged
+    /// export). As a fallback if there are no elements, we use the styles
+    /// active at the very start or, for page runs, at the pagebreak that
+    /// introduced the page. Then, to produce our trunk styles, we filter this
+    /// list of styles according to a few rules:
+    ///
+    /// - Other styles are only kept if they are `outside && (initial ||
+    ///   liftable)`.
+    /// - "Outside" means they were not produced within a show rule or, for page
+    ///   runs, that the show rule "broke free" to the root level by emitting
+    ///   page styles.
+    /// - "Initial" means they were active where the children start (efor pages,
+    ///   at the pagebreak that introduced the page). Since these are
+    ///   intuitively already active, they should be kept even if not liftable.
+    ///   (E.g. `text(red, page(..)`) makes the footer red.)
+    /// - "Liftable" means they can be lifted to the root  level even though
+    ///   they weren't yet active at the very beginning. Set rule styles are
+    ///   liftable as opposed to direct constructor calls:
+    ///   - For `set page(..); set text(red)` the red text is kept even though
+    ///     it comes after the weak pagebreak from set page.
+    ///   - For `set page(..); text(red)[..]` the red isn't kept because the
+    ///     constructor styles are not liftable.
+    pub fn root(children: &[(&Content, StyleChain)], initial: StyleChain) -> Styles {
+        // Determine the shared styles (excluding tags).
+        let base = StyleChain::trunk_from_pairs(children).unwrap_or(initial).to_map();
+
+        // Determine the initial styles that are also shared by everything. We can't
+        // use `StyleChain::trunk` because it currently doesn't deal with partially
+        // shared links (where a subslice matches).
+        let trunk_len = initial
+            .to_map()
+            .as_slice()
+            .iter()
+            .zip(base.as_slice())
+            .take_while(|&(a, b)| a == b)
+            .count();
+
+        // Filter the base styles according to our rules.
+        base.into_iter()
+            .enumerate()
+            .filter(|(i, style)| {
+                let initial = *i < trunk_len;
+                style.outside() && (initial || style.liftable())
+            })
+            .map(|(_, style)| style)
+            .collect()
     }
 }
 
@@ -331,7 +371,7 @@ impl Debug for Property {
             f,
             "Set({}.{}: ",
             self.elem.name(),
-            self.elem.field_name(self.id).unwrap()
+            self.elem.field_name(self.id).unwrap_or("internal")
         )?;
         self.value.fmt(f)?;
         write!(f, ")")
@@ -717,6 +757,13 @@ impl<'a> StyleChain<'a> {
 
         Some(trunk)
     }
+
+    /// Determines the shared trunk of a list of elements.
+    ///
+    /// This will ignore styles for tags (conceptually, they just don't exist).
+    pub fn trunk_from_pairs(iter: &[(&Content, Self)]) -> Option<Self> {
+        Self::trunk(iter.iter().filter(|(c, _)| !c.is::<TagElem>()).map(|&(_, s)| s))
+    }
 }
 
 impl Debug for StyleChain<'_> {
@@ -938,7 +985,7 @@ fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
 
 /// Holds native show rules.
 pub struct NativeRuleMap {
-    rules: HashMap<(Element, Target), NativeShowRule>,
+    rules: FxHashMap<(Element, Target), NativeShowRule>,
 }
 
 /// The signature of a native show rule.
@@ -956,7 +1003,7 @@ impl NativeRuleMap {
     ///
     /// Contains built-in rules for a few special elements.
     pub fn new() -> Self {
-        let mut rules = Self { rules: HashMap::new() };
+        let mut rules = Self { rules: FxHashMap::default() };
 
         // ContextElem is as special as SequenceElem and StyledElem and could,
         // in theory, also be special cased in realization.

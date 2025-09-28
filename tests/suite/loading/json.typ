@@ -19,3 +19,31 @@
 // but not overflow
 #let bignum = json("/assets/data/big-number.json")
 #bignum
+
+--- json-decode-number ---
+#import "edge-case.typ": large-integer, representable-integer
+
+#for (name, source) in representable-integer {
+  assert.eq(
+    type(json(bytes(source))),
+    int,
+    message: "failed to decode " + name,
+  )
+}
+
+#for (name, source) in large-integer {
+  assert.eq(
+    type(json(bytes(source))),
+    float,
+    message: "failed to approximately decode " + name,
+  )
+}
+
+--- json-encode-any ---
+#import "edge-case.typ": special-types-for-human
+#for value in special-types-for-human {
+  test(
+    json.encode(value),
+    json.encode(repr(value)),
+  )
+}

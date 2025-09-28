@@ -34,7 +34,7 @@ $tilde(sum), tilde(sum, size: #50%), accent(H, hat, size: #200%)$
 
 --- math-accent-sized-script ---
 // Test accent size in script size.
-$tilde(U, size: #1.1em), x^tilde(U, size: #1.1em), sscript(tilde(U, size: #1.1em))$
+$tilde(U, size: #1.1em), x^(tilde(U, size: #1.1em)), sscript(tilde(U, size: #1.1em))$
 
 --- math-accent-dotless ---
 // Test dotless glyph variants.
@@ -52,7 +52,7 @@ $hat(i), hat(i, dotless: #false), accent(j, tilde), accent(j, tilde, dotless: #f
 $ hat(i) $
 
 --- math-accent-dotless-greedy ---
-// Currently the dotless style propogates to everything in the accent's base,
+// Currently the dotless style propagates to everything in the accent's base,
 // even though it shouldn't.
 $ arrow(P_(c, i dot j) P_(1, i) j) \
   arrow(P_(c, i dot j) P_(1, i) j, dotless: #false) $

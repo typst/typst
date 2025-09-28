@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -8,6 +7,7 @@ use std::sync::OnceLock;
 
 use comemo::Tracked;
 use parking_lot::Mutex;
+use rustc_hash::FxHashMap;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
@@ -108,7 +108,7 @@ struct TestBase {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
-    slots: Mutex<HashMap<FileId, FileSlot>>,
+    slots: Mutex<FxHashMap<FileId, FileSlot>>,
 }
 
 impl Default for TestBase {
@@ -122,7 +122,7 @@ impl Default for TestBase {
             library: LazyHash::new(library()),
             book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
-            slots: Mutex::new(HashMap::new()),
+            slots: Mutex::new(FxHashMap::default()),
         }
     }
 }
@@ -266,6 +266,6 @@ fn lines(
     (1..=count)
         .map(|n| numbering.apply(engine, context, &[n]))
         .collect::<SourceResult<Array>>()?
-        .join(Some('\n'.into_value()), None)
+        .join(Some('\n'.into_value()), None, None)
         .at(span)
 }

@@ -10,6 +10,7 @@ use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::inline::linebreak::Trim;
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -61,8 +62,7 @@ impl Line<'_> {
         // CJK character at line end should not be adjusted.
         if self
             .items
-            .last()
-            .and_then(Item::text)
+            .trailing_text()
             .map(|s| s.cjk_justifiable_at_last())
             .unwrap_or(false)
         {
@@ -128,7 +128,7 @@ pub fn line<'a>(
     p: &'a Preparation,
     range: Range,
     breakpoint: Breakpoint,
-    pred: Option<&Line>,
+    pred: Option<&Line<'a>>,
 ) -> Line<'a> {
     // The line's full text.
     let full = &p.text[range.clone()];
@@ -149,27 +149,40 @@ pub fn line<'a>(
     };
 
     // Trim the line at the end, if necessary for this breakpoint.
-    let trim = range.start + breakpoint.trim(full).len();
+    let trim = breakpoint.trim(range.start, full);
+    let trimmed_range = range.start..trim.layout;
 
     // Collect the items for the line.
-    let mut items = collect_items(engine, p, range, trim);
+    let mut items = Items::new();
 
     // Add a hyphen at the line start, if a previous dash should be repeated.
-    if pred.is_some_and(|pred| should_repeat_hyphen(pred, full))
-        && let Some(shaped) = items.first_text_mut()
+    if let Some(pred) = pred
+        && pred.dash == Some(Dash::Hard)
+        && let Some(base) = pred.items.trailing_text()
+        && should_repeat_hyphen(base.lang, full)
+        && let Some(hyphen) =
+            ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, false)
     {
-        shaped.prepend_hyphen(engine, p.config.fallback);
+        items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
     }
+
+    collect_items(&mut items, engine, p, range, &trim);
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
-        && let Some(shaped) = items.last_text_mut()
+        && let Some(base) = items.trailing_text()
+        && let Some(hyphen) =
+            ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, true)
     {
-        shaped.push_hyphen(engine, p.config.fallback);
+        items.push(Item::Text(hyphen), LogicalIndex::END_HYPHEN);
     }
 
+    // Ensure that there is no weak spacing at the start and end of the line.
+    trim_weak_spacing(&mut items);
+
     // Deal with CJ characters at line boundaries.
-    adjust_cj_at_line_boundaries(p, full, &mut items);
+    // Use the trimmed range for robust boundary checks.
+    adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
 
     // Compute the line's width.
     let width = items.iter().map(Item::natural_width).sum();
@@ -186,23 +199,33 @@ pub fn line<'a>(
 /// We do not factor the `trim` directly into the `range` because we still want
 /// to keep non-text items after the trim (e.g. tags).
 fn collect_items<'a>(
+    items: &mut Items<'a>,
     engine: &Engine,
     p: &'a Preparation,
     range: Range,
-    trim: usize,
-) -> Items<'a> {
-    let mut items = Items::new();
+    trim: &Trim,
+) {
     let mut fallback = None;
 
     // Collect the items for each consecutively ordered run.
     reorder(p, range.clone(), |subrange, rtl| {
         let from = items.len();
-        collect_range(engine, p, subrange, trim, &mut items, &mut fallback);
+        collect_range(engine, p, subrange, trim, items, &mut fallback);
         if rtl {
             items.reorder(from);
         }
     });
 
+    // Add fallback text to expand the line height, if necessary.
+    if !items.iter().any(|item| matches!(item, Item::Text(_)))
+        && let Some(fallback) = fallback
+    {
+        items.push(fallback, LogicalIndex::FALLBACK_TEXT);
+    }
+}
+
+/// Trims weak spacing from the start and end of the line.
+fn trim_weak_spacing(items: &mut Items) {
     // Trim weak spacing at the start of the line.
     let prefix = items
         .iter()
@@ -213,18 +236,9 @@ fn collect_items<'a>(
     }
 
     // Trim weak spacing at the end of the line.
-    while matches!(items.last(), Some(Item::Absolute(_, true))) {
+    while matches!(items.iter().next_back(), Some(Item::Absolute(_, true))) {
         items.pop();
     }
-
-    // Add fallback text to expand the line height, if necessary.
-    if !items.iter().any(|item| matches!(item, Item::Text(_)))
-        && let Some(fallback) = fallback
-    {
-        items.push(fallback, usize::MAX);
-    }
-
-    items
 }
 
 /// Calls `f` for the BiDi-reordered ranges of a line.
@@ -267,11 +281,13 @@ fn collect_range<'a>(
     engine: &Engine,
     p: &'a Preparation,
     range: Range,
-    trim: usize,
+    trim: &Trim,
     items: &mut Items<'a>,
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
-    for (idx, (subrange, item)) in p.slice(range.clone()).enumerate() {
+    for (i, (subrange, item)) in p.slice(range.clone()) {
+        let idx = LogicalIndex::from_item_index(i);
+
         // All non-text items are just kept, they can't be split.
         let Item::Text(shaped) = item else {
             items.push(item, idx);
@@ -280,8 +296,8 @@ fn collect_range<'a>(
 
         // The intersection range of the item, the subrange, and the line's
         // trimming.
-        let sliced =
-            range.start.max(subrange.start)..range.end.min(subrange.end).min(trim);
+        let sliced = range.start.max(subrange.start)
+            ..range.end.min(subrange.end).min(trim.shaping);
 
         // Whether the item is split by the line.
         let split = subrange.start < sliced.start || sliced.end < subrange.end;
@@ -291,14 +307,25 @@ fn collect_range<'a>(
             // we can use to force a non-zero line-height when the line doesn't
             // contain any other text.
             *fallback = Some(ItemEntry::from(Item::Text(shaped.empty())));
-        } else if split {
+            continue;
+        }
+
+        let mut item: ItemEntry = if split {
             // When the item is split in half, reshape it.
             let reshaped = shaped.reshape(engine, sliced);
-            items.push(Item::Text(reshaped), idx);
+            Item::Text(reshaped).into()
         } else {
             // When the item is fully contained, just keep it.
-            items.push(item, idx);
+            item.into()
+        };
+
+        // Trim end-of-line whitespace glyphs.
+        if trim.layout < range.end {
+            let shaped = item.text_mut().unwrap();
+            shaped.glyphs.trim(|glyph| trim.layout < glyph.range.end);
         }
+
+        items.push(item, idx);
     }
 }
 
@@ -306,7 +333,11 @@ fn collect_range<'a>(
 ///
 /// See Requirements for Chinese Text Layout, Section 3.1.6.3 Compression of
 /// punctuation marks at line start or line end.
-fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) {
+///
+/// The `range` should only contain regular texts, with linebreaks trimmed.
+fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items) {
+    let text = &p.text[range];
+
     if text.starts_with(BEGIN_PUNCT_PAT)
         || (p.config.cjk_latin_spacing && text.starts_with(is_of_cj_script))
     {
@@ -322,7 +353,7 @@ fn adjust_cj_at_line_boundaries(p: &Preparation, text: &str, items: &mut Items) 
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.
 fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
-    let Some(shaped) = items.first_text_mut() else { return };
+    let Some(shaped) = items.leading_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.first() else { return };
 
     if glyph.is_cjk_right_aligned_punctuation() {
@@ -331,7 +362,6 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().first_mut().unwrap();
         let shrink = glyph.shrinkability().0;
         glyph.shrink_left(shrink);
-        shaped.width -= shrink.at(glyph.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && glyph.x_offset > Em::zero()
@@ -343,13 +373,12 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
         glyph.x_advance -= shrink;
         glyph.x_offset = Em::zero();
         glyph.adjustability.shrinkability.0 = Em::zero();
-        shaped.width -= shrink.at(glyph.size);
     }
 }
 
 /// Add spacing around punctuation marks for CJ glyphs at the line end.
 fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
-    let Some(shaped) = items.last_text_mut() else { return };
+    let Some(shaped) = items.trailing_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.last() else { return };
 
     // Deal with CJK punctuation at line ends.
@@ -361,7 +390,6 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let shrink = glyph.shrinkability().1;
         let punct = shaped.glyphs.to_mut().last_mut().unwrap();
         punct.shrink_right(shrink);
-        shaped.width -= shrink.at(punct.size);
     } else if p.config.cjk_latin_spacing
         && glyph.is_cj_script()
         && (glyph.x_advance - glyph.x_offset) > Em::one()
@@ -372,23 +400,13 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
         glyph.x_advance -= shrink;
         glyph.adjustability.shrinkability.1 = Em::zero();
-        shaped.width -= shrink.at(glyph.size);
     }
 }
 
-/// Whether a hyphen should be inserted at the start of the next line.
-fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
-    // If the predecessor line does not end with a `Dash::Hard`, we shall
-    // not place a hyphen at the start of the next line.
-    if pred_line.dash != Some(Dash::Hard) {
-        return false;
-    }
-
-    // The hyphen should repeat only in the languages that require that feature.
-    // For more information see the discussion at https://github.com/typst/typst/issues/3235
-    let Some(Item::Text(shaped)) = pred_line.items.last() else { return false };
-
-    match shaped.lang {
+/// Whether a hyphen should be repeated at the start of the line in the given
+/// language, when the following text is the given one.
+fn should_repeat_hyphen(lang: Lang, following_text: &str) -> bool {
+    match lang {
         // - Lower Sorbian: see https://dolnoserbski.de/ortografija/psawidla/K3
         // - Czech: see https://prirucka.ujc.cas.cz/?id=164
         // - Croatian: see http://pravopis.hr/pravilo/spojnica/68/
@@ -407,7 +425,7 @@ fn should_repeat_hyphen(pred_line: &Line, text: &str) -> bool {
         //
         // See § 4.1.1.1.2.e on the "Ortografía de la lengua española"
         // https://www.rae.es/ortografía/como-signo-de-división-de-palabras-a-final-de-línea
-        Lang::SPANISH => text.chars().next().is_some_and(|c| !c.is_uppercase()),
+        Lang::SPANISH => following_text.chars().next().is_some_and(|c| !c.is_uppercase()),
 
         _ => false,
     }
@@ -461,7 +479,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the left.
-    if let Some(Item::Text(text)) = line.items.first()
+    if let Some(text) = line.items.leading_text()
         && let Some(glyph) = text.glyphs.first()
         && !text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
@@ -473,7 +491,7 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the right.
-    if let Some(Item::Text(text)) = line.items.last()
+    if let Some(text) = line.items.trailing_text()
         && let Some(glyph) = text.glyphs.last()
         && text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
@@ -519,7 +537,7 @@ pub fn commit(
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for &(idx, ref item) in line.items.indexed_iter() {
-        let mut push = |offset: &mut Abs, frame: Frame, idx: usize| {
+        let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
@@ -637,7 +655,7 @@ fn overhang(c: char) -> f64 {
     match c {
         // Dashes.
         '–' | '—' => 0.2,
-        '-' => 0.55,
+        '-' | '\u{ad}' => 0.55,
 
         // Punctuation.
         '.' | ',' => 0.8,
@@ -651,7 +669,7 @@ fn overhang(c: char) -> f64 {
 }
 
 /// A collection of owned or borrowed inline items.
-pub struct Items<'a>(Vec<(usize, ItemEntry<'a>)>);
+pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
 
 impl<'a> Items<'a> {
     /// Create empty items.
@@ -660,38 +678,44 @@ impl<'a> Items<'a> {
     }
 
     /// Push a new item.
-    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: usize) {
+    pub fn push(&mut self, entry: impl Into<ItemEntry<'a>>, idx: LogicalIndex) {
         self.0.push((idx, entry.into()));
     }
 
     /// Iterate over the items.
-    pub fn iter(&self) -> impl Iterator<Item = &Item<'a>> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Item<'a>> {
         self.0.iter().map(|(_, item)| &**item)
     }
 
-    /// Iterate over the items with indices
-    pub fn indexed_iter(&self) -> impl Iterator<Item = &(usize, ItemEntry<'a>)> {
+    /// Iterate over the items with the indices that define their logical order.
+    /// See the docs above `logical_item_idx` for more details.
+    ///
+    /// Note that this is different from `.iter().enumerate()` which would
+    /// provide the indices in visual order!
+    pub fn indexed_iter(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &(LogicalIndex, ItemEntry<'a>)> {
         self.0.iter()
     }
 
-    /// Access the first item.
-    pub fn first(&self) -> Option<&Item<'a>> {
-        self.0.first().map(|(_, item)| &**item)
+    /// Access the first item (skipping tags), if it is text.
+    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
+        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
     }
 
-    /// Access the last item.
-    pub fn last(&self) -> Option<&Item<'a>> {
-        self.0.last().map(|(_, item)| &**item)
+    /// Access the first item (skipping tags) mutably, if it is text.
+    pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
+        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
     }
 
-    /// Access the first item mutably, if it is text.
-    pub fn first_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.first_mut()?.1.text_mut()
+    /// Access the last item (skipping tags), if it is text.
+    pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
+        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
     }
 
-    /// Access the last item mutably, if it is text.
-    pub fn last_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.last_mut()?.1.text_mut()
+    /// Access the last item (skipping tags) mutably, if it is text.
+    pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
+        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -700,14 +724,8 @@ impl<'a> Items<'a> {
     }
 }
 
-impl<'a> FromIterator<ItemEntry<'a>> for Items<'a> {
-    fn from_iter<I: IntoIterator<Item = ItemEntry<'a>>>(iter: I) -> Self {
-        Self(iter.into_iter().enumerate().collect())
-    }
-}
-
 impl<'a> Deref for Items<'a> {
-    type Target = Vec<(usize, ItemEntry<'a>)>;
+    type Target = Vec<(LogicalIndex, ItemEntry<'a>)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -723,6 +741,34 @@ impl DerefMut for Items<'_> {
 impl Debug for Items<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(&self.0).finish()
+    }
+}
+
+/// We use indices to remember the logical (as opposed to visual) order of
+/// items. During line building, the items are stored in visual (BiDi-reordered)
+/// order. When committing to a line and building its frame, we sort by logical
+/// index.
+///
+/// - Special layout-generated items have custom indices that ensure correct
+///   ordering w.r.t. to each other and normal elements, listed below.
+/// - Normal items have their position in `p.items` plus the number of special
+///   reserved prefix indices.
+///
+/// Logical indices must be unique within a line because we use an unstable
+/// sort.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct LogicalIndex(usize);
+
+impl LogicalIndex {
+    const START_HYPHEN: Self = Self(0);
+    const FALLBACK_TEXT: Self = Self(usize::MAX - 1);
+    const END_HYPHEN: Self = Self(usize::MAX);
+
+    /// Create a logical index from the index of an item in the [`p.items`](Preparation::items).
+    const fn from_item_index(i: usize) -> Self {
+        // This won't overflow because the `idx` comes from a vector which is
+        // limited to `isize::MAX` elements.
+        Self(i + 1)
     }
 }
 

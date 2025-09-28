@@ -215,7 +215,7 @@ box[]
 hello.world
 hello.world()
 hello.my.world()
-f_zeta(x), f_zeta(x)/1
+f_(zeta(x)), f_(zeta(x))/1
 emph(hello.my.world())
 emph(hello.my().world)
 emph(hello.my().world())
@@ -487,6 +487,18 @@ test
   assert.eq(block, c.input.block, message: "in point " + c.name + ", expect " + repr(block) + ", got " + repr(c.input.block) + "")
 }
 
+--- raw-html html ---
+This is ```typ *inline*```.
+```typ
+#[
+  #set text(blue)
+  *Hello* _world_!
+]
+```
+
+--- raw-html-inline-spaces html ---
+This has `double  spaces  inside`, which should be kept.
+
 --- raw-line ---
 #set page(width: 200pt)
 
@@ -711,6 +723,38 @@ a b c --------------------
 #set raw(theme: none)
 ```typ
 #let foo = "bar"
+```
+
+--- raw-default-json-theme ---
+```json
+{
+  "foo": "bar",
+  "test": [
+    "test",
+    true,
+    42,
+    5.0,
+    null
+  ],
+  "hi": {
+    "this": "is a test!",
+    "What is this?": "This is incredible text!"
+  }
+}
+```
+
+--- raw-default-yaml-theme ---
+```yaml
+foo: bar
+test:
+- test
+- true
+- 42
+- 5
+-
+hi:
+  this: is a test!
+  What is this?: This is incredible text!
 ```
 
 --- raw-unclosed ---

@@ -692,3 +692,6 @@ $ A = mat(
     (blue, 100%),
   )
 )
+
+--- issue-6680-gradient-linear-with-aspect-correction ---
+#set page(width: 200pt, height: auto, margin: 10pt, fill: gradient.linear(red, blue, angle: 45deg).sharp(2))

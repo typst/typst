@@ -197,12 +197,8 @@ impl Bytes {
         #[named]
         count: Option<i64>,
     ) -> StrResult<Bytes> {
-        let mut end = end;
-        if end.is_none() {
-            end = count.map(|c: i64| start + c);
-        }
-
         let start = self.locate(start)?;
+        let end = end.or(count.map(|c| start as i64 + c));
         let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
         let slice = &self.as_slice()[start..end];
 
@@ -280,7 +276,7 @@ impl Serialize for Bytes {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&eco_format!("{self:?}"))
+            serializer.serialize_str(&self.repr())
         } else {
             serializer.serialize_bytes(self)
         }

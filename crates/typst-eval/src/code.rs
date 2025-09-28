@@ -246,7 +246,7 @@ impl Eval for ast::Dict<'_> {
     type Output = Dict;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut map = indexmap::IndexMap::new();
+        let mut map = indexmap::IndexMap::default();
         let mut invalid_keys = eco_vec![];
 
         for item in self.items() {
@@ -383,7 +383,7 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
         hint: "try omitting the `return` to automatically join all values"
     );
 
-    if tree.query_first(selector).is_some() {
+    if tree.query_first_naive(selector).is_some() {
         warning.hint("state/counter updates are content that must end up in the document to have an effect");
     }
 

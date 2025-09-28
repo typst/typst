@@ -15,6 +15,7 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
 use crate::model::DocumentInfo;
+use crate::visualize::Color;
 
 /// Defines the `Routines` struct.
 macro_rules! routines {
@@ -95,6 +96,12 @@ routines! {
 
     /// Constructs the `html` module.
     fn html_module() -> Module
+
+    /// Wraps content in a span with a color.
+    ///
+    /// This is a temporary workaround until `TextElem::fill` is supported in
+    /// HTML export.
+    fn html_span_filled(content: Content, color: Color) -> Content
 }
 
 /// Defines what kind of realization we are performing.
@@ -133,6 +140,11 @@ impl RealizationKind<'_> {
     /// It this a realization for a container?
     pub fn is_fragment(&self) -> bool {
         matches!(self, Self::LayoutFragment { .. } | Self::HtmlFragment { .. })
+    }
+
+    /// It this a realization for the whole document?
+    pub fn is_document(&self) -> bool {
+        matches!(self, Self::LayoutDocument { .. } | Self::HtmlDocument { .. })
     }
 
     /// If this is a document-level realization, accesses the document info.

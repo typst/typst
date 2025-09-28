@@ -70,7 +70,7 @@ Text <hey>
 // Tests how IDs and, if necessary, spans, are added to the DOM to support
 // links.
 
-#for i in range(1, 9) {
+#for i in range(1, 10) {
   list.item(link(label("t" + str(i)), [Go]))
 }
 
@@ -97,6 +97,8 @@ See #[] <t7>
 
 // Nothing 2
 See #metadata(none) <t8>
+
+*Strong* <t9>
 
 --- link-html-label-disambiguation html ---
 // Tests automatic ID generation for labelled elements.

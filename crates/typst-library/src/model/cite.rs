@@ -100,7 +100,7 @@ pub struct CiteElem {
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
-            CslStyle::load(engine.world, Spanned::new(source, span))?
+            CslStyle::load(engine, Spanned::new(source, span))?
         )),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,

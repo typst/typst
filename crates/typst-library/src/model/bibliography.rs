@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::path::Path;
@@ -14,6 +13,7 @@ use hayagriva::{
     SpecificLocator, citationberg,
 };
 use indexmap::IndexMap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{ManuallyHash, PicoStr};
@@ -21,7 +21,7 @@ use typst_utils::{ManuallyHash, PicoStr};
 use crate::World;
 use crate::diag::{
     At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
-    StrResult, bail, error,
+    StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
@@ -133,12 +133,12 @@ pub struct BibliographyElem {
     ///   details about paths, see the [Paths section]($syntax/#paths).
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
-        Some(source) => Some(CslStyle::load(engine.world, source)?),
+        Some(source) => Some(CslStyle::load(engine, source)?),
         None => None,
     })]
     #[default({
         let default = ArchivedStyle::InstituteOfElectricalAndElectronicsEngineers;
-        Derived::new(CslSource::Named(default), CslStyle::from_archived(default))
+        Derived::new(CslSource::Named(default, None), CslStyle::from_archived(default))
     })]
     pub style: Derived<CslSource, CslStyle>,
 
@@ -217,7 +217,9 @@ impl LocalName for Packed<BibliographyElem> {
 
 /// A loaded bibliography.
 #[derive(Clone, PartialEq, Hash)]
-pub struct Bibliography(Arc<ManuallyHash<IndexMap<Label, hayagriva::Entry>>>);
+pub struct Bibliography(
+    Arc<ManuallyHash<IndexMap<Label, hayagriva::Entry, FxBuildHasher>>>,
+);
 
 impl Bibliography {
     /// Load a bibliography from data sources.
@@ -234,7 +236,7 @@ impl Bibliography {
     #[comemo::memoize]
     #[typst_macros::time(name = "load bibliography")]
     fn decode(data: &[Loaded]) -> SourceResult<Bibliography> {
-        let mut map = IndexMap::new();
+        let mut map = IndexMap::default();
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
@@ -320,7 +322,7 @@ fn decode_library(loaded: &Loaded) -> SourceResult<Library> {
             Err(err) => err,
         };
 
-        // If it can be decoded as BibLaTeX, we use that isntead.
+        // If it can be decoded as BibLaTeX, we use that instead.
         let bib_errs = match hayagriva::io::from_biblatex_str(data) {
             // If the file is almost valid yaml, but contains no `@` character
             // it will be successfully parsed as an empty BibLaTeX library,
@@ -379,13 +381,18 @@ pub struct CslStyle(Arc<ManuallyHash<citationberg::IndependentStyle>>);
 impl CslStyle {
     /// Load a CSL style from a data source.
     pub fn load(
-        world: Tracked<dyn World + '_>,
+        engine: &mut Engine,
         Spanned { v: source, span }: Spanned<CslSource>,
     ) -> SourceResult<Derived<CslSource, Self>> {
         let style = match &source {
-            CslSource::Named(style) => Self::from_archived(*style),
+            CslSource::Named(style, deprecation) => {
+                if let Some(message) = deprecation {
+                    engine.sink.warn(warning!(span, "{message}"));
+                }
+                Self::from_archived(*style)
+            }
             CslSource::Normal(source) => {
-                let loaded = Spanned::new(source, span).load(world)?;
+                let loaded = Spanned::new(source, span).load(engine.world)?;
                 Self::from_data(&loaded.data).within(&loaded)?
             }
         };
@@ -430,8 +437,8 @@ impl CslStyle {
 /// Source for a CSL style.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CslSource {
-    /// A predefined named style.
-    Named(ArchivedStyle),
+    /// A predefined named style and potentially a deprecation warning.
+    Named(ArchivedStyle, Option<&'static str>),
     /// A normal data source.
     Normal(DataSource),
 }
@@ -440,9 +447,35 @@ impl Reflect for CslSource {
     #[comemo::memoize]
     fn input() -> CastInfo {
         let source = std::iter::once(DataSource::input());
-        let names = ArchivedStyle::all().iter().map(|name| {
-            CastInfo::Value(name.names()[0].into_value(), name.display_name())
-        });
+
+        /// All possible names and their short documentation for `ArchivedStyle`, including aliases.
+        static ARCHIVED_STYLE_NAMES: LazyLock<Vec<(&&str, &'static str)>> =
+            LazyLock::new(|| {
+                ArchivedStyle::all()
+                    .iter()
+                    .flat_map(|name| {
+                        let (main_name, aliases) = name
+                            .names()
+                            .split_first()
+                            .expect("all ArchivedStyle should have at least one name");
+
+                        std::iter::once((main_name, name.display_name())).chain(
+                            aliases.iter().map(move |alias| {
+                                // Leaking is okay here, because we are in a `LazyLock`.
+                                let docs: &'static str = Box::leak(
+                                    format!("A short alias of `{main_name}`")
+                                        .into_boxed_str(),
+                                );
+                                (alias, docs)
+                            }),
+                        )
+                    })
+                    .collect()
+            });
+        let names = ARCHIVED_STYLE_NAMES
+            .iter()
+            .map(|(value, docs)| CastInfo::Value(value.into_value(), docs));
+
         CastInfo::Union(source.into_iter().chain(names).collect())
     }
 
@@ -460,9 +493,17 @@ impl FromValue for CslSource {
         if EcoString::castable(&value) {
             let string = EcoString::from_value(value.clone())?;
             if Path::new(string.as_str()).extension().is_none() {
+                let mut warning = None;
+                if string.as_str() == "chicago-fullnotes" {
+                    warning = Some(
+                        "style \"chicago-fullnotes\" has been deprecated \
+                         in favor of \"chicago-notes\"",
+                    );
+                }
+
                 let style = ArchivedStyle::by_name(&string)
                     .ok_or_else(|| eco_format!("unknown style: {}", string))?;
-                return Ok(CslSource::Named(style));
+                return Ok(CslSource::Named(style, warning));
             }
         }
 
@@ -474,7 +515,7 @@ impl IntoValue for CslSource {
     fn into_value(self) -> Value {
         match self {
             // We prefer the shorter names which are at the back of the array.
-            Self::Named(v) => v.names().last().unwrap().into_value(),
+            Self::Named(v, _) => v.names().last().unwrap().into_value(),
             Self::Normal(v) => v.into_value(),
         }
     }
@@ -486,7 +527,7 @@ impl IntoValue for CslSource {
 /// citations to do it.
 pub struct Works {
     /// Maps from the location of a citation group to its rendered content.
-    pub citations: HashMap<Location, SourceResult<Content>>,
+    pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
     pub references: Option<Vec<(Option<Content>, Content)>>,
@@ -528,7 +569,7 @@ struct Generator<'a> {
     /// bibliography driver and needed when processing hayagriva's output.
     infos: Vec<GroupInfo>,
     /// Citations with unresolved keys.
-    failures: HashMap<Location, SourceResult<Content>>,
+    failures: FxHashMap<Location, SourceResult<Content>>,
 }
 
 /// Details about a group of merged citations. All citations are put into groups
@@ -571,7 +612,7 @@ impl<'a> Generator<'a> {
             bibliography,
             groups,
             infos,
-            failures: HashMap::new(),
+            failures: FxHashMap::default(),
         })
     }
 
@@ -702,10 +743,10 @@ impl<'a> Generator<'a> {
     fn display_citations(
         &mut self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<HashMap<Location, SourceResult<Content>>> {
+    ) -> StrResult<FxHashMap<Location, SourceResult<Content>>> {
         // Determine for each citation key where in the bibliography it is,
         // so that we can link there.
-        let mut links = HashMap::new();
+        let mut links = FxHashMap::default();
         if let Some(bibliography) = &rendered.bibliography {
             let location = self.bibliography.location().unwrap();
             for (k, item) in bibliography.items.iter().enumerate() {
@@ -760,7 +801,7 @@ impl<'a> Generator<'a> {
 
         // Determine for each citation key where it first occurred, so that we
         // can link there.
-        let mut first_occurrences = HashMap::new();
+        let mut first_occurrences = FxHashMap::default();
         for info in &self.infos {
             for subinfo in &info.subinfos {
                 let key = subinfo.key.resolve();
@@ -1023,10 +1064,11 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
         citationberg::VerticalAlign::Baseline => {}
         citationberg::VerticalAlign::Sup => {
             // Add zero-width weak spacing to make the superscript "sticky".
-            content = HElem::hole().pack() + SuperElem::new(content).pack().spanned(span);
+            content =
+                HElem::hole().clone() + SuperElem::new(content).pack().spanned(span);
         }
         citationberg::VerticalAlign::Sub => {
-            content = HElem::hole().pack() + SubElem::new(content).pack().spanned(span);
+            content = HElem::hole().clone() + SubElem::new(content).pack().spanned(span);
         }
     }
 
@@ -1053,5 +1095,29 @@ mod tests {
         for &archived in ArchivedStyle::all() {
             let _ = CslStyle::from_archived(archived);
         }
+    }
+
+    #[test]
+    fn test_csl_source_cast_info_include_all_names() {
+        let CastInfo::Union(cast_info) = CslSource::input() else {
+            panic!("the cast info of CslSource should be a union");
+        };
+
+        let missing: Vec<_> = ArchivedStyle::all()
+            .iter()
+            .flat_map(|style| style.names())
+            .filter(|name| {
+                let found = cast_info.iter().any(|info| match info {
+                    CastInfo::Value(Value::Str(n), _) => n.as_str() == **name,
+                    _ => false,
+                });
+                !found
+            })
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "missing style names in CslSource cast info: '{missing:?}'"
+        );
     }
 }

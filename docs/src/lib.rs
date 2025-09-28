@@ -9,10 +9,9 @@ pub use self::contribs::*;
 pub use self::html::*;
 pub use self::model::*;
 
-use std::collections::HashSet;
-
 use ecow::{EcoString, eco_format};
 use heck::ToTitleCase;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use std::sync::LazyLock;
@@ -260,7 +259,7 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
         shorthands = Some(ShorthandsModel { markup, math });
     }
 
-    let mut skip = HashSet::new();
+    let mut skip = FxHashSet::default();
     if category == Category::Math {
         skip = GROUPS
             .iter()
@@ -720,9 +719,13 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
             }
         };
 
-        for (variant, c, deprecation_message) in symbol.variants() {
+        for (variant, value, deprecation_message) in symbol.variants() {
+            let value_char = value.parse::<char>().ok();
+
             let shorthand = |list: &[(&'static str, char)]| {
-                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                value_char.and_then(|c| {
+                    list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+                })
             };
 
             let name = complete(variant);
@@ -731,9 +734,14 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 name,
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::LIST),
                 math_shorthand: shorthand(typst::syntax::ast::MathShorthand::LIST),
-                math_class: typst_utils::default_math_class(c).map(math_class_name),
-                codepoint: c as _,
-                accent: typst::math::Accent::combine(c).is_some(),
+                // Matches `typst_layout::math::GlyphFragment::new`
+                math_class: value.chars().next().and_then(|c| {
+                    typst_utils::default_math_class(c).map(math_class_name)
+                }),
+                value: value.into(),
+                // Matches casting `Symbol` to `Accent`
+                accent: value_char
+                    .is_some_and(|c| typst::math::Accent::combine(c).is_some()),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _, _)| other != &variant)

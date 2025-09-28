@@ -74,6 +74,7 @@ use typst_syntax::SyntaxMode;
 pub use {
     ecow::{eco_format, eco_vec},
     indexmap::IndexMap,
+    smallvec::SmallVec,
 };
 
 use comemo::TrackedMut;
@@ -154,8 +155,8 @@ pub fn panic(
 /// Fails with an error if the condition is not fulfilled. Does not
 /// produce any output in the document.
 ///
-/// If you wish to test equality between two values, see
-/// [`assert.eq`]($assert.eq) and [`assert.ne`]($assert.ne).
+/// If you wish to test equality between two values, see [`assert.eq`] and
+/// [`assert.ne`].
 ///
 /// # Example
 /// ```typ

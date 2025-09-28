@@ -33,12 +33,13 @@ pub fn layout_lr(
     let (start_idx, end_idx) = fragments.split_prefix_suffix(|f| f.is_ignorant());
     let inner_fragments = &mut fragments[start_idx..end_idx];
 
-    let axis = scaled!(ctx, styles, axis_height);
-    let max_extent = inner_fragments
-        .iter()
-        .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
-        .max()
-        .unwrap_or_default();
+    let mut max_extent = Abs::zero();
+    for fragment in inner_fragments.iter() {
+        let (font, size) = fragment.font(ctx, styles);
+        let axis = font.math().axis_height.at(size);
+        let extent = (fragment.ascent() - axis).max(fragment.descent() + axis);
+        max_extent = max_extent.max(extent);
+    }
 
     let relative_to = 2.0 * max_extent;
     let height = elem.size.resolve(styles);

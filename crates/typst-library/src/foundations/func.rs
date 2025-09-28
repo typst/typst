@@ -59,9 +59,9 @@ use crate::foundations::{
 ///
 /// # Function scopes
 /// Functions can hold related definitions in their own scope, similar to a
-/// [module]($scripting/#modules). Examples of this are
-/// [`assert.eq`]($assert.eq) or [`list.item`]($list.item). However, this
-/// feature is currently only available for built-in functions.
+/// [module]($scripting/#modules). Examples of this are [`assert.eq`] or
+/// [`list.item`]. However, this feature is currently only available for
+/// built-in functions.
 ///
 /// # Defining functions
 /// You can define your own function with a [let binding]($scripting/#bindings)
@@ -424,9 +424,13 @@ impl Debug for Func {
 
 impl repr::Repr for Func {
     fn repr(&self) -> EcoString {
-        match self.name() {
-            Some(name) => name.into(),
-            None => "(..) => ..".into(),
+        const DEFAULT: &str = "(..) => ..";
+        match &self.repr {
+            Repr::Native(native) => native.name.into(),
+            Repr::Element(elem) => elem.name().into(),
+            Repr::Closure(closure) => closure.name().unwrap_or(DEFAULT).into(),
+            Repr::Plugin(func) => func.name().clone(),
+            Repr::With(_) => DEFAULT.into(),
         }
     }
 }
@@ -441,6 +445,15 @@ impl PartialEq<&'static NativeFuncData> for Func {
     fn eq(&self, other: &&'static NativeFuncData) -> bool {
         match &self.repr {
             Repr::Native(native) => *native == Static(*other),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<Element> for Func {
+    fn eq(&self, other: &Element) -> bool {
+        match &self.repr {
+            Repr::Element(elem) => elem == other,
             _ => false,
         }
     }

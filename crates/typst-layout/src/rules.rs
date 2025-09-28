@@ -10,20 +10,20 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em, GridCell,
-    GridChild, GridElem, GridItem, HAlignment, HElem, HideElem, InlineElem, LayoutElem,
-    Length, MoveElem, OuterVAlignment, PadElem, PlaceElem, PlacementScope, Region, Rel,
-    RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing, SkewElem, Spacing,
-    StackChild, StackElem, TrackSizings, VElem,
+    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
+    FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
+    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PlaceElem,
+    PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing,
+    SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
     EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, Works,
+    LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem,
+    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
-use typst_library::pdf::EmbedElem;
+use typst_library::pdf::AttachElem;
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
@@ -47,6 +47,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
     rules.register(Paged, LINK_RULE);
+    rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
@@ -102,7 +103,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, EQUATION_RULE);
 
     // PDF.
-    rules.register(Paged, EMBED_RULE);
+    rules.register(Paged, ATTACH_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -216,6 +217,12 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     Ok(body.linked(dest))
 };
 
+const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
+    Ok(BlockElem::new()
+        .with_body(Some(BlockBody::Content(elem.resolve_body(styles).at(elem.span())?)))
+        .pack())
+};
+
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     const SPACING_TO_NUMBERING: Em = Em::new(0.3);
 
@@ -233,8 +240,9 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         let numbering = Counter::of(HeadingElem::ELEM)
             .display_at_loc(engine, location, styles, numbering)?
             .spanned(span);
+        let align = styles.resolve(AlignElem::alignment);
 
-        if hanging_indent.is_auto() {
+        if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
             // We don't have a locator for the numbering here, so we just
@@ -333,8 +341,8 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
     if elem.quotes.get(styles).unwrap_or(!block) {
         // Add zero-width weak spacing to make the quotes "sticky".
-        let hole = HElem::hole().pack();
-        let sticky = Content::sequence([hole.clone(), realized, hole]);
+        let hole = HElem::hole();
+        let sticky = Content::sequence([hole.clone(), realized, hole.clone()]);
         realized = QuoteElem::quoted(sticky, styles);
     }
 
@@ -368,77 +376,30 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
-    let loc = elem.declaration_location(engine).at(span)?;
-    let numbering = elem.numbering.get_ref(styles);
-    let counter = Counter::of(FootnoteElem::ELEM);
-    let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+    let (dest, num) = elem.realize(engine, styles)?;
     let sup = SuperElem::new(num).pack().spanned(span);
-    let loc = loc.variant(1);
-    // Add zero-width weak spacing to make the footnote "sticky".
-    Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
+    Ok(HElem::hole().clone() + sup.linked(dest))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
     let span = elem.span();
     let number_gap = Em::new(0.05);
-    let default = StyleChain::default();
-    let numbering = elem.note.numbering.get_ref(default);
-    let counter = Counter::of(FootnoteElem::ELEM);
-    let Some(loc) = elem.note.location() else {
-        bail!(
-            span, "footnote entry must have a location";
-            hint: "try using a query or a show rule to customize the footnote instead"
-        );
-    };
-
-    let num = counter.display_at_loc(engine, loc, styles, numbering)?;
-    let sup = SuperElem::new(num)
-        .pack()
-        .spanned(span)
-        .linked(Destination::Location(loc))
-        .located(loc.variant(1));
-
+    let (dest, num, body) = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(num).pack().spanned(span).linked(dest);
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
         sup,
         HElem::new(number_gap.into()).with_weak(true).pack(),
-        elem.note.body_content().unwrap().clone(),
+        body,
     ]))
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
-    let span = elem.span();
-
-    // Build the outline title.
-    let mut seq = vec![];
-    if let Some(title) = elem.title.get_cloned(styles).unwrap_or_else(|| {
-        Some(TextElem::packed(Packed::<OutlineElem>::local_name_in(styles)).spanned(span))
-    }) {
-        seq.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        );
-    }
-
-    let elems = engine.introspector.query(&elem.target.get_ref(styles).0);
-    let depth = elem.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
-
-    // Build the outline entries.
-    for elem in elems {
-        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-            bail!(span, "cannot outline {}", elem.func().name());
-        };
-
-        let level = outlinable.level();
-        if outlinable.outlined() && level <= depth {
-            let entry = OutlineEntry::new(level, elem);
-            seq.push(entry.pack().spanned(span));
-        }
-    }
-
-    Ok(Content::sequence(seq))
+    let title = elem.realize_title(styles);
+    let entries = elem.realize_flat(engine, styles)?;
+    Ok(Content::sequence(
+        title.into_iter().chain(entries.into_iter().map(|entry| entry.pack())),
+    ))
 };
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
@@ -449,6 +410,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let prefix = elem.prefix(engine, context, span)?;
     let inner = elem.inner(engine, context, span)?;
     let block = if elem.element.is::<EquationElem>() {
+        // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::new()
             .with_body(Some(BlockBody::Content(body)))
@@ -492,7 +454,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         .references
         .as_ref()
         .ok_or_else(|| match elem.style.get_ref(styles).source {
-            CslSource::Named(style) => eco_format!(
+            CslSource::Named(style, _) => eco_format!(
                 "CSL style \"{}\" is not suitable for bibliographies",
                 style.display_name()
             ),
@@ -839,4 +801,4 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
     }
 };
 
-const EMBED_RULE: ShowFn<EmbedElem> = |_, _, _| Ok(Content::empty());
+const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());

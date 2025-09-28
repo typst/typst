@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
 use crate::diag::SourceResult;
@@ -92,7 +93,7 @@ pub struct HeadingElem {
     pub offset: usize,
 
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking multiple numbers.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
@@ -102,6 +103,18 @@ pub struct HeadingElem {
     /// === A sub-subsection
     /// ```
     pub numbering: Option<Numbering>,
+
+    /// The resolved plain-text numbers.
+    ///
+    /// This field is internal and only used for creating PDF bookmarks. We
+    /// don't currently have access to `World`, `Engine`, or `styles` in export,
+    /// which is needed to resolve the counter and numbering pattern into a
+    /// concrete string.
+    ///
+    /// This remains unset if `numbering` is `None`.
+    #[internal]
+    #[synthesized]
+    pub numbers: EcoString,
 
     /// A supplement for the heading.
     ///
@@ -164,12 +177,16 @@ pub struct HeadingElem {
 
     /// The indent all but the first line of a heading should have.
     ///
-    /// The default value of `{auto}` indicates that the subsequent heading
-    /// lines will be indented based on the width of the numbering.
+    /// The default value of `{auto}` uses the width of the numbering as indent
+    /// if the heading is aligned at the [start]($direction.start) of the [text
+    /// direction]($text.dir), and no indent for center and other alignments.
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #heading[A very, very, very, very, very, very long heading]
+    /// = A very, very, very, very, very, very long heading
+    ///
+    /// #show heading: set align(center)
+    /// == A very long heading\ with center alignment
     /// ```
     #[default(Smart::Auto)]
     pub hanging_indent: Smart<Length>,
@@ -201,6 +218,16 @@ impl Synthesize for Packed<HeadingElem> {
                 supplement.resolve(engine, styles, [self.clone().pack()])?
             }
         };
+
+        if let Some((numbering, location)) =
+            self.numbering.get_ref(styles).as_ref().zip(self.location())
+        {
+            self.numbers = Some(
+                self.counter()
+                    .display_at_loc(engine, location, styles, numbering)?
+                    .plain_text(),
+            );
+        }
 
         let elem = self.as_mut();
         elem.level.set(Smart::Custom(elem.resolve_level(styles)));

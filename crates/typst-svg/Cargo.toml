@@ -24,6 +24,7 @@ ecow = { workspace = true }
 flate2 = { workspace = true }
 hayro = { workspace = true }
 image = { workspace = true }
+rustc-hash = { workspace = true }
 ttf-parser = { workspace = true }
 xmlparser = { workspace = true }
 xmlwriter = { workspace = true }

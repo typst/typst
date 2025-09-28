@@ -21,7 +21,9 @@ use crate::loading::{DataSource, Load};
 /// compiled to a 32-bit shared WebAssembly library. Plugin functions may accept
 /// multiple [byte buffers]($bytes) as arguments and return a single byte
 /// buffer. They should typically be wrapped in idiomatic Typst functions that
-/// perform the necessary conversions between native Typst types and bytes.
+/// perform the necessary conversions between native Typst types and bytes by
+/// leveraging [`str`]($str/#constructor), [`bytes`]($bytes/#constructor), and
+/// [data loading functions]($reference/data-loading).
 ///
 /// For security reasons, plugins run in isolation from your system. This means
 /// that printing, reading files, or similar things are not supported.
@@ -212,7 +214,7 @@ pub struct PluginFunc {
 
 impl PluginFunc {
     /// The name of the plugin function.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &EcoString {
         &self.name
     }
 
@@ -557,7 +559,7 @@ struct CallData {
     args: Vec<Bytes>,
     /// The results of the current call.
     output: Vec<u8>,
-    /// A memory error that occured during execution of the current call.
+    /// A memory error that occurred during execution of the current call.
     memory_error: Option<MemoryError>,
 }
 

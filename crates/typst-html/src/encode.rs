@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use ecow::{EcoString, eco_format};
 use typst_library::diag::{At, SourceResult, StrResult, bail};
 use typst_library::foundations::Repr;
 use typst_library::introspection::Introspector;
@@ -51,10 +52,10 @@ fn write_indent(w: &mut Writer) {
 }
 
 /// Encodes an HTML node into the writer.
-fn write_node(w: &mut Writer, node: &HtmlNode) -> SourceResult<()> {
+fn write_node(w: &mut Writer, node: &HtmlNode, escape_text: bool) -> SourceResult<()> {
     match node {
         HtmlNode::Tag(_) => {}
-        HtmlNode::Text(text, span) => write_text(w, text, *span)?,
+        HtmlNode::Text(text, span) => write_text(w, text, *span, escape_text)?,
         HtmlNode::Element(element) => write_element(w, element)?,
         HtmlNode::Frame(frame) => write_frame(w, frame),
     }
@@ -62,12 +63,12 @@ fn write_node(w: &mut Writer, node: &HtmlNode) -> SourceResult<()> {
 }
 
 /// Encodes plain text into the writer.
-fn write_text(w: &mut Writer, text: &str, span: Span) -> SourceResult<()> {
+fn write_text(w: &mut Writer, text: &str, span: Span, escape: bool) -> SourceResult<()> {
     for c in text.chars() {
-        if charsets::is_valid_in_normal_element_text(c) {
-            w.buf.push(c);
-        } else {
+        if escape || !charsets::is_valid_in_normal_element_text(c) {
             write_escape(w, c).at(span)?;
+        } else {
+            w.buf.push(c);
         }
     }
     Ok(())
@@ -107,8 +108,15 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         return Ok(());
     }
 
+    // See HTML spec § 13.1.2.5.
+    if matches!(element.tag, tag::pre | tag::textarea) && starts_with_newline(element) {
+        w.buf.push('\n');
+    }
+
     if tag::is_raw(element.tag) {
         write_raw(w, element)?;
+    } else if tag::is_escapable_raw(element.tag) {
+        write_escapable_raw(w, element)?;
     } else if !element.children.is_empty() {
         write_children(w, element)?;
     }
@@ -122,11 +130,6 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
 
 /// Encodes the children of an element.
 fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
-    // See HTML spec § 13.1.2.5.
-    if matches!(element.tag, tag::pre | tag::textarea) && starts_with_newline(element) {
-        w.buf.push('\n');
-    }
-
     let pretty = w.pretty;
     let pretty_inside = allows_pretty_inside(element.tag)
         && element.children.iter().any(|node| match node {
@@ -149,7 +152,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         if core::mem::take(&mut indent) || pretty_around {
             write_indent(w);
         }
-        write_node(w, c)?;
+        write_node(w, c, element.pre_span)?;
         indent = pretty_around;
     }
     w.level -= 1;
@@ -208,23 +211,40 @@ fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     Ok(())
 }
 
+/// Encodes the contents of an escapable raw text element.
+fn write_escapable_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
+    walk_raw_text(element, |piece, span| write_text(w, piece, span, false))
+}
+
 /// Collects the textual contents of a raw text element.
 fn collect_raw_text(element: &HtmlElement) -> SourceResult<String> {
-    let mut output = String::new();
+    let mut text = String::new();
+    walk_raw_text(element, |piece, span| {
+        if let Some(c) = piece.chars().find(|&c| !charsets::is_w3c_text_char(c)) {
+            return Err(unencodable(c)).at(span);
+        }
+        text.push_str(piece);
+        Ok(())
+    })?;
+    Ok(text)
+}
+
+/// Iterates over the textual contents of a raw text element.
+fn walk_raw_text(
+    element: &HtmlElement,
+    mut f: impl FnMut(&str, Span) -> SourceResult<()>,
+) -> SourceResult<()> {
     for c in &element.children {
         match c {
             HtmlNode::Tag(_) => continue,
-            HtmlNode::Text(text, _) => output.push_str(text),
-            HtmlNode::Element(_) | HtmlNode::Frame(_) => {
-                let span = match c {
-                    HtmlNode::Element(child) => child.span,
-                    _ => element.span,
-                };
-                bail!(span, "HTML raw text element cannot have non-text children")
+            HtmlNode::Text(text, span) => f(text, *span)?,
+            HtmlNode::Element(HtmlElement { span, .. })
+            | HtmlNode::Frame(HtmlFrame { span, .. }) => {
+                bail!(*span, "HTML raw text element cannot have non-text children")
             }
-        };
+        }
     }
-    Ok(output)
+    Ok(())
 }
 
 /// Finds a closing sequence for the given tag in the text, if it exists.
@@ -305,9 +325,15 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         c if charsets::is_w3c_text_char(c) && c != '\r' => {
             write!(w.buf, "&#x{:x};", c as u32).unwrap()
         }
-        _ => bail!("the character `{}` cannot be encoded in HTML", c.repr()),
+        _ => return Err(unencodable(c)),
     }
     Ok(())
+}
+
+/// The error message for a character that cannot be encoded.
+#[cold]
+fn unencodable(c: char) -> EcoString {
+    eco_format!("the character `{}` cannot be encoded in HTML", c.repr())
 }
 
 /// Encode a laid out frame into the writer.

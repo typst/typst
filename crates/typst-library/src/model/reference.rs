@@ -83,7 +83,7 @@ use crate::text::TextElem;
 /// When you only ever need to reference pages of a figure/table/heading/etc. in
 /// a document, the default `form` field value can be changed to `{"page"}` with
 /// a set rule. If you prefer a short "p." supplement over "page", the
-/// [`page.supplement`]($page.supplement) field can be used for changing this:
+/// [`page.supplement`] field can be used for changing this:
 ///
 /// ```example
 /// #set page(
