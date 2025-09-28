@@ -5,7 +5,7 @@ And again: @netwok
 #pagebreak()
 #bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
---- cite-form ---
+--- cite-form large ---
 #set page(width: 200pt)
 
 Nothing: #cite(<arrgh>, form: none)
@@ -201,7 +201,7 @@ Par 6 @arrgh[*p. 9-10*]
         <text variable="locator"/>
       </group>
     </macro>
-    
+
     <citation>
       <sort>
         <key variable="title"/>
