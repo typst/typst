@@ -7,7 +7,7 @@ use crate::foundations::{
     Value, cast, dict, elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable};
-use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
+use crate::layout::{Em, HAlignment, Length, OuterHAlignment, Rel};
 use crate::model::Numbering;
 
 /// A logical subdivison of textual content.
