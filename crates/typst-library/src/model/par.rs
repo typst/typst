@@ -345,10 +345,12 @@ cast! {
         let mut word: Dict = dict.take("word")?.cast()?;
         let word_min = word.take("min")?.cast()?;
         let word_max = word.take("max")?.cast()?;
+word.finish(&["min", "max"])?;
 
         let mut glyph: Dict = dict.take("glyph")?.cast()?;
         let glyph_min = glyph.take("min")?.cast()?;
         let glyph_max = glyph.take("max")?.cast()?;
+glyph.finish(&["min", "max"])?;
 
         dict.finish(&["word", "glyph"])?;
         Self {
