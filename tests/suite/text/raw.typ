@@ -91,6 +91,22 @@ Year	Month	Day
     (* x (factorial (- x 1)))))
 ```
 
+--- raw-syntaxes-invalid-sublime-syntax ---
+// Prevent test parser from failing on "^---" line.
+#let sublime-syntax = ```yaml
+%YAML 1.2
+```.text + "\n---\n" + ```yaml
+name: lang
+file_extensions:
+  - a
+scope: source
+contexts:
+  main:
+    - match: '\'
+```.text
+
+// Error: 35-56 failed to parse syntax (Error while compiling regex '/': Parsing error at position 0: Backslash without following character)
+#raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
 
 --- raw-theme ---
 // Test code highlighting with custom theme.
