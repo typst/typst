@@ -39,4 +39,13 @@ LABEL org.opencontainers.image.url="https://typst.app"
 LABEL org.opencontainers.image.vendor="Typst"
 
 COPY --from=build  /app/target/release/typst /bin
+
+# Create a non-root user to run the application
+RUN groupadd --gid 1000 typst && useradd --uid 1000 --gid 1000 --shell /bin/sh typst
+
+# Set proper ownership of the working directory
+RUN chown -R typst:typst /work
+
+# Switch to non-root user
+USER typst
 ENTRYPOINT [ "/bin/typst" ]
