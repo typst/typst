@@ -386,18 +386,21 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let id = tree.ctx.lists.push(ListCtx::new());
         push_stack(tree, elem, GroupKind::List(id, numbering, None))
     } else if let Some(figure) = elem.to_packed::<FigureElem>() {
+        let lang = figure.locale;
         let bbox = tree.ctx.new_bbox();
-        let figure = tree.ctx.figures.push(FigureCtx::new(figure.clone()));
-        push_stack(tree, elem, GroupKind::Figure(figure, bbox, None))
+        let id = tree.ctx.figures.push(FigureCtx::new(figure.clone()));
+        push_stack(tree, elem, GroupKind::Figure(id, bbox, lang))
     } else if let Some(_) = elem.to_packed::<FigureCaption>() {
         let bbox = tree.ctx.new_bbox();
         push_stack(tree, elem, GroupKind::FigureCaption(bbox, None))
     } else if let Some(image) = elem.to_packed::<ImageElem>() {
+        let lang = image.locale;
         let bbox = tree.ctx.new_bbox();
-        push_stack(tree, elem, GroupKind::Image(image.clone(), bbox, None))
+        push_stack(tree, elem, GroupKind::Image(image.clone(), bbox, lang))
     } else if let Some(equation) = elem.to_packed::<EquationElem>() {
+        let lang = equation.locale;
         let bbox = tree.ctx.new_bbox();
-        push_stack(tree, elem, GroupKind::Formula(equation.clone(), bbox, None))
+        push_stack(tree, elem, GroupKind::Formula(equation.clone(), bbox, lang))
     } else if let Some(table) = elem.to_packed::<TableElem>() {
         let id = tree.ctx.tables.push_with(|id| TableCtx::new(id, table.clone()));
         let bbox = tree.ctx.new_bbox();

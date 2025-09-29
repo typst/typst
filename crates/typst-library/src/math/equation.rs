@@ -16,7 +16,7 @@ use crate::layout::{
 };
 use crate::math::MathSize;
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
-use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
+use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem};
 
 /// A mathematical equation.
 ///
@@ -147,6 +147,11 @@ pub struct EquationElem {
     #[default((70, 50))]
     #[ghost]
     pub script_scale: (i16, i16),
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 impl Synthesize for Packed<EquationElem> {
@@ -165,6 +170,9 @@ impl Synthesize for Packed<EquationElem> {
 
         self.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
+
+        self.locale = Some(Locale::get_in(styles));
+
         Ok(())
     }
 }

@@ -42,7 +42,6 @@
   $sum_(i=1)^n(i)$
 ]
 
-
 --- figure-tags-with-alt-flatten-content-complex pdftags ---
 #figure(alt: "alt text")[
   #table(
@@ -55,3 +54,10 @@
     [Some more text],
   )
 ]
+
+--- figure-tags-alt-with-different-lang pdftags ---
+#set text(lang: "de")
+Ein Paragraph.
+
+#set text(lang: "en", region: "uk")
+#figure(image(alt: "A tiger", "/assets/images/tiger.jpg"))

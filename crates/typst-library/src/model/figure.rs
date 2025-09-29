@@ -19,7 +19,7 @@ use crate::layout::{
     VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, TextElem};
+use crate::text::{Lang, Locale, TextElem};
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -272,6 +272,11 @@ pub struct FigureElem {
     /// number or reset the counter.
     #[synthesized]
     pub counter: Option<Counter>,
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 #[scope]
@@ -367,6 +372,7 @@ impl Synthesize for Packed<FigureElem> {
             .set(Smart::Custom(supplement.map(Supplement::Content)));
         elem.counter = Some(Some(counter));
         elem.caption.set(caption);
+        elem.locale = Some(Locale::get_in(styles));
 
         Ok(())
     }

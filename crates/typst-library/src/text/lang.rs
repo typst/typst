@@ -79,6 +79,10 @@ impl Locale {
         Locale { lang, region }
     }
 
+    pub fn get_in(styles: StyleChain) -> Self {
+        Locale::new(styles.get(TextElem::lang), styles.get(TextElem::region))
+    }
+
     pub fn rfc_3066(self) -> EcoString {
         let mut buf = EcoString::from(self.lang.as_str());
         if let Some(region) = self.region {
