@@ -494,6 +494,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
+        .with_optional_attr(attr::class, works.hanging_indent.then_some("hanging-indent"))
         .with_body(Some(title.unwrap_or_default() + list))
         .pack())
 };
