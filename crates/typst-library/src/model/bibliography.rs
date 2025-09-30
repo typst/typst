@@ -862,13 +862,7 @@ impl<'a> Generator<'a> {
             let mut prefix = item
                 .first_field
                 .as_ref()
-                .map(|elem| {
-                    let mut content = renderer.display_elem_child(elem, None, false)?;
-                    if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                        content = DirectLinkElem::new(*location, content).pack();
-                    }
-                    StrResult::Ok(content)
-                })
+                .map(|elem| renderer.display_elem_child(elem, None, false))
                 .transpose()?;
 
             // Render the main reference content.
@@ -878,6 +872,13 @@ impl<'a> Generator<'a> {
                 false,
             )?;
 
+            let prefix = prefix.map(|content| {
+                if let Some(location) = first_occurrences.get(item.key.as_str()) {
+                    DirectLinkElem::new(*location, content).pack()
+                } else {
+                    content
+                }
+            });
 
             output.push((prefix, reference, backlink));
         }
