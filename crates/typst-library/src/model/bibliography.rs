@@ -191,10 +191,8 @@ impl BibliographyElem {
 impl Packed<BibliographyElem> {
     /// Produces the heading for the bibliography, if any.
     pub fn realize_title(&self, styles: StyleChain) -> Option<Content> {
-        let span = self.span();
         self.title
-            .get_ref(styles)
-            .clone()
+            .get_cloned(styles)
             .unwrap_or_else(|| {
                 Some(TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles)))
             })
@@ -202,7 +200,7 @@ impl Packed<BibliographyElem> {
                 HeadingElem::new(title)
                     .with_depth(NonZeroUsize::ONE)
                     .pack()
-                    .spanned(span)
+                    .spanned(self.span())
             })
     }
 

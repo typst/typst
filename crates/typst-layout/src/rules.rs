@@ -439,9 +439,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
 
     let mut seq = vec![];
-    if let Some(title) = elem.realize_title(styles) {
-        seq.push(title);
-    }
+    seq.extend(elem.realize_title(styles));
 
     let works = elem.realize_works(engine, styles)?;
     let references = works.references.as_ref().unwrap();
