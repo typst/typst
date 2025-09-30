@@ -468,7 +468,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let works = elem.realize_works(engine, styles)?;
     let references = works.references.as_ref().unwrap();
 
-    let list_items = references.iter().map(|(prefix, reference)| {
+    let list_items = references.iter().map(|(prefix, reference, loc)| {
         let mut item_content = vec![];
 
         if let Some(prefix) = prefix {
@@ -487,6 +487,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         HtmlElem::new(tag::li)
             .with_body(Some(Content::sequence(item_content)))
             .pack()
+            .located(*loc)
             .spanned(span)
     });
 

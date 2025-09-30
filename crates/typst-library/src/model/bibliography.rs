@@ -831,7 +831,7 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(Option<Content>, Content)>>> {
+    ) -> StrResult<Option<Vec<(Option<Content>, Content, Location)>>> {
         let Some(rendered) = &rendered.bibliography else { return Ok(None) };
 
         // Determine for each citation key where it first occurred, so that we
@@ -876,17 +876,14 @@ impl<'a> Generator<'a> {
                 .transpose()?;
 
             // Render the main reference content.
-            let mut reference = renderer.display_elem_children(
+            let reference = renderer.display_elem_children(
                 &item.content,
                 Some(&mut prefix),
                 false,
             )?;
 
-            // Attach a backlink to either the prefix or the reference so that
-            // we can link to the bibliography entry.
-            prefix.as_mut().unwrap_or(&mut reference).set_location(backlink);
 
-            output.push((prefix, reference));
+            output.push((prefix, reference, backlink));
         }
 
         Ok(Some(output))

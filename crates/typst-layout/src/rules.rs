@@ -446,14 +446,16 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let works = elem.realize_works(engine, styles)?;
     let references = works.references.as_ref().unwrap();
 
-    if references.iter().any(|(prefix, _)| prefix.is_some()) {
+    if references.iter().any(|(prefix, ..)| prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);
 
         let mut cells = vec![];
-        for (prefix, reference) in references {
+        for (prefix, reference, loc) in references {
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                    .spanned(span),
+                Packed::new(GridCell::new(
+                    prefix.clone().unwrap_or_default().located(*loc),
+                ))
+                .spanned(span),
             )));
             cells.push(GridChild::Item(GridItem::Cell(
                 Packed::new(GridCell::new(reference.clone())).spanned(span),
@@ -468,8 +470,8 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 .spanned(span),
         );
     } else {
-        for (_, reference) in references {
-            let realized = reference.clone();
+        for (_, reference, loc) in references {
+            let realized = reference.clone().located(*loc);
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
