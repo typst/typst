@@ -468,8 +468,11 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         let mut realized = reference.clone();
 
         if let Some(prefix) = prefix.clone() {
-            let wrapped =
-                HtmlElem::new(tag::span).with_body(Some(prefix)).pack().spanned(span);
+            let wrapped = HtmlElem::new(tag::span)
+                .with_attr(attr::class, "prefix")
+                .with_body(Some(prefix))
+                .pack()
+                .spanned(span);
 
             let separator = SpaceElem::shared().clone();
             realized = Content::sequence([wrapped, separator, realized]);
