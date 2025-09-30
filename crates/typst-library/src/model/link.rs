@@ -3,9 +3,11 @@ use std::ops::Deref;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 
-use crate::diag::{StrResult, bail};
+use crate::diag::{SourceResult, StrResult, bail};
+use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles, cast, elem,
+    Args, Construct, Content, Label, Packed, Repr, ShowSet, Smart, StyleChain, Styles,
+    cast, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::Position;
@@ -264,4 +266,31 @@ cast! {
     Url,
     self => self.0.into_value(),
     v: EcoString => Self::new(v)?,
+}
+
+/// This is a temporary hack to dispatch to
+/// - a raw link that does not go through `LinkElem` in paged
+/// - `LinkElem` in HTML (there is no equivalent to a direct link)
+///
+/// We'll want to dispatch all kinds of links to `LinkElem` in the future, but
+/// this is a visually breaking change in paged export as e.g.
+/// `show link: underline` will suddenly also affect references, bibliography
+/// back references, footnote references, etc. We'll want to do this change
+/// carefully and in a way where we provide a good way to keep styling only URL
+/// links, which is a bit too complicated to achieve right now for such a basic
+/// requirement.
+#[elem(Construct)]
+pub struct DirectLinkElem {
+    #[required]
+    #[internal]
+    pub loc: Location,
+    #[required]
+    #[internal]
+    pub body: Content,
+}
+
+impl Construct for DirectLinkElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
 }

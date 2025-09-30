@@ -18,10 +18,11 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination,
+    DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem,
+    FootnoteEntry, HeadingElem, LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem,
+    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    TitleElem, Works,
 };
 use typst_library::pdf::AttachElem;
 use typst_library::text::{
@@ -47,6 +48,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
     rules.register(Paged, LINK_RULE);
+    rules.register(Paged, DIRECT_LINK_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -216,6 +218,9 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
     Ok(body.linked(dest))
 };
+
+const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> =
+    |elem, _, _| Ok(elem.body.clone().linked(Destination::Location(elem.loc)));
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(BlockElem::new()

@@ -36,7 +36,8 @@ use crate::layout::{
 };
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, Url,
+    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
+    LinkElem, Url,
 };
 use crate::routines::Routines;
 use crate::text::{
@@ -835,8 +836,7 @@ impl<'a> Generator<'a> {
                     let mut content =
                         renderer.display_elem_child(elem, &mut None, false)?;
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                        let dest = Destination::Location(*location);
-                        content = content.linked(dest);
+                        content = DirectLinkElem::new(*location, content).pack();
                     }
                     StrResult::Ok(content)
                 })
@@ -971,8 +971,7 @@ impl ElemRenderer<'_> {
         if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
             && let Some(location) = (self.link)(i)
         {
-            let dest = Destination::Location(location);
-            content = content.linked(dest);
+            content = DirectLinkElem::new(location, content).pack();
         }
 
         Ok(content)

@@ -12,10 +12,10 @@ use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
-    Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
-    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, CiteElem, CiteGroup, Destination, DirectLinkElem, EmphElem, EnumElem,
+    FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem,
+    LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
+    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -39,6 +39,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, ENUM_RULE);
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
+    rules.register(Html, DIRECT_LINK_RULE);
     rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
@@ -179,6 +180,14 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .with_optional_attr(attr::href, href)
         .with_body(Some(elem.body.clone()))
         .pack())
+};
+
+const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
+    Ok(LinkElem::new(
+        LinkTarget::Dest(Destination::Location(elem.loc)),
+        elem.body.clone(),
+    )
+    .pack())
 };
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
