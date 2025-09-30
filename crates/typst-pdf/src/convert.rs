@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use ecow::{EcoVec, eco_format};
 use krilla::annotation::Annotation;
 use krilla::configure::{Configuration, ValidationError, Validator};
-use krilla::destination::{NamedDestination, XyzDestination};
+use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
 use krilla::error::KrillaError;
 use krilla::geom::PathBuilder;
@@ -17,7 +17,7 @@ use typst_library::diag::{SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::Location;
 use typst_library::layout::{
-    Abs, Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
+    Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
 };
 use typst_library::model::HeadingElem;
 use typst_library::text::{Font, Lang};
@@ -648,22 +648,10 @@ fn collect_named_destinations(
     };
 
     for (loc, label) in matches {
-        let pos = document.introspector.position(loc);
-        let index = pos.page.get() - 1;
-        // We are subtracting 10 because the position of links e.g. to headings is always at the
-        // baseline and if you link directly to it, the text will not be visible
-        // because it is right above.
-        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-
         // Only add named destination if page belonging to the position is exported.
-        if let Some(index) = pic.pdf_page_index(index) {
-            let named = NamedDestination::new(
-                label.resolve().to_string(),
-                XyzDestination::new(
-                    index,
-                    krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
-                ),
-            );
+        let pos = document.introspector.position(loc);
+        if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
+            let named = NamedDestination::new(label.resolve().to_string(), dest);
             locs_to_names.insert(loc, named);
         }
     }

@@ -2,10 +2,10 @@ use krilla::action::{Action, LinkAction};
 use krilla::annotation::{LinkAnnotation, Target};
 use krilla::destination::XyzDestination;
 use krilla::geom::Rect;
-use typst_library::layout::{Abs, Point, Size};
+use typst_library::layout::{Abs, Point, Position, Size};
 use typst_library::model::Destination;
 
-use crate::convert::{FrameContext, GlobalContext};
+use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
 use crate::util::{AbsExt, PointExt};
 
 pub(crate) fn handle_link(
@@ -76,16 +76,30 @@ pub(crate) fn handle_link(
         }
     };
 
-    let page_index = pos.page.get() - 1;
-    if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
+    if let Some(xyz) = pos_to_xyz(&gc.page_index_converter, pos) {
         fc.push_annotation(
             LinkAnnotation::new(
                 rect,
-                Target::Destination(krilla::destination::Destination::Xyz(
-                    XyzDestination::new(index, pos.point.to_krilla()),
-                )),
+                Target::Destination(krilla::destination::Destination::Xyz(xyz)),
             )
             .into(),
         );
     }
+}
+
+/// Turns a position link into a PDF XYZ destination.
+///
+/// - Takes into account page index conversion (if only part of the document is
+///   exported)
+/// - Consistently shifts the link by 10pt because the position of e.g.
+///   backlinks to footnotes is always at the baseline and if you link directly
+///   to it, the text will not be visible since it is right above.
+pub(crate) fn pos_to_xyz(
+    pic: &PageIndexConverter,
+    pos: Position,
+) -> Option<XyzDestination> {
+    let page_index = pic.pdf_page_index(pos.page.get() - 1)?;
+    let adjusted =
+        Point::new(pos.point.x, (pos.point.y - Abs::pt(10.0)).max(Abs::zero()));
+    Some(XyzDestination::new(page_index, adjusted.to_krilla()))
 }
