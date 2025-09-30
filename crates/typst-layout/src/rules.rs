@@ -427,10 +427,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
-    let (_, content) = elem.realize(engine)?;
-    Ok(content)
-};
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
 
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     const COLUMN_GUTTER: Em = Em::new(0.65);

@@ -448,16 +448,9 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
 const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
-    let (dest, content) = elem.realize(engine)?;
-
-    if let Some(bibliography_destination) = dest {
-        let link = LinkElem::new(bibliography_destination.into(), content)
-            .pack()
-            .styled(HtmlElem::role.set(Some("doc-biblioref".into())));
-        return Ok(link);
-    }
-
-    Ok(content)
+    Ok(elem
+        .realize(engine)?
+        .styled(HtmlElem::role.set(Some("doc-biblioref".into()))))
 };
 
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
