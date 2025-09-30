@@ -140,7 +140,7 @@ impl Trim {
 
 /// Breaks the text into lines.
 pub fn linebreak<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
@@ -155,7 +155,7 @@ pub fn linebreak<'a>(
 /// very unbalanced line, but is fast and simple.
 #[typst_macros::time]
 fn linebreak_simple<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
@@ -215,7 +215,7 @@ fn linebreak_simple<'a>(
 /// the layout determined for the last breakpoint at the end of text.
 #[typst_macros::time]
 fn linebreak_optimized<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
@@ -234,7 +234,7 @@ fn linebreak_optimized<'a>(
 /// bound on the cost. This allows us to skip many parts of the search space.
 #[typst_macros::time]
 fn linebreak_optimized_bounded<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
     metrics: &CostMetrics,
@@ -372,7 +372,7 @@ fn linebreak_optimized_bounded<'a>(
 /// linebreaking. We can use it to heavily prune the search space.
 #[typst_macros::time]
 fn linebreak_optimized_approximate(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &Preparation,
     width: Abs,
     metrics: &CostMetrics,
