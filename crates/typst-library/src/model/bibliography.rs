@@ -41,8 +41,7 @@ use crate::model::{
 };
 use crate::routines::Routines;
 use crate::text::{
-    FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
-    WeightDelta,
+    Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem, WeightDelta,
 };
 
 /// A bibliography / reference listing.
@@ -1029,23 +1028,26 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
-            content = content.set(TextElem::style, FontStyle::Italic);
+            content = content.emph();
         }
     }
 
     match format.font_variant {
         citationberg::FontVariant::Normal => {}
         citationberg::FontVariant::SmallCaps => {
-            content = content.set(TextElem::smallcaps, Some(Smallcaps::Minuscules));
+            content = SmallcapsElem::new(content).pack();
         }
     }
 
     match format.font_weight {
         citationberg::FontWeight::Normal => {}
         citationberg::FontWeight::Bold => {
-            content = content.set(TextElem::delta, WeightDelta(300));
+            content = content.strong();
         }
         citationberg::FontWeight::Light => {
+            // We don't have a semantic element for "light" and a `StrongElem`
+            // with negative delta does not have the appropriate semantics, so
+            // keeping this as a direct style.
             content = content.set(TextElem::delta, WeightDelta(-100));
         }
     }
