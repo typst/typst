@@ -11,8 +11,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
-use crate::text::{TextElem, TextSize};
+use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
+use crate::text::{SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -280,7 +280,8 @@ impl Packed<FootnoteEntry> {
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-    ) -> SourceResult<(Destination, Content, Content)> {
+    ) -> SourceResult<(Content, Content)> {
+        let span = self.span();
         let default = StyleChain::default();
         let numbering = self.note.numbering.get_ref(default);
         let counter = Counter::of(FootnoteElem::ELEM);
@@ -292,8 +293,11 @@ impl Packed<FootnoteEntry> {
         };
 
         let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let sup = SuperElem::new(num).pack().spanned(span);
+        let prefix = DirectLinkElem::new(loc, sup).pack().spanned(span);
         let body = self.note.body_content().unwrap().clone();
-        Ok((Destination::Location(loc), num, body))
+
+        Ok((prefix, body))
     }
 }
 
