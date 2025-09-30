@@ -3,6 +3,7 @@
     - Content: page=0 mcid=0
     - Content: page=0 mcid=1
 - Tag: Link
+  /Placement: Block
   /K:
     - Annotation: page=0 index=0
     - Annotation: page=0 index=1

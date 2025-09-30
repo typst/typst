@@ -17,17 +17,32 @@
             - Content: page=1 mcid=3
     - Tag: Div
       /K:
-        - Content: page=0 mcid=5
-        - Content: page=0 mcid=6
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=5
+            - Content: page=0 mcid=6
     - Tag: Div
       /K:
-        - Content: page=1 mcid=4
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=1 mcid=4
     - Tag: Div
       /K:
-        - Content: page=1 mcid=5
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=1 mcid=5
     - Tag: Div
       /K:
-        - Content: page=2 mcid=0
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=2 mcid=0
     - Tag: Div
       /K:
-        - Content: page=2 mcid=1
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=2 mcid=1

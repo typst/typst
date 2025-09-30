@@ -2,7 +2,10 @@
   /K:
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=1
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=1
     - Tag: Figure
       /Alt: "A tiger"
       /Placement: Block

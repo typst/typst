@@ -25,7 +25,10 @@
   /K:
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=9
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=9
     - Tag: TR
       /K:
         - Tag: TD
@@ -42,7 +45,10 @@
   /K:
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=11
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=11
     - Tag: Figure
       /Alt: "Sketch of white standing cylinder"
       /Placement: Block
@@ -66,7 +72,10 @@
   /K:
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=18
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=18
     - Tag: TR
       /K:
         - Tag: TD

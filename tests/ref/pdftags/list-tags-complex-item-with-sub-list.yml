@@ -10,7 +10,10 @@
           /K:
             - Tag: BlockQuote
               /K:
-                - Content: page=0 mcid=1
+                - Tag: Span
+                  /Placement: Block
+                  /K:
+                    - Content: page=0 mcid=1
             - Tag: P
               /K:
                 - Tag: Lbl

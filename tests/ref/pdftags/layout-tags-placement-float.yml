@@ -10,6 +10,7 @@ lang: "de"
             - Content: page=0 mcid=1
         - Tag: Code
           /Lang: "en"
+          /Placement: Block
           /K:
             - Content: page=0 mcid=0
     - Tag: Div
@@ -18,12 +19,18 @@ lang: "de"
         - Tag: P
           /K:
             - Content: page=0 mcid=3
-        - Content: page=0 mcid=2
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=2
         - Tag: P
           /K:
             - Content: page=0 mcid=4
     - Tag: Div
       /Lang: "es"
       /K:
-        - Content: page=0 mcid=5
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=5
     - Tag: Div

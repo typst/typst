@@ -1,5 +1,4 @@
-use krilla::tagging as kt;
-use krilla::tagging::{LineHeight, NaiveRgbColor, Node, Tag, TextDecorationType};
+use krilla::tagging::{LineHeight, NaiveRgbColor, TextDecorationType};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::{Content, Smart};
 use typst_library::introspection::Location;
@@ -141,7 +140,7 @@ pub enum TextDecoKind {
 }
 
 impl TextDecoKind {
-    fn to_krilla(self) -> TextDecorationType {
+    pub fn to_krilla(self) -> TextDecorationType {
         match self {
             TextDecoKind::Underline => TextDecorationType::Underline,
             TextDecoKind::Overline => TextDecorationType::Overline,
@@ -169,11 +168,11 @@ impl TextDecoStroke {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedTextAttrs {
-    strong: Option<bool>,
-    emph: Option<bool>,
-    script: Option<ResolvedScript>,
-    background: Option<Option<NaiveRgbColor>>,
-    deco: Option<ResolvedTextDeco>,
+    pub strong: Option<bool>,
+    pub emph: Option<bool>,
+    pub script: Option<ResolvedScript>,
+    pub background: Option<Option<NaiveRgbColor>>,
+    pub deco: Option<ResolvedTextDeco>,
 }
 
 impl ResolvedTextAttrs {
@@ -189,75 +188,32 @@ impl ResolvedTextAttrs {
         self == &Self::EMPTY
     }
 
-    pub fn all_resolved(&self) -> bool {
+    fn all_resolved(&self) -> bool {
         self.strong.is_some()
             && self.emph.is_some()
             && self.script.is_some()
             && self.background.is_some()
             && self.deco.is_some()
     }
-
-    pub fn resolve_nodes(self, accum: &mut Vec<Node>, children: &[kt::Identifier]) {
-        enum Prev<'a> {
-            Children(&'a [kt::Identifier]),
-            Group(kt::TagGroup),
-        }
-
-        impl Prev<'_> {
-            fn into_nodes(self) -> Vec<Node> {
-                match self {
-                    Prev::Children(ids) => ids.iter().map(|id| Node::Leaf(*id)).collect(),
-                    Prev::Group(group) => vec![Node::Group(group)],
-                }
-            }
-        }
-
-        let mut prev = Prev::Children(children);
-        if self.script.is_some() || self.background.is_some() || self.deco.is_some() {
-            let tag = Tag::Span
-                .with_line_height(self.script.map(|s| s.lineheight))
-                .with_baseline_shift(self.script.map(|s| s.baseline_shift))
-                .with_background_color(self.background.flatten())
-                .with_text_decoration_type(self.deco.map(|d| d.kind.to_krilla()))
-                .with_text_decoration_color(self.deco.and_then(|d| d.color))
-                .with_text_decoration_thickness(self.deco.and_then(|d| d.thickness));
-
-            let group = kt::TagGroup::with_children(tag, prev.into_nodes());
-            prev = Prev::Group(group);
-        }
-        if self.strong == Some(true) {
-            let group = kt::TagGroup::with_children(Tag::Strong, prev.into_nodes());
-            prev = Prev::Group(group);
-        }
-        if self.emph == Some(true) {
-            let group = kt::TagGroup::with_children(Tag::Em, prev.into_nodes());
-            prev = Prev::Group(group);
-        }
-
-        match prev {
-            Prev::Group(group) => accum.push(Node::Group(group)),
-            Prev::Children(ids) => accum.extend(ids.iter().map(|id| Node::Leaf(*id))),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedScript {
-    baseline_shift: f32,
-    lineheight: LineHeight,
+    pub baseline_shift: f32,
+    pub lineheight: LineHeight,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedTextDeco {
-    kind: TextDecoKind,
-    color: Option<NaiveRgbColor>,
-    thickness: Option<f32>,
+    pub kind: TextDecoKind,
+    pub color: Option<NaiveRgbColor>,
+    pub thickness: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TextParams {
-    font_index: u32,
-    size: Abs,
+    pub font_index: u32,
+    pub size: Abs,
 }
 
 impl TextParams {

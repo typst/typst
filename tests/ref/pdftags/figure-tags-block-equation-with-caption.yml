@@ -2,7 +2,10 @@
   /K:
     - Tag: Caption
       /K:
-        - Content: page=0 mcid=8
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=8
     - Tag: Formula
       /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
       /Placement: Block

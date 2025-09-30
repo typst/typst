@@ -1,6 +1,6 @@
 use std::num::NonZeroU16;
 
-use krilla::tagging::{self as kt, Node, Tag, TagKind};
+use krilla::tagging::{self as kt, Node, Tag, TagGroup, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::text::Locale;
@@ -66,11 +66,13 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
     };
 
     let mut children = Vec::with_capacity(root.nodes().len());
+    let mut accum = Accumulator::new(ElementKind::Grouping, &mut children);
 
     for child in root.nodes().iter() {
-        resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut children, child)?;
+        resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child)?;
     }
 
+    accum.finish();
     Ok((doc_lang, TagTree::from(children)))
 }
 
@@ -79,7 +81,7 @@ fn resolve_node(
     rs: &mut Resolver,
     parent_lang: &mut Option<Locale>,
     parent_bbox: &mut Option<BBoxCtx>,
-    accum: &mut Vec<Node>,
+    accum: &mut Accumulator,
     node: &TagNode,
 ) -> SourceResult<()> {
     match &node {
@@ -93,7 +95,7 @@ fn resolve_node(
             accum.push(rs.annotations.take(*id));
         }
         TagNode::Text(attrs, ids) => {
-            attrs.resolve_nodes(accum, ids);
+            resolve_text(accum, attrs, ids);
         }
     }
     Ok(())
@@ -103,7 +105,7 @@ fn resolve_group_node(
     rs: &mut Resolver,
     parent_lang: &mut Option<Locale>,
     mut parent_bbox: &mut Option<BBoxCtx>,
-    accum: &mut Vec<Node>,
+    accum: &mut Accumulator,
     id: GroupId,
 ) -> SourceResult<()> {
     let group = rs.groups.get(id);
@@ -112,6 +114,11 @@ fn resolve_group_node(
     let mut lang = group.kind.lang().filter(|_| tag.is_some());
     let mut bbox = rs.ctx.bbox(&group.kind).cloned();
     let mut nodes = Vec::new();
+    let mut children = {
+        let nesting = tag.as_ref().map(element_kind).unwrap_or(accum.nesting);
+        let buf = if tag.is_some() { &mut nodes } else { &mut accum.buf };
+        Accumulator::new(nesting, buf)
+    };
 
     // If a tag has an alternative description specified, flatten the children
     // tags, only retaining link tags, because they are required. The inner tags
@@ -129,9 +136,9 @@ fn resolve_group_node(
                 resolve_artifact_node(rs, bbox, child);
             }
         } else {
-            nodes = Vec::with_capacity(group.nodes().len());
+            children.buf.reserve(group.nodes().len());
             for child in group.nodes().iter() {
-                resolve_node(rs, lang, bbox, &mut nodes, child)?;
+                resolve_node(rs, lang, bbox, &mut children, child)?;
             }
         }
         Ok(())
@@ -145,15 +152,14 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
-    if group.weak && nodes.is_empty() {
+    // Omit the weak group if it is empty.
+    if group.weak && children.num_inserted == 0 {
         return Ok(());
     }
 
-    // If this isn't a tagged group, forward the children to the parent.
-    let Some(mut tag) = tag else {
-        accum.extend(nodes);
-        return Ok(());
-    };
+    // If this isn't a tagged group the children we're directly inserted into
+    // the parent.
+    let Some(mut tag) = tag else { return Ok(()) };
 
     tag.set_lang(lang.map(|l| l.rfc_3066().to_string()));
     if let Some(bbox) = bbox {
@@ -165,9 +171,57 @@ fn resolve_group_node(
         }
     }
 
+    children.finish();
     accum.push(Node::Group(kt::TagGroup::with_children(tag, nodes)));
 
     Ok(())
+}
+
+fn resolve_text(
+    accum: &mut Accumulator,
+    attrs: &ResolvedTextAttrs,
+    children: &[kt::Identifier],
+) {
+    enum Prev<'a> {
+        Children(&'a [kt::Identifier]),
+        Group(kt::TagGroup),
+    }
+
+    impl Prev<'_> {
+        fn into_nodes(self) -> Vec<Node> {
+            match self {
+                Prev::Children(ids) => ids.iter().map(|id| Node::Leaf(*id)).collect(),
+                Prev::Group(group) => vec![Node::Group(group)],
+            }
+        }
+    }
+
+    let mut prev = Prev::Children(children);
+    if attrs.script.is_some() || attrs.background.is_some() || attrs.deco.is_some() {
+        let tag = Tag::Span
+            .with_line_height(attrs.script.map(|s| s.lineheight))
+            .with_baseline_shift(attrs.script.map(|s| s.baseline_shift))
+            .with_background_color(attrs.background.flatten())
+            .with_text_decoration_type(attrs.deco.map(|d| d.kind.to_krilla()))
+            .with_text_decoration_color(attrs.deco.and_then(|d| d.color))
+            .with_text_decoration_thickness(attrs.deco.and_then(|d| d.thickness));
+
+        let group = kt::TagGroup::with_children(tag, prev.into_nodes());
+        prev = Prev::Group(group);
+    }
+    if attrs.strong == Some(true) {
+        let group = kt::TagGroup::with_children(Tag::Strong, prev.into_nodes());
+        prev = Prev::Group(group);
+    }
+    if attrs.emph == Some(true) {
+        let group = kt::TagGroup::with_children(Tag::Em, prev.into_nodes());
+        prev = Prev::Group(group);
+    }
+
+    match prev {
+        Prev::Group(group) => accum.push(Node::Group(group)),
+        Prev::Children(ids) => accum.extend(ids.iter().map(|id| Node::Leaf(*id))),
+    }
 }
 
 /// Currently only done to resolve bounding boxes.
@@ -269,4 +323,126 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
     }
 
     Ok(Some(tag))
+}
+
+struct Accumulator<'a> {
+    nesting: ElementKind,
+    buf: &'a mut Vec<Node>,
+    num_inserted: usize,
+    // Whether the last node is a `Span` used to wrap marked content sequences
+    // inside a grouping element. Groupings element may not contain marked
+    // content sequences directly.
+    grouping_span: Option<Vec<Node>>,
+}
+
+impl std::ops::Drop for Accumulator<'_> {
+    fn drop(&mut self) {
+        self.push_grouping_span();
+    }
+}
+
+impl<'a> Accumulator<'a> {
+    fn new(nesting: ElementKind, buf: &'a mut Vec<Node>) -> Self {
+        Self { nesting, buf, num_inserted: 0, grouping_span: None }
+    }
+
+    fn push_buf(&mut self, node: Node) {
+        self.buf.push(node);
+        self.num_inserted += 1;
+    }
+
+    fn push_grouping_span(&mut self) {
+        if let Some(span_nodes) = self.grouping_span.take() {
+            let tag = Tag::Span.with_placement(Some(kt::Placement::Block));
+            let group = TagGroup::with_children(tag, span_nodes);
+            self.push_buf(group.into());
+        }
+    }
+
+    fn push(&mut self, mut node: Node) {
+        if self.nesting == ElementKind::Grouping {
+            match &mut node {
+                Node::Group(group) => {
+                    self.push_grouping_span();
+
+                    // Ensure ILSE have block placement when inside grouping elements.
+                    if element_kind(&group.tag) == ElementKind::Inline {
+                        group.tag.set_placement(Some(kt::Placement::Block));
+                    }
+
+                    self.push_buf(node);
+                }
+                Node::Leaf(_) => {
+                    let span_nodes = self.grouping_span.get_or_insert_default();
+                    span_nodes.push(node);
+                }
+            }
+        } else {
+            self.push_buf(node);
+        }
+    }
+
+    fn extend(&mut self, nodes: impl ExactSizeIterator<Item = Node>) {
+        self.buf.reserve(nodes.len());
+        for node in nodes {
+            self.push(node);
+        }
+    }
+
+    // Postfix drop.
+    fn finish(self) {}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ElementKind {
+    Grouping,
+    Block,
+    Table,
+    Inline,
+}
+
+fn element_kind(tag: &TagKind) -> ElementKind {
+    match tag {
+        TagKind::Part(_)
+        | TagKind::Article(_)
+        | TagKind::Section(_)
+        | TagKind::Div(_)
+        | TagKind::BlockQuote(_)
+        | TagKind::Caption(_)
+        | TagKind::TOC(_)
+        | TagKind::TOCI(_)
+        | TagKind::Index(_)
+        | TagKind::NonStruct(_) => ElementKind::Grouping,
+        TagKind::P(_)
+        | TagKind::Hn(_)
+        | TagKind::L(_)
+        | TagKind::LI(_)
+        | TagKind::Lbl(_)
+        | TagKind::LBody(_)
+        | TagKind::Table(_) => ElementKind::Block,
+        TagKind::THead(_)
+        | TagKind::TBody(_)
+        | TagKind::TFoot(_)
+        | TagKind::TR(_)
+        | TagKind::TH(_)
+        | TagKind::TD(_) => ElementKind::Table,
+        TagKind::Span(_)
+        | TagKind::InlineQuote(_)
+        | TagKind::Note(_)
+        | TagKind::Reference(_)
+        | TagKind::BibEntry(_)
+        | TagKind::Code(_)
+        | TagKind::Link(_)
+        | TagKind::Annot(_)
+        | TagKind::Figure(_)
+        | TagKind::Formula(_) => ElementKind::Inline,
+        // Mapped to `Span`.
+        TagKind::Datetime(_) => ElementKind::Inline,
+        // Mapped to `Part`.
+        TagKind::Terms(_) => ElementKind::Grouping,
+        // Mapped to `P`.
+        TagKind::Title(_) => ElementKind::Block,
+        // Mapped to `Span`.
+        TagKind::Strong(_) | TagKind::Em(_) => ElementKind::Inline,
+    }
 }
