@@ -467,7 +467,13 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let items = references.iter().map(|(prefix, reference, loc)| {
         let mut realized = reference.clone();
 
-        if let Some(prefix) = prefix.clone() {
+        if let Some(mut prefix) = prefix.clone() {
+            // If we have a link back to the first citation referencing this
+            // entry, attach the appropriate role.
+            if prefix.is::<DirectLinkElem>() {
+                prefix = prefix.set(HtmlElem::role, Some("doc-backlink".into()));
+            }
+
             let wrapped = HtmlElem::new(tag::span)
                 .with_attr(attr::class, "prefix")
                 .with_body(Some(prefix))
