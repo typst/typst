@@ -487,6 +487,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     let title = elem.realize_title(styles);
     let list = HtmlElem::new(tag::ul)
+        .with_styles(css::Properties::new().with("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack()
         .spanned(span);
