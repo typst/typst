@@ -38,9 +38,7 @@ use crate::model::{
     LinkElem, Url,
 };
 use crate::routines::Routines;
-use crate::text::{
-    Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem, WeightDelta,
-};
+use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
 
 /// A bibliography / reference listing.
 ///
@@ -984,7 +982,7 @@ impl ElemRenderer<'_> {
                     .spanned(self.span);
             }
             Some(Display::Indent) => {
-                content = PadElem::new(content).pack().spanned(self.span);
+                content = CslIndentElem::new(content).pack().spanned(self.span);
             }
             Some(Display::LeftMargin) => {
                 // The `display="left-margin"` attribute is only supported at
@@ -1081,7 +1079,7 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
             // We don't have a semantic element for "light" and a `StrongElem`
             // with negative delta does not have the appropriate semantics, so
             // keeping this as a direct style.
-            content = content.set(TextElem::delta, WeightDelta(-100));
+            content = CslLightElem::new(content).pack();
         }
     }
 
@@ -1118,6 +1116,31 @@ fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
         value.push_str(region.as_str())
     }
     citationberg::LocaleCode(value)
+}
+
+/// Translation of `font-weight="light"` in CSL.
+///
+/// We translate `font-weight: "bold"` to `<strong>` since it's likely that the
+/// CSL spec just talks about bold because it has no notion of semantic
+/// elements. The benefits of a strict reading of the spec are also rather
+/// questionable, while using semantic elements makes the bibliography more
+/// accessible, easier to style, and more portable across export targets.
+#[elem]
+pub struct CslLightElem {
+    #[required]
+    pub body: Content,
+}
+
+/// Translation of `display="indent"` in CSL.
+///
+/// A `display="block"` is simply translated to a Typst `BlockElem`. Similarly,
+/// we could translate `display="indent"` to a `PadElem`, but (a) it does not
+/// yet have support in HTML and (b) a `PadElem` described a fixed padding while
+/// CSL leaves the amount of padding user-defined so it's not a perfect fit.
+#[elem]
+pub struct CslIndentElem {
+    #[required]
+    pub body: Content,
 }
 
 #[cfg(test)]

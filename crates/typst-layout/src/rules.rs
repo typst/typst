@@ -16,10 +16,11 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, DirectLinkElem,
-    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, ListElem, OutlineElem,
+    OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell,
+    TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::AttachElem;
 use typst_library::text::{
@@ -57,6 +58,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, REF_RULE);
     rules.register(Paged, CITE_GROUP_RULE);
     rules.register(Paged, BIBLIOGRAPHY_RULE);
+    rules.register(Paged, CSL_LIGHT_RULE);
+    rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
 
@@ -484,6 +487,12 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     Ok(Content::sequence(seq))
 };
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> =
+    |elem, _, _| Ok(elem.body.clone().set(TextElem::delta, WeightDelta(-100)));
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> =
+    |elem, _, _| Ok(PadElem::new(elem.body.clone()).pack());
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
     Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_table).pack())

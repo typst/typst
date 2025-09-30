@@ -12,11 +12,11 @@ use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, Destination, DirectLinkElem,
-    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode,
-    ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
-    TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
+    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -54,6 +54,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
     rules.register(Html, BIBLIOGRAPHY_RULE);
+    rules.register(Html, CSL_LIGHT_RULE);
+    rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -498,6 +500,20 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
         .with_body(Some(Content::sequence(content_sequence)))
+        .pack())
+};
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::span)
+        .with_attr(attr::class, "light")
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::div)
+        .with_attr(attr::class, "indent")
+        .with_body(Some(elem.body.clone()))
         .pack())
 };
 
