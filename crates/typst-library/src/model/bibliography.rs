@@ -203,29 +203,6 @@ impl Packed<BibliographyElem> {
                     .spanned(self.span())
             })
     }
-
-    /// Fetches and validates the bibliography works.
-    pub fn realize_works(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<std::sync::Arc<Works>> {
-        let span = self.span();
-        let works = Works::generate(engine).at(span)?;
-        if works.references.is_none() {
-            return Err(match self.style.get_ref(styles).source {
-                CslSource::Named(style, _) => eco_format!(
-                    "CSL style \"{}\" is not suitable for bibliographies",
-                    style.display_name()
-                ),
-                CslSource::Normal(..) => {
-                    "CSL style is not suitable for bibliographies".into()
-                }
-            })
-            .at(span);
-        }
-        Ok(works)
-    }
 }
 
 impl Synthesize for Packed<BibliographyElem> {
@@ -588,6 +565,27 @@ impl Works {
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
+    }
+
+    /// Extracts the generated references, failing with an error if none have
+    /// been generated.
+    pub fn references<'a>(
+        &'a self,
+        elem: &Packed<BibliographyElem>,
+        styles: StyleChain,
+    ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
+        self.references
+            .as_deref()
+            .ok_or_else(|| match elem.style.get_ref(styles).source {
+                CslSource::Named(style, _) => eco_format!(
+                    "CSL style \"{}\" is not suitable for bibliographies",
+                    style.display_name()
+                ),
+                CslSource::Normal(..) => {
+                    "CSL style is not suitable for bibliographies".into()
+                }
+            })
+            .at(elem.span())
     }
 }
 

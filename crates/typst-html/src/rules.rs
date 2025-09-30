@@ -465,8 +465,8 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     }
 
     // Add bibliography references as a list
-    let works = elem.realize_works(engine, styles)?;
-    let references = works.references.as_ref().unwrap();
+    let works = Works::generate(engine).at(span)?;
+    let references = works.references(elem, styles)?;
 
     let list_items = references.iter().map(|(prefix, reference, loc)| {
         let mut item_content = vec![];

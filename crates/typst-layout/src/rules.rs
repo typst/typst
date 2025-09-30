@@ -441,8 +441,8 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let mut seq = vec![];
     seq.extend(elem.realize_title(styles));
 
-    let works = elem.realize_works(engine, styles)?;
-    let references = works.references.as_ref().unwrap();
+    let works = Works::generate(engine).at(span)?;
+    let references = works.references(elem, styles)?;
 
     if references.iter().any(|(prefix, ..)| prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);
