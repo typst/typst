@@ -115,9 +115,9 @@ shell-escape = "0.1.5"
 sigpipe = "0.1"
 siphasher = "1"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
-stacker = "0.1.15"
+stacker = "0.1.19"
 syn = { version = "2", features = ["full", "extra-traits"] }
-syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
+syntect = { version = "5.3", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
 tempfile = "3.7.0"
 thin-vec = "0.2.13"

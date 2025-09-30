@@ -15,7 +15,7 @@ use hayagriva::{
 };
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
 
@@ -31,18 +31,15 @@ use crate::foundations::{
     Synthesize, Value, elem,
 };
 use crate::introspection::{Introspector, Locatable, Location};
-use crate::layout::{
-    BlockBody, BlockElem, Em, GridCell, GridChild, GridElem, GridItem, HElem, PadElem,
-    Sizing, TrackSizings,
-};
+use crate::layout::{BlockBody, BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, Url,
+    CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
+    LinkElem, Url,
 };
 use crate::routines::Routines;
 use crate::text::{
-    FontStyle, Lang, LocalName, Region, Smallcaps, SubElem, SuperElem, TextElem,
-    WeightDelta,
+    Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem, WeightDelta,
 };
 
 /// A bibliography / reference listing.
@@ -826,11 +823,8 @@ impl<'a> Generator<'a> {
             let content = if info.subinfos.iter().all(|sub| sub.hidden) {
                 Content::empty()
             } else {
-                let mut content = renderer.display_elem_children(
-                    &citation.citation,
-                    &mut None,
-                    true,
-                )?;
+                let mut content =
+                    renderer.display_elem_children(&citation.citation, None, true)?;
 
                 if info.footnote {
                     content = FootnoteElem::with_content(content).pack();
@@ -886,19 +880,20 @@ impl<'a> Generator<'a> {
                 .first_field
                 .as_ref()
                 .map(|elem| {
-                    let mut content =
-                        renderer.display_elem_child(elem, &mut None, false)?;
+                    let mut content = renderer.display_elem_child(elem, None, false)?;
                     if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                        let dest = Destination::Location(*location);
-                        content = content.linked(dest);
+                        content = DirectLinkElem::new(*location, content).pack();
                     }
                     StrResult::Ok(content)
                 })
                 .transpose()?;
 
             // Render the main reference content.
-            let mut reference =
-                renderer.display_elem_children(&item.content, &mut prefix, false)?;
+            let mut reference = renderer.display_elem_children(
+                &item.content,
+                Some(&mut prefix),
+                false,
+            )?;
 
             // Attach a backlink to either the prefix or the reference so that
             // we can link to the bibliography entry.
@@ -937,7 +932,7 @@ impl ElemRenderer<'_> {
     fn display_elem_children(
         &self,
         elems: &hayagriva::ElemChildren,
-        prefix: &mut Option<Content>,
+        mut prefix: Option<&mut Option<Content>>,
         is_citation: bool,
     ) -> StrResult<Content> {
         Ok(Content::sequence(
@@ -946,7 +941,11 @@ impl ElemRenderer<'_> {
                 .iter()
                 .enumerate()
                 .map(|(i, elem)| {
-                    self.display_elem_child(elem, prefix, is_citation && i == 0)
+                    self.display_elem_child(
+                        elem,
+                        prefix.as_deref_mut(),
+                        is_citation && i == 0,
+                    )
                 })
                 .collect::<StrResult<Vec<_>>>()?,
         ))
@@ -956,7 +955,7 @@ impl ElemRenderer<'_> {
     fn display_elem_child(
         &self,
         elem: &hayagriva::ElemChild,
-        prefix: &mut Option<Content>,
+        prefix: Option<&mut Option<Content>>,
         trim_start: bool,
     ) -> StrResult<Content> {
         Ok(match elem {
@@ -976,34 +975,17 @@ impl ElemRenderer<'_> {
     fn display_elem(
         &self,
         elem: &hayagriva::Elem,
-        prefix: &mut Option<Content>,
+        mut prefix: Option<&mut Option<Content>>,
     ) -> StrResult<Content> {
         use citationberg::Display;
 
         let block_level = matches!(elem.display, Some(Display::Block | Display::Indent));
 
-        let mut suf_prefix = None;
         let mut content = self.display_elem_children(
             &elem.children,
-            if block_level { &mut suf_prefix } else { prefix },
+            if block_level { None } else { prefix.as_deref_mut() },
             false,
         )?;
-
-        if let Some(prefix) = suf_prefix {
-            const COLUMN_GUTTER: Em = Em::new(0.65);
-            content = GridElem::new(vec![
-                GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(prefix)).spanned(self.span),
-                )),
-                GridChild::Item(GridItem::Cell(
-                    Packed::new(GridCell::new(content)).spanned(self.span),
-                )),
-            ])
-            .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-            .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-            .pack()
-            .spanned(self.span);
-        }
 
         match elem.display {
             Some(Display::Block) => {
@@ -1016,8 +998,15 @@ impl ElemRenderer<'_> {
                 content = PadElem::new(content).pack().spanned(self.span);
             }
             Some(Display::LeftMargin) => {
-                *prefix.get_or_insert_with(Default::default) += content;
-                return Ok(Content::empty());
+                // The `display="left-margin"` attribute is only supported at
+                // the top-level (when prefix is `Some(_)`). Within a
+                // block-level container, it is ignored. The CSL spec is not
+                // specific about this, but it is in line with citeproc.js's
+                // behaviour.
+                if let Some(prefix) = prefix {
+                    *prefix.get_or_insert_with(Default::default) += content;
+                    return Ok(Content::empty());
+                }
             }
             _ => {}
         }
@@ -1025,8 +1014,7 @@ impl ElemRenderer<'_> {
         if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
             && let Some(location) = (self.link)(i)
         {
-            let dest = Destination::Location(location);
-            content = content.linked(dest);
+            content = DirectLinkElem::new(location, content).pack();
         }
 
         Ok(content)
@@ -1084,23 +1072,26 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
-            content = content.set(TextElem::style, FontStyle::Italic);
+            content = content.emph();
         }
     }
 
     match format.font_variant {
         citationberg::FontVariant::Normal => {}
         citationberg::FontVariant::SmallCaps => {
-            content = content.set(TextElem::smallcaps, Some(Smallcaps::Minuscules));
+            content = SmallcapsElem::new(content).pack();
         }
     }
 
     match format.font_weight {
         citationberg::FontWeight::Normal => {}
         citationberg::FontWeight::Bold => {
-            content = content.set(TextElem::delta, WeightDelta(300));
+            content = content.strong();
         }
         citationberg::FontWeight::Light => {
+            // We don't have a semantic element for "light" and a `StrongElem`
+            // with negative delta does not have the appropriate semantics, so
+            // keeping this as a direct style.
             content = content.set(TextElem::delta, WeightDelta(-100));
         }
     }
