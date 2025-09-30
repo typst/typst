@@ -362,10 +362,6 @@ fn to_citation(
         },
     ));
 
-    if let Some(loc) = reference.location() {
-        elem.set_location(loc);
-    }
-
     elem.synthesize(engine, styles)?;
 
     Ok(elem)
