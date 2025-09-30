@@ -455,52 +455,42 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
         .styled(HtmlElem::role.set(Some("doc-biblioref".into()))))
 };
 
+// For the bibliography, we have a few elements that should be styled (e.g.
+// indent), but inline styles are not apprioriate because they couldn't be
+// properly overridden. For those, we currently emit classes so that a user can
+// style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
-    let mut content_sequence = vec![];
-
-    // Add title if set
-    if let Some(title) = elem.realize_title(styles) {
-        content_sequence.push(title);
-    }
-
-    // Add bibliography references as a list
     let works = Works::generate(engine).at(span)?;
     let references = works.references(elem, styles)?;
 
-    let list_items = references.iter().map(|(prefix, reference, loc)| {
-        let mut item_content = vec![];
+    let items = references.iter().map(|(prefix, reference, loc)| {
+        let mut realized = reference.clone();
 
-        if let Some(prefix) = prefix {
-            // Create backlink from bibliography entry to first citation occurrence
-            let prefix_content = HtmlElem::new(tag::span)
-                .with_body(Some(prefix.clone()))
-                .pack()
-                .spanned(span);
+        if let Some(prefix) = prefix.clone() {
+            let wrapped =
+                HtmlElem::new(tag::span).with_body(Some(prefix)).pack().spanned(span);
 
-            item_content.push(prefix_content);
-            item_content.push(SpaceElem::shared().clone());
+            let separator = SpaceElem::shared().clone();
+            realized = Content::sequence([wrapped, separator, realized]);
         }
 
-        item_content.push(reference.clone());
-
         HtmlElem::new(tag::li)
-            .with_body(Some(Content::sequence(item_content)))
+            .with_body(Some(realized))
             .pack()
             .located(*loc)
             .spanned(span)
     });
 
-    let bibliography_list = HtmlElem::new(tag::ul)
-        .with_body(Some(Content::sequence(list_items)))
+    let title = elem.realize_title(styles);
+    let list = HtmlElem::new(tag::ul)
+        .with_body(Some(Content::sequence(items)))
         .pack()
         .spanned(span);
 
-    content_sequence.push(bibliography_list);
-
     Ok(HtmlElem::new(tag::section)
         .with_attr(attr::role, "doc-bibliography")
-        .with_body(Some(Content::sequence(content_sequence)))
+        .with_body(Some(title.unwrap_or_default() + list))
         .pack())
 };
 
