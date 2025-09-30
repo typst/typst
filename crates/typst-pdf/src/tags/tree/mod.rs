@@ -23,6 +23,9 @@ pub struct Tree {
     /// Points at the next break in the `breaks` list.
     break_cursor: usize,
     breaks: Vec<Break>,
+    /// Points at the next intem in the `unfinished` list.
+    unfinished_cursor: usize,
+    unfinished: Vec<Unfinished>,
     state: TraversalStates,
     pub groups: Groups,
     pub ctx: Ctx,
@@ -65,9 +68,22 @@ impl Tree {
         Some(self.ctx.bboxes.get_mut(id))
     }
 
-    pub fn finished_traversal(&self) -> bool {
-        self.prog_cursor + 1 == self.progressions.len()
-            && self.break_cursor == self.breaks.len()
+    pub fn assert_finished_traversal(&self) {
+        assert_eq!(
+            self.prog_cursor + 1,
+            self.progressions.len(),
+            "tree traversal didn't complete properly"
+        );
+        assert_eq!(
+            self.break_cursor,
+            self.breaks.len(),
+            "tree traversal didn't complete properly"
+        );
+        assert_eq!(
+            self.unfinished_cursor,
+            self.unfinished.len(),
+            "tree traversal didn't complete properly"
+        );
     }
 }
 
@@ -131,49 +147,56 @@ impl TraversalState {
     }
 }
 
+/// Marks a point where the entries on the stack were split up.
 #[derive(Clone, Copy, Debug)]
 struct Break {
     /// The index of the progression at which point the broken up groups need to
     /// be closed.
-    progression_idx: u32,
-    kind: BreakKind,
+    prog_idx: u32,
+    /// The number of groups which have to be closed, from the previous
+    /// group upwards in the parent hierarchy.
+    num_closed: u16,
+    /// The number of groups which have to be closed, from the next group
+    /// upwards in the parent hierarchy.
+    num_opened: u16,
 }
 
+/// Marks a point at the end of a logical child or parent where the stack was
+/// not fully closed, and the open groups were handled in the next logical
+/// child.
 #[derive(Clone, Copy, Debug)]
-enum BreakKind {
-    /// Marks a point where the entries on the stack had to be broken up.
-    Broken {
-        /// The number of groups which have to be closed, from the current group
-        /// upwards in the parent hierarchy.
-        num_closed_groups: u16,
-    },
-    /// Marks a point where there was an uninished stack inside a grid/table
-    /// cell, which was transfered to the next logical child.
-    Unfinished { group_to_close: GroupId },
+struct Unfinished {
+    /// The index of the progression at which point the broken up groups need to
+    /// be closed.
+    prog_idx: u32,
+    group_to_close: GroupId,
 }
 
 pub fn step_start_tag(tree: &mut Tree, surface: &mut Surface) {
-    let Some((_, next)) = step(tree) else { return };
+    let Some((prev, next)) = step(tree) else { return };
 
-    let next_group = tree.groups.get(next);
-    if tree.state.current_artifact.is_none()
-        && let Some(ty) = next_group.kind.as_artifact()
-    {
-        tree.state.current_artifact = Some((next, ty));
-        surface.start_tagged(ContentTag::Artifact(ty));
-    } else if let Some(id) = &next_group.kind.bbox() {
-        tree.state.bbox_stack.push(*id);
+    if let Some(brk) = consume_break(tree) {
+        step_break(tree, surface, prev, next, brk);
+    } else {
+        let next_group = tree.groups.get(next);
+        if tree.state.current_artifact.is_none()
+            && let Some(ty) = next_group.kind.as_artifact()
+        {
+            tree.state.current_artifact = Some((next, ty));
+            surface.start_tagged(ContentTag::Artifact(ty));
+        } else if let Some(id) = &next_group.kind.bbox() {
+            tree.state.bbox_stack.push(*id);
+        }
     }
 }
 
 pub fn step_end_tag(tree: &mut Tree, surface: &mut Surface) {
     let Some((prev, next)) = step(tree) else { return };
 
-    if let Some(brk) = tree.breaks.get(tree.break_cursor)
-        && brk.progression_idx as usize == tree.prog_cursor
-    {
-        tree.break_cursor += 1;
-        step_break(tree, surface, prev, next, *brk);
+    if let Some(brk) = consume_break(tree) {
+        step_break(tree, surface, prev, next, brk);
+    } else if let Some(unfinished) = consume_unfinished(tree) {
+        close_group(tree, surface, unfinished.group_to_close);
     } else {
         close_group(tree, surface, prev);
     }
@@ -213,16 +236,13 @@ pub fn enter_logical_child(tree: &mut Tree, surface: &mut Surface) {
 
 /// This moves back to the previous location in the tree.
 pub fn leave_logical_child(tree: &mut Tree, surface: &mut Surface) {
-    let Some((prev, next)) = step(tree) else { return };
+    let Some((prev, _)) = step(tree) else { return };
 
     // The stack within a logical child, could also be unfinished, in
     // which case a `BreakKind::Unfinished` is inserted to close the
     // `LogicalChild` group.
-    if let Some(brk) = tree.breaks.get(tree.break_cursor)
-        && brk.progression_idx as usize == tree.prog_cursor
-    {
-        tree.break_cursor += 1;
-        step_break(tree, surface, prev, next, *brk);
+    if let Some(unfinished) = consume_unfinished(tree) {
+        close_group(tree, surface, unfinished.group_to_close);
     } else {
         close_group(tree, surface, prev);
     }
@@ -232,7 +252,6 @@ pub fn leave_logical_child(tree: &mut Tree, surface: &mut Surface) {
         surface.end_tagged();
     }
 
-    // Just pop the state off.
     tree.state.pop();
 
     // Reopen any artifact in the restored location of the tree.
@@ -254,6 +273,24 @@ fn step(tree: &mut Tree) -> Option<(GroupId, GroupId)> {
     Some((prev, next))
 }
 
+fn consume_break(tree: &mut Tree) -> Option<Break> {
+    let brk = *tree.breaks.get(tree.break_cursor)?;
+    if brk.prog_idx as usize == tree.prog_cursor {
+        tree.break_cursor += 1;
+        return Some(brk);
+    }
+    None
+}
+
+fn consume_unfinished(tree: &mut Tree) -> Option<Unfinished> {
+    let unfinished = *tree.unfinished.get(tree.unfinished_cursor)?;
+    if unfinished.prog_idx as usize == tree.prog_cursor {
+        tree.unfinished_cursor += 1;
+        return Some(unfinished);
+    }
+    None
+}
+
 fn step_break(
     tree: &mut Tree,
     surface: &mut Surface,
@@ -261,38 +298,31 @@ fn step_break(
     next: GroupId,
     brk: Break,
 ) {
-    match brk.kind {
-        BreakKind::Broken { num_closed_groups } => {
-            // Check the closed groups for artifacts and bounding boxes.
-            let mut current = prev;
-            for _ in 0..num_closed_groups {
-                current = close_group(tree, surface, current);
-            }
+    // Check the closed groups for artifacts and bounding boxes.
+    let mut current = prev;
+    for _ in 0..brk.num_closed {
+        current = close_group(tree, surface, current);
+    }
 
-            // Check the opened groups for artifacts and bounding boxes.
-            let mut new_artifact = None;
-            let bbox_start = tree.state.bbox_stack.len();
+    // Check the opened groups for artifacts and bounding boxes.
+    let mut new_artifact = None;
+    let bbox_start = tree.state.bbox_stack.len();
 
-            let mut current = next;
-            for _ in 1..num_closed_groups {
-                let group = tree.groups.get(current);
-                if let GroupKind::Artifact(ty) = group.kind {
-                    new_artifact = Some((current, ty));
-                } else if let Some(id) = group.kind.bbox() {
-                    tree.state.bbox_stack.insert(bbox_start, id);
-                }
-                current = group.parent;
-            }
-            if tree.state.current_artifact.is_none()
-                && let Some((_, ty)) = new_artifact
-            {
-                tree.state.current_artifact = new_artifact;
-                surface.start_tagged(ContentTag::Artifact(ty));
-            }
+    let mut current = next;
+    for _ in 0..brk.num_opened {
+        let group = tree.groups.get(current);
+        if let GroupKind::Artifact(ty) = group.kind {
+            new_artifact = Some((current, ty));
+        } else if let Some(id) = group.kind.bbox() {
+            tree.state.bbox_stack.insert(bbox_start, id);
         }
-        BreakKind::Unfinished { group_to_close } => {
-            close_group(tree, surface, group_to_close);
-        }
+        current = group.parent;
+    }
+    if tree.state.current_artifact.is_none()
+        && let Some((_, ty)) = new_artifact
+    {
+        tree.state.current_artifact = new_artifact;
+        surface.start_tagged(ContentTag::Artifact(ty));
     }
 }
 
@@ -388,7 +418,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 *lbl = Some(id);
             // The terms body might contain a paragraph, so check if the grand
             // parent is a terms body.
-            } else if let GroupKind::Standard(..) = parent_group.kind
+            } else if let GroupKind::Par(..) = parent_group.kind
                 && let GroupKind::TermsItemBody(lbl, _) =
                     &mut tree.groups.get_mut(grand_parent).kind
             {
@@ -441,6 +471,9 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             tree.groups.push_group(parent, id);
         }
         GroupKind::CodeBlockLine(..) => {
+            tree.groups.push_group(parent, id);
+        }
+        GroupKind::Par(..) => {
             tree.groups.push_group(parent, id);
         }
         GroupKind::Standard(..) => {

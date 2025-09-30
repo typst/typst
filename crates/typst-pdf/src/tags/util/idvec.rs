@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use crate::tags::GroupId;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct IdVec<T> {
     inner: Vec<T>,
@@ -34,6 +36,18 @@ impl<T> IdVec<T> {
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.inner.iter()
+    }
+
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl ExactSizeIterator<Item = &mut T> + DoubleEndedIterator {
+        self.inner.iter_mut()
+    }
+
+    pub fn ids(
+        &self,
+    ) -> impl ExactSizeIterator<Item = GroupId> + DoubleEndedIterator + use<T> {
+        (0..self.inner.len()).map(|i| GroupId::new(i as u32))
     }
 }
 

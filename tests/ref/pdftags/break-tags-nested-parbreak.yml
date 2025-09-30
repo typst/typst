@@ -1,0 +1,28 @@
+- Tag: P
+  /K:
+    - Content: page=0 mcid=0
+    - Content: page=0 mcid=1
+- Tag: Link
+  /K:
+    - Annotation: page=0 index=0
+    - Annotation: page=0 index=1
+    - Annotation: page=0 index=2
+    - Annotation: page=0 index=3
+    - Tag: InlineQuote
+      /K:
+        - Tag: P
+          /K:
+            - Content: page=0 mcid=2
+            - Content: page=0 mcid=3
+        - Tag: P
+          /K:
+            - Content: page=0 mcid=4
+            - Content: page=0 mcid=5
+- Tag: P
+  /K:
+    - Tag: Link
+      /K:
+        - Content: page=0 mcid=6
+        - Annotation: page=0 index=4
+    - Content: page=0 mcid=7
+    - Content: page=0 mcid=8

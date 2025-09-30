@@ -38,8 +38,8 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
-use crate::tags::groups::{GroupKind, Groups};
-use crate::tags::tree::{Break, BreakKind, TraversalStates, Tree};
+use crate::tags::groups::{BreakPriority, GroupKind, Groups};
+use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 
 pub struct TreeBuilder<'a> {
@@ -51,6 +51,7 @@ pub struct TreeBuilder<'a> {
     /// generation and inserting the marked content sequences.
     progressions: Vec<GroupId>,
     breaks: Vec<Break>,
+    unfinished: Vec<Unfinished>,
     groups: Groups,
     ctx: Ctx,
     logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
@@ -75,6 +76,7 @@ impl<'a> TreeBuilder<'a> {
             options,
             progressions: vec![doc],
             breaks: Vec::new(),
+            unfinished: Vec::new(),
             groups,
             ctx: Ctx::new(),
             logical_children: FxHashMap::default(),
@@ -90,6 +92,8 @@ impl<'a> TreeBuilder<'a> {
             progressions: self.progressions,
             break_cursor: 0,
             breaks: self.breaks,
+            unfinished_cursor: 0,
+            unfinished: self.unfinished,
             state: TraversalStates::new(),
             groups: self.groups,
             ctx: self.ctx,
@@ -114,11 +118,6 @@ impl<'a> TreeBuilder<'a> {
     pub fn parent_kind(&self) -> &GroupKind {
         &self.groups.get(self.parent()).kind
     }
-
-    pub fn insert_break(&mut self, kind: BreakKind) {
-        let progression_idx = self.progressions.len() as u32;
-        self.breaks.push(Break { progression_idx, kind });
-    }
 }
 
 #[derive(Debug)]
@@ -126,73 +125,27 @@ struct TagStack {
     items: Vec<StackEntry>,
 }
 
-impl std::ops::Index<usize> for TagStack {
-    type Output = StackEntry;
+impl std::ops::Deref for TagStack {
+    type Target = Vec<StackEntry>;
 
-    #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        std::ops::Index::index(&self.items, index)
+    fn deref(&self) -> &Self::Target {
+        &self.items
     }
 }
 
-impl std::ops::IndexMut<usize> for TagStack {
-    #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        std::ops::IndexMut::index_mut(&mut self.items, index)
+impl std::ops::DerefMut for TagStack {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
     }
 }
 
 impl TagStack {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self { items: Vec::new() }
     }
 
-    pub fn len(&self) -> usize {
-        self.items.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
-    }
-
-    pub fn last(&self) -> Option<&StackEntry> {
-        self.items.last()
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, StackEntry> {
-        self.items.iter()
-    }
-
-    pub fn push(&mut self, entry: StackEntry) {
-        self.items.push(entry);
-    }
-
-    pub fn extend<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = StackEntry>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        self.items.extend(iter)
-    }
-
-    pub fn pop_if(
-        &mut self,
-        mut predicate: impl FnMut(&mut StackEntry) -> bool,
-    ) -> Option<StackEntry> {
-        let last = self.items.last_mut()?;
-        if predicate(last) { self.pop() } else { None }
-    }
-
-    pub fn pop(&mut self) -> Option<StackEntry> {
-        self.items.pop()
-    }
-
-    pub fn truncate(&mut self, len: usize) {
-        self.items.truncate(len);
-    }
-
     /// Remove all stack entries after the idx.
-    pub fn take_unfinished_stack(&mut self, idx: usize) -> Option<Vec<StackEntry>> {
+    fn take_unfinished_stack(&mut self, idx: usize) -> Option<Vec<StackEntry>> {
         if idx + 1 < self.items.len() {
             Some(self.items.drain(idx + 1..).collect())
         } else {
@@ -201,12 +154,13 @@ impl TagStack {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 struct StackEntry {
     /// The location of the stack entry. If this is `None` the stack entry has
     /// to be manually popped.
     loc: Option<Location>,
     id: GroupId,
+    prog_idx: u32,
 }
 
 pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
@@ -309,7 +263,10 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
 
     if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
         tree.unfinished_stacks.insert(parent_loc, stack);
-        tree.insert_break(BreakKind::Unfinished { group_to_close: id });
+        tree.unfinished.push(Unfinished {
+            prog_idx: tree.progressions.len() as u32,
+            group_to_close: id,
+        });
     }
     tree.stack.pop().expect("stack entry");
     tree.progressions.push(prev);
@@ -444,7 +401,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let name = heading.body.plain_text().to_string();
         push_tag(tree, elem, Tag::Hn(level, Some(name)))
     } else if let Some(_) = elem.to_packed::<ParElem>() {
-        push_tag(tree, elem, Tag::P)
+        push_stack(tree, elem, GroupKind::Par(None))
     } else if let Some(_) = elem.to_packed::<FootnoteElem>() {
         push_stack(tree, elem, GroupKind::LogicalParent(elem.clone()))
     } else if let Some(_) = elem.to_packed::<FootnoteEntry>() {
@@ -511,7 +468,8 @@ fn push_stack_entry(
     loc: Option<Location>,
     id: GroupId,
 ) -> GroupId {
-    let entry = StackEntry { loc, id };
+    let prog_idx = tree.progressions.len() as u32;
+    let entry = StackEntry { loc, id, prog_idx };
     tree.stack.push(entry);
     id
 }
@@ -534,75 +492,204 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     // Table/grid cells can only have overlapping tags if they are broken across
     // multiple regions. In that case store the unfinished stack entries, and
     // push them back on when processing the logical children.
-    let entry_id = tree.stack[stack_idx].id;
-    let group = tree.groups.get(entry_id);
-    if matches!(group.kind, GroupKind::TableCell(..) | GroupKind::GridCell(..)) {
+    let entry = tree.stack[stack_idx];
+    let outer = tree.groups.get(entry.id);
+    if matches!(outer.kind, GroupKind::TableCell(..) | GroupKind::GridCell(..)) {
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
             tree.unfinished_stacks.insert(loc, stack);
-            tree.insert_break(BreakKind::Unfinished { group_to_close: entry_id });
+            tree.unfinished.push(Unfinished {
+                prog_idx: tree.progressions.len() as u32,
+                group_to_close: entry.id,
+            });
         }
         tree.stack.pop().unwrap();
         return Ok(tree.parent());
     }
 
     // There are overlapping tags in the tag tree. Figure out whether breaking
-    // up the current tag stack is semantically ok.
-    let mut is_breakable = true;
+    // up the current tag stack is semantically ok, and how to do it.
+    let outer_break_priority = tree.groups.breakable(&outer.kind, tree.options);
+    let mut inner_break_priority = Some(BreakPriority::MAX);
     let mut non_breakable_span = Span::detached();
     for e in tree.stack.iter().skip(stack_idx + 1) {
         let group = tree.groups.get(e.id);
-        if tree.groups.is_breakable(&group.kind, tree.options.is_pdf_ua()) {
+        let Some(priority) = tree.groups.breakable(&group.kind, tree.options) else {
+            if non_breakable_span.is_detached() {
+                non_breakable_span = group.span;
+            }
+            inner_break_priority = None;
             continue;
-        }
+        };
 
-        is_breakable = false;
-        if !group.span.is_detached() {
-            non_breakable_span = group.span;
-            break;
-        }
-    }
-    if !is_breakable {
-        if tree.options.is_pdf_ua() {
-            let validator = tree.options.standards.config.validator().as_str();
-            bail!(
-                non_breakable_span,
-                "{validator} error: invalid semantic structure, \
-                    this element's tag would be split up";
-                hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`"
-            );
-        } else {
-            bail!(
-                non_breakable_span,
-                "invalid semantic structure, \
-                this element's tag would be split up";
-                hint: "maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`";
-                hint: "disable tagged pdf by passing `--no-pdf-tags`"
-            );
+        if let Some(inner) = &mut inner_break_priority {
+            *inner = (*inner).min(priority)
         }
     }
 
-    // Duplicate all broken entries.
-    let mut parent = group.parent;
-    let new_entries = (tree.stack.iter())
-        .skip(stack_idx + 1)
-        .map(|broken_entry| {
-            let new_id = tree.groups.break_group(broken_entry.id, parent);
-            parent = new_id;
-            StackEntry { loc: broken_entry.loc, id: new_id }
-        })
-        .collect::<Vec<_>>();
+    match (outer_break_priority, inner_break_priority) {
+        (Some(outer_priority), Some(inner_priority)) => {
+            // Prefer splitting up the inner groups.
+            if inner_priority >= outer_priority {
+                Ok(split_inner_groups(tree, outer.parent, stack_idx))
+            } else {
+                Ok(split_outer_group(tree, outer.parent, stack_idx))
+            }
+        }
+        (Some(_), None) => Ok(split_outer_group(tree, outer.parent, stack_idx)),
+        (None, Some(_)) => Ok(split_inner_groups(tree, outer.parent, stack_idx)),
+        (None, None) => {
+            if tree.options.is_pdf_ua() {
+                let validator = tree.options.standards.config.validator().as_str();
+                bail!(
+                    non_breakable_span,
+                    "{validator} error: invalid document structure, \
+                        this element's PDF tag would be split up";
+                    hint: "this is probably caused by paragraph grouping";
+                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`"
+                );
+            } else {
+                bail!(
+                    non_breakable_span,
+                    "invalid document structure, \
+                    this element's PDF tag would be split up";
+                    hint: "this is probably caused by paragraph grouping";
+                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`";
+                    hint: "disable tagged PDF by passing `--no-pdf-tags`"
+                );
+            }
+        }
+    }
+}
 
+/// Consider the following introspection tags:
+/// ```txt
+/// start a
+///   start b
+///     start c
+/// end   a
+///     end   c
+///   end   b
+/// ```
+/// This will split the inner groups, producing the following tag tree:
+/// ```yml
+/// - a:
+///   - b:
+///     - c:
+/// - b:
+///   - c:
+/// ```
+fn split_inner_groups(
+    tree: &mut TreeBuilder,
+    mut parent: GroupId,
+    stack_idx: usize,
+) -> GroupId {
     // Since the broken groups won't be visited again in any future progression,
     // they'll need to be closed when this progression is visited.
-    let num_closed_groups = (tree.stack.len() - stack_idx) as u16;
-    tree.insert_break(BreakKind::Broken { num_closed_groups });
+    let num_closed = (tree.stack.len() - stack_idx) as u16;
+    tree.breaks.push(Break {
+        prog_idx: tree.progressions.len() as u32,
+        num_closed,
+        num_opened: num_closed - 1,
+    });
 
-    // Remove the closed entries.
-    tree.stack.truncate(stack_idx);
+    // Remove the closed entry.
+    tree.stack.remove(stack_idx);
 
-    // Push all broken and afterwards duplicated entries back on.
-    tree.stack.extend(new_entries);
+    // Duplicate all broken entries.
+    for entry in tree.stack.iter_mut().skip(stack_idx) {
+        let new_id = tree.groups.break_group(entry.id, parent);
+        *entry = StackEntry {
+            loc: entry.loc,
+            id: new_id,
+            prog_idx: tree.progressions.len() as u32,
+        };
+        parent = new_id;
+    }
 
     // We're now in a new duplicated group
-    Ok(tree.parent())
+    tree.parent()
+}
+
+/// Consider the following introspection tags:
+/// ```txt
+/// OPEN a
+///   OPEN b
+///     OPEN c
+/// END  a
+///     END  c
+///   END  b
+/// ```
+/// This will split the outer group, producing the following tag tree:
+/// ```yml
+/// - a:
+/// - b:
+///   - a:
+///   - c:
+///     - a:
+/// ```
+fn split_outer_group(
+    tree: &mut TreeBuilder,
+    parent: GroupId,
+    stack_idx: usize,
+) -> GroupId {
+    let prev = tree.current();
+
+    // Remove the closed entry;
+    let outer = tree.stack.remove(stack_idx);
+
+    // Move the nested group out of the outer entry.
+    tree.groups.get_mut(tree.stack[stack_idx].id).parent = parent;
+
+    let mut entry_iter = tree.stack.iter().skip(stack_idx).peekable();
+    while let Some(entry) = entry_iter.next() {
+        let next_entry = entry_iter.peek().map(|e| e.id);
+
+        let nested = tree.groups.break_group(outer.id, entry.id);
+
+        // Move all children of the stack entry into the nested group.
+        for (id, group) in tree.groups.list.ids().zip(tree.groups.list.iter_mut()).rev() {
+            // Avoid searching *all* groups! The children of this group are guaranteed to be
+            // created after the outer group and thus have a higher ID.
+            if id == outer.id {
+                break;
+            }
+
+            // Don't move the nested group into itself, or the next stack entry
+            // into the nested group.
+            if group.parent == entry.id && id != nested && Some(id) != next_entry {
+                group.parent = nested;
+            }
+        }
+
+        // Update the progression to jump into the inner entry instead.
+        tree.progressions[entry.prog_idx as usize] = nested;
+
+        let mut break_idx = Some(tree.breaks.len());
+        for (i, brk) in tree.breaks.iter_mut().enumerate().rev() {
+            if brk.prog_idx == entry.prog_idx {
+                brk.num_closed += 1;
+                brk.num_opened += 1;
+                break_idx = None;
+                break;
+            } else if brk.prog_idx < entry.prog_idx {
+                break_idx = Some(i + 1);
+                break;
+            }
+        }
+        if let Some(idx) = break_idx {
+            // Insert a break to close the previous broken group, and enter
+            // the new group.
+            let brk = Break {
+                prog_idx: entry.prog_idx,
+                num_closed: 1,
+                num_opened: 1,
+            };
+            tree.breaks.insert(idx, brk);
+        }
+    }
+
+    // We're still in the same group, but the outer group has been split up.
+    debug_assert_eq!(tree.parent(), prev);
+
+    tree.parent()
 }

@@ -55,3 +55,12 @@ A random location <somewhere>
     #place(float: true, top + left, rect(fill: red))
   ]
 ]
+
+--- link-tags-with-parbreak-error pdftags ---
+// Error: 7-69 PDF/UA-1 error: invalid document structure, this element's PDF tag would be split up
+// Hint: 7-69 this is probably caused by paragraph grouping
+// Hint: 7-69 maybe you've used a `parbreak`, `colbreak`, or `pagebreak`
+Look #link("https://github.com/typst/typst")[this #parbreak() thing].
+
+--- link-tags-with-parbreak pdftags nopdfua ---
+Look #link("https://github.com/typst/typst")[this #parbreak() thing].

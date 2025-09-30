@@ -70,9 +70,17 @@
 / A: 1 #parbreak() 232
 / B: 2
 
---- list-tags-terms-label-with-parbreak pdftags ---
-// Error: PDF/UA-1 error: invalid semantic structure, this element's tag would be split up
-// Hint: maybe this is caused by a `parbreak`, `colbreak`, or `pagebreak`
+--- list-tags-terms-label-with-parbreak-error pdftags ---
+// Error: PDF/UA-1 error: invalid document structure, this element's PDF tag would be split up
+// Hint: this is probably caused by paragraph grouping
+// Hint: maybe you've used a `parbreak`, `colbreak`, or `pagebreak`
 // TODO: This should have the span of the term label.
+/ A #parbreak() A: 1
+/ B: 2
+
+--- list-tags-terms-label-with-parbreak pdftags nopdfua ---
+// This currently produces an empty paragraph, because terms label is moved out
+// of the broken paragraph when constructing the PDF list structure. This only
+// happens when tags are broken up, so it's not *that* bad.
 / A #parbreak() A: 1
 / B: 2

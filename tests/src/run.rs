@@ -82,7 +82,7 @@ impl<'a> Runner<'a> {
 
     /// Run test specific to document format.
     fn run_test<D: OutputType>(&mut self) {
-        let Warned { output, warnings } = D::compile(&self.world);
+        let Warned { output, warnings } = D::compile(&self.world, self.test);
         let (doc, mut errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
@@ -375,7 +375,7 @@ trait OutputType: Sized {
     fn live_path(name: &str) -> PathBuf;
 
     /// Compiles the Typst test into this output type.
-    fn compile(world: &dyn World) -> Warned<SourceResult<Self>>;
+    fn compile(world: &dyn World, test: &Test) -> Warned<SourceResult<Self>>;
 
     /// The path at which the reference output is stored.
     fn ref_path(name: &str) -> PathBuf;
@@ -413,7 +413,7 @@ impl OutputType for PagedDocument {
         format!("{}/{}.png", crate::REF_PATH, name).into()
     }
 
-    fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
+    fn compile(world: &dyn World, _: &Test) -> Warned<SourceResult<Self>> {
         typst::compile(world)
     }
 
@@ -504,7 +504,7 @@ impl OutputType for HtmlDocument {
         format!("{}/html/{}.html", crate::REF_PATH, name).into()
     }
 
-    fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
+    fn compile(world: &dyn World, _: &Test) -> Warned<SourceResult<Self>> {
         typst::compile(world)
     }
 
@@ -539,7 +539,7 @@ impl OutputType for Pdftags {
         format!("{}/pdftags/{}.yml", crate::REF_PATH, name).into()
     }
 
-    fn compile(world: &dyn World) -> Warned<SourceResult<Self>> {
+    fn compile(world: &dyn World, test: &Test) -> Warned<SourceResult<Self>> {
         let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
         let mut doc = match output {
             Ok(doc) => doc,
@@ -549,10 +549,12 @@ impl OutputType for Pdftags {
             doc.info.title = Some("<test>".into());
         }
 
-        let options = PdfOptions {
-            standards: PdfStandards::new(&[PdfStandard::Ua_1]).unwrap(),
-            ..Default::default()
+        let standards = if test.attrs.pdf_ua {
+            PdfStandards::new(&[PdfStandard::Ua_1]).unwrap()
+        } else {
+            PdfStandards::default()
         };
+        let options = PdfOptions { standards, ..Default::default() };
         let output = typst_pdf::pdf_tags(&doc, &options).map(Pdftags);
         Warned { warnings, output }
     }

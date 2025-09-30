@@ -46,7 +46,7 @@ impl<'a> Resolver<'a> {
 }
 
 pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)> {
-    assert!(gc.tags.tree.finished_traversal(), "tree traversal didn't complete properly");
+    gc.tags.tree.assert_finished_traversal();
 
     let root = gc.tags.tree.groups.list.get(GroupId::ROOT);
     let GroupKind::Root(mut doc_lang) = root.kind else { unreachable!() };
@@ -145,6 +145,10 @@ fn resolve_group_node(
         parent.expand_page(child);
     }
 
+    if group.weak && nodes.is_empty() {
+        return Ok(());
+    }
+
     // If this isn't a tagged group, forward the children to the parent.
     let Some(mut tag) = tag else {
         accum.extend(nodes);
@@ -232,6 +236,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
             Tag::Code.with_placement(Some(kt::Placement::Block)).into()
         }
         GroupKind::CodeBlockLine(_) => Tag::P.into(),
+        GroupKind::Par(_) => Tag::P.into(),
         GroupKind::Standard(tag, _) => rs.tags.take(*tag),
     };
 

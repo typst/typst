@@ -11,6 +11,7 @@ use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
@@ -106,70 +107,76 @@ impl Groups {
     }
 
     /// NOTE: this needs to be kept in sync with [`Groups::break_group`].
-    pub fn is_breakable(&self, kind: &GroupKind, is_pdf_ua: bool) -> bool {
+    pub fn breakable(
+        &self,
+        kind: &GroupKind,
+        options: &PdfOptions,
+    ) -> Option<BreakPriority> {
+        let no_pdf_ua = !options.is_pdf_ua();
         match kind {
-            GroupKind::Root(..) => false,
-            GroupKind::Artifact(..) => true,
-            GroupKind::LogicalParent(..) => false,
-            GroupKind::LogicalChild => false,
-            GroupKind::Outline(..) => false,
-            GroupKind::OutlineEntry(..) => false,
-            GroupKind::Table(..) => false,
-            GroupKind::TableCell(..) => false,
-            GroupKind::Grid(..) => false,
-            GroupKind::GridCell(..) => false,
-            GroupKind::List(..) => false,
-            GroupKind::ListItemLabel(..) => false,
-            GroupKind::ListItemBody(..) => false,
-            GroupKind::TermsItemLabel(..) => false,
-            GroupKind::TermsItemBody(..) => false,
-            GroupKind::BibEntry(..) => false,
-            GroupKind::Figure(..) => false,
-            GroupKind::FigureCaption(..) => false,
-            GroupKind::Image(..) => false,
-            GroupKind::Formula(..) => false,
-            GroupKind::Link(..) => !is_pdf_ua,
-            GroupKind::CodeBlock(..) => false,
-            GroupKind::CodeBlockLine(..) => false,
+            GroupKind::Root(..) => None,
+            GroupKind::Artifact(..) => Some(BreakPriority::Span),
+            GroupKind::LogicalParent(..) => None,
+            GroupKind::LogicalChild => None,
+            GroupKind::Outline(..) => None,
+            GroupKind::OutlineEntry(..) => None,
+            GroupKind::Table(..) => None,
+            GroupKind::TableCell(..) => None,
+            GroupKind::Grid(..) => None,
+            GroupKind::GridCell(..) => None,
+            GroupKind::List(..) => None,
+            GroupKind::ListItemLabel(..) => None,
+            GroupKind::ListItemBody(..) => None,
+            GroupKind::TermsItemLabel(..) => None,
+            GroupKind::TermsItemBody(..) => None,
+            GroupKind::BibEntry(..) => None,
+            GroupKind::Figure(..) => None,
+            GroupKind::FigureCaption(..) => None,
+            GroupKind::Image(..) => None,
+            GroupKind::Formula(..) => None,
+            GroupKind::Link(..) => no_pdf_ua.then_some(BreakPriority::Span),
+            GroupKind::CodeBlock(..) => None,
+            GroupKind::CodeBlockLine(..) => None,
+            GroupKind::Par(..) => no_pdf_ua.then_some(BreakPriority::Par),
             GroupKind::Standard(tag, ..) => match self.tags.get(*tag) {
-                TagKind::Part(_) => !is_pdf_ua,
-                TagKind::Article(_) => !is_pdf_ua,
-                TagKind::Section(_) => !is_pdf_ua,
-                TagKind::Div(_) => !is_pdf_ua,
-                TagKind::BlockQuote(_) => !is_pdf_ua,
-                TagKind::Caption(_) => !is_pdf_ua,
-                TagKind::TOC(_) => false,
-                TagKind::TOCI(_) => false,
-                TagKind::Index(_) => false,
-                TagKind::P(_) => true,
-                TagKind::Hn(_) => !is_pdf_ua,
-                TagKind::L(_) => false,
-                TagKind::LI(_) => false,
-                TagKind::Lbl(_) => !is_pdf_ua,
-                TagKind::LBody(_) => !is_pdf_ua,
-                TagKind::Table(_) => false,
-                TagKind::TR(_) => false,
-                TagKind::TH(_) => false,
-                TagKind::TD(_) => false,
-                TagKind::THead(_) => false,
-                TagKind::TBody(_) => false,
-                TagKind::TFoot(_) => false,
-                TagKind::Span(_) => true,
-                TagKind::InlineQuote(_) => !is_pdf_ua,
-                TagKind::Note(_) => !is_pdf_ua,
-                TagKind::Reference(_) => !is_pdf_ua,
-                TagKind::BibEntry(_) => !is_pdf_ua,
-                TagKind::Code(_) => !is_pdf_ua,
-                TagKind::Link(_) => !is_pdf_ua,
-                TagKind::Annot(_) => !is_pdf_ua,
-                TagKind::Figure(_) => !is_pdf_ua,
-                TagKind::Formula(_) => !is_pdf_ua,
-                TagKind::NonStruct(_) => !is_pdf_ua,
-                TagKind::Datetime(_) => !is_pdf_ua,
-                TagKind::Terms(_) => !is_pdf_ua,
-                TagKind::Title(_) => !is_pdf_ua,
-                TagKind::Strong(_) => true,
-                TagKind::Em(_) => true,
+                TagKind::Part(_) => None,
+                TagKind::Article(_) => None,
+                TagKind::Section(_) => None,
+                TagKind::Div(_) => None,
+                TagKind::BlockQuote(_) => None,
+                TagKind::Caption(_) => None,
+                TagKind::TOC(_) => None,
+                TagKind::TOCI(_) => None,
+                TagKind::Index(_) => None,
+                TagKind::P(_) => no_pdf_ua.then_some(BreakPriority::Par),
+                TagKind::Hn(_) => None,
+                TagKind::L(_) => None,
+                TagKind::LI(_) => None,
+                TagKind::Lbl(_) => None,
+                TagKind::LBody(_) => None,
+                TagKind::Table(_) => None,
+                TagKind::TR(_) => None,
+                TagKind::TH(_) => None,
+                TagKind::TD(_) => None,
+                TagKind::THead(_) => None,
+                TagKind::TBody(_) => None,
+                TagKind::TFoot(_) => None,
+                TagKind::Span(_) => Some(BreakPriority::Span),
+                TagKind::InlineQuote(_) => None,
+                TagKind::Note(_) => None,
+                TagKind::Reference(_) => no_pdf_ua.then_some(BreakPriority::Span),
+                TagKind::BibEntry(_) => None,
+                TagKind::Code(_) => no_pdf_ua.then_some(BreakPriority::Span),
+                TagKind::Link(_) => no_pdf_ua.then_some(BreakPriority::Span),
+                TagKind::Annot(_) => None,
+                TagKind::Figure(_) => None,
+                TagKind::Formula(_) => None,
+                TagKind::NonStruct(_) => None,
+                TagKind::Datetime(_) => None,
+                TagKind::Terms(_) => None,
+                TagKind::Title(_) => None,
+                TagKind::Strong(_) => Some(BreakPriority::Span),
+                TagKind::Em(_) => Some(BreakPriority::Span),
             },
         }
     }
@@ -182,6 +189,7 @@ impl Groups {
         let new_kind = match &group.kind {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
             GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
+            GroupKind::Par(_) => GroupKind::Par(None),
             GroupKind::Standard(old, _) => {
                 let tag = self.tags.get(*old).clone();
                 let new = self.tags.push(tag);
@@ -209,8 +217,19 @@ impl Groups {
             | GroupKind::CodeBlock(..)
             | GroupKind::CodeBlockLine(..) => unreachable!(),
         };
-        self.list.push(Group::new(new_parent, span, new_kind))
+        self.list.push(Group::weak(new_parent, span, new_kind))
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BreakPriority {
+    Par,
+    Span,
+    Artifact,
+}
+
+impl BreakPriority {
+    pub const MAX: Self = Self::Artifact;
 }
 
 /// These methods are the only way to insert nested groups in the
@@ -314,11 +333,18 @@ pub struct Group {
     /// Only allow mutating this list through the API, to ensure the parent
     /// will be set for child groups.
     nodes: Vec<TagNode>,
+    /// Whether this group was split off another group as a result of
+    /// overlapping tags. A weak group will be omitted if it has no children.
+    pub weak: bool,
 }
 
 impl Group {
     fn new(parent: GroupId, span: Span, kind: GroupKind) -> Self {
-        Group { parent, span, kind, nodes: Vec::new() }
+        Group { parent, span, kind, nodes: Vec::new(), weak: false }
+    }
+
+    fn weak(parent: GroupId, span: Span, kind: GroupKind) -> Self {
+        Group { parent, span, kind, nodes: Vec::new(), weak: true }
     }
 
     pub fn nodes(&self) -> &[TagNode] {
@@ -381,6 +407,10 @@ pub enum GroupKind {
     Link(Packed<LinkMarker>, Option<Locale>),
     CodeBlock(Option<Locale>),
     CodeBlockLine(Option<Locale>),
+    /// Whether this paragraph is a `weak` pragraph that is omitted when it
+    /// contains no children. This can happen when there are overlapping tags
+    /// and a pragraph is split up.
+    Par(Option<Locale>),
     Standard(TagId, Option<Locale>),
 }
 
@@ -410,6 +440,7 @@ impl std::fmt::Debug for GroupKind {
             Self::Link(..) => "Link",
             Self::CodeBlock(..) => "CodeBlock",
             Self::CodeBlockLine(..) => "CodeBlockLine",
+            Self::Par(..) => "Par",
             Self::Standard(..) => "Standard",
         })
     }
@@ -472,6 +503,7 @@ impl GroupKind {
             GroupKind::Link(_, lang) => lang,
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
+            GroupKind::Par(lang) => lang,
             GroupKind::Standard(_, lang) => lang,
         })
     }
@@ -501,6 +533,7 @@ impl GroupKind {
             GroupKind::Link(_, lang) => lang,
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
+            GroupKind::Par(lang) => lang,
             GroupKind::Standard(_, lang) => lang,
         })
     }
