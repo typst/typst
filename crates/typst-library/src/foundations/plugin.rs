@@ -417,7 +417,7 @@ struct PluginInstance {
 /// A snapshot of a plugin instance.
 struct Snapshot {
     /// The number of pages in the main memory.
-    mem_pages: u32,
+    mem_pages: u64,
     /// The data in the main memory.
     mem_data: Vec<u8>,
 }
@@ -430,8 +430,7 @@ impl PluginInstance {
         let mut store = wasmi::Store::new(base.linker.engine(), CallData::default());
         let instance = base
             .linker
-            .instantiate(&mut store, &base.module)
-            .and_then(|pre_instance| pre_instance.start(&mut store))
+            .instantiate_and_start(&mut store, &base.module)
             .map_err(|e| eco_format!("{e}"))?;
 
         let mut instance = PluginInstance { instance, store };
