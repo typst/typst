@@ -977,7 +977,7 @@ impl Array {
     /// element of each duplicate is kept.
     ///
     /// ```example
-    /// #(1, 1, 2, 3, 1).dedup()
+    /// #(3, 3, 1, 2, 3).dedup()
     /// ```
     #[func(title = "Deduplicate")]
     pub fn dedup(
