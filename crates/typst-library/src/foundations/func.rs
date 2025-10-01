@@ -577,13 +577,13 @@ pub struct ParamInfo {
     pub settable: bool,
 }
 
-/// Distinguishes between variants of closures
+/// Distinguishes between variants of closures.
 #[derive(Debug, Hash)]
 pub enum ClosureNode {
     /// A regular closure. Must always be castable to a `ast::Closure`.
     Closure(SyntaxNode),
-    /// Synthetic closure used for `context` expressions.
-    /// Can be any `ast::Expr` and has no parameters.
+    /// Synthetic closure used for `context` expressions. Can be any `ast::Expr`
+    /// and has no parameters.
     Context(SyntaxNode),
 }
 

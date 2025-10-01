@@ -51,5 +51,5 @@
 }
 
 --- context-body-is-closure ---
-// Regression test since this used to be a hard crash
+// Regression test since this used to be a hard crash.
 #(context (a: none) => {})

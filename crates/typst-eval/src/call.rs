@@ -185,8 +185,8 @@ pub fn eval_closure(
 ) -> SourceResult<Value> {
     let (name, params, body) = match closure.node {
         ClosureNode::Closure(ref node) => {
-            let closure = node.cast::<ast::Closure>()
-                .expect("Node couldn't be casted to Closure. Check the AST construction for wrongly constructed closure nodes.");
+            let closure =
+                node.cast::<ast::Closure>().expect("node to be an `ast::Closure`");
             (closure.name(), closure.params(), closure.body())
         }
         ClosureNode::Context(ref node) => {
