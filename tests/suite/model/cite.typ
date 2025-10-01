@@ -5,7 +5,7 @@ And again: @netwok
 #pagebreak()
 #bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
---- cite-form large ---
+--- cite-form ---
 #set page(width: 200pt)
 
 Nothing: #cite(<arrgh>, form: none)
