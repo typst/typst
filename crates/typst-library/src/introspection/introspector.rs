@@ -12,7 +12,7 @@ use typst_utils::NonZeroExt;
 use crate::diag::{StrResult, bail};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{Location, Tag};
-use crate::layout::{Frame, FrameItem, Point, Position, Transform};
+use crate::layout::{Abs, Frame, FrameItem, Point, Position, Transform};
 use crate::model::Numbering;
 
 /// Can be queried for elements and their positions.
@@ -49,7 +49,7 @@ pub struct Introspector {
 }
 
 /// A pair of content and its position.
-type Pair = (Content, Position);
+type Pair = (Content, DocumentPosition);
 
 impl Introspector {
     /// Iterates over all locatable elements.
@@ -76,8 +76,8 @@ impl Introspector {
 
     /// Retrieves the position of the element with the given index.
     #[track_caller]
-    fn get_pos_by_idx(&self, idx: usize) -> Position {
-        self.elems[idx].1
+    fn get_pos_by_idx(&self, idx: usize) -> DocumentPosition {
+        self.elems[idx].1.clone()
     }
 
     /// Retrieves an element by its location.
@@ -86,7 +86,7 @@ impl Introspector {
     }
 
     /// Retrieves the position of the element with the given index.
-    fn get_pos_by_loc(&self, location: &Location) -> Option<Position> {
+    fn get_pos_by_loc(&self, location: &Location) -> Option<DocumentPosition> {
         self.locations.get(location).map(|&idx| self.get_pos_by_idx(idx))
     }
 
@@ -262,13 +262,19 @@ impl Introspector {
 
     /// Find the page number for the given location.
     pub fn page(&self, location: Location) -> NonZeroUsize {
-        self.position(location).page
+        match self.position(location) {
+            DocumentPosition::Paged(position) => position.page,
+            _ => NonZeroUsize::ONE,
+        }
     }
 
     /// Find the position for the given location.
-    pub fn position(&self, location: Location) -> Position {
+    pub fn position(&self, location: Location) -> DocumentPosition {
         self.get_pos_by_loc(&location)
-            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+            .unwrap_or(DocumentPosition::Paged(Position {
+                page: NonZeroUsize::ONE,
+                point: Point::zero(),
+            }))
     }
 
     /// Gets the page numbering for the given location, if any.
@@ -415,18 +421,18 @@ impl IntrospectorBuilder {
     }
 
     /// Handle a tag.
-    pub fn discover_in_tag(
+    pub fn discover_in_tag<P: Into<DocumentPosition>>(
         &mut self,
         sink: &mut Vec<Pair>,
         tag: &Tag,
-        position: Position,
+        position: P,
     ) {
         match tag {
             Tag::Start(elem, flags) => {
                 if flags.introspectable {
                     let loc = elem.location().unwrap();
                     if self.seen.insert(loc) {
-                        sink.push((elem.clone(), position));
+                        sink.push((elem.clone(), position.into()));
                     }
                 }
             }
@@ -490,6 +496,64 @@ impl IntrospectorBuilder {
             for pair in insertions.flatten() {
                 self.visit(elems, pair);
             }
+        }
+    }
+}
+
+/// A position in an HTML-tree.
+#[derive(Clone, Debug, Hash)]
+pub struct HtmlPosition {
+    /// Indices that can be used to traverse the tree from the root.
+    pub element: EcoVec<usize>,
+    /// Precise position inside of the specified element.
+    pub inner: Option<InnerHtmlPosition>,
+}
+
+/// Precise position inside of an HTML node.
+#[derive(Clone, Debug, Hash)]
+pub enum InnerHtmlPosition {
+    /// If the node is a frame, the coordinates of the position.
+    Frame { x: Abs, y: Abs },
+    /// If the node is a text node, the index of the character at the position.
+    Character(usize),
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum DocumentPosition {
+    Paged(Position),
+    Html(HtmlPosition),
+}
+
+impl From<Position> for DocumentPosition {
+    fn from(value: Position) -> Self {
+        Self::Paged(value)
+    }
+}
+
+impl From<HtmlPosition> for DocumentPosition {
+    fn from(value: HtmlPosition) -> Self {
+        Self::Html(value)
+    }
+}
+
+impl TryFrom<DocumentPosition> for Position {
+    type Error = ();
+
+    fn try_from(value: DocumentPosition) -> Result<Self, Self::Error> {
+        match value {
+            DocumentPosition::Paged(position) => Ok(position),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<DocumentPosition> for HtmlPosition {
+    type Error = ();
+
+    fn try_from(value: DocumentPosition) -> Result<Self, Self::Error> {
+        match value {
+            DocumentPosition::Html(position) => Ok(position),
+            _ => Err(()),
         }
     }
 }

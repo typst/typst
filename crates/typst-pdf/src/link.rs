@@ -179,10 +179,11 @@ fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
 /// - Consistently shifts the link by 10pt because the position of e.g.
 ///   backlinks to footnotes is always at the baseline and if you link directly
 ///   to it, the text will not be visible since it is right above.
-pub(crate) fn pos_to_xyz(
+pub(crate) fn pos_to_xyz<P: TryInto<Position>>(
     pic: &PageIndexConverter,
-    pos: Position,
+    pos: P,
 ) -> Option<XyzDestination> {
+    let pos = pos.try_into().ok()?;
     let page_index = pic.pdf_page_index(pos.page.get() - 1)?;
     let adjusted =
         Point::new(pos.point.x, (pos.point.y - Abs::pt(10.0)).max(Abs::zero()));

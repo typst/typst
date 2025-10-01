@@ -1,10 +1,14 @@
 use std::num::NonZeroUsize;
 
+use ecow::EcoVec;
 use typst::WorldExt;
+use typst::introspection::{HtmlPosition, InnerHtmlPosition};
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Position, Size};
 use typst::model::{Destination, Url};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, SyntaxKind};
+use typst::utils::NonZeroExt;
 use typst::visualize::{Curve, CurveItem, FillRule, Geometry};
+use typst_html::{HtmlDocument, HtmlElement, HtmlNode};
 
 use crate::IdeWorld;
 
@@ -27,10 +31,119 @@ impl Jump {
     }
 }
 
-/// Determine where to jump to based on a click in a frame.
-pub fn jump_from_click(
+/// Maps a position in a document to a [jump destination][`Jump`], allowing for click-to-jump functionnality.
+pub trait JumpFromDocument {
+    type Position;
+
+    fn resolve_position(
+        &self,
+        world: &dyn IdeWorld,
+        position: &Self::Position,
+    ) -> Option<Jump>;
+}
+
+impl JumpFromDocument for PagedDocument {
+    type Position = Position;
+
+    fn resolve_position(
+        &self,
+        world: &dyn IdeWorld,
+        position: &Self::Position,
+    ) -> Option<Jump> {
+        let page = self.pages.get(position.page.get() - 1)?;
+        let click = position.point;
+
+        jump_from_click_in_frame(world, self, &page.frame, click)
+    }
+}
+
+fn nth_child(n: usize, elem: &HtmlElement) -> Option<&HtmlNode> {
+    let mut i = 0;
+    let mut was_text = false;
+    for ch in &elem.children {
+        if matches!(ch, HtmlNode::Tag(_)) {
+            continue;
+        }
+
+        let is_text = matches!(ch, HtmlNode::Text(_, _));
+        if was_text && is_text {
+            i -= 1;
+        }
+
+        if i == n {
+            return Some(ch);
+        }
+
+        was_text = is_text;
+        i += 1;
+    }
+
+    None
+}
+
+impl JumpFromDocument for HtmlDocument {
+    type Position = HtmlPosition;
+
+    fn resolve_position(
+        &self,
+        world: &dyn IdeWorld,
+        position: &Self::Position,
+    ) -> Option<Jump> {
+        let mut current_node: &HtmlNode = &HtmlNode::Element(self.root.clone());
+        for index in &position.element {
+            match current_node {
+                HtmlNode::Element(html_element) => {
+                    if let Some(ch) = nth_child(*index, html_element) {
+                        current_node = ch;
+                    } else {
+                        return None;
+                    }
+                }
+                HtmlNode::Tag(_) | HtmlNode::Text(_, _) | HtmlNode::Frame(_) => {}
+            }
+        }
+
+        let span = current_node.span();
+        let id = span.id()?;
+        let source = world.source(id).ok()?;
+        let ast_node = LinkedNode::new(source.root()).find(span);
+        let is_text_node =
+            ast_node.map(|x| x.is::<typst::syntax::ast::Text>()).unwrap_or(false);
+
+        if let (HtmlNode::Frame(frame), Some(InnerHtmlPosition::Frame { x, y })) =
+            (current_node, &position.inner)
+        {
+            return jump_from_click_in_frame(
+                world,
+                self,
+                &frame.inner,
+                Point::new(*x, *y),
+            );
+        }
+
+        Some(Jump::File(
+            id,
+            source.range(span).unwrap_or_default().start
+                + match (is_text_node, &position.inner) {
+                    (true, Some(InnerHtmlPosition::Character(char))) => *char,
+                    _ => 0,
+                },
+        ))
+    }
+}
+
+pub fn jump_from_click<D: JumpFromDocument>(
+    doc: &D,
     world: &dyn IdeWorld,
-    document: &PagedDocument,
+    position: &D::Position,
+) -> Option<Jump> {
+    doc.resolve_position(world, position)
+}
+
+/// Determine where to jump to based on a click in a frame.
+pub fn jump_from_click_in_frame<D: typst::Document>(
+    world: &dyn IdeWorld,
+    document: &D,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
@@ -42,9 +155,11 @@ pub fn jump_from_click(
             return Some(match dest {
                 Destination::Url(url) => Jump::Url(url.clone()),
                 Destination::Position(pos) => Jump::Position(*pos),
-                Destination::Location(loc) => {
-                    Jump::Position(document.introspector.position(*loc))
-                }
+                Destination::Location(loc) => Jump::Position(
+                    document.introspector().position(*loc).try_into().unwrap_or(
+                        Position { page: NonZeroUsize::ONE, point: Point::zero() },
+                    ),
+                ),
             });
         }
     }
@@ -66,7 +181,9 @@ pub fn jump_from_click(
                     continue;
                 };
                 let pos = pos.transform_inf(inv_transform);
-                if let Some(span) = jump_from_click(world, document, &group.frame, pos) {
+                if let Some(span) =
+                    jump_from_click_in_frame(world, document, &group.frame, pos)
+                {
                     return Some(span);
                 }
             }
@@ -144,12 +261,106 @@ pub fn jump_from_click(
     None
 }
 
+pub trait JumpInDocument {
+    type Position;
+
+    fn find_span(&self, source: &Source, span: Span) -> Vec<Self::Position>;
+}
+
+impl JumpInDocument for PagedDocument {
+    type Position = Position;
+
+    fn find_span(&self, _: &Source, span: Span) -> Vec<Self::Position> {
+        self.pages
+            .iter()
+            .enumerate()
+            .filter_map(|(i, page)| {
+                find_in_frame(&page.frame, span).map(|point| Position {
+                    page: NonZeroUsize::new(i + 1).unwrap(),
+                    point,
+                })
+            })
+            .collect()
+    }
+}
+
+impl JumpInDocument for HtmlDocument {
+    type Position = HtmlPosition;
+
+    fn find_span(&self, source: &Source, span: Span) -> Vec<Self::Position> {
+        fn find_in_elem(
+            source: &Source,
+            elem: &HtmlElement,
+            span: Span,
+            current_position: EcoVec<usize>,
+        ) -> Vec<HtmlPosition> {
+            let mut result = Vec::new();
+            let mut i = 0;
+            let mut was_text = false;
+            let mut text_start = Span::detached();
+            for child in &elem.children {
+                match child {
+                    HtmlNode::Element(e) => {
+                        let mut position = current_position.clone();
+                        position.push(i);
+                        for pos in find_in_elem(source, e, span, position) {
+                            result.push(pos)
+                        }
+                        i += 1;
+
+                        was_text = false;
+                    }
+                    HtmlNode::Text(_, node_span) => {
+                        if !was_text {
+                            text_start = *node_span;
+                        }
+
+                        i += 1;
+
+                        if *node_span == span {
+                            let span_range = source.range(text_start);
+                            return vec![HtmlPosition {
+                                element: current_position,
+                                inner: Some(InnerHtmlPosition::Character(
+                                    span_range.unwrap_or_default().start,
+                                )),
+                            }];
+                        }
+
+                        was_text = true;
+                    }
+                    HtmlNode::Frame(frame) => {
+                        if let Some(frame_pos) = find_in_frame(&frame.inner, span) {
+                            let mut position = current_position.clone();
+                            position.push(i);
+                            return vec![HtmlPosition {
+                                element: position,
+                                inner: Some(InnerHtmlPosition::Frame {
+                                    x: frame_pos.x,
+                                    y: frame_pos.y,
+                                }),
+                            }];
+                        }
+
+                        i += 1;
+                    }
+                    _ => {}
+                }
+            }
+
+            result
+        }
+
+        find_in_elem(source, &self.root, span, EcoVec::new())
+    }
+}
+
 /// Find the output location in the document for a cursor position.
-pub fn jump_from_cursor(
-    document: &PagedDocument,
+pub fn jump_from_cursor<D: JumpInDocument>(
+    document: &D,
     source: &Source,
     cursor: usize,
-) -> Vec<Position> {
+) -> Vec<D::Position> {
     fn is_text(node: &LinkedNode) -> bool {
         matches!(node.kind(), SyntaxKind::Text | SyntaxKind::MathText)
     }
@@ -164,15 +375,7 @@ pub fn jump_from_cursor(
     };
 
     let span = node.span();
-    document
-        .pages
-        .iter()
-        .enumerate()
-        .filter_map(|(i, page)| {
-            find_in_frame(&page.frame, span)
-                .map(|point| Position { page: NonZeroUsize::new(i + 1).unwrap(), point })
-        })
-        .collect()
+    document.find_span(source, span)
 }
 
 /// Find the position of a span in a frame.
@@ -220,9 +423,9 @@ mod tests {
     use std::borrow::Borrow;
     use std::num::NonZeroUsize;
 
-    use typst::layout::{Abs, Point, Position};
+    use typst::layout::{Abs, PagedDocument, Point, Position};
 
-    use super::{Jump, jump_from_click, jump_from_cursor};
+    use super::{Jump, jump_from_click_in_frame, jump_from_cursor};
     use crate::tests::{FilePos, TestWorld, WorldLike};
 
     fn point(x: f64, y: f64) -> Point {
@@ -250,8 +453,8 @@ mod tests {
     fn test_click(world: impl WorldLike, click: Point, expected: Option<Jump>) {
         let world = world.acquire();
         let world = world.borrow();
-        let doc = typst::compile(world).output.unwrap();
-        let jump = jump_from_click(world, &doc, &doc.pages[0].frame, click);
+        let doc: PagedDocument = typst::compile(world).output.unwrap();
+        let jump = jump_from_click_in_frame(world, &doc, &doc.pages[0].frame, click);
         if let (Some(Jump::Position(pos)), Some(Jump::Position(expected))) =
             (&jump, &expected)
         {
@@ -267,7 +470,7 @@ mod tests {
     fn test_cursor(world: impl WorldLike, pos: impl FilePos, expected: Option<Position>) {
         let world = world.acquire();
         let world = world.borrow();
-        let doc = typst::compile(world).output.unwrap();
+        let doc: PagedDocument = typst::compile(world).output.unwrap();
         let (source, cursor) = pos.resolve(world);
         let pos = jump_from_cursor(&doc, &source, cursor);
         assert_eq!(!pos.is_empty(), expected.is_some());

@@ -95,13 +95,13 @@ fn compile_impl<D: Document>(
     traced: Tracked<Traced>,
     sink: &mut Sink,
 ) -> SourceResult<D> {
-    if D::TARGET == Target::Html {
+    if D::target() == Target::Html {
         warn_or_error_for_html(world, sink)?;
     }
 
     let library = world.library();
     let base = StyleChain::new(&library.styles);
-    let target = TargetElem::target.set(D::TARGET).wrap();
+    let target = TargetElem::target.set(D::target()).wrap();
     let styles = base.chain(&target);
     let empty_introspector = Introspector::default();
 
@@ -299,18 +299,24 @@ mod sealed {
 
     use super::*;
 
-    pub trait Sealed: Sized {
-        const TARGET: Target;
+    pub trait Sealed {
+        fn target() -> Target
+        where
+            Self: Sized;
 
         fn create(
             engine: &mut Engine,
             content: &Content,
             styles: StyleChain,
-        ) -> SourceResult<Self>;
+        ) -> SourceResult<Self>
+        where
+            Self: Sized;
     }
 
     impl Sealed for PagedDocument {
-        const TARGET: Target = Target::Paged;
+        fn target() -> Target {
+            Target::Paged
+        }
 
         fn create(
             engine: &mut Engine,
@@ -322,7 +328,9 @@ mod sealed {
     }
 
     impl Sealed for HtmlDocument {
-        const TARGET: Target = Target::Html;
+        fn target() -> Target {
+            Target::Html
+        }
 
         fn create(
             engine: &mut Engine,

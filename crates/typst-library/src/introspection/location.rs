@@ -4,12 +4,13 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::Span;
+use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
 use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
-use crate::introspection::{History, Introspect, Introspector};
-use crate::layout::{Abs, Position};
+use crate::introspection::{DocumentPosition, History, Introspect, Introspector};
+use crate::layout::{Abs, Point, Position};
 use crate::model::Numbering;
 
 /// Makes an element available in the introspector.
@@ -177,7 +178,12 @@ impl Introspect for PositionIntrospection {
         _: &mut Engine,
         introspector: Tracked<Introspector>,
     ) -> Self::Output {
-        introspector.position(self.0)
+        match introspector.position(self.0) {
+            DocumentPosition::Paged(pos) => pos,
+            DocumentPosition::Html(_) => {
+                Position { page: NonZeroUsize::ONE, point: Point::zero() }
+            }
+        }
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {

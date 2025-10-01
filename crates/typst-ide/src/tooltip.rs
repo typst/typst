@@ -1,9 +1,10 @@
 use std::fmt::Write;
 
 use ecow::{EcoString, eco_format};
+use typst::Document;
 use typst::engine::Sink;
 use typst::foundations::{Binding, Capturer, CastInfo, Repr, Value, repr};
-use typst::layout::{Length, PagedDocument};
+use typst::layout::Length;
 use typst::syntax::ast::AstNode;
 use typst::syntax::{LinkedNode, Side, Source, SyntaxKind, ast};
 use typst::utils::{Numeric, round_with_precision};
@@ -19,7 +20,7 @@ use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels};
 /// document is available.
 pub fn tooltip(
     world: &dyn IdeWorld,
-    document: Option<&PagedDocument>,
+    document: Option<&(impl Document + ?Sized)>,
     source: &Source,
     cursor: usize,
     side: Side,
@@ -169,7 +170,10 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(document: &PagedDocument, leaf: &LinkedNode) -> Option<Tooltip> {
+fn label_tooltip<D: Document + ?Sized>(
+    document: &D,
+    leaf: &LinkedNode,
+) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
@@ -270,7 +274,7 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 mod tests {
     use std::borrow::Borrow;
 
-    use typst::syntax::Side;
+    use typst::{layout::PagedDocument, syntax::Side};
 
     use super::{Tooltip, tooltip};
     use crate::tests::{FilePos, TestWorld, WorldLike};
@@ -308,7 +312,7 @@ mod tests {
         let world = world.acquire();
         let world = world.borrow();
         let (source, cursor) = pos.resolve(world);
-        let doc = typst::compile(world).output.ok();
+        let doc = typst::compile::<PagedDocument>(world).output.ok();
         tooltip(world, doc.as_ref(), &source, cursor, side)
     }
 

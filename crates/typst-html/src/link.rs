@@ -3,8 +3,10 @@ use std::collections::VecDeque;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_library::foundations::{Label, NativeElement};
-use typst_library::introspection::{Introspector, Location, Tag};
-use typst_library::layout::{Frame, FrameItem, Point};
+use typst_library::introspection::{
+    DocumentPosition, HtmlPosition, InnerHtmlPosition, Introspector, Location, Tag,
+};
+use typst_library::layout::{Frame, FrameItem, Point, Position};
 use typst_library::model::{Destination, LinkElem};
 use typst_utils::PicoStr;
 
@@ -153,11 +155,18 @@ fn traverse_frame(
         match item {
             FrameItem::Tag(Tag::Start(elem, _)) => {
                 let loc = elem.location().unwrap();
-                if targets.contains(&loc) {
-                    let pos = identificator.introspector.position(loc).point;
+                if targets.contains(&loc)
+                    && let DocumentPosition::Paged(Position {
+                        point: Point { x, y }, ..
+                    })
+                    | DocumentPosition::Html(HtmlPosition {
+                        inner: Some(InnerHtmlPosition::Frame { x, y }),
+                        ..
+                    }) = identificator.introspector.position(loc)
+                {
                     let id = identificator.identify(elem.label());
                     work.ids.insert(loc, id.clone());
-                    link_points.push((pos, id));
+                    link_points.push((Point::new(x, y), id));
                 }
             }
             FrameItem::Group(group) => {
