@@ -882,8 +882,8 @@ impl<'a> Generator<'a> {
 
             let prefix = prefix.map(|content| {
                 if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                    // TODO: generate alt text
-                    DirectLinkElem::new(*location, content, None).pack()
+                    let alt = content.plain_text();
+                    DirectLinkElem::new(*location, content, Some(alt)).pack()
                 } else {
                     content
                 }
@@ -1004,8 +1004,8 @@ impl ElemRenderer<'_> {
         if let Some(hayagriva::ElemMeta::Entry(i)) = elem.meta
             && let Some(location) = (self.link)(i)
         {
-            // TODO: generate alt text
-            content = DirectLinkElem::new(location, content, None).pack();
+            let alt = content.plain_text();
+            content = DirectLinkElem::new(location, content, Some(alt)).pack();
         }
 
         Ok(content)

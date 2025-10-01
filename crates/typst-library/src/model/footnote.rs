@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
+use ecow::{EcoString, eco_format};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{At, SourceResult, StrResult, bail};
@@ -12,7 +13,7 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, Length, Ratio};
 use crate::model::{Destination, DirectLinkElem, Numbering, NumberingPattern, ParElem};
-use crate::text::{SuperElem, TextElem, TextSize};
+use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
 /// A footnote.
@@ -83,7 +84,16 @@ impl FootnoteElem {
     type FootnoteEntry;
 }
 
+impl LocalName for Packed<FootnoteElem> {
+    const KEY: &'static str = "footnote";
+}
+
 impl FootnoteElem {
+    pub fn alt_text(styles: StyleChain, num: &str) -> EcoString {
+        let local_name = Packed::<FootnoteElem>::local_name_in(styles);
+        eco_format!("{local_name} {num}")
+    }
+
     /// Creates a new footnote that the passed content as its body.
     pub fn with_content(content: Content) -> Self {
         Self::new(FootnoteBody::Content(content))
@@ -293,9 +303,9 @@ impl Packed<FootnoteEntry> {
         };
 
         let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let alt = num.plain_text();
         let sup = SuperElem::new(num).pack().spanned(span);
-        // TODO: generate alt text
-        let prefix = DirectLinkElem::new(loc, sup, None).pack().spanned(span);
+        let prefix = DirectLinkElem::new(loc, sup, Some(alt)).pack().spanned(span);
         let body = self.note.body_content().unwrap().clone();
 
         Ok((prefix, body))

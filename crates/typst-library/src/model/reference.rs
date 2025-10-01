@@ -341,12 +341,18 @@ fn realize_reference(
         Smart::Custom(Some(supplement)) => supplement.resolve(engine, styles, [elem])?,
     };
 
+    let alt = {
+        let supplement = supplement.plain_text();
+        let numbering = numbers.plain_text();
+        eco_format!("{supplement} {numbering}",)
+    };
+
     let mut content = numbers;
     if !supplement.is_empty() {
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
-    Ok(DirectLinkElem::new(loc, content, None).pack())
+    Ok(DirectLinkElem::new(loc, content, Some(alt)).pack())
 }
 
 /// Turn a reference into a citation.

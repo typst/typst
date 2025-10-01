@@ -6,3 +6,6 @@ heading = Раздел
 outline = Съдържание
 raw = Приложение
 page = стр.
+# footnote =
+# email =
+# telephone =

@@ -26,8 +26,8 @@ use typst_library::pdf::{ArtifactElem, AttachElem};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
-    WeightDelta,
+    SmartQuoteElem, SmartQuotes, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem,
+    TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
@@ -221,8 +221,8 @@ const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
-    let alt = elem.alt.get_cloned(styles);
-    Ok(body.linked(dest, alt))
+    let alt = dest.alt_text(engine, styles)?;
+    Ok(body.linked(dest, Some(alt)))
 };
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
@@ -390,9 +390,9 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num) = elem.realize(engine, styles)?;
+    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
     let sup = SuperElem::new(num).pack().spanned(span);
-    // TODO: generate alt text
-    Ok(HElem::hole().clone() + sup.linked(dest, None))
+    Ok(HElem::hole().clone() + sup.linked(dest, Some(alt)))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
@@ -429,7 +429,15 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
         let body = body.plain_text();
         let page_str = PageElem::local_name_in(styles);
         let page_nr = page.plain_text();
-        eco_format!("{prefix} \"{body}\", {page_str} {page_nr}")
+        let quotes = SmartQuotes::get(
+            styles.get_ref(SmartQuoteElem::quotes),
+            styles.get(TextElem::lang),
+            styles.get(TextElem::region),
+            styles.get(SmartQuoteElem::alternative),
+        );
+        let open = quotes.double_open;
+        let close = quotes.double_close;
+        eco_format!("{prefix} {open}{body}{close} {page_str} {page_nr}",)
     };
     let inner = elem.build_inner(context, span, body, page)?;
     let block = if elem.element.is::<EquationElem>() {
