@@ -2,7 +2,8 @@ use std::num::NonZeroUsize;
 
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, bail, warning};
+use typst_library::diag::{At, SourceResult, bail, error, warning};
+use typst_library::engine::Engine;
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
@@ -320,6 +321,25 @@ impl FootnoteContainer {
     /// Get the globally shared footnote container element.
     pub fn shared() -> &'static Content {
         singleton!(Content, FootnoteContainer::new().pack())
+    }
+
+    /// Fails with an error if there are footnotes.
+    pub fn unsupported_with_custom_dom(engine: &Engine) -> SourceResult<()> {
+        let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
+        if notes.is_empty() {
+            return Ok(());
+        }
+
+        Err(notes
+            .iter()
+            .map(|note| {
+                error!(
+                    note.span(),
+                    "footnotes are not currently supported in combination \
+                     with a custom `<html>` or `<body>` element"
+                )
+            })
+            .collect())
     }
 }
 

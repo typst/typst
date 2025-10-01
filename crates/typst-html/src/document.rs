@@ -106,6 +106,7 @@ fn html_document_impl(
         leaves.extend(notes);
         leaves
     } else {
+        FootnoteContainer::unsupported_with_custom_dom(&engine)?;
         &nodes
     };
 
