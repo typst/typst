@@ -110,6 +110,11 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 // Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
+--- bibliography-modern-humanities-research-association-warning ---
+// Test warning for deprecated alias.
+// Warning: 47-87 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
+#bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
+
 --- bibliography-csl-display render html ---
 // Test a combination of CSL `display` attributes. Most of the display
 // attributes are barely used by any styles, so we have a custom style here.

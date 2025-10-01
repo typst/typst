@@ -512,6 +512,12 @@ impl FromValue for CslSource {
                         "style \"chicago-fullnotes\" has been deprecated \
                          in favor of \"chicago-notes\"",
                     );
+                } else if string.as_str() == "modern-humanities-research-association" {
+                    warning = Some(
+                        "style \"modern-humanities-research-association\" \
+                         has been deprecated in favor of \
+                         \"modern-humanities-research-association-notes\"",
+                    );
                 }
 
                 let style = ArchivedStyle::by_name(&string)
