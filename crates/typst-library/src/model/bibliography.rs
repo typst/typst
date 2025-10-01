@@ -11,7 +11,7 @@ use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
     BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest, Library,
-    SpecificLocator, citationberg,
+    SpecificLocator, TransparentLocator, citationberg,
 };
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
@@ -512,6 +512,12 @@ impl FromValue for CslSource {
                         "style \"chicago-fullnotes\" has been deprecated \
                          in favor of \"chicago-notes\"",
                     );
+                } else if string.as_str() == "modern-humanities-research-association" {
+                    warning = Some(
+                        "style \"modern-humanities-research-association\" \
+                         has been deprecated in favor of \
+                         \"modern-humanities-research-association-notes\"",
+                    );
                 }
 
                 let style = ArchivedStyle::by_name(&string)
@@ -686,10 +692,12 @@ impl<'a> Generator<'a> {
                 };
 
                 let supplement = child.supplement.get_cloned(StyleChain::default());
-                let locator = supplement.as_ref().map(|_| {
+                let locator = supplement.as_ref().map(|c| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent,
+                        hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
+                            c.clone(),
+                        )),
                     )
                 });
 
