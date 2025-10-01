@@ -570,6 +570,11 @@ impl Array {
     }
 
     /// Folds all items into a single value using an accumulator function.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4)
+    /// #array.fold(0, (acc, x) => acc + x)
+    /// ```
     #[func]
     pub fn fold(
         self,
@@ -1074,6 +1079,11 @@ impl Array {
     /// For arrays with at least one element, this is the same as [`array.fold`]
     /// with the first element of the array as the initial accumulator value,
     /// folding every subsequent element into it.
+    ///
+    /// ```example
+    /// #let array = (2, 1, 4, 3)
+    /// #array.reduce((acc, x) => calc.max(acc, x))
+    /// ```
     #[func]
     pub fn reduce(
         self,
