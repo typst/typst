@@ -11,7 +11,7 @@ use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
     BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest, Library,
-    SpecificLocator, citationberg,
+    SpecificLocator, TransparentLocator, citationberg,
 };
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
@@ -686,10 +686,12 @@ impl<'a> Generator<'a> {
                 };
 
                 let supplement = child.supplement.get_cloned(StyleChain::default());
-                let locator = supplement.as_ref().map(|_| {
+                let locator = supplement.as_ref().map(|c| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
-                        hayagriva::LocatorPayload::Transparent,
+                        hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
+                            c.clone(),
+                        )),
                     )
                 });
 
