@@ -443,6 +443,13 @@ impl Array {
     /// The returned array consists of `(index, value)` pairs in the form of
     /// length-2 arrays. These can be [destructured]($scripting/#bindings) with
     /// a let binding or for loop.
+    ///
+    /// ```example
+    /// #("A", "B", "C").enumerate(start: 1) \
+    /// #for (i, value) in ("A", "B", "C").enumerate() {
+    ///   [#i: #value\ ]
+    /// }
+    /// ```
     #[func]
     pub fn enumerate(
         self,
