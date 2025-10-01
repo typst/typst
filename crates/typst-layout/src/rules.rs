@@ -1,7 +1,5 @@
-use std::num::NonZeroUsize;
-
 use comemo::Track;
-use ecow::{EcoVec, eco_format};
+use ecow::EcoVec;
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
@@ -18,24 +16,23 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination,
-    DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem,
-    FootnoteEntry, HeadingElem, LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem,
-    ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem,
-    TitleElem, Works,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, ListElem, OutlineElem,
+    OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell,
+    TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::AttachElem;
 use typst_library::text::{
-    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
-    OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
-    WeightDelta,
+    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, OverlineElem,
+    RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem, SpaceElem,
+    StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
     RectElem, SquareElem, Stroke,
 };
-use typst_utils::{Get, NonZeroExt, Numeric};
+use typst_utils::{Get, Numeric};
 
 /// Register show rules for the [paged target](Target::Paged).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -61,6 +58,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, REF_RULE);
     rules.register(Paged, CITE_GROUP_RULE);
     rules.register(Paged, BIBLIOGRAPHY_RULE);
+    rules.register(Paged, CSL_LIGHT_RULE);
+    rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
 
@@ -440,43 +439,21 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
 
     let mut seq = vec![];
-    if let Some(title) = elem.title.get_ref(styles).clone().unwrap_or_else(|| {
-        Some(
-            TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles))
-                .spanned(span),
-        )
-    }) {
-        seq.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        );
-    }
+    seq.extend(elem.realize_title(styles));
 
     let works = Works::generate(engine).at(span)?;
-    let references = works
-        .references
-        .as_ref()
-        .ok_or_else(|| match elem.style.get_ref(styles).source {
-            CslSource::Named(style, _) => eco_format!(
-                "CSL style \"{}\" is not suitable for bibliographies",
-                style.display_name()
-            ),
-            CslSource::Normal(..) => {
-                "CSL style is not suitable for bibliographies".into()
-            }
-        })
-        .at(span)?;
+    let references = works.references(elem, styles)?;
 
-    if references.iter().any(|(prefix, _)| prefix.is_some()) {
+    if references.iter().any(|(prefix, ..)| prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);
 
         let mut cells = vec![];
-        for (prefix, reference) in references {
+        for (prefix, reference, loc) in references {
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                    .spanned(span),
+                Packed::new(GridCell::new(
+                    prefix.clone().unwrap_or_default().located(*loc),
+                ))
+                .spanned(span),
             )));
             cells.push(GridChild::Item(GridItem::Cell(
                 Packed::new(GridCell::new(reference.clone())).spanned(span),
@@ -491,8 +468,8 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 .spanned(span),
         );
     } else {
-        for (_, reference) in references {
-            let realized = reference.clone();
+        for (_, reference, loc) in references {
+            let realized = reference.clone().located(*loc);
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
@@ -510,6 +487,12 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     Ok(Content::sequence(seq))
 };
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> =
+    |elem, _, _| Ok(elem.body.clone().set(TextElem::delta, WeightDelta(-100)));
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> =
+    |elem, _, _| Ok(PadElem::new(elem.body.clone()).pack());
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
     Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_table).pack())

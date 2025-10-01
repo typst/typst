@@ -1,6 +1,7 @@
 use std::any::TypeId;
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
@@ -16,7 +17,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, PicoStr};
+use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
 
 use crate::World;
 use crate::diag::{
@@ -37,9 +38,7 @@ use crate::model::{
     LinkElem, Url,
 };
 use crate::routines::Routines;
-use crate::text::{
-    Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem, WeightDelta,
-};
+use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
 
 /// A bibliography / reference listing.
 ///
@@ -186,6 +185,23 @@ impl BibliographyElem {
             }
         }
         vec
+    }
+}
+
+impl Packed<BibliographyElem> {
+    /// Produces the heading for the bibliography, if any.
+    pub fn realize_title(&self, styles: StyleChain) -> Option<Content> {
+        self.title
+            .get_cloned(styles)
+            .unwrap_or_else(|| {
+                Some(TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles)))
+            })
+            .map(|title| {
+                HeadingElem::new(title)
+                    .with_depth(NonZeroUsize::ONE)
+                    .pack()
+                    .spanned(self.span())
+            })
     }
 }
 
@@ -527,7 +543,7 @@ pub struct Works {
     pub citations: FxHashMap<Location, SourceResult<Content>>,
     /// Lists all references in the bibliography, with optional prefix, or
     /// `None` if the citation style can't be used for bibliographies.
-    pub references: Option<Vec<(Option<Content>, Content)>>,
+    pub references: Option<Vec<(Option<Content>, Content, Location)>>,
     /// Whether the bibliography should have hanging indent.
     pub hanging_indent: bool,
 }
@@ -549,6 +565,27 @@ impl Works {
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
         Ok(Arc::new(works))
+    }
+
+    /// Extracts the generated references, failing with an error if none have
+    /// been generated.
+    pub fn references<'a>(
+        &'a self,
+        elem: &Packed<BibliographyElem>,
+        styles: StyleChain,
+    ) -> SourceResult<&'a [(Option<Content>, Content, Location)]> {
+        self.references
+            .as_deref()
+            .ok_or_else(|| match elem.style.get_ref(styles).source {
+                CslSource::Named(style, _) => eco_format!(
+                    "CSL style \"{}\" is not suitable for bibliographies",
+                    style.display_name()
+                ),
+                CslSource::Normal(..) => {
+                    "CSL style is not suitable for bibliographies".into()
+                }
+            })
+            .at(elem.span())
     }
 }
 
@@ -790,7 +827,7 @@ impl<'a> Generator<'a> {
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,
-    ) -> StrResult<Option<Vec<(Option<Content>, Content)>>> {
+    ) -> StrResult<Option<Vec<(Option<Content>, Content, Location)>>> {
         let Some(rendered) = &rendered.bibliography else { return Ok(None) };
 
         // Determine for each citation key where it first occurred, so that we
@@ -825,27 +862,25 @@ impl<'a> Generator<'a> {
             let mut prefix = item
                 .first_field
                 .as_ref()
-                .map(|elem| {
-                    let mut content = renderer.display_elem_child(elem, None, false)?;
-                    if let Some(location) = first_occurrences.get(item.key.as_str()) {
-                        content = DirectLinkElem::new(*location, content).pack();
-                    }
-                    StrResult::Ok(content)
-                })
+                .map(|elem| renderer.display_elem_child(elem, None, false))
                 .transpose()?;
 
             // Render the main reference content.
-            let mut reference = renderer.display_elem_children(
+            let reference = renderer.display_elem_children(
                 &item.content,
                 Some(&mut prefix),
                 false,
             )?;
 
-            // Attach a backlink to either the prefix or the reference so that
-            // we can link to the bibliography entry.
-            prefix.as_mut().unwrap_or(&mut reference).set_location(backlink);
+            let prefix = prefix.map(|content| {
+                if let Some(location) = first_occurrences.get(item.key.as_str()) {
+                    DirectLinkElem::new(*location, content).pack()
+                } else {
+                    content
+                }
+            });
 
-            output.push((prefix, reference));
+            output.push((prefix, reference, backlink));
         }
 
         Ok(Some(output))
@@ -941,7 +976,7 @@ impl ElemRenderer<'_> {
                     .spanned(self.span);
             }
             Some(Display::Indent) => {
-                content = PadElem::new(content).pack().spanned(self.span);
+                content = CslIndentElem::new(content).pack().spanned(self.span);
             }
             Some(Display::LeftMargin) => {
                 // The `display="left-margin"` attribute is only supported at
@@ -1038,7 +1073,7 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
             // We don't have a semantic element for "light" and a `StrongElem`
             // with negative delta does not have the appropriate semantics, so
             // keeping this as a direct style.
-            content = content.set(TextElem::delta, WeightDelta(-100));
+            content = CslLightElem::new(content).pack();
         }
     }
 
@@ -1075,6 +1110,31 @@ fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
         value.push_str(region.as_str())
     }
     citationberg::LocaleCode(value)
+}
+
+/// Translation of `font-weight="light"` in CSL.
+///
+/// We translate `font-weight: "bold"` to `<strong>` since it's likely that the
+/// CSL spec just talks about bold because it has no notion of semantic
+/// elements. The benefits of a strict reading of the spec are also rather
+/// questionable, while using semantic elements makes the bibliography more
+/// accessible, easier to style, and more portable across export targets.
+#[elem]
+pub struct CslLightElem {
+    #[required]
+    pub body: Content,
+}
+
+/// Translation of `display="indent"` in CSL.
+///
+/// A `display="block"` is simply translated to a Typst `BlockElem`. Similarly,
+/// we could translate `display="indent"` to a `PadElem`, but (a) it does not
+/// yet have support in HTML and (b) a `PadElem` described a fixed padding while
+/// CSL leaves the amount of padding user-defined so it's not a perfect fit.
+#[elem]
+pub struct CslIndentElem {
+    #[required]
+    pub body: Content,
 }
 
 #[cfg(test)]

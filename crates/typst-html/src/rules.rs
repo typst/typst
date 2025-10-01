@@ -12,10 +12,11 @@ use typst_library::layout::{
     BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
 };
 use typst_library::model::{
-    Attribution, CiteElem, CiteGroup, Destination, DirectLinkElem, EmphElem, EnumElem,
-    FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem,
-    LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
+    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
@@ -52,6 +53,9 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, OUTLINE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
+    rules.register(Html, BIBLIOGRAPHY_RULE);
+    rules.register(Html, CSL_LIGHT_RULE);
+    rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -445,7 +449,75 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
+    Ok(elem
+        .realize(engine)?
+        .styled(HtmlElem::role.set(Some("doc-biblioref".into()))))
+};
+
+// For the bibliography, we have a few elements that should be styled (e.g.
+// indent), but inline styles are not apprioriate because they couldn't be
+// properly overridden. For those, we currently emit classes so that a user can
+// style them with CSS, but do not emit any styles ourselves.
+const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let span = elem.span();
+    let works = Works::generate(engine).at(span)?;
+    let references = works.references(elem, styles)?;
+
+    let items = references.iter().map(|(prefix, reference, loc)| {
+        let mut realized = reference.clone();
+
+        if let Some(mut prefix) = prefix.clone() {
+            // If we have a link back to the first citation referencing this
+            // entry, attach the appropriate role.
+            if prefix.is::<DirectLinkElem>() {
+                prefix = prefix.set(HtmlElem::role, Some("doc-backlink".into()));
+            }
+
+            let wrapped = HtmlElem::new(tag::span)
+                .with_attr(attr::class, "prefix")
+                .with_body(Some(prefix))
+                .pack()
+                .spanned(span);
+
+            let separator = SpaceElem::shared().clone();
+            realized = Content::sequence([wrapped, separator, realized]);
+        }
+
+        HtmlElem::new(tag::li)
+            .with_body(Some(realized))
+            .pack()
+            .located(*loc)
+            .spanned(span)
+    });
+
+    let title = elem.realize_title(styles);
+    let list = HtmlElem::new(tag::ul)
+        .with_styles(css::Properties::new().with("list-style-type", "none"))
+        .with_body(Some(Content::sequence(items)))
+        .pack()
+        .spanned(span);
+
+    Ok(HtmlElem::new(tag::section)
+        .with_attr(attr::role, "doc-bibliography")
+        .with_optional_attr(attr::class, works.hanging_indent.then_some("hanging-indent"))
+        .with_body(Some(title.unwrap_or_default() + list))
+        .pack())
+};
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::span)
+        .with_attr(attr::class, "light")
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::div)
+        .with_attr(attr::class, "indent")
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
     Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))

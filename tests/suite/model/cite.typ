@@ -5,8 +5,8 @@ And again: @netwok
 #pagebreak()
 #bibliography("/assets/bib/works.bib", style: "chicago-shortened-notes")
 
---- cite-form ---
-#set page(width: 200pt)
+--- cite-form render html ---
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 Nothing: #cite(<arrgh>, form: none)
 
@@ -14,7 +14,7 @@ Nothing: #cite(<arrgh>, form: none)
 
 #bibliography("/assets/bib/works.bib", style: "apa")
 
---- cite-group ---
+--- cite-group render html ---
 A#[@netwok@arrgh]B \
 A@netwok@arrgh B \
 A@netwok @arrgh B \
@@ -29,7 +29,7 @@ A#[@netwok @arrgh @quark]B. \
 A @netwok @arrgh @quark B. \
 A @netwok @arrgh @quark, B.
 
-#set text(0pt)
+#show bibliography: it => if target() == "html" { it }
 #bibliography("/assets/bib/works.bib", style: "american-physics-society")
 
 --- cite-grouping-and-ordering ---

@@ -1,11 +1,19 @@
 // Test citations and bibliographies.
 
---- bibliography-basic ---
-#set page(width: 200pt)
+--- bibliography-basic render html ---
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 = Details
 See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distress[p.~5].
 #bibliography("/assets/bib/works.bib")
+
+--- bibliography-no-title render html ---
+@distress
+#bibliography("/assets/bib/works.bib", title: none)
+
+--- bibliography-custom-title render html ---
+@distress
+#bibliography("/assets/bib/works.bib", title: [My References])
 
 --- bibliography-before-content ---
 // Test unconventional order.
@@ -22,8 +30,9 @@ the net-work is a creature of its own.
 This is close to piratery! @arrgh
 And quark! @quark
 
---- bibliography-multiple-files ---
-#set page(width: 200pt)
+--- bibliography-multiple-files render html ---
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
+
 #set heading(numbering: "1.")
 #show bibliography: set heading(numbering: "1.")
 
@@ -101,7 +110,7 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 // Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
---- bibliography-csl-display ---
+--- bibliography-csl-display render html ---
 // Test a combination of CSL `display` attributes. Most of the display
 // attributes are barely used by any styles, so we have a custom style here.
 
