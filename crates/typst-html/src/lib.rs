@@ -80,6 +80,12 @@ pub struct HtmlElem {
     /// element instead of a subtree, they could supplant this. If we need the
     /// same mechanism for things like `class`, this could potentially also be
     /// extended to arbitrary attributes. It's minimal for now.
+    ///
+    /// This is ignored for `<p>` elements as it otherwise tends to
+    /// unintentionally attach to paragraphs resulting from grouping of a single
+    /// element instead of attaching to that element. This is a bit of a hack,
+    /// but good enough for now as the `role` property is purely internal and
+    /// we control what it is used for.
     #[internal]
     #[ghost]
     pub role: Option<EcoString>,

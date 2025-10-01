@@ -1,11 +1,19 @@
 // Test citations and bibliographies.
 
---- bibliography-basic ---
-#set page(width: 200pt)
+--- bibliography-basic render html ---
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 = Details
 See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distress[p.~5].
 #bibliography("/assets/bib/works.bib")
+
+--- bibliography-no-title render html ---
+@distress
+#bibliography("/assets/bib/works.bib", title: none)
+
+--- bibliography-custom-title render html ---
+@distress
+#bibliography("/assets/bib/works.bib", title: [My References])
 
 --- bibliography-before-content ---
 // Test unconventional order.
@@ -22,8 +30,9 @@ the net-work is a creature of its own.
 This is close to piratery! @arrgh
 And quark! @quark
 
---- bibliography-multiple-files ---
-#set page(width: 200pt)
+--- bibliography-multiple-files render html ---
+#show: it => context { set page(width: 200pt) if target() == "paged"; it }
+
 #set heading(numbering: "1.")
 #show bibliography: set heading(numbering: "1.")
 
@@ -105,3 +114,52 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 // Test warning for deprecated alias.
 // Warning: 47-88 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
 #bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
+
+--- bibliography-csl-display render html ---
+// Test a combination of CSL `display` attributes. Most of the display
+// attributes are barely used by any styles, so we have a custom style here.
+
+#let style = ```csl
+  <?xml version="1.0" encoding="utf-8"?>
+  <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
+    <info>
+      <title>Test</title>
+      <id>test</id>
+    </info>
+    <citation collapse="citation-number">
+      <layout>
+        <text variable="citation-number"/>
+      </layout>
+    </citation>
+    <bibliography>
+      <layout>
+        <text variable="title" font-style="italic" />
+        <text variable="citation-number" display="left-margin" prefix="|" suffix="|" />
+        <group display="indent">
+          <text term="by" suffix=" " />
+          <!-- This left-margin attribute is ignored because it is in a container. -->
+          <names variable="author" display="left-margin" />
+        </group>
+        <group display="block" prefix="(" suffix=")">
+          <text term="edition" suffix=" " text-case="capitalize-first" />
+          <date variable="issued"><date-part name="year"/></date>
+        </group>
+      </layout>
+    </bibliography>
+  </style>
+```
+
+#let bib = ```bib
+  @article{entry1,
+    title={Title 1},
+    author={Author 1},
+    year={2021},
+  }
+```
+
+#bibliography(
+  bytes(bib.text),
+  style: bytes(style.text),
+  title: none,
+  full: true,
+)
