@@ -5,13 +5,12 @@ use crate::diag::{At, Hint, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
-    StyleChain, Synthesize, TargetElem, cast, elem,
+    StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::math::EquationElem;
 use crate::model::{
-    BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, LinkElem,
-    LinkTarget, Numbering,
+    BibliographyElem, CiteElem, DirectLinkElem, Figurable, FootnoteElem, Numbering,
 };
 use crate::text::TextElem;
 
@@ -347,14 +346,7 @@ fn realize_reference(
         content = supplement + TextElem::packed("\u{a0}") + content;
     }
 
-    Ok(if styles.get(TargetElem::target).is_html() {
-        LinkElem::new(LinkTarget::Dest(Destination::Location(loc)), content).pack()
-    } else {
-        // TODO: We should probably also use `LinkElem` in the paged target, but
-        // it's a bit breaking and it becomes hard to style links without
-        // affecting references, so this change should be well-considered.
-        content.linked(Destination::Location(loc))
-    })
+    Ok(DirectLinkElem::new(loc, content).pack())
 }
 
 /// Turn a reference into a citation.
@@ -369,10 +361,6 @@ fn to_citation(
             _ => None,
         },
     ));
-
-    if let Some(loc) = reference.location() {
-        elem.set_location(loc);
-    }
 
     elem.synthesize(engine, styles)?;
 

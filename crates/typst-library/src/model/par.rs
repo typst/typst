@@ -108,6 +108,103 @@ pub struct ParElem {
     /// to `{-0.2em}` to get a baseline gap of exactly `{2em}`. The exact
     /// distribution of the top- and bottom-edge values affects the bounds of
     /// the first and last line.
+    ///
+    /// ```preview
+    /// // Color palette
+    /// #let c = (
+    ///   par-line: aqua.transparentize(60%),
+    ///   leading-line: blue,
+    ///   leading-text: blue.darken(20%),
+    ///   spacing-line: orange.mix(red).darken(15%),
+    ///   spacing-text: orange.mix(red).darken(20%),
+    /// )
+    ///
+    /// // A sample text for measuring font metrics.
+    /// #let sample-text = [A]
+    ///
+    /// // Number of lines in each paragraph
+    /// #let n-lines = (4, 4, 2)
+    /// #let annotated-lines = (4, 8)
+    ///
+    /// // The wide margin is for annotations
+    /// #set page(width: 350pt, margin: (x: 20%))
+    ///
+    /// #context {
+    ///   let text-height = measure(sample-text).height
+    ///   let line-height = text-height + par.leading.to-absolute()
+    ///
+    ///   let jumps = n-lines
+    ///     .map(n => ((text-height,) * n).intersperse(par.leading))
+    ///     .intersperse(par.spacing)
+    ///     .flatten()
+    ///
+    ///   place(grid(
+    ///     ..jumps
+    ///       .enumerate()
+    ///       .map(((i, h)) => if calc.even(i) {
+    ///         // Draw a stripe for the line
+    ///         block(height: h, width: 100%, fill: c.par-line)
+    ///       } else {
+    ///         // Put an annotation for the gap
+    ///         let sw(a, b) = if h == par.leading { a } else { b }
+    ///
+    ///         align(end, block(
+    ///           height: h,
+    ///           outset: (right: sw(0.5em, 1em)),
+    ///           stroke: (
+    ///             left: none,
+    ///             rest: 0.5pt + sw(c.leading-line, c.spacing-line),
+    ///           ),
+    ///           if i / 2 <= sw(..annotated-lines) {
+    ///             place(horizon, dx: 1.3em, text(
+    ///               0.8em,
+    ///               sw(c.leading-text, c.spacing-text),
+    ///               sw([leading], [spacing]),
+    ///             ))
+    ///           },
+    ///         ))
+    ///       })
+    ///   ))
+    ///
+    ///   // Mark top and bottom edges
+    ///   place(
+    ///     // pos: top/bottom edge
+    ///     // dy: Δy to the last mark
+    ///     // kind: leading/spacing
+    ///     for (pos, dy, kind) in (
+    ///       (bottom, text-height, "leading"),
+    ///       (top, par.leading, "leading"),
+    ///       (bottom, (n-lines.first() - 1) * line-height - par.leading, "spacing"),
+    ///       (top, par.spacing, "spacing"),
+    ///     ) {
+    ///       v(dy)
+    ///
+    ///       let c-text = c.at(kind + "-text")
+    ///       let c-line = c.at(kind + "-line")
+    ///
+    ///       place(end, box(
+    ///         height: 0pt,
+    ///         grid(
+    ///           columns: 2,
+    ///           column-gutter: 0.2em,
+    ///           align: pos,
+    ///           move(
+    ///             // Compensate optical illusion
+    ///             dy: if pos == top { -0.2em } else { 0.05em },
+    ///             text(0.8em, c-text)[#repr(pos) edge],
+    ///           ),
+    ///           line(length: 1em, stroke: 0.5pt + c-line),
+    ///         ),
+    ///       ))
+    ///     },
+    ///   )
+    /// }
+    ///
+    /// #set par(justify: true)
+    /// #set text(luma(25%), overhang: false)
+    /// #show ". ": it => it + parbreak()
+    /// #lorem(55)
+    /// ```
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 

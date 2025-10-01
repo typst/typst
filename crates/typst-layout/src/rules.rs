@@ -1,7 +1,5 @@
-use std::num::NonZeroUsize;
-
 use comemo::Track;
-use ecow::{EcoVec, eco_format};
+use ecow::EcoVec;
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
@@ -18,23 +16,23 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, ListElem, Outlinable, OutlineElem, OutlineEntry, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, ListElem, OutlineElem,
+    OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem, TableCell,
+    TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::pdf::AttachElem;
 use typst_library::text::{
-    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
-    OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
-    WeightDelta,
+    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, OverlineElem,
+    RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem, SpaceElem,
+    StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
     RectElem, SquareElem, Stroke,
 };
-use typst_utils::{Get, NonZeroExt, Numeric};
+use typst_utils::{Get, Numeric};
 
 /// Register show rules for the [paged target](Target::Paged).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -47,6 +45,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
     rules.register(Paged, LINK_RULE);
+    rules.register(Paged, DIRECT_LINK_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -59,6 +58,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, REF_RULE);
     rules.register(Paged, CITE_GROUP_RULE);
     rules.register(Paged, BIBLIOGRAPHY_RULE);
+    rules.register(Paged, CSL_LIGHT_RULE);
+    rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
 
@@ -216,6 +217,9 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
     Ok(body.linked(dest))
 };
+
+const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> =
+    |elem, _, _| Ok(elem.body.clone().linked(Destination::Location(elem.loc)));
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(BlockElem::new()
@@ -382,51 +386,22 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let span = elem.span();
     let number_gap = Em::new(0.05);
-    let (dest, num, body) = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(num).pack().spanned(span).linked(dest);
+    let (prefix, body) = elem.realize(engine, styles)?;
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        sup,
+        prefix,
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
-    let span = elem.span();
-
-    // Build the outline title.
-    let mut seq = vec![];
-    if let Some(title) = elem.title.get_cloned(styles).unwrap_or_else(|| {
-        Some(TextElem::packed(Packed::<OutlineElem>::local_name_in(styles)).spanned(span))
-    }) {
-        seq.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        );
-    }
-
-    let elems = engine.introspector.query(&elem.target.get_ref(styles).0);
-    let depth = elem.depth.get(styles).unwrap_or(NonZeroUsize::MAX);
-
-    // Build the outline entries.
-    for elem in elems {
-        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-            bail!(span, "cannot outline {}", elem.func().name());
-        };
-
-        let level = outlinable.level();
-        if outlinable.outlined() && level <= depth {
-            let entry = OutlineEntry::new(level, elem);
-            seq.push(entry.pack().spanned(span));
-        }
-    }
-
-    Ok(Content::sequence(seq))
+    let title = elem.realize_title(styles);
+    let entries = elem.realize_flat(engine, styles)?;
+    Ok(Content::sequence(
+        title.into_iter().chain(entries.into_iter().map(|entry| entry.pack())),
+    ))
 };
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
@@ -437,6 +412,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let prefix = elem.prefix(engine, context, span)?;
     let inner = elem.inner(engine, context, span)?;
     let block = if elem.element.is::<EquationElem>() {
+        // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::new()
             .with_body(Some(BlockBody::Content(body)))
@@ -461,43 +437,21 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
 
     let mut seq = vec![];
-    if let Some(title) = elem.title.get_ref(styles).clone().unwrap_or_else(|| {
-        Some(
-            TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles))
-                .spanned(span),
-        )
-    }) {
-        seq.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        );
-    }
+    seq.extend(elem.realize_title(styles));
 
     let works = Works::generate(engine).at(span)?;
-    let references = works
-        .references
-        .as_ref()
-        .ok_or_else(|| match elem.style.get_ref(styles).source {
-            CslSource::Named(style, _) => eco_format!(
-                "CSL style \"{}\" is not suitable for bibliographies",
-                style.display_name()
-            ),
-            CslSource::Normal(..) => {
-                "CSL style is not suitable for bibliographies".into()
-            }
-        })
-        .at(span)?;
+    let references = works.references(elem, styles)?;
 
-    if references.iter().any(|(prefix, _)| prefix.is_some()) {
+    if references.iter().any(|(prefix, ..)| prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);
 
         let mut cells = vec![];
-        for (prefix, reference) in references {
+        for (prefix, reference, loc) in references {
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                    .spanned(span),
+                Packed::new(GridCell::new(
+                    prefix.clone().unwrap_or_default().located(*loc),
+                ))
+                .spanned(span),
             )));
             cells.push(GridChild::Item(GridItem::Cell(
                 Packed::new(GridCell::new(reference.clone())).spanned(span),
@@ -512,8 +466,8 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 .spanned(span),
         );
     } else {
-        for (_, reference) in references {
-            let realized = reference.clone();
+        for (_, reference, loc) in references {
+            let realized = reference.clone().located(*loc);
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
@@ -531,6 +485,12 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     Ok(Content::sequence(seq))
 };
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> =
+    |elem, _, _| Ok(elem.body.clone().set(TextElem::delta, WeightDelta(-100)));
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> =
+    |elem, _, _| Ok(PadElem::new(elem.body.clone()).pack());
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
     Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_table).pack())
