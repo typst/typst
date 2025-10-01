@@ -268,7 +268,12 @@ impl Plugin {
 
     /// Create a new plugin from raw WebAssembly bytes.
     fn new(bytes: Bytes) -> StrResult<Self> {
-        let engine = wasmi::Engine::default();
+        let mut config = wasmi::Config::default();
+
+        // Disable relaxed SIMD as it can introduce non-determinism.
+        config.wasm_relaxed_simd(false);
+
+        let engine = wasmi::Engine::new(&config);
         let module = wasmi::Module::new(&engine, bytes.as_slice())
             .map_err(|err| format!("failed to load WebAssembly module ({err})"))?;
 

@@ -139,7 +139,7 @@ ureq = { version = "2", default-features = false, features = ["native-tls", "gzi
 usvg = { version = "0.45", default-features = false, features = ["text"] }
 utf8_iter = "1.0.4"
 walkdir = "2"
-wasmi = { version = "0.51.0", default-features = false }
+wasmi = { version = "0.51.0", default-features = false, features = ["simd"] }
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
