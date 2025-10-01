@@ -335,11 +335,10 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
         let loc = note.location().unwrap();
         let span = note.span();
         HtmlElem::new(tag::li)
-            .with_body(Some(
-                FootnoteEntry::new(note).pack().spanned(span).located(loc.variant(1)),
-            ))
+            .with_body(Some(FootnoteEntry::new(note).pack().spanned(span)))
             .with_parent(loc)
             .pack()
+            .located(loc.variant(1))
             .spanned(span)
     });
 
@@ -352,36 +351,27 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
         .pack();
 
     // The user may want to style the whole footnote element so we wrap it in an
-    // additional selectable container. `aside` has the right semantics as a
-    // container for auxiliary page content. There is no ARIA role for
-    // footnotes, so we use a class instead. (There is `doc-endnotes`, but has
-    // footnotes and endnotes have somewhat different semantics.)
-    Ok(HtmlElem::new(tag::aside)
-        .with_attr(attr::class, "footnotes")
+    // additional selectable container. This is also how it's done in the ARIA
+    // spec (although there, the section also contains an additional heading).
+    Ok(HtmlElem::new(tag::section)
+        .with_attr(attr::role, "doc-endnotes")
         .with_body(Some(list))
         .pack())
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let span = elem.span();
-    let (dest, num, body) = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(num).pack().spanned(span);
+    let (prefix, body) = elem.realize(engine, styles)?;
 
-    // We create a link back to the first footnote reference.
-    let link = LinkElem::new(dest.into(), sup)
-        .pack()
-        .spanned(span)
-        .styled(HtmlElem::role.set(Some("doc-backlink".into())));
+    // The prefix is a link back to the first footnote reference, so
+    // `doc-backlink` is the appropriate ARIA role.
+    let backlink = prefix.styled(HtmlElem::role.set(Some("doc-backlink".into())));
 
-    // We want to use the Digital Publishing ARIA role `doc-footnote` and the
-    // fallback role `note` for each individual footnote. Because the enclosing
-    // `li`, as a child of an `ol`, must have the implicit `listitem` role, we
-    // need an additional container. We chose a `div` instead of a `span` to
-    // allow for block-level content in the footnote.
-    Ok(HtmlElem::new(tag::div)
-        .with_attr(attr::role, "doc-footnote note")
-        .with_body(Some(link + body))
-        .pack())
+    // We do not use the ARIA role `doc-footnote` because it "is only for
+    // representing individual notes that occur within the body of a work" (see
+    // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
+    // appropriately modelled as ARIA endnotes. This is also in line with how
+    // Pandoc handles footnotes.
+    Ok(backlink + body)
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
