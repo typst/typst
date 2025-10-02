@@ -171,7 +171,10 @@ impl RasterImage {
         self.dynamic().height()
     }
 
-    /// TODO.
+    /// The EXIF orientation value of the original image.
+    ///
+    /// The [`dynamic`](Self::dynamic) image already has this factored in. This
+    /// value is only relevant to consumers of the raw [`data`](Self::data).
     pub fn exif_rotation(&self) -> Option<u32> {
         self.0.exif_rotation
     }
