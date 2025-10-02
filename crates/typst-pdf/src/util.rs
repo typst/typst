@@ -8,12 +8,12 @@ use typst_library::text::Font;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
 pub(crate) trait SizeExt {
-    fn to_krilla(&self) -> kg::Size;
+    fn to_krilla(&self) -> Option<kg::Size>;
 }
 
 impl SizeExt for Size {
-    fn to_krilla(&self) -> kg::Size {
-        kg::Size::from_wh(self.x.to_f32(), self.y.to_f32()).unwrap()
+    fn to_krilla(&self) -> Option<kg::Size> {
+        kg::Size::from_wh(self.x.to_f32(), self.y.to_f32())
     }
 }
 
