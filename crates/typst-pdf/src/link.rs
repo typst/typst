@@ -67,7 +67,7 @@ pub(crate) fn handle_link(
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "a link was used within a tiling";
                 hint: "references, citations, and footnotes \
-                      are also considered links in PDF"
+                       are also considered links in PDF"
             );
         }
 
@@ -94,7 +94,7 @@ pub(crate) fn handle_link(
                 link.span(),
                 "{validator} error: PDF artifacts may not contain links";
                 hint: "references, citations, and footnotes \
-                      are also considered links in PDF"
+                       are also considered links in PDF"
             );
         }
 

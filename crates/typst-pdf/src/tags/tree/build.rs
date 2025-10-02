@@ -543,7 +543,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
                 bail!(
                     non_breakable_span,
                     "{validator} error: invalid document structure, \
-                        this element's PDF tag would be split up";
+                     this element's PDF tag would be split up";
                     hint: "this is probably caused by paragraph grouping";
                     hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`"
                 );
@@ -551,7 +551,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
                 bail!(
                     non_breakable_span,
                     "invalid document structure, \
-                    this element's PDF tag would be split up";
+                     this element's PDF tag would be split up";
                     hint: "this is probably caused by paragraph grouping";
                     hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`";
                     hint: "disable tagged PDF by passing `--no-pdf-tags`"

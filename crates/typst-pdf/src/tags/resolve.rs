@@ -313,7 +313,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
                 bail!(
                     span,
                     "{validator} error: skipped from heading level \
-                        {prev_level} to {next_level}";
+                     {prev_level} to {next_level}";
                     hint: "heading levels must be consecutive"
                 );
             }
