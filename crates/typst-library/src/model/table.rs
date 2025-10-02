@@ -25,7 +25,7 @@ use crate::visualize::{Paint, Stroke};
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// For a hands-on explanation of all the ways you can use and customize tables
-/// in Typst, check out the [Table Guide]($guides/table-guide).
+/// in Typst, check out the [Table Guide]($guides/tables).
 ///
 /// Because tables are just grids with different defaults for some cell
 /// properties (notably `stroke` and `inset`), refer to the [grid
@@ -207,7 +207,7 @@ pub struct TableElem {
     /// - use a function that maps a cell's X/Y position (both starting from
     ///   zero) to its alignment
     ///
-    /// See the [Table Guide]($guides/table-guide/#alignment) for details.
+    /// See the [Table Guide]($guides/tables/#alignment) for details.
     ///
     /// ```example
     /// #table(
@@ -227,7 +227,7 @@ pub struct TableElem {
     /// - a function that maps a cell's position to its fill
     ///
     /// Most notably, arrays and functions are useful for creating striped
-    /// tables. See the [Table Guide]($guides/table-guide/#fills) for more
+    /// tables. See the [Table Guide]($guides/tables/#fills) for more
     /// details.
     ///
     /// ```example
@@ -266,7 +266,7 @@ pub struct TableElem {
     /// - use an array of strokes corresponding to each column
     /// - use a function that maps a cell's position to its stroke
     ///
-    /// See the [Table Guide]($guides/table-guide/#strokes) for more details.
+    /// See the [Table Guide]($guides/tables/#strokes) for more details.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,

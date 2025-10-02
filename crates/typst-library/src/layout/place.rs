@@ -89,7 +89,7 @@ pub struct PlaceElem {
     /// this reason, the figure function has a mirrored [`scope`
     /// parameter]($figure.scope). Nonetheless, it can also be more generally
     /// useful to break out of the columns. A typical example would be to
-    /// [create a single-column title section]($guides/page-setup-guide/#columns)
+    /// [create a single-column title section]($guides/page-setup/#columns)
     /// in a two-column document.
     ///
     /// Note that parent-scoped placement is currently only supported if `float`

@@ -33,7 +33,7 @@ use crate::visualize::{Paint, Stroke};
 /// intended for presentational and layout purposes, while the
 /// [`{table}`]($table) element is intended for, in broad terms, presenting
 /// multiple related data points. Refer to the [Accessibility
-/// Section]($grid#accessibility) to learn how grids and tables are presented to
+/// Section]($grid/#accessibility) to learn how grids and tables are presented to
 /// users of Assistive Technology (AT) like screen readers. Set and show rules
 /// on one of these elements do not affect the other.
 ///
@@ -107,7 +107,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Styling the grid { #styling }
 /// The grid and table elements work similarly. For a hands-on explanation,
-/// refer to the [Table Guide]($guides/table-guide/#fills); for a quick overview,
+/// refer to the [Table Guide]($guides/tables/#fills); for a quick overview,
 /// continue reading.
 ///
 /// The grid's appearance can be customized through different parameters. These
