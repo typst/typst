@@ -273,51 +273,8 @@ pub struct TableElem {
 
     /// A summary of the purpose and structure of complex tables.
     ///
-    /// This will be available for Assistive Technologies (such as screen
-    /// readers) when exporting to PDF, but not for sighted readers of your
-    /// file.
-    ///
-    /// This field is intended for instructions that help the user navigate the
-    /// table using AT. It is not an alternative description, so do not
-    /// duplicate the contents of the table within. Likewise, do not use this
-    /// for the core takeaway of the table. Instead, include that in the text
-    /// around the table or, even better, in a [figure
-    /// caption]($figure.caption).
-    ///
-    /// If in doubt whether your table is complex enough to warrant a summary,
-    /// err on the side of not including one. If you are certain that your table
-    /// is complex enough, consider whether a sighted user might find it
-    /// challenging. They might benefit from the instructions you put here, so
-    /// consider printing them visibly in the document instead.
-    ///
-    /// ```example
-    /// #figure(
-    ///   table(
-    ///     // The summary just provides orientation
-    ///     // and structural information for AT users.
-    ///     summary: "The first two columns list the
-    ///       names of each participant. The last
-    ///       column contains cells spanning multiple
-    ///       rows for their assigned group.",
-    ///     columns: 3,
-    ///     table.header(
-    ///       [First Name],
-    ///       [Given Name],
-    ///       [Group],
-    ///     ),
-    ///     [Mike], [Davis],
-    ///       table.cell(rowspan: 3)[Sales],
-    ///     [Anna], [Smith],
-    ///     [John], [Johnson],
-    ///     [Sara], [Wilkins],
-    ///       table.cell(rowspan: 2)[Operations],
-    ///     [Tom], [Brown],
-    ///   ),
-    ///   // This is the key takeaway of the table, so we
-    ///   // put it in the caption.
-    ///   caption: [The Sales Org now has a new member],
-    /// )
-    /// ```
+    /// See the [`crate::pdf::accessibility::table_summary`] function for more
+    /// information.
     #[internal]
     #[parse(None)]
     pub summary: Option<EcoString>,
@@ -487,13 +444,21 @@ impl TryFrom<Content> for TableItem {
 
 /// A repeatable table header.
 ///
-/// You should wrap your tables' heading rows in this function even if you do not
-/// plan to wrap your table across pages because Typst will use this function to
-/// attach accessibility metadata to tables in the future and ensure universal
-/// access to your document.
+/// You should wrap your tables' heading rows in this function even if you do
+/// not plan to wrap your table across pages because Typst uses this function to
+/// attach accessibility metadata to tables and ensure [Universal
+/// Access]($guides/accessibility/#basics) to your document.
 ///
 /// You can use the `repeat` parameter to control whether your table's header
 /// will be repeated across pages.
+///
+/// Currently, this function is unsuitable for creating header column or single
+/// header cells. Either use regular cells, or, if you are exporting a PDF, you
+/// can also use the [`pdf.header-cell`] function to mark a cell as a header
+/// cell. Likewise, you can use [`pdf.data-cell`] to mark cells in this function
+/// as data cells. Note that these functions are only available when you enable
+/// the `a11y-extras` feature (see the [PDF module documentation]($pdf) for
+/// details).
 ///
 /// ```example
 /// #set page(height: 11.5em)

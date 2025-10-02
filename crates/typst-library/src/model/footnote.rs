@@ -51,6 +51,10 @@ use crate::visualize::{LineElem, Stroke};
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
+/// # Accessibility
+/// Footnotes will be read by Assistive Technologies immediately after the spot
+/// in the text where they are referenced, not unlike how they appear in markup.
+///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 #[elem(scope, Locatable, Tagged, Count)]
 pub struct FootnoteElem {
@@ -200,10 +204,6 @@ cast! {
 /// page run is a sequence of pages without an explicit pagebreak in between).
 /// For this reason, set and show rules for footnote entries should be defined
 /// before any page content, typically at the very start of the document.
-///
-/// # Accessibility
-/// Footnotes will be read by Assistive Technologies immediately after the spot
-/// in the text where they are referenced, not unlike how they appear in markup.
 #[elem(name = "entry", title = "Footnote Entry", Locatable, Tagged, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. Its location can be used to determine

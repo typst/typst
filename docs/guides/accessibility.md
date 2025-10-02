@@ -3,7 +3,7 @@ description: |
   Learn how to create accessible documents with Typst. This guide covers semantic markup, reading order, alt text, color contrast, language settings, and PDF/UA compliance to ensure your files work for all readers and assistive technologies.
 ---
 
-# Accessibility guide
+# Accessibility Guide
 
 Making a document accessible means that it can be used and understood by everyone. That not only includes people with permanent or temporary disabilities, but also those with different devices or preferences. To underscore why accessibility is important, consider that people might read your document in more contexts than you expected:
 
@@ -17,7 +17,7 @@ To accommodate all of these people and scenarios, you should design your documen
 
 Typst can help you to create accessible files that read well on screen readers, look good even when reflowed for a different screen size, and pass automated accessibility checkers. However, to create accessible files, you will have to keep some rules in mind. This guide will help you learn what issues impact accessibility, how to design for Universal Access, and what tools Typst gives you to accomplish this. Much of the guidance here applies to all export targets, but the guide focuses on PDF export. Notable differences to HTML export are called out.
 
-## Basics of Accessibility <basics>
+## Basics of Accessibility { #basics }
 
 Accessible files allow software to do more with them than to just lay them out. Instead, your computer can understand what each part of the document is supposed to represent and use this information to present the document to the user.
 
@@ -81,11 +81,11 @@ Typst provides some layout containers like [`grid`], [`stack`], [`box`], [`colum
 
 When designing for Universal Access, you need to be aware that AT users often cannot view the visual layout that the container creates. Instead, AT will just read its contents, so it is best to think about these containers as transparent in terms of accessibility. For example, a grid will just be announced cell by cell, in the order that you have added cells in the source code. If the layout you created is merely visual and decorative, this is fine. If, however, the layout carries semantic meaning that is apparent to a sighted user viewing the file in a regular PDF reader, it is not accessible. Instead, create an alternative representation of your content that leverages text or wrap your container in the [`figure`] element to provide an alternative textual description.
 
-Do not use the grid container to represent tabular data. Instead, use [`table`]. Tables are accessible to AT users and conserved during reflow and repurposing. When creating tables, use the [`table.header`]($table.header) and [`table.footer`]($table.footer) elements to mark up the semantic roles of individual rows. The table documentation contains an [accessibility section]($table#accessibility) with more information on how to make your tables accessible. Keep in mind that while AT users can access tables, it is often cumbersome to them: Tables are optimized for visual consumption. Being read the contents of a set of cells while having to recall their row and column creates additional mental load. Consider making the core takeaway of the table accessible as text or a caption elsewhere.
+Do not use the grid container to represent tabular data. Instead, use [`table`]. Tables are accessible to AT users: their AT will allow them to navigate the table two-dimensionally. Tables are conserved during reflow and repurposing. When creating tables, use the [`table.header`]($table.header) and [`table.footer`]($table.footer) elements to mark up the semantic roles of individual rows. The table documentation contains an [accessibility section]($table/#accessibility) with more information on how to make your tables accessible. Keep in mind that while AT users can access tables, it is often cumbersome to them: Tables are optimized for visual consumption. Being read the contents of a set of cells while having to recall their row and column creates additional mental load. Consider making the core takeaway of the table accessible as text or a caption elsewhere.
 
 Likewise, if you use functions like [`rotate`], [`scale`], and [`skew`], take care that this transformation either has no semantic meaning or that the meaning is available to AT users elsewhere, i.e. in figure [alt text](#textual-representations) or a caption.
 
-## Artifacts <artifacts>
+## Artifacts
 
 Some things on a page have no semantic meaning and are irrelevant to the content of a document. We call these items _artifacts._ Artifacts are hidden from AT and repurposing and will vanish during reflow. Here are some examples for artifacts:
 
@@ -103,23 +103,11 @@ Please note that Typst will mark shapes and paths like [`square`] and [`circle`]
 
 ## Color use and contrast
 
-Universal Access not only means that your documents works with AT, reflow, and repurposing, but also that visual access is possible to everyone, including people with impaired eyesight. Not only does aging often come with worse sight, a significant chunk of people have problems differentiating color: About 8% of men and 0.5% of women are colorblind.
+Universal Access not only means that your documents works with AT, reflow, and repurposing, but also that visual access is possible to everyone, including people with impaired eyesight. Not only does aging often come with worse sight, a significant portion of people have problems differentiating color: About 8% of men and 0.5% of women are color blind.
 
-<div style="display:flex; gap: 16px;">
-<img
-  src="chart-bad-regular.png"
-  alt="Bar chart showing Energy production in Germany by kind in terawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels"
-  width="958"
-  height="637"
-  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
->
-<img
-  src="chart-bad-deuteranopia.png"
-  alt="The same bar chart with changed colors, with the segments for Nuclear and Other in a very similar dark blue, and the neighboring segments of Renewables and Fossil Fuels in two almost indistinguishable shades of sickly yellow"
-  width="958"
-  height="637"
-  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
->
+<div style="display:flex; gap: 8px 16px; width: 100%; flex-wrap: wrap; margin: 24px auto; ">
+<img src="chart-bad-regular.png" alt="Bar chart showing Energy production in Germany by kind in terawatt-hours on the X axis and the year on the y-axis. Each bar has up to four segments, for Nuclear (violet), Renewables (green), Fossil Fuels (red), and Other (blue). There is a legend in the top right corner associating the segment colors with their labels" width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 200px; max-width: 100%; height: auto; display: block; border-radius: 6px; flex-grow: 1">
+<img src="chart-bad-deuteranopia.png" alt="The same bar chart with changed colors, with the segments for Nuclear and Other in a very similar dark blue, and the neighboring segments of Renewables and Fossil Fuels in two almost indistinguishable shades of sickly yellow" width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 200px; max-width: 100%; height: auto; display: block; border-radius: 6px; flex-grow: 1">
 </div>
 
 This means that color must not be the only way you make information accessible to sighted users in your documents. As an example, consider a stacked bar chart with multiple colored segments per bar. Our example shows a chart of the domestic energy production in Germany by kind[^1]. In the picture, you can see the chart as it would normally appear and a simulation of how it would appear to people with deuteranopia-type color blindness. You can see that the two pairs of the first and last segment both look blue and the center pair looks yellow-ish. The first challenge for the colorblind user is thus to make out the boundary of the "Renewable" and "Fossil Fuels" bar. Then, they must keep track of which bar is which by only their order, adding to their mental load. A way to make this chart even less accessible would be to make the order of segments not match their order in the legend.
@@ -127,13 +115,7 @@ This means that color must not be the only way you make information accessible t
 How can we improve the chart? First, make sure that no information is solely communicated through color use. One possible way to do this by adding a pattern to each bar. Then, we can help the user make out the boundaries of each segment by adding a high-contrast border. Then, our chart could look something like this:
 
 <div>
-<img
-  src="chart-good.png"
-  alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern."
-  width="958"
-  height="637"
-  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 50%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
->
+<img src="chart-good.png" alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern." width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 50%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
 </div>
 
 This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. The Typst web app can simulate color blindness in the preview so you can check how your document performs without exporting it. You can find the options for this in the "View" menu. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
@@ -141,13 +123,7 @@ This could be further improved by choosing colors that are differentiable to peo
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
 <div>
-<img
-  src="color-contrast.png"
-  alt="Two callout boxes with the text 'Caution: Keep hands away from active stapler' with different designs. Each box has a contrast gauge for its text and graphical elements below it. The left box is shaded in a light red and the text is a regular shade of red. It has a text contrast of 2.8:1 and a graphics contrast of 1.4:1. The right box is white with a red outline and dark red text. It has a text contrast of 5.9:1 and a graphics contrast of 3.9:1."
-  width="1536"
-  height="708"
-  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 512px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px"
->
+<img src="color-contrast.png" alt="Two callout boxes with the text 'Caution: Keep hands away from active stapler' with different designs. Each box has a contrast gauge for its text and graphical elements below it. The left box is shaded in a light red and the text is a regular shade of red. It has a text contrast of 2.8:1 and a graphics contrast of 1.4:1. The right box is white with a red outline and dark red text. It has a text contrast of 5.9:1 and a graphics contrast of 3.9:1." width="1536" height="708" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 512px; max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
 </div>
 
 In our example, we can see two designs for callout boxes. Because these boxes aim to help the user avoid a hazard, it is paramount that they can actually read them. However, in the first box, the background is fairly light, making it hard to make out the box. Worse, the red text is difficult to read on the light red background. The text has a 2.8:1 contrast ratio, failing the bar of 4.5:1 contrast WCAG sets. Likewise, the box has an 1.4:1 contrast ratio with the white page background, falling short of the 3:1 threshold for graphical objects.
@@ -165,7 +141,7 @@ There are [tools to compare how much contrast a pair of colors has][wcag-contras
 
 Note that common accessibility frameworks like WCAG make an exception for purely decorative text and logos: Due to their graphic character, they can have contrast ratios that fail to achieve AA contrast ratio.
 
-## Textual representations <textual-representations>
+## Textual representations
 
 To support AT use and some repurposing workflows, all elements with a semantic meaning must have a textual representation. Think about it in terms of Universal Access: If an item is not an [artifact](#artifacts), it has a semantic meaning. If, however, AT cannot ingest the item, the full semantic meaning of a document is not available to AT users. Hence, to provide Universal Access, use the mechanisms built into Typst to provide alternative representations.
 
@@ -174,33 +150,36 @@ When you add an image, be sure to use the [`alt` argument of the image function]
 ```example
 #image("heron.jpg", alt: "?")
 
-Herons have feet with interdigital webbing, allowing for good mobility when swimming, and wings that span up to 2m30.
+Herons have feet with interdigital
+webbing, allowing for good mobility
+when swimming, and wings that span
+up to 2m30.
 ```
 
 What could be a good alternative description for [this image][heron]? Let's consider a few examples for what _not_ to do:
 
-- `["Image of a heron"]`: \
+- `{"Image of a heron"}` \
   ❌ The screen reader will already announce the image on its own, so saying this is an image is redundant. In this example, the AT user would hear "Image, Image of a heron".
 
-- `["A bird"]`: \
+- `{"A bird"}` \
   ❌ The alternative description is not specific enough. For example, it is relevant to a user that the image depicts a heron and both its feet and wings are visible.
 
-- `["Gray heron in flight. Picture by Makasch1966 on Wikimedia Commons, CC Attribution 4.0 International license"]`: \
+- `{"Gray heron in flight. Picture by Makasch1966 on Wikimedia Commons, CC Attribution 4.0 International license"}` \
   ❌ The alternative description should not include details not visible in the image, such as attribution, jokes, or metadata. Keep in mind that it is not accessible to sighted users. That information belongs elsewhere.
 
-- `["Gray heron flying low, heading from the right to left. Its feet are extended and slightly point downwards, touching a blurred horizon where a dark forest becomes visible. The bird's wings are extended and arc upwards. There are out-of-focus branches visible in the lower left corner of the image."]`: \
+- `{"Gray heron flying low, heading from the right to left. Its feet are extended and slightly point downwards, touching a blurred horizon where a dark forest becomes visible. The bird's wings are extended and arc upwards. There are out-of-focus branches visible in the lower left corner of the image."}` \
   ❌ The alternative description is too verbose. Use your discretion and determine how important the image is to the content. Think about how long a sighted user would realistically look at the image; your alt text should take about the same effort to 'consume.' For example, the anatomic description contained above could be appropriate for a longer discussion in a zoology textbook while the compositional information is useful when writing about photography. The context the example image comes with is relatively short, so write a more brief description.
 
 Instead, in the given example, you could use this alternative text:
 
-`["Heron in flight with feet and wings spread"]` \
+`{"Heron in flight with feet and wings spread"}` \
 ✅ This alternative description describes the image, is relevant to the context, and matches its brevity.
 
-There are more resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to all image formats. Typst does not currently mount the tags of a PDF image into the compiled document, even if the PDF image file on its own was accessible.
+There are resources available on the web [to learn more about writing good alternative descriptions][alt-text-tips]. The requirement to add alternative text to images applies to all image formats. Typst does not currently retain the tags of a PDF image in the compiled document, even if the PDF image file on its own was accessible.
 
-Do not use images of text, likewise, do not use the path operations to draw text manually. Typst will not be able to process text in any images to make it accessible in the same way that native text is. There is one exception to this rule: Use an image of text when the appearance of the text is essential to the semantic meaning of the document and cannot be reproduced with Typst natively. In that case, you must describe both the textual content and the essential visual characteristics in the alternative description.
+Do not use images of text; likewise, do not use the path operations to draw text manually. Typst will not be able to process text in any images to make it accessible in the same way that native text is. There is one exception to this rule: Use an image of text when the appearance of the text is essential to the semantic meaning of the document and cannot be reproduced with Typst natively. In that case, you must describe both the textual content and the essential visual characteristics in the alternative description.
 
-Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If you specify both `alt` and `caption`, both will be read by AT. If your figure contains an image, it suffices to set an alternative description on the image.
+Like the image function, the figure function has a [`alt` attribute]($figure.alt). When you use this attribute, many screen readers and other AT will not announce the content inside of the figure and instead just read the alternative description. Your alternative description must be comprehensive enough so that the AT user does not need to access the children of the figure. Only use the alternative description if the content of the figure are not otherwise accessible. For example, do not use the `alt` attribute of a figure if it contains a `table` element, but do use it if you used shapes within that come with a semantic meaning. If you specify both `alt` and `caption`, both will be read by AT. When your figure contains an image, set the alternative description on the [image itself]($image.alt), not on the figure. Do not set both, as the image description would be overridden by the figure description.
 
 ```typ
 #figure(
@@ -284,15 +263,15 @@ There are international standards that help you to assert that a Typst document 
 
 - **Tagged PDF:** Tagged PDF contain machine-readable data about the semantic structure of a document that AT can parse. Typst will write Tagged PDFs by default, but keep in mind that Typst can only write appropriate tags if it knows about the semantic structure of your document. Refer to the Section Maintaining semantics to learn how to use Typst's elements to communicate element semantics. To provide Universal Access, you are also responsible to provide textual representation of non-text content yourself.
 
-- **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide alternative description for images, and disallows the use of characters in the [Unicode Private Use Area][unic-pua] whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (the latter is not yet supported by Typst).
-
 - **PDF/UA-1:** The PDF/UA standard explains how to write a PDF 1.7 file optimized for Universal Access. It implies Tagged PDF, forces alternative descriptions for images and mathematics, requires a document title, and introduces rules how document contents like tables should be structured. If you are following this guide, you should be in compliance with most rules in PDF/UA-1 already.
 
-To enable either PDF/A-2a, PDF/A-3a, or PDF/UA, use the export dropdown in the web app and click on PDF or the [appropriate CLI flag]($pdf).
+- **PDF/A-2a** and **PDF/A-3a:** The PDF/A standard describe how to produce PDF files that are best suited for archival. Parts two and three of the PDF/A standard feature multiple conformance levels. The strictest conformance level A contains rules for accessibility as only they remain usable to the broadest range of people in the far future. Level A implies conformance with Tagged PDF, forces you to provide alternative description for images, and disallows the use of characters in the [Unicode Private Use Area][unic-pua] whose meaning is unclear to the general public. Other PDF/A rules not relating to accessibility, e.g. about colors and more also apply. When choosing between the two standards, choose PDF/A-2a unless you need to attach other PDF files. Conformance level A has been removed from PDF/A-4 in favor of the dedicated PDF/UA standard. When targeting PDF 2.0, use PDF/A-4 together with PDF/UA-2 instead (PDF/UA-2 and combining using multiple PDF standards not yet supported by Typst).
+
+The [PDF reference page]($pdf/#pdf-standards) contains more information about each of these standards. To enable either PDF/UA, PDF/A-2a, or PDF/A-3a, use the export dropdown in the web app and click on PDF or the [appropriate CLI flag]($pdf/#command-line) or web app setting.
 
 There are also a more recent part of the PDF/UA standard that targets PDF 2.0 files, PDF/UA-2. Support for PDF/UA-2 not yet available in Typst. [Both parts of the PDF/UA specification are available free of charge from the PDF Association.][pdf-ua-free] The industry standard [Well Tagged PDF (WTPDF)][WTPDF] is very similar to PDF/UA-2. All files conforming to WTPDF can also declare conformance with PDF/UA-2.
 
-When you select one or multiple of these standards for PDF export, Typst will detect if you are in violation of their rules and fail the export with a descriptive error message. You can combine multiple standards. For the strictest accessibility check currently available, choose PDF/UA-1. You can combine it with PDF/A-2a for the broadest possible range of checks. Do not disable writing tags unless you have a good reason, as they provide a baseline of accessibility across all documents you export.
+When you select one or multiple of these standards for PDF export, Typst will detect if you are in violation of their rules and fail the export with a descriptive error message. For the strictest accessibility check currently available, choose PDF/UA-1. Do not disable writing tags unless you have a good reason, as they provide a baseline of accessibility across all documents you export.
 
 Maybe you already noticed that some of the factors that go into Universal Access are hard to check automatically. For example, Typst will currently not automatically check that your color contrasts are sufficient or whether the natural language set matches the actual natural language (although the amount of spellcheck errors should provide a hint if you are using the web app). There are two international standards that address some of these human factors in more detail:
 

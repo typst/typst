@@ -129,15 +129,15 @@ pub struct FigureElem {
     /// caption (if any). However, the content of the figure itself will be
     /// skipped.
     ///
-    ///  When the body of your figure is an [image]($image) with its own `alt`
+    /// When the body of your figure is an [image]($image) with its own `alt`
     /// text set, this parameter should not be used on the figure element.
     /// Likewise, do not use this parameter when the figure contains a table,
     /// code, or other content that is already accessible. In such cases, the
     /// content of the figure will be read by AT, and adding an alternative
     /// description would lead to a loss of information.
     ///
-    /// If you are unsure how to write good alternative descriptions, refer to
-    /// the [accessibility guide]($guides/accessibility/#textual-representations).
+    /// You can learn how to write good alternative descriptions in the
+    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
     pub alt: Option<EcoString>,
 
     /// The figure's placement on the page.
