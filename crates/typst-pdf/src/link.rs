@@ -1,4 +1,3 @@
-use ecow::EcoString;
 use krilla::action::{Action, LinkAction};
 use krilla::annotation::Target;
 use krilla::destination::XyzDestination;
@@ -86,7 +85,7 @@ pub(crate) fn handle_link(
     }
 
     let (group_id, link) = gc.tags.tree.parent_link().expect("link parent");
-    let alt = link.alt.as_ref().map(EcoString::to_string);
+    let alt = link.alt.as_ref().map(Into::into);
 
     if gc.tags.tree.parent_artifact().is_some() {
         if gc.options.is_pdf_ua() {

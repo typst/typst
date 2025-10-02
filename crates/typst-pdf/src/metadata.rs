@@ -1,4 +1,3 @@
-use ecow::EcoString;
 use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
@@ -21,8 +20,8 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
 
     let mut metadata = Metadata::new()
         .creator(creator)
-        .keywords(gc.document.info.keywords.iter().map(EcoString::to_string).collect())
-        .authors(gc.document.info.author.iter().map(EcoString::to_string).collect())
+        .keywords(gc.document.info.keywords.iter().map(Into::into).collect())
+        .authors(gc.document.info.author.iter().map(Into::into).collect())
         .language(lang.rfc_3066().to_string());
 
     if let Some(title) = &gc.document.info.title {

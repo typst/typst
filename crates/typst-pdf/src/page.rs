@@ -50,7 +50,7 @@ impl PageLabelExt for PageLabel {
             };
 
             let offset = style.and(number.try_into().ok().and_then(NonZeroUsize::new));
-            Some(PageLabel::new(style, prefix.map(|s| s.to_string()), offset))
+            Some(PageLabel::new(style, prefix.map(Into::into), offset))
         }
     }
 

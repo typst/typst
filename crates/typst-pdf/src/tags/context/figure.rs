@@ -1,4 +1,3 @@
-use ecow::EcoString;
 use krilla::tagging::TagKind;
 use krilla::tagging::{self as kt, Tag};
 use typst_library::foundations::Packed;
@@ -48,7 +47,7 @@ impl FigureCtx {
     }
 
     pub fn build_tag(&self) -> Option<TagKind> {
-        let alt = self.elem.alt.opt_ref().map(EcoString::to_string);
+        let alt = self.elem.alt.opt_ref().map(Into::into);
         Some(match self.tag_kind {
             FigureTagKind::Figure => {
                 Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into()

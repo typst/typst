@@ -277,11 +277,11 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
         }
         GroupKind::FigureCaption(_, _) => Tag::Caption.into(),
         GroupKind::Image(image, _, _) => {
-            let alt = image.alt.opt_ref().map(String::from);
+            let alt = image.alt.opt_ref().map(Into::into);
             Tag::Figure(alt).with_placement(Some(kt::Placement::Block)).into()
         }
         GroupKind::Formula(equation, _, _) => {
-            let alt = equation.alt.opt_ref().map(String::from);
+            let alt = equation.alt.opt_ref().map(Into::into);
             let placement = equation.block.val().then_some(kt::Placement::Block);
             Tag::Formula(alt).with_placement(placement).into()
         }

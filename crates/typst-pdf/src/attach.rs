@@ -33,7 +33,7 @@ pub(crate) fn attach_files(
             .description
             .get_ref(StyleChain::default())
             .as_ref()
-            .map(|s| s.to_string());
+            .map(Into::into);
         let association_kind = match elem.relationship.get(StyleChain::default()) {
             None => AssociationKind::Unspecified,
             Some(e) => match e {

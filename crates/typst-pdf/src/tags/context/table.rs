@@ -126,7 +126,7 @@ impl TableCtx {
 
     pub fn build_tag(&self) -> TagKind {
         Tag::Table
-            .with_summary(self.elem.summary.opt_ref().map(String::from))
+            .with_summary(self.elem.summary.opt_ref().map(Into::into))
             .with_border_thickness(self.border_thickness.map(kt::Sides::uniform))
             .with_border_color(self.border_color.map(kt::Sides::uniform))
             .into()
