@@ -180,7 +180,7 @@ impl Sink {
     /// Add a warning.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
         // Check if warning is a duplicate.
-        let hash = typst_utils::hash128(&(&warning.span, &warning.message));
+        let hash = typst_utils::hash128(&(&warning.span_plus, &warning.message));
         if self.warnings_set.insert(hash) {
             self.warnings.push(warning);
         }

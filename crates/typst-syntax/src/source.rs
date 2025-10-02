@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -110,13 +111,28 @@ impl Source {
         LinkedNode::new(self.root()).find(span)
     }
 
-    /// Get the byte range for the given span in this file.
+    /// The byte range for a span in this file up to the end of a number of
+    /// sibling nodes.
     ///
-    /// Returns `None` if the span does not point into this source file.
+    /// Returns `None` if the span does not point into this source file. Panics
+    /// if the span is not followed by the expected number of siblings.
     ///
     /// Typically, it's easier to use `WorldExt::range` instead.
-    pub fn range(&self, span: Span) -> Option<Range<usize>> {
-        Some(self.find(span)?.range())
+    pub fn range(&self, span: Span, plus: Option<NonZeroUsize>) -> Option<Range<usize>> {
+        let node = self.find(span)?;
+        if let Some(n) = plus {
+            let start = node.range().start;
+            let nth_sibling = node.siblings().unwrap().nth(n.get() - 1).unwrap();
+            let end = nth_sibling.range().end;
+            Some(start..end)
+        } else {
+            Some(node.range())
+        }
+    }
+
+    /// The byte offset of the start of the given span in this file.
+    pub fn start_offset(&self, span: Span) -> Option<usize> {
+        Some(self.find(span)?.range().start)
     }
 }
 

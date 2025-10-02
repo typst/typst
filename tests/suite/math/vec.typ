@@ -51,6 +51,6 @@ $ vec(1, 2) $
 #set math.vec(delim: (none, "%"))
 
 --- math-vec-linebreaks ---
-// Warning: 20-29 linebreaks are ignored in elements
-// Hint: 20-29 use commas instead to separate each line
+// Warning: 20-21 linebreaks are ignored in elements
+// Hint: 20-21 use commas instead to separate each line
 $ vec(a, b, c) vec(a \ b \ c) $

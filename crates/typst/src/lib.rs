@@ -178,7 +178,7 @@ fn compile_impl<D: Document>(
 fn deduplicate(mut diags: EcoVec<SourceDiagnostic>) -> EcoVec<SourceDiagnostic> {
     let mut unique = FxHashSet::default();
     diags.retain(|diag| {
-        let hash = typst_utils::hash128(&(&diag.span, &diag.message));
+        let hash = typst_utils::hash128(&(&diag.span_plus.0, &diag.message));
         unique.insert(hash)
     });
     diags

@@ -63,22 +63,27 @@ impl Eval for ast::FuncCall<'_> {
             .map_err(|err| hint_if_shadowed_std(vm, &self.callee(), err))
             .at(callee_span)?;
 
-        let point = || Tracepoint::Call(func.name().map(Into::into));
-        let f = || {
-            func.call(&mut vm.engine, vm.context, args_value).trace(
-                vm.world(),
-                point,
-                span,
-            )
-        };
-
-        // Stacker is broken on WASM.
-        #[cfg(target_arch = "wasm32")]
-        return f();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
+        call_func(vm, func, args_value, span)
     }
+}
+
+/// Allocate stack space and call the function with tracing for diagnostics.
+///
+/// This function is separated from `FuncCall::Eval` for use in runtime math
+/// function calls.
+pub fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Value> {
+    let point = || Tracepoint::Call(func.name().map(Into::into));
+    let f = || {
+        func.call(&mut vm.engine, vm.context, args)
+            .trace(vm.world(), point, span)
+    };
+
+    // Stacker is broken on WASM.
+    #[cfg(target_arch = "wasm32")]
+    return f();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
 }
 
 impl Eval for ast::Args<'_> {
@@ -719,8 +724,20 @@ mod tests {
         test(s, "$ #x-bar #x_bar $", &["x-bar", "x_bar"]);
 
         // Named-params.
-        test(s, "$ foo(bar: y) $", &["foo"]);
-        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["foo"]);
+        test(s, "$ foo(bar: y) $", &["bar", "foo"]);
+        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["bar", "foo"]);
+        // Note: named-params in math aren't fully parsed until runtime.
+        //
+        // The captures algorithm with runtime parsing is naive. For example, we
+        // capture the variable `bar` even though it is later parsed as a named
+        // param and we don't actually access any `bar` variable.
+        //
+        // However, the naive algorithm is still correct: capturing too many
+        // variables isn't a problem as long there's no way for the code to use
+        // a variable without also causing a real capture.
+        //
+        // So the only downside is using a bit of extra space, which is
+        // definitely worth avoiding extra complexity in the algorithm.
 
         // Field access in math.
         test(s, "$ foo.bar $", &["foo"]);

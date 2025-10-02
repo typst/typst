@@ -10,11 +10,10 @@ $ pi(a,b,) $
 
 --- math-call-unclosed-func ---
 #let func(x) = x
-// Error: 6-7 unclosed delimiter
+// Error: 2-7 unclosed delimiter
 $func(a$
 
 --- math-call-unclosed-non-func ---
-// Error: 5-6 unclosed delimiter
 $sin(x$
 
 --- math-call-named-args ---
@@ -32,9 +31,9 @@ $ func5(m: sigma : f) $
 $ func5(m: sigma:pi) $
 
 --- math-call-named-args-no-expr ---
+// An empty named arg produces empty content just like empty positional args.
 #let func(m: none) = m
-// Error: 10 expected expression
-$ func(m: ) $
+#test($ func(m: ) $.body, [])
 
 --- math-call-named-args-duplicate ---
 #let func(my: none) = my
@@ -43,12 +42,12 @@ $ func(my: a, my: b) $
 
 --- math-call-named-args-shorthand-clash-1 ---
 #let func(m: none) = m
-// Error: 18-21 unexpected argument
+// Error: 18-19 unexpected argument
 $func(m: =) func(m:=)$
 
 --- math-call-named-args-shorthand-clash-2 ---
 #let func(m: none) = m
-// Error: 41-45 unexpected argument
+// Error: 41-42 unexpected argument
 $func(m::) func(m: :=) func(m:: =) func(m::=)$
 
 --- math-call-named-single-underscore ---
@@ -58,7 +57,7 @@ $ func(_: a) $
 
 --- math-call-named-single-char-error ---
 #let func(m: none) = m
-// Error: 8-13 unexpected argument
+// Error: 8-9 unexpected argument
 $ func(m : a) $
 
 --- math-call-named-args-repr ---
@@ -80,7 +79,7 @@ $args(..(a + b))$
 
 --- math-call-spread-multiple-exprs ---
 #let args(..body) = body
-// Error: 10 expected comma or semicolon
+// Error: 7-14 cannot spread content
 $args(..a + b)$
 
 --- math-call-spread-unexpected-dots ---
@@ -91,6 +90,31 @@ $args(#..range(1, 5).chunks(2))$
 --- math-call-spread-shorthand-clash ---
 #let func(body) = body
 $func(...)$
+
+--- math-call-spread-empty ---
+// Test that a spread operator followed by nothing generates two dots.
+#let args(..body) = body
+#test-repr($args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
+
+--- math-call-named-spread-override ---
+// Test named argument overriding with the spread operator.
+#let check(it, s) = test(it.body.text, repr(s))
+#let func(a: 1, b: 1) = (a: a, b: b)
+#let dict = (a: 2, b: 2)
+#let args = arguments(a: 3, b: 3)
+#check($func()$, (a: 1, b: 1))
+#check($func(..dict, ..args)$, (a: 3, b: 3))
+#check($func(..args, ..dict)$, (a: 2, b: 2))
+#check($func(a: #4, ..dict, b: #4)$, (a: 2, b: 4))
+#check($func(a: #4, ..args, b: #4)$, (a: 3, b: 4))
+
+--- math-call-named-spread-duplicate ---
+// Test duplicate named args with the spread operator.
+// The error should only happen for manually added args.
+#let func(..) = none
+#let dict = (a: 1)
+// Error: 22-23 duplicate argument: a
+$func(a: #2, ..dict, a: #3)$
 
 --- math-call-spread-repr ---
 #let args(..body) = body
@@ -124,8 +148,6 @@ $func(...)$
 #check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
 --- math-call-2d-non-func ---
-// Error: 6-7 expected content, found array
-// Error: 8-9 expected content, found array
 $ pi(a;b) $
 
 --- math-call-2d-semicolon-priority ---
@@ -147,14 +169,14 @@ $ mat(#"code"; "wins") $
 #check($args(a: b)$, "((), (a: [b]))")
 #check($args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
 #check($args(a: b, 1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
-#check($args(1, a: b, 2; 3, 4)$, "(([1], ([2],), ([3], [4])), (a: [b]))")
-#check($args(1, 2, a: b; 3, 4)$, "(([1], [2], (), ([3], [4])), (a: [b]))")
+#check($args(1, a: b, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2, a: b; 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
 #check($args(1, 2; a: b, 3, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
-#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), [3], ([4],)), (a: [b]))")
-#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), [3], [4]), (a: [b]))")
+#check($args(1, 2; 3, a: b, 4)$, "((([1], [2]), ([3], [4])), (a: [b]))")
+#check($args(1, 2; 3, 4, a: b)$, "((([1], [2]), ([3], [4])), (a: [b]))")
 #check($args(a: b, 1, 2, 3, c: d)$, "(([1], [2], [3]), (a: [b], c: [d]))")
 #check($args(1, 2, 3; a: b)$, "((([1], [2], [3]),), (a: [b]))")
-#check($args(a-b: a,, e:f;; d)$, "(([], (), ([],), ([d],)), (a-b: [a], e: [f]))")
+#check($args(a-b: a,, e:f;; d)$, "((([],), ([],), ([d],)), (a-b: [a], e: [f]))")
 #check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
 
 --- math-call-2d-escape-repr ---
@@ -196,7 +218,6 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 
 --- math-call-value-non-func ---
 $ sin(1) $
-// Error: 8-9 expected content, found integer
 $ sin(#1) $
 
 --- math-call-pass-to-box ---
@@ -227,7 +248,6 @@ $ phi(x, y) $
 $ phi(1,2,,3,) $
 
 --- math-call-symbol-named-argument ---
-// Error: 10-18 unexpected argument: alpha
 $ phi(x, alpha: y) $
 
 --- issue-3774-math-call-empty-2d-args ---
@@ -248,4 +268,32 @@ $ mat(
 --- issue-2885-math-var-only-in-global ---
 // Error: 7-10 unknown variable: rgb
 // Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
+// Error: 21-26 unexpected argument
 $text(rgb(0, 0, 0), "foo")$
+
+--- math-func-redefine ---
+// Test redefining a variable as a function inside an equation with spacing
+// differences before the parentheses.
+$
+  #let func = $bb(f)$
+  func(x)& func (x)
+  \
+  #let func(y) = $bb(f) (#y)$
+  func(x)& func (x)
+$
+
+--- math-call-func-error ---
+// Test the span of errors when calling a function.
+#let func(a, b, c) = {}
+// Error: 3-13 missing argument: c
+$ func(a, b) $
+
+--- math-call-error-inside-func ---
+// Test whether errors inside function calls produce further errors. The runtime
+// parsing behavior here is unfortunate and should be updated in the future.
+#let int = int
+$ int(
+  // Error: 3-8 missing argument: value
+  // Error: 3-6 expected integer, boolean, float, decimal, or string, found none
+  int()
+) $

@@ -7,6 +7,9 @@
 --- math-symbol-underscore ---
 #let sym = symbol("s", ("test_underscore", "s"))
 // Error: 6-10 unknown symbol modifier
+// Error: 11-21 unknown variable: underscore
+// Hint: 11-21 if you meant to display multiple letters as is, try adding spaces between each letter: `u n d e r s c o r e`
+// Hint: 11-21 or if you meant to display this as text, try placing it in quotes: `"underscore"`
 $sym.test_underscore$
 
 --- math-symbol-dash ---
@@ -21,6 +24,9 @@ $sym.test-dash$
 --- math-symbol-double-underscore ---
 #let sym = symbol("s", ("one.test_underscore", "s"))
 // Error: 10-14 unknown symbol modifier
+// Error: 15-25 unknown variable: underscore
+// Hint: 15-25 if you meant to display multiple letters as is, try adding spaces between each letter: `u n d e r s c o r e`
+// Hint: 15-25 or if you meant to display this as text, try placing it in quotes: `"underscore"`
 $sym.one.test_underscore$
 
 --- math-symbol-double-dash ---

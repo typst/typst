@@ -75,6 +75,8 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
+    /// A flat list of unparsed tokens comprising a math equation: `x^2 + 1`.
+    MathTokens,
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
     MathText,
     /// An identifier in math: `pi`.
@@ -83,6 +85,14 @@ pub enum SyntaxKind {
     MathShorthand,
     /// An alignment point in math: `&`.
     MathAlignPoint,
+    /// An opening delimiter in math: `(`, `{`.
+    ///
+    /// This also wraps the double-square-bracket shorthand: `[|`.
+    MathOpening,
+    /// A closing delimiter in math: `)`, `}`.
+    ///
+    /// This also wraps the double-square-bracket shorthand: `|]`.
+    MathClosing,
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited,
     /// A base with optional attachments in math: `a_1^2`.
@@ -132,8 +142,6 @@ pub enum SyntaxKind {
     Slash,
     /// The superscript operator in math: `^`.
     Hat,
-    /// The prime in math: `'`.
-    Prime,
     /// The field access and method call operator: `.`.
     Dot,
     /// The assignment operator: `=`.
@@ -164,6 +172,8 @@ pub enum SyntaxKind {
     Arrow,
     /// A root: `√`, `∛` or `∜`.
     Root,
+    /// An exclamation mark; groups with directly preceding text in math: `!`.
+    Bang,
 
     /// The `not` operator.
     Not,
@@ -410,10 +420,13 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
+            Self::MathTokens => "unparsed math tokens",
             Self::MathText => "math text",
             Self::MathIdent => "math identifier",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
+            Self::MathOpening => "math opening delimiter",
+            Self::MathClosing => "math closing delimiter",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
@@ -436,7 +449,6 @@ impl SyntaxKind {
             Self::Minus => "minus",
             Self::Slash => "slash",
             Self::Hat => "hat",
-            Self::Prime => "prime",
             Self::Dot => "dot",
             Self::Eq => "equals sign",
             Self::EqEq => "equality operator",
@@ -452,6 +464,7 @@ impl SyntaxKind {
             Self::Dots => "dots",
             Self::Arrow => "arrow",
             Self::Root => "root",
+            Self::Bang => "exclamation mark",
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",

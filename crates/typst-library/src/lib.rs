@@ -26,6 +26,7 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use std::num::NonZeroUsize;
 use std::ops::{Deref, Range};
 
 use serde::{Deserialize, Serialize};
@@ -126,15 +127,27 @@ world_impl!(W for &W);
 
 /// Helper methods on [`World`] implementations.
 pub trait WorldExt {
-    /// Get the byte range for a span.
+    /// Get the byte range for a span plus possible sibling nodes.
     ///
     /// Returns `None` if the `Span` does not point into any file.
-    fn range(&self, span: Span) -> Option<Range<usize>>;
+    fn range(&self, span: Span, plus: Option<NonZeroUsize>) -> Option<Range<usize>>;
+
+    /// The byte offset of the given span's start.
+    ///
+    /// Returns `None` if the `Span` does not point into any file.
+    fn start_offset(&self, span: Span) -> Option<usize>;
 }
 
 impl<T: World + ?Sized> WorldExt for T {
-    fn range(&self, span: Span) -> Option<Range<usize>> {
-        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
+    fn range(&self, span: Span, plus: Option<NonZeroUsize>) -> Option<Range<usize>> {
+        span.range()
+            .or_else(|| self.source(span.id()?).ok()?.range(span, plus))
+    }
+
+    fn start_offset(&self, span: Span) -> Option<usize> {
+        span.range()
+            .map(|range| range.start)
+            .or_else(|| self.source(span.id()?).ok()?.start_offset(span))
     }
 }
 

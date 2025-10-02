@@ -295,6 +295,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         ctx.leaf.parent_kind(),
         Some(SyntaxKind::Equation)
             | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathTokens)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
     ) {
@@ -887,6 +888,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
         ctx.leaf.parent_kind(),
         None | Some(SyntaxKind::Markup)
             | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathTokens)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
             | Some(SyntaxKind::MathRoot)
@@ -1889,6 +1891,9 @@ mod tests {
             .must_exclude(["cases"]);
         test("$ arrow. $", -3)
             .must_include(["r", "dashed"])
+            .must_exclude(["cases"]);
+        test("$ arrow.r. $", -3)
+            .must_include(["dashed"])
             .must_exclude(["cases"]);
     }
 

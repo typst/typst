@@ -68,10 +68,41 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
     MathShorthand,
     Linebreak,
     MathAlignPoint,
+    MathPrimes,
     Escape,
     Str,
     Root,
-    Prime,
+    Bang,
+);
+
+pub const UNPARSED_MATH: SyntaxSet = syntax_set!(
+    // Mostly from MATH_EXPR.
+    Hash,
+    MathIdent,
+    FieldAccess,
+    Dot,
+    Comma,
+    Semicolon,
+    // No RightParen.
+    Text,
+    MathText,
+    MathPrimes,
+    MathShorthand,
+    Linebreak,
+    MathAlignPoint,
+    Escape,
+    Str,
+    Root,
+    Bang,
+    // Added.
+    MathOpening,
+    MathClosing,
+    Hat,
+    Underscore,
+    Slash,
+    // For named function arguments.
+    Colon,
+    Minus,
 );
 
 /// Syntax kinds that can start a code expression.

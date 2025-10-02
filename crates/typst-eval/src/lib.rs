@@ -10,6 +10,7 @@ mod flow;
 mod import;
 mod markup;
 mod math;
+mod math_parser;
 mod methods;
 mod rules;
 mod vm;
@@ -144,12 +145,16 @@ pub fn eval_string(
         SyntaxMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
-        SyntaxMode::Math => Value::Content(
-            EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-                .with_block(false)
-                .pack()
-                .spanned(span),
-        ),
+        SyntaxMode::Math => {
+            let body = if let Some(math) = root.cast::<ast::Math>() {
+                math.eval(&mut vm)?
+            } else if let Some(math) = root.cast::<ast::MathTokens>() {
+                math.eval(&mut vm)?
+            } else {
+                panic!()
+            };
+            Value::Content(EquationElem::new(body).with_block(false).pack().spanned(span))
+        }
     };
 
     // Handle control flow.
