@@ -906,20 +906,17 @@ fn align_tabs(text: &str, tab_size: usize) -> EcoString {
     let mut column = 0;
 
     for grapheme in text.graphemes(true) {
-        match grapheme {
-            "\t" => {
-                let required = tab_size - column % divisor;
-                res.push_str(&replacement[..required]);
-                column += required;
-            }
-            "\n" | "\r\n" => {
-                res.push_str(grapheme);
-                column = 0;
-            }
-            _ => {
-                res.push_str(grapheme);
-                column += 1;
-            }
+        let c = grapheme.parse::<char>();
+        if c == Ok('\t') {
+            let required = tab_size - column % divisor;
+            res.push_str(&replacement[..required]);
+            column += required;
+        } else if c.is_ok_and(typst_syntax::is_newline) || grapheme == "\r\n" {
+            res.push_str(grapheme);
+            column = 0;
+        } else {
+            res.push_str(grapheme);
+            column += 1;
         }
     }
 
