@@ -93,7 +93,7 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
     }
 }
 
-#[derive(TransparentWrapper, Debug)]
+#[derive(Debug, TransparentWrapper)]
 #[repr(transparent)]
 struct PdfGlyph(Glyph);
 

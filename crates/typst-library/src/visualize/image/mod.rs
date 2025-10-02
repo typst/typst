@@ -410,7 +410,7 @@ pub enum ImageFit {
 /// A loaded raster or vector image.
 ///
 /// Values of this type are cheap to clone and hash.
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Image(Arc<LazyHash<Repr>>);
 
 /// The internal representation.

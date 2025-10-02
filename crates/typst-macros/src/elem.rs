@@ -296,7 +296,7 @@ fn create_struct(element: &Elem) -> TokenStream {
 
     quote! {
         #[doc = #docs]
-        #[derive(#debug Clone, Hash)]
+        #[derive(Hash, #debug Clone)]
         #[allow(clippy::derived_hash_with_manual_eq)]
         #[allow(rustdoc::broken_intra_doc_links)]
         #vis struct #ident {

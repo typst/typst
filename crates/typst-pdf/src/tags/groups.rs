@@ -221,7 +221,7 @@ impl Groups {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum BreakPriority {
     Par,
     Span,
@@ -313,7 +313,7 @@ impl TagStorage {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct LocatedGroup {
     pub id: GroupId,
     pub multiple_parents: bool,

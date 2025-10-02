@@ -62,7 +62,7 @@ impl Display for FilePos {
 }
 
 bitflags! {
-    #[derive(Clone, Copy)]
+    #[derive(Copy, Clone)]
     struct AttrFlags: u8 {
         const RENDER = 1 << 0;
         const HTML = 1 << 1;
@@ -90,7 +90,7 @@ impl AttrFlags {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
     pub pdf_ua: bool,
@@ -98,7 +98,7 @@ pub struct Attrs {
 }
 
 bitflags! {
-    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
     pub struct Targets: u8 {
         const RENDER = 0x1;
         const HTML = 0x2;

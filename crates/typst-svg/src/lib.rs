@@ -163,7 +163,7 @@ struct SVGRenderer<'a> {
 }
 
 /// Contextual information for rendering.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 struct State {
     /// The transform of the current item.
     transform: Transform,

@@ -393,7 +393,7 @@ impl<'a> Accumulator<'a> {
     fn finish(self) {}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum ElementKind {
     Grouping,
     Block,

@@ -324,7 +324,7 @@ fn convert_datetime<Tz: chrono::TimeZone>(
 }
 
 /// An image format to export in.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 enum ImageExportFormat {
     Png,
     Svg,

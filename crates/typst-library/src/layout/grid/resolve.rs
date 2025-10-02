@@ -393,7 +393,7 @@ impl ResolvableCell for Packed<GridCell> {
 
 /// Represents an explicit grid line (horizontal or vertical) specified by the
 /// user.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Line {
     /// The index of the track after this line. This will be the index of the
     /// row a horizontal line is above of, or of the column right after a
@@ -423,7 +423,7 @@ pub struct Line {
 }
 
 /// A repeatable grid header. Starts at the first row.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Header {
     /// The range of rows included in this header.
     pub range: Range<usize>,
@@ -442,7 +442,7 @@ pub struct Header {
 }
 
 /// A repeatable grid footer. Stops at the last row.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Footer {
     /// The first row included in this footer.
     pub start: usize,
@@ -467,7 +467,7 @@ impl Footer {
 /// It still exists even when not repeatable, but must not have additional
 /// considerations by grid layout, other than for consistency (such as making
 /// a certain group of rows unbreakable).
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Repeatable<T> {
     inner: T,
 
@@ -616,7 +616,7 @@ impl Cell {
 /// its index. This is mostly only relevant when gutter is used, since, then,
 /// the position after a track is not the same as before the next
 /// non-gutter track.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum LinePosition {
     /// The line should be drawn before its track (e.g. hline on top of a row).
     Before,
@@ -949,7 +949,7 @@ struct CellGridResolver<'a, 'b> {
     span: Span,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 enum RowGroupKind {
     Header,
     Footer,

@@ -3,12 +3,12 @@ use krilla::tagging::Tag;
 use crate::tags::groups::{GroupId, GroupKind, Groups};
 use crate::tags::resolve::TagNode;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ListCtx {
     last_item: Option<ListItem>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct ListItem {
     /// The id of the `LI` tag.
     id: GroupId,

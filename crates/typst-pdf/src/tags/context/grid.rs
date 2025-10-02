@@ -65,7 +65,7 @@ pub fn build_grid(grid_ctx: &GridCtx, groups: &mut Groups, grid_id: GroupId) {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct GridCells<T> {
     width: usize,
     entries: Vec<GridEntry<T>>,
@@ -172,7 +172,7 @@ impl<T: Clone> GridCells<T> {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) enum GridEntry<D> {
     Cell(CtxCell<D>),
     Spanned(usize),
@@ -194,7 +194,7 @@ impl<D> GridEntry<D> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct CtxCell<D> {
     pub data: D,
     pub x: u32,

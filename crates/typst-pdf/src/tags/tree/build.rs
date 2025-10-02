@@ -154,7 +154,7 @@ impl TagStack {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Copy, Clone)]
 struct StackEntry {
     /// The location of the stack entry. If this is `None` the stack entry has
     /// to be manually popped.

@@ -93,7 +93,7 @@ pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
 }
 
 /// A timestamp with timezone information.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 pub struct Timestamp {
     /// The datetime of the timestamp.
     pub(crate) datetime: Datetime,
@@ -128,7 +128,7 @@ impl Timestamp {
 }
 
 /// A timezone.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Timezone {
     /// The UTC timezone.
     UTC,

@@ -10,7 +10,7 @@ use crate::PdfOptions;
 use crate::tags::util;
 use crate::util::AbsExt;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TextAttrs {
     /// Store the last resolved set of text attribute. The resolution isn't that
     /// expensive, but for large bodies of text it is resolved quite often.
@@ -103,7 +103,7 @@ impl TextAttrs {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TextAttr {
     Strong,
     Emph,
@@ -119,20 +119,20 @@ impl TextAttr {
 }
 
 /// Sub- or super-script.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Script {
     kind: ScriptKind,
     baseline_shift: Smart<Length>,
     lineheight: Smart<TextSize>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TextDeco {
     kind: TextDecoKind,
     stroke: TextDecoStroke,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TextDecoKind {
     Underline,
     Overline,
@@ -149,7 +149,7 @@ impl TextDecoKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 struct TextDecoStroke {
     color: Option<NaiveRgbColor>,
     thickness: Option<Length>,
@@ -166,7 +166,7 @@ impl TextDecoStroke {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ResolvedTextAttrs {
     pub strong: Option<bool>,
     pub emph: Option<bool>,
@@ -197,20 +197,20 @@ impl ResolvedTextAttrs {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ResolvedScript {
     pub baseline_shift: f32,
     pub lineheight: LineHeight,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ResolvedTextDeco {
     pub kind: TextDecoKind,
     pub color: Option<NaiveRgbColor>,
     pub thickness: Option<f32>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct TextParams {
     pub font_index: u32,
     pub size: Abs,

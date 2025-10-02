@@ -32,7 +32,7 @@ pub struct TableCtx {
     border_color: Option<NaiveRgbColor>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TableCellData {
     tag: TagId,
     kind: TableCellKind,
@@ -40,13 +40,13 @@ pub struct TableCellData {
     stroke: Sides<PrioritzedStroke>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 struct PrioritzedStroke {
     stroke: Option<Arc<Stroke<Abs>>>,
     priority: StrokePriority,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum StrokePriority {
     GridStroke = 0,
     CellStroke = 1,

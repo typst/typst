@@ -560,7 +560,7 @@ impl Construct for ParLine {
 ///
 /// Note that, currently, manually resetting the line number counter is not
 /// supported.
-#[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineNumberingScope {
     /// Indicates that the line number counter spans the whole document, i.e.,
     /// it's never automatically reset.

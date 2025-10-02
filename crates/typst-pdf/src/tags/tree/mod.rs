@@ -148,7 +148,7 @@ impl TraversalState {
 }
 
 /// Marks a point where the entries on the stack were split up.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Break {
     /// The index of the progression at which point the broken up groups need to
     /// be closed.
@@ -164,7 +164,7 @@ struct Break {
 /// Marks a point at the end of a logical child or parent where the stack was
 /// not fully closed, and the open groups were handled in the next logical
 /// child.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Unfinished {
     /// The index of the progression at which point the broken up groups need to
     /// be closed.

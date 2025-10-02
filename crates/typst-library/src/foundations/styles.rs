@@ -20,7 +20,7 @@ use crate::introspection::TagElem;
 
 /// A list of style properties.
 #[ty(cast)]
-#[derive(Default, PartialEq, Clone, Hash)]
+#[derive(Default, Clone, PartialEq, Hash)]
 pub struct Styles(EcoVec<LazyHash<Style>>);
 
 impl Styles {
@@ -570,7 +570,7 @@ cast! {
 /// lists, each access walks the hierarchy from the innermost to the outermost
 /// map, trying to find a match and then folding it with matches further up the
 /// chain.
-#[derive(Default, Clone, Copy, Hash)]
+#[derive(Default, Copy, Clone, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
     head: &'a [LazyHash<Style>],
@@ -964,7 +964,7 @@ impl<T: Fold> AlternativeFold for Option<T> {
 }
 
 /// A type that accumulates depth when folded.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
 pub struct Depth(pub usize);
 
 impl Fold for Depth {

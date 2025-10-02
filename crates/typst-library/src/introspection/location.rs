@@ -119,7 +119,7 @@ impl Repr for Location {
 ///
 /// Still, it can be useful to have orderable locations for things like sets.
 /// That's where this type comes in.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct LocationKey(u128);
 
 impl LocationKey {

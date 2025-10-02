@@ -25,7 +25,7 @@ pub struct ArtifactElem {
 }
 
 /// The type of artifact.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ArtifactKind {
     /// Page header artifacts.
     Header,
@@ -141,7 +141,7 @@ impl Construct for PdfMarkerTag {
 
 macro_rules! pdf_marker_tag {
     ($(#[doc = $doc:expr] $variant:ident$(($($name:ident: $ty:ty)+))?,)+) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, Eq, PartialEq, Hash)]
         pub enum PdfMarkerTagKind {
             $(
                 #[doc = $doc]

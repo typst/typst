@@ -1128,7 +1128,7 @@ impl Resolve for TextDir {
 }
 
 /// A set of stylistic sets to enable.
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
 
 impl StylisticSets {

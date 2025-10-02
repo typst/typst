@@ -368,7 +368,7 @@ pub struct CurveClose {
 }
 
 /// How to close a curve.
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum CloseMode {
     /// Closes the curve with a smooth segment that takes into account the
     /// control point opposite the start point.

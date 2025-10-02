@@ -449,7 +449,7 @@ cast! {
 }
 
 /// Any child of a grid element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GridChild {
     Header(Packed<GridHeader>),
     Footer(Packed<GridFooter>),
@@ -493,7 +493,7 @@ impl TryFrom<Content> for GridChild {
 }
 
 /// A grid item, which is the basic unit of grid specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GridItem {
     HLine(Packed<GridHLine>),
     VLine(Packed<GridVLine>),

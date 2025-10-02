@@ -5,7 +5,7 @@ use typst_library::model::OutlineEntry;
 use crate::tags::GroupId;
 use crate::tags::groups::Groups;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct OutlineCtx {
     /// The stack of nested `TOC` entries.
     stack: Vec<GroupId>,

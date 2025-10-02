@@ -477,7 +477,7 @@ pub struct SVGSubGradient {
 }
 
 /// The kind of linear gradient.
-#[derive(Hash, Clone, Copy, PartialEq, Eq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 enum GradientKind {
     /// A linear gradient.
     Linear,

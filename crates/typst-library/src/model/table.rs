@@ -318,7 +318,7 @@ cast! {
 }
 
 /// Any child of a table element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableChild {
     Header(Packed<TableHeader>),
     Footer(Packed<TableFooter>),
@@ -363,7 +363,7 @@ impl TryFrom<Content> for TableChild {
 }
 
 /// A table item, which is the basic unit of table specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableItem {
     HLine(Packed<TableHLine>),
     VLine(Packed<TableVLine>),

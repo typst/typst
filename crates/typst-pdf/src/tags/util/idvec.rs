@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::tags::GroupId;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct IdVec<T> {
     inner: Vec<T>,
 }

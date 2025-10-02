@@ -27,7 +27,7 @@ pub struct FigureCtx {
 /// entire enclosed content and any AT will not attempt to interpret any content
 /// within that tag. This makes the `Figure` tag completely unsuited for figures
 /// that contain tables or other structured data.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub enum FigureTagKind {
     /// Use a `Figure` tag.
     Figure,
