@@ -230,10 +230,105 @@ pub struct ParElem {
     /// Note that the current [alignment]($align.alignment) still has an effect
     /// on the placement of the last line except if it ends with a
     /// [justified line break]($linebreak.justify).
+    ///
+    /// By default, Typst only changes the spacing between words to achieve
+    /// justification. However, you can also allow it to adjust the spacing
+    /// between individual glyphs using the
+    /// [`justification-limits` property]($par.justification-limits).
     #[default(false)]
     pub justify: bool,
 
-    /// Microtypographical settings that are used during justification.
+    /// How much the spacing between words and letters may be adjusted during
+    /// justification.
+    ///
+    /// When justifying text, Typst needs to stretch or shrink a line to the
+    /// full width of the measure. To achieve this, it adjusts the spacing
+    /// between words. Additionally, it can also adjust the spacing between
+    /// individual characters (glyphs). This property allows you to configure
+    /// lower and upper bounds for these adjustments.
+    ///
+    /// The property accepts a dictionary with two entries, `word` and `glyph`,
+    /// each containing a dictionary with the keys `min` and `max`. Each of
+    /// these keys accepts a [relative length]($relative). The percentages for
+    /// the `word` dictionary are defined with regards to the default space
+    /// width whereas the percentages in the `glyph` dictionary apply to the
+    /// distance between each particular pair of glyphs. The `min` entry
+    /// specifies how much the respective spacing may be reduced, while the
+    /// `max` entry specifies how much it may be increased.
+    ///
+    /// Using glyph-level justification is an impactful microtypographic
+    /// technique that can improve the appearance of the justified text,
+    /// especially in narrow columns. The example below illustrates the
+    /// difference.
+    ///
+    /// If you want to enable glyph-level justification, a good value for this
+    /// property would `{98%}` as the minimum and `{102%}` as the maximum, as
+    /// demonstrated in the example below. Be careful not to set the bounds too
+    /// wide, which quickly looks unnatural.
+    ///
+    /// Glyph-level justification does not work with every font or language. For
+    /// example, cursive fonts connect letters. Using glyph-level justification
+    /// would lead to jagged connections.
+    ///
+    /// ```example
+    /// #set page(width: 440pt, height: 21em, margin: 15pt)
+    /// #let prose = [
+    /// >>> Anne Christine Bayley (1~June 1934 – 31~December 2024) was an
+    /// >>> English surgeon. She was awarded the Order of the British Empire
+    /// >>> for her research into HIV/AIDS patients in Zambia and for
+    /// >>> documenting the spread of the disease among heterosexual patients in
+    /// >>> Africa. In addition to her clinical work, she was a lecturer and
+    /// >>> head of the surgery department at the University of Zambia School of
+    /// >>> Medicine. In the 1990s, she returned to England, where she was
+    /// >>> ordained as an Anglican priest. She continued to be active in Africa
+    /// >>> throughout her retirement years.
+    /// <<< /* Text from https://en.wikipedia.org/wiki/Anne_Bayley */
+    /// ]
+    ///
+    /// #set par(justify: true)
+    /// #set text(size: 0.8em)
+    ///
+    /// #grid(
+    ///   columns: (1fr, 1fr),
+    ///   gutter: 20pt,
+    ///   {
+    ///     place(bottom + center, float: true)[
+    ///       *Glyph-level justification*
+    ///     ]
+    ///     set par(
+    ///       justification-limits: (
+    ///         word: (
+    ///           min: 100% * (2 / 3),
+    ///           max: 150%,
+    ///         ),
+    ///         glyph: (
+    ///           min: 98%,
+    ///           max: 102%,
+    ///         ),
+    ///       ),
+    ///     )
+    ///     columns(2, gutter: 10pt, prose)
+    ///   },
+    ///   {
+    ///     place(bottom + center, float: true)[
+    ///       *Word-level justification*
+    ///     ]
+    ///     set par(
+    ///       justification-limits: (
+    ///         word: (
+    ///           min: 100% * (2 / 3),
+    ///           max: 150%,
+    ///         ),
+    ///         glyph: (
+    ///           min: 100%,
+    ///           max: 100%,
+    ///         ),
+    ///       ),
+    ///     )
+    ///     columns(2, gutter: 10pt, prose)
+    ///   },
+    /// )
+    /// ```
     pub justification_limits: Option<Smart<JustificationLimits>>,
 
     /// How to determine line breaks.
