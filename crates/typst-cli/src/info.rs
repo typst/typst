@@ -88,7 +88,7 @@ impl Features {
 
         [
             ("html", html, "Experimental HTML support"),
-            ("a11y-extras", a11y_extras, "Experimental PDF accessibility extensions"),
+            ("a11y-extras", a11y_extras, "Experimental accessibility additions"),
         ]
         .into_iter()
         .map(|(key, val, desc)| KeyValDesc { key, val: Value::Bool(*val), desc })
@@ -159,11 +159,12 @@ struct Environment {
     typst_package_path: Option<String>,
     typst_root: Option<String>,
     typst_update_backup_path: Option<String>,
+    source_date_epoch: Option<String>,
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
     xdg_cache_home: Option<String>,
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
     xdg_data_home: Option<String>,
-    source_date_epoch: Option<String>,
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios",)))]
     fontconfig_file: Option<String>,
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
     openssl_conf: Option<String>,
@@ -185,6 +186,7 @@ impl Environment {
             typst_package_path,
             typst_root,
             typst_update_backup_path,
+            source_date_epoch,
             #[cfg(not(any(
                 target_os = "windows",
                 target_os = "macos",
@@ -197,7 +199,11 @@ impl Environment {
                 target_os = "ios",
             )))]
             xdg_data_home,
-            source_date_epoch,
+            #[cfg(not(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "ios",
+            )))]
             fontconfig_file,
             #[cfg(not(any(
                 target_os = "windows",
@@ -234,6 +240,11 @@ impl Environment {
                 target_os = "ios",
             )))]
             ("XDG_DATA_HOME", xdg_data_home),
+            #[cfg(not(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "ios",
+            )))]
             ("FONTCONFIG_FILE", fontconfig_file),
             #[cfg(not(any(
                 target_os = "windows",
@@ -343,11 +354,12 @@ fn get_vars() -> StrResult<Environment> {
         typst_package_path: get_var("TYPST_PACKAGE_PATH")?,
         typst_root: get_var("TYPST_ROOT")?,
         typst_update_backup_path: get_var("TYPST_UPDATE_BACKUP_PATH")?,
+        source_date_epoch: get_var("SOURCE_DATE_EPOCH")?,
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
         xdg_cache_home: get_var("XDG_CACHE_HOME")?,
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
         xdg_data_home: get_var("XDG_DATA_HOME")?,
-        source_date_epoch: get_var("SOURCE_DATE_EPOCH")?,
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
         fontconfig_file: get_var("FONTCONFIG_FILE")?,
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios")))]
         openssl_conf: get_var("OPENSSL_CONF")?,
