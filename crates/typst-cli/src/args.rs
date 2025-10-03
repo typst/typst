@@ -314,6 +314,10 @@ pub struct CompileArgs {
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
+
+    /// Runs the provided command before compiling.
+    #[arg(long = "pre-compile-script", value_name = "PRE_COMPILE_SCRIPT")]
+    pub pre_compile_script: Option<PathBuf>,
 }
 
 /// Arguments for the construction of a world. Shared by compile, watch, and
