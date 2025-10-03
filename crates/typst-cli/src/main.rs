@@ -88,6 +88,11 @@ fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
 }
 
+/// Used by `args.rs`.
+fn typst_commit_sha() -> &'static str {
+    env!("TYPST_COMMIT_SHA")
+}
+
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
     let styles = term::Styles::default();
