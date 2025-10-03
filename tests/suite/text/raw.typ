@@ -659,6 +659,20 @@ if true {
 }
 ```
 
+--- issue-6961-tab-crlf-raw-indent ---
+#let snippet = (
+  ```
+  A
+    BC
+    D
+  ```
+)
+
+#raw(
+  snippet.text.replace("  ", "\t").replace("\n", "\r\n"),
+  block: true,
+)
+
 --- issue-4662-math-mode-language-for-raw ---
 // Test lang: "typm" syntax highlighting without enclosing dollar signs
 #raw("pi^2", lang: "typm")
