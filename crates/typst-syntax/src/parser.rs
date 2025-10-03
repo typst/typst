@@ -647,7 +647,7 @@ fn code_expr(p: &mut Parser) {
 }
 
 /// Parses a code expression with at least the given precedence.
-fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
+fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     let m = p.marker();
     if !atomic && p.at_set(set::UNARY_OP) {
         let op = ast::UnOp::from_kind(p.current()).unwrap();
