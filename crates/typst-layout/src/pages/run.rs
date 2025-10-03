@@ -6,7 +6,7 @@ use typst_library::foundations::{
     Content, NativeElement, Resolve, Smart, StyleChain, Styles,
 };
 use typst_library::introspection::{
-    Counter, CounterDisplayElem, CounterKey, Introspector, Locator, LocatorLink, TagElem,
+    Counter, CounterDisplayElem, CounterKey, Introspector, Locator, LocatorLink,
 };
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, Binding, ColumnsElem, Dir, Frame, HAlignment,
@@ -14,6 +14,7 @@ use typst_library::layout::{
     VAlignment,
 };
 use typst_library::model::Numbering;
+use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Pair, Routines};
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
@@ -96,7 +97,7 @@ fn layout_page_run_impl(
     };
 
     // Determine the page-wide styles.
-    let styles = determine_page_styles(children, initial);
+    let styles = Styles::root(children, initial);
     let styles = StyleChain::new(&styles);
 
     // When one of the lengths is infinite the page fits its content along
@@ -202,6 +203,11 @@ fn layout_page_run_impl(
 
     // Layout marginals.
     let mut layouted = Vec::with_capacity(fragment.len());
+
+    let header = header.clone().map(|h| h.artifact(ArtifactKind::Header));
+    let footer = footer.clone().map(|f| f.artifact(ArtifactKind::Footer));
+    let background = background.clone().map(|b| b.artifact(ArtifactKind::Page));
+
     for inner in fragment {
         let header_size = Size::new(inner.width(), margin.top - header_ascent);
         let footer_size = Size::new(inner.width(), margin.bottom - footer_descent);
@@ -212,9 +218,9 @@ fn layout_page_run_impl(
             fill: fill.clone(),
             numbering: numbering.clone(),
             supplement: supplement.clone(),
-            header: layout_marginal(header, header_size, Alignment::BOTTOM)?,
-            footer: layout_marginal(footer, footer_size, Alignment::TOP)?,
-            background: layout_marginal(background, full_size, mid)?,
+            header: layout_marginal(&header, header_size, Alignment::BOTTOM)?,
+            footer: layout_marginal(&footer, footer_size, Alignment::TOP)?,
+            background: layout_marginal(&background, full_size, mid)?,
             foreground: layout_marginal(foreground, full_size, mid)?,
             margin,
             binding,
@@ -223,53 +229,4 @@ fn layout_page_run_impl(
     }
 
     Ok(layouted)
-}
-
-/// Determines the styles used for a page run itself and page-level content like
-/// marginals and footnotes.
-///
-/// As a base, we collect the styles that are shared by all elements on the page
-/// run. As a fallback if there are no elements, we use the styles active at the
-/// pagebreak that introduced the page (at the very start, we use the default
-/// styles). Then, to produce our page styles, we filter this list of styles
-/// according to a few rules:
-///
-/// - Other styles are only kept if they are `outside && (initial || liftable)`.
-/// - "Outside" means they were not produced within a show rule or that the
-///   show rule "broke free" to the page level by emitting page styles.
-/// - "Initial" means they were active at the pagebreak that introduced the
-///   page. Since these are intuitively already active, they should be kept even
-///   if not liftable. (E.g. `text(red, page(..)`) makes the footer red.)
-/// - "Liftable" means they can be lifted to the page-level even though they
-///   weren't yet active at the very beginning. Set rule styles are liftable as
-///   opposed to direct constructor calls:
-///   - For `set page(..); set text(red)` the red text is kept even though it
-///     comes after the weak pagebreak from set page.
-///   - For `set page(..); text(red)[..]` the red isn't kept because the
-///     constructor styles are not liftable.
-fn determine_page_styles(children: &[Pair], initial: StyleChain) -> Styles {
-    // Determine the shared styles (excluding tags).
-    let tagless = children.iter().filter(|(c, _)| !c.is::<TagElem>()).map(|&(_, s)| s);
-    let base = StyleChain::trunk(tagless).unwrap_or(initial).to_map();
-
-    // Determine the initial styles that are also shared by everything. We can't
-    // use `StyleChain::trunk` because it currently doesn't deal with partially
-    // shared links (where a subslice matches).
-    let trunk_len = initial
-        .to_map()
-        .as_slice()
-        .iter()
-        .zip(base.as_slice())
-        .take_while(|&(a, b)| a == b)
-        .count();
-
-    // Filter the base styles according to our rules.
-    base.into_iter()
-        .enumerate()
-        .filter(|(i, style)| {
-            let initial = *i < trunk_len;
-            style.outside() && (initial || style.liftable())
-        })
-        .map(|(_, style)| style)
-        .collect()
 }

@@ -76,36 +76,48 @@ But this stays black.
 
 With show-set rules you can mix and match properties from different functions to
 achieve many different effects. But they still limit you to what is predefined
-in Typst. For maximum flexibility, you can instead write a show rule that
-defines how to format an element from scratch. To write such a show rule,
-replace the set rule after the colon with an arbitrary [function]. This function
-receives the element in question and can return arbitrary content. The available
-[fields]($scripting/#fields) on the element passed to the function again match
-the parameters of the respective element function. Below, we define a show rule
-that formats headings for a fantasy encyclopedia.
+in Typst. For maximum flexibility, you can instead write a _transformational_
+show rule that defines how to format an element from scratch. To write such a
+show rule, replace the set rule after the colon with an arbitrary [function].
+This function receives the element in question and can return arbitrary content.
+The function is often defined inline as `{it => ..}` using the
+[unnamed function syntax]($function/#unnamed). The function's parameter is
+typically named `it` by convention.
+
+The available [fields]($scripting/#fields) on the element passed to the function
+match the parameters of the respective element function. Below, we define a show
+rule that formats headings for a fantasy encyclopedia.
+
+The show rule itself adds tilde characters around the title (these must be
+escaped with a backslash because otherwise they would indicate a non-breaking
+space), emphasizes the title with italics, and then displays the heading counter
+after the title.
+
+For this example, we also wanted center alignment and a different font. While we
+could've added these set rules into the existing show rule, we instead added
+them as separate show-set rules. This is good practice because now these rules
+can still be overridden by later show-set rules in the document, keeping styling
+composable. In contrast, set rules within a transformational show rule would not
+be overridable anymore.
 
 ```example
 #set heading(numbering: "(I)")
-#show heading: it => {
-  set align(center)
-  set text(font: "Inria Serif")
-  block[
-    \~ #emph(it.body)
-       #counter(heading).display(
-         it.numbering
-       ) \~
-  ]
-}
+#show heading: set align(center)
+#show heading: set text(font: "Inria Serif")
+#show heading: it => block[
+  \~
+  #emph(it.body)
+  #counter(heading).display(it.numbering)
+  \~
+]
 
 = Dragon
-With a base health of 15, the
-dragon is the most powerful
-creature.
+With a base health of 15, the dragon is the most
+powerful creature.
 
 = Manticore
-While less powerful than the
-dragon, the manticore gets
-extra style points.
+While less powerful than the dragon, the manticore
+gets extra style points.
 ```
 
 Like set rules, show rules are in effect until the end of the current block or

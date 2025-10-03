@@ -8,15 +8,9 @@ use crate::loading::{DataSource, Load, Readable};
 
 /// Reads structured data from a JSON file.
 ///
-/// The file must contain a valid JSON value, such as object or array. JSON
-/// objects will be converted into Typst dictionaries, and JSON arrays will be
-/// converted into Typst arrays. Strings and booleans will be converted into the
-/// Typst equivalents, `null` will be converted into `{none}`, and numbers will
-/// be converted to floats or integers depending on whether they are whole
-/// numbers.
-///
-/// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
-/// floating point numbers, which may result in an approximative value.
+/// The file must contain a valid JSON value, such as object or array. The JSON
+/// values will be converted into corresponding Typst values as listed in the
+/// [table below](#conversion).
 ///
 /// The function returns a dictionary, an array or, depending on the JSON file,
 /// another JSON data type.
@@ -48,6 +42,38 @@ use crate::loading::{DataSource, Load, Readable};
 /// #forecast(json("monday.json"))
 /// #forecast(json("tuesday.json"))
 /// ```
+///
+/// # Conversion details { #conversion }
+///
+/// | JSON value | Converted into Typst |
+/// | ---------- | -------------------- |
+/// | `null`     | `{none}`             |
+/// | bool       | [`bool`]             |
+/// | number     | [`float`] or [`int`] |
+/// | string     | [`str`]              |
+/// | array      | [`array`]            |
+/// | object     | [`dictionary`]       |
+///
+/// | Typst value                           | Converted into JSON              |
+/// | ------------------------------------- | -------------------------------- |
+/// | types that can be converted from JSON | corresponding JSON value         |
+/// | [`bytes`]                             | string via [`repr`]              |
+/// | [`symbol`]                            | string                           |
+/// | [`content`]                           | an object describing the content |
+/// | other types ([`length`], etc.)        | string via [`repr`]              |
+///
+/// ## Notes
+/// - In most cases, JSON numbers will be converted to floats or integers
+///   depending on whether they are whole numbers. However, be aware that
+///   integers larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will
+///   be converted to floating-point numbers, which may result in an
+///   approximative value.
+///
+/// - Bytes are not encoded as JSON arrays for performance and readability
+///   reasons. Consider using [`cbor.encode`] for binary data.
+///
+/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "JSON")]
 pub fn json(
     engine: &mut Engine,

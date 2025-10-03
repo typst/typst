@@ -34,24 +34,37 @@ impl Resolver for CliResolver<'_> {
             );
         }
 
-        let page = document.pages.first().expect("page 0");
-        let pixmap = render(page, 2.0);
-        let filename = format!("{hash:x}.png");
-        let path = self.assets_dir.join(&filename);
-        fs::create_dir_all(path.parent().expect("parent")).expect("create dir");
-        pixmap.save_png(path.as_path()).expect("save png");
-        let src = format!("{}assets/{filename}", self.base);
-        eprintln!("Generated example image {path:?}");
+        fs::create_dir_all(self.assets_dir).expect("create dir");
+
+        let pages = match &document.pages[..] {
+            [page] => vec![(page, format!("{hash:x}.png"), "Preview".to_string())],
+            pages => pages
+                .iter()
+                .enumerate()
+                .map(|(i, page)| {
+                    (page, format!("{hash:x}-{i}.png"), format!("Preview page {}", i + 1))
+                })
+                .collect(),
+        }
+        .iter()
+        .map(|(page, filename, alt)| {
+            let pixmap = render(page, 2.0);
+            let path = self.assets_dir.join(filename);
+            pixmap.save_png(path.as_path()).expect("save png");
+            eprintln!("Generated example image {path:?}");
+
+            let src = format!("{}assets/{filename}", self.base);
+            format!(r#"<img src="{src}" alt="{alt}">"#)
+        })
+        .collect::<String>();
 
         if let Some(code) = source {
             let code_safe = code.as_str();
             Html::new(format!(
-                r#"<div class="previewed-code"><pre>{code_safe}</pre><div class="preview"><img src="{src}" alt="Preview"></div></div>"#
+                r#"<div class="previewed-code"><pre>{code_safe}</pre><div class="preview">{pages}</div></div>"#
             ))
         } else {
-            Html::new(format!(
-                r#"<div class="preview"><img src="{src}" alt="Preview"></div>"#
-            ))
+            Html::new(format!(r#"<div class="preview">{pages}</div>"#))
         }
     }
 
@@ -83,7 +96,7 @@ impl Resolver for CliResolver<'_> {
 /// Generates the JSON representation of the documentation. This can be used to
 /// generate the HTML yourself. Be warned: the JSON structure is not stable and
 /// may change at any time.
-#[derive(Parser, Debug)]
+#[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// The generation process can produce additional assets. Namely images.

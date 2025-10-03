@@ -1,25 +1,33 @@
 use std::num::NonZeroUsize;
 
+use comemo::Track;
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, bail, warning};
+use typst_library::diag::{At, SourceResult, bail, error, warning};
+use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::Counter;
-use typst_library::layout::resolve::{Cell, CellGrid, Entry, table_to_cellgrid};
-use typst_library::layout::{BlockBody, BlockElem, BoxElem, OuterVAlignment, Sizing};
+use typst_library::layout::resolve::{Cell, CellGrid, Entry};
+use typst_library::layout::{
+    BlockBody, BlockElem, BoxElem, HElem, OuterVAlignment, Sizing,
+};
 use typst_library::model::{
-    Attribution, CiteElem, CiteGroup, Destination, EmphElem, EnumElem, FigureCaption,
-    FigureElem, HeadingElem, LinkElem, LinkTarget, ListElem, ParElem, ParbreakElem,
-    QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkTarget, ListElem,
+    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
     SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
+use typst_macros::elem;
+use typst_utils::singleton;
 
-use crate::{FrameElem, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
+use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
 /// Registers show rules for the [HTML target](Target::Html).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -33,13 +41,22 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, ENUM_RULE);
     rules.register(Html, TERMS_RULE);
     rules.register(Html, LINK_RULE);
+    rules.register(Html, DIRECT_LINK_RULE);
     rules.register(Html, TITLE_RULE);
     rules.register(Html, HEADING_RULE);
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
+    rules.register(Html, FOOTNOTE_RULE);
+    rules.register(Html, FOOTNOTE_CONTAINER_RULE);
+    rules.register(Html, FOOTNOTE_ENTRY_RULE);
+    rules.register(Html, OUTLINE_RULE);
+    rules.register(Html, OUTLINE_ENTRY_RULE);
     rules.register(Html, REF_RULE);
     rules.register(Html, CITE_GROUP_RULE);
+    rules.register(Html, BIBLIOGRAPHY_RULE);
+    rules.register(Html, CSL_LIGHT_RULE);
+    rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
 
     // Text.
@@ -170,6 +187,14 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
         .pack())
 };
 
+const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
+    Ok(LinkElem::new(
+        LinkTarget::Dest(Destination::Location(elem.loc)),
+        elem.body.clone(),
+    )
+    .pack())
+};
+
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
     Ok(HtmlElem::new(tag::h1)
         .with_body(Some(elem.resolve_body(styles).at(elem.span())?))
@@ -273,15 +298,243 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
+const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
+    let span = elem.span();
+    let (dest, num) = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(num).pack().spanned(span);
 
-const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine);
+    // Link to the footnote entry.
+    let link = LinkElem::new(dest.into(), sup)
+        .pack()
+        .styled(HtmlElem::role.set(Some("doc-noteref".into())));
 
-const TABLE_RULE: ShowFn<TableElem> = |elem, engine, styles| {
-    Ok(show_cellgrid(table_to_cellgrid(elem, engine, styles)?, styles))
+    Ok(HElem::hole().clone() + link)
 };
 
-fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
+/// This is inserted at the end of the body to display footnotes. In the future,
+/// we can expose this to allow customizing where the footnotes appear. It could
+/// also be exposed for paged export.
+#[elem]
+pub struct FootnoteContainer {}
+
+impl FootnoteContainer {
+    /// Get the globally shared footnote container element.
+    pub fn shared() -> &'static Content {
+        singleton!(Content, FootnoteContainer::new().pack())
+    }
+
+    /// Fails with an error if there are footnotes.
+    pub fn unsupported_with_custom_dom(engine: &Engine) -> SourceResult<()> {
+        let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
+        if notes.is_empty() {
+            return Ok(());
+        }
+
+        Err(notes
+            .iter()
+            .map(|note| {
+                error!(
+                    note.span(),
+                    "footnotes are not currently supported in combination \
+                     with a custom `<html>` or `<body>` element"
+                )
+            })
+            .collect())
+    }
+}
+
+const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |_, engine, _| {
+    let notes = engine.introspector.query(&FootnoteElem::ELEM.select());
+    if notes.is_empty() {
+        return Ok(Content::empty());
+    }
+
+    // Create entries for all footnotes in the document.
+    let items = notes.into_iter().map(|note| {
+        let note = note.into_packed::<FootnoteElem>().unwrap();
+        let loc = note.location().unwrap();
+        let span = note.span();
+        HtmlElem::new(tag::li)
+            .with_body(Some(FootnoteEntry::new(note).pack().spanned(span)))
+            .with_parent(loc)
+            .pack()
+            .located(loc.variant(1))
+            .spanned(span)
+    });
+
+    // There can be multiple footnotes in a container, so they semantically
+    // represent an ordered list. However, the list is already numbered with the
+    // footnote superscripts in the DOM, so we turn off CSS' list enumeration.
+    let list = HtmlElem::new(tag::ol)
+        .with_styles(css::Properties::new().with("list-style-type", "none"))
+        .with_body(Some(Content::sequence(items)))
+        .pack();
+
+    // The user may want to style the whole footnote element so we wrap it in an
+    // additional selectable container. This is also how it's done in the ARIA
+    // spec (although there, the section also contains an additional heading).
+    Ok(HtmlElem::new(tag::section)
+        .with_attr(attr::role, "doc-endnotes")
+        .with_body(Some(list))
+        .pack())
+};
+
+const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
+    let (prefix, body) = elem.realize(engine, styles)?;
+
+    // The prefix is a link back to the first footnote reference, so
+    // `doc-backlink` is the appropriate ARIA role.
+    let backlink = prefix.styled(HtmlElem::role.set(Some("doc-backlink".into())));
+
+    // We do not use the ARIA role `doc-footnote` because it "is only for
+    // representing individual notes that occur within the body of a work" (see
+    // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
+    // appropriately modelled as ARIA endnotes. This is also in line with how
+    // Pandoc handles footnotes.
+    Ok(backlink + body)
+};
+
+const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
+    fn convert_list(list: Vec<OutlineNode>) -> Content {
+        // The Digital Publishing ARIA spec also proposed to add
+        // `role="directory"` to the `<ol>` element, but this role is
+        // deprecated, so we don't do that. The elements are already easily
+        // selectable via `nav[role="doc-toc"] ol`.
+        HtmlElem::new(tag::ol)
+            .with_styles(css::Properties::new().with("list-style-type", "none"))
+            .with_body(Some(Content::sequence(list.into_iter().map(convert_node))))
+            .pack()
+    }
+
+    fn convert_node(node: OutlineNode) -> Content {
+        let body = if !node.children.is_empty() {
+            // The `<div>` is not technically necessary, but otherwise it
+            // auto-wraps in a `<p>`, which results in bad spacing. Perhaps, we
+            // can remove this in the future. See also:
+            // <https://github.com/typst/typst/issues/5907>
+            HtmlElem::new(tag::div).with_body(Some(node.entry.pack())).pack()
+                + convert_list(node.children)
+        } else {
+            node.entry.pack()
+        };
+        HtmlElem::new(tag::li).with_body(Some(body)).pack()
+    }
+
+    let title = elem.realize_title(styles);
+    let tree = elem.realize_tree(engine, styles)?;
+    let list = convert_list(tree);
+
+    Ok(HtmlElem::new(tag::nav)
+        .with_attr(attr::role, "doc-toc")
+        .with_body(Some(title.unwrap_or_default() + list))
+        .pack())
+};
+
+const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
+    let span = elem.span();
+    let context = Context::new(None, Some(styles));
+
+    let mut realized = elem.body().at(span)?;
+
+    if let Some(prefix) = elem.prefix(engine, context.track(), span)? {
+        let wrapped = HtmlElem::new(tag::span)
+            .with_attr(attr::class, "prefix")
+            .with_body(Some(prefix))
+            .pack()
+            .spanned(span);
+
+        let separator = match elem.element.to_packed::<FigureElem>() {
+            Some(elem) => elem.resolve_separator(styles),
+            None => SpaceElem::shared().clone(),
+        };
+
+        realized = Content::sequence([wrapped, separator, realized]);
+    }
+
+    let loc = elem.element_location().at(span)?;
+    let dest = Destination::Location(loc);
+
+    Ok(LinkElem::new(dest.into(), realized).pack())
+};
+
+const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
+
+const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
+    Ok(elem
+        .realize(engine)?
+        .styled(HtmlElem::role.set(Some("doc-biblioref".into()))))
+};
+
+// For the bibliography, we have a few elements that should be styled (e.g.
+// indent), but inline styles are not apprioriate because they couldn't be
+// properly overridden. For those, we currently emit classes so that a user can
+// style them with CSS, but do not emit any styles ourselves.
+const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let span = elem.span();
+    let works = Works::generate(engine).at(span)?;
+    let references = works.references(elem, styles)?;
+
+    let items = references.iter().map(|(prefix, reference, loc)| {
+        let mut realized = reference.clone();
+
+        if let Some(mut prefix) = prefix.clone() {
+            // If we have a link back to the first citation referencing this
+            // entry, attach the appropriate role.
+            if prefix.is::<DirectLinkElem>() {
+                prefix = prefix.set(HtmlElem::role, Some("doc-backlink".into()));
+            }
+
+            let wrapped = HtmlElem::new(tag::span)
+                .with_attr(attr::class, "prefix")
+                .with_body(Some(prefix))
+                .pack()
+                .spanned(span);
+
+            let separator = SpaceElem::shared().clone();
+            realized = Content::sequence([wrapped, separator, realized]);
+        }
+
+        HtmlElem::new(tag::li)
+            .with_body(Some(realized))
+            .pack()
+            .located(*loc)
+            .spanned(span)
+    });
+
+    let title = elem.realize_title(styles);
+    let list = HtmlElem::new(tag::ul)
+        .with_styles(css::Properties::new().with("list-style-type", "none"))
+        .with_body(Some(Content::sequence(items)))
+        .pack()
+        .spanned(span);
+
+    Ok(HtmlElem::new(tag::section)
+        .with_attr(attr::role, "doc-bibliography")
+        .with_optional_attr(attr::class, works.hanging_indent.then_some("hanging-indent"))
+        .with_body(Some(title.unwrap_or_default() + list))
+        .pack())
+};
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::span)
+        .with_attr(attr::class, "light")
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::div)
+        .with_attr(attr::class, "indent")
+        .with_body(Some(elem.body.clone()))
+        .pack())
+};
+
+const TABLE_RULE: ShowFn<TableElem> = |elem, _, styles| {
+    let grid = elem.grid.as_ref().unwrap();
+    Ok(show_cellgrid(grid, styles))
+};
+
+fn show_cellgrid(grid: &CellGrid, styles: StyleChain) -> Content {
     let elem = |tag, body| HtmlElem::new(tag).with_body(Some(body)).pack();
     let mut rows: Vec<_> = grid.entries.chunks(grid.non_gutter_column_count()).collect();
 
@@ -295,7 +548,7 @@ fn show_cellgrid(grid: CellGrid, styles: StyleChain) -> Content {
 
     // TODO(subfooters): similarly to headers, take consecutive footers from
     // the end for 'tfoot'.
-    let footer = grid.footer.map(|ft| {
+    let footer = grid.footer.as_ref().map(|ft| {
         let rows = rows.drain(ft.start..);
         elem(tag::tfoot, Content::sequence(rows.map(|row| tr(tag::td, row))))
     });
@@ -428,7 +681,9 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
         seq.push(line.clone().pack());
     }
 
+    let lang = elem.lang.get_ref(styles);
     let code = HtmlElem::new(tag::code)
+        .with_optional_attr(const { HtmlAttr::constant("data-lang") }, lang.clone())
         .with_body(Some(Content::sequence(seq)))
         .pack()
         .spanned(elem.span());

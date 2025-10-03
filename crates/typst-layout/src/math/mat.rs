@@ -187,7 +187,7 @@ fn layout_body(
     // way too big.
     // This will never panic as a paren will never shape into nothing.
     let paren =
-        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
+        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())?
             .unwrap();
 
     for (column, col) in columns.iter().zip(&mut cols) {

@@ -31,7 +31,8 @@ use crate::foundations::{
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
+use crate::model::{Destination, EmphElem, LinkElem, LinkMarker, StrongElem};
+use crate::pdf::{ArtifactElem, ArtifactKind};
 use crate::text::UnderlineElem;
 
 /// A piece of document content.
@@ -382,25 +383,13 @@ impl Content {
         }
     }
 
-    /// Queries the content tree for all elements that match the given selector.
-    ///
-    /// Elements produced in `show` rules will not be included in the results.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
-        let mut results = Vec::new();
-        let _ = self.traverse(&mut |element| -> ControlFlow<()> {
-            if selector.matches(&element, None) {
-                results.push(element);
-            }
-            ControlFlow::Continue(())
-        });
-        results
-    }
-
     /// Queries the content tree for the first element that match the given
     /// selector.
     ///
-    /// Elements produced in `show` rules will not be included in the results.
-    pub fn query_first(&self, selector: &Selector) -> Option<Content> {
+    /// This is a *naive hack* because contextual content and elements produced
+    /// in `show` rules will not be included in the results. It's used should
+    /// be avoided.
+    pub fn query_first_naive(&self, selector: &Selector) -> Option<Content> {
         self.traverse(&mut |element| -> ControlFlow<Content> {
             if selector.matches(&element, None) {
                 ControlFlow::Break(element)
@@ -476,8 +465,12 @@ impl Content {
     }
 
     /// Link the content somewhere.
-    pub fn linked(self, dest: Destination) -> Self {
-        self.set(LinkElem::current, Some(dest))
+    pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
+        let span = self.span();
+        LinkMarker::new(self, alt)
+            .pack()
+            .spanned(span)
+            .set(LinkElem::current, Some(dest))
     }
 
     /// Set alignments for this content.
@@ -505,6 +498,12 @@ impl Content {
             .with_dy(delta.y)
             .pack()
             .spanned(span)
+    }
+
+    /// Mark content as a PDF artifact.
+    pub fn artifact(self, kind: ArtifactKind) -> Self {
+        let span = self.span();
+        ArtifactElem::new(self).with_kind(kind).pack().spanned(span)
     }
 }
 

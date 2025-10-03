@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use codex::styling::MathVariant;
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 use unicode_math_class::MathClass;
 
@@ -9,13 +10,13 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
 use crate::math::MathSize;
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
-use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
+use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem};
 
 /// A mathematical equation.
 ///
@@ -45,13 +46,14 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 /// whitespace lifts it into a separate block that is centered horizontally.
 /// For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(Locatable, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Tagged, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
 
-    /// How to [number]($numbering) block-level equations.
+    /// How to number block-level equations. Accepts a
+    /// [numbering pattern or function]($numbering) taking a single number.
     ///
     /// ```example
     /// #set math.equation(numbering: "(1)")
@@ -99,6 +101,9 @@ pub struct EquationElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
+    /// An alternative description of the mathematical equation.
+    pub alt: Option<EcoString>,
+
     /// The contents of the equation.
     #[required]
     pub body: Content,
@@ -142,6 +147,11 @@ pub struct EquationElem {
     #[default((70, 50))]
     #[ghost]
     pub script_scale: (i16, i16),
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 impl Synthesize for Packed<EquationElem> {
@@ -160,6 +170,9 @@ impl Synthesize for Packed<EquationElem> {
 
         self.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
+
+        self.locale = Some(Locale::get_in(styles));
+
         Ok(())
     }
 }

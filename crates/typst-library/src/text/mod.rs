@@ -102,7 +102,7 @@ pub struct TextElem {
     ///   family shall be used. This can be:
     ///   - A predefined coverage set:
     ///     - `{"latin-in-cjk"}` covers all codepoints except for those which
-    ///       exist in Latin fonts, but should preferrably be taken from CJK
+    ///       exist in Latin fonts, but should preferably be taken from CJK
     ///       fonts.
     ///   - A [regular expression]($regex) that defines exactly which codepoints
     ///     shall be covered. Accepts only the subset of regular expressions
@@ -1128,7 +1128,7 @@ impl Resolve for TextDir {
 }
 
 /// A set of stylistic sets to enable.
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StylisticSets(u32);
 
 impl StylisticSets {

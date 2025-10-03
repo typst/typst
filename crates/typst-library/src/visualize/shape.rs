@@ -1,5 +1,5 @@
 use crate::foundations::{Cast, Content, Smart, elem};
-use crate::layout::{Abs, Corners, Length, Point, Rel, Sides, Size, Sizing};
+use crate::layout::{Abs, Corners, Length, Point, Rect, Rel, Sides, Size, Sizing};
 use crate::visualize::{Curve, FixedStroke, Paint, Stroke};
 
 /// A rectangle with optional content.
@@ -36,11 +36,15 @@ pub struct RectElem {
     /// How to stroke the rectangle. This can be:
     ///
     /// - `{none}` to disable stroking
+    ///
     /// - `{auto}` for a stroke of `{1pt + black}` if and only if no fill is
     ///   given.
+    ///
     /// - Any kind of [stroke]
+    ///
     /// - A dictionary describing the stroke for each side individually. The
     ///   dictionary can contain the following keys in order of precedence:
+    ///
     ///   - `top`: The top stroke.
     ///   - `right`: The right stroke.
     ///   - `bottom`: The bottom stroke.
@@ -49,6 +53,9 @@ pub struct RectElem {
     ///   - `y`: The vertical stroke.
     ///   - `rest`: The stroke on all sides except those for which the
     ///     dictionary explicitly sets a size.
+    ///
+    ///   All keys are optional; omitted keys will use their previously set
+    ///   value, or the default stroke if never set.
     ///
     /// ```example
     /// #stack(
@@ -66,6 +73,7 @@ pub struct RectElem {
     /// the width and height divided by two. This can be:
     ///
     /// - A relative length for a uniform corner radius.
+    ///
     /// - A dictionary: With a dictionary, the stroke for each side can be set
     ///   individually. The dictionary can contain the following keys in order
     ///   of precedence:
@@ -372,6 +380,24 @@ impl Geometry {
             fill: None,
             fill_rule: FillRule::default(),
             stroke: Some(stroke),
+        }
+    }
+
+    /// The bounding box of the geometry.
+    pub fn bbox(&self) -> Rect {
+        match self {
+            Self::Line(end) => {
+                let min = end.min(Point::zero());
+                let max = end.max(Point::zero());
+                Rect::new(min, max)
+            }
+            Self::Rect(size) => {
+                let p = size.to_point();
+                let min = p.min(Point::zero());
+                let max = p.max(Point::zero());
+                Rect::new(min, max)
+            }
+            Self::Curve(curve) => curve.bbox(),
         }
     }
 

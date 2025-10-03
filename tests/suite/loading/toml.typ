@@ -69,3 +69,20 @@
 #import "edge-case.typ": large-integer
 // Error: 7-56 failed to parse TOML (number too small to fit in target type at 1:7)
 #toml(bytes("key = " + large-integer.i64-min-minus-one))
+
+--- toml-encode-any ---
+#import "edge-case.typ": special-types-for-human
+#for value in special-types-for-human {
+  test(
+    toml.encode((key: value)),
+    toml.encode((key: repr(value))),
+  )
+}
+
+--- toml-encode-non-table ---
+// Error: 14-15 expected dictionary, found integer
+#toml.encode(3)
+
+--- toml-decode-non-table ---
+// Error: 7-17 failed to parse TOML (expected `.`, `=` at 1:2)
+#toml(bytes("3"))

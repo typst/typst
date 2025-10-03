@@ -4,7 +4,7 @@ description: |
   explains all you need to know about tables in Typst.
 ---
 
-# Table guide
+# Table Guide
 Tables are a great way to present data to your readers in an easily readable,
 compact, and organized manner. They are not only used for numerical values, but
 also survey responses, task planning, schedules, and more. Because of this wide
@@ -543,9 +543,9 @@ If you want more fine-grained control of where lines get placed in your table,
 you can also pass a dictionary with the keys `top`, `left`, `right`, `bottom`
 (controlling the respective cell sides), `x`, `y` (controlling vertical and
 horizontal strokes), and `rest` (covers all strokes not styled by other
-dictionary entries). All keys are optional; omitted keys will be treated as if
-their value was the default value. For example, to get a table with only
-horizontal lines, you can do this:
+dictionary entries). All keys are optional; omitted keys will use their
+previously set value, or the default value if never set. For example, to get a
+table with only horizontal lines, you can do this:
 
 ```example
 #table(

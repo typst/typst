@@ -216,7 +216,7 @@ struct Event {
 }
 
 /// Whether an event marks the start or end of a scope.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum EventKind {
     Start,
     End,

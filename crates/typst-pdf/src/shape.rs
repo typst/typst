@@ -5,8 +5,8 @@ use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::paint;
 use crate::util::{AbsExt, TransformExt, convert_path};
+use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle shape")]
 pub(crate) fn handle_shape(
@@ -16,6 +16,9 @@ pub(crate) fn handle_shape(
     gc: &mut GlobalContext,
     span: Span,
 ) -> SourceResult<()> {
+    let mut handle = tags::shape(gc, fc, surface, shape);
+    let surface = handle.surface();
+
     surface.set_location(span.into_raw());
     surface.push_transform(&fc.state().transform().to_krilla());
 

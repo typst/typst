@@ -33,7 +33,7 @@ impl Debug for FontVariant {
 
 /// The style of a font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize, Cast)]
+#[derive(Cast, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
     /// The default, typically upright style.

@@ -3,7 +3,7 @@
 --- enum-function-call ---
 #enum[Embrace][Extend][Extinguish]
 
---- enum-number-override-nested ---
+--- enum-number-override-nested render pdftags ---
 0. Before first!
 1. First.
    2. Indented
@@ -82,8 +82,8 @@ a + 0.
 + Tea
 + Milk
 
---- enum-numbering-reversed-overriden ---
-// Test reverse numbering with overriden numbers.
+--- enum-numbering-reversed-overridden ---
+// Test reverse numbering with overridden numbers.
 #set enum(reversed: true)
 + A
 + B
