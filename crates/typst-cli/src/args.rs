@@ -9,6 +9,7 @@ use clap::builder::{TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use semver::Version;
+use serde::Serialize;
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -38,7 +39,7 @@ const AFTER_HELP: &str = color_print::cstr!("\
 #[derive(Debug, Clone, Parser)]
 #[clap(
     name = "typst",
-    version = crate::typst_version(),
+    version = format!("{} ({})", crate::typst_version(), crate::typst_commit_sha()),
     author,
     help_template = HELP_TEMPLATE,
     after_help = AFTER_HELP,
@@ -85,6 +86,9 @@ pub enum Command {
 
     /// Generates shell completion scripts.
     Completions(CompletionsCommand),
+
+    /// Displays debugging information about Typst.
+    Info(InfoCommand),
 }
 
 /// Compiles an input file into a supported output format.
@@ -212,6 +216,22 @@ pub struct CompletionsCommand {
     /// The shell to generate completions for.
     #[arg(value_enum)]
     pub shell: Shell,
+}
+
+/// Displays environment variables and default values Typst uses.
+#[derive(Debug, Clone, Parser)]
+pub struct InfoCommand {
+    /// The format to serialize in, if it should be machine-readable.
+    ///
+    /// If no format is passed the output is displayed human-readable.
+    #[arg(long = "format", short = 'f')]
+    pub format: Option<SerializationFormat>,
+
+    /// Whether to pretty-print the serialized output.
+    ///
+    /// Only applies to JSON format.
+    #[clap(long)]
+    pub pretty: bool,
 }
 
 /// Arguments for compilation and watching.
@@ -491,7 +511,7 @@ pub enum DiagnosticFormat {
 display_possible_values!(DiagnosticFormat);
 
 /// An in-development feature that may be changed or removed at any time.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum, Serialize)]
 pub enum Feature {
     Html,
     A11yExtras,
@@ -549,7 +569,7 @@ pub enum PdfStandard {
 
 display_possible_values!(PdfStandard);
 
-// Output file format for query command
+/// Output file format for query and info commands
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum SerializationFormat {
     #[default]
