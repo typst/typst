@@ -213,6 +213,13 @@ fn convert_pdf(pdf: &PdfImage) -> PdfDocument {
 }
 
 fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
+    // For JPEGs, we want to apply the EXIF orientation as a transformation
+    // because we don't recode them. For other formats, the transform is already
+    // baked into the dynamic image data.
+    if image.format() != RasterFormat::Exchange(ExchangeFormat::Jpg) {
+        return (Transform::identity(), size);
+    }
+
     let base = |hp: bool, vp: bool, mut base_ts: Transform, size: Size| {
         if hp {
             // Flip horizontally in-place.
@@ -248,9 +255,9 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
         Some(3) => no_flipping(true, true),
         Some(4) => no_flipping(false, true),
         Some(5) => with_flipping(false, false),
-        Some(6) => with_flipping(true, false),
+        Some(6) => with_flipping(false, true),
         Some(7) => with_flipping(true, true),
-        Some(8) => with_flipping(false, true),
+        Some(8) => with_flipping(true, false),
         _ => no_flipping(false, false),
     }
 }
