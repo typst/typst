@@ -12,7 +12,7 @@ use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::WorldExt;
 use typst::diag::{
-    At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
+    At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail, warning,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
@@ -77,6 +77,8 @@ pub struct CompileConfig {
     /// Server for `typst watch` to HTML.
     #[cfg(feature = "http-server")]
     pub server: Option<HtmlServer>,
+    /// Script to run before compilation
+    pub pre_compile_script: Option<PathBuf>,
 }
 
 impl CompileConfig {
@@ -165,6 +167,7 @@ impl CompileConfig {
             export_cache: ExportCache::new(),
             #[cfg(feature = "http-server")]
             server,
+            pre_compile_script: args.pre_compile_script.clone(),
         })
     }
 }
@@ -182,7 +185,28 @@ pub fn compile_once(
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, warnings } = compile_and_export(world, config);
+    let script_warning = if let Some(script) = &config.pre_compile_script {
+        let script_status = std::process::Command::new(script)
+            .spawn()
+            .map_err(|err| eco_format!("Failed to execute pre-compile script ({err})"))?
+            .wait()
+            .map_err(|err| eco_format!("Failed to execute pre-compile script ({err})"))?;
+        if !script_status.success() {
+            Some(warning!(
+                Span::detached(),
+                "pre-compile script failed with exit code {}",
+                script_status.code().unwrap()
+            ))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let Warned { output, mut warnings } = compile_and_export(world, config);
+    if let Some(script_warning) = script_warning {
+        warnings.push(script_warning)
+    }
 
     match output {
         // Export the PDF / PNG.
