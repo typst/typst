@@ -8,6 +8,7 @@ use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
 use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
+use typst_library::diag::warning;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
@@ -496,7 +497,12 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     ///
     /// The text `range` is relative to the whole inline layout.
-    pub fn reshape(&'a self, engine: &Engine, text_range: Range) -> ShapedText<'a> {
+    pub fn reshape(
+        &'a self,
+        engine: &mut Engine,
+        text_range: Range,
+        spans: &SpanMapper,
+    ) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             #[cfg(debug_assertions)]
@@ -520,6 +526,7 @@ impl<'a> ShapedText<'a> {
                 self.dir,
                 self.lang,
                 self.region,
+                spans,
             )
         }
     }
@@ -670,19 +677,28 @@ impl Debug for ShapedText<'_> {
 /// items for them.
 pub fn shape_range<'a>(
     items: &mut Vec<(Range, Item<'a>)>,
-    engine: &Engine,
+    engine: &mut Engine,
     text: &'a str,
     bidi: &BidiInfo<'a>,
     range: Range,
     styles: StyleChain<'a>,
+    spans: &SpanMapper,
 ) {
     let script = styles.get(TextElem::script);
     let lang = styles.get(TextElem::lang);
     let region = styles.get(TextElem::region);
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped =
-            shape(engine, range.start, &text[range.clone()], styles, dir, lang, region);
+        let shaped = shape(
+            engine,
+            range.start,
+            &text[range.clone()],
+            styles,
+            dir,
+            lang,
+            region,
+            spans,
+        );
         items.push((range, Item::Text(shaped)));
     };
 
@@ -734,13 +750,14 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// Shape text into [`ShapedText`].
 #[allow(clippy::too_many_arguments)]
 fn shape<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     base: usize,
     text: &'a str,
     styles: StyleChain<'a>,
     dir: Dir,
     lang: Lang,
     region: Option<Region>,
+    spans: &SpanMapper,
 ) -> ShapedText<'a> {
     let size = styles.resolve(TextElem::size);
     let shift_settings = styles.get(TextElem::shift_settings);
@@ -758,7 +775,7 @@ fn shape<'a>(
     };
 
     if !text.is_empty() {
-        shape_segment(&mut ctx, base, text, families(styles));
+        shape_segment(&mut ctx, base, text, families(styles), spans);
     }
 
     track_and_space(&mut ctx);
@@ -783,7 +800,7 @@ fn shape<'a>(
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
-    engine: &'a Engine<'v>,
+    engine: &'a mut Engine<'v>,
     glyphs: Vec<ShapedGlyph>,
     /// Font families that have been used with unlimited coverage.
     ///
@@ -805,6 +822,7 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
+    spans: &SpanMapper,
 ) {
     // Don't try shaping newlines, tabs, or default ignorables.
     if text
@@ -830,6 +848,21 @@ fn shape_segment<'a>(
         }
     }
 
+    // We may not be able to reach the offset completely if
+    // it exceeds u16, but better to have a roughly correct
+    // span offset than nothing.
+    // let mut span = spans.span_at(shaped.range.start);
+    let span = spans.span_at(0).0;
+    // span.1 = span.1.saturating_add(span_offset.saturating_as());
+
+    if selection.is_none() && !ctx.fallback {
+        ctx.engine.sink.warn(warning!(
+            span, // How to get text's span?
+            "Can't find font family for text \"{text}\". {}",
+            "Enabling font fallback might fix this."
+        ));
+    }
+
     // Do font fallback if the families are exhausted and fallback is enabled.
     if selection.is_none() && ctx.fallback {
         let first = ctx.used.first().map(Font::info);
@@ -841,6 +874,13 @@ fn shape_segment<'a>(
 
     // Extract the font id or shape notdef glyphs if we couldn't find any font.
     let Some(font) = selection else {
+        if ctx.fallback {
+            ctx.engine.sink.warn(warning!(
+            span,
+            "Can't find font family for text \"{text}\".\n{}",
+            "Hint: Make sure a suitable font is installed or provided to Typst via --font-path etc."
+        ));
+        }
         if let Some(font) = ctx.used.first().cloned() {
             shape_tofus(ctx, base, text, font);
         }
@@ -1025,7 +1065,7 @@ fn shape_segment<'a>(
             }
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(ctx, base + start, &text[start..end], families.clone());
+            shape_segment(ctx, base + start, &text[start..end], families.clone(), spans);
         }
 
         i += 1;
