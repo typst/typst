@@ -696,7 +696,7 @@ impl Array {
     /// This function is the conceptual inverse of [`intersperse`]($array.intersperse).
     ///
     /// ```example
-    /// #(1, 2, 3, 2, 4).split(2)
+    /// #(1, 1, 2, 3, 2, 4, 5).split(2)
     /// ```
     #[func]
     pub fn split(
