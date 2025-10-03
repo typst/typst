@@ -693,8 +693,6 @@ impl Array {
 
     /// Split the array at occurrences of the specified value.
     ///
-    /// This function is the conceptual inverse of [`intersperse`]($array.intersperse).
-    ///
     /// ```example
     /// #(1, 1, 2, 3, 2, 4, 5).split(2)
     /// ```
@@ -753,8 +751,6 @@ impl Array {
 
     /// Returns an array with a copy of the separator value placed between
     /// adjacent elements.
-    ///
-    /// This function is the conceptual inverse of [`split`]($array.split).
     ///
     /// ```example
     /// #("A", "B", "C").intersperse("-")
