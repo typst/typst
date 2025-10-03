@@ -33,7 +33,7 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// [`body` field]($heading.body) to create a completely custom look for
 /// headings, make sure to wrap the content in a [`block`]($block) (which is
 /// implicitly [sticky]($block.sticky) for headings through a built-in show-set
-/// rule). This prevents the heading from becoming an "orphan", i.e. remaining
+/// rule). This prevents headings from becoming "orphans", i.e. remaining
 /// at the end of the page with the following content being on the next page.
 ///
 /// # Example
