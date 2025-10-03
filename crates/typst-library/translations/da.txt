@@ -1,11 +1,11 @@
 figure = Figur
 table = Tabel
 equation = Ligning
-bibliography = Bibliografi
+bibliography = Litteratur
 heading = Afsnit
 outline = Indhold
 raw = Liste
-page = side
-# footnote =
+page = Side
+footnote = Fodnote
 # email =
 # telephone =

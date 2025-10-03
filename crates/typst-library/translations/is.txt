@@ -1,11 +1,11 @@
 figure = Mynd
 table = Tafla
 equation = Jafna
-bibliography = Heimildaskrá
+bibliography = Heimildir
 heading = Kafli
 outline = Efnisyfirlit
 raw = Sýnishorn
-page = blaðsíða
+page = Blaðsíða
 # footnote =
 # email =
 # telephone =

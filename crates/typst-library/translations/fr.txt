@@ -1,11 +1,11 @@
-figure = Fig.
-table = Tableau
+figure = Figure
+table = Table
 equation = Équation
 bibliography = Bibliographie
-heading = Chapitre
+heading = Section
 outline = Table des matières
 raw = Liste
 page = page
-# footnote =
+footnote = Note
 # email =
 # telephone =

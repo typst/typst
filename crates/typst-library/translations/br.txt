@@ -1,0 +1,11 @@
+figure = Figurenn
+table = Taolenn
+# equation =
+bibliography = Lennadurezh
+# heading =
+outline = Taolenn
+# raw =
+page = Pajenn
+# footnote =
+# email =
+# telephone =

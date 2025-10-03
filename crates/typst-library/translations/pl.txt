@@ -1,11 +1,11 @@
 figure = Rysunek
-table = Tabela
+table = Tablica
 equation = Równanie
 bibliography = Bibliografia
 heading = Sekcja
 outline = Spis treści
 raw = Program
-page = strona
+page = Strona
 # footnote =
 # email =
 # telephone =

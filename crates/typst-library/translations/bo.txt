@@ -1,0 +1,11 @@
+figure = པར་རིས་
+table = རེའུ་མིག་
+# equation =
+bibliography = དཔེ་ཆའི་ཐོ་གཞུང་།
+# heading =
+outline = དཀར་ཆག།
+# raw =
+page = ཤོག་
+# footnote =
+# email =
+# telephone =

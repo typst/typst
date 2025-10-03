@@ -1,11 +1,11 @@
-figure = Фиг.
+figure = Фигура
 table = Таблица
 equation = Уравнение
 bibliography = Библиография
 heading = Раздел
 outline = Съдържание
 raw = Приложение
-page = стр.
+page = Стр.
 # footnote =
 # email =
 # telephone =

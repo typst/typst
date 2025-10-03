@@ -1,11 +1,11 @@
 figure = Gambar
 table = Tabel
 equation = Persamaan
-bibliography = Daftar Pustaka
+bibliography = Bibliografi
 heading = Bagian
 outline = Daftar Isi
 raw = Kode
-page = halaman
+page = Halaman
 # footnote =
 # email =
 # telephone =

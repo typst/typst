@@ -1,11 +1,11 @@
 figure = Figur
 table = Tabell
 equation = Ekvation
-bibliography = Referenser
+bibliography = Litteraturförteckning
 heading = Avsnitt
 outline = Innehåll
 raw = Kodlistning
-page = sida
-# footnote =
+page = Sida
+footnote = Fotnot
 # email =
 # telephone =

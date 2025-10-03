@@ -1,0 +1,11 @@
+figure = படம்
+table = அட்டவணை
+# equation =
+# bibliography =
+# heading =
+outline = உள்ளே
+# raw =
+# page =
+# footnote =
+# email =
+# telephone =

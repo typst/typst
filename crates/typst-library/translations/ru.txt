@@ -1,7 +1,7 @@
 figure = Рис.
 table = Таблица
 equation = Уравнение
-bibliography = Библиография
+bibliography = Литература
 heading = Раздел
 outline = Содержание
 raw = Листинг

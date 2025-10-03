@@ -1,11 +1,11 @@
 figure = Kuva
 table = Taulukko
 equation = Yhtälö
-bibliography = Viitteet
+bibliography = Kirjallisuutta
 heading = Osio
 outline = Sisällys
 raw = Esimerkki
-page = sivu
+page = Sivu
 # footnote =
 # email =
 # telephone =

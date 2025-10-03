@@ -1,11 +1,11 @@
 figure = Figura
-table = Táboa
+table = Cadro
 equation = Ecuación
 bibliography = Bibliografía
 heading = Sección
 outline = Índice
 raw = Listado
-page = páxina
+page = Páxina
 # footnote =
 # email =
 # telephone =
