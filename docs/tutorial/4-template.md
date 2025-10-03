@@ -179,8 +179,8 @@ to work like this:
 ```typ
 #show: doc => conf(
   title: [
-    A fluid dynamic model for
-    glacier flow
+    A Fluid Dynamic Model for
+    Glacier Flow
   ],
   authors: (
     (
@@ -233,7 +233,7 @@ The resulting template function looks like this:
 
 ```typ
 #let conf(
-  title: none,
+  doc-title: none,
   authors: (),
   abstract: [],
   doc,
@@ -248,11 +248,7 @@ The resulting template function looks like this:
     scope: "parent",
     clearance: 2em,
     {
-      text(
-        17pt,
-        weight: "bold",
-        title,
-      )
+      title(doc-title)
 
       let count = authors.len()
       let ncols = calc.min(count, 3)
@@ -296,7 +292,7 @@ call.
 
 ```example:single
 >>> #let conf(
->>>   title: none,
+>>>   doc-title: none,
 >>>   authors: (),
 >>>   abstract: [],
 >>>   doc,
@@ -306,13 +302,16 @@ call.
 >>>     margin: auto,
 >>>     header: align(
 >>>       right + horizon,
->>>       title
+>>>       doc-title
 >>>     ),
 >>>     numbering: "1",
 >>>     columns: 2,
 >>>   )
 >>>   set par(justify: true)
 >>>   set text(font: "Libertinus Serif", 11pt)
+>>>   show title: set text(size: 17pt)
+>>>   show title: set align(center)
+>>>   show title: set block(below: 1.2em)
 >>>
 >>>   show heading.where(
 >>>     level: 1
@@ -337,11 +336,7 @@ call.
 >>>     scope: "parent",
 >>>     clearance: 2em,
 >>>     {
->>>       text(
->>>         17pt,
->>>         weight: "bold",
->>>         title,
->>>       )
+>>>       title(doc-title)
 >>>
 >>>       let count = authors.len()
 >>>       let ncols = calc.min(count, 3)
@@ -366,9 +361,9 @@ call.
 >>> }
 <<< #import "conf.typ": conf
 #show: conf.with(
-  title: [
-    A fluid dynamic model for
-    glacier flow
+  doc-title: [
+    A Fluid Dynamic Model for
+    Glacier Flow
   ],
   authors: (
     (
