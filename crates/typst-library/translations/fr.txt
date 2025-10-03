@@ -1,8 +1,8 @@
-figure = Figure
-table = Table
+figure = Fig.
+table = Tableau
 equation = Équation
 bibliography = Bibliographie
-heading = Section
+heading = Chapitre
 outline = Table des matières
 raw = Liste
 page = page

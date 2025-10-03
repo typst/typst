@@ -1,5 +1,5 @@
-figure = ábra
-table = táblázat
+figure = Ábra
+table = Táblázat
 equation = Egyenlet
 bibliography = Irodalomjegyzék
 heading = Fejezet

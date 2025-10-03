@@ -1,11 +1,11 @@
 figure = Obrázek
 table = Tabulka
 equation = Rovnice
-bibliography = Literatura
+bibliography = Bibliografie
 heading = Kapitola
 outline = Obsah
 raw = Výpis
-page = Strana
+page = strana
 # footnote =
 # email =
 # telephone =

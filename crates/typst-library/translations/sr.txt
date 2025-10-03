@@ -1,9 +1,9 @@
 figure = Слика
 table = Табела
 equation = Једначина
-bibliography = Библиографиjа
+bibliography = Литература
 heading = Поглавље
-outline = Садржаj
+outline = Садржај
 raw = Програм
 page = страна
 # footnote =

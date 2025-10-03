@@ -1,11 +1,11 @@
-figure = Figura
-table = Tabela
+figure = Figurë
+table = Tabel
 equation = Ekuacion
-bibliography = Bibliografia
+bibliography = Bibliografi
 heading = Kapitull
 outline = Përmbajtja
 raw = List
-page = Faqe
+page = faqe
 # footnote =
 # email =
 # telephone =

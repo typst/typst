@@ -1,11 +1,11 @@
 figure = Joonis
 table = Tabel
 equation = Valem
-bibliography = Kirjandus
+bibliography = Viited
 heading = Peatükk
 outline = Sisukord
 raw = List
-page = Lk.
+page = lk.
 # footnote =
 # email =
 # telephone =

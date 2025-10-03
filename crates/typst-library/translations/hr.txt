@@ -1,11 +1,11 @@
 figure = Slika
 table = Tablica
 equation = Jednadžba
-bibliography = Bibliografija
+bibliography = Literatura
 heading = Odjeljak
 outline = Sadržaj
 raw = Kôd
-page = Stranica
+page = str.
 # footnote =
 # email =
 # telephone =

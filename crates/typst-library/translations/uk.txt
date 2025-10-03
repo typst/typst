@@ -1,11 +1,11 @@
-figure = Рис.
-table = Табл.
+figure = Рисунок
+table = Таблиця
 equation = Рівняння
-bibliography = Бібліоґрафія
+bibliography = Бібліографія
 heading = Розділ
 outline = Зміст
 raw = Лістинг
-page = с.
+page = c.
 # footnote =
 # email =
 # telephone =

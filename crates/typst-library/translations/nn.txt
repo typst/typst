@@ -1,11 +1,11 @@
 figure = Figur
 table = Tabell
 equation = Likning
-bibliography = Litteratur
+bibliography = Bibliografi
 heading = Kapittel
 outline = Innhald
 raw = Utskrift
-page = Side
+page = side
 # footnote =
 # email =
 # telephone =

@@ -1,11 +1,11 @@
-figure = pav.
-table = lentelė
+figure = Pav.
+table = Lent.
 equation = Lygt.
 bibliography = Literatūra
 heading = Skyrius
 outline = Turinys
 raw = Kodo fragmentas
-page = puslapis
+page = Psl.
 # footnote =
 # email =
 # telephone =

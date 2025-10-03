@@ -1,9 +1,9 @@
 figure = איור
 table = טבלה
 equation = משוואה
-bibliography = ביבליוגרפיה
+bibliography = רשימת מקורות
 heading = חלק
-outline = תוכן העניינים
+outline = תוכן עניינים
 raw = קטע מקור
 page = עמוד
 # footnote =

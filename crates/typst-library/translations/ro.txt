@@ -1,11 +1,12 @@
 figure = Figura
-table = Tabela
+table = Tabelul
 equation = Ecuația
 bibliography = Bibliografie
 heading = Secțiunea
 outline = Cuprins
+# may be wrong
 raw = Listă
-page = Pagina
+page = pagina
 # footnote =
 # email =
 # telephone =
