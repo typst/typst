@@ -445,10 +445,11 @@ impl Array {
     /// a let binding or for loop.
     ///
     /// ```example
-    /// #("A", "B", "C").enumerate(start: 1) \
     /// #for (i, value) in ("A", "B", "C").enumerate() {
-    ///   [#i: #value\ ]
+    ///   [#i: #value \ ]
     /// }
+    ///
+    /// #("A", "B", "C").enumerate(start: 1)
     /// ```
     #[func]
     pub fn enumerate(
