@@ -302,7 +302,7 @@ impl<'a> SVGRenderer<'a> {
         let state = match group.frame.kind() {
             FrameKind::Soft => state.pre_concat(group.transform),
             FrameKind::Hard => {
-                let transform = state.transform.post_concat(group.transform);
+                let transform = state.transform.pre_concat(group.transform);
                 if !transform.is_identity() {
                     self.xml.write_attribute("transform", &SvgMatrix(transform));
                 }
