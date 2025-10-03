@@ -404,7 +404,7 @@ pub struct TextElem {
     ///   language.
     /// - And all other things which are language-aware.
     ///
-    /// ```example
+    /// ```example:"Setting the text language to German"
     /// #set text(lang: "de")
     /// #outline()
     ///

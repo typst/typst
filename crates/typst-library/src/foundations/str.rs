@@ -424,15 +424,15 @@ impl Str {
     ///   capturing, not the whole match! This is empty unless the `pattern` was
     ///   a regex with capturing groups.
     ///
-    /// ```example
-    /// #assert.eq("Is there a".match("for this?"), none)
-    /// #"The time of my life.".match(regex("[mit]+e"))
-    /// ```
-    ///
-    /// ```example
+    /// ```example:"Basic usage"
     /// #let pat = regex("not (a|an) (apple|cat)")
     /// #"I'm a doctor, not an apple.".match(pat) \
     /// #"I am not a cat!".match(pat)
+    /// ```
+    ///
+    /// ```example:"Shape of the returned dictionary"
+    /// #assert.eq("Is there a".match("for this?"), none)
+    /// #"The time of my life.".match(regex("[mit]+e"))
     /// ```
     #[func]
     pub fn match_(

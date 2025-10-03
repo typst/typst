@@ -184,7 +184,7 @@ pub struct FigureElem {
     /// or [`{image}`](image), you will need to manually specify the figure's
     /// supplement.
     ///
-    /// ```example
+    /// ```example:"Customizing the figure kind"
     /// #figure(
     ///   circle(radius: 10pt),
     ///   caption: [A curious atom.],
@@ -201,7 +201,7 @@ pub struct FigureElem {
     /// - For [images]($image): `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
-    /// ```example
+    /// ```example:"Modifying the figure counter for specific kinds"
     /// #figure(
     ///   table(columns: 2, $n$, $1$),
     ///   caption: [The first table.],
