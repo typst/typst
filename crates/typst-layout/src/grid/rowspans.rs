@@ -43,6 +43,8 @@ pub struct Rowspan {
     ///
     /// This is `None` if no spanned rows were resolved in `finish_region` yet.
     pub max_resolved_row: Option<usize>,
+    /// See [`RowState::is_being_repeated`](super::layouter::RowState::is_being_repeated).
+    pub is_being_repeated: bool,
 }
 
 /// The output of the simulation of an unbreakable row group.
@@ -115,6 +117,7 @@ impl GridLayouter<'_> {
             first_region,
             region_full,
             heights,
+            is_being_repeated,
             ..
         } = rowspan_data;
         let [first_height, backlog @ ..] = heights.as_slice() else {
@@ -146,7 +149,8 @@ impl GridLayouter<'_> {
 
         // Push the layouted frames directly into the finished frames.
         let locator = self.cell_locator(Axes::new(x, y), disambiguator);
-        let fragment = layout_cell(cell, engine, locator, self.styles, pod)?;
+        let fragment =
+            layout_cell(cell, engine, locator, self.styles, pod, is_being_repeated)?;
         let (current_region, current_header_row_height) = current_region_data.unzip();
 
         // Clever trick to process finished header rows:
@@ -220,6 +224,7 @@ impl GridLayouter<'_> {
                     region_full: Abs::zero(),
                     heights: vec![],
                     max_resolved_row: None,
+                    is_being_repeated: self.row_state.is_being_repeated,
                 });
             }
         }

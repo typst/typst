@@ -152,7 +152,9 @@ fn handle_html_elem(
     elem: &Packed<HtmlElem>,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    let role = styles.get_cloned(HtmlElem::role);
+    // See the docs of `HtmlElem::role` for why we filter out roles for `<p>`
+    // elements.
+    let role = styles.get_cloned(HtmlElem::role).filter(|_| elem.tag != tag::p);
 
     let mut children = EcoVec::new();
     if let Some(body) = elem.body.get_ref(styles) {

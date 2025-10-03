@@ -1,11 +1,8 @@
-use krilla::destination::XyzDestination;
 use krilla::outline::{Outline as KrillaOutline, OutlineNode as KrillaOutlineNode};
 use typst_library::foundations::{NativeElement, Packed, StyleChain};
-use typst_library::layout::Abs;
 use typst_library::model::{HeadingElem, OutlineNode};
 
 use crate::convert::GlobalContext;
-use crate::util::AbsExt;
 
 pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
     let elems = gc.document.introspector.query(&HeadingElem::ELEM.select());
@@ -61,7 +58,6 @@ fn convert_node(
 ) -> Option<KrillaOutlineNode> {
     let loc = node.entry.location().unwrap();
     let pos = gc.document.introspector.position(loc);
-    let page_index = pos.page.get() - 1;
 
     // Prepend the numbers to the title if they exist.
     let text = node.entry.body.plain_text();
@@ -70,13 +66,7 @@ fn convert_node(
         None => text.to_string(),
     };
 
-    if let Some(index) = gc.page_index_converter.pdf_page_index(page_index) {
-        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        let dest = XyzDestination::new(
-            index,
-            krilla::geom::Point::from_xy(pos.point.x.to_f32(), y.to_f32()),
-        );
-
+    if let Some(dest) = crate::link::pos_to_xyz(&gc.page_index_converter, pos) {
         let mut outline_node = KrillaOutlineNode::new(title, dest);
         for child in convert_list(&node.children, gc) {
             outline_node.push_child(child);

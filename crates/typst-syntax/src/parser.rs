@@ -1572,7 +1572,7 @@ struct Token {
 }
 
 /// Information about newlines in a group of trivia.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Copy, Clone)]
 struct Newline {
     /// The column of the start of the next token in its line.
     column: Option<usize>,
@@ -1581,7 +1581,7 @@ struct Newline {
 }
 
 /// How to proceed with parsing when at a newline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum AtNewline {
     /// Continue at newlines.
     Continue,

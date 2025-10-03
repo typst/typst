@@ -1,0 +1,29 @@
+- Tag: P
+  /K:
+    - Content: page=0 mcid=0
+    - Tag: Lbl
+      /K:
+        - Tag: Link
+          /K:
+            - Tag: Span
+              /BaselineShift:   3.500
+              /LineHeight:   6.000
+              /K:
+                - Content: page=0 mcid=1
+            - Annotation: page=0 index=0
+    - Tag: Note
+      /Lang: "de"
+      /K:
+        - Tag: Lbl
+          /Lang: "en"
+          /K:
+            - Tag: Link
+              /K:
+                - Tag: Span
+                  /BaselineShift:   2.975
+                  /LineHeight:   5.100
+                  /K:
+                    - Content: page=0 mcid=3
+                - Annotation: page=0 index=1
+        - Content: page=0 mcid=4
+    - Content: page=0 mcid=2

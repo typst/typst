@@ -1,4 +1,4 @@
---- outline-spacing ---
+--- outline-spacing render pdftags ---
 #set heading(numbering: "1.a.")
 #set outline.entry(fill: none)
 #show outline.entry.where(level: 1): set block(above: 1.2em)

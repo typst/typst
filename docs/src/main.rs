@@ -83,7 +83,7 @@ impl Resolver for CliResolver<'_> {
 /// Generates the JSON representation of the documentation. This can be used to
 /// generate the HTML yourself. Be warned: the JSON structure is not stable and
 /// may change at any time.
-#[derive(Parser, Debug)]
+#[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// The generation process can produce additional assets. Namely images.

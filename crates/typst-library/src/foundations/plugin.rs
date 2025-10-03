@@ -48,7 +48,7 @@ use crate::loading::{DataSource, Load};
 /// ```
 ///
 /// # Purity
-/// Plugin functions **must be pure:** A plugin function call most not have any
+/// Plugin functions **must be pure:** A plugin function call must not have any
 /// observable side effects on future plugin calls and given the same arguments,
 /// it must always return the same value.
 ///

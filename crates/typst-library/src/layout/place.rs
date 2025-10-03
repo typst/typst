@@ -1,5 +1,5 @@
-use crate::foundations::{Cast, Content, Packed, Smart, elem, scope};
-use crate::introspection::{Locatable, Unqueriable};
+use crate::foundations::{Cast, Content, Smart, elem, scope};
+use crate::introspection::{Locatable, Tagged, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 
 /// Places content relatively to its parent container.
@@ -65,7 +65,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 ///
 /// The zero-width weak spacing serves to discard spaces between the function
 /// call and the next word.
-#[elem(scope, Locatable, Unqueriable)]
+#[elem(scope, Unqueriable, Locatable, Tagged)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -161,10 +161,6 @@ pub struct PlaceElem {
     #[required]
     pub body: Content,
 }
-
-/// `PlaceElem` must be locatable to support logical ordering of floats, but I
-/// do not want to expose `query(place)` for now.
-impl Unqueriable for Packed<PlaceElem> {}
 
 #[scope]
 impl PlaceElem {

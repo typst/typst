@@ -1,15 +1,22 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{HintedStrResult, HintedString, bail};
-use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
+use crate::engine::Engine;
+use crate::foundations::{
+    Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
+};
+use crate::introspection::{Locatable, Tagged};
+use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
+use crate::pdf::TableCellKind;
 use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
@@ -116,7 +123,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, LocalName, Figurable)]
+#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
     /// more information on track sizing.
@@ -252,6 +259,17 @@ pub struct TableElem {
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
+    /// A summary of the table's purpose and structure.
+    ///
+    /// This will be available for assistive techonologies (such as screen readers).
+    #[internal]
+    #[parse(None)]
+    pub summary: Option<EcoString>,
+
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
+
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
     #[variadic]
@@ -276,14 +294,31 @@ impl TableElem {
     type TableFooter;
 }
 
+impl Synthesize for Packed<TableElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = table_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
+    }
+}
+
 impl LocalName for Packed<TableElem> {
     const KEY: &'static str = "table";
 }
 
 impl Figurable for Packed<TableElem> {}
 
+cast! {
+    TableElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected table")?,
+}
+
 /// Any child of a table element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableChild {
     Header(Packed<TableHeader>),
     Footer(Packed<TableFooter>),
@@ -328,7 +363,7 @@ impl TryFrom<Content> for TableChild {
 }
 
 /// A table item, which is the basic unit of table specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableItem {
     HLine(Packed<TableHLine>),
     VLine(Packed<TableVLine>),
@@ -715,6 +750,14 @@ pub struct TableCell {
     /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
     /// breakable.
     pub breakable: Smart<bool>,
+
+    #[internal]
+    #[parse(Some(Smart::Auto))]
+    pub kind: Smart<TableCellKind>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 }
 
 cast! {

@@ -287,7 +287,7 @@ impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
 }
 
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone, PartialEq, Hash, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Hash)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,
@@ -431,7 +431,7 @@ impl<T, const N: usize> Container for SmallVec<[T; N]> {
 }
 
 /// An uninhabitable type.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Never {}
 
 impl Reflect for Never {

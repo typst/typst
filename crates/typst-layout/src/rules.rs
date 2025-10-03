@@ -1,40 +1,39 @@
-use std::num::NonZeroUsize;
-
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Target, dict,
+    StyleChain, Synthesize, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
     FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
-    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PlaceElem,
-    PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides, Size, Sizing,
-    SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
+    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
+    PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
+    Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslSource, Destination, EmphElem,
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem,
-    RefElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
+    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
+    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
+    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
+    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
+    TableCell, TableElem, TermsElem, TitleElem, Works,
 };
-use typst_library::pdf::AttachElem;
+use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, TextSize, UnderlineElem,
-    WeightDelta,
+    SmartQuoteElem, SmartQuotes, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem,
+    TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem,
     RectElem, SquareElem, Stroke,
 };
-use typst_utils::{Get, NonZeroExt, Numeric};
+use typst_utils::{Get, Numeric};
 
 /// Register show rules for the [paged target](Target::Paged).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -46,7 +45,9 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LIST_RULE);
     rules.register(Paged, ENUM_RULE);
     rules.register(Paged, TERMS_RULE);
+    rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
+    rules.register(Paged, DIRECT_LINK_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -59,6 +60,8 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, REF_RULE);
     rules.register(Paged, CITE_GROUP_RULE);
     rules.register(Paged, BIBLIOGRAPHY_RULE);
+    rules.register(Paged, CSL_LIGHT_RULE);
+    rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
 
@@ -104,6 +107,8 @@ pub fn register(rules: &mut NativeRuleMap) {
 
     // PDF.
     rules.register(Paged, ATTACH_RULE);
+    rules.register(Paged, ARTIFACT_RULE);
+    rules.register(Paged, PDF_MARKER_TAG_RULE);
 }
 
 const STRONG_RULE: ShowFn<StrongElem> = |elem, _, styles| {
@@ -173,8 +178,8 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     for child in elem.children.iter() {
         let mut seq = vec![];
         seq.extend(unpad.clone());
-        seq.push(child.term.clone().strong());
-        seq.push(separator.clone());
+        seq.push(PdfMarkerTag::TermsItemLabel(child.term.clone().strong()));
+        seq.push(separator.clone().artifact(ArtifactKind::Other));
         seq.push(child.description.clone());
 
         // Text in wide term lists shall always turn into paragraphs.
@@ -182,7 +187,8 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
             seq.push(ParbreakElem::shared().clone());
         }
 
-        children.push(StackChild::Block(Content::sequence(seq)));
+        let item = Content::sequence(seq).spanned(child.span());
+        children.push(StackChild::Block(PdfMarkerTag::TermsItemBody(item)));
     }
 
     let padding =
@@ -211,10 +217,24 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
+const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
+
+const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
+    let span = elem.span();
     let body = elem.body.clone();
     let dest = elem.dest.resolve(engine.introspector).at(elem.span())?;
-    Ok(body.linked(dest))
+    let alt = dest.alt_text(engine, styles)?;
+    // Manually construct link marker that spans the whole link elem, not just
+    // the body.
+    Ok(LinkMarker::new(body, Some(alt))
+        .pack()
+        .spanned(span)
+        .set(LinkElem::current, Some(dest)))
+};
+
+const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
+    let dest = Destination::Location(elem.loc);
+    Ok(elem.body.clone().linked(dest, elem.alt.clone()))
 };
 
 const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
@@ -377,18 +397,17 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
     let (dest, num) = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(num).pack().spanned(span);
-    Ok(HElem::hole().clone() + sup.linked(dest))
+    let alt = FootnoteElem::alt_text(styles, &num.plain_text());
+    let sup = SuperElem::new(num).pack().spanned(span).linked(dest, Some(alt));
+    Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let span = elem.span();
     let number_gap = Em::new(0.05);
-    let (dest, num, body) = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(num).pack().spanned(span).linked(dest);
+    let (prefix, body) = elem.realize(engine, styles)?;
     Ok(Content::sequence([
         HElem::new(elem.indent.get(styles).into()).pack(),
-        sup,
+        PdfMarkerTag::Label(prefix),
         HElem::new(number_gap.into()).with_weak(true).pack(),
         body,
     ]))
@@ -397,9 +416,9 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
     let title = elem.realize_title(styles);
     let entries = elem.realize_flat(engine, styles)?;
-    Ok(Content::sequence(
-        title.into_iter().chain(entries.into_iter().map(|entry| entry.pack())),
-    ))
+    let entries = entries.into_iter().map(|entry| entry.pack());
+    let body = PdfMarkerTag::OutlineBody(Content::sequence(entries));
+    Ok(Content::sequence(title.into_iter().chain(Some(body))))
 };
 
 const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
@@ -408,7 +427,24 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let context = context.track();
 
     let prefix = elem.prefix(engine, context, span)?;
-    let inner = elem.inner(engine, context, span)?;
+    let body = elem.body().at(span)?;
+    let page = elem.page(engine, context, span)?;
+    let alt = {
+        let prefix = prefix.as_ref().map(|p| p.plain_text()).unwrap_or_default();
+        let body = body.plain_text();
+        let page_str = PageElem::local_name_in(styles);
+        let page_nr = page.plain_text();
+        let quotes = SmartQuotes::get(
+            styles.get_ref(SmartQuoteElem::quotes),
+            styles.get(TextElem::lang),
+            styles.get(TextElem::region),
+            styles.get(SmartQuoteElem::alternative),
+        );
+        let open = quotes.double_open;
+        let close = quotes.double_close;
+        eco_format!("{prefix} {open}{body}{close} {page_str} {page_nr}",)
+    };
+    let inner = elem.build_inner(context, span, body, page)?;
     let block = if elem.element.is::<EquationElem>() {
         // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
@@ -421,7 +457,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     };
 
     let loc = elem.element_location().at(span)?;
-    Ok(block.linked(Destination::Location(loc)))
+    Ok(block.linked(Destination::Location(loc), Some(alt)))
 };
 
 const REF_RULE: ShowFn<RefElem> = |elem, engine, styles| elem.realize(engine, styles);
@@ -435,59 +471,45 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
 
     let mut seq = vec![];
-    if let Some(title) = elem.title.get_ref(styles).clone().unwrap_or_else(|| {
-        Some(
-            TextElem::packed(Packed::<BibliographyElem>::local_name_in(styles))
-                .spanned(span),
-        )
-    }) {
-        seq.push(
-            HeadingElem::new(title)
-                .with_depth(NonZeroUsize::ONE)
-                .pack()
-                .spanned(span),
-        );
-    }
+    seq.extend(elem.realize_title(styles));
 
     let works = Works::generate(engine).at(span)?;
-    let references = works
-        .references
-        .as_ref()
-        .ok_or_else(|| match elem.style.get_ref(styles).source {
-            CslSource::Named(style, _) => eco_format!(
-                "CSL style \"{}\" is not suitable for bibliographies",
-                style.display_name()
-            ),
-            CslSource::Normal(..) => {
-                "CSL style is not suitable for bibliographies".into()
-            }
-        })
-        .at(span)?;
+    let references = works.references(elem, styles)?;
 
-    if references.iter().any(|(prefix, _)| prefix.is_some()) {
+    if references.iter().any(|(prefix, ..)| prefix.is_some()) {
         let row_gutter = styles.get(ParElem::spacing);
 
         let mut cells = vec![];
-        for (prefix, reference) in references {
+        for (prefix, reference, loc) in references {
+            let prefix = PdfMarkerTag::ListItemLabel(
+                prefix.clone().unwrap_or_default().located(*loc),
+            );
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                    .spanned(span),
+                Packed::new(GridCell::new(prefix)).spanned(span),
             )));
+
+            let reference = PdfMarkerTag::BibEntry(reference.clone());
             cells.push(GridChild::Item(GridItem::Cell(
-                Packed::new(GridCell::new(reference.clone())).spanned(span),
+                Packed::new(GridCell::new(reference)).spanned(span),
             )));
         }
-        seq.push(
-            GridElem::new(cells)
-                .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]))
-                .pack()
-                .spanned(span),
-        );
+
+        let grid = GridElem::new(cells)
+            .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+            .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+            .with_row_gutter(TrackSizings(smallvec![row_gutter.into()]));
+        let mut packed = Packed::new(grid).spanned(span);
+        packed.synthesize(engine, styles)?;
+        // Directly build the block element to avoid the show step for the grid
+        // element. This will not generate introspection tags for the element.
+        let block = BlockElem::multi_layouter(packed, crate::grid::layout_grid).pack();
+
+        // TODO(accessibility): infer list numbering from style?
+        seq.push(PdfMarkerTag::Bibliography(true, block));
     } else {
-        for (_, reference) in references {
-            let realized = reference.clone();
+        let mut body = vec![];
+        for (_, reference, loc) in references {
+            let realized = PdfMarkerTag::BibEntry(reference.clone().located(*loc));
             let block = if works.hanging_indent {
                 let body = HElem::new((-INDENT).into()).pack() + realized;
                 let inset = Sides::default()
@@ -499,12 +521,19 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 BlockElem::new().with_body(Some(BlockBody::Content(realized)))
             };
 
-            seq.push(block.pack().spanned(span));
+            body.push(block.pack().spanned(span));
         }
+        seq.push(PdfMarkerTag::Bibliography(false, Content::sequence(body)));
     }
 
     Ok(Content::sequence(seq))
 };
+
+const CSL_LIGHT_RULE: ShowFn<CslLightElem> =
+    |elem, _, _| Ok(elem.body.clone().set(TextElem::delta, WeightDelta(-100)));
+
+const CSL_INDENT_RULE: ShowFn<CslIndentElem> =
+    |elem, _, _| Ok(PadElem::new(elem.body.clone()).pack());
 
 const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
     Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_table).pack())
@@ -802,3 +831,7 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
 };
 
 const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());
+
+const ARTIFACT_RULE: ShowFn<ArtifactElem> = |elem, _, _| Ok(elem.body.clone());
+
+const PDF_MARKER_TAG_RULE: ShowFn<PdfMarkerTag> = |elem, _, _| Ok(elem.body.clone());

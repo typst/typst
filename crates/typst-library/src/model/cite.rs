@@ -42,7 +42,7 @@ use crate::text::{Lang, Region, TextElem};
 /// This function indirectly has dedicated syntax. [References]($ref) can be
 /// used to cite works from the bibliography. The label then corresponds to the
 /// citation key.
-#[elem(Synthesize)]
+#[elem(Locatable, Synthesize)]
 pub struct CiteElem {
     /// The citation key that identifies the entry in the bibliography that
     /// shall be cited, as a label.

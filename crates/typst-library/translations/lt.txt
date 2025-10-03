@@ -6,3 +6,5 @@ heading = Skyrius
 outline = Turinys
 raw = Kodo fragmentas
 page = Psl.
+# email =
+# telephone =
