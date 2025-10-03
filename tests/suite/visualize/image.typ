@@ -394,3 +394,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Error: 2-49 page 2 does not exist
 // Hint: 2-49 the document only has 1 page
 #image("/assets/images/matplotlib.pdf", page: 2)
+
+--- issue-6869-image-zero-sized ---
+// Primarily to ensure that it does not crash in PDF export.
+#image("/assets/images/f2t.jpg", width: 0pt, height: 0pt)
