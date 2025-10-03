@@ -643,7 +643,7 @@ if true {
 }
 ```
 
---- issue-6961-tab-clrf-raw-indent ---
+--- issue-6961-tab-crlf-raw-indent ---
 #let snippet = (
   ```
   A
