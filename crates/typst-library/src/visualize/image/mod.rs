@@ -91,7 +91,9 @@ pub struct ImageElem {
     /// specific PDF standard, like PDF/A-3 or PDF/UA-1. In these cases, you can
     /// instead use SVGs to embed vector images. Additionally, Typst does not
     /// currently support PDFs that are password-protected or have any other
-    /// kind of encryption.
+    /// kind of encryption. Finally, be aware that the tags in your PDF image
+    /// will not be preserved. Instead, you must provide an [alternative
+    /// description]($image.alt) to make the image accessible.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
@@ -135,6 +137,19 @@ pub struct ImageElem {
     pub height: Sizing,
 
     /// An alternative description of the image.
+    ///
+    /// This text is used by Assistive Technologies (AT) like screen readers to
+    /// describe the image to users with visual impairments.
+    ///
+    /// When the image is wrapped in a [`figure`]($figure), use this parameter
+    /// rather than the [figure's `alt` parameter]($figure.alt) to describe the
+    /// image. The only exception to this rule is when you are using the image
+    /// with other contents in the figure together form a single semantic unit.
+    /// In this case, use the figure's `alt` parameter to describe the entire
+    /// composition and do not use this parameter.
+    ///
+    /// You can learn how to write good alternative descriptions in the
+    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
     pub alt: Option<EcoString>,
 
     /// The page number that should be embedded as an image. This attribute only

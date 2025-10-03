@@ -404,6 +404,21 @@ pub struct TextElem {
     ///   language.
     /// - And all other things which are language-aware.
     ///
+    /// Choosing the correct language is important for accessibility. For
+    /// example, screen readers will use it to choose a voice that matches the
+    /// language of the text. If your document is in another language than the
+    /// default English, you should set the text language at the start of your
+    /// document, before any other content. You can, for example, put it right
+    /// after the `[#set document(/* ... */)]` rule that [sets your document's
+    /// title]($document.title).
+    ///
+    /// If multiple codes are available for your language, you should prefer the
+    /// two-letter code (ISO 639-1) over the three-letter codes (ISO 639-2/3).
+    /// When you have to use a three-letter code and your language differs
+    /// between ISO 639-2 and ISO 639-3, use ISO 639-2 for PDF 1.7 (Typst's
+    /// default for PDF export) and below and ISO 639-3 for PDF 2.0 and HTML
+    /// export.
+    ///
     /// ```example
     /// #set text(lang: "de")
     /// #outline()

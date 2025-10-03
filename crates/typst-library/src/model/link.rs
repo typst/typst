@@ -43,6 +43,12 @@ use crate::text::{LocalName, TextElem};
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
 /// default via `{show link: set text(hyphenate: true)}`.
 ///
+/// # Accessibility
+/// The destination of a link should be clear from the link text itself, or at
+/// least from the text immediately surrounding it. In PDF export, Typst will
+/// automatically generate a tooltip description for links based on their
+/// destination. For links to URLs, the URL itself will be used as the tooltip.
+///
 /// # Links in HTML export
 /// In HTML export, a link to a [label] or [location] will be turned into a
 /// fragment link to a named anchor point. To support this, targets without an

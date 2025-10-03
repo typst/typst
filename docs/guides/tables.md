@@ -65,9 +65,9 @@ top to bottom. It will automatically add enough rows to your table so that it
 fits all of your content.
 
 It is best to wrap the header row of your table in the [`table.header`
-function]($table.header). This clarifies your intent and will also allow future
-versions of Typst to make the output more accessible to users with a screen
-reader:
+function]($table.header). This clarifies your intent and will also allow Typst
+to make the output more [accessible]($guides/accessibility) to users with a
+screen reader:
 
 ```example
 #table(
