@@ -53,7 +53,6 @@ pub struct RotateElem {
     /// ```example
     /// #rotate(-1.571rad)[Space!]
     /// ```
-    ///
     #[positional]
     pub angle: Angle,
 
@@ -192,7 +191,6 @@ pub struct SkewElem {
     /// ```example
     /// #skew(ax: 30deg)[Skewed]
     /// ```
-    ///
     #[default(Angle::zero())]
     pub ax: Angle,
 
@@ -201,7 +199,6 @@ pub struct SkewElem {
     /// ```example
     /// #skew(ay: 30deg)[Skewed]
     /// ```
-    ///
     #[default(Angle::zero())]
     pub ay: Angle,
 

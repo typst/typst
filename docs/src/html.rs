@@ -355,8 +355,61 @@ impl<'a> Handler<'a> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ExampleArgs<'a> {
+    /// The language of the example.
+    pub lang: &'a str,
+    /// How to display the example.
+    pub view: ExampleView,
+    /// An optional title for the example.
+    pub title: Option<&'a str>,
+}
+
+impl<'a> ExampleArgs<'a> {
+    /// Parse a language tag.
+    pub fn from_tag(tag: &'a str) -> Self {
+        let mut parts = tag.split(':');
+        let lang = parts.next().unwrap_or(tag);
+
+        let mut view = ExampleView::default();
+        let mut title = None;
+
+        for args in parts {
+            if args.starts_with('"') && args.ends_with('"') {
+                title = Some(&args[1..args.len() - 1]);
+            } else if args.contains("single") {
+                view = ExampleView::Single(None);
+            } else if args.chars().next().is_some_and(char::is_numeric) {
+                view = ExampleView::Single(
+                    args.split(',')
+                        .take(4)
+                        .map(|s| Abs::pt(s.parse().unwrap()))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .ok(),
+                )
+            } else if args == "all" {
+                // Default.
+            } else {
+                panic!("invalid example arguments: {args}");
+            }
+        }
+
+        Self { lang, view, title }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum ExampleView {
+    /// Display all pages
+    #[default]
+    All,
+    /// Display a single page
+    Single(Option<[Abs; 4]>),
+}
+
 /// Render a code block to HTML.
-fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
+fn code_block(resolver: &dyn Resolver, tag: &str, text: &str) -> Html {
     let mut display = String::new();
     let mut compile = String::new();
     for line in text.lines() {
@@ -374,23 +427,8 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         }
     }
 
-    let mut parts = lang.split(':');
-    let lang = parts.next().unwrap_or(lang);
-
-    let mut zoom: Option<[Abs; 4]> = None;
-    let mut single = false;
-    if let Some(args) = parts.next() {
-        single = true;
-        if !args.contains("single") {
-            zoom = args
-                .split(',')
-                .take(4)
-                .map(|s| Abs::pt(s.parse().unwrap()))
-                .collect::<Vec<_>>()
-                .try_into()
-                .ok();
-        }
-    }
+    let args = ExampleArgs::from_tag(tag);
+    let lang = args.lang;
 
     if lang.is_empty() {
         let mut buf = String::from("<pre>");
@@ -432,12 +470,12 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         }
     };
 
-    if let Some([x, y, w, h]) = zoom {
+    if let ExampleView::Single(Some([x, y, w, h])) = args.view {
         document.pages[0].frame.translate(Point::new(-x, -y));
         *document.pages[0].frame.size_mut() = Size::new(w, h);
     }
 
-    if single {
+    if let ExampleView::Single(_) = args.view {
         document.pages.truncate(1);
     }
 

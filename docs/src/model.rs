@@ -92,10 +92,7 @@ pub struct FuncModel {
     pub contextual: bool,
     pub deprecation_message: Option<&'static str>,
     pub deprecation_until: Option<&'static str>,
-    pub details: Html,
-    /// This example is only for nested function models. Others can have
-    /// their example directly in their details.
-    pub example: Option<Html>,
+    pub details: Vec<DetailsContent>,
     #[serde(rename = "self")]
     pub self_: bool,
     pub params: Vec<ParamModel>,
@@ -107,8 +104,7 @@ pub struct FuncModel {
 #[derive(Debug, Serialize)]
 pub struct ParamModel {
     pub name: &'static str,
-    pub details: Html,
-    pub example: Option<Html>,
+    pub details: Vec<DetailsContent>,
     pub types: Vec<&'static str>,
     pub strings: Vec<StrParam>,
     pub default: Option<Html>,
@@ -117,6 +113,18 @@ pub struct ParamModel {
     pub required: bool,
     pub variadic: bool,
     pub settable: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "kind", content = "content")]
+pub enum DetailsContent {
+    Html(Html),
+    /// An example with an optional title.
+    Example {
+        body: Html,
+        title: Option<EcoString>,
+    },
 }
 
 /// A specific string that can be passed as an argument.

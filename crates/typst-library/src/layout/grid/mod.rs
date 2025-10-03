@@ -291,7 +291,7 @@ pub struct GridElem {
     ///
     /// See the [styling section](#styling) above for more details.
     ///
-    /// ```example
+    /// ```example:"Passing a function to set a stroke based on position"
     /// #set page(width: 420pt)
     /// #set text(number-type: "old-style")
     /// #show grid.cell.where(y: 0): set text(size: 1.3em)
@@ -325,7 +325,7 @@ pub struct GridElem {
     /// )
     /// ```
     ///
-    /// ```example
+    /// ```example:"Folding the stroke dictionary"
     /// #set page(height: 13em, width: 26em)
     ///
     /// #let cv(..jobs) = grid(
@@ -335,7 +335,7 @@ pub struct GridElem {
     ///     (right: (
     ///       paint: luma(180),
     ///       thickness: 1.5pt,
-    ///       dash: "dotted"
+    ///       dash: "dotted",
     ///     ))
     ///   },
     ///   grid.header(grid.cell(colspan: 2)[
