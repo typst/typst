@@ -1,0 +1,85 @@
+- Tag: H1
+  /T: "Contents"
+  /K:
+    - Content: page=0 mcid=0
+- Tag: TOC
+  /K:
+    - Tag: TOCI
+      /K:
+        - Tag: Reference
+          /Placement: Block
+          /K:
+            - Tag: Link
+              /K:
+                - Tag: Lbl
+                  /K:
+                    - Content: page=0 mcid=1
+                - Content: page=0 mcid=2
+                - Content: page=0 mcid=3
+                - Annotation: page=0 index=0
+    - Tag: TOC
+      /K:
+        - Tag: TOCI
+          /K:
+            - Tag: Reference
+              /Placement: Block
+              /K:
+                - Tag: Link
+                  /K:
+                    - Tag: Lbl
+                      /K:
+                        - Content: page=0 mcid=4
+                    - Content: page=0 mcid=5
+                    - Content: page=0 mcid=6
+                    - Annotation: page=0 index=1
+        - Tag: TOCI
+          /K:
+            - Tag: Reference
+              /Placement: Block
+              /K:
+                - Tag: Link
+                  /K:
+                    - Tag: Lbl
+                      /K:
+                        - Content: page=0 mcid=7
+                    - Content: page=0 mcid=8
+                    - Content: page=0 mcid=9
+                    - Annotation: page=0 index=2
+    - Tag: TOCI
+      /K:
+        - Tag: Reference
+          /Placement: Block
+          /K:
+            - Tag: Link
+              /K:
+                - Tag: Lbl
+                  /K:
+                    - Content: page=0 mcid=10
+                - Content: page=0 mcid=11
+                - Content: page=0 mcid=12
+                - Annotation: page=0 index=3
+    - Tag: TOC
+      /K:
+        - Tag: TOCI
+          /K:
+            - Tag: Reference
+              /Placement: Block
+              /K:
+                - Tag: Link
+                  /K:
+                    - Tag: Lbl
+                      /K:
+                        - Content: page=0 mcid=13
+                    - Content: page=0 mcid=14
+                    - Content: page=0 mcid=15
+                    - Annotation: page=0 index=4
+- Tag: H1
+  /T: "A"
+- Tag: H2
+  /T: "B"
+- Tag: H2
+  /T: "C"
+- Tag: H1
+  /T: "D"
+- Tag: H2
+  /T: "E"

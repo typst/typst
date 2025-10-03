@@ -31,7 +31,8 @@ use crate::foundations::{
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, LinkElem, StrongElem};
+use crate::model::{Destination, EmphElem, LinkElem, LinkMarker, StrongElem};
+use crate::pdf::{ArtifactElem, ArtifactKind};
 use crate::text::UnderlineElem;
 
 /// A piece of document content.
@@ -464,8 +465,12 @@ impl Content {
     }
 
     /// Link the content somewhere.
-    pub fn linked(self, dest: Destination) -> Self {
-        self.set(LinkElem::current, Some(dest))
+    pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
+        let span = self.span();
+        LinkMarker::new(self, alt)
+            .pack()
+            .spanned(span)
+            .set(LinkElem::current, Some(dest))
     }
 
     /// Set alignments for this content.
@@ -493,6 +498,12 @@ impl Content {
             .with_dy(delta.y)
             .pack()
             .spanned(span)
+    }
+
+    /// Mark content as a PDF artifact.
+    pub fn artifact(self, kind: ArtifactKind) -> Self {
+        let span = self.span();
+        ArtifactElem::new(self).with_kind(kind).pack().spanned(span)
     }
 }
 

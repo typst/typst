@@ -1,6 +1,6 @@
 use crate::diag::{Hint, HintedStrResult};
 use crate::foundations::{Content, Packed, ShowSet, Smart, StyleChain, Styles, elem};
-use crate::introspection::Locatable;
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::{BlockElem, Em};
 use crate::model::DocumentElem;
 use crate::text::{FontWeight, TextElem, TextSize};
@@ -29,7 +29,7 @@ use crate::text::{FontWeight, TextElem, TextSize};
 /// = Introduction
 /// In recent years, ...
 /// ```
-#[elem(Locatable, ShowSet)]
+#[elem(Locatable, Tagged, ShowSet)]
 pub struct TitleElem {
     /// The content of the title.
     ///

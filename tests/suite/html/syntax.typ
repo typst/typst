@@ -108,7 +108,7 @@ A#"  "B#"   C"
 #"A\nB"
 // -> A<br>B
 
-// CLRF.
+// CRLF.
 #"A\r\nB"
 // -> A<br>B
 

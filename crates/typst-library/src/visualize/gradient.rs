@@ -174,7 +174,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///   spaces in your PDF file, but it does add extra stops to your gradient,
 ///   which can increase the file size.
 #[ty(scope, cast)]
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
     Radial(Arc<RadialGradient>),
@@ -1140,7 +1140,7 @@ impl Repr for ConicGradient {
 }
 
 /// What is the gradient relative to.
-#[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum RelativeTo {
     /// Relative to itself (its own bounding box).
     Self_,
@@ -1149,7 +1149,7 @@ pub enum RelativeTo {
 }
 
 /// A color stop.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct GradientStop {
     /// The color for this stop.
     pub color: Color,
@@ -1185,7 +1185,7 @@ cast! {
 }
 
 /// A ratio or an angle.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum RatioOrAngle {
     Ratio(Ratio),
     Angle(Angle),

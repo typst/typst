@@ -3,7 +3,7 @@
 --- enum-function-call ---
 #enum[Embrace][Extend][Extinguish]
 
---- enum-number-override-nested ---
+--- enum-number-override-nested render pdftags ---
 0. Before first!
 1. First.
    2. Indented

@@ -65,6 +65,8 @@ pub struct CompileConfig {
     pub open: Option<Option<String>>,
     /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
+    /// Whether to write PDF (accessibility) tags.
+    pub disable_pdf_tags: bool,
     /// A path to write a Makefile rule describing the current compilation.
     pub make_deps: Option<PathBuf>,
     /// The PPI (pixels per inch) to use for PNG export.
@@ -129,6 +131,10 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
+        if args.no_pdf_tags && args.pdf_standard.contains(&PdfStandard::UA_1) {
+            bail!("cannot disable PDF tags when exporting a PDF/UA-1 document");
+        }
+
         let pdf_standards = PdfStandards::new(
             &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
         )?;
@@ -150,6 +156,7 @@ impl CompileConfig {
             output_format,
             pages,
             pdf_standards,
+            disable_pdf_tags: args.no_pdf_tags,
             creation_timestamp: args.world.creation_timestamp,
             make_deps: args.make_deps.clone(),
             ppi: args.ppi,
@@ -291,6 +298,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
+        disable_tags: config.disable_pdf_tags,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config
@@ -316,7 +324,7 @@ fn convert_datetime<Tz: chrono::TimeZone>(
 }
 
 /// An image format to export in.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 enum ImageExportFormat {
     Png,
     Svg,
@@ -775,6 +783,7 @@ impl From<PdfStandard> for typst_pdf::PdfStandard {
             PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
             PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
             PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+            PdfStandard::UA_1 => typst_pdf::PdfStandard::Ua_1,
         }
     }
 }

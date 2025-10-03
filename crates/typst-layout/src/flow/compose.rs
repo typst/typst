@@ -361,7 +361,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Search for footnotes.
         let mut notes = vec![];
         for tag in &self.work.tags {
-            let Tag::Start(elem) = tag else { continue };
+            let Tag::Start(elem, _) = tag else { continue };
             let Some(note) = elem.to_packed::<FootnoteElem>() else { continue };
             notes.push((Abs::zero(), note.clone()));
         }
@@ -935,7 +935,7 @@ fn find_in_frame_impl<T: NativeElement>(
         let y = y_offset + pos.y;
         match item {
             FrameItem::Group(group) => find_in_frame_impl(output, &group.frame, y),
-            FrameItem::Tag(Tag::Start(elem)) => {
+            FrameItem::Tag(Tag::Start(elem, _)) => {
                 if let Some(elem) = elem.to_packed::<T>() {
                     output.push((y, elem.clone()));
                 }

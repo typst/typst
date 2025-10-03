@@ -435,7 +435,7 @@ impl Debug for Frame {
 /// This corresponds to whether or not the frame is considered to be the
 /// innermost parent of its contents. This is used to determine the coordinate
 /// reference system for gradients.
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum FrameKind {
     /// A container which follows its parent's size.
     ///

@@ -244,7 +244,7 @@ pub fn sscript(
 /// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Cast)]
 pub enum MathSize {
     /// Second-level sub- and superscripts.
     ScriptScript,

@@ -84,7 +84,7 @@ fn traverse(
             // When visiting a start tag, we check whether the element needs an
             // ID and if so, add it to the queue, so that its first child node
             // receives an ID.
-            HtmlNode::Tag(Tag::Start(elem)) => {
+            HtmlNode::Tag(Tag::Start(elem, _)) => {
                 let loc = elem.location().unwrap();
                 if targets.contains(&loc) {
                     work.enqueue(loc, elem.label());
@@ -94,7 +94,7 @@ fn traverse(
             // When we reach an end tag, we check whether it closes an element
             // that is still in our queue. If so, that means the element
             // produced no nodes and we need to insert an empty span.
-            HtmlNode::Tag(Tag::End(loc, _)) => {
+            HtmlNode::Tag(Tag::End(loc, _, _)) => {
                 work.remove(*loc, |label| {
                     let mut element = HtmlElement::new(tag::span);
                     let id = identificator.assign(&mut element, label);
@@ -152,7 +152,7 @@ fn traverse_frame(
 ) {
     for (_, item) in frame.items() {
         match item {
-            FrameItem::Tag(Tag::Start(elem)) => {
+            FrameItem::Tag(Tag::Start(elem, _)) => {
                 let loc = elem.location().unwrap();
                 if targets.contains(&loc) {
                     let pos = identificator.introspector.position(loc).point;

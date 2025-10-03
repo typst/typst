@@ -4,7 +4,7 @@ description: |
   similarities between Typst and LaTeX so you can get started quickly.
 ---
 
-# Guide for LaTeX users { # }
+# Guide for LaTeX Users { # }
 This page is a good starting point if you have used LaTeX before and want to try
 out Typst. We will explore the main differences between these two systems from a
 user perspective. Although Typst is not built upon LaTeX and has a different

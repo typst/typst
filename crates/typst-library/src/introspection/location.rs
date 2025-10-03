@@ -119,7 +119,7 @@ impl Repr for Location {
 ///
 /// Still, it can be useful to have orderable locations for things like sets.
 /// That's where this type comes in.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct LocationKey(u128);
 
 impl LocationKey {
@@ -135,9 +135,11 @@ impl From<Location> for LocationKey {
     }
 }
 
-/// Makes this element as locatable through the introspector.
+/// Make this element available in the introspector.
 pub trait Locatable {}
 
-/// Marks this element as not being queryable even though it is locatable for
-/// internal reasons.
-pub trait Unqueriable {}
+/// Make this element not queriable for the user.
+pub trait Unqueriable: Locatable {}
+
+/// Marks this element as tagged in PDF files.
+pub trait Tagged {}

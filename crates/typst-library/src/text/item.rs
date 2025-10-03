@@ -4,7 +4,7 @@ use std::ops::Range;
 use ecow::EcoString;
 use typst_syntax::Span;
 
-use crate::layout::{Abs, Em};
+use crate::layout::{Abs, Em, Point, Rect};
 use crate::text::{Font, Lang, Region, is_default_ignorable};
 use crate::visualize::{FixedStroke, Paint};
 
@@ -39,6 +39,45 @@ impl TextItem {
     /// The height of the text run.
     pub fn height(&self) -> Abs {
         self.glyphs.iter().map(|g| g.y_advance).sum::<Em>().at(self.size)
+    }
+
+    /// The bounding box of the text run.
+    #[comemo::memoize]
+    pub fn bbox(&self) -> Rect {
+        let mut min = Point::splat(Abs::inf());
+        let mut max = Point::splat(-Abs::inf());
+        let mut cursor = Point::zero();
+
+        for glyph in self.glyphs.iter() {
+            let advance =
+                Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
+            let offset =
+                Point::new(glyph.x_offset.at(self.size), glyph.y_offset.at(self.size));
+            if let Some(rect) =
+                self.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(glyph.id))
+            {
+                let pos = cursor + offset;
+                let a = pos
+                    + Point::new(
+                        self.font.to_em(rect.x_min).at(self.size),
+                        self.font.to_em(rect.y_min).at(self.size),
+                    );
+                let b = pos
+                    + Point::new(
+                        self.font.to_em(rect.x_max).at(self.size),
+                        self.font.to_em(rect.y_max).at(self.size),
+                    );
+                min = min.min(a).min(b);
+                max = max.max(a).max(b);
+            }
+            cursor += advance;
+        }
+
+        // Text runs use a y-up coordinate system, in contrast to the default
+        // frame orientation.
+        min.y *= -1.0;
+        max.y *= -1.0;
+        Rect::new(min, max)
     }
 }
 

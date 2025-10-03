@@ -91,6 +91,22 @@ Year	Month	Day
     (* x (factorial (- x 1)))))
 ```
 
+--- raw-syntaxes-invalid-sublime-syntax ---
+// Prevent test parser from failing on "^---" line.
+#let sublime-syntax = ```yaml
+%YAML 1.2
+```.text + "\n---\n" + ```yaml
+name: lang
+file_extensions:
+  - a
+scope: source
+contexts:
+  main:
+    - match: '\'
+```.text
+
+// Error: 35-56 failed to parse syntax (Error while compiling regex '/': Parsing error at position 0: Backslash without following character)
+#raw("text", lang: "a", syntaxes: bytes(sublime-syntax))
 
 --- raw-theme ---
 // Test code highlighting with custom theme.
@@ -643,6 +659,20 @@ if true {
 }
 ```
 
+--- issue-6961-tab-crlf-raw-indent ---
+#let snippet = (
+  ```
+  A
+    BC
+    D
+  ```
+)
+
+#raw(
+  snippet.text.replace("  ", "\t").replace("\n", "\r\n"),
+  block: true,
+)
+
 --- issue-4662-math-mode-language-for-raw ---
 // Test lang: "typm" syntax highlighting without enclosing dollar signs
 #raw("pi^2", lang: "typm")
@@ -723,6 +753,38 @@ a b c --------------------
 #set raw(theme: none)
 ```typ
 #let foo = "bar"
+```
+
+--- raw-default-json-theme ---
+```json
+{
+  "foo": "bar",
+  "test": [
+    "test",
+    true,
+    42,
+    5.0,
+    null
+  ],
+  "hi": {
+    "this": "is a test!",
+    "What is this?": "This is incredible text!"
+  }
+}
+```
+
+--- raw-default-yaml-theme ---
+```yaml
+foo: bar
+test:
+- test
+- true
+- 42
+- 5
+-
+hi:
+  this: is a test!
+  What is this?: This is incredible text!
 ```
 
 --- raw-unclosed ---

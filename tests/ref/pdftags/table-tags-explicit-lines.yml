@@ -1,0 +1,57 @@
+- Tag: Table
+  /BBox:
+    page: 0
+    left:     9.500
+    top:      9.500
+    right:   40.130
+    bottom:  43.660
+  /BorderColor: #000000
+  /K:
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #000000
+            after:  #ff4136
+            start:  #000000
+            end:    #2ecc40
+          /BorderStyle: Solid
+          /BorderThickness:   1.000
+          /K:
+            - Content: page=0 mcid=0
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #000000
+            after:  #ff4136
+            start:  #2ecc40
+            end:    #000000
+          /BorderStyle: Solid
+          /BorderThickness:   1.000
+          /K:
+            - Content: page=0 mcid=1
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #ff4136
+            after:  #0074d9
+            start:  #000000
+            end:    #2ecc40
+          /BorderStyle: Solid
+          /BorderThickness:   1.000
+          /K:
+            - Content: page=0 mcid=2
+        - Tag: TD
+          /Headers: []
+          /BorderColor:
+            before: #ff4136
+            after:  #0074d9
+            start:  #2ecc40
+            end:    #000000
+          /BorderStyle: Solid
+          /BorderThickness:   1.000
+          /K:
+            - Content: page=0 mcid=3

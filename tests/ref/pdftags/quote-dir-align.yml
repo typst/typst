@@ -1,0 +1,20 @@
+lang: "ar"
+---
+- Tag: BlockQuote
+  /Lang: "en"
+  /K:
+    - Tag: Span
+      /Placement: Block
+      /K:
+        - Content: page=0 mcid=0
+        - Content: page=0 mcid=1
+- Tag: BlockQuote
+  /K:
+    - Tag: Span
+      /Placement: Block
+      /K:
+        - Content: page=0 mcid=2
+        - Content: page=0 mcid=3
+        - Content: page=0 mcid=4
+        - Content: page=0 mcid=5
+        - Content: page=0 mcid=6

@@ -2,6 +2,7 @@ use crate::diag::bail;
 use crate::foundations::{
     Array, Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
 };
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
 use crate::model::{ListItemLike, ListLike};
 
@@ -21,7 +22,7 @@ use crate::model::{ListItemLike, ListLike};
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List")]
+#[elem(scope, title = "Term List", Locatable, Tagged)]
 pub struct TermsElem {
     /// Defines the default [spacing]($terms.spacing) of the term list. If it is
     /// `{false}`, the items are spaced apart with
@@ -112,7 +113,7 @@ impl TermsElem {
 }
 
 /// A term list item.
-#[elem(name = "item", title = "Term List Item")]
+#[elem(name = "item", title = "Term List Item", Tagged)]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]

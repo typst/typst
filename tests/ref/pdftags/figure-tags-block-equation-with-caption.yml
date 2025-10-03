@@ -1,0 +1,26 @@
+- Tag: Div
+  /K:
+    - Tag: Caption
+      /K:
+        - Tag: Span
+          /Placement: Block
+          /K:
+            - Content: page=0 mcid=8
+    - Tag: Formula
+      /Alt: "The Pythagorean theorem: a squared plus b squared is c squared"
+      /Placement: Block
+      /BBox:
+        page: 0
+        left:    33.655
+        top:     10.000
+        right:   85.743
+        bottom:  19.108
+      /K:
+        - Content: page=0 mcid=0
+        - Content: page=0 mcid=1
+        - Content: page=0 mcid=2
+        - Content: page=0 mcid=3
+        - Content: page=0 mcid=4
+        - Content: page=0 mcid=5
+        - Content: page=0 mcid=6
+        - Content: page=0 mcid=7

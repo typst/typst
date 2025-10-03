@@ -204,7 +204,7 @@ pub struct PageElem {
     #[ghost]
     pub fill: Smart<Option<Paint>>,
 
-    /// How to number the pages. You can refer to the page setup guide for
+    /// How to number the pages. You can refer to the Page Setup Guide for
     /// [customizing page numbers]($guides/page-setup-guide/#page-numbers).
     ///
     /// Accepts a [numbering pattern or function]($numbering) taking one or two

@@ -42,7 +42,7 @@ use crate::text::{Lang, Region, TextElem};
 /// This function indirectly has dedicated syntax. [References]($ref) can be
 /// used to cite works from the bibliography. The label then corresponds to the
 /// citation key.
-#[elem(Synthesize)]
+#[elem(Locatable, Synthesize)]
 pub struct CiteElem {
     /// The citation key that identifies the entry in the bibliography that
     /// shall be cited, as a label.
@@ -100,7 +100,7 @@ pub struct CiteElem {
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<Smart<CslSource>>>("style")? {
         Some(Spanned { v: Smart::Custom(source), span }) => Some(Smart::Custom(
-            CslStyle::load(engine.world, Spanned::new(source, span))?
+            CslStyle::load(engine, Spanned::new(source, span))?
         )),
         Some(Spanned { v: Smart::Auto, .. }) => Some(Smart::Auto),
         None => None,

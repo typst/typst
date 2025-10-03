@@ -168,7 +168,7 @@ pub struct ShapedGlyph {
     pub script: Script,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Adjustability {
     /// The left and right stretchability
     pub stretchability: (Em, Em),
@@ -1259,7 +1259,7 @@ pub const END_PUNCT_PAT: &[char] = &[
     '〗', '〕', '］', '｝', '？', '！',
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CjkPunctStyle {
     /// Standard GB/T 15834-2011, used mostly in mainland China.
     Gb,

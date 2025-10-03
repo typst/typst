@@ -1,6 +1,6 @@
 // Test title element.
 
---- title render html ---
+--- title render html pdftags ---
 #set document(title: "My title")
 #title()
 = A level one heading

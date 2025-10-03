@@ -300,6 +300,11 @@
 #test(("a", "b", "c").join(), "abc")
 #test("(" + ("a", "b", "c").join(", ") + ")", "(a, b, c)")
 
+--- array-join-default ---
+#test(().join(default: "EMPTY", ", "), "EMPTY")
+#test(("hello",).join(default: "EMPTY", ", "), "hello")
+#test(("hello", "world").join(default: "EMPTY", ", "), "hello, world")
+
 --- array-join-bad-values ---
 // Error: 2-22 cannot join boolean with boolean
 #(true, false).join()

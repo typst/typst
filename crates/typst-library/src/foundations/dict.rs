@@ -37,17 +37,21 @@ pub use crate::__dict as dict;
 /// empty parentheses already yield an empty array, you have to use the special
 /// `(:)` syntax to create an empty dictionary.
 ///
-/// A dictionary is conceptually similar to an array, but it is indexed by
+/// A dictionary is conceptually similar to an [array], but it is indexed by
 /// strings instead of integers. You can access and create dictionary entries
 /// with the `.at()` method. If you know the key statically, you can
 /// alternatively use [field access notation]($scripting/#fields) (`.key`) to
-/// access the value. Dictionaries can be added with the `+` operator and
-/// [joined together]($scripting/#blocks). To check whether a key is present in
-/// the dictionary, use the `in` keyword.
+/// access the value. To check whether a key is present in the dictionary, use
+/// the `in` keyword.
 ///
 /// You can iterate over the pairs in a dictionary using a [for
 /// loop]($scripting/#loops). This will iterate in the order the pairs were
-/// inserted / declared.
+/// inserted / declared initially.
+///
+/// Dictionaries can be added with the `+` operator and [joined together]($scripting/#blocks).
+/// They can also be [spread]($arguments/#spreading) into a function call or
+/// another dictionary[^1] with the `..spread` operator. In each case, if a
+/// key appears multiple times, the last value will override the others.
 ///
 /// # Example
 /// ```example
@@ -62,9 +66,13 @@ pub use crate::__dict as dict;
 /// #dict.keys() \
 /// #dict.values() \
 /// #dict.at("born") \
-/// #dict.insert("city", "Berlin ")
+/// #dict.insert("city", "Berlin")
 /// #("name" in dict)
 /// ```
+///
+/// [^1]: When spreading into a dictionary, if all items between the parentheses
+/// are spread, you have to use the special `(:..spread)` syntax. Otherwise, it
+/// will spread into an array.
 #[ty(scope, cast, name = "dictionary")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
@@ -207,6 +215,9 @@ impl Dict {
 
     /// Inserts a new pair into the dictionary. If the dictionary already
     /// contains this key, the value is updated.
+    ///
+    /// To insert multiple pairs at once, you can just alternatively another
+    /// dictionary with the `+=` operator.
     #[func]
     pub fn insert(
         &mut self,

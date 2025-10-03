@@ -59,6 +59,40 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     translation!("zh-TW"),
 ];
 
+/// A locale consisting of a language and an optional region.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Locale {
+    pub lang: Lang,
+    pub region: Option<Region>,
+}
+
+impl Default for Locale {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl Locale {
+    pub const DEFAULT: Self = Self::new(Lang::ENGLISH, None);
+
+    pub const fn new(lang: Lang, region: Option<Region>) -> Self {
+        Locale { lang, region }
+    }
+
+    pub fn get_in(styles: StyleChain) -> Self {
+        Locale::new(styles.get(TextElem::lang), styles.get(TextElem::region))
+    }
+
+    pub fn rfc_3066(self) -> EcoString {
+        let mut buf = EcoString::from(self.lang.as_str());
+        if let Some(region) = self.region {
+            buf.push('-');
+            buf.push_str(region.as_str());
+        }
+        buf
+    }
+}
+
 /// An identifier for a natural language.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Lang([u8; 3], u8);

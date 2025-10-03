@@ -66,7 +66,7 @@ pub struct PackageManifest {
 /// assert_eq!(my_tool, MyTool { key: "value".into() });
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolInfo {
     /// Any fields parsed in the tool section.
     #[serde(flatten)]

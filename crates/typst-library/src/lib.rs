@@ -237,6 +237,7 @@ impl FromIterator<Feature> for Features {
 #[non_exhaustive]
 pub enum Feature {
     Html,
+    A11yExtras,
 }
 
 /// A group of related standard library definitions.
@@ -298,7 +299,7 @@ fn global(
     self::symbols::define(&mut global);
 
     global.define("math", math);
-    global.define("pdf", self::pdf::module());
+    global.define("pdf", self::pdf::module(features));
     if features.is_enabled(Feature::Html) {
         global.define("html", (routines.html_module)());
     }

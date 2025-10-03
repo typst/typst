@@ -4,7 +4,7 @@ description: |
   Typst. Learn how to create appealing and clear layouts and get there quickly.
 ---
 
-# Page setup guide
+# Page Setup Guide
 Your page setup is a big part of the first impression your document gives. Line
 lengths, margins, and columns influence
 [appearance](https://practicaltypography.com/page-margins.html) and

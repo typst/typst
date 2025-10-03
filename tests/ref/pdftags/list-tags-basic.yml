@@ -1,0 +1,74 @@
+- Tag: L
+  /Numbering: Circle
+  /K:
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=0
+        - Tag: LBody
+          /K:
+            - Tag: P
+              /K:
+                - Content: page=0 mcid=1
+    - Tag: L
+      /Numbering: Circle
+      /K:
+        - Tag: LI
+          /K:
+            - Tag: Lbl
+              /K:
+                - Content: page=0 mcid=2
+            - Tag: LBody
+              /K:
+                - Content: page=0 mcid=3
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=4
+        - Tag: LBody
+          /K:
+            - Tag: P
+              /K:
+                - Content: page=0 mcid=5
+    - Tag: L
+      /Numbering: Circle
+      /K:
+        - Tag: LI
+          /K:
+            - Tag: Lbl
+              /K:
+                - Content: page=0 mcid=6
+            - Tag: LBody
+              /K:
+                - Tag: P
+                  /K:
+                    - Content: page=0 mcid=7
+        - Tag: L
+          /Numbering: Circle
+          /K:
+            - Tag: LI
+              /K:
+                - Tag: Lbl
+                  /K:
+                    - Content: page=0 mcid=8
+                - Tag: LBody
+                  /K:
+                    - Content: page=0 mcid=9
+        - Tag: LI
+          /K:
+            - Tag: Lbl
+              /K:
+                - Content: page=0 mcid=10
+            - Tag: LBody
+              /K:
+                - Content: page=0 mcid=11
+    - Tag: LI
+      /K:
+        - Tag: Lbl
+          /K:
+            - Content: page=0 mcid=12
+        - Tag: LBody
+          /K:
+            - Content: page=0 mcid=13

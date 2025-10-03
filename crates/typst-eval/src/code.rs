@@ -2,8 +2,8 @@ use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Selector,
-    Str, Value, ops,
+    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
+    NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -356,7 +356,7 @@ impl Eval for ast::Contextual<'_> {
 
         // Define the closure.
         let closure = Closure {
-            node: self.body().to_untyped().clone(),
+            node: ClosureNode::Context(self.body().to_untyped().clone()),
             defaults: vec![],
             captured,
             num_pos_params: 0,

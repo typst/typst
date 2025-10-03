@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
-use typst_library::introspection::{SplitLocator, Tag};
+use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
@@ -643,8 +643,9 @@ fn add_par_line_marker(
     // line's general baseline. However, the line number will still need to
     // manually adjust its own 'y' position based on its own baseline.
     let pos = Point::with_y(top);
-    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack())));
-    output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
+    let flags = TagFlags { locatable: false, tagged: true, labelled: false };
+    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), flags)));
+    output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
 /// How much a character should hang into the end margin.

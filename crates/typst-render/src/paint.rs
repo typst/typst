@@ -23,7 +23,7 @@ impl PaintSampler for sk::PremultipliedColorU8 {
 ///
 /// It caches the inverse transform to the parent, so that we can
 /// reuse it instead of recomputing it for each pixel.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 pub struct GradientSampler<'a> {
     gradient: &'a Gradient,
     container_size: Size,
@@ -76,7 +76,7 @@ impl PaintSampler for GradientSampler<'_> {
 ///
 /// It caches the inverse transform to the parent, so that we can
 /// reuse it instead of recomputing it for each pixel.
-#[derive(Clone, Copy)]
+#[derive(Copy, Clone)]
 pub struct TilingSampler<'a> {
     size: Size,
     transform_to_parent: sk::Transform,

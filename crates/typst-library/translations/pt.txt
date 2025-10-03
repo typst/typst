@@ -6,3 +6,6 @@ heading = Seção
 outline = Sumário
 raw = Listagem
 page = página
+# footnote =
+# email =
+# telephone =

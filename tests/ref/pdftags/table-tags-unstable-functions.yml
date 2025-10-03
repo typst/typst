@@ -1,0 +1,39 @@
+- Tag: Table
+  /Summary: "The table summary"
+  /BBox:
+    page: 0
+    left:     9.500
+    top:      9.500
+    right:  110.500
+    bottom:  69.820
+  /BorderColor: #000000
+  /BorderThickness:   1.000
+  /K:
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+        - Tag: TH
+          /Id: "U1x1y0"
+          /Scope: Column
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=0
+            - Content: page=0 mcid=1
+    - Tag: TR
+      /K:
+        - Tag: TH
+          /Id: "U1x0y1"
+          /Scope: Row
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=2
+            - Content: page=0 mcid=3
+        - Tag: TD
+          /Headers: ["U1x1y0", "U1x0y1"]
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=4

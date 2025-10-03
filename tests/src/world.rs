@@ -198,7 +198,7 @@ fn library() -> Library {
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
     let mut lib = Library::builder()
-        .with_features([Feature::Html].into_iter().collect())
+        .with_features([Feature::Html, Feature::A11yExtras].into_iter().collect())
         .build();
 
     // Hook up helpers into the global scope.
@@ -266,6 +266,6 @@ fn lines(
     (1..=count)
         .map(|n| numbering.apply(engine, context, &[n]))
         .collect::<SourceResult<Array>>()?
-        .join(Some('\n'.into_value()), None)
+        .join(Some('\n'.into_value()), None, None)
         .at(span)
 }
