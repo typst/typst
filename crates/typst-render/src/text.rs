@@ -47,7 +47,8 @@ fn render_outline_glyph(
     id: GlyphId,
 ) -> Option<()> {
     let ts = &state.transform;
-    let ppem = text.size.to_f32() * ts.sy;
+    // Rasterize negative-sized glyphs as zero-sized.
+    let ppem = (text.size.to_f32() * ts.sy).max(0f32);
 
     // Render a glyph directly as a path. This only happens when the fast glyph
     // rasterization can't be used due to very large text size or weird
