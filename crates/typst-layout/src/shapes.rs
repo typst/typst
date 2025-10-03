@@ -718,10 +718,17 @@ pub fn clip_rect(
         .as_ref()
         .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
 
-    let max_radius = (size.x.min(size.y)) / 2.0
-        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
+    let base_radius = size.x.min(size.y) / 2.0;
+    let corner_max = Corners::new(
+        base_radius + stroke_widths.left.min(stroke_widths.top),
+        base_radius + stroke_widths.top.min(stroke_widths.right),
+        base_radius + stroke_widths.right.min(stroke_widths.bottom),
+        base_radius + stroke_widths.bottom.min(stroke_widths.left),
+    );
 
-    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
+    let radius = radius
+        .zip(corner_max)
+        .map(|(value, max)| value.relative_to(max * 2.0).min(max));
     let corners = corners_control_points(size, &radius, stroke, &stroke_widths);
 
     let mut curve = Curve::new();
@@ -841,10 +848,17 @@ fn segmented_rect(
         .as_ref()
         .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
 
-    let max_radius = (size.x.min(size.y)) / 2.0
-        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
+    let base_radius = size.x.min(size.y) / 2.0;
+    let corner_max = Corners::new(
+        base_radius + stroke_widths.left.min(stroke_widths.top),
+        base_radius + stroke_widths.top.min(stroke_widths.right),
+        base_radius + stroke_widths.right.min(stroke_widths.bottom),
+        base_radius + stroke_widths.bottom.min(stroke_widths.left),
+    );
 
-    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
+    let radius = radius
+        .zip(corner_max)
+        .map(|(value, max)| value.relative_to(max * 2.0).min(max));
     let corners = corners_control_points(size, &radius, strokes, &stroke_widths);
 
     // insert stroked sides below filled sides
