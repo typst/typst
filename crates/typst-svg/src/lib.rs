@@ -31,7 +31,7 @@ pub fn svg(page: &Page) -> String {
     renderer.write_header(page.frame.size());
 
     let state = State::new(page.frame.size(), Transform::identity());
-    renderer.render_page(state, Transform::identity(), page);
+    renderer.render_page(&state, Transform::identity(), page);
     renderer.finalize()
 }
 
@@ -42,7 +42,7 @@ pub fn svg_frame(frame: &Frame) -> String {
     renderer.write_header(frame.size());
 
     let state = State::new(frame.size(), Transform::identity());
-    renderer.render_frame(state, frame);
+    renderer.render_frame(&state, frame);
     renderer.finalize()
 }
 
@@ -78,7 +78,7 @@ pub fn svg_html_frame(
     });
 
     let state = State::new(frame.size(), Transform::identity());
-    renderer.render_frame(state, frame);
+    renderer.render_frame(&state, frame);
 
     for (pos, id) in link_points {
         renderer.render_link_point(*pos, id);
@@ -112,7 +112,7 @@ pub fn svg_merged(document: &PagedDocument, padding: Abs) -> String {
     for page in &document.pages {
         let ts = Transform::translate(x, y);
         let state = State::new(page.frame.size(), Transform::identity());
-        renderer.render_page(state, ts, page);
+        renderer.render_page(&state, ts, page);
         y += page.frame.height() + padding;
     }
 
@@ -254,17 +254,17 @@ impl<'a> SVGRenderer<'a> {
     }
 
     /// Render a page with the given transform.
-    fn render_page(&mut self, state: State, ts: Transform, page: &Page) {
+    fn render_page(&mut self, state: &State, ts: Transform, page: &Page) {
         if let Some(fill) = page.fill_or_white() {
             let shape = Geometry::Rect(page.frame.size()).filled(fill);
             self.render_shape(state, &shape);
         }
 
-        // frame is a hard frame -> apply transform
         if !ts.is_identity() {
             self.xml.start_element("g");
             self.xml.write_attribute("transform", &SvgMatrix(ts));
         }
+
         self.render_frame(state, &page.frame);
 
         if !ts.is_identity() {
@@ -273,32 +273,20 @@ impl<'a> SVGRenderer<'a> {
     }
 
     /// Render a frame with the given transform.
-    fn render_frame(&mut self, state: State, frame: &Frame) {
+    fn render_frame(&mut self, state: &State, frame: &Frame) {
         self.xml.start_element("g");
 
         for (pos, item) in frame.items() {
-            // File size optimization.
-            if matches!(item, FrameItem::Tag(_)) {
-                continue;
-            }
-
+            let state = state.pre_translate(*pos);
             match item {
-                FrameItem::Group(group) => {
-                    self.render_group(state.pre_translate(*pos), group)
-                }
-                FrameItem::Text(text) => {
-                    self.render_text(state.pre_translate(*pos), text)
-                }
-                FrameItem::Shape(shape, _) => {
-                    self.render_shape(state.pre_translate(*pos), shape)
-                }
+                FrameItem::Group(group) => self.render_group(&state, group),
+                FrameItem::Text(text) => self.render_text(&state, text),
+                FrameItem::Shape(shape, _) => self.render_shape(&state, shape),
                 FrameItem::Image(image, size, _) => {
-                    self.render_image(&state.pre_translate(*pos), image, size)
+                    self.render_image(&state, image, size)
                 }
-                FrameItem::Link(dest, size) => {
-                    self.render_link(&state.pre_translate(*pos), dest, *size)
-                }
-                FrameItem::Tag(_) => unreachable!(),
+                FrameItem::Link(dest, size) => self.render_link(&state, dest, *size),
+                FrameItem::Tag(_) => {}
             };
         }
 
@@ -307,14 +295,12 @@ impl<'a> SVGRenderer<'a> {
 
     /// Render a group. If the group has `clips` set to true, a clip path will
     /// be created.
-    fn render_group(&mut self, state: State, group: &GroupItem) {
+    fn render_group(&mut self, state: &State, group: &GroupItem) {
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-group");
 
         let state = match group.frame.kind() {
-            FrameKind::Soft => {
-                state.with_transform(state.transform.pre_concat(group.transform))
-            }
+            FrameKind::Soft => state.pre_concat(group.transform),
             FrameKind::Hard => {
                 let transform = state.transform.post_concat(group.transform);
                 if !transform.is_identity() {
@@ -331,17 +317,15 @@ impl<'a> SVGRenderer<'a> {
         }
 
         if let Some(clip_curve) = &group.clip {
-            let hash = hash128(&(&group, &state.transform));
-            let id = self.clip_paths.insert_with(hash, || {
-                shape::convert_curve(
-                    Point::new(state.transform.tx, state.transform.ty),
-                    clip_curve,
-                )
-            });
+            let offset = Point::new(state.transform.tx, state.transform.ty);
+            let hash = hash128(&(&clip_curve, &offset));
+            let id = self
+                .clip_paths
+                .insert_with(hash, || shape::convert_curve(offset, clip_curve));
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
-        self.render_frame(state, &group.frame);
+        self.render_frame(&state, &group.frame);
         self.xml.end_element();
     }
 
@@ -540,10 +524,6 @@ impl SvgPathBuilder {
         self.scale.get() as f32
     }
 
-    fn last_point(&self) -> Point {
-        self.last_point
-    }
-
     fn set_point(&mut self, x: f32, y: f32) {
         let point = Point::new(
             Abs::pt(f64::from(x * self.scale())),
@@ -554,11 +534,11 @@ impl SvgPathBuilder {
     }
 
     fn map_x(&self, x: f32) -> f32 {
-        x * self.scale() - self.last_point().x.to_pt() as f32
+        x * self.scale() - self.last_point.x.to_pt() as f32
     }
 
     fn map_y(&self, y: f32) -> f32 {
-        y * self.scale() - self.last_point().y.to_pt() as f32
+        y * self.scale() - self.last_point.y.to_pt() as f32
     }
 
     /// Create a rectangle path. The rectangle is created with the top-left
@@ -601,7 +581,7 @@ impl SvgPathBuilder {
         }
 
         self.set_point(x, y);
-        self.last_close_point = self.last_point();
+        self.last_close_point = self.last_point;
     }
 
     fn line_to(&mut self, x: f32, y: f32) {

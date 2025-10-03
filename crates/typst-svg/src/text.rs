@@ -18,7 +18,7 @@ impl SVGRenderer<'_> {
     /// Render a text item. The text is rendered as a group of glyphs. We will
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
-    pub(super) fn render_text(&mut self, state: State, text: &TextItem) {
+    pub(super) fn render_text(&mut self, state: &State, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
 
         self.xml.start_element("g");

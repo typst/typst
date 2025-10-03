@@ -9,7 +9,7 @@ use crate::{SVGRenderer, State, SvgMatrix, SvgPathBuilder};
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
-    pub(super) fn render_shape(&mut self, state: State, shape: &Shape) {
+    pub(super) fn render_shape(&mut self, state: &State, shape: &Shape) {
         self.xml.start_element("path");
         self.xml.write_attribute("class", "typst-shape");
 
@@ -44,7 +44,7 @@ impl SVGRenderer<'_> {
     /// Calculate the transform of the shape's fill or stroke.
     fn shape_paint_transform(
         &self,
-        state: State,
+        state: &State,
         paint: &Paint,
         shape: &Shape,
     ) -> Transform {
@@ -81,7 +81,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Calculate the size of the shape's fill.
-    fn shape_fill_size(&self, state: State, paint: &Paint, shape: &Shape) -> Size {
+    fn shape_fill_size(&self, state: &State, paint: &Paint, shape: &Shape) -> Size {
         let mut shape_size = shape.geometry.bbox_size();
         // Edge cases for strokes.
         if shape_size.x.to_pt() == 0.0 {

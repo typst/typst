@@ -16,7 +16,7 @@ const CONIC_SEGMENT: usize = 360;
 
 impl SVGRenderer<'_> {
     /// Render a frame to a string.
-    pub(super) fn render_tiling_frame(&mut self, state: State, frame: &Frame) -> String {
+    pub(super) fn render_tiling_frame(&mut self, state: &State, frame: &Frame) -> String {
         let mut xml = XmlWriter::new(xmlwriter::Options::default());
         std::mem::swap(&mut self.xml, &mut xml);
         self.render_frame(state, frame);
@@ -91,7 +91,7 @@ impl SVGRenderer<'_> {
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
         self.render_tiling_frame(
-            State::new(tiling_size, Transform::identity()),
+            &State::new(tiling_size, Transform::identity()),
             tiling.frame(),
         );
 
@@ -387,7 +387,7 @@ impl SVGRenderer<'_> {
 
             // Render the frame.
             let state = State::new(size, Transform::identity());
-            self.render_frame(state, tiling.frame());
+            self.render_frame(&state, tiling.frame());
 
             self.xml.end_element();
         }
