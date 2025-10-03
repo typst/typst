@@ -178,7 +178,7 @@ pub struct SourceDiagnostic {
 }
 
 /// The severity of a [`SourceDiagnostic`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Severity {
     /// A fatal error.
     Error,
@@ -591,7 +591,7 @@ pub type LoadResult<T> = Result<T, LoadError>;
 /// method available on [`LoadResult`].
 ///
 /// [`FileId`]: typst_syntax::FileId
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LoadError {
     /// The position in the file at which the error occurred.
     pos: ReportPos,
@@ -724,7 +724,7 @@ fn load_err_in_invalid_text(
 }
 
 /// A position at which an error was reported.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub enum ReportPos {
     /// Contains a range, and a line/column pair.
     Full(std::ops::Range<u32>, LineCol),
@@ -797,7 +797,7 @@ impl ReportPos {
 }
 
 /// A line/column pair.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LineCol {
     /// The 0-based line.
     line: u32,

@@ -1,6 +1,6 @@
 // Test term list.
 
---- terms-constructor ---
+--- terms-constructor render pdftags ---
 // Test with constructor.
 #terms(
   ([One], [First]),

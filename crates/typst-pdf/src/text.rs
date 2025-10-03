@@ -11,8 +11,8 @@ use typst_library::visualize::FillRule;
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::paint;
 use crate::util::{AbsExt, TransformExt, display_font};
+use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle text")]
 pub(crate) fn handle_text(
@@ -21,7 +21,8 @@ pub(crate) fn handle_text(
     surface: &mut Surface,
     gc: &mut GlobalContext,
 ) -> SourceResult<()> {
-    *gc.languages.entry(t.lang).or_insert(0) += t.glyphs.len();
+    let mut handle = tags::text(gc, fc, surface, t);
+    let surface = handle.surface();
 
     let font = convert_font(gc, t.font.clone())?;
     let fill = paint::convert_fill(
@@ -92,7 +93,7 @@ fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
     }
 }
 
-#[derive(TransparentWrapper, Debug)]
+#[derive(Debug, TransparentWrapper)]
 #[repr(transparent)]
 struct PdfGlyph(Glyph);
 

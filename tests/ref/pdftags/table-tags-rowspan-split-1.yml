@@ -1,0 +1,34 @@
+- Tag: Table
+  /BorderColor: #000000
+  /BorderThickness:   1.000
+  /K:
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /RowSpan: 3
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=1
+            - Content: page=0 mcid=2
+            - Content: page=2 mcid=0
+            - Content: page=2 mcid=1
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=0 mcid=0
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=1 mcid=0
+    - Tag: TR
+      /K:
+        - Tag: TD
+          /Headers: []
+          /BorderStyle: Solid
+          /K:
+            - Content: page=2 mcid=2

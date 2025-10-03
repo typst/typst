@@ -1,3 +1,4 @@
+use crate::introspection::Tagged;
 use ttf_parser::Tag;
 
 use crate::foundations::{Content, Smart, elem};
@@ -12,7 +13,7 @@ use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript")]
+#[elem(title = "Subscript", Tagged)]
 pub struct SubElem {
     /// Whether to use subscript glyphs from the font if available.
     ///
@@ -67,7 +68,7 @@ pub struct SubElem {
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript")]
+#[elem(title = "Superscript", Tagged)]
 pub struct SuperElem {
     /// Whether to use superscript glyphs from the font if available.
     ///

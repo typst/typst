@@ -6,3 +6,6 @@ heading = Osio
 outline = Sisällys
 raw = Esimerkki
 page = sivu
+# footnote =
+# email =
+# telephone =

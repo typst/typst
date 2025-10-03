@@ -1,0 +1,11 @@
+- Tag: P
+  /K:
+    - Tag: Em
+      /K:
+        - Tag: Strong
+          /K:
+            - Tag: Span
+              /TextDecorationColor: #2ecc40
+              /TextDecorationType: Underline
+              /K:
+                - Content: page=0 mcid=0

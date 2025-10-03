@@ -6,3 +6,6 @@ heading = Sekcja
 outline = Spis treści
 raw = Program
 page = strona
+# footnote =
+# email =
+# telephone =

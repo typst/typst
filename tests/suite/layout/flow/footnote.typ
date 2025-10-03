@@ -389,3 +389,12 @@ C
 #set footnote.entry(separator: v(5em))
 
 #footnote[]
+
+--- footnote-custom-head-html html ---
+#html.html({
+  html.head()
+  html.body[
+    // Error: 12-32 footnotes are not currently supported in combination with a custom `<html>` or `<body>` element
+    Hello #footnote[Footnote 1]
+  ]
+})

@@ -12,14 +12,14 @@ use crate::foundations::{
     Styles, Synthesize, cast, elem, scope, select_where,
 };
 use crate::introspection::{
-    Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
+    Count, Counter, CounterKey, CounterUpdate, Locatable, Location, Tagged,
 };
 use crate::layout::{
     AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
     VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, TextElem};
+use crate::text::{Lang, Locale, TextElem};
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -101,11 +101,14 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, ShowSet, Refable, Outlinable)]
+#[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image].
     #[required]
     pub body: Content,
+
+    /// An alternative description of the figure.
+    pub alt: Option<EcoString>,
 
     /// The figure's placement on the page.
     ///
@@ -269,6 +272,11 @@ pub struct FigureElem {
     /// number or reset the counter.
     #[synthesized]
     pub counter: Option<Counter>,
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 #[scope]
@@ -364,6 +372,7 @@ impl Synthesize for Packed<FigureElem> {
             .set(Smart::Custom(supplement.map(Supplement::Content)));
         elem.counter = Some(Some(counter));
         elem.caption.set(caption);
+        elem.locale = Some(Locale::get_in(styles));
 
         Ok(())
     }
@@ -453,7 +462,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize)]
+#[elem(name = "caption", Locatable, Tagged, Synthesize)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///

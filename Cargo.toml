@@ -33,7 +33,7 @@ typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "fbf00f9" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "ed6b8b0" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "11b35ff" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -61,9 +61,9 @@ fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 rustc-hash = "2.1"
 glidesort = "0.1.2"
-hayagriva = { git = "https://github.com/typst/hayagriva", rev = "03ae2acf" }
-hayro-syntax = "0.2.0"
-hayro = "0.2.0"
+hayagriva = "0.9.1"
+hayro-syntax = "0.4.0"
+hayro = "0.4.0"
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }
@@ -75,9 +75,9 @@ image = { version = "0.25.5", default-features = false, features = ["png", "jpeg
 indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", default-features = false }
 kamadak-exif = "0.6"
-krilla = { git = "https://github.com/LaurenzV/krilla", rev = "747be0d", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
-krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "747be0d" }
-kurbo = "0.11"
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "7c8605a", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "7c8605a" }
+kurbo = "0.12"
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 memchr = "2"
@@ -90,7 +90,7 @@ oxipng = { version = "9.0", default-features = false, features = ["filetime", "p
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 parking_lot = "0.12.1"
 pathdiff = "0.2"
-phf = { version = "0.11", features = ["macros"] }
+phf = { version = "0.13", features = ["macros"] }
 pixglyph = "0.6"
 png = "0.17"
 portable-atomic = "1.6"
@@ -139,13 +139,13 @@ ureq = { version = "2", default-features = false, features = ["native-tls", "gzi
 usvg = { version = "0.45", default-features = false, features = ["text"] }
 utf8_iter = "1.0.4"
 walkdir = "2"
-wasmi = "0.40.0"
+wasmi = { version = "0.51.0", default-features = false, features = ["simd"] }
 web-sys = "0.3"
 xmlparser = "0.13.5"
 xmlwriter = "0.1.0"
 xz2 = { version = "0.1", features = ["static"] }
 yaml-front-matter = "0.1"
-zip = { version = "4.3", default-features = false, features = ["deflate"] }
+zip = { version = "5", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
 opt-level = 2
