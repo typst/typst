@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use ecow::eco_format;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use typst_library::diag::{PackageError, PackageResult, StrResult, bail};
+use typst_library::diag::{
+    PackageError, PackageRegistry, PackageResult, StrResult, bail,
+};
 use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::download::{Downloader, Progress};
@@ -101,6 +103,7 @@ impl PackageStorage {
     ) -> PackageResult<PathBuf> {
         let subdir = format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
 
+        // By default, search for the package locally
         if let Some(packages_dir) = &self.package_path {
             let dir = packages_dir.join(&subdir);
             if dir.exists() {
@@ -108,6 +111,7 @@ impl PackageStorage {
             }
         }
 
+        // As a fallback, look into the cache and possibly download from network.
         if let Some(cache_dir) = &self.package_cache_path {
             let dir = cache_dir.join(&subdir);
             if dir.exists() {
@@ -116,14 +120,46 @@ impl PackageStorage {
 
             // Download from network if it doesn't exist yet.
             if spec.namespace == DEFAULT_NAMESPACE {
-                self.download_package(spec, cache_dir, progress)?;
-                if dir.exists() {
-                    return Ok(dir);
-                }
+                return self.download_package(spec, cache_dir, progress);
             }
         }
 
-        Err(PackageError::NotFound(spec.clone()))
+        // None of the strategies above found the package, so all code paths
+        // from now on fail. The rest of the function is only to determine the
+        // cause of the failure.
+        // We try `namespace/` then `namespace/name/` then `namespace/name/version/`
+        // and see where the first error occurs.
+        let not_found = |msg| Err(Box::new(PackageError::NotFound(spec.clone(), msg)));
+
+        let Some(packages_dir) = &self.package_path else {
+            return not_found(eco_format!("cannot access local package storage"));
+        };
+        let namespace_dir = packages_dir.join(format!("{}", spec.namespace));
+        if !namespace_dir.exists() {
+            return not_found(eco_format!(
+                "the namespace @{} should be located at {}",
+                spec.namespace,
+                namespace_dir.display()
+            ));
+        }
+        let package_dir = namespace_dir.join(format!("{}", spec.name));
+        if !package_dir.exists() {
+            return not_found(eco_format!(
+                "the registry at {} does not have package '{}'",
+                namespace_dir.display(),
+                spec.name
+            ));
+        }
+        let latest = self.determine_latest_version(&spec.versionless()).ok();
+        Err(Box::new(PackageError::VersionNotFound(
+            spec.clone(),
+            latest,
+            PackageRegistry {
+                name: eco_format!("{}", spec.namespace),
+                path: namespace_dir.to_path_buf(),
+                url: None,
+            },
+        )))
     }
 
     /// Tries to determine the latest version of a package.
@@ -185,25 +221,39 @@ impl PackageStorage {
         spec: &PackageSpec,
         cache_dir: &Path,
         progress: &mut dyn Progress,
-    ) -> PackageResult<()> {
+    ) -> PackageResult<PathBuf> {
         assert_eq!(spec.namespace, DEFAULT_NAMESPACE);
 
-        let url = format!(
-            "{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}/{}-{}.tar.gz",
-            spec.name, spec.version
-        );
+        let namespace_url = format!("{DEFAULT_REGISTRY}/{DEFAULT_NAMESPACE}");
+        let url = format!("{namespace_url}/{}-{}.tar.gz", spec.name, spec.version);
 
         let data = match self.downloader.download_with_progress(&url, progress) {
             Ok(data) => data,
             Err(ureq::Error::Status(404, _)) => {
                 if let Ok(version) = self.determine_latest_version(&spec.versionless()) {
-                    return Err(PackageError::VersionNotFound(spec.clone(), version));
+                    return Err(Box::new(PackageError::VersionNotFound(
+                        spec.clone(),
+                        Some(version),
+                        PackageRegistry {
+                            name: eco_format!("{DEFAULT_REGISTRY}"),
+                            path: cache_dir.to_path_buf(),
+                            url: Some(eco_format!("{namespace_url}")),
+                        },
+                    )));
                 } else {
-                    return Err(PackageError::NotFound(spec.clone()));
+                    return Err(Box::new(PackageError::NotFound(
+                        spec.clone(),
+                        eco_format!(
+                            "the registry at {namespace_url} does not have package '{}'",
+                            spec.name
+                        ),
+                    )));
                 }
             }
             Err(err) => {
-                return Err(PackageError::NetworkFailed(Some(eco_format!("{err}"))));
+                return Err(Box::new(PackageError::NetworkFailed(Some(eco_format!(
+                    "{err}"
+                )))));
             }
         };
 
@@ -249,9 +299,11 @@ impl PackageStorage {
         // broken packages still occur even with the rename safeguard, we might
         // consider more complex solutions like file locking or checksums.
         match fs::rename(&tempdir, &package_dir) {
-            Ok(()) => Ok(()),
-            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(()),
-            Err(err) => Err(error("failed to move downloaded package directory", err)),
+            Ok(()) => Ok(package_dir),
+            Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(package_dir),
+            Err(err) => {
+                Err(Box::new(error("failed to move downloaded package directory", err)))
+            }
         }
     }
 }

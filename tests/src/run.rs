@@ -1,8 +1,11 @@
+use std::borrow::Cow;
 use std::fmt::Write;
 use std::ops::Range;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use ecow::eco_vec;
+use regex::Regex;
 use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
@@ -40,6 +43,46 @@ pub struct Runner<'a> {
     seen: Vec<bool>,
     result: TestResult,
     not_annotated: String,
+}
+
+// Regexes for normalizing the output, initialized only once for better performance.
+// This macro is inspired by rust-lang/miri at tests/ui.rs
+macro_rules! regexes {
+    ($name:ident: $($regex:expr => $replacement:expr,)*) => {
+        fn $name() -> &'static [(Regex, &'static str)] {
+            static S: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
+            S.get_or_init(|| vec![
+                $((Regex::new($regex).unwrap().into(), $replacement),)*
+            ])
+        }
+    };
+}
+
+regexes! {
+    message_filters:
+    // Heuristics to normalize Windows file paths:
+    // - a backslash that is not a `\u{...}` is probably from a path
+    r"\\([^u])" => r"/$1",
+}
+
+regexes! {
+    hint_filters:
+    // Heuristics: to normalize Windows file paths:
+    // - a backslash with alphabetic characters on both sides is probably a path
+    r"([a-z])\\([a-z])" => r"$1/$2",
+    // - so is a backslash followed by two alphabetic characters
+    r"\\([a-z][a-z])" => r"/$1",
+}
+
+fn normalize_string(data: &str, filters: &[(Regex, &str)]) -> String {
+    let mut latest = data.to_string();
+    for (re, subst) in filters {
+        match re.replace_all(&latest, *subst) {
+            Cow::Borrowed(_) => {}
+            Cow::Owned(v) => latest = v,
+        }
+    }
+    latest
 }
 
 impl<'a> Runner<'a> {
@@ -238,16 +281,13 @@ impl<'a> Runner<'a> {
             return;
         }
 
-        let message = if diag.message.contains("\\u{") {
-            &diag.message
-        } else {
-            &diag.message.replace("\\", "/")
-        };
+        let message = &normalize_string(&diag.message, message_filters());
         let range = self.world.range(diag.span);
         self.validate_note(kind, diag.span.id(), range.clone(), message);
 
         // Check hints.
         for hint in &diag.hints {
+            let hint = &normalize_string(hint, hint_filters());
             self.validate_note(NoteKind::Hint, diag.span.id(), range.clone(), hint);
         }
     }
