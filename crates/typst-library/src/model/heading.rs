@@ -29,8 +29,9 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// [outline] of all headings for you. To exclude one or more headings from this
 /// outline, you can set the `outlined` parameter to `{false}`.
 ///
-/// When using a [show rule]($styling/#show-rules) to customize the content of a
-/// heading, make sure to wrap the content in a [`block`]($block) (which is
+/// When writing a [show rule]($styling/#show-rules) that accesses the
+/// [`body` field]($heading.body) to create a completely custom look for
+/// headings, make sure to wrap the content in a [`block`]($block) (which is
 /// implicitly [sticky]($block.sticky) for headings through a built-in show-set
 /// rule). This prevents the heading from becoming an "orphan", i.e. remaining
 /// at the end of the page with the following content being on the next page.
