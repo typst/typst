@@ -113,6 +113,15 @@ fn setup<'a>(
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
+    // ensure the last printed line isn't overwritten.
+    struct A;
+    impl std::ops::Drop for A {
+        fn drop(&mut self) {
+            eprintln!("---\n");
+        }
+    }
+    let _a = A;
+
     for (i, typst_page) in gc.document.pages.iter().enumerate() {
         if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
