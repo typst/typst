@@ -9,6 +9,7 @@ mod outline;
 mod page;
 mod paint;
 mod shape;
+mod tags;
 mod text;
 mod util;
 
@@ -17,6 +18,7 @@ pub use self::metadata::{Timestamp, Timezone};
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::eco_format;
+use krilla::configure::Validator;
 use serde::{Deserialize, Serialize};
 use typst_library::diag::{SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
@@ -28,6 +30,12 @@ use typst_library::layout::{PageRanges, PagedDocument};
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
     convert::convert(document, options)
+}
+
+/// Generate the document tag tree and display it in a human readable form.
+#[doc(hidden)]
+pub fn pdf_tags(document: &PagedDocument, options: &PdfOptions) -> SourceResult<String> {
+    convert::tag_tree(document, options)
 }
 
 /// Settings for PDF export.
@@ -53,6 +61,19 @@ pub struct PdfOptions<'a> {
     pub page_ranges: Option<PageRanges>,
     /// A list of PDF standards that Typst will enforce conformance with.
     pub standards: PdfStandards,
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances, for example when trying to reduce the size of a document,
+    /// it can be desirable to disable tagged PDF.
+    pub disable_tags: bool,
+}
+
+impl PdfOptions<'_> {
+    /// Whether the current export mode is PDF/UA-1, and in the future maybe
+    /// PDF/UA-2.
+    pub(crate) fn is_pdf_ua(&self) -> bool {
+        self.standards.config.validator() == Validator::UA1
+    }
 }
 
 /// Encapsulates a list of compatible PDF standards.
@@ -104,6 +125,7 @@ impl PdfStandards {
                 PdfStandard::A_4 => set_validator(Validator::A4)?,
                 PdfStandard::A_4f => set_validator(Validator::A4F)?,
                 PdfStandard::A_4e => set_validator(Validator::A4E)?,
+                PdfStandard::Ua_1 => set_validator(Validator::UA1)?,
             }
         }
 
@@ -187,4 +209,7 @@ pub enum PdfStandard {
     /// PDF/A-4e.
     #[serde(rename = "a-4e")]
     A_4e,
+    /// PDF/UA-1.
+    #[serde(rename = "ua-1")]
+    Ua_1,
 }

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
+use bitflags::bitflags;
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_syntax::package::PackageVersion;
@@ -25,7 +26,7 @@ pub fn collect() -> Result<(Vec<Test>, usize), Vec<TestParseError>> {
 pub struct Test {
     pub pos: FilePos,
     pub name: EcoString,
-    pub attrs: Vec<Attr>,
+    pub attrs: Attrs,
     pub source: Source,
     pub notes: Vec<Note>,
 }
@@ -60,12 +61,60 @@ impl Display for FilePos {
     }
 }
 
-/// A test attribute, given after the test name.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Attr {
-    Html,
-    Render,
-    Large,
+bitflags! {
+    #[derive(Copy, Clone)]
+    struct AttrFlags: u8 {
+        const RENDER = 1 << 0;
+        const HTML = 1 << 1;
+        const PDFTAGS = 1 << 2;
+        const LARGE = 1 << 3;
+        const NOPDFUA = 1 << 4;
+    }
+}
+
+impl AttrFlags {
+    const NON_RENDER: Self = Self::HTML.union(Self::PDFTAGS);
+
+    pub fn targets(self) -> Targets {
+        let mut targets = Targets::empty();
+        if self.contains(Self::RENDER) || (self & Self::NON_RENDER).is_empty() {
+            targets |= Targets::RENDER;
+        }
+        if self.contains(Self::HTML) {
+            targets |= Targets::HTML;
+        }
+        if self.contains(Self::PDFTAGS) {
+            targets |= Targets::PDFTAGS;
+        }
+        targets
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub struct Attrs {
+    pub large: bool,
+    pub pdf_ua: bool,
+    pub targets: Targets,
+}
+
+bitflags! {
+    #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+    pub struct Targets: u8 {
+        const RENDER = 0x1;
+        const HTML = 0x2;
+        const PDFTAGS = 0x4;
+    }
+}
+
+impl Targets {
+    pub fn from_file_extension(ext: &str) -> Option<Self> {
+        Some(match ext {
+            "png" => Self::RENDER,
+            "html" => Self::HTML,
+            "yml" => Self::PDFTAGS,
+            _ => return None,
+        })
+    }
 }
 
 /// The size of a file.
@@ -122,7 +171,7 @@ impl Display for NoteKind {
 struct Collector {
     tests: Vec<Test>,
     errors: Vec<TestParseError>,
-    seen: FxHashMap<EcoString, (FilePos, Vec<Attr>)>,
+    seen: FxHashMap<EcoString, (FilePos, Attrs)>,
     skipped: usize,
 }
 
@@ -173,9 +222,12 @@ impl Collector {
         for entry in walkdir::WalkDir::new(crate::REF_PATH).sort_by_file_name() {
             let entry = entry.unwrap();
             let path = entry.path();
-            if path.extension().is_none_or(|ext| ext != "png" && ext != "html") {
+            let Some(file_target) = path.extension().and_then(|ext| {
+                let str = ext.to_str()?;
+                Targets::from_file_extension(str)
+            }) else {
                 continue;
-            }
+            };
 
             let stem = path.file_stem().unwrap().to_string_lossy();
             let name = &*stem;
@@ -188,8 +240,15 @@ impl Collector {
                 continue;
             };
 
+            if !attrs.targets.contains(file_target) {
+                self.errors.push(TestParseError {
+                    pos: FilePos::new(path, 0),
+                    message: "dangling reference output".into(),
+                });
+            }
+
             let len = path.metadata().unwrap().len() as usize;
-            if !attrs.contains(&Attr::Large) && len > crate::REF_LIMIT {
+            if !attrs.large && len > crate::REF_LIMIT {
                 self.errors.push(TestParseError {
                     pos: pos.clone(),
                     message: format!(
@@ -229,7 +288,7 @@ impl<'a> Parser<'a> {
 
         while !self.s.done() {
             let mut name = EcoString::new();
-            let mut attrs = Vec::new();
+            let mut attrs = Attrs::default();
             let mut notes = vec![];
             if self.s.eat_if("---") {
                 self.s.eat_while(' ');
@@ -259,7 +318,7 @@ impl<'a> Parser<'a> {
             self.test_start_line = self.line;
 
             let pos = FilePos::new(self.path, self.test_start_line);
-            self.collector.seen.insert(name.clone(), (pos.clone(), attrs.clone()));
+            self.collector.seen.insert(name.clone(), (pos.clone(), attrs));
 
             while !self.s.done() && !self.s.at("---") {
                 self.s.eat_until(is_newline);
@@ -297,13 +356,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_attrs(&mut self) -> Vec<Attr> {
-        let mut attrs = vec![];
+    fn parse_attrs(&mut self) -> Attrs {
+        let mut parsed = AttrFlags::empty();
         while !self.s.eat_if("---") {
-            let attr = match self.s.eat_until(char::is_whitespace) {
-                "large" => Attr::Large,
-                "html" => Attr::Html,
-                "render" => Attr::Render,
+            let attr = self.s.eat_until(char::is_whitespace);
+            let flag = match attr {
+                "large" => AttrFlags::LARGE,
+                "html" => AttrFlags::HTML,
+                "render" => AttrFlags::RENDER,
+                "pdftags" => AttrFlags::PDFTAGS,
+                "nopdfua" => AttrFlags::NOPDFUA,
                 found => {
                     self.error(format!(
                         "expected attribute or closing ---, found `{found}`"
@@ -311,13 +373,18 @@ impl<'a> Parser<'a> {
                     break;
                 }
             };
-            if attrs.contains(&attr) {
-                self.error(format!("duplicate attribute {attr:?}"));
+            if parsed.contains(flag) {
+                self.error(format!("duplicate attribute `{attr}`"));
             }
-            attrs.push(attr);
+            parsed.insert(flag);
             self.s.eat_while(' ');
         }
-        attrs
+
+        Attrs {
+            large: parsed.contains(AttrFlags::LARGE),
+            pdf_ua: !parsed.contains(AttrFlags::NOPDFUA),
+            targets: parsed.targets(),
+        }
     }
 
     /// Skips the preamble of a test.

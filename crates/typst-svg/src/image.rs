@@ -10,13 +10,21 @@ use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
-use crate::SVGRenderer;
+use crate::{SVGRenderer, State, SvgMatrix};
 
 impl SVGRenderer<'_> {
     /// Render an image element.
-    pub(super) fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
+    pub(super) fn render_image(
+        &mut self,
+        state: &State,
+        image: &Image,
+        size: &Axes<Abs>,
+    ) {
         let url = convert_image_to_base64_url(image);
         self.xml.start_element("image");
+        if !state.transform.is_identity() {
+            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+        }
         self.xml.write_attribute("xlink:href", &url);
         self.xml.write_attribute("width", &size.x.to_pt());
         self.xml.write_attribute("height", &size.y.to_pt());

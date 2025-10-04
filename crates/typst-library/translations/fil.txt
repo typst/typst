@@ -1,0 +1,11 @@
+figure = Laraw
+table = Talay
+# equation =
+bibliography = Talaaklatan
+# heading =
+outline = Talalamanan
+# raw =
+page = Pahina
+# footnote =
+# email =
+# telephone =

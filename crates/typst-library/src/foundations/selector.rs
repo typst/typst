@@ -18,7 +18,7 @@ use crate::introspection::{Introspector, Locatable, Location, Unqueriable};
 macro_rules! __select_where {
     ($ty:ty $(, $field:ident => $value:expr)* $(,)?) => {{
         #[allow(unused_mut)]
-        let mut fields = ::smallvec::SmallVec::new();
+        let mut fields = $crate::foundations::SmallVec::new();
         $(
             fields.push((
                 <$ty>::$field.index(),

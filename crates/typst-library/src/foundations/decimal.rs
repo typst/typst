@@ -91,7 +91,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
 #[ty(scope, cast)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Decimal(rust_decimal::Decimal);
 
 impl Decimal {

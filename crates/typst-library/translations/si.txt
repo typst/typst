@@ -1,0 +1,11 @@
+figure = සටහන
+table = වගුව
+# equation =
+bibliography = ග්‍රන්ථ නාමාවලිය
+# heading =
+outline = පටුන
+# raw =
+page = පිට
+# footnote =
+# email =
+# telephone =

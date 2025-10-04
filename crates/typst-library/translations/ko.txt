@@ -1,0 +1,11 @@
+figure = 그림
+table = 표
+# equation =
+bibliography = 참고 문헌
+# heading =
+outline = 차 례
+# raw =
+page = 페이지
+# footnote =
+# email =
+# telephone =

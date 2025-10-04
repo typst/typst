@@ -81,7 +81,7 @@ Hidden:
 
 --- issue-622-hide-meta-cite ---
 // Test that metadata of hidden stuff stays available.
-#set cite(style: "chicago-notes")
+#set cite(style: "chicago-shortened-notes")
 
 A pirate. @arrgh \
 #set text(2pt)

@@ -15,7 +15,7 @@ use crate::foundations::{
     LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
-use crate::introspection::{Introspector, Locatable, Location, Tag};
+use crate::introspection::{Introspector, Locatable, Location, Tag, Unqueriable};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
@@ -710,7 +710,7 @@ impl Count for Packed<CounterUpdateElem> {
 }
 
 /// Executes a display of a counter.
-#[elem(Construct, Locatable)]
+#[elem(Construct, Unqueriable, Locatable)]
 pub struct CounterDisplayElem {
     /// The counter.
     #[required]
@@ -776,7 +776,7 @@ impl ManualPageCounter {
         for (_, item) in page.items() {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
-                FrameItem::Tag(Tag::Start(elem)) => {
+                FrameItem::Tag(Tag::Start(elem, _)) => {
                     let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
                         continue;
                     };

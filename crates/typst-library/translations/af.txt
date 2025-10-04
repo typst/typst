@@ -1,0 +1,11 @@
+figure = Figuur
+table = Tabel
+# equation =
+bibliography = Bibliografie
+# heading =
+outline = Inhoudsopgawe
+# raw =
+page = Bladsy
+# footnote =
+# email =
+# telephone =

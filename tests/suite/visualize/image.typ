@@ -370,16 +370,23 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/images/relative.svg")
 
 --- image-exif-rotation ---
-#let data = read("/assets/images/f2t.jpg", encoding: none)
-
 #let rotations = range(1, 9)
-#let rotated(v) = image(data.slice(0, 49) + bytes((v,)) + data.slice(50), width: 10pt)
+#let with-rotation(path, offset, v) = {
+  let data = read(path, encoding: none)
+  let modified = data.slice(0, offset) + bytes((v,)) + data.slice(offset + 1)
+  image(modified, width: 10pt)
+}
 
 #set page(width: auto)
 #table(
-  columns: rotations.len(),
-  ..rotations.map(v => raw(str(v), lang: "typc")),
-  ..rotations.map(rotated)
+  columns: 1 + rotations.len(),
+  table.header(
+    [], ..rotations.map(v => raw(str(v), lang: "typc")),
+  ),
+  `PNG`, ..rotations.map(v => with-rotation("/assets/images/f2t.png", 0x85, v)),
+  // JPEG has special handing in PDF export (no recoding, so instead we use a
+  // transform to apply the orientation), so it's worth testing that separately.
+  `JPEG`, ..rotations.map(v => with-rotation("/assets/images/f2t.jpg", 0x31, v)),
 )
 
 --- image-pdf ---
@@ -394,3 +401,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Error: 2-49 page 2 does not exist
 // Hint: 2-49 the document only has 1 page
 #image("/assets/images/matplotlib.pdf", page: 2)
+
+--- issue-6869-image-zero-sized ---
+// Primarily to ensure that it does not crash in PDF export.
+#image("/assets/images/f2t.jpg", width: 0pt, height: 0pt)

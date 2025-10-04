@@ -72,6 +72,18 @@ B
 #pagebreak(weak: true)
 #metadata(none) <e>
 
+--- locate-migrated-breakable ---
+// Ensure that when a breakable element fully migrates to the next page without
+// orphan frames, its position correctly reflects that.
+#set page(height: 40pt)
+A
+#block[B]<b>
+
+#context test(
+  locate(<b>).position(),
+  (page: 2, x: 10pt, y: 10pt),
+)
+
 --- issue-4029-locate-after-spacing ---
 #set page(margin: 10pt)
 #show heading: it => v(40pt) + it

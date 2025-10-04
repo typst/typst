@@ -3,13 +3,14 @@ use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
-use typst_library::introspection::{SplitLocator, Tag};
+use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::inline::linebreak::Trim;
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -148,8 +149,8 @@ pub fn line<'a>(
     };
 
     // Trim the line at the end, if necessary for this breakpoint.
-    let trim = range.start + breakpoint.trim(full).len();
-    let trimmed_range = range.start..trim;
+    let trim = breakpoint.trim(range.start, full);
+    let trimmed_range = range.start..trim.layout;
 
     // Collect the items for the line.
     let mut items = Items::new();
@@ -160,18 +161,18 @@ pub fn line<'a>(
         && let Some(base) = pred.items.trailing_text()
         && should_repeat_hyphen(base.lang, full)
         && let Some(hyphen) =
-            ShapedText::hyphen(engine, p.config.fallback, base, trim, false)
+            ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, false)
     {
         items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
     }
 
-    collect_items(&mut items, engine, p, range, trim);
+    collect_items(&mut items, engine, p, range, &trim);
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
         && let Some(base) = items.trailing_text()
         && let Some(hyphen) =
-            ShapedText::hyphen(engine, p.config.fallback, base, trim, true)
+            ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, true)
     {
         items.push(Item::Text(hyphen), LogicalIndex::END_HYPHEN);
     }
@@ -202,7 +203,7 @@ fn collect_items<'a>(
     engine: &Engine,
     p: &'a Preparation,
     range: Range,
-    trim: usize,
+    trim: &Trim,
 ) {
     let mut fallback = None;
 
@@ -280,7 +281,7 @@ fn collect_range<'a>(
     engine: &Engine,
     p: &'a Preparation,
     range: Range,
-    trim: usize,
+    trim: &Trim,
     items: &mut Items<'a>,
     fallback: &mut Option<ItemEntry<'a>>,
 ) {
@@ -295,8 +296,8 @@ fn collect_range<'a>(
 
         // The intersection range of the item, the subrange, and the line's
         // trimming.
-        let sliced =
-            range.start.max(subrange.start)..range.end.min(subrange.end).min(trim);
+        let sliced = range.start.max(subrange.start)
+            ..range.end.min(subrange.end).min(trim.shaping);
 
         // Whether the item is split by the line.
         let split = subrange.start < sliced.start || sliced.end < subrange.end;
@@ -306,14 +307,25 @@ fn collect_range<'a>(
             // we can use to force a non-zero line-height when the line doesn't
             // contain any other text.
             *fallback = Some(ItemEntry::from(Item::Text(shaped.empty())));
-        } else if split {
+            continue;
+        }
+
+        let mut item: ItemEntry = if split {
             // When the item is split in half, reshape it.
             let reshaped = shaped.reshape(engine, sliced);
-            items.push(Item::Text(reshaped), idx);
+            Item::Text(reshaped).into()
         } else {
             // When the item is fully contained, just keep it.
-            items.push(item, idx);
+            item.into()
+        };
+
+        // Trim end-of-line whitespace glyphs.
+        if trim.layout < range.end {
+            let shaped = item.text_mut().unwrap();
+            shaped.glyphs.trim(|glyph| trim.layout < glyph.range.end);
         }
+
+        items.push(item, idx);
     }
 }
 
@@ -631,8 +643,9 @@ fn add_par_line_marker(
     // line's general baseline. However, the line number will still need to
     // manually adjust its own 'y' position based on its own baseline.
     let pos = Point::with_y(top);
-    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack())));
-    output.push(pos, FrameItem::Tag(Tag::End(loc, key)));
+    let flags = TagFlags { locatable: false, tagged: true, labelled: false };
+    output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), flags)));
+    output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
 /// How much a character should hang into the end margin.

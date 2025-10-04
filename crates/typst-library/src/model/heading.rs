@@ -8,7 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
 use crate::layout::{BlockElem, Em, Length};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, TextElem, TextSize};
@@ -29,6 +29,13 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// [outline] of all headings for you. To exclude one or more headings from this
 /// outline, you can set the `outlined` parameter to `{false}`.
 ///
+/// When writing a [show rule]($styling/#show-rules) that accesses the
+/// [`body` field]($heading.body) to create a completely custom look for
+/// headings, make sure to wrap the content in a [`block`]($block) (which is
+/// implicitly [sticky]($block.sticky) for headings through a built-in show-set
+/// rule). This prevents headings from becoming "orphans", i.e. remaining
+/// at the end of the page with the following content being on the next page.
+///
 /// # Example
 /// ```example
 /// #set heading(numbering: "1.a)")
@@ -45,7 +52,7 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth. The `{offset}` field
 /// can be set to configure the starting depth.
-#[elem(Locatable, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set
     /// to `{auto}`, it is computed from `{offset + depth}`.
@@ -93,7 +100,7 @@ pub struct HeadingElem {
     pub offset: usize,
 
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking multiple numbers.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")

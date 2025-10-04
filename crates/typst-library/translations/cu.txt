@@ -1,0 +1,11 @@
+figure = Рис.
+table = Таблица
+# equation =
+bibliography = Литература
+# heading =
+outline = Содержание
+# raw =
+page = с.
+# footnote =
+# email =
+# telephone =

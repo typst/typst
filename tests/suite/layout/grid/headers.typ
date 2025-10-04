@@ -1,4 +1,4 @@
---- grid-headers ---
+--- grid-headers render pdftags ---
 #set page(width: auto, height: 12em)
 #table(
   columns: 5,

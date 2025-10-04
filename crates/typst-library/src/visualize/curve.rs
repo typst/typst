@@ -4,7 +4,7 @@ use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, HintedString, bail};
 use crate::foundations::{Content, Packed, Smart, cast, elem};
-use crate::layout::{Abs, Axes, Length, Point, Rel, Size};
+use crate::layout::{Abs, Axes, Length, Point, Rect, Rel, Size};
 use crate::visualize::{FillRule, Paint, Stroke};
 
 use super::FixedStroke;
@@ -368,7 +368,7 @@ pub struct CurveClose {
 }
 
 /// How to close a curve.
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum CloseMode {
     /// Closes the curve with a smooth segment that takes into account the
     /// control point opposite the start point.
@@ -474,8 +474,8 @@ impl Curve {
         }
     }
 
-    /// Computes the size of the bounding box of this curve.
-    pub fn bbox_size(&self) -> Size {
+    /// Computes the bounding box of this curve.
+    pub fn bbox(&self) -> Rect {
         let mut min = Point::splat(Abs::inf());
         let mut max = Point::splat(-Abs::inf());
 
@@ -509,7 +509,12 @@ impl Curve {
             }
         }
 
-        Size::new(max.x - min.x, max.y - min.y)
+        Rect::new(min, max)
+    }
+
+    /// Computes the size of the bounding box of this curve.
+    pub fn bbox_size(&self) -> Size {
+        self.bbox().size()
     }
 }
 

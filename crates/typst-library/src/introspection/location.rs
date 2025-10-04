@@ -95,7 +95,13 @@ impl Location {
 
 impl Debug for Location {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Location({})", self.0)
+        if f.alternate() {
+            write!(f, "Location({})", self.0)
+        } else {
+            // Print a shorter version by default to make it more readable.
+            let truncated = self.0 as u16;
+            write!(f, "Location({truncated})")
+        }
     }
 }
 
@@ -105,9 +111,35 @@ impl Repr for Location {
     }
 }
 
-/// Makes this element as locatable through the introspector.
+/// Can be used to have a location as a key in an ordered set or map.
+///
+/// [`Location`] itself does not implement [`Ord`] because comparing hashes like
+/// this has no semantic meaning. The potential for misuse (e.g. checking
+/// whether locations have a particular relative ordering) is relatively high.
+///
+/// Still, it can be useful to have orderable locations for things like sets.
+/// That's where this type comes in.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct LocationKey(u128);
+
+impl LocationKey {
+    /// Create a location key from a location.
+    pub fn new(location: Location) -> Self {
+        Self(location.0)
+    }
+}
+
+impl From<Location> for LocationKey {
+    fn from(location: Location) -> Self {
+        Self::new(location)
+    }
+}
+
+/// Make this element available in the introspector.
 pub trait Locatable {}
 
-/// Marks this element as not being queryable even though it is locatable for
-/// internal reasons.
-pub trait Unqueriable {}
+/// Make this element not queriable for the user.
+pub trait Unqueriable: Locatable {}
+
+/// Marks this element as tagged in PDF files.
+pub trait Tagged {}

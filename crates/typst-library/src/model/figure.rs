@@ -12,14 +12,14 @@ use crate::foundations::{
     Styles, Synthesize, cast, elem, scope, select_where,
 };
 use crate::introspection::{
-    Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
+    Count, Counter, CounterKey, CounterUpdate, Locatable, Location, Tagged,
 };
 use crate::layout::{
     AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
     VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{Lang, Locale, TextElem};
 use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
@@ -101,11 +101,14 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, ShowSet, Refable, Outlinable)]
+#[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image].
     #[required]
     pub body: Content,
+
+    /// An alternative description of the figure.
+    pub alt: Option<EcoString>,
 
     /// The figure's placement on the page.
     ///
@@ -246,7 +249,7 @@ pub struct FigureElem {
     pub supplement: Smart<Option<Supplement>>,
 
     /// How to number the figure. Accepts a
-    /// [numbering pattern or function]($numbering).
+    /// [numbering pattern or function]($numbering) taking a single number.
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
@@ -269,12 +272,27 @@ pub struct FigureElem {
     /// number or reset the counter.
     #[synthesized]
     pub counter: Option<Counter>,
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 #[scope]
 impl FigureElem {
     #[elem]
     type FigureCaption;
+}
+
+impl FigureElem {
+    /// Retrieves the locale separator.
+    pub fn resolve_separator(&self, styles: StyleChain) -> Content {
+        match self.caption.get_ref(styles) {
+            Some(caption) => caption.resolve_separator(styles),
+            None => FigureCaption::local_separator_in(styles),
+        }
+    }
 }
 
 impl Synthesize for Packed<FigureElem> {
@@ -291,7 +309,7 @@ impl Synthesize for Packed<FigureElem> {
         // Determine the figure's kind.
         let kind = elem.kind.get_cloned(styles).unwrap_or_else(|| {
             elem.body
-                .query_first(&Selector::can::<dyn Figurable>())
+                .query_first_naive(&Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::ELEM))
         });
@@ -321,9 +339,10 @@ impl Synthesize for Packed<FigureElem> {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
                 let descendant = match kind {
-                    FigureKind::Elem(func) => {
-                        elem.body.query_first(&Selector::Elem(func, None)).map(Cow::Owned)
-                    }
+                    FigureKind::Elem(func) => elem
+                        .body
+                        .query_first_naive(&Selector::Elem(func, None))
+                        .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };
 
@@ -353,6 +372,7 @@ impl Synthesize for Packed<FigureElem> {
             .set(Smart::Custom(supplement.map(Supplement::Content)));
         elem.counter = Some(Some(counter));
         elem.caption.set(caption);
+        elem.locale = Some(Locale::get_in(styles));
 
         Ok(())
     }
@@ -442,7 +462,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize)]
+#[elem(name = "caption", Locatable, Tagged, Synthesize)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -553,29 +573,29 @@ impl FigureCaption {
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
-            realized = supplement + numbers + self.get_separator(styles) + realized;
+            realized = supplement + numbers + self.resolve_separator(styles) + realized;
         }
 
         Ok(realized)
     }
 
-    /// Gets the default separator in the given language and (optionally)
-    /// region.
-    fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
-        match lang {
-            Lang::CHINESE => "\u{2003}",
-            Lang::FRENCH => ".\u{a0}– ",
-            Lang::RUSSIAN => ". ",
-            Lang::ENGLISH | _ => ": ",
-        }
+    /// Retrieves the locale separator.
+    fn resolve_separator(&self, styles: StyleChain) -> Content {
+        self.separator
+            .get_cloned(styles)
+            .unwrap_or_else(|| Self::local_separator_in(styles))
     }
 
-    fn get_separator(&self, styles: StyleChain) -> Content {
-        self.separator.get_cloned(styles).unwrap_or_else(|| {
-            TextElem::packed(Self::local_separator(
-                styles.get(TextElem::lang),
-                styles.get(TextElem::region),
-            ))
+    /// Gets the default separator in the given language and (optionally)
+    /// region.
+    fn local_separator_in(styles: StyleChain) -> Content {
+        styles.get_cloned(Self::separator).unwrap_or_else(|| {
+            TextElem::packed(match styles.get(TextElem::lang) {
+                Lang::CHINESE => "\u{2003}",
+                Lang::FRENCH => ".\u{a0}– ",
+                Lang::RUSSIAN => ". ",
+                Lang::ENGLISH | _ => ": ",
+            })
         })
     }
 }
@@ -583,7 +603,7 @@ impl FigureCaption {
 impl Synthesize for Packed<FigureCaption> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.separator.set(Smart::Custom(elem.get_separator(styles)));
+        elem.separator.set(Smart::Custom(elem.resolve_separator(styles)));
         Ok(())
     }
 }

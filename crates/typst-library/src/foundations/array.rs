@@ -443,6 +443,14 @@ impl Array {
     /// The returned array consists of `(index, value)` pairs in the form of
     /// length-2 arrays. These can be [destructured]($scripting/#bindings) with
     /// a let binding or for loop.
+    ///
+    /// ```example
+    /// #for (i, value) in ("A", "B", "C").enumerate() {
+    ///   [#i: #value \ ]
+    /// }
+    ///
+    /// #("A", "B", "C").enumerate(start: 1)
+    /// ```
     #[func]
     pub fn enumerate(
         self,
@@ -563,6 +571,11 @@ impl Array {
     }
 
     /// Folds all items into a single value using an accumulator function.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4)
+    /// #array.fold(0, (acc, x) => acc + x)
+    /// ```
     #[func]
     pub fn fold(
         self,
@@ -679,6 +692,10 @@ impl Array {
     }
 
     /// Split the array at occurrences of the specified value.
+    ///
+    /// ```example
+    /// #(1, 1, 2, 3, 2, 4, 5).split(2)
+    /// ```
     #[func]
     pub fn split(
         &self,
@@ -701,8 +718,18 @@ impl Array {
         /// An alternative separator between the last two items.
         #[named]
         last: Option<Value>,
+        /// What to return if the array is empty.
+        #[named]
+        default: Option<Value>,
     ) -> StrResult<Value> {
         let len = self.0.len();
+
+        if let Some(result) = default
+            && len == 0
+        {
+            return Ok(result);
+        }
+
         let separator = separator.unwrap_or(Value::None);
 
         let mut last = last;
@@ -724,6 +751,10 @@ impl Array {
 
     /// Returns an array with a copy of the separator value placed between
     /// adjacent elements.
+    ///
+    /// ```example
+    /// #("A", "B", "C").intersperse("-")
+    /// ```
     #[func]
     pub fn intersperse(
         self,
@@ -825,16 +856,18 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
-        /// If given, applies this function to the elements in the array to
+        /// If given, applies this function to each element in the array to
         /// determine the keys to sort by.
         #[named]
         key: Option<Func>,
-        /// If given, uses this function to compare elements in the array.
+        /// If given, uses this function to compare every two elements in the
+        /// array.
         ///
-        /// This function should return a boolean: `{true}` indicates that the
-        /// elements are in order, while `{false}` indicates that they should be
-        /// swapped. To keep the sort stable, if the two elements are equal, the
-        /// function should return `{true}`.
+        /// The function will receive two elements in the array for comparison,
+        /// and should return a boolean indicating their order: `{true}`
+        /// indicates that the elements are in order, while `{false}` indicates
+        /// that they should be swapped. To keep the sort stable, if the two
+        /// elements are equal, the function should return `{true}`.
         ///
         /// If this function does not order the elements properly (e.g., by
         /// returning `{false}` for both `{(x, y)}` and `{(y, x)}`, or for
@@ -965,15 +998,19 @@ impl Array {
     /// element of each duplicate is kept.
     ///
     /// ```example
-    /// #(1, 1, 2, 3, 1).dedup()
+    /// #(3, 3, 1, 2, 3).dedup()
     /// ```
     #[func(title = "Deduplicate")]
     pub fn dedup(
         self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        /// If given, applies this function to the elements in the array to
+        /// If given, applies this function to each element in the array to
         /// determine the keys to deduplicate by.
+        ///
+        /// ```example
+        /// #("apple", "banana", " apple ").dedup(key: s => s.trim())
+        /// ```
         #[named]
         key: Option<Func>,
     ) -> SourceResult<Array> {
@@ -1051,6 +1088,11 @@ impl Array {
     /// For arrays with at least one element, this is the same as [`array.fold`]
     /// with the first element of the array as the initial accumulator value,
     /// folding every subsequent element into it.
+    ///
+    /// ```example
+    /// #let array = (2, 1, 4, 3)
+    /// #array.reduce((acc, x) => calc.max(acc, x))
+    /// ```
     #[func]
     pub fn reduce(
         self,

@@ -7,12 +7,12 @@ use tiny_skia as sk;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
 use typst::layout::{Abs, Frame, FrameItem, PagedDocument, Transform};
 use typst::visualize::Color;
-use typst::{Document, WorldExt};
+use typst::{World, WorldExt};
 use typst_html::HtmlDocument;
-use typst_pdf::PdfOptions;
+use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
 use typst_syntax::{FileId, Lines};
 
-use crate::collect::{Attr, FileSize, NoteKind, Test};
+use crate::collect::{FileSize, NoteKind, Targets, Test};
 use crate::logger::TestResult;
 use crate::world::{TestWorld, system_path};
 
@@ -64,13 +64,14 @@ impl<'a> Runner<'a> {
             log!(into: self.result.infos, "tree: {:#?}", self.test.source.root());
         }
 
-        let html = self.test.attrs.contains(&Attr::Html);
-        let render = !html || self.test.attrs.contains(&Attr::Render);
-        if render {
+        if self.test.attrs.targets.contains(Targets::RENDER) {
             self.run_test::<PagedDocument>();
         }
-        if html {
+        if self.test.attrs.targets.contains(Targets::HTML) {
             self.run_test::<HtmlDocument>();
+        }
+        if self.test.attrs.targets.contains(Targets::PDFTAGS) {
+            self.run_test::<Pdftags>();
         }
 
         self.handle_not_emitted();
@@ -81,7 +82,7 @@ impl<'a> Runner<'a> {
 
     /// Run test specific to document format.
     fn run_test<D: OutputType>(&mut self) {
-        let Warned { output, warnings } = typst::compile(&self.world);
+        let Warned { output, warnings } = D::compile(&self.world, self.test);
         let (doc, mut errors) = match output {
             Ok(doc) => (Some(doc), eco_vec![]),
             Err(errors) => (None, errors),
@@ -89,7 +90,7 @@ impl<'a> Runner<'a> {
 
         D::check_custom(self, doc.as_ref());
 
-        let output = doc.and_then(|doc: D| match doc.make_live() {
+        let output = doc.and_then(|doc| match doc.make_live() {
             Ok(live) => Some((doc, live)),
             Err(list) => {
                 errors.extend(list);
@@ -166,7 +167,18 @@ impl<'a> Runner<'a> {
         }
 
         // Render and save live version.
-        document.save_live(&self.test.name, &live);
+        if let Err(errors) = document.save_live(&self.test.name, &live) {
+            log!(self, "failed to save live version:");
+            for e in errors {
+                if let Some(file) = e.span.id() {
+                    let range = self.world.range(e.span);
+                    let diag_range = self.format_range(file, &range);
+                    log!(self, "  Error: {diag_range} {}", e.message);
+                } else {
+                    log!(self, "  Error: {}", e.message);
+                }
+            }
+        }
 
         // Compare against reference output if available.
         // Test that is ok doesn't need to be updated.
@@ -183,9 +195,7 @@ impl<'a> Runner<'a> {
                 );
             } else {
                 let ref_data = D::make_ref(live);
-                if !self.test.attrs.contains(&Attr::Large)
-                    && ref_data.len() > crate::REF_LIMIT
-                {
+                if !self.test.attrs.large && ref_data.len() > crate::REF_LIMIT {
                     log!(self, "reference output would exceed maximum size");
                     log!(self, "  maximum   | {}", FileSize(crate::REF_LIMIT));
                     log!(self, "  size      | {}", FileSize(ref_data.len()));
@@ -357,12 +367,15 @@ impl<'a> Runner<'a> {
 }
 
 /// An output type we can test.
-trait OutputType: Document {
+trait OutputType: Sized {
     /// The type that represents live output.
     type Live;
 
     /// The path at which the live output is stored.
     fn live_path(name: &str) -> PathBuf;
+
+    /// Compiles the Typst test into this output type.
+    fn compile(world: &dyn World, test: &Test) -> Warned<SourceResult<Self>>;
 
     /// The path at which the reference output is stored.
     fn ref_path(name: &str) -> PathBuf;
@@ -376,7 +389,7 @@ trait OutputType: Document {
     fn make_live(&self) -> SourceResult<Self::Live>;
 
     /// Saves the live output.
-    fn save_live(&self, name: &str, live: &Self::Live);
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()>;
 
     /// Produces the reference output from the live output.
     fn make_ref(live: Self::Live) -> Vec<u8>;
@@ -398,6 +411,10 @@ impl OutputType for PagedDocument {
 
     fn ref_path(name: &str) -> PathBuf {
         format!("{}/{}.png", crate::REF_PATH, name).into()
+    }
+
+    fn compile(world: &dyn World, _: &Test) -> Warned<SourceResult<Self>> {
+        typst::compile(world)
     }
 
     fn is_skippable(&self) -> Result<bool, ()> {
@@ -424,7 +441,7 @@ impl OutputType for PagedDocument {
         Ok(render(self, 1.0))
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()> {
         // Save live version, possibly rerendering if different scale is
         // requested.
         let mut pixmap_live = live;
@@ -440,7 +457,7 @@ impl OutputType for PagedDocument {
         // Write PDF if requested.
         if crate::ARGS.pdf() {
             let pdf_path = format!("{}/pdf/{}.pdf", crate::STORE_PATH, name);
-            let pdf = typst_pdf::pdf(self, &PdfOptions::default()).unwrap();
+            let pdf = typst_pdf::pdf(self, &PdfOptions::default())?;
             std::fs::write(pdf_path, pdf).unwrap();
         }
 
@@ -450,6 +467,8 @@ impl OutputType for PagedDocument {
             let svg = typst_svg::svg_merged(self, Abs::pt(5.0));
             std::fs::write(svg_path, svg).unwrap();
         }
+
+        Ok(())
     }
 
     fn make_ref(live: Self::Live) -> Vec<u8> {
@@ -485,12 +504,17 @@ impl OutputType for HtmlDocument {
         format!("{}/html/{}.html", crate::REF_PATH, name).into()
     }
 
+    fn compile(world: &dyn World, _: &Test) -> Warned<SourceResult<Self>> {
+        typst::compile(world)
+    }
+
     fn make_live(&self) -> SourceResult<Self::Live> {
         typst_html::html(self)
     }
 
-    fn save_live(&self, name: &str, live: &Self::Live) {
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()> {
         std::fs::write(Self::live_path(name), live).unwrap();
+        Ok(())
     }
 
     fn make_ref(live: Self::Live) -> Vec<u8> {
@@ -499,6 +523,64 @@ impl OutputType for HtmlDocument {
 
     fn matches(live: &Self::Live, ref_data: &[u8]) -> bool {
         live.as_bytes() == ref_data
+    }
+}
+
+struct Pdftags(String);
+
+impl OutputType for Pdftags {
+    type Live = String;
+
+    fn live_path(name: &str) -> PathBuf {
+        format!("{}/pdftags/{}.yml", crate::STORE_PATH, name).into()
+    }
+
+    fn ref_path(name: &str) -> PathBuf {
+        format!("{}/pdftags/{}.yml", crate::REF_PATH, name).into()
+    }
+
+    fn compile(world: &dyn World, test: &Test) -> Warned<SourceResult<Self>> {
+        let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
+        let mut doc = match output {
+            Ok(doc) => doc,
+            Err(errors) => return Warned { output: Err(errors), warnings },
+        };
+        if doc.info.title.is_none() {
+            doc.info.title = Some("<test>".into());
+        }
+
+        let standards = if test.attrs.pdf_ua {
+            PdfStandards::new(&[PdfStandard::Ua_1]).unwrap()
+        } else {
+            PdfStandards::default()
+        };
+        let options = PdfOptions { standards, ..Default::default() };
+        let output = typst_pdf::pdf_tags(&doc, &options).map(Pdftags);
+        Warned { warnings, output }
+    }
+
+    fn is_skippable(&self) -> Result<bool, ()> {
+        Ok(self.0.is_empty())
+    }
+
+    fn make_live(&self) -> SourceResult<Self::Live> {
+        Ok(self.0.clone())
+    }
+
+    fn save_live(&self, name: &str, live: &Self::Live) -> SourceResult<()> {
+        std::fs::write(Self::live_path(name), live).unwrap();
+        Ok(())
+    }
+
+    fn make_ref(live: Self::Live) -> Vec<u8> {
+        live.into_bytes()
+    }
+
+    fn matches(live: &Self::Live, ref_data: &[u8]) -> bool {
+        // Compare lines with newlines stripped, since on windows git might
+        // check out the ref files with CRLF line endings.
+        let ref_str = std::str::from_utf8(ref_data).unwrap();
+        ref_str.lines().eq(live.lines())
     }
 }
 
