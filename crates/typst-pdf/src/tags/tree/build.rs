@@ -61,6 +61,9 @@ pub struct TreeBuilder<'a> {
     /// regions, and thus can have opening/closing introspection tags that are
     /// in completely different frames, due to the logical parenting mechanism.
     unfinished_stacks: FxHashMap<Location, Vec<StackEntry>>,
+
+    tag_map: FxHashMap<Location, (u32, usize, &'static str)>,
+    tag_indent: u32,
 }
 
 impl<'a> TreeBuilder<'a> {
@@ -83,10 +86,16 @@ impl<'a> TreeBuilder<'a> {
 
             stack: TagStack::new(),
             unfinished_stacks: FxHashMap::default(),
+
+            tag_map: FxHashMap::default(),
+            tag_indent: 0,
         }
     }
 
     pub fn finish(self) -> Tree {
+        dbg!(&self.progressions);
+        dbg!(&self.breaks);
+
         Tree {
             prog_cursor: 0,
             progressions: self.progressions,
@@ -164,6 +173,15 @@ struct StackEntry {
 }
 
 pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
+    // ensure the last printed line isn't overwritten.
+    struct A;
+    impl std::ops::Drop for A {
+        fn drop(&mut self) {
+            eprintln!("---\n");
+        }
+    }
+    let _a = A;
+
     let mut tree = TreeBuilder::new(document, options);
     for page in document.pages.iter() {
         visit_frame(&mut tree, &page.frame)?;
@@ -274,11 +292,41 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
 }
 
 fn visit_start_tag(tree: &mut TreeBuilder, elem: &Content) {
+    {
+        let loc = elem.location().expect("elem to be locatable");
+        let elem_id = tree.tag_map.len();
+        let name = elem.elem().name();
+        for _ in 0..tree.tag_indent {
+            eprint!("  ");
+        }
+        eprintln!("\x1b[33mSTART\x1b[0m {elem_id} {name}");
+        let indent = tree.tag_indent;
+        tree.tag_indent += 1;
+        tree.tag_map.insert(loc, (indent, elem_id, name));
+    }
+
     let group_id = progress_tree_start(tree, elem);
     tree.progressions.push(group_id);
 }
 
 fn visit_end_tag(tree: &mut TreeBuilder, loc: Location) -> SourceResult<()> {
+    {
+        if let Some((indent, elem_id, name)) = tree.tag_map.get(&loc) {
+            tree.tag_indent -= 1;
+            for _ in 0..tree.tag_indent {
+                eprint!("  ");
+            }
+            if *indent == tree.tag_indent {
+                eprintln!("\x1b[32mEND\x1b[0m   {elem_id} {name}");
+            } else {
+                tree.tag_indent += 1;
+                eprintln!("\x1b[31mMISMATCHED\x1b[0m {elem_id} {name}");
+            }
+        } else {
+            eprintln!("\x1b[31mUNMATCHED\x1b[0m");
+        };
+    }
+
     let group = progress_tree_end(tree, loc)?;
     tree.progressions.push(group);
     Ok(())
