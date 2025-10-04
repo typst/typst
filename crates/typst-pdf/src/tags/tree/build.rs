@@ -661,9 +661,15 @@ fn split_outer_group(
             }
         }
 
-        // Update the progression to jump into the inner entry instead.
-        tree.progressions[entry.prog_idx as usize] = nested;
+        // Update progressions to jump into the inner entry instead.
+        let prev = tree.progressions[entry.prog_idx as usize];
+        for prog in tree.progressions[entry.prog_idx as usize..].iter_mut() {
+            if *prog == prev {
+                *prog = nested;
+            }
+        }
 
+        // Either update an existing break, or insert a new one.
         let mut break_idx = Some(tree.breaks.len());
         for (i, brk) in tree.breaks.iter_mut().enumerate().rev() {
             if brk.prog_idx == entry.prog_idx {
@@ -682,7 +688,7 @@ fn split_outer_group(
             let brk = Break {
                 prog_idx: entry.prog_idx,
                 num_closed: 1,
-                num_opened: 1,
+                num_opened: 2,
             };
             tree.breaks.insert(idx, brk);
         }

@@ -5,9 +5,11 @@
       /K:
         - Tag: Lbl
           /K:
-            - Tag: Strong
+            - Tag: P
               /K:
-                - Content: page=0 mcid=0
+                - Tag: Strong
+                  /K:
+                    - Content: page=0 mcid=0
             - Tag: P
               /K:
                 - Tag: Strong
