@@ -7,5 +7,5 @@ outline = Inhoudsopgave
 raw = Listing
 page = pagina
 footnote = Voetnoot
-email = e-mail 
+email = e-mail
 telephone = Telefoon
