@@ -180,6 +180,13 @@
 // Warning: 5-9 `sect` is deprecated, use `inter` instead
 $ A sect B = A inter B $
 
+--- symbol-modifier-deprecated ---
+// Warning: 7-12 `ast.small` is deprecated (CJK compatibility character), use ﹡ or `\u{fe61}` instead
+$ ast.small $
+
+// Warning: 14-20 `bracket.double` is deprecated, use `bracket.stroked` instead
+#sym.bracket.double.r
+
 --- issue-5930-symbol-label ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")

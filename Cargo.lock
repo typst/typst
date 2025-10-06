@@ -414,7 +414,7 @@ dependencies = [
 [[package]]
 name = "codex"
 version = "0.1.1"
-source = "git+https://github.com/typst/codex?rev=b090fe1#b090fe1330b0ece4f7ea4500b21ed5f3aeea436e"
+source = "git+https://github.com/typst/codex?rev=adb9922#adb9922456bb30ac9778c998f32b9c4bbe20eb9e"
 
 [[package]]
 name = "color-print"
