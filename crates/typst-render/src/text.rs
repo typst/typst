@@ -47,8 +47,7 @@ fn render_outline_glyph(
     id: GlyphId,
 ) -> Option<()> {
     let ts = &state.transform;
-    // Rasterize negative-sized glyphs as zero-sized.
-    let ppem = (text.size.to_f32() * ts.sy).max(0f32);
+    let ppem = text.size.to_f32() * ts.sy;
 
     // Render a glyph directly as a path. This only happens when the fast glyph
     // rasterization can't be used due to very large text size or weird
@@ -58,6 +57,7 @@ fn render_outline_glyph(
         || ts.ky != 0.0
         || ts.sx != ts.sy
         || text.stroke.is_some()
+        || text.size < Abs::zero()
     {
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
