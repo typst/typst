@@ -143,7 +143,7 @@ impl FontSearcher {
     /// # Examples
     /// ```no_run
     /// # use typst_kit::fonts::FontSearcher;
-    /// let fonts = FontSearcher::new()
+    /// let fonts = FontSearcher::new(Default::default())
     ///     .include_system_fonts(true)
     ///     .search();
     /// ```
@@ -156,7 +156,7 @@ impl FontSearcher {
     /// # Examples
     /// ```no_run
     /// # use typst_kit::fonts::FontSearcher;
-    /// let fonts = FontSearcher::new()
+    /// let fonts = FontSearcher::new(Default::default())
     ///     .include_system_fonts(true)
     ///     .search_with(["./assets/fonts/"]);
     /// ```
