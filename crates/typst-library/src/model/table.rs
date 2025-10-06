@@ -38,7 +38,7 @@ use crate::visualize::{Paint, Stroke};
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
 /// appropriate. Furthermore, Assistive Technology (AT) like screen readers will
-/// announce content in `table` as tabular while a grid's content will be
+/// announce content in a `table` as tabular while a grid's content will be
 /// announced no different than multiple content blocks in the document flow. AT
 /// users will be able to navigate tables two-dimensionally by cell.
 ///
@@ -125,8 +125,8 @@ use crate::visualize::{Paint, Stroke};
 /// ```
 ///
 /// # Accessibility
-/// Tables are challenging to consume for users of Assistive Technologies (AT).
-/// To make the life of AT users easier, we strongly recommend that you use
+/// Tables are challenging to consume for users of Assistive Technology (AT). To
+/// make the life of AT users easier, we strongly recommend that you use
 /// [`table.header`] and [`table.footer`] to mark the header and footer sections
 /// of your table. This will allow AT to announce the column labels for each
 /// cell.
@@ -452,13 +452,13 @@ impl TryFrom<Content> for TableItem {
 /// You can use the `repeat` parameter to control whether your table's header
 /// will be repeated across pages.
 ///
-/// Currently, this function is unsuitable for creating header column or single
-/// header cells. Either use regular cells, or, if you are exporting a PDF, you
-/// can also use the [`pdf.header-cell`] function to mark a cell as a header
-/// cell. Likewise, you can use [`pdf.data-cell`] to mark cells in this function
-/// as data cells. Note that these functions are only available when you enable
-/// the `a11y-extras` feature (see the [PDF module documentation]($pdf) for
-/// details).
+/// Currently, this function is unsuitable for creating a header column or
+/// single header cells. Either use regular cells, or, if you are exporting a
+/// PDF, you can also use the [`pdf.header-cell`] function to mark a cell as a
+/// header cell. Likewise, you can use [`pdf.data-cell`] to mark cells in this
+/// function as data cells. Note that these functions are not final and thus
+/// only available when you enable the `a11y-extras` feature (see the [PDF
+/// module documentation]($pdf) for details).
 ///
 /// ```example
 /// #set page(height: 11.5em)

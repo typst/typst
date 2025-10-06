@@ -18,11 +18,11 @@ you have the following configuration options:
   `a-1a`, `a-2b`, `a-2u`, `a-2a`, `a-3b`. `a-3u`, `a-3a`, `a-4`, `a-4f`, `a-4e`,
   and `ua-1`. By default, Typst outputs PDF-1.7-compliant files.
 
-- You can disable PDF tagging completely with `--disable-pdf-tags`. By default,
-  Typst will always write _Tagged PDF_ to provide a baseline level of
-  accessibility. Using this flag, you can turn tags off. This will make your
-  file inaccessible and prevent conformance with accessible conformance levels
-  of PDF/A and all parts of PDF/UA.
+- You can disable PDF tagging completely with `--no-pdf-tags`. By default, Typst
+  will always write _Tagged PDF_ to provide a baseline level of accessibility.
+  Using this flag, you can turn tags off. This will make your file inaccessible
+  and prevent conformance with accessible conformance levels of PDF/A and all
+  parts of PDF/UA.
 
 - Which pages to export by specifying `--pages` followed by a comma-separated
   list of numbers or dash-separated number ranges. Ranges can be half-open.
@@ -48,8 +48,8 @@ The International Standards Organization (ISO) has published the base PDF
 standard and various standards that extend it to make PDFs more suitable for
 specific use-cases. By default, Typst exports PDF 1.7 files. Adobe Acrobat 8 and
 later as well as all other commonly used PDF viewers are compatible with this
-PDF version. Some features of Typst may be disabled depending on
-the PDF standard you choose.
+PDF version. Some features of Typst may not be available depending on the PDF
+standard you choose.
 
 ## PDF/UA
 Typst supports writing PDF/UA-conformant files. PDF/UA files are designed

@@ -406,11 +406,16 @@ pub struct TextElem {
     ///
     /// Choosing the correct language is important for accessibility. For
     /// example, screen readers will use it to choose a voice that matches the
-    /// language of the text. If your document is in another language than the
-    /// default English, you should set the text language at the start of your
-    /// document, before any other content. You can, for example, put it right
-    /// after the `[#set document(/* ... */)]` rule that [sets your document's
-    /// title]($document.title).
+    /// language of the text. If your document is in another language than
+    /// English (the default), you should set the text language at the start of
+    /// your document, before any other content. You can, for example, put it
+    /// right after the `[#set document(/* ... */)]` rule that [sets your
+    /// document's title]($document.title).
+    ///
+    /// If your document contains passages in a different language than the main
+    /// language, you should locally change the text language just for those parts,
+    /// either with a set rule [scoped to a block]($scripting/#blocks) or using
+    /// a direct text function call such as `[#text(lang: "de")[...]]`.
     ///
     /// If multiple codes are available for your language, you should prefer the
     /// two-letter code (ISO 639-1) over the three-letter codes (ISO 639-2/3).

@@ -19,9 +19,9 @@ use crate::layout::{Dir, Spacing};
 /// ```
 ///
 /// # Accessibility
-/// Stacks do not carry any special semantics. The content of the stack is read
-/// by Assistive Technologies (AT) in the order in which they have been passed
-/// to this function.
+/// Stacks do not carry any special semantics. The contents of the stack are
+/// read by Assistive Technology (AT) in the order in which they have been
+/// passed to this function.
 #[elem]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:

@@ -52,8 +52,9 @@ use crate::visualize::{LineElem, Stroke};
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// # Accessibility
-/// Footnotes will be read by Assistive Technologies immediately after the spot
-/// in the text where they are referenced, not unlike how they appear in markup.
+/// Footnotes will be read by Assistive Technology (AT) immediately after the
+/// spot in the text where they are referenced, just like how they appear in
+/// markup.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 #[elem(scope, Locatable, Tagged, Count)]

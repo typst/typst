@@ -210,9 +210,8 @@ pub struct FigureElem {
     ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
-    /// it to an element function other than [`{table}`]($table), [`{raw}`](raw)
-    /// or [`{image}`](image), you will need to manually specify the figure's
-    /// supplement.
+    /// it to an element function other than [`table`], [`raw`], or [`image`],
+    /// you will need to manually specify the figure's supplement.
     ///
     /// ```example
     /// #figure(

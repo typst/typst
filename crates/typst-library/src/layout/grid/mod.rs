@@ -30,12 +30,12 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// While the grid and table elements work very similarly, they are intended for
 /// different use cases and carry different semantics. The grid element is
-/// intended for presentational and layout purposes, while the
-/// [`{table}`]($table) element is intended for, in broad terms, presenting
-/// multiple related data points. Refer to the [Accessibility
-/// Section]($grid/#accessibility) to learn how grids and tables are presented to
-/// users of Assistive Technology (AT) like screen readers. Set and show rules
-/// on one of these elements do not affect the other.
+/// intended for presentational and layout purposes, while the [`table`] element
+/// is intended for, in broad terms, presenting multiple related data points.
+/// Set and show rules on one of these elements do not affect the other. Refer
+/// to the [Accessibility Section]($grid/#accessibility) to learn how grids and
+/// tables are presented to users of Assistive Technology (AT) like screen
+/// readers.
 ///
 /// # Sizing the tracks { #track-size }
 ///
@@ -171,9 +171,9 @@ use crate::visualize::{Paint, Stroke};
 /// precedence over regular cell strokes.
 ///
 /// # Accessibility
-/// Grids do not carry any special semantics. AT does not offer the ability to
-/// navigate two-dimensionally by cell in grids. If you want to present tabular
-/// data, use the [`{table}`]($table) element instead.
+/// Grids do not carry any special semantics. Assistive Technology (AT) does not
+/// offer the ability to navigate two-dimensionally by cell in grids. If you
+/// want to present tabular data, use the [`table`] element instead.
 ///
 /// AT will read the grid cells in their semantic order. Usually, this is the
 /// order in which you passed them to the grid. However, if you manually

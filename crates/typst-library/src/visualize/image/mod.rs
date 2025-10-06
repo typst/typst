@@ -138,15 +138,15 @@ pub struct ImageElem {
 
     /// An alternative description of the image.
     ///
-    /// This text is used by Assistive Technologies (AT) like screen readers to
+    /// This text is used by Assistive Technology (AT) like screen readers to
     /// describe the image to users with visual impairments.
     ///
     /// When the image is wrapped in a [`figure`]($figure), use this parameter
     /// rather than the [figure's `alt` parameter]($figure.alt) to describe the
-    /// image. The only exception to this rule is when you are using the image
-    /// with other contents in the figure together form a single semantic unit.
-    /// In this case, use the figure's `alt` parameter to describe the entire
-    /// composition and do not use this parameter.
+    /// image. The only exception to this rule is when the image and the other
+    /// contents in the figure form a single semantic unit. In this case, use
+    /// the figure's `alt` parameter to describe the entire composition and do
+    /// not use this parameter.
     ///
     /// You can learn how to write good alternative descriptions in the
     /// [Accessibility Guide]($guides/accessibility/#textual-representations).

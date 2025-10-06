@@ -14,16 +14,16 @@ use crate::model::{TableCell, TableElem};
 /// Marks content as a PDF artifact.
 ///
 /// Artifacts are parts of the document that are not meant to be read by
-/// Assistive Technologies (AT), such as screen readers. Typical examples
-/// include purely decorative images that do not contribute to the meaning of
-/// the document, watermarks, or repeated content such as page numbers.
+/// Assistive Technology (AT), such as screen readers. Typical examples include
+/// purely decorative images that do not contribute to the meaning of the
+/// document, watermarks, or repeated content such as page numbers.
 ///
-/// Typst will automatically mark some content as an artifact, such as page
-/// headers, footers, backgrounds, and foregrounds. Likewise, paths and shapes
-/// are automatically marked as artifacts, but their content is not. Repetitions
-/// of table headers and footers are also marked as artifacts.
+/// Typst will automatically mark certain content, such as page headers,
+/// footers, backgrounds, and foregrounds, as artifacts. Likewise, paths and
+/// shapes are automatically marked as artifacts, but their content is not.
+/// Repetitions of table headers and footers are also marked as artifacts.
 ///
-/// Once something is marked as an artifact, you cannot make some of its
+/// Once something is marked as an artifact, you cannot make any of its
 /// contents accessible again. If you need to mark only part of something as an
 /// artifact, you may need to use this function multiple times.
 ///
@@ -35,8 +35,10 @@ use crate::model::{TableCell, TableElem};
 // TODO: maybe generalize this and use it to mark html elements with `aria-hidden="true"`?
 #[elem(Tagged)]
 pub struct ArtifactElem {
-    /// The artifact kind. This will govern how the PDF reader treats the
-    /// artifact during reflow and content extraction (e.g. copy and paste).
+    /// The artifact kind.
+    ///
+    /// This will govern how the PDF reader treats the artifact during reflow
+    /// and content extraction (e.g. copy and paste).
     #[default(ArtifactKind::Other)]
     pub kind: ArtifactKind,
 
@@ -53,7 +55,7 @@ pub enum ArtifactKind {
     /// Repeats at the bottom of each page.
     Footer,
     /// Not part of the document, but rather the page it is printed on. An
-    /// example would be a cut marks or color bars.
+    /// example would be cut marks or color bars.
     Page,
     /// Other artifacts, including purely cosmetic content, backgrounds,
     /// watermarks, and repeated content.
@@ -61,10 +63,10 @@ pub enum ArtifactKind {
     Other,
 }
 
-/// A summary of the purpose and structure of complex tables.
+/// A summary of the purpose and structure of a complex table.
 ///
-/// This will be available for Assistive Technologies (such as screen readers)
-/// when exporting to PDF, but not for sighted readers of your file.
+/// This will be available for Assistive Technology (AT), such as screen
+/// readers, when exporting to PDF, but not for sighted readers of your file.
 ///
 /// This field is intended for instructions that help the user navigate the
 /// table using AT. It is not an alternative description, so do not duplicate
@@ -79,34 +81,27 @@ pub enum ArtifactKind {
 /// them visibly in the document instead.
 ///
 /// The API of this feature is temporary. Hence, calling this function requires
-/// setting the `a11y-extras` feature flag at the moment. Even if this
+/// enabling the `a11y-extras` feature flag at the moment. Even if this
 /// functionality should be available without a feature flag in the future, the
 /// summary will remain exclusive to PDF export.
 ///
 /// ```example
 /// #figure(
 ///   pdf.table-summary(
-///     // The summary just provides orientation
-///     // and structural information for AT users.
+///     // The summary just provides orientation and structural
+///     // information for AT users.
 ///     summary: "The first two columns list the names of each participant. The last column contains cells spanning multiple rows for their assigned group.",
 ///     table(
-///         columns: 3,
-///         table.header(
-///           [First Name],
-///           [Given Name],
-///           [Group],
-///         ),
-///         [Mike], [Davis],
-///           table.cell(rowspan: 3)[Sales],
-///         [Anna], [Smith],
-///         [John], [Johnson],
-///         [Sara], [Wilkins],
-///           table.cell(rowspan: 2)[Operations],
-///         [Tom], [Brown],
-///       ),
+///       columns: 3,
+///       table.header[First Name][Given Name][Group],
+///       [Mike], [Davis], table.cell(rowspan: 3)[Sales],
+///       [Anna], [Smith],
+///       [John], [Johnson],
+///       [Sara], [Wilkins], table.cell(rowspan: 2)[Operations],
+///       [Tom], [Brown],
 ///     ),
-///   // This is the key takeaway of the table, so we
-///   // put it in the caption.
+///   ),
+///   // This is the key takeaway of the table, so we put it in the caption.
 ///   caption: [The Sales org now has a new member],
 /// )
 /// ```
@@ -121,10 +116,9 @@ pub fn table_summary(
 
 /// Explicitly defines a cell as a header cell.
 ///
-/// Header cells help users of Assistive Technologies (AT) to understand and
-/// navigate complex tables. When your table is correctly marked up with header
-/// cells, AT can announce the relevant header information on-demand when
-/// entering a cell.
+/// Header cells help users of Assistive Technology (AT) understand and navigate
+/// complex tables. When your table is correctly marked up with header cells, AT
+/// can announce the relevant header information on-demand when entering a cell.
 ///
 /// By default, Typst will automatically mark all cells within [`table.header`]
 /// as header cells. They will apply to the columns below them. You can use that
@@ -145,7 +139,7 @@ pub fn table_summary(
 ///   case, you can use this function to mark it as a header cell.
 ///
 /// The API of this feature is temporary. Hence, calling this function requires
-/// setting the `a11y-extras` feature flag at the moment. In a future Typst
+/// enabling the `a11y-extras` feature flag at the moment. In a future Typst
 /// release, this functionality may move out of the `pdf` module so that tables
 /// in other export targets can contain the same information.
 ///
@@ -157,12 +151,11 @@ pub fn table_summary(
 /// #table(
 ///   columns: 3,
 ///   align: (start, end, end),
+///
 ///   table.header(
-///     // Top-left cell: labels both the nutrient rows
-///     // and the serving size columns
-///     pdf.header-cell(
-///       scope: "both",
-///     )[Nutrient],
+///     // Top-left cell: Labels both the nutrient rows
+///     // and the serving size columns.
+///     pdf.header-cell(scope: "both")[Nutrient],
 ///     [Per 100g],
 ///     [Per Serving],
 ///   ),
@@ -188,7 +181,9 @@ pub fn header_cell(
     #[named]
     #[default]
     scope: TableHeaderScope,
-    /// The table cell. This can be content or a call to [`table.cell`].
+    /// The table cell.
+    ///
+    /// This can be content or a call to [`table.cell`].
     cell: TableCell,
 ) -> Content {
     cell.with_kind(Smart::Custom(TableCellKind::Header(level, scope)))
@@ -198,36 +193,26 @@ pub fn header_cell(
 /// Explicitly defines this cell as a data cell.
 ///
 /// Each cell in a table is either a header cell or a data cell. By default, all
-/// cells in [`table.header`]($table.header) are header cells, and all other
-/// cells data cells.
+/// cells in [`table.header`] are header cells, and all other cells data cells.
 ///
 /// If your header contains a cell that is not a header cell, you can use this
 /// function to mark it as a data cell.
 ///
 /// The API of this feature is temporary. Hence, calling this function requires
-/// setting the `a11y-extras` feature flag at the moment. In a future Typst
+/// enabling the `a11y-extras` feature flag at the moment. In a future Typst
 /// release, this functionality may move out of the `pdf` module so that tables
 /// in other export targets can contain the same information.
 ///
 /// ```example
-/// #show table.cell.where(x: 0): set text(
-///   weight: "bold",
-/// )
-/// #show table.cell: it => {
-///   if it.x == 1 and it.y > 0 {
-///     text(style: "italic", it)
-///   } else { it }
-/// }
+/// #show table.cell.where(x: 0): set text(weight: "bold")
+/// #show table.cell.where(x: 1): set text(style: "italic")
+/// #show table.cell.where(x: 1, y: 0): set text(style: "normal")
 ///
 /// #table(
 ///   columns: 3,
 ///   align: (left, left, center),
 ///
-///   table.header(
-///     [Objective],
-///     [Key Result],
-///     [Status],
-///   ),
+///   table.header[Objective][Key Result][Status],
 ///
 ///   table.header(
 ///     level: 2,
@@ -235,7 +220,6 @@ pub fn header_cell(
 ///     // Status is data for this objective, not a header
 ///     pdf.data-cell[✓ On Track],
 ///   ),
-///
 ///   [], [Increase NPS to 50+], [45],
 ///   [], [Reduce churn to \<5%], [4.2%],
 ///
@@ -244,14 +228,15 @@ pub fn header_cell(
 ///     table.cell(colspan: 2)[Grow Revenue],
 ///     pdf.data-cell[⚠ At Risk],
 ///   ),
-///
 ///   [], [Achieve \$2M ARR], [\$1.8M],
 ///   [], [Close 50 enterprise deals], [38],
 /// )
 /// ```
 #[func]
 pub fn data_cell(
-    /// The table cell. This can be content or a call to [`table.cell`].
+    /// The table cell.
+    ///
+    /// This can be content or a call to [`table.cell`].
     cell: TableCell,
 ) -> Content {
     cell.with_kind(Smart::Custom(TableCellKind::Data)).pack()

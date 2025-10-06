@@ -41,8 +41,8 @@ use crate::visualize::{Color, Paint};
 ///
 /// # Accessibility
 /// The contents of the page's header, footer, foreground, and background are
-/// invisible to Assistive Technologies (AT) like screen readers. Only the body
-/// of the page is read by AT. Do not include vital information not included
+/// invisible to Assistive Technology (AT) like screen readers. Only the body of
+/// the page is read by AT. Do not include vital information not included
 /// elsewhere in the document in these areas.
 #[elem(Construct)]
 pub struct PageElem {

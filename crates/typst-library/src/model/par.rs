@@ -59,7 +59,7 @@ use crate::model::Numbering;
 ///   only trigger on paragraphs.
 ///
 /// - A proper distinction between paragraphs and other text helps people who
-///   rely on assistive technologies (such as screen readers) navigate and
+///   rely on Assistive Technology (AT) (such as screen readers) navigate and
 ///   understand the document properly.
 ///
 /// - PDF export will generate a `P` tag only for paragraphs.

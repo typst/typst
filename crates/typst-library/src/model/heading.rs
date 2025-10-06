@@ -56,8 +56,17 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// To make your headings accessible, you should not skip heading levels. This
 /// means that you should start with a first-level heading. Also, when the
 /// previous heading was of level 3, the next heading should be of level 3
-/// (staying at the same depth), level 4 (going one level deeper), or level 1 or
-/// 2 (new hierarchically higher headings).
+/// (staying at the same depth), level 4 (going exactly one level deeper), or
+/// level 1 or 2 (new hierarchically higher headings).
+///
+/// # HTML export
+/// As mentioned above, a top-llevel heading indicates a top-level section of
+/// the document rather than its title. This is in contrast to the HTML `<h1>`
+/// element of which there should be only one per document.
+///
+/// For this reason, in HTML export, a [`title`] element will turn into a `<h1>`
+/// and headings turn into `<h2> and lower (a level 1 heading thus turns into
+/// `<h2>`, a level 2 heading into `<h3>`, etc).
 #[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set

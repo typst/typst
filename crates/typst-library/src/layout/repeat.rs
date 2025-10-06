@@ -26,7 +26,7 @@ use crate::layout::Length;
 ///
 /// # Accessibility
 /// Repeated content is automatically marked as an [artifact]($pdf.artifact) and
-/// hidden from Assistive Technologies (AT). Do not use this function to create
+/// hidden from Assistive Technology (AT). Do not use this function to create
 /// content that contributes to the meaning of your document.
 #[elem(Tagged)]
 pub struct RepeatElem {
