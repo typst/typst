@@ -7,5 +7,5 @@ outline = Clár Ábhair
 raw = Amhábhar
 page = Leathanach
 footnote = Nóta Coise
-email = Ríomhphost
-telephone = Teileafón
+email = Seoladh ríomhphoist
+telephone = Uimhir theileafóin
