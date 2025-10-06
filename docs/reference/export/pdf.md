@@ -65,19 +65,21 @@ sure you did the following:
 
 - If your document is written in a different language than English, make sure
   [set the text language]($text.lang) before any content.
-- Make sure that you use Typst's native elements where possible (particularly
-  [headings]($heading), [strong], [emph], [lists]($enum)) instead of defining
-  your own functions. Use set and show rules for customization instead.
+- Make sure to use Typst's semantic elements (like [headings]($heading),
+  [figures]($figure), and [lists]($list)) when appropriate instead of defining
+  custom constructs. This lets Typst know (and export) the role a construct
+  plays in the document. See [the Accessibility guide]($guides/accessibility)
+  for more details.
 - Do not exclusively use contrast, color, format, or layout to communicate an
-  idea. Instead use text or alternative descriptions instead of or in addition
-  to these elements.
+  idea. Use text or alternative descriptions instead of or in addition to these
+  elements.
 - Wrap all decorative elements without a semantic meaning in [`pdf.artifact`].
-- Do not use images of text. Instead, insert the text directly in markup.
+- Do not use images of text. Instead, insert the text directly into your markup.
 
 Typst currently only supports part one (PDF/UA-1) which is based on PDF 1.7
 (2006). When exporting to PDF/UA-1, be aware that you will need to manually
 provide [alternative descriptions of mathematics]($category/math/#accessibility)
-in natural language. PDF/UA-1 has stricter accessibility requirements.
+in natural language.
 
 New accessibility features were added to PDF 2.0 (2017). When set to PDF 2.0
 export, Typst will leverage some of these features. PDF 2.0 and PDF/UA-1,
@@ -104,10 +106,9 @@ PDF/A output profiles:
 
 - **PDF/A-1a:** This is the _accessible_ conformance level that builds on the
   basic level PDF/A-1b. To conform to this level, your file must be an
-  accessible _Tagged PDF_ file. Note that accessibility is greater with later
+  accessible _Tagged PDF_ file. Note that accessibility is improved with later
   parts as not all PDF accessibility features are available for PDF 1.4 files.
-  Furthermore, all text in the file must consist out of known Unicode code
-  points.
+  Furthermore, all text in the file must consist of known Unicode code points.
 
 - **PDF/A-2b:** The _basic_ conformance level of ISO 19005-2. This version of
   PDF/A is based on PDF 1.7 (2006) and results in self-contained, archivable PDF
@@ -115,8 +116,8 @@ PDF/A output profiles:
 
 - **PDF/A-2u:** This is the _Unicode-mappable_ conformance level that builds on
   the basic level A-2b. It also adds rules that all text in the document must
-  consist out of known Unicode code points. If possible, always prefer this
-  standard over PDF/A-2b.
+  consist of known Unicode code points. If possible, always prefer this standard
+  over PDF/A-2b.
 
 - **PDF/A-2a:** This is the _accessible_ conformance level that builds on the
   Unicode-mappable level A-2u. This conformance level also adds two
@@ -137,7 +138,7 @@ PDF/A output profiles:
 
 - **PDF/A-3u:** This is the _Unicode-mappable_ conformance level that builds on
   the basic level A-3b. Just like PDF/A-2b, this requires all text to consist
-  out of known Unicode code points. These rules do not apply to attachments. If
+  of known Unicode code points. These rules do not apply to attachments. If
   possible, always prefer this standard over PDF/A-3b.
 
 - **PDF/A-3a:** This is the _accessible_ conformance level that builds on the
@@ -154,7 +155,7 @@ PDF/A output profiles:
 - **PDF/A-4f:** The _embedded files_ conformance level that builds on the basic
   level A-4. Files conforming to this level can contain arbitrary other related
   files as [attachments]($pdf.attach), just as files conforming to part 3 of ISO
-  19005. The only difference between it and PDF/A-2b is the capability to attach
+  19005. The only difference between it and PDF/A-4 is the capability to attach
   non-PDF/A-conformant files.
 
 - **PDF/A-4e:** The _engineering_ conformance level that builds on the embedded
@@ -191,8 +192,8 @@ the end).
   level `u` instead. Only if this results in a compiler error, e.g. because you
   used code points from the Unicode Private Use Area, use the basic level `b`.
 
-- **If you have chosen part four,** you should choose the basic conformance level
-  (PDF/A-4) except when needing to embed files.
+- **If you have chosen part four,** you should choose the basic conformance
+  level (PDF/A-4) except when needing to embed files.
 
 When choosing between exporting PDF/A and regular PDF, keep in mind that PDF/A
 files contain additional metadata, and that some readers will prevent the user

@@ -128,7 +128,7 @@ fn md_page_with_title(
 ) -> PageModel {
     assert!(parent.starts_with('/') && parent.ends_with('/'));
     let html = Html::markdown(resolver, md, Some(0));
-    let title = title.unwrap_or_else(|| html.title().expect("chapter lacks a title"));
+    let title = title.or(html.title()).expect("chapter lacks a title");
     PageModel {
         route: eco_format!("{parent}{}/", urlify(title)),
         title: title.into(),

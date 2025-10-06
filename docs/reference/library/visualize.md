@@ -8,8 +8,9 @@ specialized [packages]($universe) for your use case.
 
 All shapes and paths drawn by Typst are automatically marked as
 [artifacts]($pdf.artifact) to make them invisible to Assistive Technology (AT)
-during PDF export. However, their contents, if any, remain accessible.
+during PDF export. However, their contents (if any) remain accessible.
 
 If you are using the functions in this model to create an illustration with
 semantic meaning, make it accessible by wrapping it in a [`figure`] function
-call. Use its [`alt` parameter]($figure.alt) to provide an [alternative description]($guides/accessibility/#textual-representations)
+call. Use its [`alt` parameter]($figure.alt) to provide an
+[alternative description]($guides/accessibility/#textual-representations).

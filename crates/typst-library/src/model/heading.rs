@@ -60,13 +60,13 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// level 1 or 2 (new hierarchically higher headings).
 ///
 /// # HTML export
-/// As mentioned above, a top-llevel heading indicates a top-level section of
+/// As mentioned above, a top-level heading indicates a top-level section of
 /// the document rather than its title. This is in contrast to the HTML `<h1>`
 /// element of which there should be only one per document.
 ///
-/// For this reason, in HTML export, a [`title`] element will turn into a `<h1>`
-/// and headings turn into `<h2> and lower (a level 1 heading thus turns into
-/// `<h2>`, a level 2 heading into `<h3>`, etc).
+/// For this reason, in HTML export, a [`title`] element will turn into an
+/// `<h1>` and headings turn into `<h2> and lower (a level 1 heading thus turns
+/// into `<h2>`, a level 2 heading into `<h3>`, etc).
 #[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set

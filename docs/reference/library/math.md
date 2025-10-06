@@ -101,12 +101,10 @@ is available by default in equations. Outside of equations, they can be accessed
 with the `math.` prefix.
 
 # Accessibility
-To make math accessible, you must provide an alternative description for the
-equation that describes it in natural language. In the future, Typst will
-automatically make equations without alternative descriptions in HTML and PDF
-2.0 export accessible. For more information, see the documentation on the [`alt`
-parameter of `math.equation`]($math.equation.alt) and the [Textual
-Representations section of the Accessibility
+To make math accessible, you must provide alternative descriptions for equations
+that describe them in natural language. For more information, see the
+documentation on the [`alt` parameter of `math.equation`]($math.equation.alt)
+and the [Textual Representations section of the Accessibility
 Guide]($guides/accessibility/#textual-representations).
 
 ```example
@@ -115,3 +113,6 @@ Guide]($guides/accessibility/#textual-representations).
   $ d "S" = (delta q) / T $,
 )
 ```
+
+In the future, Typst will automatically make equations without alternative
+descriptions accessible in HTML and PDF 2.0 export.
