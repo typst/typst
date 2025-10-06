@@ -76,9 +76,14 @@ impl Fonts {
     }
 }
 
+/// Configures which fonts to include while searching.
+///
+/// By default, all fonts are searched.
 #[derive(Debug)]
 pub struct IncludeFontsConfig {
+    /// Include system-install fonts.
     pub include_system_fonts: bool,
+    /// Include fonts embedded into the Typst executable.
     #[cfg(feature = "embed-fonts")]
     pub include_embedded_fonts: bool,
 }
