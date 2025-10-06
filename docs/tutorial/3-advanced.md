@@ -110,36 +110,34 @@ headings we produced with equals signs?
 
 Headings, even first-level headings, can appear multiple times in your document
 whereas a title only appears once, usually at the beginning. Differentiating
-between the two helps Typst to make your document accessible for users of
-Assistive Technologies such as screen readers.
+between the two helps Typst make your document accessible for users of
+Assistive Technology such as screen readers.
 </div>
 
-When we want to customize the arguments of some element function inside of other
-elements, we can use show-set rules. First, we use show to select which function
-we want to customize – which function should show its elements differently. We
-call this a _selector._ Then, type a double colon. Finally, write your set rule
-that applies to elements matching the selector. Summarized, the syntax looks
-like this:
+When we want to customize the properties of some element inside of another kind
+of element, we can use show-set rules. First, we use `show` to select which
+element we want to customize. We call this a _selector._ Then, we type a double
+colon. Next, we write the set rule that applies to elements matching the
+selector. Summarized, the syntax looks like this:
 
 ```typ
-#show thing-you-customize: set thing-you-set(/* ... */)
+#show your-selector: set some-element(/* ... */)
 ```
 
 Let's recall: We want to center-align the title and make it 17pt large. Hence,
-we need two set show rules:
+we need two show-set rules:
 
-- One with the **selector `title`** and the **set rule `{text(size: 17pt)}`**
-- One with the **selector `title`** and the **set rule `{align(center)}`**
+- One with the selector `title` and the rule `{set text(size: 17pt)}`
+- One with the selector `title` and the rule `{set align(center)}`
 
 Hence, our example now looks like this:
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
 >>> #set text(font: "Libertinus Serif", 11pt)
-#show title: set text(
-  size: 17pt,
-)
+#show title: set text(size: 17pt)
 #show title: set align(center)
+
 #title[
   A Fluid Dynamic Model
   for Glacier Flow
@@ -153,14 +151,14 @@ paper together with our supervisor, we'll add our own and their name.
 >>> #set page(width: 300pt, margin: 30pt)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
->>> #show title: set text(
->>>   size: 17pt,
->>> )
+>>> #show title: set text(size: 17pt)
 >>> #show title: set align(center)
+>>>
 >>> #title[
 >>>   A Fluid Dynamic Model
 >>>   for Glacier Flow
 >>> ]
+
 #grid(
   columns: (1fr, 1fr),
   align(center)[
@@ -200,15 +198,15 @@ another show-set rule that selects the title to set the block spacing:
 >>> #set page(width: 300pt, margin: 30pt)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
-#show title: set text(
-  size: 17pt,
-)
+#show title: set text(size: 17pt)
 #show title: set align(center)
 #show title: set block(below: 1.2em)
+
 #title[
   A Fluid Dynamic Model
   for Glacier Flow
 ]
+
 #grid(
 <<<   // ...
 >>>   columns: (1fr, 1fr),
@@ -225,11 +223,11 @@ another show-set rule that selects the title to set the block spacing:
 )
 ```
 
-With this show-set rule, we inserted additional spacing below the title. We have
-used the `em` unit: It allows us to express lengths as multiples of the font
-size. Here, we used it to add 1.2x of the font size as spacing. Now, let's add
-the abstract. Remember that the conference wants the abstract to be set ragged
-and centered.
+With this show-set rule, we overrode the spacing below the title. We have used
+the `em` unit: It allows us to express lengths as multiples of the font size.
+Here, we used it to space the title and the author list exactly 1.2× of the font
+size apart. Now, let's add the abstract. Remember that the conference wants the
+abstract to be set ragged and centered.
 
 ```example:0,0,612,317.5
 >>> #set page(
@@ -244,11 +242,10 @@ and centered.
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
->>> #show title: set text(
->>>   size: 17pt,
->>> )
+>>> #show title: set text(size: 17pt)
 >>> #show title: set align(center)
 >>> #show title: set block(below: 1.2em)
+>>>
 >>> #title[
 >>>   A Fluid Dynamic Model
 >>>   for Glacier Flow
@@ -290,10 +287,10 @@ then be used later in the document, just by referencing the variable with its
 name. We define a new variable with the `{let}` keyword:
 
 ```example:single
-#let doc-title = [
+#set document(title: [
   A Fluid Dynamic Model
   for Glacier Flow
-]
+])
 
 <<< ...
 
@@ -302,7 +299,7 @@ name. We define a new variable with the `{let}` keyword:
 >>> margin: auto,
   header: align(
     right + horizon,
-    doc-title,
+    context document.title,
   ),
 <<<   ...
 >>> numbering: "1",
@@ -310,12 +307,11 @@ name. We define a new variable with the `{let}` keyword:
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
 
->>> #show title: set text(
->>>   size: 17pt,
->>> )
+>>> #show title: set text(size: 17pt)
+>>>
 >>> #show title: set align(center)
 >>> #show title: set block(below: 1.2em)
-#title(doc-title)
+#title()
 
 <<< ...
 
@@ -342,7 +338,7 @@ name. We define a new variable with the `{let}` keyword:
 >>> #lorem(600)
 ```
 
-After we bound the content to the `doc-title` variable, we can use it in
+After we assigned the content to the `doc-title` variable, we can use it in
 functions and also within markup (prefixed by `#`, like functions). This way, if
 we decide on another title, we can easily change it in one place.
 
@@ -394,17 +390,17 @@ if there was no square. To change this behavior, we can pass the argument
 or bottom of the page is not occupied by any other content.
 
 ```example:single
->>> #let doc-title = [
+>>> #set document(title: [
 >>>   A Fluid Dynamic Model
 >>>   for Glacier Flow
->>> ]
+>>> ])
 >>>
 #set page(
 >>> margin: auto,
   paper: "us-letter",
   header: align(
     right + horizon,
-    doc-title
+    context document.title,
   ),
   numbering: "1",
   columns: 2,
@@ -418,12 +414,11 @@ or bottom of the page is not occupied by any other content.
   scope: "parent",
   clearance: 2em,
 )[
->>> #show title: set text(
->>>   size: 17pt,
->>> )
+>>> #show title: set text(size: 17pt)
 >>> #show title: set align(center)
 >>> #show title: set block(below: 1.2em)
->>> #title(doc-title)
+>>>
+>>> #title()
 >>>
 >>> #grid(
 >>>   columns: (1fr, 1fr),
@@ -463,17 +458,17 @@ centered and use small capitals. Because the `heading` function does not offer
 a way to set any of that, we need to write our own heading show rule.
 
 ```example:50,250,265,270
->>> #let doc-title = [
+>>> #set document(title: [
 >>>   A Fluid Dynamic Model
 >>>   for Glacier Flow
->>> ]
+>>> ])
 >>>
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
 >>>   header: align(
 >>>     right + horizon,
->>>     doc-title
+>>>     context document.title,
 >>>   ),
 >>>   numbering: "1",
 >>>   columns: 2,
@@ -493,12 +488,11 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   scope: "parent",
 >>>   clearance: 2em,
 >>> )[
->>>   #show title: set text(
->>>     size: 17pt,
->>>   )
+>>>   #show title: set text(size: 17pt)
 >>>   #show title: set align(center)
 >>>   #show title: set block(below: 1.2em)
->>>   #title(doc-title)
+>>>
+>>>   #title()
 >>>
 >>>   #grid(
 >>>     columns: (1fr, 1fr),
@@ -545,17 +539,17 @@ elements) that allows us to filter them by their level. We can use it to
 differentiate between section and subsection headings:
 
 ```example:50,250,265,245
->>> #let doc-title = [
+>>> #set document(title: [
 >>>   A Fluid Dynamic Model
 >>>   for Glacier Flow
->>> ]
+>>> ])
 >>>
 >>> #set page(
 >>>   "us-letter",
 >>>   margin: auto,
 >>>   header: align(
 >>>     right + horizon,
->>>     doc-title
+>>>     context document.title,
 >>>   ),
 >>>   numbering: "1",
 >>>   columns: 2,
@@ -586,12 +580,11 @@ differentiate between section and subsection headings:
 >>>   scope: "parent",
 >>>   clearance: 2em,
 >>> )[
->>>   #show title: set text(
->>>     size: 17pt,
->>>   )
+>>>   #show title: set text(size: 17pt)
 >>>   #show title: set align(center)
 >>>   #show title: set block(below: 1.2em)
->>>   #title(doc-title)
+>>>
+>>>   #title()
 >>>
 >>>   #grid(
 >>>     columns: (1fr, 1fr),

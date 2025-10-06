@@ -233,7 +233,6 @@ The resulting template function looks like this:
 
 ```typ
 #let conf(
-  doc-title: none,
   authors: (),
   abstract: [],
   doc,
@@ -248,7 +247,7 @@ The resulting template function looks like this:
     scope: "parent",
     clearance: 2em,
     {
-      title(doc-title)
+      title()
 
       let count = authors.len()
       let ncols = calc.min(count, 3)
@@ -292,7 +291,6 @@ call.
 
 ```example:single
 >>> #let conf(
->>>   doc-title: none,
 >>>   authors: (),
 >>>   abstract: [],
 >>>   doc,
@@ -302,7 +300,7 @@ call.
 >>>     margin: auto,
 >>>     header: align(
 >>>       right + horizon,
->>>       doc-title
+>>>       context document.title,
 >>>     ),
 >>>     numbering: "1",
 >>>     columns: 2,
@@ -336,7 +334,7 @@ call.
 >>>     scope: "parent",
 >>>     clearance: 2em,
 >>>     {
->>>       title(doc-title)
+>>>       title()
 >>>
 >>>       let count = authors.len()
 >>>       let ncols = calc.min(count, 3)
@@ -360,11 +358,13 @@ call.
 >>>   doc
 >>> }
 <<< #import "conf.typ": conf
+
+#set document(title: [
+  A Fluid Dynamic Model for
+  Glacier Flow
+])
+
 #show: conf.with(
-  doc-title: [
-    A Fluid Dynamic Model for
-    Glacier Flow
-  ],
   authors: (
     (
       name: "Theresa Tungsten",
