@@ -70,9 +70,25 @@ pub struct Fonts {
 }
 
 impl Fonts {
-    /// Creates a new font searcer with the default settings.
-    pub fn searcher() -> FontSearcher {
-        FontSearcher::new()
+    /// Creates a new font searcher with the default settings.
+    pub fn searcher(include_config: IncludeFontsConfig) -> FontSearcher {
+        FontSearcher::new(include_config)
+    }
+}
+
+#[derive(Debug)]
+pub struct IncludeFontsConfig {
+    pub include_system_fonts: bool,
+    #[cfg(feature = "embed-fonts")]
+    pub include_embedded_fonts: bool,
+}
+
+impl Default for IncludeFontsConfig {
+    fn default() -> Self {
+        Self {
+            include_system_fonts: true,
+            include_embedded_fonts: true,
+        }
     }
 }
 
@@ -85,9 +101,7 @@ impl Fonts {
 #[derive(Debug)]
 pub struct FontSearcher {
     db: Database,
-    include_system_fonts: bool,
-    #[cfg(feature = "embed-fonts")]
-    include_embedded_fonts: bool,
+    include_config: IncludeFontsConfig,
     book: FontBook,
     fonts: Vec<FontSlot>,
 }
@@ -95,12 +109,10 @@ pub struct FontSearcher {
 impl FontSearcher {
     /// Create a new, empty system searcher. The searcher is created with the
     /// default configuration, it will include embedded fonts and system fonts.
-    pub fn new() -> Self {
+    pub fn new(include_config: IncludeFontsConfig) -> Self {
         Self {
             db: Database::new(),
-            include_system_fonts: true,
-            #[cfg(feature = "embed-fonts")]
-            include_embedded_fonts: true,
+            include_config,
             book: FontBook::new(),
             fonts: vec![],
         }
@@ -108,14 +120,14 @@ impl FontSearcher {
 
     /// Whether to search for and load system fonts, defaults to `true`.
     pub fn include_system_fonts(&mut self, value: bool) -> &mut Self {
-        self.include_system_fonts = value;
+        self.include_config.include_system_fonts = value;
         self
     }
 
     /// Whether to load embedded fonts, defaults to `true`.
     #[cfg(feature = "embed-fonts")]
     pub fn include_embedded_fonts(&mut self, value: bool) -> &mut Self {
-        self.include_embedded_fonts = value;
+        self.include_config.include_embedded_fonts = value;
         self
     }
 
@@ -152,7 +164,7 @@ impl FontSearcher {
             self.db.load_fonts_dir(path);
         }
 
-        if self.include_system_fonts {
+        if self.include_config.include_system_fonts {
             // System fonts have second priority.
             self.db.load_system_fonts();
         }
@@ -182,7 +194,7 @@ impl FontSearcher {
 
         // Embedded fonts have lowest priority.
         #[cfg(feature = "embed-fonts")]
-        if self.include_embedded_fonts {
+        if self.include_config.include_embedded_fonts {
             self.add_embedded();
         }
 
@@ -211,6 +223,6 @@ impl FontSearcher {
 
 impl Default for FontSearcher {
     fn default() -> Self {
-        Self::new()
+        Self::new(IncludeFontsConfig::default())
     }
 }

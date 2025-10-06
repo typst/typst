@@ -124,8 +124,7 @@ impl SystemWorld {
             Library::builder().with_inputs(inputs).with_features(features).build()
         };
 
-        let fonts = Fonts::searcher()
-            .include_system_fonts(!world_args.font.ignore_system_fonts)
+        let fonts = Fonts::searcher(world_args.font.include_fonts_config())
             .search_with(&world_args.font.font_paths);
 
         let now = match world_args.creation_timestamp {
