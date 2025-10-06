@@ -61,3 +61,24 @@ Ein Paragraph.
 
 #set text(lang: "en", region: "uk")
 #figure(image(alt: "A tiger", "/assets/images/tiger.jpg"))
+
+--- figure-tags-listing pdftags ---
+#figure[
+  ```rs
+  fn main() {
+      println!("Hello Typst!");
+  }
+  ```
+]
+
+--- figure-tags-only-marked-content-missing-alt pdftags ---
+// Error: 2-3:2 PDF/UA-1 error: missing alt text
+// Hint: 2-3:2 make sure your images and equations have alt text
+#figure[
+  #rect(fill: red)
+]
+
+--- figure-tags-only-marked-content pdftags nopdfua ---
+#figure[
+  #rect(fill: red)
+]
