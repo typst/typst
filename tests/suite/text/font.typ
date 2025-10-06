@@ -178,6 +178,11 @@ The number 123.
 
 a
 
+--- issue-5940-text-negative-size-panic ---
+#set align(center)
+#set text(-10pt)
+Hello
+
 --- empty-text-font-array ---
 // Error: 17-19 font fallback list must not be empty
 #set text(font: ())
