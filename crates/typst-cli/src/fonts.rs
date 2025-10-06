@@ -7,6 +7,7 @@ impl FontArgs {
     pub fn include_fonts_config(&self) -> IncludeFontsConfig {
         IncludeFontsConfig {
             include_system_fonts: !self.ignore_system_fonts,
+            #[cfg(feature = "embed-fonts")]
             include_embedded_fonts: !self.ignore_embedded_fonts,
         }
     }

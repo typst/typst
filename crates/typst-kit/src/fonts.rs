@@ -92,6 +92,7 @@ impl Default for IncludeFontsConfig {
     fn default() -> Self {
         Self {
             include_system_fonts: true,
+            #[cfg(feature = "embed-fonts")]
             include_embedded_fonts: true,
         }
     }
