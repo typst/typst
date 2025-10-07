@@ -1,3 +1,8 @@
+// This module is imported both from the `typst-cli` crate itself
+// and from its build script. In this module, you can only import from crates
+// that are both runtime and build dependencies of this crate, or else
+// Rust will give a confusing error message about a missing crate.
+
 use std::fmt::{self, Display, Formatter};
 use std::io::Write;
 use std::num::NonZeroUsize;
