@@ -52,7 +52,7 @@ it is content, mirroring how you would call a function accepting content. In
 other words, this syntax mirrors the phrase _"Let the variable `ipa` have the
 value `{[taɪpst]}`."_
 
-Now, we can use the variable everywhere in our document:
+Now, we can use the variable in our document:
 
 ```example
 #let ipa = [taɪpst]
@@ -70,9 +70,9 @@ pronounce Typst is #ipa.
 In the example, you can see that the variable can be used both in markup
 (prefixed with a `#`) and in a function call (by just typing its name). Of
 course, we can change the value of the variable and all its occurrences will
-automatically change with it. Let's make it a bit more clear what is IPA and
-what is normal prose by rendering it in italics. We are also using slashes
-which, by convention, often enclose IPA.
+automatically change with it. Let's make it a bit clearer what is IPA and what
+is normal prose by rendering IPA in italics. We are also using slashes which, by
+convention, often enclose IPA.
 
 ```example
 #let ipa = text(
@@ -145,16 +145,16 @@ You are #amazed[beautiful]!
 ```
 
 Comparing this against the previous section, you may have noticed that this
-looks a lot like a variable definition using `{let}`. This instinct is correct,
-functions are just another data type. Here, we are defining the variable
+looks a lot like a variable definition using `{let}`. This instinct is correct:
+Functions are just another data type. Here, we are defining the variable
 `amazed`, assigning it a function that takes a single argument, `term`, and
 returns content with the `term` surrounded by sparkles. We also put the whole
 thing in a [`box`] so that the term we are amazed by cannot be separated from
-its sparkles by a line break. The special syntax makes the function definition
-shorter and more readable, but you can also use the regular variable definition
-syntax (see [the scripting reference]($scripting/#bindings) for details). After
-its definition, we are able to call the function just like all built-in
-functions.
+its sparkles by a line break. The special function definition syntax makes the
+definition shorter and more readable, but you can also use the regular variable
+definition syntax (see [the scripting reference]($scripting/#bindings) for
+details). After its definition, we are able to call the function just like all
+built-in functions.
 
 Many functions that come with Typst have optional named parameters. Our
 functions can also have them. Let's add a parameter to our function that lets us

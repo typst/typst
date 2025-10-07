@@ -117,7 +117,7 @@ Assistive Technology such as screen readers.
 When we want to customize the properties of some element inside of another kind
 of element, we can use show-set rules. First, we use `show` to select which
 element we want to customize. We call this a _selector._ Then, we type a double
-colon. Next, we write the set rule that applies to elements matching the
+colon. Next, we write the set rule that should apply to elements matching the
 selector. Summarized, the syntax looks like this:
 
 ```typ
@@ -187,12 +187,12 @@ cells. Rows are added automatically, but they can also be manually sized with
 the `rows` argument.
 
 Looking at the authors and the title, they are a bit too close together. You can
-address this by using another show-set rule to insert some space below the
+address this by using another show-set rule to configure the space below the
 title. The title, the grid, paragraphs, and all other elements that Typst
-arranges from the top to the bottom of the page are called blocks. Each block is
-controlled by the [`block`] function. It controls behaviors like their distance
-and whether a block can contain a page break. That means that we can write
-another show-set rule that selects the title to set the block spacing:
+arranges from the top to the bottom of the page are called _blocks._ Each block
+is controlled by the [`block`] function. It controls behaviors like their
+distance and whether a block can contain a page break. That means that we can
+write another show-set rule that selects the title to set the block spacing:
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
@@ -281,8 +281,8 @@ affect the remainder of the document even though it was specified after the
 first set rule because content blocks _scope_ styling. Anything set within a
 content block will only affect the content within that block.
 
-Another tweak could be to remove the duplication between the header and the title
-element's argument. Since they only share the title, it would be convenient to
+Another tweak could be to remove the duplication between the header and the
+title element's argument. Since they share the title, it would be convenient to
 store it in a place designed to hold metadata about the document. We would then
 need a way to retrieve the title in both places. The `document` element can help
 us with the former: By using it in a set rule, we can store document metadata
@@ -295,20 +295,20 @@ like title, description, and keywords.
 When exporting a PDF, the title set here will appear in the title bar of your
 PDF reader. Your operating system will also use this title to make the file
 retrievable with search. Last but not least, it contributes to making your
-document more accessible and is required if you choose to comply with PDF/UA,
-a PDF standard focused on accessibility.
+document more accessible and is required if you choose to comply with PDF/UA, a
+PDF standard focused on accessibility.
 
 Now, we need a way to retrieve the value we set in the main title and the
 header. Because the `title` function is designed to work together with the
 `document` element, calling it with no arguments will just print the title. For
 the header, we will need to be more explicit: Because Typst has no way of
-knowing that you want to insert the title there, we will need to tell it to do
-so manually.
+knowing that we want to insert the title there, we will need to tell it to do so
+manually.
 
 Using _context,_ we can retrieve the contents of any values we have set on
-elements before. When we use the `{context}` keyword, we can access any
-property of any element, including the document element's title property. The
-syntax would then look like this:
+elements before. When we use the `{context}` keyword, we can access any property
+of any element, including the document element's title property. Its use looks
+like this:
 
 ```example:single
 #set document(title: [
@@ -393,12 +393,12 @@ be:
 - The variable could be defined or overwritten in the current scope
 
 However, sometimes, that's not enough. In this chapter of the tutorial, we have
-inserted a page header with the title. Even though we pass only one content
-block for the header, we may want different pages to have different headers. For
-example, we may want to print the chapter name or use the page number. When we
-use context, we can write a single context block that tells Typst to take a look
-at where it's inserted, look for the last heading, the current page number, or
-anything else, and go from there. That means that the same context block,
+inserted a page header with the title. Even though we pass only one piece of
+content for the header, we may want different pages to have different headers.
+For example, we may want to print the chapter name or use the page number. When
+we use context, we can write a single context block that tells Typst to take a
+look at where it's inserted, look for the last heading, the current page number,
+or anything else, and go from there. That means that the same context block,
 inserted on different pages, can produce different output.
 
 For more information, read up on context [in its docs]($context) after
@@ -433,9 +433,9 @@ content in its container:
 
 If we hadn't used `{place}` here, the square would be in its own line, but here
 it overlaps the few lines of text following it. Likewise, that text acts as if
-there was no square. To change this behavior, we can pass the argument `{float:
-true}` to ensure that the space taken up by the placed item at the top or bottom
-of the page is not occupied by any other content.
+there was no square. To change this behavior, we can pass the argument
+`{float: true}` to ensure that the space taken up by the placed item at the top
+or bottom of the page is not occupied by any other content.
 
 ```example:single
 >>> #set document(title: [
