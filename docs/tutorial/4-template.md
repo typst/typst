@@ -240,22 +240,25 @@ previous chapter.
 
   // Heading show rules.
 <<<   ...
->>> show heading.where(
->>>   level: 1
->>> ): it => block(width: 100%)[
->>>   #set align(center)
->>>   #set text(13pt, weight: "regular")
->>>   #smallcaps(it.body)
->>> ]
+>>> show heading.where(level: 1): set align(
+>>>   center
+>>> )
+>>> show heading.where(level: 1): set text(
+>>>   size: 13pt,
+>>>   weight: "regular",
+>>> )
+>>> show heading.where(level: 1): smallcaps
 >>>
->>> show heading.where(
->>>   level: 2
->>> ): it => text(
+>>> show heading.where(level: 2): set text(
 >>>   size: 11pt,
 >>>   weight: "regular",
 >>>   style: "italic",
->>>   it.body + [.],
 >>> )
+>>> show heading.where(
+>>>   level: 2
+>>> ): it => {
+>>>   it.body + [.]
+>>> }
 
   doc
 }
@@ -440,13 +443,25 @@ call.
 >>>   show title: set align(center)
 >>>   show title: set block(below: 1.2em)
 >>>
+>>>   show heading.where(level: 1): set align(
+>>>     center
+>>>   )
+>>>   show heading.where(level: 1): set text(
+>>>     size: 13pt,
+>>>     weight: "regular",
+>>>   )
+>>>   show heading.where(level: 1): smallcaps
+>>>
+>>>   show heading.where(level: 2): set text(
+>>>     size: 11pt,
+>>>     weight: "regular",
+>>>     style: "italic",
+>>>   )
 >>>   show heading.where(
->>>     level: 1
->>>   ): it => block(width: 100%)[
->>>     #set align(center)
->>>     #set text(13pt, weight: "regular")
->>>     #smallcaps(it.body)
->>>   ]
+>>>     level: 2
+>>>   ): it => {
+>>>     it.body + [.]
+>>>   }
 >>>
 >>>   show heading.where(
 >>>     level: 2

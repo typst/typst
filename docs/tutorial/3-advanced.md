@@ -502,8 +502,13 @@ function. We can also remove the explicit `{align(center, ..)}` calls around the
 various parts since they inherit the center alignment from the placement.
 
 Now there is only one thing left to do: Style our headings. We need to make them
-centered and use small capitals. Because the `heading` function does not offer
-a way to set any of that, we need to write our own heading show rule.
+centered and use small capitals. These properties are not available on the
+`heading` function, so we will need to write a few show-set rules and a show
+rule:
+
+- A show-set rule to make headings center-aligned
+- A show-set rule to make headings 13pt large and use the regular weight
+- A show rule to wrap the headings in a call to the `smallcaps` function
 
 ```example:50,250,265,270
 >>> #set document(title: [
@@ -523,11 +528,12 @@ a way to set any of that, we need to write our own heading show rule.
 >>> )
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
-#show heading: it => [
-  #set align(center)
-  #set text(13pt, weight: "regular")
-  #block(smallcaps(it.body))
-]
+#show heading: set align(center)
+#show heading: set text(
+  size: 13pt,
+  weight: "regular",
+)
+#show heading: smallcaps
 
 <<< ...
 >>> #place(
@@ -571,20 +577,18 @@ a way to set any of that, we need to write our own heading show rule.
 >>> #lorem(45)
 ```
 
-This looks great! We used a show rule that applies to all headings. We give it a
-function that gets passed the heading as a parameter. That parameter can be used
-as content but it also has some fields like `title`, `numbers`, and `level` from
-which we can compose a custom look. Here, we are center-aligning, setting the
-font weight to `{"regular"}` because headings are bold by default, and use the
-[`smallcaps`] function to render the heading's title in small capitals.
+This looks great! We used show rules that apply to all headings. In the final
+smallcaps show rule, we pass the complete heading into the `smallcaps` function
+as the first argument. As we will see in the next example, you could also provide
+a custom rule, completely overriding the default heading.
 
 The only remaining problem is that all headings look the same now. The
-"Motivation" and "Problem Statement" subsections ought to be italic run in
-headers, but right now, they look indistinguishable from the section headings. We
-can fix that by using a `where` selector on our set rule: This is a
-[method]($scripting/#methods) we can call on headings (and other
-elements) that allows us to filter them by their level. We can use it to
-differentiate between section and subsection headings:
+"Motivation" and "Problem Statement" subsections ought to be italic run-in
+headers, but right now, they look indistinguishable from the section headings.
+We can fix that by using a `where` selector on our show rule: This is a
+[method]($scripting/#methods) we can call on headings (and other elements) that
+allows us to filter them by their level. We can use it to differentiate between
+section and subsection headings:
 
 ```example:50,250,265,245
 >>> #set document(title: [
@@ -605,22 +609,21 @@ differentiate between section and subsection headings:
 >>> #set par(justify: true)
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
-#show heading.where(
-  level: 1
-): it => block(width: 100%)[
-  #set align(center)
-  #set text(13pt, weight: "regular")
-  #smallcaps(it.body)
-]
+#show heading.where(level: 1): set align(center)
+#show heading.where(level: 1): set text(
+  size: 13pt,
+  weight: "regular",
+)
+#show heading.where(level: 1): smallcaps
 
-#show heading.where(
-  level: 2
-): it => text(
+#show heading.where(level: 2): set text(
   size: 11pt,
   weight: "regular",
   style: "italic",
-  it.body + [.],
 )
+#show heading.where(level: 2): it => {
+  it.body + [.]
+}
 >>>
 >>> #place(
 >>>   top + center,
@@ -661,9 +664,26 @@ differentiate between section and subsection headings:
 >>> #lorem(45)
 ```
 
-This looks great! We wrote two show rules that each selectively apply to the
-first and second level headings. We used a `where` selector to filter the
-headings by their level. We then rendered the subsection headings as run-ins. We
+In this example, we first scope our previous rules to first-level headings by
+using `.where(level: 1)` to make the selector more specific. Then, we add a
+show-set rule for the second heading level. Finally, we need a show rule with a
+custom function: Headings enclose their contents with a block by default. This
+has the effect that the heading gets its own line. However, we want it to run
+into the text, so we need to provide our own show rule to get rid of this block.
+We provide the rule a function that receives the heading as a parameter called
+`it`. As seen with the smallcaps show rule, that parameter can be used as
+content and will just print the whole default heading. When we want to build our
+own heading instead, we can use its fields like `body`, `numbers`, and `level`
+from which we can compose a custom look. Here, we are just printing the body of
+the heading with a trailing dot to remove the block. Note that this heading
+will no longer react to set rules for heading numberings and similar because we
+did not explicitly use `it.numbering` in the show rule. If you are writing show
+rules like this and want the document to remain customizable, you will need to
+add these fields.
+
+This looks great! We wrote show rules that selectively apply to the first and
+second level headings. We used a `where` selector to filter the headings by
+their level. We then rendered the subsection headings as run-ins. We
 also automatically add a period to the end of the subsection headings.
 
 Let's review the conference's style guide:
