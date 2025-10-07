@@ -33,7 +33,7 @@ typst-syntax = { path = "crates/typst-syntax", version = "0.13.1" }
 typst-timing = { path = "crates/typst-timing", version = "0.13.1" }
 typst-utils = { path = "crates/typst-utils", version = "0.13.1" }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "fbf00f9" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "435c510" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "5bb5393" }
 arrayvec = "0.7.4"
 az = "1.2"
 base64 = "0.22"
@@ -62,8 +62,9 @@ fs_extra = "1.3"
 rustc-hash = "2.1"
 glidesort = "0.1.2"
 hayagriva = "0.9.1"
-hayro-syntax = "0.4.0"
 hayro = { version = "0.4.0", default-features = false }
+hayro-svg = { version = "0.2.0", default-features = false }
+hayro-syntax = "0.4.0"
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }

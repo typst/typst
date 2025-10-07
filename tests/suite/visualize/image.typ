@@ -389,7 +389,10 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   `JPEG`, ..rotations.map(v => with-rotation("/assets/images/f2t.jpg", 0x31, v)),
 )
 
---- image-pdf ---
+--- image-pdf-basic render html ---
+#image("/assets/images/star.pdf")
+
+--- image-pdf-complex ---
 #image("/assets/images/matplotlib.pdf")
 
 --- image-pdf-multiple-pages ---
