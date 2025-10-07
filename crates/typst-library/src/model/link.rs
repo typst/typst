@@ -308,6 +308,8 @@ impl Url {
         let url = url.into();
         if url.len() > 8000 {
             bail!("URL is too long")
+        } else if url.is_empty() {
+            bail!("URL must not be empty")
         }
         Ok(Self(url))
     }
