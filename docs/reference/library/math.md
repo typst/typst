@@ -101,8 +101,8 @@ is available by default in equations. Outside of equations, they can be accessed
 with the `math.` prefix.
 
 # Accessibility
-To make math accessible, you must provide alternative descriptions for equations
-that describe them in natural language using the [`alt` parameter of
+To make math accessible, you must provide alternative descriptions of equations
+in natural language using the [`alt` parameter of
 `math.equation`]($math.equation.alt). For more information, see the [Textual
 Representations section of the Accessibility
 Guide]($guides/accessibility/#textual-representations).
