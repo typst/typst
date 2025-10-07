@@ -39,7 +39,7 @@ use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
 use crate::tags::groups::{
-    BreakOpportunity, BreakPriority, GroupKind, Groups,
+    BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
 };
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
@@ -369,20 +369,23 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if cell.is_repeated.val() {
-            push_artifact(tree, elem, ArtifactType::Other)
+        let kind = if cell.is_repeated.val() {
+            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
+            GroupKind::InternalGridCell(artifact)
         } else {
             let tag = tree.groups.tags.push(Tag::TD);
-            push_stack(tree, elem, GroupKind::TableCell(cell.clone(), tag, None))
-        }
+            GroupKind::TableCell(cell.clone(), tag, None)
+        };
+        push_stack(tree, elem, kind)
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
         let id = tree.ctx.grids.push(GridCtx::new(grid));
         push_stack(tree, elem, GroupKind::Grid(id, None))
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
         // If there is no grid parent, this means a grid layouter is used
-        // internally. Don't generate a stack entry.
+        // internally.
         if !matches!(tree.parent_kind(), GroupKind::Grid(..)) {
-            return no_progress(tree);
+            let kind = GroupKind::InternalGridCell(InternalGridCellKind::Transparent);
+            return push_stack(tree, elem, kind);
         }
 
         // The grid cells are collected into a grid to ensure proper reading
@@ -393,11 +396,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if cell.is_repeated.val() {
-            push_artifact(tree, elem, ArtifactType::Other)
+        let kind = if cell.is_repeated.val() {
+            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
+            GroupKind::InternalGridCell(artifact)
         } else {
-            push_stack(tree, elem, GroupKind::GridCell(cell.clone(), None))
-        }
+            GroupKind::GridCell(cell.clone(), None)
+        };
+        push_stack(tree, elem, kind)
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
@@ -496,7 +501,12 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     // push them back on when processing the logical children.
     let entry = tree.stack[stack_idx];
     let outer = tree.groups.get(entry.id);
-    if matches!(outer.kind, GroupKind::TableCell(..) | GroupKind::GridCell(..)) {
+    if matches!(
+        outer.kind,
+        GroupKind::TableCell(..)
+            | GroupKind::GridCell(..)
+            | GroupKind::InternalGridCell(..)
+    ) {
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
             tree.unfinished_stacks.insert(loc, stack);
             tree.unfinished.push(Unfinished {

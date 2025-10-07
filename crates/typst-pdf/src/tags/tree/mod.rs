@@ -1,7 +1,7 @@
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{self, BBoxCtx, BBoxId, Ctx};
-use crate::tags::groups::{GroupKind, Groups};
+use crate::tags::groups::{GroupKind, Groups, InternalGridCellKind};
 use crate::tags::tree::build::TreeBuilder;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, Tag};
@@ -29,7 +29,7 @@ pub struct Tree {
     state: TraversalStates,
     pub groups: Groups,
     pub ctx: Ctx,
-    pub logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
+    logical_children: FxHashMap<Location, SmallVec<[GroupId; 4]>>,
 }
 
 impl Tree {
@@ -311,7 +311,7 @@ fn step_break(
     let mut current = next;
     for _ in 0..brk.num_opened {
         let group = tree.groups.get(current);
-        if let GroupKind::Artifact(ty) = group.kind {
+        if let Some(ty) = group.kind.as_artifact() {
             new_artifact = Some((current, ty));
         } else if let Some(id) = group.kind.bbox() {
             tree.state.bbox_stack.insert(bbox_start, id);
@@ -328,18 +328,20 @@ fn step_break(
 
 fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
     let group = tree.groups.get(id);
-    let parent = group.parent;
+    let direct_parent = group.parent;
+    let semantic_parent = semantic_parent(tree, direct_parent);
 
     if let Some(id) = group.kind.bbox() {
         tree.state.pop_bbox(id);
+    }
+    if tree.state.pop_artifact(id) {
+        surface.end_tagged();
     }
 
     match &group.kind {
         GroupKind::Root(_) => unreachable!(),
         GroupKind::Artifact(_) => {
-            if tree.state.pop_artifact(id) {
-                surface.end_tagged();
-            }
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::LogicalParent(elem) => {
             let loc = elem.location().unwrap();
@@ -348,138 +350,194 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             if let Some(children) = tree.logical_children.get(&loc) {
                 tree.groups.extend_groups(id, children.iter().copied());
             }
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::LogicalChild => {
-            if let GroupKind::LogicalParent(_) = tree.groups.get(parent).kind {
+            if let GroupKind::LogicalParent(_) = tree.groups.get(semantic_parent).kind {
                 // `GroupKind::LogicalParent` handles inserting of children at
                 // its end, see above.
             } else {
-                tree.groups.push_group(parent, id);
+                tree.groups.push_group(direct_parent, id);
             }
         }
         GroupKind::Outline(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::OutlineEntry(entry, _) => {
-            if let GroupKind::Outline(outline, _) = tree.groups.get(parent).kind {
+            if let GroupKind::Outline(outline, _) = tree.groups.get(semantic_parent).kind
+            {
                 let outline_ctx = tree.ctx.outlines.get_mut(outline);
                 let entry = entry.clone();
-                outline_ctx.insert(&mut tree.groups, parent, entry, id);
+                tree.groups.get_mut(id).parent = semantic_parent;
+                outline_ctx.insert(&mut tree.groups, semantic_parent, entry, id);
             } else {
-                tree.groups.push_group(parent, id);
+                tree.groups.push_group(direct_parent, id);
             }
         }
         GroupKind::Table(table, ..) => {
             context::build_table(tree, *table, id);
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
-        GroupKind::TableCell(cell, tag, _) => {
-            if let GroupKind::Table(table, _, _) = tree.groups.get(parent).kind {
+        &GroupKind::TableCell(ref cell, tag, _) => {
+            let cell = cell.clone();
+            if let Some(table) = move_into(tree, semantic_parent, id, GroupKind::as_table)
+            {
                 let table_ctx = tree.ctx.tables.get_mut(table);
-                table_ctx.insert(cell, *tag, id);
+                table_ctx.insert(&cell, tag, id);
             } else {
                 // Avoid panicking, the nesting will be validated later.
-                tree.groups.push_group(parent, id);
+                tree.groups.push_group(direct_parent, id);
             }
         }
         GroupKind::Grid(grid, _) => {
             let grid_ctx = tree.ctx.grids.get(*grid);
             context::build_grid(grid_ctx, &mut tree.groups, id);
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::GridCell(cell, _) => {
-            if let GroupKind::Grid(grid, _) = tree.groups.get(parent).kind {
+            let cell = cell.clone();
+            if let Some(grid) = move_into(tree, semantic_parent, id, GroupKind::as_grid) {
                 let grid_ctx = tree.ctx.grids.get_mut(grid);
-                grid_ctx.insert(cell, id);
+                grid_ctx.insert(&cell, id);
             } else {
                 // Avoid panicking, the nesting will be validated later.
-                tree.groups.push_group(parent, id);
+                tree.groups.push_group(direct_parent, id);
             }
         }
+        GroupKind::InternalGridCell(internal) => {
+            // Replace with the actual group kind.
+            tree.groups.get_mut(id).kind = internal.to_kind();
+            tree.groups.push_group(direct_parent, id);
+        }
         GroupKind::List(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::ListItemLabel(..) => {
-            let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.ctx.lists.get_mut(list);
-            list_ctx.push_label(&mut tree.groups, parent, id);
+            if let Some(list) = move_into(tree, semantic_parent, id, GroupKind::as_list) {
+                let list_ctx = tree.ctx.lists.get_mut(list);
+                list_ctx.push_label(&mut tree.groups, semantic_parent, id);
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                tree.groups.push_group(direct_parent, id);
+            }
         }
         GroupKind::ListItemBody(..) => {
-            let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.ctx.lists.get_mut(list);
-            list_ctx.push_body(&mut tree.groups, parent, id);
+            if let Some(list) = move_into(tree, semantic_parent, id, GroupKind::as_list) {
+                let list_ctx = tree.ctx.lists.get_mut(list);
+                list_ctx.push_body(&mut tree.groups, semantic_parent, id);
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                tree.groups.push_group(direct_parent, id);
+            }
         }
         GroupKind::TermsItemLabel(..) => {
-            let parent_group = tree.groups.get_mut(parent);
-            let grand_parent = parent_group.parent;
-            // Move the terms label out of the body.
-            if let GroupKind::TermsItemBody(lbl, _) = &mut parent_group.kind {
-                *lbl = Some(id);
-            // The terms body might contain a paragraph, so check if the grand
-            // parent is a terms body.
-            } else if let GroupKind::Par(..) = parent_group.kind
-                && let GroupKind::TermsItemBody(lbl, _) =
-                    &mut tree.groups.get_mut(grand_parent).kind
+            if let GroupKind::TermsItemBody(lbl, _) =
+                &mut tree.groups.get_mut(semantic_parent).kind
             {
                 *lbl = Some(id);
             } else {
-                tree.groups.push_group(parent, id);
+                // Avoid panicking, the nesting will be validated later.
+                tree.groups.push_group(direct_parent, id);
             }
         }
         &GroupKind::TermsItemBody(lbl, ..) => {
-            let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.ctx.lists.get_mut(list);
-            if let Some(lbl) = lbl {
-                tree.groups.get_mut(lbl).parent = parent;
-                list_ctx.push_label(&mut tree.groups, parent, lbl);
+            if let Some(list) = move_into(tree, semantic_parent, id, GroupKind::as_list) {
+                let list_ctx = tree.ctx.lists.get_mut(list);
+                if let Some(lbl) = lbl {
+                    tree.groups.get_mut(lbl).parent = semantic_parent;
+                    list_ctx.push_label(&mut tree.groups, semantic_parent, lbl);
+                }
+                list_ctx.push_body(&mut tree.groups, semantic_parent, id);
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                tree.groups.push_group(direct_parent, id);
             }
-            list_ctx.push_body(&mut tree.groups, parent, id);
         }
         GroupKind::BibEntry(..) => {
-            let list = tree.groups.get(parent).kind.as_list().expect("parent list");
-            let list_ctx = tree.ctx.lists.get_mut(list);
-            list_ctx.push_bib_entry(&mut tree.groups, parent, id);
+            if let Some(list) = move_into(tree, semantic_parent, id, GroupKind::as_list) {
+                let list_ctx = tree.ctx.lists.get_mut(list);
+                list_ctx.push_bib_entry(&mut tree.groups, semantic_parent, id);
+            } else {
+                // Avoid panicking, the nesting will be validated later.
+                tree.groups.push_group(direct_parent, id);
+            }
         }
         GroupKind::Figure(figure, ..) => {
-            context::build_figure(tree, *figure, parent, id);
+            context::build_figure(tree, *figure, direct_parent, id);
         }
         GroupKind::FigureCaption(..) => {
-            let parent_group = tree.groups.get_mut(parent);
-            if let GroupKind::Figure(figure, _, _) = &mut parent_group.kind {
-                let figure_ctx = tree.ctx.figures.get_mut(*figure);
+            if let GroupKind::Figure(figure, ..) = tree.groups.get(semantic_parent).kind {
+                let figure_ctx = tree.ctx.figures.get_mut(figure);
                 figure_ctx.caption = Some(id);
             } else {
-                tree.groups.push_group(parent, id);
+                tree.groups.push_group(direct_parent, id);
             }
         }
         GroupKind::Image(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::Formula(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::Link(..) => {
             // Wrap link in reference tag if inside an outline entry.
-            let mut parent = parent;
-            if let GroupKind::OutlineEntry(..) = tree.groups.get(parent).kind {
+            let mut parent = direct_parent;
+            if let GroupKind::OutlineEntry(..) = tree.groups.get(direct_parent).kind {
                 parent = tree.groups.push_tag(parent, Tag::Reference);
             }
             tree.groups.push_group(parent, id);
         }
         GroupKind::CodeBlock(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::CodeBlockLine(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::Par(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
+        }
+        GroupKind::Transparent => {
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::Standard(..) => {
-            tree.groups.push_group(parent, id);
+            tree.groups.push_group(direct_parent, id);
         }
     };
 
-    parent
+    direct_parent
+}
+
+fn move_into<T>(
+    tree: &mut Tree,
+    semantic_parent: GroupId,
+    child: GroupId,
+    f: impl FnOnce(&GroupKind) -> Option<T>,
+) -> Option<T> {
+    let res = f(&tree.groups.get(semantic_parent).kind);
+    if res.is_some() {
+        tree.groups.get_mut(child).parent = semantic_parent;
+    }
+    res
+}
+
+fn semantic_parent(tree: &Tree, direct_parent: GroupId) -> GroupId {
+    let mut parent = direct_parent;
+    loop {
+        let group = tree.groups.get(parent);
+        // While paragraphs, do have a semantic meaning, they are automatically
+        // generated and may interfere with other more strongly structured
+        // nesting groups. For example the `TermsItemLabel` might be wrapped by
+        // a paragraph, out of which it is moved into the parent `LI`.
+        let non_semantic = matches!(
+            group.kind,
+            GroupKind::InternalGridCell(InternalGridCellKind::Transparent)
+                | GroupKind::Par(_)
+                | GroupKind::Transparent
+        );
+        if !non_semantic {
+            return parent;
+        }
+
+        parent = group.parent;
+    }
 }

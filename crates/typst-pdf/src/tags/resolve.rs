@@ -265,6 +265,9 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
         GroupKind::TableCell(_, tag, _) => rs.tags.take(*tag),
         GroupKind::Grid(_, _) => Tag::Div.into(),
         GroupKind::GridCell(_, _) => Tag::Div.into(),
+        GroupKind::InternalGridCell(_) => {
+            unreachable!("should be swapped out in `close_group`")
+        }
         GroupKind::List(_, numbering, _) => Tag::L(*numbering).into(),
         GroupKind::ListItemLabel(_) => Tag::Lbl.into(),
         GroupKind::ListItemBody(_) => Tag::LBody.into(),
@@ -291,6 +294,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> SourceResult<Option<TagK
         }
         GroupKind::CodeBlockLine(_) => Tag::P.into(),
         GroupKind::Par(_) => Tag::P.into(),
+        GroupKind::Transparent => return Ok(None),
         GroupKind::Standard(tag, _) => rs.tags.take(*tag),
     };
 

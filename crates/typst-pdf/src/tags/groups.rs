@@ -119,6 +119,7 @@ impl Groups {
             GroupKind::TableCell(..) => Never,
             GroupKind::Grid(..) => Never,
             GroupKind::GridCell(..) => Never,
+            GroupKind::InternalGridCell(..) => Never,
             GroupKind::List(..) => Never,
             GroupKind::ListItemLabel(..) => Never,
             GroupKind::ListItemBody(..) => Never,
@@ -133,6 +134,7 @@ impl Groups {
             GroupKind::CodeBlock(..) => Never,
             GroupKind::CodeBlockLine(..) => Never,
             GroupKind::Par(..) => NoPdfUa(BreakPriority::Par),
+            GroupKind::Transparent => Never,
             GroupKind::Standard(tag, ..) => match self.tags.get(*tag) {
                 TagKind::Part(_) => Never,
                 TagKind::Article(_) => Never,
@@ -199,6 +201,7 @@ impl Groups {
             | GroupKind::TableCell(..)
             | GroupKind::Grid(..)
             | GroupKind::GridCell(..)
+            | GroupKind::InternalGridCell(..)
             | GroupKind::List(..)
             | GroupKind::ListItemLabel(..)
             | GroupKind::ListItemBody(..)
@@ -210,7 +213,8 @@ impl Groups {
             | GroupKind::Image(..)
             | GroupKind::Formula(..)
             | GroupKind::CodeBlock(..)
-            | GroupKind::CodeBlockLine(..) => unreachable!(),
+            | GroupKind::CodeBlockLine(..)
+            | GroupKind::Transparent => unreachable!(),
         };
         self.list.push(Group::weak(new_parent, span, new_kind))
     }
@@ -407,6 +411,12 @@ pub enum GroupKind {
     TableCell(Packed<TableCell>, TagId, Option<Locale>),
     Grid(GridId, Option<Locale>),
     GridCell(Packed<GridCell>, Option<Locale>),
+    /// Grid cells can be split up across multiple pages, and contained tag
+    /// structure might also be split up across these multiple regions, this
+    /// needs to be handled when the logical tree is built using the
+    /// `unfinished_stacks` map. Even when a grid is used internally, or the
+    /// cell is repeated and thus marked as an artifact.
+    InternalGridCell(InternalGridCellKind),
     List(ListId, ListNumbering, Option<Locale>),
     ListItemLabel(Option<Locale>),
     ListItemBody(Option<Locale>),
@@ -427,7 +437,22 @@ pub enum GroupKind {
     /// contains no children. This can happen when there are overlapping tags
     /// and a pragraph is split up.
     Par(Option<Locale>),
+    Transparent,
     Standard(TagId, Option<Locale>),
+}
+
+pub enum InternalGridCellKind {
+    Transparent,
+    Artifact(ArtifactType),
+}
+
+impl InternalGridCellKind {
+    pub fn to_kind(&self) -> GroupKind {
+        match self {
+            InternalGridCellKind::Transparent => GroupKind::Transparent,
+            InternalGridCellKind::Artifact(ty) => GroupKind::Artifact(*ty),
+        }
+    }
 }
 
 impl std::fmt::Debug for GroupKind {
@@ -443,6 +468,7 @@ impl std::fmt::Debug for GroupKind {
             Self::TableCell(..) => "TableCell",
             Self::Grid(..) => "Grid",
             Self::GridCell(..) => "GridCell",
+            Self::InternalGridCell(..) => "InternalGridCell",
             Self::List(..) => "List",
             Self::ListItemLabel(..) => "ListItemLabel",
             Self::ListItemBody(..) => "ListItemBody",
@@ -457,6 +483,7 @@ impl std::fmt::Debug for GroupKind {
             Self::CodeBlock(..) => "CodeBlock",
             Self::CodeBlockLine(..) => "CodeBlockLine",
             Self::Par(..) => "Par",
+            Self::Transparent => "Transparent",
             Self::Standard(..) => "Standard",
         })
     }
@@ -464,7 +491,7 @@ impl std::fmt::Debug for GroupKind {
 
 impl GroupKind {
     pub fn is_artifact(&self) -> bool {
-        matches!(self, Self::Artifact(_))
+        self.as_artifact().is_some()
     }
 
     pub fn is_link(&self) -> bool {
@@ -472,15 +499,27 @@ impl GroupKind {
     }
 
     pub fn as_artifact(&self) -> Option<ArtifactType> {
-        if let Self::Artifact(v) = self { Some(*v) } else { None }
-    }
-
-    pub fn as_list(&self) -> Option<ListId> {
-        if let Self::List(v, ..) = self { Some(*v) } else { None }
+        match *self {
+            GroupKind::Artifact(ty) => Some(ty),
+            GroupKind::InternalGridCell(InternalGridCellKind::Artifact(ty)) => Some(ty),
+            _ => None,
+        }
     }
 
     pub fn as_link(&self) -> Option<&Packed<LinkMarker>> {
         if let Self::Link(v, ..) = self { Some(v) } else { None }
+    }
+
+    pub fn as_table(&self) -> Option<TableId> {
+        if let Self::Table(id, ..) = self { Some(*id) } else { None }
+    }
+
+    pub fn as_grid(&self) -> Option<GridId> {
+        if let Self::Grid(id, ..) = self { Some(*id) } else { None }
+    }
+
+    pub fn as_list(&self) -> Option<ListId> {
+        if let Self::List(id, ..) = self { Some(*id) } else { None }
     }
 
     pub fn bbox(&self) -> Option<BBoxId> {
@@ -506,6 +545,7 @@ impl GroupKind {
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
             GroupKind::GridCell(_, lang) => lang,
+            GroupKind::InternalGridCell(_) => return None,
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
@@ -520,6 +560,7 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })
     }
@@ -536,6 +577,7 @@ impl GroupKind {
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
             GroupKind::GridCell(_, lang) => lang,
+            GroupKind::InternalGridCell(_) => return None,
             GroupKind::List(_, _, lang) => lang,
             GroupKind::ListItemLabel(lang) => lang,
             GroupKind::ListItemBody(lang) => lang,
@@ -550,6 +592,7 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })
     }
