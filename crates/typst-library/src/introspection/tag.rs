@@ -45,17 +45,18 @@ impl Debug for Tag {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct TagFlags {
-    /// Whether the element is [`Locatable`](super::Locatable).
-    pub locatable: bool,
+    /// Whether the element will be inserted into the
+    /// [`Introspector`](super::Introspector).
+    /// Either because it is [`Locatable`](super::Locatable), has been labelled,
+    /// or a location has been manually set.
+    pub introspectable: bool,
     /// Whether the element is [`Tagged`](super::Tagged).
     pub tagged: bool,
-    /// Whether the element has a [`Label`](crate::foundations::Label).
-    pub labelled: bool,
 }
 
 impl TagFlags {
     pub fn any(&self) -> bool {
-        self.locatable || self.tagged || self.labelled
+        self.introspectable || self.tagged
     }
 }
 

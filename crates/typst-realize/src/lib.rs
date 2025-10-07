@@ -534,9 +534,10 @@ fn prepare(
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
     let flags = TagFlags {
-        locatable: elem.can::<dyn Locatable>(),
+        introspectable: elem.can::<dyn Locatable>()
+            || elem.label().is_some()
+            || elem.location().is_some(),
         tagged: elem.can::<dyn Tagged>(),
-        labelled: elem.label().is_some(),
     };
     if elem.location().is_none() && flags.any() {
         let loc = locator.next_location(engine.introspector, key);
