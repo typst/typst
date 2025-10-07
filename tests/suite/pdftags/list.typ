@@ -71,10 +71,10 @@
 / B: 2
 
 --- list-tags-terms-label-with-parbreak-error pdftags ---
-// Error: PDF/UA-1 error: invalid document structure, this element's PDF tag would be split up
-// Hint: this is probably caused by paragraph grouping
-// Hint: maybe you've used a `parbreak`, `colbreak`, or `pagebreak`
-// TODO: This should have the span of the term label.
+// Error: 1-21 PDF/UA-1 error: invalid document structure, this element's PDF tag would be split up
+// Hint: 1-21 this is probably caused by paragraph grouping
+// Hint: 1-21 maybe you've used a `parbreak`, `colbreak`, or `pagebreak`
+// TODO: This should have the span of the term label, not the entire term item
 / A #parbreak() A: 1
 / B: 2
 
