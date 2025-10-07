@@ -7,5 +7,5 @@ outline = Indice
 raw = Codice
 page = pag.
 footnote = Nota
-# email =
-# telephone =
+email = E-mail
+telephone = Telefono
