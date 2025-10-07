@@ -63,7 +63,7 @@ rustc-hash = "2.1"
 glidesort = "0.1.2"
 hayagriva = "0.9.1"
 hayro = { version = "0.4.0", default-features = false }
-hayro-svg = "0.2.0"
+hayro-svg = { version = "0.2.0", default-features = false }
 hayro-syntax = "0.4.0"
 heck = "0.5"
 hypher = "0.1.4"
