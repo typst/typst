@@ -221,3 +221,9 @@ $ a0 + a1 + a0_2 \
 // sequence of extended shapes).
 $lr(size: #130%, [x])_0^1, [x]_0^1, \]_0^1, x_0^1, A_0^1$ \
 $n^2, (n + 1)^2, sum_0^1, integral_0^1$
+
+--- math-attach-missing-sides ---
+// Test attachments that are missing a side.
+// Error: 23-24 unexpected underscore
+$ a _ b (d _) (d'_ ) (_ c) $
+
