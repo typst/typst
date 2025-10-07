@@ -413,8 +413,9 @@ dependencies = [
 
 [[package]]
 name = "codex"
-version = "0.1.1"
-source = "git+https://github.com/typst/codex?rev=e3b4652#e3b4652d1143061c392b7897ff5faafef1550ffc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9589e1effc5cacbea347899645c654158b03b2053d24bb426fd3128ced6e423c"
 
 [[package]]
 name = "color-print"
