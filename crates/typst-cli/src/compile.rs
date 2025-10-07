@@ -1,14 +1,11 @@
 use std::ffi::OsStr;
-use std::fs::{self, File};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::eco_format;
 use parking_lot::RwLock;
-use pathdiff::diff_paths;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::WorldExt;
 use typst::diag::{
@@ -21,9 +18,10 @@ use typst_html::HtmlDocument;
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
 
 use crate::args::{
-    CompileArgs, CompileCommand, DiagnosticFormat, Input, Output, OutputFormat,
-    PdfStandard, WatchCommand,
+    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
+    OutputFormat, PdfStandard, WatchCommand,
 };
+use crate::deps::write_deps;
 #[cfg(feature = "http-server")]
 use crate::server::HtmlServer;
 use crate::timings::Timer;
@@ -67,7 +65,7 @@ pub struct CompileConfig {
     pub pdf_standards: PdfStandards,
     /// Whether to write PDF (accessibility) tags.
     pub disable_pdf_tags: bool,
-    /// A path to write a list of dependencies.to.
+    /// A destination to write a list of dependencies to.
     pub deps: Option<Output>,
     /// The format to use for dependencies.
     pub deps_format: DepsFormat,
@@ -165,7 +163,7 @@ impl CompileConfig {
             open: args.open.clone(),
             export_cache: ExportCache::new(),
             deps: args.deps.clone(),
-            deps_format: args.deps_format.into(),
+            deps_format: args.deps_format,
             #[cfg(feature = "http-server")]
             server,
         })
@@ -187,11 +185,10 @@ pub fn compile_once(
 
     let Warned { output, warnings } = compile_and_export(world, config);
 
-    match output {
-        // Export the PDF / PNG.
-        Ok(outputs) => {
+    match &output {
+        // Print success message and possibly warnings.
+        Ok(_) => {
             let duration = start.elapsed();
-
             if config.watching {
                 if warnings.is_empty() {
                     Status::Success(duration).print(config).unwrap();
@@ -203,15 +200,10 @@ pub fn compile_once(
             print_diagnostics(world, &[], &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
-            if let DepsFormat::WithOutput(deps) = config.deps_format
-                && let Some(ref file) = config.deps
-            {
-                deps.write(world, file, outputs)?;
-            }
             open_output(config)?;
         }
 
-        // Print diagnostics.
+        // Print failure message and diagnostics.
         Err(errors) => {
             set_failed();
 
@@ -219,15 +211,14 @@ pub fn compile_once(
                 Status::Error.print(config).unwrap();
             }
 
-            print_diagnostics(world, &errors, &warnings, config.diagnostic_format)
+            print_diagnostics(world, errors, &warnings, config.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
 
-    if let DepsFormat::NoOutput(deps) = config.deps_format
-        && let Some(ref file) = config.deps
-    {
-        deps.write(world, file)?;
+    if let Some(dest) = &config.deps {
+        write_deps(world, dest, config.deps_format, output.as_deref().ok())
+            .map_err(|err| eco_format!("failed to create dependency file ({err})"))?;
     }
 
     Ok(())
@@ -474,16 +465,6 @@ fn export_image_page(
     Ok(())
 }
 
-impl Output {
-    fn write(&self, buffer: &[u8]) -> StrResult<()> {
-        match self {
-            Output::Stdout => std::io::stdout().write_all(buffer),
-            Output::Path(path) => fs::write(path, buffer),
-        }
-        .map_err(|err| eco_format!("{err}"))
-    }
-}
-
 /// Caches exported files so that we can avoid re-exporting them if they haven't
 /// changed.
 ///
@@ -514,220 +495,6 @@ impl ExportCache {
         }
 
         cache.with_upgraded(|cache| std::mem::replace(&mut cache[i], hash) == hash)
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DepsFormat {
-    WithOutput(DepsWithOutputs),
-    NoOutput(DepsNoOutputs),
-}
-
-impl From<crate::args::DepsFormat> for DepsFormat {
-    fn from(value: crate::args::DepsFormat) -> Self {
-        use crate::args::DepsFormat;
-        match value {
-            DepsFormat::Make => Self::WithOutput(DepsWithOutputs::Make),
-            DepsFormat::Zero => Self::NoOutput(DepsNoOutputs::Zero),
-            DepsFormat::Json => Self::NoOutput(DepsNoOutputs::Json),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DepsNoOutputs {
-    Json,
-    Zero,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DepsWithOutputs {
-    Make,
-}
-#[derive(Debug)]
-enum OpenOutput<'a> {
-    Stdout(std::io::StdoutLock<'a>),
-    File(std::fs::File),
-}
-
-impl OpenOutput<'_> {
-    fn new(output: &Output) -> io::Result<Self> {
-        match output {
-            Output::Stdout => Ok(Self::Stdout(std::io::stdout().lock())),
-            Output::Path(path) => File::create(path).map(Self::File),
-        }
-    }
-}
-
-impl io::Write for OpenOutput<'_> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            OpenOutput::Stdout(x) => x.write(buf),
-            OpenOutput::File(x) => x.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            OpenOutput::Stdout(x) => x.flush(),
-            OpenOutput::File(x) => x.flush(),
-        }
-    }
-}
-
-impl DepsNoOutputs {
-    fn write_inner(
-        self,
-        deps_path: &Output,
-        root: PathBuf,
-        dependencies: impl Iterator<Item = PathBuf>,
-    ) -> io::Result<()> {
-        use serde::ser::{SerializeSeq as _, Serializer as _};
-        let mut file = OpenOutput::new(deps_path)?;
-        let current_dir = std::env::current_dir()?;
-        let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
-        let mut dependencies = dependencies.map(|dependency| {
-            dependency
-                .strip_prefix(&root)
-                .map_or_else(|_| dependency.clone(), |x| relative_root.join(x))
-                .into_os_string()
-        });
-        match self {
-            Self::Zero => dependencies.try_for_each(|ref dep| {
-                file.write_all(dep.as_encoded_bytes())?;
-                file.write_all(b"\0")?;
-                Ok(())
-            }),
-            Self::Json => dependencies
-                .try_fold(
-                    serde_json::Serializer::new(file).serialize_seq(None)?,
-                    |mut acc, cur| {
-                        <&str>::try_from(cur.as_os_str())
-                            .map_err(|_| {
-                                io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    format!("{cur:?} isn't valid UTF-8"),
-                                )
-                            })
-                            .and_then(|x| acc.serialize_element(x).map_err(Into::into))?;
-                        Ok(acc)
-                    },
-                )
-                .and_then(|x| x.end().map_err(Into::into)),
-        }
-    }
-    fn write(self, world: &mut SystemWorld, deps_file: &Output) -> StrResult<()> {
-        self.write_inner(deps_file, world.root().to_owned(), world.dependencies())
-            .map_err(|err| {
-                eco_format!("failed to create dependencies file due to IO error ({err})")
-            })
-    }
-}
-
-impl DepsWithOutputs {
-    fn write(
-        self,
-        world: &mut SystemWorld,
-        make_deps_path: &Output,
-        outputs: Vec<Output>,
-    ) -> StrResult<()> {
-        let Ok(output_paths) = outputs
-            .into_iter()
-            .filter_map(|o| match o {
-                Output::Path(path) => Some(path.into_os_string().into_string()),
-                Output::Stdout => None,
-            })
-            .collect::<Result<Vec<_>, _>>()
-        else {
-            bail!(
-                "failed to create make dependencies file because output path was not valid unicode"
-            )
-        };
-        if output_paths.is_empty() {
-            bail!("failed to create make dependencies file because output was stdout")
-        }
-
-        // Based on `munge` in libcpp/mkdeps.cc from the GCC source code. This isn't
-        // perfect as some special characters can't be escaped.
-        fn munge(s: &str) -> String {
-            let mut res = String::with_capacity(s.len());
-            let mut slashes = 0;
-            for c in s.chars() {
-                match c {
-                    '\\' => slashes += 1,
-                    '$' => {
-                        res.push('$');
-                        slashes = 0;
-                    }
-                    ':' => {
-                        res.push('\\');
-                        slashes = 0;
-                    }
-                    ' ' | '\t' => {
-                        // `munge`'s source contains a comment here that says: "A
-                        // space or tab preceded by 2N+1 backslashes represents N
-                        // backslashes followed by space..."
-                        for _ in 0..slashes + 1 {
-                            res.push('\\');
-                        }
-                        slashes = 0;
-                    }
-                    '#' => {
-                        res.push('\\');
-                        slashes = 0;
-                    }
-                    _ => slashes = 0,
-                };
-                res.push(c);
-            }
-            res
-        }
-
-        fn write(
-            make_deps_path: &Output,
-            output_paths: Vec<String>,
-            root: PathBuf,
-            dependencies: impl Iterator<Item = PathBuf>,
-        ) -> io::Result<()> {
-            let mut file = OpenOutput::new(make_deps_path)?;
-            let current_dir = std::env::current_dir()?;
-            let relative_root = diff_paths(&root, &current_dir).unwrap_or(root.clone());
-
-            for (i, output_path) in output_paths.into_iter().enumerate() {
-                if i != 0 {
-                    file.write_all(b" ")?;
-                }
-                file.write_all(munge(&output_path).as_bytes())?;
-            }
-            file.write_all(b":")?;
-            for dependency in dependencies {
-                let relative_dependency = match dependency.strip_prefix(&root) {
-                    Ok(root_relative_dependency) => {
-                        relative_root.join(root_relative_dependency)
-                    }
-                    Err(_) => dependency,
-                };
-                let Some(relative_dependency) = relative_dependency.to_str() else {
-                    // Silently skip paths that aren't valid unicode so we still
-                    // produce a rule that will work for the other paths that can be
-                    // processed.
-                    continue;
-                };
-
-                file.write_all(b" ")?;
-                file.write_all(munge(relative_dependency).as_bytes())?;
-            }
-            file.write_all(b"\n")?;
-
-            Ok(())
-        }
-
-        write(make_deps_path, output_paths, world.root().to_owned(), world.dependencies())
-            .map_err(|err| {
-                eco_format!(
-                    "failed to create make dependencies file due to IO error ({err})"
-                )
-            })
     }
 }
 
