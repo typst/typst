@@ -424,16 +424,16 @@ pub struct TextElem {
     /// default for PDF export) and below and ISO 639-3 for PDF 2.0 and HTML
     /// export.
     ///
-    /// ```example
+    /// The language code is case-insensitive, and will be lowercased when
+    /// accessed through [context]($context).
+    ///
+    /// ```example:"Setting the text language to German"
     /// #set text(lang: "de")
     /// #outline()
     ///
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
-    ///
-    /// The language code is case-insensitive, and will be lowercased when
-    /// accessed through [context]($context).
     #[default(Lang::ENGLISH)]
     #[ghost]
     pub lang: Lang,

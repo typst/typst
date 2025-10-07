@@ -133,13 +133,13 @@ pub struct MatElem {
     ///   - `stroke`: How to [stroke]($stroke) the line. If set to `{auto}`,
     ///     takes on a thickness of 0.05 em and square line caps.
     ///
-    /// ```example
+    /// ```example:"Basic usage"
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
     /// // Equivalent to:
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #(-1)) $
     /// ```
     ///
-    /// ```example
+    /// ```example:"Customizing the augmentation line"
     /// $ mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
     /// ```
     #[fold]

@@ -459,21 +459,29 @@ fn func_model(
     }
 
     let nesting = if nested { None } else { Some(1) };
-    let (details, example) =
-        if nested { split_details_and_example(docs) } else { (docs, None) };
+    let items =
+        if nested { details_blocks(docs) } else { vec![RawDetailsBlock::Markdown(docs)] };
+
+    let Some(first_md) = items.iter().find_map(|item| {
+        if let RawDetailsBlock::Markdown(md) = item { Some(md) } else { None }
+    }) else {
+        panic!("function lacks any details")
+    };
 
     FuncModel {
         path: path.iter().copied().map(Into::into).collect(),
         name: name.into(),
         title: func.title().unwrap(),
         keywords: func.keywords(),
-        oneliner: oneliner(details),
+        oneliner: oneliner(first_md),
         element: func.element().is_some(),
         contextual: func.contextual().unwrap_or(false),
         deprecation_message: deprecation.map(Deprecation::message),
         deprecation_until: deprecation.and_then(Deprecation::until),
-        details: Html::markdown(resolver, details, nesting),
-        example: example.map(|md| Html::markdown(resolver, md, None)),
+        details: items
+            .into_iter()
+            .map(|proto| proto.into_model(resolver, nesting))
+            .collect(),
         self_,
         params: params.iter().map(|param| param_model(resolver, param)).collect(),
         returns,
@@ -483,8 +491,6 @@ fn func_model(
 
 /// Produce a parameter's model.
 fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
-    let (details, example) = split_details_and_example(info.docs);
-
     let mut types = vec![];
     let mut strings = vec![];
     casts(resolver, &mut types, &mut strings, &info.input);
@@ -495,8 +501,10 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
 
     ParamModel {
         name: info.name,
-        details: Html::markdown(resolver, details, None),
-        example: example.map(|md| Html::markdown(resolver, md, None)),
+        details: details_blocks(info.docs)
+            .into_iter()
+            .map(|proto| proto.into_model(resolver, None))
+            .collect(),
         types,
         strings,
         default: info.default.map(|default| {
@@ -511,18 +519,89 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
     }
 }
 
-/// Split up documentation into details and an example.
-fn split_details_and_example(docs: &str) -> (&str, Option<&str>) {
-    let mut details = docs;
-    let mut example = None;
-    if let Some(mut i) = docs.find("```") {
-        while docs[..i].ends_with('`') {
-            i -= 1;
+/// A details block that has not yet been processed.
+enum RawDetailsBlock<'a> {
+    /// Raw Markdown.
+    Markdown(&'a str),
+    /// An example with an optional title.
+    Example { body: &'a str, title: Option<&'a str> },
+}
+
+impl<'a> RawDetailsBlock<'a> {
+    fn into_model(self, resolver: &dyn Resolver, nesting: Option<usize>) -> DetailsBlock {
+        match self {
+            RawDetailsBlock::Markdown(md) => {
+                DetailsBlock::Html(Html::markdown(resolver, md, nesting))
+            }
+            RawDetailsBlock::Example { body, title } => DetailsBlock::Example {
+                body: Html::markdown(resolver, body, None),
+                title: title.map(Into::into),
+            },
         }
-        details = &docs[..i];
-        example = Some(&docs[i..]);
     }
-    (details, example)
+}
+
+/// Split up documentation into Markdown blocks and examples.
+fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
+    let mut i = 0;
+    let mut res = Vec::new();
+
+    while i < docs.len() {
+        match find_fence_start(&docs[i..]) {
+            Some((found, fence_len)) => {
+                let fence_idx = i + found;
+
+                // Find the language tag of the fence, if any.
+                let lang_tag_end = docs[fence_idx + fence_len..]
+                    .find('\n')
+                    .map(|end| fence_idx + fence_len + end)
+                    .unwrap_or(docs.len());
+
+                let tag = &docs[fence_idx + fence_len..lang_tag_end].trim();
+                let title = ExampleArgs::from_tag(tag).title;
+
+                // First, push non-fenced content.
+                if found > 0 {
+                    res.push(RawDetailsBlock::Markdown(&docs[i..fence_idx]));
+                }
+
+                // Then, find the end of the fence.
+                let offset = fence_idx + fence_len;
+                let Some(fence_end) = docs[offset..]
+                    .find(&"`".repeat(fence_len))
+                    .map(|end| offset + end + fence_len)
+                else {
+                    panic!(
+                        "unclosed code fence in docs at position {}: {}",
+                        fence_idx,
+                        &docs[fence_idx..]
+                    );
+                };
+
+                res.push(RawDetailsBlock::Example {
+                    body: &docs[fence_idx..fence_end],
+                    title,
+                });
+                i = fence_end;
+            }
+            None => {
+                res.push(RawDetailsBlock::Markdown(&docs[i..]));
+                break;
+            }
+        }
+    }
+
+    res
+}
+
+/// Returns the start of a code fence and how many backticks it uses.
+fn find_fence_start(md: &str) -> Option<(usize, usize)> {
+    let start = md.find("```")?;
+    let mut count = 3;
+    while md[start + count..].starts_with('`') {
+        count += 1;
+    }
+    Some((start, count))
 }
 
 /// Process cast information into types and strings.
@@ -565,7 +644,11 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
 
     if id_base.is_empty() {
         outline.push(OutlineItem::from_name("Summary"));
-        outline.extend(model.details.outline());
+        for block in &model.details {
+            if let DetailsBlock::Html(html) = block {
+                outline.extend(html.outline());
+            }
+        }
 
         if !model.params.is_empty() {
             outline.push(OutlineItem {
