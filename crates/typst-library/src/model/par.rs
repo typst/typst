@@ -1,13 +1,15 @@
+use ecow::eco_format;
 use typst_utils::singleton;
 
-use crate::diag::{SourceResult, bail};
+use crate::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Cast, Construct, Content, Dict, NativeElement, Packed, Smart, Unlabellable,
-    Value, cast, dict, elem, scope,
+    AlternativeFold, Args, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue,
+    IntoValue, NativeElement, Packed, Reflect, Smart, Unlabellable, Value, cast, dict,
+    elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate, Locatable, Tagged, Unqueriable};
-use crate::layout::{Em, HAlignment, Length, OuterHAlignment, Rel};
+use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
 use crate::model::Numbering;
 
 /// A logical subdivison of textual content.
@@ -232,46 +234,79 @@ pub struct ParElem {
     ///
     /// By default, Typst only changes the spacing between words to achieve
     /// justification. However, you can also allow it to adjust the spacing
-    /// between individual glyphs using the
+    /// between individual characters using the
     /// [`justification-limits` property]($par.justification-limits).
     #[default(false)]
     pub justify: bool,
 
-    /// How much the spacing between words and letters may be adjusted during
+    /// How much the spacing between words and characters may be adjusted during
     /// justification.
     ///
     /// When justifying text, Typst needs to stretch or shrink a line to the
-    /// full width of the measure. To achieve this, it adjusts the spacing
-    /// between words. Additionally, it can also adjust the spacing between
-    /// individual characters (glyphs). This property allows you to configure
+    /// full width of the measure. To achieve this, by default, it adjusts the
+    /// spacing between words. Additionally, it can also adjust the spacing
+    /// between individual characters. This property allows you to configure
     /// lower and upper bounds for these adjustments.
     ///
-    /// The property accepts a dictionary with two entries, `word` and `glyph`,
-    /// each containing a dictionary with the keys `min` and `max`. Each of
-    /// these keys accepts a [relative length]($relative). The percentages for
-    /// the `word` dictionary are defined with regards to the default space
-    /// width whereas the percentages in the `glyph` dictionary apply to the
-    /// distance between each particular pair of glyphs. The `min` entry
-    /// specifies how much the respective spacing may be reduced, while the
-    /// `max` entry specifies how much it may be increased.
+    /// The property accepts a dictionary with two entries, `spacing` and
+    /// `tracking`, each containing a dictionary with the keys `min` and `max`.
+    /// The `min` keys define down to which lower bound gaps may be shrunk while
+    /// the `max` keys define up to which upper bound they may be stretched.
     ///
-    /// Using glyph-level justification is an impactful microtypographic
-    /// technique that can improve the appearance of the justified text,
-    /// especially in narrow columns. The example below illustrates the
-    /// difference.
+    /// - The `spacing` entry defines how much the width of spaces between words
+    ///   may be adjusted. It is closely related to [`text.spacing`] and its
+    ///   `min` and `max` keys accept [relative lengths]($relative), just like
+    ///   the `spacing` property.
     ///
-    /// If you want to enable glyph-level justification, a good value for this
-    /// property would `{98%}` as the minimum and `{102%}` as the maximum, as
-    /// demonstrated in the example below. Be careful not to set the bounds too
-    /// wide, which quickly looks unnatural.
+    ///   A `min` value of `{100%}` means that spaces should retain their normal
+    ///   size (i.e. not be shrunk), while a value of `{90% - 0.01em}` would
+    ///   indicate that a space can be shrunk to a width of 90% of its normal
+    ///   width minus 0.01× the current font size. Similarly, a `max` value of
+    ///   `{100% + 0.02em}` means that a space's width can be increased by 0.02×
+    ///   the current font size. The ratio part must always be positive. The
+    ///   length part, meanwhile, must not be positive for `min` and not be
+    ///   negative for `max`.
     ///
-    /// Glyph-level justification does not work with every font or language. For
-    /// example, cursive fonts connect letters. Using glyph-level justification
-    /// would lead to jagged connections.
+    ///   Note that spaces may still be expanded beyond the `max` value if there
+    ///   is no way to justify the line otherwise. However, other means of
+    ///   justification (e.g. spacing apart characters if the `tracking` entry
+    ///   is configured accordingly) are first used to their maximum.
     ///
-    /// ```example
-    /// #set page(width: 440pt, height: 21em, margin: 15pt)
-    /// #let prose = [
+    /// - The `tracking` entry defines how much the spacing between letters may
+    ///   be adjusted. It is closely related to [`text.tracking`] and its `min`
+    ///   and `max` keys accept [lengths]($length), just like the `tracking`
+    ///   property. Unlike `spacing`, it does not accept relative lengths
+    ///   because the base of the relative length would vary for each character,
+    ///   leading to an uneven visual appearance. The behavior compared to
+    ///   `spacing` is as if the base was `{100%}`.
+    ///
+    ///   Otherwise, the `min` and `max` values work just like for `spacing`. A
+    ///   `max` value of `{0.01em}` means that additional spacing amounting to
+    ///   0.01× of the current font size may be inserted between every pair of
+    ///   characters. Note that this also includes the gaps between spaces and
+    ///   characters, so for spaces the values of `tracking` act in addition to
+    ///   the values for `spacing`.
+    ///
+    /// If you only specify one of `spacing` or `tracking`, the other retains
+    /// its previously set value (or the default if it was not previously set).
+    ///
+    /// If you want to enable character-level justification, a good value for
+    /// the `min` and `max` keys is around `{0.01em}` to `{0.02em}` (negated for
+    /// `min`). Using the same value for both gives a good baseline, but
+    /// tweaking the two values individually may produce more balanced results,
+    /// as demonstrated in the example below. Be careful not to set the bounds
+    /// too wide, as it quickly looks unnatural.
+    ///
+    /// Using character-level justification is an impactful microtypographical
+    /// technique that can improve the appearance of justified text, especially
+    /// in narrow columns. Note though that character-level justification does
+    /// not work with every font or language. For example, cursive fonts connect
+    /// letters. Using character-level justification would lead to jagged
+    /// connections.
+    ///
+    /// ```example:"Character-level justification"
+    /// #let example(name) = columns(2, gutter: 10pt)[
+    ///   #place(top, float: true, scope: "parent", strong(name))
     /// >>> Anne Christine Bayley (1~June 1934 – 31~December 2024) was an
     /// >>> English surgeon. She was awarded the Order of the British Empire
     /// >>> for her research into HIV/AIDS patients in Zambia and for
@@ -281,9 +316,10 @@ pub struct ParElem {
     /// >>> Medicine. In the 1990s, she returned to England, where she was
     /// >>> ordained as an Anglican priest. She continued to be active in Africa
     /// >>> throughout her retirement years.
-    /// <<< /* Text from https://en.wikipedia.org/wiki/Anne_Bayley */
+    /// <<<   /* Text from https://en.wikipedia.org/wiki/Anne_Bayley */
     /// ]
     ///
+    /// #set page(width: 440pt, height: 21em, margin: 15pt)
     /// #set par(justify: true)
     /// #set text(size: 0.8em)
     ///
@@ -291,44 +327,24 @@ pub struct ParElem {
     ///   columns: (1fr, 1fr),
     ///   gutter: 20pt,
     ///   {
-    ///     place(bottom + center, float: true)[
-    ///       *Glyph-level justification*
-    ///     ]
-    ///     set par(
-    ///       justification-limits: (
-    ///         word: (
-    ///           min: 100% * (2 / 3),
-    ///           max: 150%,
-    ///         ),
-    ///         glyph: (
-    ///           min: 98%,
-    ///           max: 102%,
-    ///         ),
-    ///       ),
-    ///     )
-    ///     columns(2, gutter: 10pt, prose)
+    ///     // These are Typst's default limits.
+    ///     set par(justification-limits: (
+    ///       spacing: (min: 100% * 2 / 3, max: 150%),
+    ///       tracking: (min: 0em, max: 0em),
+    ///     ))
+    ///     example[Word-level justification]
     ///   },
     ///   {
-    ///     place(bottom + center, float: true)[
-    ///       *Word-level justification*
-    ///     ]
-    ///     set par(
-    ///       justification-limits: (
-    ///         word: (
-    ///           min: 100% * (2 / 3),
-    ///           max: 150%,
-    ///         ),
-    ///         glyph: (
-    ///           min: 100%,
-    ///           max: 100%,
-    ///         ),
-    ///       ),
-    ///     )
-    ///     columns(2, gutter: 10pt, prose)
+    ///     // These are our custom character-level limits.
+    ///     set par(justification-limits: (
+    ///       tracking: (min: -0.01em, max: 0.02em),
+    ///     ))
+    ///     example[Character-level justification]
     ///   },
     /// )
     /// ```
-    pub justification_limits: Option<Smart<JustificationLimits>>,
+    #[fold]
+    pub justification_limits: JustificationLimits,
 
     /// How to determine line breaks.
     ///
@@ -418,56 +434,169 @@ impl ParElem {
     type ParLine;
 }
 
-/// Configuration for microtypographical settings to be used during
-/// justification.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+/// Configures how justification may distribute spacing.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct JustificationLimits {
-    /// Minimum allowable word spacing.
-    pub word_min: Rel,
-    /// Maximum allowable word spacing.
-    pub word_max: Rel,
-    /// Minimum allowable glyph spacing.
-    pub glyph_min: Rel,
-    /// Maximum allowable glyph spacing.
-    pub glyph_max: Rel,
+    /// Limits for spacing, relative to the space width.
+    spacing: Option<Limits<Rel>>,
+    /// Limits for tracking, _in addition_ to the glyph width.
+    tracking: Option<Limits<Length>>,
+}
+
+impl JustificationLimits {
+    /// Access the spacing limits.
+    pub fn spacing(&self) -> &Limits<Rel> {
+        self.spacing.as_ref().unwrap_or(&Limits::SPACING_DEFAULT)
+    }
+
+    /// Access the tracking limits.
+    pub fn tracking(&self) -> &Limits<Length> {
+        self.tracking.as_ref().unwrap_or(&Limits::TRACKING_DEFAULT)
+    }
 }
 
 cast! {
     JustificationLimits,
-    self => Value::Dict(self.into()),
-    mut dict: Dict => {
-        let mut word: Dict = dict.take("word")?.cast()?;
-        let word_min = word.take("min")?.cast()?;
-        let word_max = word.take("max")?.cast()?;
-word.finish(&["min", "max"])?;
-
-        let mut glyph: Dict = dict.take("glyph")?.cast()?;
-        let glyph_min = glyph.take("min")?.cast()?;
-        let glyph_max = glyph.take("max")?.cast()?;
-glyph.finish(&["min", "max"])?;
-
-        dict.finish(&["word", "glyph"])?;
-        Self {
-            word_min,
-            word_max,
-            glyph_min,
-            glyph_max
+    self => {
+        let mut dict = Dict::new();
+        if let Some(spacing) = &self.spacing {
+            dict.insert("spacing".into(), spacing.into_value());
         }
+        if let Some(tracking) = &self.tracking {
+            dict.insert("tracking".into(), tracking.into_value());
+        }
+        Value::Dict(dict)
+    },
+    mut dict: Dict => {
+        let spacing = dict.take("spacing").ok().map(|v| v.cast()).transpose()?;
+        let tracking = dict.take("tracking").ok().map(|v| v.cast()).transpose()?;
+        dict.finish(&["spacing", "tracking"])?;
+        Self { spacing, tracking }
     },
 }
 
-impl From<JustificationLimits> for Dict {
-    fn from(justification_limits: JustificationLimits) -> Self {
-        dict! {
-            "word" => dict! {
-                "min" => justification_limits.word_min,
-                "max" => justification_limits.word_max,
-            },
-            "glyph" => dict! {
-                "min" => justification_limits.glyph_min,
-                "max" => justification_limits.glyph_max,
-            },
+impl Fold for JustificationLimits {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            spacing: self.spacing.fold_or(outer.spacing),
+            tracking: self.tracking.fold_or(outer.tracking),
         }
+    }
+}
+
+impl Default for JustificationLimits {
+    fn default() -> Self {
+        Self {
+            spacing: Some(Limits::SPACING_DEFAULT),
+            tracking: Some(Limits::TRACKING_DEFAULT),
+        }
+    }
+}
+
+/// Determines the minimum and maximum size by or to which spacing may be shrunk
+/// and stretched.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+pub struct Limits<T> {
+    /// Minimum allowable adjustment.
+    pub min: T,
+    /// Maximum allowable adjustment.
+    pub max: T,
+}
+
+impl Limits<Rel> {
+    const SPACING_DEFAULT: Self = Self {
+        min: Rel::new(Ratio::new(2.0 / 3.0), Length::zero()),
+        max: Rel::new(Ratio::new(1.5), Length::zero()),
+    };
+}
+
+impl Limits<Length> {
+    const TRACKING_DEFAULT: Self = Self { min: Length::zero(), max: Length::zero() };
+}
+
+impl<T: Reflect> Reflect for Limits<T> {
+    fn input() -> CastInfo {
+        Dict::input()
+    }
+
+    fn output() -> CastInfo {
+        Dict::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Dict::castable(value)
+    }
+}
+
+impl<T: IntoValue> IntoValue for Limits<T> {
+    fn into_value(self) -> Value {
+        Value::Dict(dict! {
+            "min" => self.min,
+            "max" => self.max,
+        })
+    }
+}
+
+impl<T: FromValue + Limit> FromValue for Limits<T> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        let mut dict: Dict = value.cast()?;
+        let mut take = |s, check: fn(T) -> StrResult<T>| {
+            dict.take(s)?
+                .cast::<T>()
+                .map_err(|hinted| hinted.message().clone())
+                .and_then(check)
+                .map_err(|err| eco_format!("`{s}` value is invalid ({err})"))
+        };
+        let min = take("min", Limit::checked_min)?;
+        let max = take("max", Limit::checked_max)?;
+        dict.finish(&["min", "max"])?;
+        Ok(Self { min, max })
+    }
+}
+
+impl<T> Fold for Limits<T> {
+    fn fold(self, _: Self) -> Self {
+        self
+    }
+}
+
+/// Validation for limit components.
+trait Limit: Sized {
+    fn checked_min(self) -> StrResult<Self>;
+    fn checked_max(self) -> StrResult<Self>;
+}
+
+impl Limit for Length {
+    fn checked_min(self) -> StrResult<Self> {
+        if self.abs > Abs::zero() || self.em > Em::zero() {
+            bail!("length must be negative or zero");
+        }
+        Ok(self)
+    }
+
+    fn checked_max(self) -> StrResult<Self> {
+        if self.abs < Abs::zero() || self.em < Em::zero() {
+            bail!("length must be positive or zero");
+        }
+        Ok(self)
+    }
+}
+
+impl Limit for Rel<Length> {
+    fn checked_min(self) -> StrResult<Self> {
+        if self.rel <= Ratio::zero() {
+            bail!("ratio must be positive");
+        }
+        self.abs.checked_min()?;
+        Ok(self)
+    }
+
+    fn checked_max(self) -> StrResult<Self> {
+        if self.rel <= Ratio::zero() {
+            bail!("ratio must be positive");
+        }
+        self.abs.checked_max()?;
+        Ok(self)
     }
 }
 

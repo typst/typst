@@ -87,7 +87,7 @@ impl<T: Numeric> Rel<T> {
     }
 
     /// Create a new relative from its parts.
-    pub fn new(rel: Ratio, abs: T) -> Self {
+    pub const fn new(rel: Ratio, abs: T) -> Self {
         Self { rel, abs }
     }
 
