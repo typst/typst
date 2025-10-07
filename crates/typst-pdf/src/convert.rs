@@ -540,33 +540,30 @@ fn convert_error(
             display_font(gc.fonts_backward.get(f).unwrap());
             hint: "try using a different font"
         ),
-        ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
-            if let Some(c) = c {
-                let msg = if loc.is_some() {
-                    "the PDF contains text with"
-                } else {
-                    "the text contains"
-                };
-                error!(
-                    to_span(*loc),
-                    "{prefix} {msg} the disallowed codepoint `{}`",
-                    c.repr()
-                )
+        ValidationError::NoCodepointMapping(_, _, loc) => {
+            let msg = if loc.is_some() {
+                "the text was not mapped to a code point"
             } else {
-                // I think this code path is in theory unreachable,
-                // but just to be safe.
-                let msg = if loc.is_some() {
-                    "the PDF contains text with missing codepoints"
-                } else {
-                    "the text was not mapped to a code point"
-                };
-                error!(
-                    to_span(*loc),
-                    "{prefix} {msg}";
-                    hint: "for complex scripts like Arabic, it might not be \
-                           possible to produce a compliant document"
-                )
-            }
+                "the PDF contains text with missing codepoints"
+            };
+            error!(
+                to_span(*loc),
+                "{prefix} {msg}";
+                hint: "for complex scripts like Arabic, it might not be \
+                       possible to produce a compliant document"
+            )
+        }
+        ValidationError::InvalidCodepointMapping(_, _, c, loc) => {
+            let msg = if loc.is_some() {
+                "the text contains"
+            } else {
+                "the PDF contains text with"
+            };
+            error!(
+                to_span(*loc),
+                "{prefix} {msg} the disallowed codepoint `{}`",
+                c.repr()
+            )
         }
         ValidationError::UnicodePrivateArea(_, _, c, loc) => {
             let msg = if loc.is_some() { "the PDF" } else { "the text" };
