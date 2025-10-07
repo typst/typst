@@ -274,6 +274,11 @@ pub struct CompileArgs {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
+    /// File path to which a Makefile with the current compilation's
+    /// dependencies will be written.
+    #[clap(long = "make-deps", value_name = "PATH", hide = true)]
+    pub make_deps: Option<PathBuf>,
+
     /// File path to which a list of current compilation's dependencies will be
     /// written. Use `-` to write to stdout.
     #[clap(

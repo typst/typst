@@ -44,6 +44,8 @@ pub fn compile(timer: &mut Timer, command: &CompileCommand) -> StrResult<()> {
 
 /// A preprocessed `CompileCommand`.
 pub struct CompileConfig {
+    /// Static warnings to emit after compilation.
+    pub warnings: Vec<&'static str>,
     /// Whether we are watching.
     pub watching: bool,
     /// Path to input Typst file or stdin.
@@ -93,6 +95,7 @@ impl CompileConfig {
     /// The shared implementation of [`CompileConfig::new`] and
     /// [`CompileConfig::watching`].
     fn new_impl(args: &CompileArgs, watch: Option<&WatchCommand>) -> StrResult<Self> {
+        let mut warnings = Vec::new();
         let input = args.input.clone();
 
         let output_format = if let Some(specified) = args.format {
@@ -149,7 +152,33 @@ impl CompileConfig {
             _ => None,
         };
 
+        let mut deps = args.deps.clone();
+        let mut deps_format = args.deps_format;
+
+        if let Some(path) = &args.make_deps
+            && deps.is_none()
+        {
+            deps = Some(Output::Path(path.clone()));
+            deps_format = DepsFormat::Make;
+            warnings
+                .push("--make-deps is deprecated, use --deps and --deps-format instead");
+        }
+
+        match (&output, &deps, watch) {
+            (Output::Stdout, _, Some(_)) => {
+                bail!("cannot write document to stdout in watch mode");
+            }
+            (_, Some(Output::Stdout), Some(_)) => {
+                bail!("cannot write dependencies to stdout in watch mode")
+            }
+            (Output::Stdout, Some(Output::Stdout), _) => {
+                bail!("cannot write both output and dependencies to stdout")
+            }
+            _ => {}
+        }
+
         Ok(Self {
+            warnings,
             watching: watch.is_some(),
             input,
             output,
@@ -162,8 +191,8 @@ impl CompileConfig {
             diagnostic_format: args.process.diagnostic_format,
             open: args.open.clone(),
             export_cache: ExportCache::new(),
-            deps: args.deps.clone(),
-            deps_format: args.deps_format,
+            deps,
+            deps_format,
             #[cfg(feature = "http-server")]
             server,
         })
@@ -183,7 +212,12 @@ pub fn compile_once(
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, warnings } = compile_and_export(world, config);
+    let Warned { output, mut warnings } = compile_and_export(world, config);
+
+    // Add static warnings (for deprecated CLI flags and such).
+    for &warning in &config.warnings {
+        warnings.push(SourceDiagnostic::warning(Span::detached(), warning));
+    }
 
     match &output {
         // Print success message and possibly warnings.
