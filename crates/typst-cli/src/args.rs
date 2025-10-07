@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use std::io::Write;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -295,8 +296,22 @@ pub struct CompileArgs {
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
-    #[clap(long = "make-deps", value_name = "PATH")]
+    #[clap(long = "make-deps", value_name = "PATH", hide = true)]
     pub make_deps: Option<PathBuf>,
+
+    /// File path to which a list of current compilation's dependencies will be
+    /// written. Use `-` to write to stdout.
+    #[clap(
+        long,
+        value_name = "PATH",
+        value_parser = output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
+    pub deps: Option<Output>,
+
+    /// File format to use for dependencies.
+    #[clap(long, default_value_t)]
+    pub deps_format: DepsFormat,
 
     /// Processing arguments.
     #[clap(flatten)]
@@ -468,11 +483,52 @@ pub enum Output {
     Path(PathBuf),
 }
 
+impl Output {
+    /// Write data to the output.
+    pub fn write(&self, buffer: &[u8]) -> std::io::Result<()> {
+        match self {
+            Output::Stdout => std::io::stdout().write_all(buffer),
+            Output::Path(path) => std::fs::write(path, buffer),
+        }
+    }
+
+    /// Open the output for writing.
+    pub fn open(&self) -> std::io::Result<OpenOutput<'_>> {
+        match self {
+            Self::Stdout => Ok(OpenOutput::Stdout(std::io::stdout().lock())),
+            Self::Path(path) => std::fs::File::create(path).map(OpenOutput::File),
+        }
+    }
+}
+
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Output::Stdout => f.pad("stdout"),
             Output::Path(path) => path.display().fmt(f),
+        }
+    }
+}
+
+/// A step-by-step writable version of [`Output`].
+#[derive(Debug)]
+pub enum OpenOutput<'a> {
+    Stdout(std::io::StdoutLock<'a>),
+    File(std::fs::File),
+}
+
+impl Write for OpenOutput<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            OpenOutput::Stdout(v) => v.write(buf),
+            OpenOutput::File(v) => v.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            OpenOutput::Stdout(v) => v.flush(),
+            OpenOutput::File(v) => v.flush(),
         }
     }
 }
@@ -487,6 +543,20 @@ pub enum OutputFormat {
 }
 
 display_possible_values!(OutputFormat);
+
+/// Which format to use for a generated dependency file.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum DepsFormat {
+    /// Encodes as JSON, failing for non-Unicode paths.
+    #[default]
+    Json,
+    /// Separates paths with NULL bytes and can express all paths.
+    Zero,
+    /// Emits in Make format, omitting inexpressible paths.
+    Make,
+}
+
+display_possible_values!(DepsFormat);
 
 /// The target to compile for.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
