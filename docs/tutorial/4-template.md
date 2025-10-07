@@ -240,13 +240,8 @@ previous chapter.
 
   // Heading show rules.
 <<<   ...
->>> show heading.where(level: 1): set align(
->>>   center
->>> )
->>> show heading.where(level: 1): set text(
->>>   size: 13pt,
->>>   weight: "regular",
->>> )
+>>> show heading.where(level: 1): set align(center)
+>>> show heading.where(level: 1): set text(size: 13pt, weight: "regular")
 >>> show heading.where(level: 1): smallcaps
 >>>
 >>> show heading.where(level: 2): set text(
@@ -443,13 +438,8 @@ call.
 >>>   show title: set align(center)
 >>>   show title: set block(below: 1.2em)
 >>>
->>>   show heading.where(level: 1): set align(
->>>     center
->>>   )
->>>   show heading.where(level: 1): set text(
->>>     size: 13pt,
->>>     weight: "regular",
->>>   )
+>>>   show heading.where(level: 1): set align(center)
+>>>   show heading.where(level: 1): set text(size: 13pt, weight: "regular")
 >>>   show heading.where(level: 1): smallcaps
 >>>
 >>>   show heading.where(level: 2): set text(

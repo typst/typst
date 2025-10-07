@@ -578,17 +578,17 @@ rule:
 ```
 
 This looks great! We used show rules that apply to all headings. In the final
-smallcaps show rule, we pass the complete heading into the `smallcaps` function
-as the first argument. As we will see in the next example, you could also provide
-a custom rule, completely overriding the default heading.
+show rule, we applied the `smallcaps` function to the complete heading. As we
+will see in the next example, we can also provide a custom rule to completely
+override the default look of headings.
 
 The only remaining problem is that all headings look the same now. The
 "Motivation" and "Problem Statement" subsections ought to be italic run-in
 headers, but right now, they look indistinguishable from the section headings.
 We can fix that by using a `where` selector on our show rule: This is a
 [method]($scripting/#methods) we can call on headings (and other elements) that
-allows us to filter them by their level. We can use it to differentiate between
-section and subsection headings:
+allows us to filter them by their properties. We can use it to differentiate
+between section and subsection headings:
 
 ```example:50,250,265,245
 >>> #set document(title: [
@@ -610,10 +610,7 @@ section and subsection headings:
 >>> #set text(font: "Libertinus Serif", 11pt)
 >>>
 #show heading.where(level: 1): set align(center)
-#show heading.where(level: 1): set text(
-  size: 13pt,
-  weight: "regular",
-)
+#show heading.where(level: 1): set text(size: 13pt, weight: "regular")
 #show heading.where(level: 1): smallcaps
 
 #show heading.where(level: 2): set text(
@@ -665,21 +662,23 @@ section and subsection headings:
 ```
 
 In this example, we first scope our previous rules to first-level headings by
-using `.where(level: 1)` to make the selector more specific. Then, we add a
+using `{.where(level: 1)}` to make the selector more specific. Then, we add a
 show-set rule for the second heading level. Finally, we need a show rule with a
 custom function: Headings enclose their contents with a block by default. This
 has the effect that the heading gets its own line. However, we want it to run
 into the text, so we need to provide our own show rule to get rid of this block.
-We provide the rule a function that receives the heading as a parameter called
-`it`. As seen with the smallcaps show rule, that parameter can be used as
-content and will just print the whole default heading. When we want to build our
-own heading instead, we can use its fields like `body`, `numbers`, and `level`
-from which we can compose a custom look. Here, we are just printing the body of
-the heading with a trailing dot to remove the block. Note that this heading
-will no longer react to set rules for heading numberings and similar because we
-did not explicitly use `it.numbering` in the show rule. If you are writing show
+
+We provide the rule with a function that takes the heading as a parameter.
+This parameter is conventionally called `it`, but can have another name. The
+parameter can be used as content and will just display the whole default
+heading. Alternatively, when we want to build our own heading instead, we can
+use its fields like `body`, `numbering`, and `level` to compose a custom look.
+Here, we are just printing the body of the heading with a trailing dot and leave
+out the block that the built-in show rule produces. Note that this heading will
+no longer react to set rules for heading numbering and similar because we did
+not explicitly use `it.numbering` in the show rule. If you are writing show
 rules like this and want the document to remain customizable, you will need to
-add these fields.
+take these fields into account.
 
 This looks great! We wrote show rules that selectively apply to the first and
 second level headings. We used a `where` selector to filter the headings by
