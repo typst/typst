@@ -1,0 +1,11 @@
+figure = Јурук
+# table =
+# equation =
+# bibliography =
+# heading =
+outline = Бажалыктар
+# raw =
+# page =
+# footnote =
+# email =
+# telephone =

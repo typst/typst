@@ -57,10 +57,22 @@ enum Repr {
     Single(&'static str),
     /// A native symbol with multiple named variants.
     Complex(&'static [Variant<&'static str>]),
-    /// A symbol with multiple named variants, where some modifiers may have
-    /// been applied. Also used for symbols defined at runtime by the user with
-    /// no modifier applied.
-    Modified(Arc<(List, ModifierSet<EcoString>)>),
+    /// A symbol that has modifiers applied.
+    Modified(Arc<Modified>),
+}
+
+/// A symbol with multiple named variants, where some modifiers may have been
+/// applied. Also used for symbols defined at runtime by the user with no
+/// modifier applied.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Modified {
+    /// The full list of variants.
+    list: List,
+    /// The modifiers that are already applied.
+    modifiers: ModifierSet<EcoString>,
+    /// Whether we already emitted a deprecation warning for the currently
+    /// applied modifiers.
+    deprecated: bool,
 }
 
 /// A symbol variant, consisting of a set of modifiers, the variant's value, and an
@@ -96,7 +108,11 @@ impl Symbol {
     #[track_caller]
     pub fn runtime(list: Box<[Variant<EcoString>]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Modified(Arc::new((List::Runtime(list), ModifierSet::default()))))
+        Self(Repr::Modified(Arc::new(Modified {
+            list: List::Runtime(list),
+            modifiers: ModifierSet::default(),
+            deprecated: false,
+        })))
     }
 
     /// Get the symbol's value.
@@ -106,9 +122,10 @@ impl Symbol {
             Repr::Complex(_) => ModifierSet::<&'static str>::default()
                 .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
                 .unwrap(),
-            Repr::Modified(arc) => {
-                arc.1.best_match_in(self.variants().map(|(m, v, _)| (m, v))).unwrap()
-            }
+            Repr::Modified(arc) => arc
+                .modifiers
+                .best_match_in(self.variants().map(|(m, v, _)| (m, v)))
+                .unwrap(),
         }
     }
 
@@ -147,18 +164,27 @@ impl Symbol {
         modifier: &str,
     ) -> StrResult<Self> {
         if let Repr::Complex(list) = self.0 {
-            self.0 =
-                Repr::Modified(Arc::new((List::Static(list), ModifierSet::default())));
+            self.0 = Repr::Modified(Arc::new(Modified {
+                list: List::Static(list),
+                modifiers: ModifierSet::default(),
+                deprecated: false,
+            }));
         }
 
         if let Repr::Modified(arc) = &mut self.0 {
-            let (list, modifiers) = Arc::make_mut(arc);
-            modifiers.insert_raw(modifier);
-            if let Some(deprecation) =
-                modifiers.best_match_in(list.variants().map(|(m, _, d)| (m, d)))
+            let modified = Arc::make_mut(arc);
+            modified.modifiers.insert_raw(modifier);
+            if let Some(deprecation) = modified
+                .modifiers
+                .best_match_in(modified.list.variants().map(|(m, _, d)| (m, d)))
             {
-                if let Some(message) = deprecation {
-                    sink.emit(message, None)
+                // If we already emitted a deprecation warning during a previous
+                // modification of the symbol, do not emit another one.
+                if !modified.deprecated
+                    && let Some(message) = deprecation
+                {
+                    modified.deprecated = true;
+                    sink.emit(message, None);
                 }
                 return Ok(self);
             }
@@ -172,14 +198,14 @@ impl Symbol {
         match &self.0 {
             Repr::Single(value) => Variants::Single(std::iter::once(*value)),
             Repr::Complex(list) => Variants::Static(list.iter()),
-            Repr::Modified(arc) => arc.0.variants(),
+            Repr::Modified(arc) => arc.list.variants(),
         }
     }
 
     /// Possible modifiers.
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
         let modifiers = match &self.0 {
-            Repr::Modified(arc) => arc.1.as_deref(),
+            Repr::Modified(arc) => arc.modifiers.as_deref(),
             _ => ModifierSet::default(),
         };
         self.variants()
@@ -339,7 +365,7 @@ impl crate::foundations::Repr for Symbol {
                 )
             }
             Repr::Modified(arc) => {
-                let (list, modifiers) = arc.as_ref();
+                let Modified { list, modifiers, .. } = arc.as_ref();
                 if modifiers.is_empty() {
                     eco_format!(
                         "symbol{}",

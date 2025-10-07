@@ -6,7 +6,7 @@ use crate::foundations::{
     Args, Cast, Construct, Content, Dict, NativeElement, Packed, Smart, Unlabellable,
     Value, cast, dict, elem, scope,
 };
-use crate::introspection::{Count, CounterUpdate, Locatable};
+use crate::introspection::{Count, CounterUpdate, Locatable, Tagged, Unqueriable};
 use crate::layout::{Em, HAlignment, Length, OuterHAlignment, Rel};
 use crate::model::Numbering;
 
@@ -59,11 +59,10 @@ use crate::model::Numbering;
 ///   only trigger on paragraphs.
 ///
 /// - A proper distinction between paragraphs and other text helps people who
-///   rely on assistive technologies (such as screen readers) navigate and
-///   understand the document properly. Currently, this only applies to HTML
-///   export since Typst does not yet output accessible PDFs, but support for
-///   this is planned for the near future.
+///   rely on Assistive Technology (AT) (such as screen readers) navigate and
+///   understand the document properly.
 ///
+/// - PDF export will generate a `P` tag only for paragraphs.
 /// - HTML export will generate a `<p>` tag only for paragraphs.
 ///
 /// When creating custom reusable components, you can and should take charge
@@ -93,7 +92,7 @@ use crate::model::Numbering;
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(scope, title = "Paragraph")]
+#[elem(scope, title = "Paragraph", Locatable, Tagged)]
 pub struct ParElem {
     /// The spacing between lines.
     ///
@@ -610,6 +609,15 @@ pub struct ParLine {
     /// Violets are blue. \
     /// Typst is there for you.
     /// ```
+    ///
+    /// ```example
+    /// >>> #set page(width: 200pt, margin: (left: 3em))
+    /// #set par.line(
+    ///   numbering: i => if calc.rem(i, 5) == 0 or i == 1 { i },
+    /// )
+    ///
+    /// #lorem(60)
+    /// ```
     #[ghost]
     pub numbering: Option<Numbering>,
 
@@ -712,7 +720,7 @@ impl Construct for ParLine {
 ///
 /// Note that, currently, manually resetting the line number counter is not
 /// supported.
-#[derive(Debug, Cast, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineNumberingScope {
     /// Indicates that the line number counter spans the whole document, i.e.,
     /// it's never automatically reset.
@@ -726,7 +734,7 @@ pub enum LineNumberingScope {
 ///
 /// This element is added to each line in a paragraph and later searched to
 /// find out where to add line numbers.
-#[elem(Construct, Locatable, Count)]
+#[elem(Construct, Unqueriable, Locatable, Count)]
 pub struct ParLineMarker {
     #[internal]
     #[required]

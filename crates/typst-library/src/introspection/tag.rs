@@ -14,21 +14,21 @@ pub enum Tag {
     ///
     /// Content placed in a tag **must** have a [`Location`] or there will be
     /// panics.
-    Start(Content),
+    Start(Content, TagFlags),
     /// The element with the given location and key hash ends here.
     ///
     /// Note: The key hash is stored here instead of in `Start` simply to make
     /// the two enum variants more balanced in size, keeping a `Tag`'s memory
     /// size down. There are no semantic reasons for this.
-    End(Location, u128),
+    End(Location, u128, TagFlags),
 }
 
 impl Tag {
     /// Access the location of the tag.
     pub fn location(&self) -> Location {
         match self {
-            Tag::Start(elem) => elem.location().unwrap(),
-            Tag::End(loc, _) => *loc,
+            Tag::Start(elem, ..) => elem.location().unwrap(),
+            Tag::End(loc, ..) => *loc,
         }
     }
 }
@@ -37,9 +37,26 @@ impl Debug for Tag {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let loc = self.location();
         match self {
-            Tag::Start(elem) => write!(f, "Start({:?}, {loc:?})", elem.elem().name()),
+            Tag::Start(elem, ..) => write!(f, "Start({:?}, {loc:?})", elem.elem().name()),
             Tag::End(..) => write!(f, "End({loc:?})"),
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct TagFlags {
+    /// Whether the element will be inserted into the
+    /// [`Introspector`](super::Introspector).
+    /// Either because it is [`Locatable`](super::Locatable), has been labelled,
+    /// or a location has been manually set.
+    pub introspectable: bool,
+    /// Whether the element is [`Tagged`](super::Tagged).
+    pub tagged: bool,
+}
+
+impl TagFlags {
+    pub fn any(&self) -> bool {
+        self.introspectable || self.tagged
     }
 }
 

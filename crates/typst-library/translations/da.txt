@@ -6,3 +6,6 @@ heading = Afsnit
 outline = Indhold
 raw = Liste
 page = side
+footnote = Fodnote
+email = E-mail
+telephone = Telefon

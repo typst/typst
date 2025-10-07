@@ -1,0 +1,11 @@
+figure = ಚಿತ್ರ
+table = ಕೋಷ್ಟಕ
+# equation =
+bibliography = ಗ್ರಂಥಸೂಚಿ
+# heading =
+outline = ವಿಷಯಗಳು
+# raw =
+page = ಪುಟ
+# footnote =
+# email =
+# telephone =

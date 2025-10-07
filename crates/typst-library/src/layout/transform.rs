@@ -19,6 +19,12 @@ use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlig
 ///   )
 /// ))
 /// ```
+///
+/// # Accessibility
+/// Moving is transparent to Assistive Technology (AT). Your content will be
+/// read in the order it appears in the source, regardless of any visual
+/// movement. If you need to hide content from AT altogether in PDF export,
+/// consider using [`pdf.artifact`].
 #[elem]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
@@ -53,7 +59,6 @@ pub struct RotateElem {
     /// ```example
     /// #rotate(-1.571rad)[Space!]
     /// ```
-    ///
     #[positional]
     pub angle: Angle,
 
@@ -192,7 +197,6 @@ pub struct SkewElem {
     /// ```example
     /// #skew(ax: 30deg)[Skewed]
     /// ```
-    ///
     #[default(Angle::zero())]
     pub ax: Angle,
 
@@ -201,7 +205,6 @@ pub struct SkewElem {
     /// ```example
     /// #skew(ay: 30deg)[Skewed]
     /// ```
-    ///
     #[default(Angle::zero())]
     pub ay: Angle,
 

@@ -133,7 +133,7 @@ use crate::foundations::{
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
 #[ty(scope, cast)]
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),

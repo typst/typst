@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use codex::styling::MathVariant;
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 use unicode_math_class::MathClass;
 
@@ -9,13 +10,13 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
+use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
 use crate::math::MathSize;
 use crate::model::{Numbering, Outlinable, ParLine, Refable, Supplement};
-use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
+use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem};
 
 /// A mathematical equation.
 ///
@@ -45,7 +46,7 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, TextElem};
 /// whitespace lifts it into a separate block that is centered horizontally.
 /// For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(Locatable, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Tagged, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -100,6 +101,21 @@ pub struct EquationElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
+    /// An alternative description of the mathematical equation.
+    ///
+    /// This should describe the full equation in natural language and will be
+    /// made available to Assisitve Technology. You can learn more in the
+    /// [Textual Representations section of the Accessibility
+    /// Guide]($guides/accessibility/#textual-representations).
+    ///
+    /// ```example
+    /// #math.equation(
+    ///   alt: "integral from 1 to infinity of a x squared plus b with respect to x",
+    ///   $ integral_1^oo a x^2 + b med d x $,
+    /// )
+    /// ```
+    pub alt: Option<EcoString>,
+
     /// The contents of the equation.
     #[required]
     pub body: Content,
@@ -143,6 +159,11 @@ pub struct EquationElem {
     #[default((70, 50))]
     #[ghost]
     pub script_scale: (i16, i16),
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
 }
 
 impl Synthesize for Packed<EquationElem> {
@@ -161,6 +182,9 @@ impl Synthesize for Packed<EquationElem> {
 
         self.supplement
             .set(Smart::Custom(Some(Supplement::Content(supplement))));
+
+        self.locale = Some(Locale::get_in(styles));
+
         Ok(())
     }
 }

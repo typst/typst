@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{EcoString, eco_format};
-use hayro::{FontData, FontQuery, InterpreterSettings, RenderSettings, StandardFont};
+use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Axes};
@@ -10,13 +10,21 @@ use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
-use crate::SVGRenderer;
+use crate::{SVGRenderer, State, SvgMatrix};
 
 impl SVGRenderer<'_> {
     /// Render an image element.
-    pub(super) fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
+    pub(super) fn render_image(
+        &mut self,
+        state: &State,
+        image: &Image,
+        size: &Axes<Abs>,
+    ) {
         let url = convert_image_to_base64_url(image);
         self.xml.start_element("image");
+        if !state.transform.is_identity() {
+            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+        }
         self.xml.write_attribute("xlink:href", &url);
         self.xml.write_attribute("width", &size.x.to_pt());
         self.xml.write_attribute("height", &size.y.to_pt());
@@ -46,7 +54,7 @@ pub fn convert_image_scaling(scaling: Smart<ImageScaling>) -> Option<&'static st
 /// `data:image/{format};base64,`.
 #[comemo::memoize]
 pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
-    let mut buf;
+    let (mut buf, strbuf);
     let (format, data): (&str, &[u8]) = match image.kind() {
         ImageKind::Raster(raster) => match raster.format() {
             RasterFormat::Exchange(format) => (
@@ -70,23 +78,8 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
         },
         ImageKind::Svg(svg) => ("svg+xml", svg.data()),
         ImageKind::Pdf(pdf) => {
-            // To make sure the image isn't pixelated, we always scale up so the
-            // lowest dimension has at least 1000 pixels. However, we only scale
-            // up as much so that the largest dimension doesn't exceed 3000
-            // pixels.
-            const MIN_RES: f32 = 1000.0;
-            const MAX_RES: f32 = 3000.0;
-
-            let base_width = pdf.width();
-            let w_scale = (MIN_RES / base_width).max(MAX_RES / base_width);
-            let base_height = pdf.height();
-            let h_scale = (MIN_RES / base_height).min(MAX_RES / base_height);
-            let total_scale = w_scale.min(h_scale);
-            let width = (base_width * total_scale).ceil() as u32;
-            let height = (base_height * total_scale).ceil() as u32;
-
-            buf = pdf_to_png(pdf, width, height);
-            ("png", buf.as_slice())
+            strbuf = pdf_to_svg(pdf);
+            ("svg+xml", strbuf.as_bytes())
         }
     };
 
@@ -97,7 +90,7 @@ pub fn convert_image_to_base64_url(image: &Image) -> EcoString {
 }
 
 // Keep this in sync with `typst-png`!
-fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
+fn pdf_to_svg(pdf: &PdfImage) -> String {
     let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
         let bytes = match font {
             StandardFont::Helvetica => typst_assets::pdf::SANS,
@@ -126,14 +119,5 @@ fn pdf_to_png(pdf: &PdfImage, w: u32, h: u32) -> Vec<u8> {
         warning_sink: Arc::new(|_| {}),
     };
 
-    let render_settings = RenderSettings {
-        x_scale: w as f32 / pdf.width(),
-        y_scale: h as f32 / pdf.height(),
-        width: Some(w as u16),
-        height: Some(h as u16),
-    };
-
-    let hayro_pix = hayro::render(pdf.page(), &interpreter_settings, &render_settings);
-
-    hayro_pix.take_png()
+    hayro_svg::convert(pdf.page(), &interpreter_settings)
 }

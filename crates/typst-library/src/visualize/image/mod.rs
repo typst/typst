@@ -23,13 +23,14 @@ use typst_utils::{LazyHash, NonZeroExt};
 use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, cast, elem,
-    func, scope,
+    Bytes, Cast, Content, Derived, NativeElement, Packed, Smart, StyleChain, Synthesize,
+    cast, elem, func, scope,
 };
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, Readable};
 use crate::model::Figurable;
-use crate::text::{LocalName, families};
+use crate::text::{LocalName, Locale, families};
 use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.
@@ -50,7 +51,7 @@ use crate::visualize::image::pdf::PdfDocument;
 ///   ],
 /// )
 /// ```
-#[elem(scope, LocalName, Figurable)]
+#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
     /// A [path]($syntax/#paths) to an image file or raw bytes making up an
     /// image in one of the supported [formats]($image.format).
@@ -90,7 +91,9 @@ pub struct ImageElem {
     /// specific PDF standard, like PDF/A-3 or PDF/UA-1. In these cases, you can
     /// instead use SVGs to embed vector images. Additionally, Typst does not
     /// currently support PDFs that are password-protected or have any other
-    /// kind of encryption.
+    /// kind of encryption. Finally, be aware that the tags in your PDF image
+    /// will not be preserved. Instead, you must provide an [alternative
+    /// description]($image.alt) to make the image accessible.
     ///
     /// When providing raw pixel data as the `source`, you must specify a
     /// dictionary with the following keys as the `format`:
@@ -133,7 +136,20 @@ pub struct ImageElem {
     /// The height of the image.
     pub height: Sizing,
 
-    /// A text describing the image.
+    /// An alternative description of the image.
+    ///
+    /// This text is used by Assistive Technology (AT) like screen readers to
+    /// describe the image to users with visual impairments.
+    ///
+    /// When the image is wrapped in a [`figure`]($figure), use this parameter
+    /// rather than the [figure's `alt` parameter]($figure.alt) to describe the
+    /// image. The only exception to this rule is when the image and the other
+    /// contents in the figure form a single semantic unit. In this case, use
+    /// the figure's `alt` parameter to describe the entire composition and do
+    /// not use this parameter.
+    ///
+    /// You can learn how to write good alternative descriptions in the
+    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
     pub alt: Option<EcoString>,
 
     /// The page number that should be embedded as an image. This attribute only
@@ -177,6 +193,18 @@ pub struct ImageElem {
         None => None,
     })]
     pub icc: Smart<Derived<DataSource, Bytes>>,
+
+    /// The locale of this element (used for the alternative description).
+    #[internal]
+    #[synthesized]
+    pub locale: Locale,
+}
+
+impl Synthesize for Packed<ImageElem> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
+        self.locale = Some(Locale::get_in(styles));
+        Ok(())
+    }
 }
 
 #[scope]
@@ -291,7 +319,8 @@ impl Packed<ImageElem> {
                 let document = match PdfDocument::new(loaded.data.clone()) {
                     Ok(doc) => doc,
                     Err(e) => match e {
-                        LoadPdfError::Encryption => {
+                        // TODO: the `DecyptionError` is currently not public
+                        LoadPdfError::Decryption(_) => {
                             bail!(
                                 span,
                                 "the PDF is encrypted or password-protected";
@@ -396,7 +425,7 @@ pub enum ImageFit {
 /// A loaded raster or vector image.
 ///
 /// Values of this type are cheap to clone and hash.
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Image(Arc<LazyHash<Repr>>);
 
 /// The internal representation.

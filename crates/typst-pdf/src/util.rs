@@ -3,17 +3,34 @@
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
 use krilla::paint as kp;
-use typst_library::layout::{Abs, Point, Size, Transform};
+use krilla::tagging as kt;
+use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::Font;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
+pub(crate) trait SidesExt<T> {
+    /// Map to the [`kt::Sides`] struct assuming [`kt::WritingMode::LrTb`].
+    fn to_lrtb_krilla(self) -> kt::Sides<T>;
+}
+
+impl<T> SidesExt<T> for Sides<T> {
+    fn to_lrtb_krilla(self) -> kt::Sides<T> {
+        kt::Sides {
+            before: self.top,
+            after: self.bottom,
+            start: self.left,
+            end: self.right,
+        }
+    }
+}
+
 pub(crate) trait SizeExt {
-    fn to_krilla(&self) -> kg::Size;
+    fn to_krilla(&self) -> Option<kg::Size>;
 }
 
 impl SizeExt for Size {
-    fn to_krilla(&self) -> kg::Size {
-        kg::Size::from_wh(self.x.to_f32(), self.y.to_f32()).unwrap()
+    fn to_krilla(&self) -> Option<kg::Size> {
+        kg::Size::from_wh(self.x.to_f32(), self.y.to_f32())
     }
 }
 

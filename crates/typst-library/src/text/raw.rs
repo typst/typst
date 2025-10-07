@@ -20,6 +20,7 @@ use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
     StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
+use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
@@ -127,6 +128,8 @@ use crate::visualize::Color;
     scope,
     title = "Raw Text / Code",
     Synthesize,
+    Locatable,
+    Tagged,
     ShowSet,
     LocalName,
     Figurable,
@@ -138,7 +141,7 @@ pub struct RawElem {
     /// You can also use raw blocks creatively to create custom syntaxes for
     /// your automations.
     ///
-    /// ````example
+    /// ````example:"Implementing a DSL using raw and show rules"
     /// // Parse numbers in raw blocks with the
     /// // `mydsl` tag and sum them up.
     /// #show raw.where(lang: "mydsl"): it => {
@@ -677,7 +680,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", Tagged, PlainText)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]
@@ -906,20 +909,17 @@ fn align_tabs(text: &str, tab_size: usize) -> EcoString {
     let mut column = 0;
 
     for grapheme in text.graphemes(true) {
-        match grapheme {
-            "\t" => {
-                let required = tab_size - column % divisor;
-                res.push_str(&replacement[..required]);
-                column += required;
-            }
-            "\n" => {
-                res.push_str(grapheme);
-                column = 0;
-            }
-            _ => {
-                res.push_str(grapheme);
-                column += 1;
-            }
+        let c = grapheme.parse::<char>();
+        if c == Ok('\t') {
+            let required = tab_size - column % divisor;
+            res.push_str(&replacement[..required]);
+            column += required;
+        } else if c.is_ok_and(typst_syntax::is_newline) || grapheme == "\r\n" {
+            res.push_str(grapheme);
+            column = 0;
+        } else {
+            res.push_str(grapheme);
+            column += 1;
         }
     }
 

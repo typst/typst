@@ -577,13 +577,21 @@ pub struct ParamInfo {
     pub settable: bool,
 }
 
+/// Distinguishes between variants of closures.
+#[derive(Debug, Hash)]
+pub enum ClosureNode {
+    /// A regular closure. Must always be castable to a `ast::Closure`.
+    Closure(SyntaxNode),
+    /// Synthetic closure used for `context` expressions. Can be any `ast::Expr`
+    /// and has no parameters.
+    Context(SyntaxNode),
+}
+
 /// A user-defined closure.
 #[derive(Debug, Hash)]
 pub struct Closure {
-    /// The closure's syntax node. Must be either castable to `ast::Closure` or
-    /// `ast::Expr`. In the latter case, this is a synthesized closure without
-    /// any parameters (used by `context` expressions).
-    pub node: SyntaxNode,
+    /// The closure's syntax node.
+    pub node: ClosureNode,
     /// Default values of named parameters.
     pub defaults: Vec<Value>,
     /// Captured values from outer scopes.
@@ -595,7 +603,12 @@ pub struct Closure {
 impl Closure {
     /// The name of the closure.
     pub fn name(&self) -> Option<&str> {
-        self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
+        match self.node {
+            ClosureNode::Closure(ref node) => {
+                node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
+            }
+            _ => None,
+        }
     }
 }
 

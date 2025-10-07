@@ -1,0 +1,11 @@
+figure = Léaráid
+table = Tábla
+# equation =
+bibliography = Leabharliosta
+# heading =
+outline = Clár Ábhair
+# raw =
+page = Leathanach
+# footnote =
+# email =
+# telephone =

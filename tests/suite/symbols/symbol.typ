@@ -180,6 +180,22 @@
 // Warning: 5-9 `sect` is deprecated, use `inter` instead
 $ A sect B = A inter B $
 
+--- symbol-modifier-deprecated ---
+// Warning: 7-12 `ast.small` is deprecated (CJK compatibility character), use ﹡ or `\u{fe61}` instead
+$ ast.small $
+
+// Warning: 14-20 `bracket.double` is deprecated, use `bracket.stroked` instead
+#sym.bracket.double.r
+
 --- issue-5930-symbol-label ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")
+
+--- presentation-selectors ---
+// Currently, presentation selectors do not cause font fallback when the main
+// font supports at least one presentation, instead causing a fallback of the
+// presentation form. This should probably be solved at some point, making the
+// emojis below render with an emoji form.
+// See: https://github.com/typst/typst/pull/6875.
+#sym.copyright #emoji.copyright \
+#sym.suit.heart #emoji.suit.heart

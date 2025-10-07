@@ -1,6 +1,6 @@
 // Test headings.
 
---- heading-basic ---
+--- heading-basic render ---
 // Different number of equals signs.
 
 = Level 1
@@ -82,7 +82,7 @@ comment spans lines
 ===== Heading 🌍
 #heading(level: 5)[Heading]
 
---- heading-offset ---
+--- heading-offset render pdftags ---
 // Test setting the starting offset.
 #set heading(numbering: "1.1")
 #show heading.where(level: 2): set text(blue)

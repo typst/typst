@@ -1,15 +1,22 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
+use ecow::EcoString;
 use typst_utils::NonZeroExt;
 
-use crate::diag::{HintedStrResult, HintedString, bail};
-use crate::foundations::{Content, Packed, Smart, cast, elem, scope};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
+use crate::engine::Engine;
+use crate::foundations::{
+    Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
+};
+use crate::introspection::{Locatable, Tagged};
+use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
+use crate::pdf::TableCellKind;
 use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
@@ -18,7 +25,7 @@ use crate::visualize::{Paint, Stroke};
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// For a hands-on explanation of all the ways you can use and customize tables
-/// in Typst, check out the [Table Guide]($guides/table-guide).
+/// in Typst, check out the [Table Guide]($guides/tables).
 ///
 /// Because tables are just grids with different defaults for some cell
 /// properties (notably `stroke` and `inset`), refer to the [grid
@@ -30,10 +37,10 @@ use crate::visualize::{Paint, Stroke};
 /// of related data points or similar or whether you are just want to enhance
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
-/// appropriate. Furthermore, Typst will annotate its output in the future such
-/// that screenreaders will announce content in `table` as tabular while a
-/// grid's content will be announced no different than multiple content blocks
-/// in the document flow.
+/// appropriate. Furthermore, Assistive Technology (AT) like screen readers will
+/// announce content in a `table` as tabular while a grid's content will be
+/// announced no different than multiple content blocks in the document flow. AT
+/// users will be able to navigate tables two-dimensionally by cell.
 ///
 /// Note that, to override a particular cell's properties or apply show rules on
 /// table cells, you can use the [`table.cell`] element. See its documentation
@@ -116,7 +123,19 @@ use crate::visualize::{Paint, Stroke};
 ///   [Robert], b, a, b,
 /// )
 /// ```
-#[elem(scope, LocalName, Figurable)]
+///
+/// # Accessibility
+/// Tables are challenging to consume for users of Assistive Technology (AT). To
+/// make the life of AT users easier, we strongly recommend that you use
+/// [`table.header`] and [`table.footer`] to mark the header and footer sections
+/// of your table. This will allow AT to announce the column labels for each
+/// cell.
+///
+/// Because navigating a table by cell is more cumbersome than reading it
+/// visually, you should consider making the core information in your table
+/// available as text as well. You can do this by wrapping your table in a
+/// [figure] and using its caption to summarize the table's content.
+#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid/#track-size) for
     /// more information on track sizing.
@@ -188,7 +207,7 @@ pub struct TableElem {
     /// - use a function that maps a cell's X/Y position (both starting from
     ///   zero) to its alignment
     ///
-    /// See the [Table Guide]($guides/table-guide/#alignment) for details.
+    /// See the [Table Guide]($guides/tables/#alignment) for details.
     ///
     /// ```example
     /// #table(
@@ -208,7 +227,7 @@ pub struct TableElem {
     /// - a function that maps a cell's position to its fill
     ///
     /// Most notably, arrays and functions are useful for creating striped
-    /// tables. See the [Table Guide]($guides/table-guide/#fills) for more
+    /// tables. See the [Table Guide]($guides/tables/#fills) for more
     /// details.
     ///
     /// ```example
@@ -247,10 +266,22 @@ pub struct TableElem {
     /// - use an array of strokes corresponding to each column
     /// - use a function that maps a cell's position to its stroke
     ///
-    /// See the [Table Guide]($guides/table-guide/#strokes) for more details.
+    /// See the [Table Guide]($guides/tables/#strokes) for more details.
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
     pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
+
+    /// A summary of the purpose and structure of complex tables.
+    ///
+    /// See the [`crate::pdf::accessibility::table_summary`] function for more
+    /// information.
+    #[internal]
+    #[parse(None)]
+    pub summary: Option<EcoString>,
+
+    #[internal]
+    #[synthesized]
+    pub grid: Arc<CellGrid>,
 
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`] and [`table.vline`] elements.
@@ -276,14 +307,31 @@ impl TableElem {
     type TableFooter;
 }
 
+impl Synthesize for Packed<TableElem> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let grid = table_to_cellgrid(self, engine, styles)?;
+        self.grid = Some(Arc::new(grid));
+        Ok(())
+    }
+}
+
 impl LocalName for Packed<TableElem> {
     const KEY: &'static str = "table";
 }
 
 impl Figurable for Packed<TableElem> {}
 
+cast! {
+    TableElem,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected table")?,
+}
+
 /// Any child of a table element.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableChild {
     Header(Packed<TableHeader>),
     Footer(Packed<TableFooter>),
@@ -328,7 +376,7 @@ impl TryFrom<Content> for TableChild {
 }
 
 /// A table item, which is the basic unit of table specification.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TableItem {
     HLine(Packed<TableHLine>),
     VLine(Packed<TableVLine>),
@@ -396,13 +444,21 @@ impl TryFrom<Content> for TableItem {
 
 /// A repeatable table header.
 ///
-/// You should wrap your tables' heading rows in this function even if you do not
-/// plan to wrap your table across pages because Typst will use this function to
-/// attach accessibility metadata to tables in the future and ensure universal
-/// access to your document.
+/// You should wrap your tables' heading rows in this function even if you do
+/// not plan to wrap your table across pages because Typst uses this function to
+/// attach accessibility metadata to tables and ensure [Universal
+/// Access]($guides/accessibility/#basics) to your document.
 ///
 /// You can use the `repeat` parameter to control whether your table's header
 /// will be repeated across pages.
+///
+/// Currently, this function is unsuitable for creating a header column or
+/// single header cells. Either use regular cells, or, if you are exporting a
+/// PDF, you can also use the [`pdf.header-cell`] function to mark a cell as a
+/// header cell. Likewise, you can use [`pdf.data-cell`] to mark cells in this
+/// function as data cells. Note that these functions are not final and thus
+/// only available when you enable the `a11y-extras` feature (see the [PDF
+/// module documentation]($pdf) for details).
 ///
 /// ```example
 /// #set page(height: 11.5em)
@@ -715,6 +771,14 @@ pub struct TableCell {
     /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
     /// breakable.
     pub breakable: Smart<bool>,
+
+    #[internal]
+    #[parse(Some(Smart::Auto))]
+    pub kind: Smart<TableCellKind>,
+
+    #[internal]
+    #[parse(Some(false))]
+    pub is_repeated: bool,
 }
 
 cast! {

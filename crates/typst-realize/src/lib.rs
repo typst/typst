@@ -19,7 +19,9 @@ use typst_library::foundations::{
     Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
     Styles, SymbolElem, Synthesize, TargetElem, Transformation,
 };
-use typst_library::introspection::{Locatable, LocationKey, SplitLocator, Tag, TagElem};
+use typst_library::introspection::{
+    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
+};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -506,6 +508,7 @@ fn verdict<'a>(
                 && elem.location().is_none()
                 && !elem.can::<dyn ShowSet>()
                 && !elem.can::<dyn Locatable>()
+                && !elem.can::<dyn Tagged>()
                 && !elem.can::<dyn Synthesize>()
         })
     {
@@ -530,9 +533,13 @@ fn prepare(
     // The element could already have a location even if it is not prepared
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
-    if elem.location().is_none()
-        && (elem.can::<dyn Locatable>() || elem.label().is_some())
-    {
+    let flags = TagFlags {
+        introspectable: elem.can::<dyn Locatable>()
+            || elem.label().is_some()
+            || elem.location().is_some(),
+        tagged: elem.can::<dyn Tagged>(),
+    };
+    if elem.location().is_none() && flags.any() {
         let loc = locator.next_location(engine.introspector, key);
         elem.set_location(loc);
     }
@@ -561,7 +568,7 @@ fn prepare(
     // when queried.
     let tags = elem
         .location()
-        .map(|loc| (Tag::Start(elem.clone()), Tag::End(loc, key)));
+        .map(|loc| (Tag::Start(elem.clone(), flags), Tag::End(loc, key, flags)));
 
     // Ensure that this preparation only runs once by marking the element as
     // prepared.
@@ -594,6 +601,11 @@ fn visit_styled<'a>(
                     style.span(),
                     "document set rules are not allowed inside of containers"
                 );
+            }
+        } else if elem == TextElem::ELEM {
+            // Infer the document locale from the first toplevel set rule.
+            if let Some(info) = s.kind.as_document_mut() {
+                info.populate_locale(&local)
             }
         } else if elem == PageElem::ELEM {
             if !matches!(s.kind, RealizationKind::LayoutDocument { .. }) {

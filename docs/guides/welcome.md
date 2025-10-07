@@ -8,6 +8,7 @@ user groups or use cases. Please see the list below for the available guides.
 Feel free to propose other topics for guides!
 
 ## List of Guides
-- [Guide for LaTeX Users]($guides/guide-for-latex-users)
-- [Page Setup Guide]($guides/page-setup-guide)
-- [Table Guide]($guides/table-guide)
+- [Guide for LaTeX Users]($guides/for-latex-users)
+- [Page Setup Guide]($guides/page-setup)
+- [Table Guide]($guides/tables)
+- [Accessibility Guide]($guides/accessibility)

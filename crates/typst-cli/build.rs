@@ -21,6 +21,10 @@ fn main() {
         println!("cargo:rustc-env=TYPST_VERSION={}", typst_version());
     }
 
+    if option_env!("TYPST_COMMIT_SHA").is_none() {
+        println!("cargo:rustc-env=TYPST_COMMIT_SHA={}", typst_commit_sha());
+    }
+
     if let Some(dir) = env::var_os("GEN_ARTIFACTS") {
         let out = &Path::new(&dir);
         create_dir_all(out).unwrap();
@@ -44,19 +48,25 @@ fn main() {
 }
 
 /// Also used by `args.rs`.
-fn typst_version() -> String {
+fn typst_version() -> &'static str {
     if let Some(version) = option_env!("TYPST_VERSION") {
+        return version;
+    }
+
+    env!("CARGO_PKG_VERSION")
+}
+
+/// Also used by `args.rs`.
+fn typst_commit_sha() -> String {
+    if let Some(version) = option_env!("TYPST_COMMIT_SHA") {
         return version.to_owned();
     }
 
-    let pkg = env!("CARGO_PKG_VERSION");
-    let hash = Command::new("git")
+    Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
         .ok()
         .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout.get(..8)?.into()).ok())
-        .unwrap_or_else(|| "unknown hash".into());
-
-    format!("{pkg} ({hash})")
+        .unwrap_or_else(|| "unknown hash".into())
 }
