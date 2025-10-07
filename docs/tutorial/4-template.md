@@ -117,7 +117,7 @@ them to a variable:
 // Lengths relative to the font size
 #let double-space = 2em
 
-// Fractions
+// Ratios
 #let progress = 80%
 
 // Integer numbers

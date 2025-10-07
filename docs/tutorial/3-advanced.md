@@ -116,9 +116,9 @@ Assistive Technology such as screen readers.
 
 When we want to customize the properties of some element inside of another kind
 of element, we can use show-set rules. First, we use `show` to select which
-element we want to customize. We call this a _selector._ Then, we type a double
-colon. Next, we write the set rule that should apply to elements matching the
-selector. Summarized, the syntax looks like this:
+element we want to customize. We call this a _selector._ Then, we type a colon.
+Next, we write the set rule that should apply to elements matching the selector.
+Summarized, the syntax looks like this:
 
 ```typ
 #show your-selector: set some-element(/* ... */)
@@ -130,7 +130,7 @@ we need two show-set rules:
 - One with the selector `title` and the rule `{set text(size: 17pt)}`
 - One with the selector `title` and the rule `{set align(center)}`
 
-Hence, our example now looks like this:
+Our example now looks like this:
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
