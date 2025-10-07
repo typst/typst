@@ -102,9 +102,9 @@ with the `math.` prefix.
 
 # Accessibility
 To make math accessible, you must provide alternative descriptions for equations
-that describe them in natural language. For more information, see the
-documentation on the [`alt` parameter of `math.equation`]($math.equation.alt)
-and the [Textual Representations section of the Accessibility
+that describe them in natural language using the [`alt` parameter of
+`math.equation`]($math.equation.alt). For more information, see the [Textual
+Representations section of the Accessibility
 Guide]($guides/accessibility/#textual-representations).
 
 ```example
