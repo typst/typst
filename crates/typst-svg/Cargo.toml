@@ -23,6 +23,7 @@ comemo = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
 hayro = { workspace = true }
+hayro-svg = { workspace = true }
 image = { workspace = true }
 rustc-hash = { workspace = true }
 ttf-parser = { workspace = true }
