@@ -63,7 +63,7 @@ rustc-hash = "2.1"
 glidesort = "0.1.2"
 hayagriva = "0.9.1"
 hayro-syntax = "0.4.0"
-hayro = "0.4.0"
+hayro = { version = "0.4.0", default-features = false }
 heck = "0.5"
 hypher = "0.1.4"
 icu_properties = { version = "1.4", features = ["serde"] }
