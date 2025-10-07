@@ -375,8 +375,10 @@ impl<'a> ExampleArgs<'a> {
         let mut title = None;
 
         for args in parts {
-            if args.starts_with('"') && args.ends_with('"') {
-                title = Some(&args[1..args.len() - 1]);
+            if let Some(inner) =
+                args.strip_prefix('"').and_then(|rest| rest.strip_suffix('"'))
+            {
+                title = Some(inner);
             } else if args.contains("single") {
                 view = ExampleView::Single(None);
             } else if args.chars().next().is_some_and(char::is_numeric) {

@@ -427,14 +427,11 @@ fn func_model(
     }
 
     let nesting = if nested { None } else { Some(1) };
-    let items = if nested {
-        details_and_example_to_vec(docs)
-    } else {
-        vec![ProtoDetailsContent::Html(docs)]
-    };
+    let items =
+        if nested { details_blocks(docs) } else { vec![RawDetailsBlock::Markdown(docs)] };
 
     let Some(first_md) = items.iter().find_map(|item| {
-        if let ProtoDetailsContent::Html(md) = item { Some(md) } else { None }
+        if let RawDetailsBlock::Markdown(md) = item { Some(md) } else { None }
     }) else {
         panic!("function lacks any details")
     };
@@ -472,7 +469,7 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
 
     ParamModel {
         name: info.name,
-        details: details_and_example_to_vec(info.docs)
+        details: details_blocks(info.docs)
             .into_iter()
             .map(|proto| proto.into_model(resolver, None))
             .collect(),
@@ -490,26 +487,21 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
     }
 }
 
-enum ProtoDetailsContent<'a> {
-    Html(&'a str),
-    /// Example with optional title.
-    Example {
-        body: &'a str,
-        title: Option<&'a str>,
-    },
+/// A details block that has not yet been processed.
+enum RawDetailsBlock<'a> {
+    /// Raw Markdown.
+    Markdown(&'a str),
+    /// An example with an optional title.
+    Example { body: &'a str, title: Option<&'a str> },
 }
 
-impl<'a> ProtoDetailsContent<'a> {
-    fn into_model(
-        self,
-        resolver: &dyn Resolver,
-        nesting: Option<usize>,
-    ) -> DetailsContent {
+impl<'a> RawDetailsBlock<'a> {
+    fn into_model(self, resolver: &dyn Resolver, nesting: Option<usize>) -> DetailsBlock {
         match self {
-            ProtoDetailsContent::Html(md) => {
-                DetailsContent::Html(Html::markdown(resolver, md, nesting))
+            RawDetailsBlock::Markdown(md) => {
+                DetailsBlock::Html(Html::markdown(resolver, md, nesting))
             }
-            ProtoDetailsContent::Example { body, title } => DetailsContent::Example {
+            RawDetailsBlock::Example { body, title } => DetailsBlock::Example {
                 body: Html::markdown(resolver, body, None),
                 title: title.map(Into::into),
             },
@@ -517,8 +509,8 @@ impl<'a> ProtoDetailsContent<'a> {
     }
 }
 
-/// Split up documentation into details and an example.
-fn details_and_example_to_vec(docs: &str) -> Vec<ProtoDetailsContent<'_>> {
+/// Split up documentation into Markdown blocks and examples.
+fn details_blocks(docs: &str) -> Vec<RawDetailsBlock<'_>> {
     let mut i = 0;
     let mut res = Vec::new();
 
@@ -538,7 +530,7 @@ fn details_and_example_to_vec(docs: &str) -> Vec<ProtoDetailsContent<'_>> {
 
                 // First, push non-fenced content.
                 if found > 0 {
-                    res.push(ProtoDetailsContent::Html(&docs[i..fence_idx]));
+                    res.push(RawDetailsBlock::Markdown(&docs[i..fence_idx]));
                 }
 
                 // Then, find the end of the fence.
@@ -554,14 +546,14 @@ fn details_and_example_to_vec(docs: &str) -> Vec<ProtoDetailsContent<'_>> {
                     );
                 };
 
-                res.push(ProtoDetailsContent::Example {
+                res.push(RawDetailsBlock::Example {
                     body: &docs[fence_idx..fence_end],
                     title,
                 });
                 i = fence_end;
             }
             None => {
-                res.push(ProtoDetailsContent::Html(&docs[i..]));
+                res.push(RawDetailsBlock::Markdown(&docs[i..]));
                 break;
             }
         }
@@ -573,13 +565,10 @@ fn details_and_example_to_vec(docs: &str) -> Vec<ProtoDetailsContent<'_>> {
 /// Returns the start of a code fence and how many backticks it uses.
 fn find_fence_start(md: &str) -> Option<(usize, usize)> {
     let start = md.find("```")?;
-
     let mut count = 3;
-
     while md[start + count..].starts_with('`') {
         count += 1;
     }
-
     Some((start, count))
 }
 
@@ -623,8 +612,8 @@ fn func_outline(model: &FuncModel, id_base: &str) -> Vec<OutlineItem> {
 
     if id_base.is_empty() {
         outline.push(OutlineItem::from_name("Summary"));
-        for item in &model.details {
-            if let DetailsContent::Html(html) = item {
+        for block in &model.details {
+            if let DetailsBlock::Html(html) = block {
                 outline.extend(html.outline());
             }
         }
