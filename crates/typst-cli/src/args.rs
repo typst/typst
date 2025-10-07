@@ -599,7 +599,7 @@ pub enum PdfStandard {
     /// PDF 1.5.
     #[value(name = "1.5")]
     V_1_5,
-    /// PDF 1.5.
+    /// PDF 1.6.
     #[value(name = "1.6")]
     V_1_6,
     /// PDF 1.7.

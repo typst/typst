@@ -28,7 +28,7 @@ use crate::visualize::{Color, Paint};
 /// Pages can be set to use `{auto}` as their width or height. In this case, the
 /// pages will grow to fit their content on the respective axis.
 ///
-/// The [Guide for Page Setup]($guides/page-setup-guide) explains how to use
+/// The [Guide for Page Setup]($guides/page-setup) explains how to use
 /// this and related functions to set up a document with many examples.
 ///
 /// # Example
@@ -38,6 +38,12 @@ use crate::visualize::{Color, Paint};
 ///
 /// There you go, US friends!
 /// ```
+///
+/// # Accessibility
+/// The contents of the page's header, footer, foreground, and background are
+/// invisible to Assistive Technology (AT) like screen readers. Only the body of
+/// the page is read by AT. Do not include vital information not included
+/// elsewhere in the document in these areas.
 #[elem(Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
@@ -205,7 +211,7 @@ pub struct PageElem {
     pub fill: Smart<Option<Paint>>,
 
     /// How to number the pages. You can refer to the Page Setup Guide for
-    /// [customizing page numbers]($guides/page-setup-guide/#page-numbers).
+    /// [customizing page numbers]($guides/page-setup/#page-numbers).
     ///
     /// Accepts a [numbering pattern or function]($numbering) taking one or two
     /// numbers:

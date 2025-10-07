@@ -26,8 +26,12 @@ use crate::text::{Locale, TextElem};
 /// document. Instead, it is embedded in the compiled PDF file.
 #[elem(Construct)]
 pub struct DocumentElem {
-    /// The document's title. This is often rendered as the title of the
-    /// PDF viewer window.
+    /// The document's title. This is rendered as the title of the PDF viewer
+    /// window or the browser tab of the page.
+    ///
+    /// Adding a title is important for accessibility, as it makes it easier to
+    /// navigate to your document and identify it among other open documents.
+    /// When exporting to PDF/UA, a title is required.
     ///
     /// While this can be arbitrary content, PDF viewers only support plain text
     /// titles, so the conversion might be lossy.

@@ -52,7 +52,7 @@ static GROUPS: LazyLock<Vec<GroupData>> = LazyLock::new(|| {
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     let mut lib = Library::builder()
-        .with_features([Feature::Html].into_iter().collect())
+        .with_features([Feature::Html, Feature::A11yExtras].into_iter().collect())
         .build();
     let scope = lib.global.scope_mut();
 
@@ -115,9 +115,20 @@ pub trait Resolver {
 /// Create a page from a markdown file.
 #[track_caller]
 fn md_page(resolver: &dyn Resolver, parent: &str, md: &str) -> PageModel {
+    md_page_with_title(resolver, parent, md, None)
+}
+
+/// Create a page from a markdown file.
+#[track_caller]
+fn md_page_with_title(
+    resolver: &dyn Resolver,
+    parent: &str,
+    md: &str,
+    title: Option<&str>,
+) -> PageModel {
     assert!(parent.starts_with('/') && parent.ends_with('/'));
     let html = Html::markdown(resolver, md, Some(0));
-    let title = html.title().expect("chapter lacks a title");
+    let title = title.or(html.title()).expect("chapter lacks a title");
     PageModel {
         route: eco_format!("{parent}{}/", urlify(title)),
         title: title.into(),
@@ -174,9 +185,25 @@ fn guide_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = md_page(resolver, resolver.base(), load!("guides/welcome.md"));
     let base = format!("{}guides/", resolver.base());
     page.children = vec![
-        md_page(resolver, &base, load!("guides/guide-for-latex-users.md")),
-        md_page(resolver, &base, load!("guides/page-setup.md")),
-        md_page(resolver, &base, load!("guides/tables.md")),
+        md_page_with_title(
+            resolver,
+            &base,
+            load!("guides/guide-for-latex-users.md"),
+            Some("For LaTeX Users"),
+        ),
+        md_page_with_title(
+            resolver,
+            &base,
+            load!("guides/page-setup.md"),
+            Some("Page Setup"),
+        ),
+        md_page_with_title(resolver, &base, load!("guides/tables.md"), Some("Tables")),
+        md_page_with_title(
+            resolver,
+            &base,
+            load!("guides/accessibility.md"),
+            Some("Accessibility"),
+        ),
     ];
     page
 }
@@ -275,6 +302,11 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
     // Tiling would be duplicate otherwise.
     if category == Category::Visualize {
         skip.insert("pattern");
+    }
+
+    // PDF attach would be duplicate otherwise.
+    if category == Category::Pdf {
+        skip.insert("embed");
     }
 
     // Add values and types.
