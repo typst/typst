@@ -119,7 +119,7 @@ How can we improve the chart? First, make sure that no information is solely com
 <img src="chart-good.png" alt="The same bar chart with the original colors. This time, black outlines around each segment are added. Additionally, each segment has a unique pattern." width="958" height="637" style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 50%; height: auto; display: block; margin: 24px auto; border-radius: 6px">
 </div>
 
-This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. The Typst web app can simulate color blindness in the preview so you can check how your document performs without exporting it. You can find the options for this in the "View" menu. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
+This could be further improved by choosing colors that are differentiable to people afflicted by common colorblindness types. There are tools on the web to [simulate the color perception of various color blindnesses][color-blind-simulator]. You could also iterate on the design by choosing two-tone patterns, aligning them to the bars, or changing font use.
 
 Also consider the color contrast between background and foreground. For example, when you are using light gray text for footnotes, they could become hard to read. Another situation that often leads to low contrast is superimposing text on an image.
 
@@ -184,7 +184,7 @@ Like the image function, the figure function has a [`alt` attribute]($figure.alt
 ```typ
 #figure(
   alt: "Star with a blue outline",
-  curve.with(
+  curve(
     stroke: blue,
     curve.move((25pt, 0pt)),
     curve.line((10pt, 50pt)),
