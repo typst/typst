@@ -225,7 +225,7 @@ another show-set rule that selects the title to set the block spacing:
 
 With this show-set rule, we overrode the spacing below the title. We have used
 the `em` unit: It allows us to express lengths as multiples of the font size.
-Here, we used it to space the title and the author list exactly 1.2× of the font
+Here, we used it to space the title and the author list exactly 1.2× the font
 size apart. Now, let's add the abstract. Remember that the conference wants the
 abstract to be set ragged and centered.
 
@@ -281,10 +281,34 @@ affect the remainder of the document even though it was specified after the
 first set rule because content blocks _scope_ styling. Anything set within a
 content block will only affect the content within that block.
 
-Another tweak could be to save the paper title in a variable, so that we do not
-have to type it twice, for header and title. Content saved in a variable can
-then be used later in the document, just by referencing the variable with its
-name. We define a new variable with the `{let}` keyword:
+Another tweak could be to remove the duplication between the header and the title
+element's argument. Since they only share the title, it would be convenient to
+store it in a place designed to hold metadata about the document. We would then
+need a way to retrieve the title in both places. The `document` element can help
+us with the former: By using it in a set rule, we can store document metadata
+like title, description, and keywords.
+
+```typ
+#set document(title: [A Fluid Dynamic Model for Glacier Flow])
+```
+
+When exporting a PDF, the title set here will appear in the title bar of your
+PDF reader. Your operating system will also use this title to make the file
+retrievable with search. Last but not least, it contributes to making your
+document more accessible and is required if you choose to comply with PDF/UA,
+a PDF standard focused on accessibility.
+
+Now, we need a way to retrieve the value we set in the main title and the
+header. Because the `title` function is designed to work together with the
+`document` element, calling it with no arguments will just print the title. For
+the header, we will need to be more explicit: Because Typst has no way of
+knowing that you want to insert the title there, we will need to tell it to do
+so manually.
+
+Using _context,_ we can retrieve the contents of any values we have set on
+elements before. When we use the `{context}` keyword, we can access any
+property of any element, including the document element's title property. The
+syntax would then look like this:
 
 ```example:single
 #set document(title: [
@@ -299,6 +323,8 @@ name. We define a new variable with the `{let}` keyword:
 >>> margin: auto,
   header: align(
     right + horizon,
+    // Retrieve the document
+    // element's title property.
     context document.title,
   ),
 <<<   ...
@@ -338,24 +364,46 @@ name. We define a new variable with the `{let}` keyword:
 >>> #lorem(600)
 ```
 
-After we assigned the content to the `doc-title` variable, we can use it in
-functions and also within markup (prefixed by `#`, like functions). This way, if
-we decide on another title, we can easily change it in one place.
+First, notice how we called the title function with empty, round
+parentheses. Because no argument was passed, it defaulted to what we set for the
+document element above. The distinction between empty round and empty square
+brackets is important: While empty round brackets show that you are passing
+nothing, empty square brackets mean that you are passing one argument: an empty
+content block. If called that way, the title would have no visible content.
 
-Also notice that we changed the call to the `title` function from square
-brackets to round parentheses. That's because we no longer pass content, but use
-a variable, which is accessible in code mode. Another way to write this is to
-use the hashtag to enter code mode: ```[#title[#doc-title]]```. Because that's
-more verbose, the standard style is just to use round parentheses.
+Next, take a look at the header. Instead of the title in square parentheses, we
+used the context keyword to access the document title. This inserted exactly
+what we set above. The role of context is not limited to accessing properties:
+With it, you can check if some elements are present in the document, measure the
+physical dimensions of others, and more. Using context, you can build powerful
+templates that react to the preferences of the end-user.
 
 <div class="info-box">
 
-Why did we not call the variable `title`?
+<details>
+<summary>
+Why is the context keyword required to access element properties?
+</summary>
 
-Variables and functions share a _namespace._ That means that Typst's built-in
-function are just variables which are already defined in all your files. You can
-define variables with the same name (e.g. `title`), but that means that calling
-`#title[]` would not work anymore.
+Normally, when we access a variable, we know exactly what its value is going to
+be:
+
+- The variable could be a constant built into Typst, like `[#sym.pi]`
+- The variable could be defined by an argument
+- The variable could be defined or overwritten in the current scope
+
+However, sometimes, that's not enough. In this chapter of the tutorial, we have
+inserted a page header with the title. Even though we pass only one content
+block for the header, we may want different pages to have different headers. For
+example, we may want to print the chapter name or use the page number. When we
+use context, we can write a single context block that tells Typst to take a look
+at where it's inserted, look for the last heading, the current page number, or
+anything else, and go from there. That means that the same context block,
+inserted on different pages, can produce different output.
+
+For more information, read up on context [in its docs]($context) after
+completing this tutorial.
+</details>
 </div>
 
 ## Adding columns and headings { #columns-and-headings }
@@ -384,10 +432,10 @@ content in its container:
 ```
 
 If we hadn't used `{place}` here, the square would be in its own line, but here
-it overlaps the few lines of text following it. Likewise, that text acts like as
-if there was no square. To change this behavior, we can pass the argument
-`{float: true}` to ensure that the space taken up by the placed item at the top
-or bottom of the page is not occupied by any other content.
+it overlaps the few lines of text following it. Likewise, that text acts as if
+there was no square. To change this behavior, we can pass the argument `{float:
+true}` to ensure that the space taken up by the placed item at the top or bottom
+of the page is not occupied by any other content.
 
 ```example:single
 >>> #set document(title: [
@@ -642,10 +690,11 @@ the conference! The finished paper looks like this:
 
 ## Review
 You have now learned how to create titles, headers, and footers, how to use
-functions, set show rules, and scopes to locally override styles, how to create
-more complex layouts with the [`grid`] function and how to write show rules for
-individual functions, and the whole document. You also learned how to use the
-[`where` selector]($styling/#show-rules) to filter the headings by their level.
+functions, show-set rules, and scopes to locally override styles, how to create
+more complex layouts with the [`grid`] function, how to access element
+properties with context, and how to write show rules for individual functions,
+and the whole document. You also learned how to use the [`where`
+selector]($styling/#show-rules) to filter the headings by their level.
 
 The paper was a great success! You've met a lot of like-minded researchers at
 the conference and are planning a project which you hope to publish at the same
