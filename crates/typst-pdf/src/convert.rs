@@ -91,7 +91,7 @@ fn setup<'a>(
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
-        enable_tagging: !options.disable_tags,
+        enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
     };
 

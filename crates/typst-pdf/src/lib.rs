@@ -39,7 +39,7 @@ pub fn pdf_tags(document: &PagedDocument, options: &PdfOptions) -> SourceResult<
 }
 
 /// Settings for PDF export.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PdfOptions<'a> {
     /// If not `Smart::Auto`, shall be a string that uniquely and stably
     /// identifies the document. It should not change between compilations of
@@ -65,7 +65,7 @@ pub struct PdfOptions<'a> {
     /// document is written to provide a baseline of accessibility. In some
     /// circumstances, for example when trying to reduce the size of a document,
     /// it can be desirable to disable tagged PDF.
-    pub disable_tags: bool,
+    pub tagged: bool,
 }
 
 impl PdfOptions<'_> {
@@ -73,6 +73,18 @@ impl PdfOptions<'_> {
     /// PDF/UA-2.
     pub(crate) fn is_pdf_ua(&self) -> bool {
         self.standards.config.validator() == Validator::UA1
+    }
+}
+
+impl Default for PdfOptions<'_> {
+    fn default() -> Self {
+        Self {
+            ident: Smart::Auto,
+            timestamp: None,
+            page_ranges: None,
+            standards: PdfStandards::default(),
+            tagged: true,
+        }
     }
 }
 

@@ -66,7 +66,7 @@ pub struct CompileConfig {
     /// A list of standards the PDF should conform to.
     pub pdf_standards: PdfStandards,
     /// Whether to write PDF (accessibility) tags.
-    pub disable_pdf_tags: bool,
+    pub tagged: bool,
     /// A destination to write a list of dependencies to.
     pub deps: Option<Output>,
     /// The format to use for dependencies.
@@ -185,7 +185,7 @@ impl CompileConfig {
             output_format,
             pages,
             pdf_standards,
-            disable_pdf_tags: args.no_pdf_tags,
+            tagged: !args.no_pdf_tags,
             creation_timestamp: args.world.creation_timestamp,
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
@@ -336,7 +336,7 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
         timestamp,
         page_ranges: config.pages.clone(),
         standards: config.pdf_standards.clone(),
-        disable_tags: config.disable_pdf_tags,
+        tagged: config.tagged,
     };
     let buffer = typst_pdf::pdf(document, &options)?;
     config

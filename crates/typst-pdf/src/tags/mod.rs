@@ -32,7 +32,7 @@ mod tree;
 mod util;
 
 pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags> {
-    let tree = if !options.disable_tags {
+    let tree = if options.tagged {
         tree::build(document, options)?
     } else {
         Tree::empty(document, options)
@@ -170,10 +170,10 @@ pub fn tiling<T>(
 }
 
 /// Whether tag generation is currently disabled. Either because it has been
-/// disabled by the user using the [`PdfOptions::disable_tags`] flag, or we're
-/// inside a tiling.
+/// disabled by the user using the [`PdfOptions::tagged`] flag, or we're inside
+/// a tiling.
 pub fn disabled(gc: &GlobalContext) -> bool {
-    gc.options.disable_tags || gc.tags.in_tiling
+    !gc.options.tagged || gc.tags.in_tiling
 }
 
 /// Add all annotations that were found in the page frame.
