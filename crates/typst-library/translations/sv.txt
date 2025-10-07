@@ -6,6 +6,6 @@ heading = Avsnitt
 outline = Innehåll
 raw = Kodlistning
 page = sida
-# footnote =
+footnote = Fotnot
 # email =
 # telephone =

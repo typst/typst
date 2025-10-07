@@ -1,0 +1,11 @@
+figure = ചിത്രം
+table = പട്ടിക
+# equation =
+# bibliography =
+# heading =
+outline = ഉള്ളടക്കം
+# raw =
+# page =
+# footnote =
+# email =
+# telephone =

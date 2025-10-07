@@ -103,7 +103,7 @@ pub fn build_figure(
             }
             _ => (),
         }
-    } else if group.nodes().iter().any(|n| matches!(n, TagNode::Group(_))) {
+    } else if !group.nodes().iter().any(|n| matches!(n, TagNode::Group(_))) {
         // The figure contains only marked content.
         figure_ctx.tag_kind = FigureTagKind::Figure;
     }

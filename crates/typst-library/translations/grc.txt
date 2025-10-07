@@ -1,0 +1,11 @@
+figure = Σχῆμα
+table = Πίναξ
+# equation =
+bibliography = Βιβλιογραφία
+# heading =
+outline = Περιεχόμενα
+# raw =
+page = Σελὶς
+# footnote =
+# email =
+# telephone =

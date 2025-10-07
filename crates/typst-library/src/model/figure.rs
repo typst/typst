@@ -101,6 +101,22 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
+///
+/// # Accessibility
+/// You can use the [`alt`]($figure.alt) parameter to provide an [alternative
+/// description]($guides/accessibility/#textual-representations) of the figure
+/// for screen readers and other Assistive Technology (AT). Refer to [its
+/// documentation]($figure.alt) to learn more.
+///
+/// You can use figures to add alternative descriptions to paths, shapes, or
+/// visualizations that do not have their own `alt` parameter. If your graphic
+/// is purely decorative and does not have a semantic meaning, consider wrapping
+/// it in [`pdf.artifact`] instead, which will hide it from AT when exporting to
+/// PDF.
+///
+/// AT will always read the figure at the point where it appears in the
+/// document, regardless of its [`placement`]($figure.placement). Put its markup
+/// where it would make the most sense in the reading order.
 #[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image].
@@ -108,6 +124,20 @@ pub struct FigureElem {
     pub body: Content,
 
     /// An alternative description of the figure.
+    ///
+    /// When you add an alternative description, AT will read both it and the
+    /// caption (if any). However, the content of the figure itself will be
+    /// skipped.
+    ///
+    /// When the body of your figure is an [image]($image) with its own `alt`
+    /// text set, this parameter should not be used on the figure element.
+    /// Likewise, do not use this parameter when the figure contains a table,
+    /// code, or other content that is already accessible. In such cases, the
+    /// content of the figure will be read by AT, and adding an alternative
+    /// description would lead to a loss of information.
+    ///
+    /// You can learn how to write good alternative descriptions in the
+    /// [Accessibility Guide]($guides/accessibility/#textual-representations).
     pub alt: Option<EcoString>,
 
     /// The figure's placement on the page.
@@ -180,9 +210,8 @@ pub struct FigureElem {
     ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
-    /// it to an element function other than [`{table}`]($table), [`{raw}`](raw)
-    /// or [`{image}`](image), you will need to manually specify the figure's
-    /// supplement.
+    /// it to an element function other than [`table`], [`raw`], or [`image`],
+    /// you will need to manually specify the figure's supplement.
     ///
     /// ```example:"Customizing the figure kind"
     /// #figure(

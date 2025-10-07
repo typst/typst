@@ -102,12 +102,8 @@
               '';
 
               GEN_ARTIFACTS = "artifacts";
-              TYPST_VERSION =
-                let
-                  rev = self.shortRev or "dirty";
-                  version = cargoToml.workspace.package.version;
-                in
-                "${version} (${rev})";
+              TYPST_VERSION = cargoToml.workspace.package.version;
+              TYPST_COMMIT_SHA = self.shortRev or "dirty";
 
               meta.mainProgram = "typst";
             }

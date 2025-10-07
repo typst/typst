@@ -36,6 +36,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ================================================================================
 
+
+================================================================================
+Translations defined in `crates/typst-library/translations/` are adapted from
+
+* Babel (https://ctan.org/pkg/babel)
+  Copyright (C) 2012-2025 Javier Bezos and Johannes L. Braams.
+  Copyright (C) 1989-2012 Johannes L. Braams and
+            any individual authors listed elsewhere.
+  All rights reserved.
+  This file is part of the Babel system
+  It may be distributed and/or modified under the
+  conditions of the LaTeX Project Public License, either version 1.3
+  of this license or (at your option) any later version.
+  The latest version of this license is in
+    http://www.latex-project.org/lppl.txt
+  and version 1.3 or later is part of all distributions of LaTeX
+  version 2003/12/01 or later.
+
+* Cleveref (https://ctan.org/pkg/cleveref)
+  Copyright 2006--2018 Toby Cubitt
+  This file may be distributed and/or modified under the
+  conditions of the LaTeX Project Public License, either version 1.2
+  of this license or (at your option) any later version.
+  The latest version of this license is in:
+     http://www.latex-project.org/lppl.txt
+  and version 1.2 or later is part of all distributions of LaTeX
+  version 1999/12/01 or later.
+================================================================================
+
+
 ================================================================================
 Alpha multiplication and source-over blending in
 `crates/typst-render/src/text.rs` are ported from Skia code which can be found

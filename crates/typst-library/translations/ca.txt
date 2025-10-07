@@ -6,6 +6,6 @@ heading = Secció
 outline = Índex
 raw = Llistat
 page = pàgina
-# footnote =
+footnote = Nota
 # email =
 # telephone =

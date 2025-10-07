@@ -57,6 +57,7 @@ fn render_outline_glyph(
         || ts.ky != 0.0
         || ts.sx != ts.sy
         || text.stroke.is_some()
+        || text.size < Abs::zero()
     {
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());

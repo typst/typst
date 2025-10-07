@@ -1,9 +1,11 @@
 mod args;
 mod compile;
 mod completions;
+mod deps;
 mod download;
 mod fonts;
 mod greet;
+mod info;
 mod init;
 mod package;
 mod query;
@@ -25,9 +27,11 @@ use clap::Parser;
 use clap::error::ErrorKind;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
-use typst::diag::HintedStrResult;
+use ecow::eco_format;
+use serde::Serialize;
+use typst::diag::{HintedStrResult, StrResult};
 
-use crate::args::{CliArguments, Command};
+use crate::args::{CliArguments, Command, SerializationFormat};
 use crate::timings::Timer;
 
 thread_local! {
@@ -73,6 +77,7 @@ fn dispatch() -> HintedStrResult<()> {
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command)?,
         Command::Completions(command) => crate::completions::completions(command),
+        Command::Info(command) => crate::info::info(command)?,
     }
 
     Ok(())
@@ -88,6 +93,11 @@ fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
 }
 
+/// Used by `args.rs`.
+fn typst_commit_sha() -> &'static str {
+    env!("TYPST_COMMIT_SHA")
+}
+
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
     let styles = term::Styles::default();
@@ -98,6 +108,27 @@ fn print_error(msg: &str) -> io::Result<()> {
 
     output.reset()?;
     writeln!(output, ": {msg}")
+}
+
+/// Serialize data to the output format and convert the error to an
+/// [`EcoString`].
+fn serialize(
+    data: &impl Serialize,
+    format: SerializationFormat,
+    pretty: bool,
+) -> StrResult<String> {
+    match format {
+        SerializationFormat::Json => {
+            if pretty {
+                serde_json::to_string_pretty(data).map_err(|e| eco_format!("{e}"))
+            } else {
+                serde_json::to_string(data).map_err(|e| eco_format!("{e}"))
+            }
+        }
+        SerializationFormat::Yaml => {
+            serde_yaml::to_string(data).map_err(|e| eco_format!("{e}"))
+        }
+    }
 }
 
 #[cfg(not(feature = "self-update"))]

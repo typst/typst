@@ -1,0 +1,11 @@
+figure = Նկար
+table = Աղյուսակ
+# equation =
+bibliography = Գրականություն
+# heading =
+outline = Բովանդակություն
+# raw =
+page = էջ
+# footnote =
+# email =
+# telephone =

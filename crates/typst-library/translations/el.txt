@@ -5,6 +5,7 @@ bibliography = Βιβλιογραφία
 heading = Κεφάλαιο
 outline = Περιεχόμενα
 raw = Παράθεση
+page = Σελίδα
 # footnote =
 # email =
 # telephone =

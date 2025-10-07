@@ -1,0 +1,11 @@
+figure = Wobraz
+table = Tabulka
+# equation =
+bibliography = Literatura
+# heading =
+outline = Wopśimjeśe
+# raw =
+page = Strona
+# footnote =
+# email =
+# telephone =

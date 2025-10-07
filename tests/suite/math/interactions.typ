@@ -75,7 +75,7 @@ $f'(x), f''''''(x)$
 --- math-glyph-show-rule ---
 #show "+": set text(orange, font: "Noto Sans Math")
 $ 1 + 1 = +2 $
-#show "+": text(2em)[#sym.plus.circle]
+#show "+": text(2em)[#sym.plus.o]
 $ 1 + 1 = +2 $
 
 --- math-accent-show-rule-1 ---
