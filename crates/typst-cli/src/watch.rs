@@ -73,7 +73,21 @@ pub fn watch(timer: &mut Timer, command: &WatchCommand) -> StrResult<()> {
         world.reset();
 
         // Recompile.
-        timer.record(&mut world, |world| compile_once(world, &mut config))??;
+        timer.record(&mut world, |world| {
+            if config.pre_compile_script.is_some() {
+                // Watcher will trigger a lopp if the script generates a file used by the document.
+                watcher.watched.keys().for_each(|path| {
+                    watcher.watcher.unwatch(path).ok();
+                });
+            }
+            let result = compile_once(world, &mut config);
+            if config.pre_compile_script.is_some() {
+                watcher.watched.keys().for_each(|path| {
+                    watcher.watcher.watch(path, RecursiveMode::NonRecursive).ok();
+                });
+            }
+            result
+        })??;
 
         // Evict the cache.
         comemo::evict(10);
