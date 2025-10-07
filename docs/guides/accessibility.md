@@ -184,7 +184,7 @@ Like the image function, the figure function has a [`alt` attribute]($figure.alt
 ```typ
 #figure(
   alt: "Star with a blue outline",
-  curve.with(
+  curve(
     stroke: blue,
     curve.move((25pt, 0pt)),
     curve.line((10pt, 50pt)),
