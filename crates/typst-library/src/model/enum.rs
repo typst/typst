@@ -191,7 +191,7 @@ pub struct EnumElem {
     /// The numbered list's items.
     ///
     /// Items can be specified as their bodies, as `(number, body)` pairs, or
-    /// via explicit [`{enum.item}`] elements.
+    /// via explicit [`enum.item`] elements.
     ///
     /// ```example:"Basic usage"
     /// #enum(

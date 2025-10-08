@@ -88,12 +88,12 @@ pub struct TermsElem {
     /// The term list's children.
     ///
     /// Children can be specified as `(term, description)` pairs, or via an
-    /// explicit [`{term.item}`] element.
+    /// explicit [`terms.item`] element.
     ///
     /// ```example:"Basic usage"
     /// #terms(
     ///   ([Pair], [It works!]),
-    ///   term.item[Element][It works too!],
+    ///   terms.item[Element][It works too!],
     /// )
     /// ```
     ///
