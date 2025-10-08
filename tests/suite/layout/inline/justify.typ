@@ -168,23 +168,26 @@ int main() {
 }
 
 --- justify-limits-tracking-wrong-type ---
-// Error: 32-65 `min` value is invalid (expected length, found ratio)
-#set par(justification-limits: (tracking: (min: 90%, max: 110%)))
+// Error: 1:32-4:2 `min` value of `tracking` is invalid (expected length, found ratio)
+#set par(justification-limits: (
+  spacing: (min: 100%, max: 100%),
+  tracking: (min: 90%, max: 110%),
+))
 
 --- justify-limits-tracking-min-positive ---
-// Error: 32-65 `min` value is invalid (length must be negative or zero)
+// Error: 32-65 `min` value of `tracking` is invalid (length must be negative or zero)
 #set par(justification-limits: (tracking: (min: 1em, max: -1em)))
 
 --- justify-limits-tracking-max-negative ---
-// Error: 32-66 `max` value is invalid (length must be positive or zero)
+// Error: 32-66 `max` value of `tracking` is invalid (length must be positive or zero)
 #set par(justification-limits: (tracking: (min: -1em, max: -1em)))
 
 --- justify-limits-spacing-max-negative ---
-// Error: 32-78 `max` value is invalid (length must be positive or zero)
+// Error: 32-78 `max` value of `spacing` is invalid (length must be positive or zero)
 #set par(justification-limits: (spacing: (min: 100% - 10pt, max: 120% - 1pt)))
 
 --- justify-limits-spacing-ratio-negative ---
-// Error: 32-76 `min` value is invalid (ratio must be positive)
+// Error: 32-76 `min` value of `spacing` is invalid (ratio must be positive)
 #set par(justification-limits: (spacing: (min: -50% - 1pt, max: 50% + 1pt)))
 
 --- justify-chinese ---

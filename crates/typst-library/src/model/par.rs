@@ -468,8 +468,16 @@ cast! {
         Value::Dict(dict)
     },
     mut dict: Dict => {
-        let spacing = dict.take("spacing").ok().map(|v| v.cast()).transpose()?;
-        let tracking = dict.take("tracking").ok().map(|v| v.cast()).transpose()?;
+        let spacing = dict
+            .take("spacing")
+            .ok()
+            .map(|v| Limits::cast(v, "spacing"))
+            .transpose()?;
+        let tracking = dict
+            .take("tracking")
+            .ok()
+            .map(|v| Limits::cast(v, "tracking"))
+            .transpose()?;
         dict.finish(&["spacing", "tracking"])?;
         Self { spacing, tracking }
     },
@@ -537,15 +545,23 @@ impl<T: IntoValue> IntoValue for Limits<T> {
     }
 }
 
-impl<T: FromValue + Limit> FromValue for Limits<T> {
-    fn from_value(value: Value) -> HintedStrResult<Self> {
+impl<T> Limits<T> {
+    /// Not implementing `FromValue` here because we want to pass the `field`
+    /// for the error message. Ideally, the casting infrastructure would be
+    /// bit more flexible here.
+    fn cast(value: Value, field: &str) -> HintedStrResult<Self>
+    where
+        T: FromValue + Limit,
+    {
         let mut dict: Dict = value.cast()?;
-        let mut take = |s, check: fn(T) -> StrResult<T>| {
-            dict.take(s)?
+        let mut take = |key, check: fn(T) -> StrResult<T>| {
+            dict.take(key)?
                 .cast::<T>()
                 .map_err(|hinted| hinted.message().clone())
                 .and_then(check)
-                .map_err(|err| eco_format!("`{s}` value is invalid ({err})"))
+                .map_err(|err| {
+                    eco_format!("`{key}` value of `{field}` is invalid ({err})")
+                })
         };
         let min = take("min", Limit::checked_min)?;
         let max = take("max", Limit::checked_max)?;
