@@ -64,8 +64,15 @@
   table.hline(stroke: black),
 )
 
---- table-tags-show-rule pdftags ---
-// The table contents are transformed by a show rule.
+--- table-tags-show-rule-error pdftags ---
+// Error: 2:2-2:30 PDF/UA-1 error: invalid table (Table) structure
+// Hint: 2:2-2:30 table (Table) may not contain raw text (Code)
+// Hint: 2:2-2:30 this is probably caused by a show rule
+#set table(columns: (10pt, auto))
+#show table: it => it.columns
+#table[A][B][C][D]
+
+--- table-tags-show-rule pdftags nopdfua ---
 #set table(columns: (10pt, auto))
 #show table: it => it.columns
 #table[A][B][C][D]
