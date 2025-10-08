@@ -246,18 +246,15 @@ fn math_expr(p: &mut Parser) {
 /// chaining with another operator.
 fn math_expr_prec(p: &mut Parser, min_prec: usize, stop_set: SyntaxSet) {
     let m = p.marker();
-    let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
         // The lexer manages creating full FieldAccess nodes if needed.
         SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
-            continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
             if min_prec < 3 && p.directly_at(SyntaxKind::LeftParen) {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
-                continuable = false;
             }
         }
 
@@ -276,31 +273,14 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop_set: SyntaxSet) {
             p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathText => {
-            // `a(b)/c` parses as `(a(b))/c` if `a` is continuable.
-            continuable = {
-                let text = p.current_text();
-                if let Some((0, c)) = text.char_indices().next_back() {
-                    // Just a single character.
-                    c.is_alphabetic()
-                        || default_math_class(c) == Some(MathClass::Alphabetic)
-                } else {
-                    // Multiple characters.
-                    text.chars().all(char::is_alphabetic)
-                }
-            };
-            p.eat();
-        }
-
-        SyntaxKind::Linebreak
-        | SyntaxKind::MathAlignPoint
-        | SyntaxKind::MathShorthand => p.eat(),
-
-        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
-            // If eating primes here, it means they had nothing to attach to.
-            continuable = true;
-            p.eat();
-        }
+        SyntaxKind::Str
+        | SyntaxKind::Text
+        | SyntaxKind::Escape
+        | SyntaxKind::MathText
+        | SyntaxKind::Linebreak
+        | SyntaxKind::MathPrimes
+        | SyntaxKind::MathShorthand
+        | SyntaxKind::MathAlignPoint => p.eat(),
 
         SyntaxKind::Root => {
             if min_prec < 3 {
@@ -315,14 +295,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop_set: SyntaxSet) {
         _ => p.expected("expression"),
     }
 
-    if continuable
-        && min_prec < 3
-        && !p.had_trivia()
-        && p.at_set(syntax_set!(LeftBrace, LeftParen))
-    {
-        math_delimited(p);
-        p.wrap(m, SyntaxKind::Math);
-    }
+    // Markers needed to correctly handle implicit math function calls.
+    let mut implicit_func_markers: Option<(Marker, Marker)> = None;
 
     while !p.at_set(stop_set)
         && let Some((wrapper, infix_assoc, prec)) = math_op(p)
@@ -336,15 +310,43 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop_set: SyntaxSet) {
         };
 
         // Eat the operator itself.
+        let mut m_lhs = m;
         if p.current() == SyntaxKind::Bang {
+            // `Bang` also acts like juxtaposition, but since it's a higher
+            // precedence than everything else, it gets to avoid complication.
             p.convert_and_eat(SyntaxKind::MathText);
+        } else if wrapper == SyntaxKind::Math {
+            // Implicit function call operator.
+            if let Some((_, m_start)) = implicit_func_markers {
+                // If we're already parsing an implicit function, parsing
+                // another uses the precedence of the juxtaposition operator.
+                if JUXTAPOSITION_PREC < min_prec {
+                    break;
+                }
+                implicit_func_markers = Some((m_start, p.marker()));
+            } else {
+                implicit_func_markers = Some((m, p.marker()));
+            }
+            math_expr_prec(p, IMPLICIT_FUNC_PREC + 1, stop_set);
+            continue;
         } else {
+            if let Some((m_start, m_parens)) = implicit_func_markers {
+                // If the new op parses tighter than an implicit function call,
+                // then it just takes the parentheses and will juxtapose with
+                // the "caller" after the loop finishes.
+                if prec >= IMPLICIT_FUNC_PREC {
+                    m_lhs = m_parens;
+                } else {
+                    m_lhs = m_start;
+                    p.wrap(m_start, SyntaxKind::Math);
+                }
+            }
             p.eat();
         }
 
         // Slash is the only operator that removes parens from its left side.
         if wrapper == SyntaxKind::MathFrac {
-            math_unparen(p, m);
+            math_unparen(p, m_lhs);
         }
 
         // Parse the operator's right operand.
@@ -367,9 +369,20 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop_set: SyntaxSet) {
         }
 
         // Finish the operator by wrapping from its left operand to now.
-        p.wrap(m, wrapper);
+        p.wrap(m_lhs, wrapper);
+    }
+
+    if implicit_func_markers.is_some() {
+        p.wrap(m, SyntaxKind::Math);
     }
 }
+
+// Implicit function calls are a special case of juxtaposition with a higher
+// precedence. However, juxtaposition is usually handled by the loop in
+// `math_exprs()`, so this requires extra effort to handle correctly in
+// `parse_math_expr`.
+const IMPLICIT_FUNC_PREC: usize = 2;
+const JUXTAPOSITION_PREC: usize = 1;
 
 /// Precedence and wrapper kinds for infix and postfix math operators.
 fn math_op(p: &Parser) -> Option<(SyntaxKind, Option<ast::Assoc>, usize)> {
@@ -379,9 +392,53 @@ fn math_op(p: &Parser) -> Option<(SyntaxKind, Option<ast::Assoc>, usize)> {
         SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
         SyntaxKind::MathPrimes if !p.had_trivia() => (SyntaxKind::MathAttach, None, 3),
         SyntaxKind::Bang if !p.had_trivia() => (SyntaxKind::Math, None, 4),
+        SyntaxKind::LeftBrace | SyntaxKind::LeftParen
+            if !p.had_trivia() && prev_acts_as_math_func(p) =>
+        {
+            // We treat opening delimiters as an implicit "math function call"
+            // operator with precedence higher than fractions and lower than
+            // attachments
+            (SyntaxKind::Math, None, IMPLICIT_FUNC_PREC)
+        }
         _ => return None,
     };
     Some(op)
+}
+
+/// Check whether the previous syntax node can act as a math function for
+/// grouping. This includes (exhaustive): identifiers, field accesses, strings,
+/// character escapes, primes, and all other `MathText` made solely of
+/// alphabetic characters.
+///
+/// However this does not include embedded code or numeric text.
+fn prev_acts_as_math_func(p: &Parser) -> bool {
+    // First, find the previous leaf node that isn't part of a code expression.
+    let mut nodes = p.nodes.as_slice().iter();
+    let prev_leaf = loop {
+        let Some(prev_node) = nodes.next_back() else { return false };
+        if nodes.next_back().is_some_and(|n| n.kind() == SyntaxKind::Hash) {
+            return false;
+        }
+        if prev_node.is_leaf() {
+            break prev_node;
+        }
+        nodes = prev_node.children();
+    };
+    // Second, match the kind and check if it can act as a math function.
+    let kind = prev_leaf.kind();
+    if kind == SyntaxKind::MathText {
+        // For `MathText` we check if the text is alphabetical.
+        if let Some((0, c)) = prev_leaf.text().char_indices().next_back() {
+            // ^ This happens if there is only a single character.
+            default_math_class(c) == Some(MathClass::Alphabetic)
+        } else {
+            // If multiple characters, ensure all are alphabetic, but using
+            // unicode property blocks, not math properties.
+            prev_leaf.text().chars().all(char::is_alphabetic)
+        }
+    } else {
+        syntax_set!(Str, Escape, Ident, MathIdent, MathPrimes).contains(kind)
+    }
 }
 
 /// Parse matched delimiters in math: `[x + y]`.
