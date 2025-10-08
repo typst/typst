@@ -29,10 +29,29 @@ pub struct FracElem {
 
     /// How the fraction should be laid out.
     ///
-    /// ```example
+    /// ```example:"Styles"
+    /// $ frac(x, y, style: "vertical") $
+    /// $ frac(x, y, style: "skewed") $
+    /// $ frac(x, y, style: "horizontal") $
+    /// ```
+    ///
+    /// ```example:"Setting the default"
     /// #set math.frac(style: "skewed")
     /// $ a / b $
-    /// $ frac(x, y, style: "vertical") $
+    /// ```
+    ///
+    /// ```example:"Handling of grouping parentheses"
+    /// // Grouping parentheses are removed.
+    /// #set math.frac(style: "vertical")
+    /// $ (a + b) / b $
+    ///
+    /// // Grouping parentheses are removed.
+    /// #set math.frac(style: "skewed")
+    /// $ (a + b) / b $
+    ///
+    /// // Grouping parentheses are retained.
+    /// #set math.frac(style: "horizontal")
+    /// $ (a + b) / b $
     /// ```
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,
