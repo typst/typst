@@ -130,10 +130,13 @@ impl PdfStandards {
                 PdfStandard::V_1_7 => set_version(PdfVersion::Pdf17)?,
                 PdfStandard::V_2_0 => set_version(PdfVersion::Pdf20)?,
                 PdfStandard::A_1b => set_validator(Validator::A1_B)?,
+                PdfStandard::A_1a => set_validator(Validator::A1_A)?,
                 PdfStandard::A_2b => set_validator(Validator::A2_B)?,
                 PdfStandard::A_2u => set_validator(Validator::A2_U)?,
+                PdfStandard::A_2a => set_validator(Validator::A2_A)?,
                 PdfStandard::A_3b => set_validator(Validator::A3_B)?,
                 PdfStandard::A_3u => set_validator(Validator::A3_U)?,
+                PdfStandard::A_3a => set_validator(Validator::A3_A)?,
                 PdfStandard::A_4 => set_validator(Validator::A4)?,
                 PdfStandard::A_4f => set_validator(Validator::A4F)?,
                 PdfStandard::A_4e => set_validator(Validator::A4E)?,
@@ -200,18 +203,27 @@ pub enum PdfStandard {
     /// PDF/A-1b.
     #[serde(rename = "a-1b")]
     A_1b,
+    /// PDF/A-1a.
+    #[serde(rename = "a-1a")]
+    A_1a,
     /// PDF/A-2b.
     #[serde(rename = "a-2b")]
     A_2b,
     /// PDF/A-2u.
     #[serde(rename = "a-2u")]
     A_2u,
+    /// PDF/A-2a.
+    #[serde(rename = "a-2a")]
+    A_2a,
     /// PDF/A-3b.
     #[serde(rename = "a-3b")]
     A_3b,
     /// PDF/A-3u.
     #[serde(rename = "a-3u")]
     A_3u,
+    /// PDF/A-3a.
+    #[serde(rename = "a-3a")]
+    A_3a,
     /// PDF/A-4.
     #[serde(rename = "a-4")]
     A_4,

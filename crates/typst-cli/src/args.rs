@@ -621,18 +621,27 @@ pub enum PdfStandard {
     /// PDF/A-1b.
     #[value(name = "a-1b")]
     A_1b,
+    /// PDF/A-1a.
+    #[value(name = "a-1a")]
+    A_1a,
     /// PDF/A-2b.
     #[value(name = "a-2b")]
     A_2b,
     /// PDF/A-2u.
     #[value(name = "a-2u")]
     A_2u,
+    /// PDF/A-2a.
+    #[value(name = "a-2a")]
+    A_2a,
     /// PDF/A-3b.
     #[value(name = "a-3b")]
     A_3b,
     /// PDF/A-3u.
     #[value(name = "a-3u")]
     A_3u,
+    /// PDF/A-3a.
+    #[value(name = "a-3a")]
+    A_3a,
     /// PDF/A-4.
     #[value(name = "a-4")]
     A_4,
