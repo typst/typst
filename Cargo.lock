@@ -1423,8 +1423,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.4.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=3665ce2#3665ce2b741622a032e8f3ddcafc9b735d4ee773"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "199be5f63da6e19b71051fd5276258a8e55449ac48e2e7492c68238f38ca9f3b"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1453,8 +1454,9 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.1.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=3665ce2#3665ce2b741622a032e8f3ddcafc9b735d4ee773"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d3eec075c9507dfdbfb4b9bc3b2aeac074ed422b61bcfd93517616d6b3d19c3"
 dependencies = [
  "flate2",
  "fontdb",
