@@ -94,6 +94,32 @@ pub enum Selector {
     After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
 }
 
+/// Helper function to check if two values match directly or after normalizing.
+/// This handles the case where a `Func` value should match a `Selector` value
+/// if they refer to the same element.
+fn matches_normalized(left: Option<&Value>, right: Option<&Value>) -> bool {
+    // If either or both values are None, they don't match
+    let (Some(left), Some(right)) = (left, right) else {
+        return false;
+    };
+
+    // First try direct equality
+    if left == right {
+        return true;
+    }
+
+    // Try to convert both values to selectors using the standard conversion
+    let left_selector = Selector::from_value(left.clone()).ok();
+    let right_selector = Selector::from_value(right.clone()).ok();
+
+    // If both can be converted to selectors, compare them
+    if let (Some(left_sel), Some(right_sel)) = (left_selector, right_selector) {
+        left_sel == right_sel
+    } else {
+        false
+    }
+}
+
 impl Selector {
     /// Define a simple text selector.
     pub fn text(text: &str) -> StrResult<Self> {
@@ -125,7 +151,8 @@ impl Selector {
             Self::Elem(element, dict) => {
                 target.elem() == *element
                     && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
-                        target.get(*id, styles).as_ref().ok() == Some(value)
+                        let field_value = target.get(*id, styles).ok();
+                        matches_normalized(field_value.as_ref(), Some(value))
                     })
             }
             Self::Label(label) => target.label() == Some(*label),
