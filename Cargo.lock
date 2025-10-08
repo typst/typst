@@ -3015,6 +3015,7 @@ dependencies = [
  "ecow",
  "heck",
  "pulldown-cmark",
+ "regex",
  "rustc-hash",
  "serde",
  "serde_json",
