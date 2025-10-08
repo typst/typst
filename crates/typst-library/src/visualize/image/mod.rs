@@ -273,22 +273,6 @@ impl Packed<ImageElem> {
         let loaded = &self.source.derived;
         let format = self.determine_format(styles).at(span)?;
 
-        // Warn the user if the image contains a foreign object. Not perfect
-        // because the svg could also be encoded, but that's an edge case.
-        if format == ImageFormat::Vector(VectorFormat::Svg) {
-            let has_foreign_object =
-                memchr::memmem::find(&loaded.data, b"<foreignObject").is_some();
-
-            if has_foreign_object {
-                engine.sink.warn(warning!(
-                span,
-                "image contains foreign object";
-                hint: "SVG images with foreign objects might render incorrectly in typst";
-                hint: "see https://github.com/typst/typst/issues/1421 for more information"
-            ));
-            }
-        }
-
         // Construct the image itself.
         let kind = match format {
             ImageFormat::Raster(format) => ImageKind::Raster(
@@ -300,6 +284,18 @@ impl Packed<ImageElem> {
                 .at(span)?,
             ),
             ImageFormat::Vector(VectorFormat::Svg) => {
+                // Warn the user if the image contains a foreign object. Not
+                // perfect because the svg could also be encoded, but that's an
+                // edge case.
+                if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
+                    engine.sink.warn(warning!(
+                        span,
+                        "image contains foreign object";
+                        hint: "SVG images with foreign objects might render incorrectly in typst";
+                        hint: "see https://github.com/typst/typst/issues/1421 for more information"
+                    ));
+                }
+
                 // Identify the SVG file in case contained hrefs need to be resolved.
                 let svg_file = match self.source.source {
                     DataSource::Path(ref path) => span.resolve_path(path).ok(),
@@ -337,6 +333,16 @@ impl Packed<ImageElem> {
                         }
                     },
                 };
+
+                // See https://github.com/LaurenzV/hayro/issues/141.
+                if document.pdf().xref().has_optional_content_groups() {
+                    engine.sink.warn(warning!(
+                        span,
+                        "PDF contains optional content groups";
+                        hint: "the image might display incorrectly in PDF export";
+                        hint: "preprocess the PDF to flatten or remove optional content groups"
+                    ));
+                }
 
                 // The user provides the page number start from 1, but further
                 // down the pipeline, page numbers are 0-based.
