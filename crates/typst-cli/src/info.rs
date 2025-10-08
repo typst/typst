@@ -44,8 +44,38 @@ struct Build {
     /// The commit this binary was compiled with.
     commit: &'static str,
 
+    /// The platform this binary was compiled for.
+    platform: Platform,
+
     /// Compile time settings.
     settings: Settings,
+}
+
+/// The platform this binary was compiled for.
+#[derive(Serialize)]
+#[serde(rename_all = "kebab-case")]
+struct Platform {
+    /// Operating system this binary was compiled for.
+    os: &'static str,
+
+    /// The instruction set architecture this binary was compiled for.
+    arch: &'static str,
+}
+
+impl Platform {
+    /// Create a new platform using compile time constants.
+    const fn new() -> Self {
+        Self {
+            os: std::env::consts::OS,
+            arch: std::env::consts::ARCH,
+        }
+    }
+}
+
+impl Default for Platform {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Compile time settings.
@@ -293,6 +323,7 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
         version: crate::typst_version(),
         build: Build {
             commit: crate::typst_commit_sha(),
+            platform: Platform::new(),
             settings: Settings {
                 self_update: cfg!(feature = "self-update"),
                 http_server: cfg!(feature = "http-server"),
@@ -505,6 +536,10 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write_value_simple(&mut out, value.version, None)?;
     write!(out, " (")?;
     write_value_simple(&mut out, value.build.commit, None)?;
+    write!(out, ", ")?;
+    write_value_simple(&mut out, value.build.platform.os, None)?;
+    write!(out, " on ")?;
+    write_value_simple(&mut out, value.build.platform.arch, None)?;
     writeln!(out, ")\n")?;
 
     writeln!(out, "Build settings")?;
