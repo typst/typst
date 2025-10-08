@@ -62,6 +62,11 @@ pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Dot,
     Comma,
     Semicolon,
+    // Parens and braces are converted to `MathText` unless they're parsed as a
+    // function call.
+    LeftBrace,
+    RightBrace,
+    LeftParen,
     RightParen,
     Text,
     MathText,
