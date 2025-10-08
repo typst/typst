@@ -1,5 +1,7 @@
 use ecow::{EcoString, eco_format};
+use typst_utils::default_math_class;
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_math_class::MathClass;
 use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
@@ -577,7 +579,6 @@ impl Lexer<'_> {
             ':' if self.s.eat_if(":=") => SyntaxKind::MathShorthand,
             '!' if self.s.eat_if('=') => SyntaxKind::MathShorthand,
             '.' if self.s.eat_if("..") => SyntaxKind::MathShorthand,
-            '[' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("==>") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("-->") => SyntaxKind::MathShorthand,
             '<' if self.s.eat_if("--") => SyntaxKind::MathShorthand,
@@ -601,7 +602,6 @@ impl Lexer<'_> {
             '>' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("->") => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if("=>") => SyntaxKind::MathShorthand,
-            '|' if self.s.eat_if(']') => SyntaxKind::MathShorthand,
             '|' if self.s.eat_if('|') => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if("~>") => SyntaxKind::MathShorthand,
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
@@ -610,7 +610,6 @@ impl Lexer<'_> {
             '.' => SyntaxKind::Dot,
             ',' => SyntaxKind::Comma,
             ';' => SyntaxKind::Semicolon,
-            ')' => SyntaxKind::RightParen,
 
             '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
@@ -624,6 +623,21 @@ impl Lexer<'_> {
             '\'' => {
                 self.s.eat_while('\'');
                 SyntaxKind::MathPrimes
+            }
+
+            // We lex delimiters as `{Left,Right}{Brace,Paren}` and convert back
+            // to `MathText` or `MathShorthand` in the parser.
+            '(' => SyntaxKind::LeftParen,
+            ')' => SyntaxKind::RightParen,
+            // TODO: We may instead want to add `MathOpening` and `MathClosing`
+            // kinds for these.
+            '[' if self.s.eat_if('|') => SyntaxKind::LeftBrace,
+            '|' if self.s.eat_if(']') => SyntaxKind::RightBrace,
+            c if default_math_class(c) == Some(MathClass::Opening) => {
+                SyntaxKind::LeftBrace
+            }
+            c if default_math_class(c) == Some(MathClass::Closing) => {
+                SyntaxKind::RightBrace
             }
 
             // Identifiers.

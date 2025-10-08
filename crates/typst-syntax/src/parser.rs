@@ -264,34 +264,48 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
-            if min_prec < 3
-                && p.directly_at(SyntaxKind::MathText)
-                && p.current_text() == "("
-            {
+            if min_prec < 3 && p.directly_at(SyntaxKind::LeftParen) {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
                 continuable = false;
             }
         }
 
+        SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
+            math_delimited(p);
+        }
+        SyntaxKind::RightBrace if p.current_text() == "|]" => {
+            p.convert_and_eat(SyntaxKind::MathShorthand);
+        }
         SyntaxKind::Dot
         | SyntaxKind::Bang
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
+        | SyntaxKind::RightBrace
         | SyntaxKind::RightParen => {
             p.convert_and_eat(SyntaxKind::MathText);
         }
 
-        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathShorthand => {
+        SyntaxKind::Text | SyntaxKind::MathText => {
             // `a(b)/c` parses as `(a(b))/c` if `a` is continuable.
-            continuable = math_class(p.current_text()) == Some(MathClass::Alphabetic)
-                || p.current_text().chars().all(char::is_alphabetic);
-            if !maybe_delimited(p) {
-                p.eat();
-            }
+            continuable = {
+                let text = p.current_text();
+                if let Some((0, c)) = text.char_indices().next_back() {
+                    // Just a single character.
+                    c.is_alphabetic()
+                        || default_math_class(c) == Some(MathClass::Alphabetic)
+                } else {
+                    // Multiple characters.
+                    text.chars().all(char::is_alphabetic)
+                }
+            };
+            p.eat();
         }
 
-        SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
+        SyntaxKind::Linebreak
+        | SyntaxKind::MathAlignPoint
+        | SyntaxKind::MathShorthand => p.eat(),
+
         SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
             continuable = true;
             p.eat();
@@ -310,7 +324,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         _ => p.expected("expression"),
     }
 
-    if continuable && min_prec < 3 && !p.had_trivia() && maybe_delimited(p) {
+    if continuable
+        && min_prec < 3
+        && !p.had_trivia()
+        && p.at_set(syntax_set!(LeftBrace, LeftParen))
+    {
+        math_delimited(p);
         p.wrap(m, SyntaxKind::Math);
     }
 
@@ -394,42 +413,31 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
     }
 }
 
-/// Try to parse delimiters based on the current token's unicode math class.
-fn maybe_delimited(p: &mut Parser) -> bool {
-    let open = math_class(p.current_text()) == Some(MathClass::Opening);
-    if open {
-        math_delimited(p);
-    }
-    open
-}
-
 /// Parse matched delimiters in math: `[x + y]`.
+///
+/// The lexer produces `{Left,Right}{Brace,Paren}` for delimiters, and it's our
+/// job to convert them back to `MathText` or `MathShorthand` before eating.
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
-    p.eat();
-    let m2 = p.marker();
-    while !p.at_set(syntax_set!(Dollar, End)) {
-        if math_class(p.current_text()) == Some(MathClass::Closing) {
-            p.wrap(m2, SyntaxKind::Math);
-            // We could be at the shorthand `|]`, which shouldn't be converted
-            // to a `Text` kind.
-            if p.at(SyntaxKind::RightParen) {
-                p.convert_and_eat(SyntaxKind::MathText);
-            } else {
-                p.eat();
-            }
-            p.wrap(m, SyntaxKind::MathDelimited);
-            return;
-        }
-
-        if p.at_set(set::MATH_EXPR) {
-            math_expr(p);
-        } else {
-            p.unexpected();
-        }
+    if p.current_text() == "[|" {
+        p.convert_and_eat(SyntaxKind::MathShorthand);
+    } else {
+        p.convert_and_eat(SyntaxKind::MathText);
     }
-
-    p.wrap(m, SyntaxKind::Math);
+    let m_body = p.marker();
+    math_exprs(p, syntax_set!(Dollar, End, RightBrace, RightParen));
+    if p.at_set(syntax_set!(RightBrace, RightParen)) {
+        p.wrap(m_body, SyntaxKind::Math);
+        if p.current_text() == "|]" {
+            p.convert_and_eat(SyntaxKind::MathShorthand);
+        } else {
+            p.convert_and_eat(SyntaxKind::MathText);
+        }
+        p.wrap(m, SyntaxKind::MathDelimited);
+    } else {
+        // If we had no closing delimiter, just produce a math sequence.
+        p.wrap(m, SyntaxKind::Math);
+    }
 }
 
 /// Remove one set of parentheses (if any) from a previously parsed expression
@@ -451,29 +459,10 @@ fn math_unparen(p: &mut Parser, m: Marker) {
     }
 }
 
-/// The unicode math class of a string. Only returns `Some` if `text` has
-/// exactly one unicode character or is a math shorthand string (currently just
-/// `[|`, `||`, `|]`) and then only returns `Some` if there is a math class
-/// defined for that character.
-fn math_class(text: &str) -> Option<MathClass> {
-    match text {
-        "[|" => return Some(MathClass::Opening),
-        "|]" => return Some(MathClass::Closing),
-        "||" => return Some(MathClass::Fence),
-        _ => {}
-    }
-
-    let mut chars = text.chars();
-    chars
-        .next()
-        .filter(|_| chars.next().is_none())
-        .and_then(default_math_class)
-}
-
 /// Parse an argument list in math: `(a, b; c, d; size: #50%)`.
 fn math_args(p: &mut Parser) {
     let m = p.marker();
-    p.convert_and_eat(SyntaxKind::LeftParen);
+    p.assert(SyntaxKind::LeftParen);
 
     let mut positional = true;
     let mut has_arrays = false;
