@@ -87,10 +87,20 @@ pub struct TermsElem {
 
     /// The term list's children.
     ///
+    /// Children can be specified as `(term, description)` pairs, or via an
+    /// explicit [`{term.item}`] element.
+    ///
+    /// ```example:"Basic usage"
+    /// #terms(
+    ///   ([Pair], [It works!]),
+    ///   term.item[Element][It works too!],
+    /// )
+    /// ```
+    ///
     /// When using the term list syntax, adjacent items are automatically
     /// collected into term lists, even through constructs like for loops.
     ///
-    /// ```example
+    /// ```example:"Using the term list syntax in a for loop"
     /// #for (year, product) in (
     ///   "1978": "TeX",
     ///   "1984": "LaTeX",

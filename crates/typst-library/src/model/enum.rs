@@ -190,10 +190,21 @@ pub struct EnumElem {
 
     /// The numbered list's items.
     ///
+    /// Items can be specified as their bodies, as `(number, body)` pairs, or
+    /// via explicit [`{enum.item}`] elements.
+    ///
+    /// ```example:"Basic usage"
+    /// #enum(
+    ///   [First element],
+    ///   (4, [Second element]),
+    ///   enum.item(2)[Third element],
+    /// )
+    /// ```
+    ///
     /// When using the enum syntax, adjacent items are automatically collected
     /// into enumerations, even through constructs like for loops.
     ///
-    /// ```example
+    /// ```example:"Using the enum syntax in a for loop"
     /// #for phase in (
     ///    "Launch",
     ///    "Orbit",

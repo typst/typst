@@ -114,7 +114,7 @@ pub struct ListElem {
     /// When using the list syntax, adjacent items are automatically collected
     /// into lists, even through constructs like for loops.
     ///
-    /// ```example
+    /// ```example:"Using the list syntax in a for loop"
     /// #for letter in "ABC" [
     ///   - Letter #letter
     /// ]
