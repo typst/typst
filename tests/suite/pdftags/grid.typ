@@ -36,3 +36,13 @@
   ..([y],) * 10,
   [a], [b],
 )
+
+--- grid-tags-internal-grid-layout-breaking-bibliography pdftags ---
+#set page(height: 140pt)
+
+#cite(label("DBLP:books/lib/Knuth86a"))
+
+#bibliography(
+  "/assets/bib/works.bib",
+  style: "ieee",
+)

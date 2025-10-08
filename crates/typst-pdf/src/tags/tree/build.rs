@@ -38,7 +38,9 @@ use typst_syntax::Span;
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
-use crate::tags::groups::{BreakPriority, GroupKind, Groups};
+use crate::tags::groups::{
+    BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
+};
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 
@@ -367,20 +369,23 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if cell.is_repeated.val() {
-            push_artifact(tree, elem, ArtifactType::Other)
+        let kind = if cell.is_repeated.val() {
+            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
+            GroupKind::InternalGridCell(artifact)
         } else {
             let tag = tree.groups.tags.push(Tag::TD);
-            push_stack(tree, elem, GroupKind::TableCell(cell.clone(), tag, None))
-        }
+            GroupKind::TableCell(cell.clone(), tag, None)
+        };
+        push_stack(tree, elem, kind)
     } else if let Some(grid) = elem.to_packed::<GridElem>() {
         let id = tree.ctx.grids.push(GridCtx::new(grid));
         push_stack(tree, elem, GroupKind::Grid(id, None))
     } else if let Some(cell) = elem.to_packed::<GridCell>() {
         // If there is no grid parent, this means a grid layouter is used
-        // internally. Don't generate a stack entry.
+        // internally.
         if !matches!(tree.parent_kind(), GroupKind::Grid(..)) {
-            return no_progress(tree);
+            let kind = GroupKind::InternalGridCell(InternalGridCellKind::Transparent);
+            return push_stack(tree, elem, kind);
         }
 
         // The grid cells are collected into a grid to ensure proper reading
@@ -391,11 +396,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // times. Mark duplicate headers as artifacts, since they have no
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
-        if cell.is_repeated.val() {
-            push_artifact(tree, elem, ArtifactType::Other)
+        let kind = if cell.is_repeated.val() {
+            let artifact = InternalGridCellKind::Artifact(ArtifactType::Other);
+            GroupKind::InternalGridCell(artifact)
         } else {
-            push_stack(tree, elem, GroupKind::GridCell(cell.clone(), None))
-        }
+            GroupKind::GridCell(cell.clone(), None)
+        };
+        push_stack(tree, elem, kind)
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let name = heading.body.plain_text().to_string();
@@ -494,7 +501,12 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     // push them back on when processing the logical children.
     let entry = tree.stack[stack_idx];
     let outer = tree.groups.get(entry.id);
-    if matches!(outer.kind, GroupKind::TableCell(..) | GroupKind::GridCell(..)) {
+    if matches!(
+        outer.kind,
+        GroupKind::TableCell(..)
+            | GroupKind::GridCell(..)
+            | GroupKind::InternalGridCell(..)
+    ) {
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
             tree.unfinished_stacks.insert(loc, stack);
             tree.unfinished.push(Unfinished {
@@ -508,14 +520,19 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
 
     // There are overlapping tags in the tag tree. Figure out whether breaking
     // up the current tag stack is semantically ok, and how to do it.
-    let outer_break_priority = tree.groups.breakable(&outer.kind, tree.options);
+    let is_pdf_ua = tree.options.is_pdf_ua();
     let mut inner_break_priority = Some(BreakPriority::MAX);
-    let mut non_breakable_span = Span::detached();
+    let mut inner_non_breakable_span = Span::detached();
+    let mut inner_non_breakable_in_pdf_ua = false;
     for e in tree.stack.iter().skip(stack_idx + 1) {
         let group = tree.groups.get(e.id);
-        let Some(priority) = tree.groups.breakable(&group.kind, tree.options) else {
-            if non_breakable_span.is_detached() {
-                non_breakable_span = group.span;
+        let opportunity = tree.groups.breakable(&group.kind);
+        let Some(priority) = opportunity.get(is_pdf_ua) else {
+            if inner_non_breakable_span.is_detached() {
+                inner_non_breakable_span = group.span;
+            }
+            if let BreakOpportunity::NoPdfUa(_) = opportunity {
+                inner_non_breakable_in_pdf_ua = true;
             }
             inner_break_priority = None;
             continue;
@@ -525,6 +542,9 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
             *inner = (*inner).min(priority)
         }
     }
+
+    let outer_break_opportunity = tree.groups.breakable(&outer.kind);
+    let outer_break_priority = outer_break_opportunity.get(is_pdf_ua);
 
     match (outer_break_priority, inner_break_priority) {
         (Some(outer_priority), Some(inner_priority)) => {
@@ -538,7 +558,16 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         (Some(_), None) => Ok(split_outer_group(tree, outer.parent, stack_idx)),
         (None, Some(_)) => Ok(split_inner_groups(tree, outer.parent, stack_idx)),
         (None, None) => {
-            if tree.options.is_pdf_ua() {
+            let non_breakable_span = if inner_non_breakable_span.is_detached() {
+                outer.span
+            } else {
+                inner_non_breakable_span
+            };
+
+            let non_breakable_in_pdf_ua = inner_non_breakable_in_pdf_ua
+                || matches!(outer_break_opportunity, BreakOpportunity::NoPdfUa(_));
+
+            if non_breakable_in_pdf_ua {
                 let validator = tree.options.standards.config.validator().as_str();
                 bail!(
                     non_breakable_span,
@@ -552,9 +581,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
                     non_breakable_span,
                     "invalid document structure, \
                      this element's PDF tag would be split up";
-                    hint: "this is probably caused by paragraph grouping";
-                    hint: "maybe you've used a `parbreak`, `colbreak`, or `pagebreak`";
-                    hint: "disable tagged PDF by passing `--no-pdf-tags`"
+                    hint: "please report this as a bug"
                 );
             }
         }
