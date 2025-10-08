@@ -19,8 +19,8 @@ use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, Linebreaks, ListElem, ParElem, ParLine, ParLineMarker,
-    TermsElem,
+    EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
+    ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind, Routines};
 use typst_library::text::{Costs, Lang, TextElem};
@@ -189,6 +189,7 @@ fn configuration(
 
     Config {
         justify,
+        justification_limits: shared.get(ParElem::justification_limits),
         linebreaks: base.linebreaks.unwrap_or_else(|| {
             if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
         }),
@@ -264,6 +265,8 @@ struct ConfigBase {
 struct Config {
     /// Whether to justify text.
     justify: bool,
+    /// Settings for justification.
+    justification_limits: JustificationLimits,
     /// How to determine line breaks.
     linebreaks: Linebreaks,
     /// The indent the first line of a paragraph should have.
