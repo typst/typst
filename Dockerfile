@@ -27,6 +27,11 @@ RUN --mount=type=cache,target=/root/.cargo/git/db \
 FROM alpine:latest
 ARG CREATED
 ARG REVISION
+
+# Create a non-root user that can be activated with `--user typst`
+RUN addgroup -g 1000 typst && \
+    adduser -D -u 1000 -G typst typst
+
 LABEL org.opencontainers.image.authors="The Typst Project Developers <hello@typst.app>"
 LABEL org.opencontainers.image.created=${CREATED}
 LABEL org.opencontainers.image.description="A markup-based typesetting system"
