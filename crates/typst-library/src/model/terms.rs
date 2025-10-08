@@ -140,11 +140,11 @@ cast! {
         let mut iter = array.into_iter();
         let (term, description) = match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => bail!("array must contain exactly two entries"),
+            _ => bail!("array must be of the form `(term, definition)`"),
         };
         Self::new(term, description)
     },
-    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or `(term, definition)` pair")?,
 }
 
 impl ListLike for TermsElem {
