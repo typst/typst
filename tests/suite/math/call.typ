@@ -88,6 +88,21 @@ $args(..a + b)$
 // Error: 8-10 unexpected dots
 $args(#..range(1, 5).chunks(2))$
 
+--- math-call-spread-unexpected-binary ---
+// Test spread operators followed by binary math operators with and without
+// right operands. These errors aren't great, but they can be silenced with a
+// space and no one would actually write this.
+$
+  // Error: 9-10 unexpected slash
+  // Error: 19-20 unexpected hat
+  // Error: 29-30 unexpected underscore
+  vec(../.) vec(..^.) vec(.._.)
+  // Error: 9-10 unexpected slash
+  // Error: 19-20 unexpected hat
+  // Error: 29-30 unexpected underscore
+  vec(../)  vec(..^)  vec(.._)
+$
+
 --- math-call-spread-shorthand-clash ---
 #let func(body) = body
 $func(...)$
