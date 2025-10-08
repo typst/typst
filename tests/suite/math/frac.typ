@@ -42,6 +42,21 @@ $ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
   (a)b/2, b(a)[b]/2 \
   n!/2, 5!/2, n !/2, 1/n!, 1/5! $
 
+--- math-frac-implicit-func ---
+// Test other precedence interactions with implicit function calls.
+$
+  // Basic example
+  f'(x) / f_pi[|x} \
+  // These ones don't act like implicit function calls
+  sin^2(x) / f_0(x) quad f!(x) / g^(-1)(x) \
+  // These work except for embedded code
+  a_\u{2a}[x] / a_"2a"{x|] quad f_pi.alt{x} / f_#math.pi.alt{x} \
+  // Attachments and primes
+  a(b)_c(d)^e(f) / g(h)'_i(j)' \
+  // This one is cute yet horrible. Understanding it will help with the others
+  (x)'(x)'(x)' / (x)'(x)'(x)' \
+$
+
 --- math-frac-gap ---
 // Test that the gap above and below the fraction rule is correct.
 $ sqrt(n^(2/3)) $
