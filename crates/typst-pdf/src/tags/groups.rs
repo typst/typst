@@ -15,7 +15,7 @@ use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
 use crate::tags::resolve::TagNode;
-use crate::tags::text::ResolvedTextAttrs;
+use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
 use crate::tags::util::{self, Id, IdVec};
 
 pub type GroupId = Id<Group>;
@@ -130,6 +130,7 @@ impl Groups {
             GroupKind::CodeBlock(..) => Never,
             GroupKind::CodeBlockLine(..) => Never,
             GroupKind::Par(..) => NoPdfUa(BreakPriority::Par),
+            GroupKind::TextAttr(_) => Always(BreakPriority::TextAttr),
             GroupKind::Transparent => Never,
             GroupKind::Standard(tag, ..) => match self.tags.get(*tag) {
                 TagKind::Part(_) => Never,
@@ -183,6 +184,7 @@ impl Groups {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
             GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
             GroupKind::Par(_) => GroupKind::Par(None),
+            GroupKind::TextAttr(attr) => GroupKind::TextAttr(*attr),
             GroupKind::Standard(old, _) => {
                 let tag = self.tags.get(*old).clone();
                 let new = self.tags.push(tag);
@@ -241,6 +243,7 @@ impl BreakOpportunity {
 pub enum BreakPriority {
     Par,
     Span,
+    TextAttr,
     Artifact,
 }
 
@@ -433,6 +436,8 @@ pub enum GroupKind {
     /// contains no children. This can happen when there are overlapping tags
     /// and a pragraph is split up.
     Par(Option<Locale>),
+    // PERF: This increases the size of `GroupKind` from 40 to 56.
+    TextAttr(TextAttr),
     Transparent,
     Standard(TagId, Option<Locale>),
 }
@@ -479,6 +484,7 @@ impl std::fmt::Debug for GroupKind {
             Self::CodeBlock(..) => "CodeBlock",
             Self::CodeBlockLine(..) => "CodeBlockLine",
             Self::Par(..) => "Par",
+            Self::TextAttr(..) => "TextAttr",
             Self::Transparent => "Transparent",
             Self::Standard(..) => "Standard",
         })
@@ -492,6 +498,13 @@ impl GroupKind {
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
+    }
+
+    pub fn is_grid_layout_cell(&self) -> bool {
+        matches!(
+            self,
+            Self::TableCell(..) | Self::GridCell(..) | Self::InternalGridCell(..)
+        )
     }
 
     pub fn as_artifact(&self) -> Option<ArtifactType> {
@@ -556,6 +569,7 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::TextAttr(_) => return None,
             GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })
@@ -588,6 +602,7 @@ impl GroupKind {
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
+            GroupKind::TextAttr(_) => return None,
             GroupKind::Transparent => return None,
             GroupKind::Standard(_, lang) => lang,
         })

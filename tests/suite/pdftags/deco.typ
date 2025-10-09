@@ -59,3 +59,15 @@ _*strong and emph*_
 
 --- deco-tags-strong-em-and-more-attrs pdftags ---
 #underline(stroke: green)[_*strong and emph*_]
+
+--- deco-tags-in-broken-grid-cell pdftags ---
+#set page(height: 50pt)
+#grid(
+  columns: 2,
+  underline[
+    #lorem(10)
+  ],
+  overline[
+    #lorem(10)
+  ],
+)

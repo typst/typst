@@ -6,7 +6,7 @@ use typst_library::layout::{Abs, Point, Rect};
 
 use crate::convert::FrameContext;
 use crate::tags::groups::GroupKind;
-use crate::tags::text::{ResolvedTextAttrs, TextAttrs};
+use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
 use crate::tags::util::{Id, IdVec};
 use crate::util::AbsExt;
@@ -35,8 +35,6 @@ pub type AnnotationId = Id<krilla::annotation::Annotation>;
 pub struct Tags {
     pub in_tiling: bool,
     pub tree: Tree,
-    /// The set of text attributes.
-    pub text_attrs: TextAttrs,
     /// A list of placeholders for annotations in the tag tree.
     pub annotations: Annotations,
 }
@@ -46,7 +44,6 @@ impl Tags {
         Self {
             in_tiling: false,
             tree,
-            text_attrs: TextAttrs::new(),
             annotations: Annotations::new(),
         }
     }

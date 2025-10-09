@@ -14,6 +14,7 @@
 
 use std::num::NonZeroU16;
 
+use ecow::EcoVec;
 use krilla::tagging::{ArtifactType, ListNumbering, Tag, TagKind};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
@@ -26,23 +27,29 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem, TableCell,
-    TableElem, TermsElem, TitleElem,
+    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
+    HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
-use typst_library::text::{RawElem, RawLine};
+use typst_library::text::{
+    HighlightElem, OverlineElem, RawElem, RawLine, ScriptKind, StrikeElem, SubElem,
+    SuperElem, UnderlineElem,
+};
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
-use crate::tags::GroupId;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
 use crate::tags::groups::{
     BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
 };
+use crate::tags::tree::text::{Script, TextAttr, TextDeco, TextDecoKind};
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
-use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
+use crate::tags::util::{
+    ArtifactKindExt, PropertyOptRef, PropertyValCloned, PropertyValCopied,
+};
+use crate::tags::{GroupId, util};
 
 pub struct TreeBuilder<'a> {
     options: &'a PdfOptions<'a>,
@@ -100,6 +107,7 @@ impl<'a> TreeBuilder<'a> {
             groups: self.groups,
             ctx: self.ctx,
             logical_children: self.logical_children,
+            errors: EcoVec::new(),
         }
     }
 
@@ -287,6 +295,7 @@ fn visit_end_tag(tree: &mut TreeBuilder, loc: Location) -> SourceResult<()> {
 }
 
 fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
+    // Artifacts
     #[allow(clippy::redundant_pattern_matching)]
     if let Some(_) = elem.to_packed::<HideElem>() {
         push_artifact(tree, elem, ArtifactType::Other)
@@ -295,6 +304,8 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         push_artifact(tree, elem, kind.to_krilla())
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
         push_artifact(tree, elem, ArtifactType::Other)
+
+    // Elements
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
             PdfMarkerTagKind::OutlineBody => {
@@ -439,6 +450,31 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         } else {
             no_progress(tree)
         }
+
+    // Text attributes
+    } else if let Some(_strong) = elem.to_packed::<StrongElem>() {
+        push_text_attr(tree, elem, TextAttr::Strong)
+    } else if let Some(_emph) = elem.to_packed::<EmphElem>() {
+        push_text_attr(tree, elem, TextAttr::Emph)
+    } else if let Some(sub) = elem.to_packed::<SubElem>() {
+        let script = Script::new(ScriptKind::Sub, sub.baseline.val(), sub.size.val());
+        push_text_attr(tree, elem, TextAttr::Script(script))
+    } else if let Some(sup) = elem.to_packed::<SuperElem>() {
+        let script = Script::new(ScriptKind::Super, sup.baseline.val(), sup.size.val());
+        push_text_attr(tree, elem, TextAttr::Script(script))
+    } else if let Some(highlight) = elem.to_packed::<HighlightElem>() {
+        let paint = highlight.fill.opt_ref();
+        let color = paint.and_then(util::paint_to_color);
+        push_text_attr(tree, elem, TextAttr::Highlight(color))
+    } else if let Some(underline) = elem.to_packed::<UnderlineElem>() {
+        let deco = TextDeco::new(TextDecoKind::Underline, underline.stroke.val_cloned());
+        push_text_attr(tree, elem, TextAttr::Deco(deco))
+    } else if let Some(overline) = elem.to_packed::<OverlineElem>() {
+        let deco = TextDeco::new(TextDecoKind::Overline, overline.stroke.val_cloned());
+        push_text_attr(tree, elem, TextAttr::Deco(deco))
+    } else if let Some(strike) = elem.to_packed::<StrikeElem>() {
+        let deco = TextDeco::new(TextDecoKind::Strike, strike.stroke.val_cloned());
+        push_text_attr(tree, elem, TextAttr::Deco(deco))
     } else {
         no_progress(tree)
     }
@@ -451,6 +487,14 @@ fn no_progress(tree: &TreeBuilder) -> GroupId {
 fn push_tag(tree: &mut TreeBuilder, elem: &Content, tag: impl Into<TagKind>) -> GroupId {
     let id = tree.groups.tags.push(tag.into());
     push_stack(tree, elem, GroupKind::Standard(id, None))
+}
+
+fn push_text_attr(tree: &mut TreeBuilder, elem: &Content, attr: TextAttr) -> GroupId {
+    let loc = elem.location().expect("elem to be locatable");
+    let span = elem.span();
+    let parent = tree.current();
+    let id = tree.groups.new_virtual(parent, span, GroupKind::TextAttr(attr));
+    push_stack_entry(tree, Some(loc), id)
 }
 
 fn push_stack(tree: &mut TreeBuilder, elem: &Content, kind: GroupKind) -> GroupId {
@@ -501,12 +545,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
     // push them back on when processing the logical children.
     let entry = tree.stack[stack_idx];
     let outer = tree.groups.get(entry.id);
-    if matches!(
-        outer.kind,
-        GroupKind::TableCell(..)
-            | GroupKind::GridCell(..)
-            | GroupKind::InternalGridCell(..)
-    ) {
+    if outer.kind.is_grid_layout_cell() {
         if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
             tree.unfinished_stacks.insert(loc, stack);
             tree.unfinished.push(Unfinished {
