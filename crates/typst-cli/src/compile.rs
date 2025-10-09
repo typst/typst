@@ -193,8 +193,7 @@ impl CompileConfig {
             deps = Some(Output::Path(path.clone()));
             deps_format = DepsFormat::Make;
             warnings.push(
-                HintedString::from("--make-deps is deprecated")
-                    .with_hint("use --deps and --deps-format instead"),
+                "--make-deps is deprecated, use --deps and --deps-format instead".into(),
             );
         }
 
