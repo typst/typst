@@ -1,12 +1,11 @@
 use std::cell::LazyCell;
-use std::ops::Range;
 use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
 use syntect::highlighting::{self as synt};
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
+use typst_syntax::{Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -401,51 +400,7 @@ impl Packed<RawElem> {
         let target = styles.get(TargetElem::target);
 
         let mut seq = vec![];
-        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc" | "typm")) {
-            let text =
-                lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
-            let root = match lang.as_deref() {
-                Some("typc") => typst_syntax::parse_code(&text),
-                Some("typm") => typst_syntax::parse_math(&text),
-                _ => typst_syntax::parse(&text),
-            };
-
-            ThemedHighlighter::new(
-                &text,
-                LinkedNode::new(&root),
-                synt::Highlighter::new(theme),
-                &mut |i, _, range, style| {
-                    // Find span and start of line.
-                    // Note: Dedent is already applied to the text
-                    let span = lines.get(i).map_or_else(Span::detached, |l| l.1);
-                    let span_offset = text[..range.start]
-                        .rfind('\n')
-                        .map_or(0, |i| range.start - (i + 1));
-                    styled(
-                        routines,
-                        target,
-                        &text[range],
-                        foreground,
-                        style,
-                        span,
-                        span_offset,
-                    )
-                },
-                &mut |i, range, line| {
-                    let span = lines.get(i).map_or_else(Span::detached, |l| l.1);
-                    seq.push(
-                        Packed::new(RawLine::new(
-                            (i + 1) as i64,
-                            count,
-                            EcoString::from(&text[range]),
-                            Content::sequence(line.drain(..)),
-                        ))
-                        .spanned(span),
-                    );
-                },
-            )
-            .highlight();
-        } else if let Some((syntax_set, syntax)) = lang.and_then(|token| {
+        if let Some((syntax_set, syntax)) = lang.and_then(|token| {
             // Prefer user-provided syntaxes over built-in ones.
             syntaxes
                 .derived
@@ -705,114 +660,6 @@ impl PlainText for Packed<RawLine> {
     }
 }
 
-/// Wrapper struct for the state required to highlight typst code.
-struct ThemedHighlighter<'a> {
-    /// The code being highlighted.
-    code: &'a str,
-    /// The current node being highlighted.
-    node: LinkedNode<'a>,
-    /// The highlighter.
-    highlighter: synt::Highlighter<'a>,
-    /// The current scopes.
-    scopes: Vec<syntect::parsing::Scope>,
-    /// The current highlighted line.
-    current_line: Vec<Content>,
-    /// The range of the current line.
-    range: Range<usize>,
-    /// The current line number.
-    line: usize,
-    /// The function to style a piece of text.
-    style_fn: StyleFn<'a>,
-    /// The function to append a line.
-    line_fn: LineFn<'a>,
-}
-
-// Shorthands for highlighter closures.
-type StyleFn<'a> =
-    &'a mut dyn FnMut(usize, &LinkedNode, Range<usize>, synt::Style) -> Content;
-type LineFn<'a> = &'a mut dyn FnMut(usize, Range<usize>, &mut Vec<Content>);
-
-impl<'a> ThemedHighlighter<'a> {
-    pub fn new(
-        code: &'a str,
-        top: LinkedNode<'a>,
-        highlighter: synt::Highlighter<'a>,
-        style_fn: StyleFn<'a>,
-        line_fn: LineFn<'a>,
-    ) -> Self {
-        Self {
-            code,
-            node: top,
-            highlighter,
-            range: 0..0,
-            scopes: Vec::new(),
-            current_line: Vec::new(),
-            line: 0,
-            style_fn,
-            line_fn,
-        }
-    }
-
-    pub fn highlight(&mut self) {
-        self.highlight_inner();
-
-        if !self.current_line.is_empty() {
-            (self.line_fn)(
-                self.line,
-                self.range.start..self.code.len(),
-                &mut self.current_line,
-            );
-
-            self.current_line.clear();
-        }
-    }
-
-    fn highlight_inner(&mut self) {
-        if self.node.children().len() == 0 {
-            let style = self.highlighter.style_for_stack(&self.scopes);
-            let segment = &self.code[self.node.range()];
-
-            let mut len = 0;
-            for (i, line) in split_newlines(segment).into_iter().enumerate() {
-                if i != 0 {
-                    (self.line_fn)(
-                        self.line,
-                        self.range.start..self.range.end + len - 1,
-                        &mut self.current_line,
-                    );
-                    self.range.start = self.range.end + len;
-                    self.line += 1;
-                }
-
-                let offset = self.node.range().start + len;
-                let token_range = offset..(offset + line.len());
-                self.current_line.push((self.style_fn)(
-                    self.line,
-                    &self.node,
-                    token_range,
-                    style,
-                ));
-
-                len += line.len() + 1;
-            }
-
-            self.range.end += segment.len();
-        }
-
-        for child in self.node.children() {
-            let mut scopes = self.scopes.clone();
-            if let Some(tag) = typst_syntax::highlight(&child) {
-                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
-            }
-
-            std::mem::swap(&mut scopes, &mut self.scopes);
-            self.node = child;
-            self.highlight_inner();
-            std::mem::swap(&mut scopes, &mut self.scopes);
-        }
-    }
-}
-
 fn preprocess(
     text: &RawContent,
     styles: StyleChain,
@@ -944,7 +791,8 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
         item("markup.bold", None, Some(synt::FontStyle::BOLD)),
         item("markup.italic", None, Some(synt::FontStyle::ITALIC)),
         item("markup.underline", None, Some(synt::FontStyle::UNDERLINE)),
-        item("markup.raw", Some("#6b6b6f"), None),
+        item("punctuation.definition.raw", Some("#6b6b6f"), None),
+        item("markup.raw", None, None),
         item("string.other.math.typst", None, None),
         item("punctuation.definition.math", Some("#198810"), None),
         item("keyword.operator.math", Some("#1d6c76"), None),
