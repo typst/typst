@@ -37,7 +37,7 @@ impl SVGRenderer<'_> {
     }
 }
 
-/// Converts an image scaling to a CSS `image-rendering` propery value.
+/// Converts an image scaling to a CSS `image-rendering` property value.
 pub fn convert_image_scaling(scaling: Smart<ImageScaling>) -> Option<&'static str> {
     match scaling {
         Smart::Auto => None,

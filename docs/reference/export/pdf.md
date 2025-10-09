@@ -199,7 +199,7 @@ questions:
 3. **Does your file need to use features introduced in PDF 2.0?** Currently, use
    of PDF 2.0 features in Typst is limited to minor improvements in
    accessibility, e.g. for the [title element]($title). If you can do without
-   these improvements, maximize compatibilty by choosing part two (when you
+   these improvements, maximize compatibility by choosing part two (when you
    don't need attachments) or part three (when you do need attachments). If you
    rely on PDF 2.0 features, use part four.
 
