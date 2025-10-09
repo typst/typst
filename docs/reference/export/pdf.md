@@ -72,6 +72,9 @@ circumstances, this poses no problem, but it can be a source of errors when
 working with older hardware. For general exchange, we recommend keeping the
 default PDF 1.7 setting or choosing PDF 2.0.
 
+When using PDF files as [images]($image) in your document, the export PDF
+version must equal or exceed the image file versions.
+
 ## PDF/UA
 Typst supports writing PDF/UA-conformant files. PDF/UA files are designed
 for _[Universal Access]($guides/accessibility/#basics)._ When you choose this PDF

@@ -55,10 +55,6 @@ impl Groups {
         self.list.get_mut(id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Group> {
-        self.list.iter()
-    }
-
     /// See [`util::propagate_lang`].
     pub fn propagate_lang(&mut self, id: GroupId, lang: Locale) -> Option<Locale> {
         // TODO: walk up to the first parent that has a language.

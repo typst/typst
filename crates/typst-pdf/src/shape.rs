@@ -3,6 +3,7 @@ use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
 use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
+use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::util::{AbsExt, TransformExt, convert_path};
@@ -21,6 +22,10 @@ pub(crate) fn handle_shape(
 
     surface.set_location(span.into_raw());
     surface.push_transform(&fc.state().transform().to_krilla());
+    let mut surface = defer(surface, |s| {
+        s.pop();
+        s.reset_location();
+    });
 
     if let Some(path) = convert_geometry(&shape.geometry) {
         let fill = if let Some(paint) = &shape.fill {
@@ -29,7 +34,7 @@ pub(crate) fn handle_shape(
                 paint,
                 shape.fill_rule,
                 false,
-                surface,
+                &mut surface,
                 fc.state(),
                 shape.geometry.bbox_size(),
             )?)
@@ -46,7 +51,7 @@ pub(crate) fn handle_shape(
                 gc,
                 stroke,
                 false,
-                surface,
+                &mut surface,
                 fc.state(),
                 shape.geometry.bbox_size(),
             )?;
@@ -63,9 +68,6 @@ pub(crate) fn handle_shape(
             surface.draw_path(&path);
         }
     }
-
-    surface.pop();
-    surface.reset_location();
 
     Ok(())
 }

@@ -34,13 +34,12 @@ impl<T> IdVec<T> {
         &mut self.inner[id.idx()]
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
+    #[allow(unused)]
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.inner.iter()
     }
 
-    pub fn iter_mut(
-        &mut self,
-    ) -> impl ExactSizeIterator<Item = &mut T> + DoubleEndedIterator {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
         self.inner.iter_mut()
     }
 
