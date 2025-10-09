@@ -765,7 +765,7 @@ impl CellGrid {
 
         if self.has_gutter {
             // Even columns and rows are children, odd ones are gutter.
-            if x % 2 == 0 && y % 2 == 0 {
+            if x.is_multiple_of(2) && y.is_multiple_of(2) {
                 let c = 1 + self.cols.len() / 2;
                 self.entries.get((y / 2) * c + x / 2)
             } else {
@@ -2401,7 +2401,7 @@ fn skip_auto_index_through_fully_merged_rows(
     // there's still at least one auto position left in the row, ignoring
     // cells with manual positions, so we wouldn't have a problem in placing
     // further cells or, in this case, hlines here.
-    if *auto_index % columns == 0 {
+    if auto_index.is_multiple_of(columns) {
         while resolved_cells
             .get(*auto_index..*auto_index + columns)
             .is_some_and(|row| {
