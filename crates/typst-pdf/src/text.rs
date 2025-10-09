@@ -22,7 +22,7 @@ pub(crate) fn handle_text(
     surface: &mut Surface,
     gc: &mut GlobalContext,
 ) -> SourceResult<()> {
-    let mut handle = tags::text(gc, fc, surface, t);
+    let mut handle = tags::text(gc, fc, surface, t)?;
     let surface = handle.surface();
 
     let font = convert_font(gc, t.font.clone())?;

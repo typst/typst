@@ -10,7 +10,7 @@ use crate::PdfOptions;
 use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
-use crate::tags::text::ResolvedTextAttrs;
+use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
 
@@ -65,7 +65,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
         annotations: &mut gc.tags.annotations,
         last_heading_level: None,
         flatten: false,
-        errors: EcoVec::new(),
+        errors: std::mem::take(&mut gc.tags.tree.errors),
     };
 
     let mut children = Vec::with_capacity(root.nodes().len());
@@ -299,6 +299,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
         }
         GroupKind::CodeBlockLine(_) => Tag::P.into(),
         GroupKind::Par(_) => Tag::P.into(),
+        GroupKind::TextAttr(_) => return None,
         GroupKind::Transparent => return None,
         GroupKind::Standard(tag, _) => rs.tags.take(*tag),
     };
