@@ -191,6 +191,29 @@ for i in range(10):
 #show heading: emph
 ```
 
+--- raw-highlight-typ-nested ---
+````typ
+```
+no lang
+```
+```plaintext
+plain text
+```
+`let` `1` `print()`
+```rust println!("Hello there!")```
+```py
+def function(a: str, b: int) -> list[str | int]:
+    return [a, b]
+```
+```typ
+= Chapter 1
+#lorem(100)
+
+#let hi = "Hello World"
+#show heading: emph
+```
+````
+
 --- raw-highlight-typc ---
 #set page(width: auto)
 
