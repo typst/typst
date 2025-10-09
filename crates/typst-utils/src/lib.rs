@@ -29,7 +29,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
+use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -403,4 +403,37 @@ pub fn default_math_class(c: char) -> Option<MathClass> {
 
         c => unicode_math_class::class(c),
     }
+}
+
+/// Automatically calls a deferred function when the returned handle is dropped.
+pub fn defer<T, F: FnOnce(&mut T)>(
+    thing: &mut T,
+    deferred: F,
+) -> impl DerefMut<Target = T> {
+    pub struct DeferHandle<'a, T, F: FnOnce(&mut T)> {
+        thing: &'a mut T,
+        deferred: Option<F>,
+    }
+
+    impl<'a, T, F: FnOnce(&mut T)> Drop for DeferHandle<'a, T, F> {
+        fn drop(&mut self) {
+            std::mem::take(&mut self.deferred).expect("deferred function")(self.thing);
+        }
+    }
+
+    impl<T, F: FnOnce(&mut T)> std::ops::Deref for DeferHandle<'_, T, F> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            self.thing
+        }
+    }
+
+    impl<T, F: FnOnce(&mut T)> std::ops::DerefMut for DeferHandle<'_, T, F> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            self.thing
+        }
+    }
+
+    DeferHandle { thing, deferred: Some(deferred) }
 }
