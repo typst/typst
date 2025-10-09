@@ -705,7 +705,7 @@ impl PlainText for Packed<RawLine> {
     }
 }
 
-/// Wrapper struct for the state required to highlight typst code.
+/// Wrapper struct for the state required to highlight Typst code.
 struct ThemedHighlighter<'a> {
     /// The code being highlighted.
     code: &'a str,

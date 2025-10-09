@@ -373,7 +373,7 @@ impl Construct for DirectLinkElem {
     }
 }
 
-/// An element that wraps all conent that is [`Content::linked`] to a
+/// An element that wraps all content that is [`Content::linked`] to a
 /// destination.
 #[elem(Tagged, Construct)]
 pub struct LinkMarker {

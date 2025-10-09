@@ -264,7 +264,7 @@ impl FrameContext {
     }
 }
 
-/// Globally needed context for converting a typst document.
+/// Globally needed context for converting a Typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
     pub(crate) fonts_forward: FxHashMap<Font, krilla::text::Font>,

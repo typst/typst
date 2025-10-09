@@ -173,7 +173,7 @@ impl PackageManifest {
             let current = PackageVersion::compiler();
             if !current.matches_ge(&required) {
                 return Err(eco_format!(
-                    "package requires typst {required} or newer \
+                    "package requires Typst {required} or newer \
                      (current version is {current})"
                 ));
             }

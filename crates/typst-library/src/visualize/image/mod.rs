@@ -296,7 +296,7 @@ impl Packed<ImageElem> {
                     engine.sink.warn(warning!(
                         span,
                         "image contains foreign object";
-                        hint: "SVG images with foreign objects might render incorrectly in typst";
+                        hint: "SVG images with foreign objects might render incorrectly in Typst";
                         hint: "see https://github.com/typst/typst/issues/1421 for more information"
                     ));
                 }

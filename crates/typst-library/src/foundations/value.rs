@@ -381,7 +381,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     type Value = Value;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a typst value")
+        formatter.write_str("a Typst value")
     }
 
     fn visit_bool<E: Error>(self, v: bool) -> Result<Self::Value, E> {

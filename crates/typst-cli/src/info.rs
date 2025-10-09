@@ -95,7 +95,7 @@ impl Settings {
         let Self { self_update, http_server } = self;
 
         [
-            ("self-update", self_update, "Update typst via `typst update`"),
+            ("self-update", self_update, "Update Typst via `typst update`"),
             ("http-server", http_server, "Serve HTML via `typst watch`"),
         ]
         .into_iter()
