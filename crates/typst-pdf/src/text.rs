@@ -9,6 +9,7 @@ use typst_library::layout::Size;
 use typst_library::text::{Font, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
+use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::util::{AbsExt, TransformExt, display_font};
@@ -47,6 +48,7 @@ pub(crate) fn handle_text(
     let glyphs: &[PdfGlyph] = TransparentWrapper::wrap_slice(t.glyphs.as_slice());
 
     surface.push_transform(&fc.state().transform().to_krilla());
+    let mut surface = defer(surface, |s| s.pop());
     surface.set_fill(Some(fill));
     surface.set_stroke(stroke);
     surface.draw_glyphs(
@@ -57,8 +59,6 @@ pub(crate) fn handle_text(
         size.to_f32(),
         false,
     );
-
-    surface.pop();
 
     Ok(())
 }

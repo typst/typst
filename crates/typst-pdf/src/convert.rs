@@ -385,13 +385,13 @@ pub(crate) fn handle_group(
             surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
         }
 
-        handle_frame(fc, &group.frame, None, surface, gc)?;
+        let res = handle_frame(fc, &group.frame, None, surface, gc);
 
         if clip_path.is_some() {
             surface.pop();
         }
 
-        Ok(())
+        res
     })?;
 
     fc.pop();
