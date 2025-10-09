@@ -9,7 +9,8 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::WorldExt;
 use typst::diag::{
-    At, Severity, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
+    At, HintedStrResult, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
+    bail,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
@@ -34,7 +35,7 @@ type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
-pub fn compile(timer: &mut Timer, command: &CompileCommand) -> StrResult<()> {
+pub fn compile(timer: &mut Timer, command: &CompileCommand) -> HintedStrResult<()> {
     let mut config = CompileConfig::new(command)?;
     let mut world =
         SystemWorld::new(&command.args.input, &command.args.world, &command.args.process)
@@ -83,18 +84,21 @@ pub struct CompileConfig {
 
 impl CompileConfig {
     /// Preprocess a `CompileCommand`, producing a compilation config.
-    pub fn new(command: &CompileCommand) -> StrResult<Self> {
+    pub fn new(command: &CompileCommand) -> HintedStrResult<Self> {
         Self::new_impl(&command.args, None)
     }
 
     /// Preprocess a `WatchCommand`, producing a compilation config.
-    pub fn watching(command: &WatchCommand) -> StrResult<Self> {
+    pub fn watching(command: &WatchCommand) -> HintedStrResult<Self> {
         Self::new_impl(&command.args, Some(command))
     }
 
     /// The shared implementation of [`CompileConfig::new`] and
     /// [`CompileConfig::watching`].
-    fn new_impl(args: &CompileArgs, watch: Option<&WatchCommand>) -> StrResult<Self> {
+    fn new_impl(
+        args: &CompileArgs,
+        watch: Option<&WatchCommand>,
+    ) -> HintedStrResult<Self> {
         let mut warnings = Vec::new();
         let input = args.input.clone();
 
@@ -134,7 +138,12 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        if args.no_pdf_tags {
+        let tagged = !args.no_pdf_tags && pages.is_none();
+        if pages.is_some() && !args.no_pdf_tags {
+            warnings.push("using --pages implies --no-pdf-tags");
+        }
+
+        if !tagged {
             const ACCESSIBLE: &[(PdfStandard, &str)] = &[
                 (PdfStandard::A_1a, "PDF/A-1a"),
                 (PdfStandard::A_2a, "PDF/A-2a"),
@@ -144,7 +153,14 @@ impl CompileConfig {
 
             for (standard, name) in ACCESSIBLE {
                 if args.pdf_standard.contains(standard) {
-                    bail!("cannot disable PDF tags when exporting a {name} document");
+                    if args.no_pdf_tags {
+                        bail!("cannot disable PDF tags when exporting a {name} document");
+                    } else {
+                        bail!(
+                            "cannot disable PDF tags when exporting a {name} document";
+                            hint: "using --pages implies --no-pdf-tags"
+                        );
+                    }
                 }
             }
         }
@@ -196,7 +212,7 @@ impl CompileConfig {
             output_format,
             pages,
             pdf_standards,
-            tagged: !args.no_pdf_tags,
+            tagged,
             creation_timestamp: args.world.creation_timestamp,
             ppi: args.ppi,
             diagnostic_format: args.process.diagnostic_format,
@@ -217,7 +233,7 @@ impl CompileConfig {
 pub fn compile_once(
     world: &mut SystemWorld,
     config: &mut CompileConfig,
-) -> StrResult<()> {
+) -> HintedStrResult<()> {
     let start = std::time::Instant::now();
     if config.watching {
         Status::Compiling.print(config).unwrap();
