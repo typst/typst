@@ -9,7 +9,7 @@ use crate::SyntaxKind;
 pub struct SyntaxSet(u128);
 
 impl SyntaxSet {
-    /// Create a new set from a slice of kinds.
+    /// Create a new empty set.
     pub const fn new() -> Self {
         Self(0)
     }
@@ -20,6 +20,14 @@ impl SyntaxSet {
     pub const fn add(self, kind: SyntaxKind) -> Self {
         assert!((kind as u8) < BITS);
         Self(self.0 | bit(kind))
+    }
+
+    /// Remove a syntax kind from the set. Does nothing if not present.
+    ///
+    /// You can only remove kinds with discriminator < 128.
+    pub const fn remove(self, kind: SyntaxKind) -> Self {
+        assert!((kind as u8) < BITS);
+        Self(self.0 & !bit(kind))
     }
 
     /// Combine two syntax sets.
