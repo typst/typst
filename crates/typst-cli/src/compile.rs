@@ -9,8 +9,8 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typst::WorldExt;
 use typst::diag::{
-    At, HintedStrResult, Severity, SourceDiagnostic, SourceResult, StrResult, Warned,
-    bail,
+    At, HintedStrResult, HintedString, Severity, SourceDiagnostic, SourceResult,
+    StrResult, Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::{Page, PageRanges, PagedDocument};
@@ -46,7 +46,7 @@ pub fn compile(timer: &mut Timer, command: &CompileCommand) -> HintedStrResult<(
 /// A preprocessed `CompileCommand`.
 pub struct CompileConfig {
     /// Static warnings to emit after compilation.
-    pub warnings: Vec<&'static str>,
+    pub warnings: Vec<HintedString>,
     /// Whether we are watching.
     pub watching: bool,
     /// Path to input Typst file or stdin.
@@ -139,8 +139,13 @@ impl CompileConfig {
         });
 
         let tagged = !args.no_pdf_tags && pages.is_none();
-        if pages.is_some() && !args.no_pdf_tags {
-            warnings.push("using --pages implies --no-pdf-tags");
+        if output_format == OutputFormat::Pdf && pages.is_some() && !args.no_pdf_tags {
+            warnings.push(
+                HintedString::from("using --pages implies --no-pdf-tags").with_hints([
+                    "the resulting PDF will be inaccessible".into(),
+                    "add --no-pdf-tags to silence this warning".into(),
+                ]),
+            );
         }
 
         if !tagged {
@@ -187,8 +192,10 @@ impl CompileConfig {
         {
             deps = Some(Output::Path(path.clone()));
             deps_format = DepsFormat::Make;
-            warnings
-                .push("--make-deps is deprecated, use --deps and --deps-format instead");
+            warnings.push(
+                HintedString::from("--make-deps is deprecated")
+                    .with_hint("use --deps and --deps-format instead"),
+            );
         }
 
         match (&output, &deps, watch) {
@@ -242,8 +249,11 @@ pub fn compile_once(
     let Warned { output, mut warnings } = compile_and_export(world, config);
 
     // Add static warnings (for deprecated CLI flags and such).
-    for &warning in &config.warnings {
-        warnings.push(SourceDiagnostic::warning(Span::detached(), warning));
+    for warning in config.warnings.iter() {
+        warnings.push(
+            SourceDiagnostic::warning(Span::detached(), warning.message())
+                .with_hints(warning.hints().iter().map(Into::into)),
+        );
     }
 
     match &output {
