@@ -538,7 +538,7 @@ fn validate_children_groups(
             parent_span,
             "{validator} error: invalid {parent} structure";
             hint: "{parent} may not contain marked content directly";
-            hint: "this is probably caused by a table show rule"
+            hint: "this is probably caused by a show rule"
         ));
     }
 }
