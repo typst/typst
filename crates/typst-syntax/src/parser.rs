@@ -239,11 +239,12 @@ fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
 /// Parses a single math expression: This includes math elements like
 /// attachment, fractions, and roots, and embedded code expressions.
 fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, SyntaxKind::End)
+    math_expr_prec(p, 0, syntax_set!())
 }
 
-/// Parses a math expression with at least the given precedence.
-fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
+/// Parses a math expression with at least the given precedence, possibly
+/// chaining with another operator.
+fn math_expr_prec(p: &mut Parser, min_prec: usize, stop_set: SyntaxSet) {
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
@@ -305,7 +306,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             if min_prec < 3 {
                 p.eat();
                 let m2 = p.marker();
-                math_expr_prec(p, 2, stop);
+                math_expr_prec(p, 2, syntax_set!());
                 math_unparen(p, m2);
                 p.wrap(m, SyntaxKind::MathRoot);
             }
@@ -323,84 +324,64 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         p.wrap(m, SyntaxKind::Math);
     }
 
-    // Whether there were _any_ primes in the loop.
-    let mut primed = false;
-
-    while !p.end() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::Bang) {
-            // Bang acts as a postfix operator with the highest possible
-            // precedence, but is purely a parse-time construct and is never
-            // output to the final `SyntaxNode`.
-            p.convert_and_eat(SyntaxKind::MathText);
-            p.wrap(m, SyntaxKind::Math);
-            continue;
-        }
-
-        if !p.had_trivia() && p.eat_if(SyntaxKind::MathPrimes) {
-            // Will not be continued, so need to wrap the prime as attachment.
-            if p.at(stop) {
-                p.wrap(m, SyntaxKind::MathAttach);
-            }
-
-            primed = true;
-            continue;
-        }
-
-        let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
-            // No attachments, so we need to wrap primes as attachment.
-            if primed {
-                p.wrap(m, SyntaxKind::MathAttach);
-            }
-
-            break;
+    while !p.at_set(stop_set)
+        && let Some((wrapper, infix_assoc, prec)) = math_op(p)
+        && prec >= min_prec
+    {
+        // Prepare a chaining set for attachment operators.
+        let mut chain_set = if wrapper == SyntaxKind::MathAttach {
+            syntax_set!(Hat, Underscore).remove(p.current())
+        } else {
+            syntax_set!()
         };
 
-        if primed && kind == SyntaxKind::MathFrac {
-            p.wrap(m, SyntaxKind::MathAttach);
+        // Eat the operator itself.
+        if p.current() == SyntaxKind::Bang {
+            p.convert_and_eat(SyntaxKind::MathText);
+        } else {
+            p.eat();
         }
 
-        if prec < min_prec {
-            break;
-        }
-
-        match assoc {
-            ast::Assoc::Left => prec += 1,
-            ast::Assoc::Right => {}
-        }
-
-        if kind == SyntaxKind::MathFrac {
+        // Slash is the only operator that removes parens from its left side.
+        if wrapper == SyntaxKind::MathFrac {
             math_unparen(p, m);
         }
 
-        p.eat();
-        let m2 = p.marker();
-        math_expr_prec(p, prec, stop);
-        math_unparen(p, m2);
-
-        if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
-            let m3 = p.marker();
-            math_expr_prec(p, prec, SyntaxKind::End);
-            math_unparen(p, m3);
+        // Parse the operator's right operand.
+        if let Some(assoc) = infix_assoc {
+            let prec = match assoc {
+                ast::Assoc::Left => prec + 1,
+                ast::Assoc::Right => prec,
+            };
+            let m_rhs = p.marker();
+            math_expr_prec(p, prec, stop_set.union(chain_set));
+            math_unparen(p, m_rhs);
         }
 
-        p.wrap(m, kind);
+        while p.at_set(chain_set) && !p.at_set(stop_set) {
+            chain_set = chain_set.remove(p.current());
+            p.eat();
+            let m_chain_rhs = p.marker();
+            math_expr_prec(p, prec, stop_set.union(chain_set));
+            math_unparen(p, m_chain_rhs);
+        }
+
+        // Finish the operator by wrapping from its left operand to now.
+        p.wrap(m, wrapper);
     }
 }
 
-/// Precedence and wrapper kinds for the binary math operators.
-fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
-    match kind {
-        SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
-        }
-        SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
-        }
-        SyntaxKind::Slash => {
-            Some((SyntaxKind::MathFrac, SyntaxKind::End, ast::Assoc::Left, 1))
-        }
-        _ => None,
-    }
+/// Precedence and wrapper kinds for infix and postfix math operators.
+fn math_op(p: &Parser) -> Option<(SyntaxKind, Option<ast::Assoc>, usize)> {
+    let op = match p.current() {
+        SyntaxKind::Slash => (SyntaxKind::MathFrac, Some(ast::Assoc::Left), 1),
+        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
+        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
+        SyntaxKind::MathPrimes if !p.had_trivia() => (SyntaxKind::MathAttach, None, 3),
+        SyntaxKind::Bang if !p.had_trivia() => (SyntaxKind::Math, None, 4),
+        _ => return None,
+    };
+    Some(op)
 }
 
 /// Parse matched delimiters in math: `[x + y]`.
