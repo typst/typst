@@ -1,4 +1,4 @@
-//! Convert paint types from typst to krilla.
+//! Convert paint types from Typst to krilla.
 
 use krilla::color::{self, cmyk, luma, rgb};
 use krilla::num::NormalizedF32;
@@ -228,7 +228,7 @@ fn convert_gradient(
                     Abs::pt(cx as f64),
                     Abs::pt(cy as f64),
                 ))
-                // Default start point in krilla and typst are at the opposite side, so we need
+                // Default start point in krilla and Typst are at the opposite side, so we need
                 // to flip it horizontally.
                 .pre_concat(Transform::scale_at(
                     -Ratio::one(),

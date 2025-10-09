@@ -1,4 +1,4 @@
-//! Basic utilities for converting typst types to krilla.
+//! Basic utilities for converting Typst types to krilla.
 
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
@@ -117,7 +117,7 @@ pub(crate) fn display_font(font: &Font) -> &str {
     &font.info().family
 }
 
-/// Convert a typst path to a krilla path.
+/// Convert a Typst path to a krilla path.
 pub(crate) fn convert_path(path: &Curve, builder: &mut PathBuilder) {
     for item in &path.0 {
         match item {
