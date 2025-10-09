@@ -140,6 +140,7 @@ pub struct GroupModel {
     pub title: EcoString,
     pub details: Html,
     pub functions: Vec<FuncModel>,
+    pub global_attributes: Vec<ParamModel>,
 }
 
 /// Details about a type.
