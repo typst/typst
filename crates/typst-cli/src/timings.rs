@@ -3,7 +3,7 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
 use typst::World;
-use typst::diag::{StrResult, bail};
+use typst::diag::{HintedStrResult, bail};
 use typst::syntax::Span;
 
 use crate::args::{CliArguments, Command};
@@ -43,7 +43,7 @@ impl Timer {
         &mut self,
         world: &mut SystemWorld,
         f: impl FnOnce(&mut SystemWorld) -> T,
-    ) -> StrResult<T> {
+    ) -> HintedStrResult<T> {
         let Some(path) = &self.path else {
             return Ok(f(world));
         };
