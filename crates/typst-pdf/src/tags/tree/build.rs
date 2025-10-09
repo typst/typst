@@ -200,7 +200,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
     }
 
     #[cfg(debug_assertions)]
-    for group in tree.groups.iter().skip(1) {
+    for group in tree.groups.list.iter().skip(1) {
         assert_ne!(group.parent, GroupId::INVALID);
     }
 
