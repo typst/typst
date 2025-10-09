@@ -1,5 +1,5 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At, SourceResult};
 use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
 use typst_library::math::{
     AlignPointElem, AttachElem, FracElem, LrElem, PrimesElem, RootElem,
@@ -80,14 +80,7 @@ impl Eval for ast::MathAttach<'_> {
         let mut elem = AttachElem::new(base);
 
         if let Some(expr) = self.top() {
-            let top = expr.eval(vm)?;
-            if let Value::Func(_) = top {
-                vm.engine.sink.warn(warning!(
-                    expr.span(), "function literal used as superscript";
-                    hint: "wrap the entire function call in parentheses",
-                ));
-            }
-            elem.t.set(Some(top.display().spanned(self.span())));
+            elem.t.set(Some(expr.eval_display(vm)?));
         }
 
         // Always attach primes in scripts style (not limits style),
@@ -97,14 +90,7 @@ impl Eval for ast::MathAttach<'_> {
         }
 
         if let Some(expr) = self.bottom() {
-            let bottom = expr.eval(vm)?;
-            if let Value::Func(_) = bottom {
-                vm.engine.sink.warn(warning!(
-                    expr.span(), "function literal used as subscript";
-                    hint: "wrap the entire function call in parentheses",
-                ));
-            }
-            elem.b.set(Some(bottom.display().spanned(self.span())));
+            elem.b.set(Some(expr.eval_display(vm)?));
         }
 
         Ok(elem.pack())

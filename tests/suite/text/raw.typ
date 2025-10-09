@@ -231,7 +231,7 @@ box[]
 hello.world
 hello.world()
 hello.my.world()
-f_(zeta(x)), f_(zeta(x))/1
+f_zeta(x), f_zeta(x)/1
 emph(hello.my.world())
 emph(hello.my().world)
 emph(hello.my().world())
