@@ -3,7 +3,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Packed, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Frame, FrameItem, Point, Region, Size,
+    Abs, Axes, FixedAlignment, Frame, FrameItem, InlineItem, Point, Region, Size,
 };
 use typst_library::visualize::{Curve, Image, ImageElem, ImageFit};
 
@@ -78,4 +78,21 @@ pub fn layout_image(
     }
 
     Ok(frame)
+}
+
+pub fn layout_image_inline(
+    elem: &Packed<ImageElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    region: Size,
+) -> SourceResult<Vec<InlineItem>> {
+    let frame = layout_image(
+        elem,
+        engine,
+        locator,
+        styles,
+        Region::new(region, Axes::splat(false)),
+    )?;
+    Ok(vec![InlineItem::Frame(frame)])
 }

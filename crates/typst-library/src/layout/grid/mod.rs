@@ -16,7 +16,8 @@ use crate::foundations::{
 use crate::introspection::Tagged;
 use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
-    Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
+    Alignment, Length, OuterHAlignment, OuterVAlignment, PlacementScope, Rel, Sides,
+    Sizing, VAlignment,
 };
 use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::visualize::{Paint, Stroke};
@@ -172,6 +173,10 @@ use crate::visualize::{Paint, Stroke};
 /// precedence over regular cell strokes.
 #[elem(scope, Synthesize, Tagged)]
 pub struct GridElem {
+    pub placement: Option<Smart<VAlignment>>,
+
+    pub scope: PlacementScope,
+
     /// The column sizes.
     ///
     /// Either specify a track size array or provide an integer to create a grid

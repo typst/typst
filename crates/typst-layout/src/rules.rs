@@ -35,6 +35,8 @@ use typst_library::visualize::{
 };
 use typst_utils::{Get, Numeric};
 
+use crate::image::{layout_image, layout_image_inline};
+
 /// Register show rules for the [paged target](Target::Paged).
 pub fn register(rules: &mut NativeRuleMap) {
     use Target::Paged;
@@ -698,8 +700,28 @@ const STACK_RULE: ShowFn<StackElem> = |elem, _, _| {
     Ok(BlockElem::multi_layouter(elem.clone(), crate::stack::layout_stack).pack())
 };
 
-const GRID_RULE: ShowFn<GridElem> = |elem, _, _| {
-    Ok(BlockElem::multi_layouter(elem.clone(), crate::grid::layout_grid).pack())
+const GRID_RULE: ShowFn<GridElem> = |elem, _, styles| {
+    let span = elem.span();
+    let mut realized =
+        BlockElem::multi_layouter(elem.clone(), crate::grid::layout_grid).pack();
+
+    // Wrap in a float.
+    if let Some(align) = elem.placement.get(styles) {
+        realized = PlaceElem::new(realized)
+            .with_alignment(align.map(|align| HAlignment::Center + align))
+            .with_scope(elem.scope.get(styles))
+            .with_float(true)
+            .pack()
+            .spanned(span);
+    } else if elem.scope.get(styles) == PlacementScope::Parent {
+        bail!(
+            span,
+            "parent-scoped placement is only available for floating figures";
+            hint: "you can enable floating placement with `figure(placement: auto, ..)`"
+        );
+    }
+
+    Ok(realized)
 };
 
 const GRID_CELL_RULE: ShowFn<GridCell> = |elem, _, styles| {
@@ -771,10 +793,11 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
 };
 
 const IMAGE_RULE: ShowFn<ImageElem> = |elem, _, styles| {
-    Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
-        .with_width(elem.width.get(styles))
-        .with_height(elem.height.get(styles))
-        .pack())
+    // Ok(BlockElem::single_layouter(elem.clone(), crate::image::layout_image)
+    //     .with_width(elem.width.get(styles))
+    //     .with_height(elem.height.get(styles))
+    //     .pack())
+    Ok(InlineElem::layouter(elem.clone(), layout_image_inline).pack())
 };
 
 const LINE_RULE: ShowFn<LineElem> = |elem, _, _| {
