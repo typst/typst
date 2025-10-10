@@ -53,6 +53,14 @@ pub struct FracElem {
     /// #set math.frac(style: "horizontal")
     /// $ (a + b) / b $
     /// ```
+    ///
+    /// ```example:"Different styles in inline vs block equations"
+    /// // This changes the style for inline equations only.
+    /// #show math.equation.where(block: false): set math.frac(style: "horizontal")
+    ///
+    /// This $(x-y)/z = 3$ is inline math, and this is block math:
+    /// $ (x-y)/z = 3 $
+    /// ```
     #[default(FracStyle::Vertical)]
     pub style: FracStyle,
 
