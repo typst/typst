@@ -150,7 +150,7 @@
     text(luma(100), box(width: 1fr, repeat[--·--]))
     [ ]
     it.page()
-  })
+  }),
 )
 
 #counter(page).update(3)
@@ -326,3 +326,20 @@ A
 
 = 测
 = 很
+
+--- issue-4741-outline-where-selector ---
+// Test that show rules with outline.where(target: ...) work correctly
+#show outline.where(target: heading): it => [*Custom TOC* #it]
+
+#show outline.where(target: figure): it => [*Custom Figures* #it]
+
+#outline()
+
+#outline(target: figure)
+
+#show heading: none
+= First
+== Second
+
+#show figure: none
+#figure(rect(width: 10pt, height: 10pt), caption: [A])
