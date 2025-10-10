@@ -30,3 +30,44 @@
 #rect(width: 90pt, height: 90pt, fill: tiling(size: (30pt, 30pt))[
   #place(float: true, top + right)[hi]
 ])
+
+--- logical-children-tags-decorations-in-broken-grid-cell pdftags ---
+#set page(height: 50pt)
+#grid(
+  columns: 2,
+  underline[
+    #lorem(10)
+  ],
+  overline[
+    #lorem(10)
+  ],
+)
+
+--- logical-children-tags-hide-around-footnote pdftags ---
+#hide[
+  Some text #footnote[explanation].
+]
+
+Some other text.
+
+--- logical-children-tags-hide-around-place pdftags ---
+#hide[
+  Some text #place(float: true, bottom + right)[explanation].
+]
+
+Some other text.
+
+
+--- logical-children-tags-underline-around-footnote pdftags ---
+#underline[
+  Some text #footnote[explanation].
+]
+
+Some other text.
+
+--- logical-children-tags-underline-around-place render pdftags ---
+#underline[
+  Some text #place(float: true, bottom + right)[explanation].
+]
+
+Some other text.
