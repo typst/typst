@@ -80,7 +80,7 @@ $args(..(a + b))$
 
 --- math-call-spread-multiple-exprs ---
 #let args(..body) = body
-// Error: 10 expected comma or semicolon
+// Error: 7-14 cannot spread content
 $args(..a + b)$
 
 --- math-call-spread-unexpected-dots ---
@@ -94,11 +94,8 @@ $func(...)$
 
 --- math-call-spread-empty ---
 // Test that a spread operator followed by nothing generates two dots.
-// TODO: This currently errors in parsing, but it should change to the given repr.
 #let args(..body) = body
-// Error: 17-18 unclosed delimiter
-// Error: 21 expected comma or semicolon
-// Error: 25 expected comma or semicolon
+#test-repr($args(..)$.body.text, "arguments(sequence([.], [.]))")
 #test-repr($args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
 
 --- math-call-named-spread-override ---
