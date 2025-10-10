@@ -44,12 +44,29 @@ pub fn layout_lr(
     let relative_to = 2.0 * max_extent;
     let height = elem.size.resolve(styles);
 
+    let has_opening = elem.left.get(styles);
+    let has_closing = elem.right.get(styles);
+
     // Scale up fragments at both ends.
     match inner_fragments {
-        [one] => scale_if_delimiter(ctx, one, relative_to, height, None),
+        [one] => scale_if_delimiter(ctx, one, true, relative_to, height, None),
         [first, .., last] => {
-            scale_if_delimiter(ctx, first, relative_to, height, Some(MathClass::Opening));
-            scale_if_delimiter(ctx, last, relative_to, height, Some(MathClass::Closing));
+            scale_if_delimiter(
+                ctx,
+                first,
+                has_opening,
+                relative_to,
+                height,
+                Some(MathClass::Opening),
+            );
+            scale_if_delimiter(
+                ctx,
+                last,
+                has_closing,
+                relative_to,
+                height,
+                Some(MathClass::Closing),
+            );
         }
         [] => {}
     }
@@ -67,12 +84,14 @@ pub fn layout_lr(
     // Remove weak SpacingFragment immediately after the opening or immediately
     // before the closing.
     let mut index = 0;
-    let opening_exists = inner_fragments
-        .first()
-        .is_some_and(|f| f.class() == MathClass::Opening);
-    let closing_exists = inner_fragments
-        .last()
-        .is_some_and(|f| f.class() == MathClass::Closing);
+    let opening_exists = has_opening
+        && inner_fragments
+            .first()
+            .is_some_and(|f| f.class() == MathClass::Opening);
+    let closing_exists = has_closing
+        && inner_fragments
+            .last()
+            .is_some_and(|f| f.class() == MathClass::Closing);
     fragments.retain(|fragment| {
         let discard = (index == start_idx + 1 && opening_exists
             || index + 2 == end_idx && closing_exists)
@@ -114,10 +133,15 @@ pub fn layout_mid(
 fn scale_if_delimiter(
     ctx: &mut MathContext,
     fragment: &mut MathFragment,
+    should_scale: bool,
     relative_to: Abs,
     height: Rel<Abs>,
     apply: Option<MathClass>,
 ) {
+    if !should_scale {
+        return;
+    }
+
     if matches!(
         fragment.class(),
         MathClass::Opening | MathClass::Closing | MathClass::Fence
