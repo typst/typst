@@ -41,9 +41,9 @@ impl Properties {
 pub fn rel(rel: Rel) -> impl Display {
     typst_utils::display(move |f| match (rel.abs.is_zero(), rel.rel.is_zero()) {
         (false, false) => {
-            write!(f, "calc({}% + {})", rel.rel.get(), length(rel.abs))
+            write!(f, "calc({}% + {})", rel.rel.get() * 100.0, length(rel.abs))
         }
-        (true, false) => write!(f, "{}%", rel.rel.get()),
+        (true, false) => write!(f, "{}%", rel.rel.get() * 100.0),
         (_, true) => write!(f, "{}", length(rel.abs)),
     })
 }
