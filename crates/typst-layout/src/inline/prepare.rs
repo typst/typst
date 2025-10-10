@@ -90,7 +90,7 @@ pub fn prepare<'a>(
 
         match segment {
             Segment::Text(_, styles) => {
-                shape_range(&mut items, engine, text, &bidi, range, styles);
+                shape_range(&mut items, engine, text, &bidi, range, styles, &spans);
             }
             Segment::Item(item) => items.push((range, item)),
         }
