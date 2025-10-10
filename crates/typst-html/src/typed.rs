@@ -57,7 +57,7 @@ fn create_func_data(
             title
         },
         docs: element.docs,
-        keywords: &[],
+        keywords: &["typed-html"],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
         params: LazyLock::new(bump.alloc(move || create_param_info(element))),
