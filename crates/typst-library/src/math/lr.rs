@@ -12,6 +12,14 @@ pub struct LrElem {
     #[default(Rel::one())]
     pub size: Rel<Length>,
 
+    /// Whether the left delimiter, if it exists, should be matched.
+    #[default(true)]
+    pub left: bool,
+
+    /// Whether the right delimiter, if it exists, should be matched.
+    #[default(true)]
+    pub right: bool,
+
     /// The delimited content, including the delimiters.
     #[required]
     #[parse(

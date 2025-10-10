@@ -141,3 +141,15 @@ $
   1 / ([item]) quad
   1 /  [item]
 $
+
+--- math-lr-ignore-delimiter-1 ---
+// Test ignoring opening/closing delimiter.
+$ lr(abs(x) 1/2 abs(y)) quad
+  lr(abs(x) 1/2 abs(y), left: #false) \
+  lr(abs(x) 1/2 abs(y), right: #false) quad
+  lr(abs(x) 1/2 abs(y), left: #false, right: #false) $
+
+--- math-lr-ignore-delimiter-2 ---
+// Test ignoring opening/closing delimiter.
+#let eval(body) = $lr(body |, left: #false)$
+$ eval(abs(x) f(x/2))_(x = 3) = abs(3) f(3/2) $
