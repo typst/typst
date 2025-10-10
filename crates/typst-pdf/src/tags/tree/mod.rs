@@ -12,7 +12,7 @@ use smallvec::SmallVec;
 use typst_library::diag::SourceDiagnostic;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
-use typst_library::layout::PagedDocument;
+use typst_library::layout::{Inherit, PagedDocument};
 use typst_library::model::LinkMarker;
 
 pub use build::build;
@@ -405,12 +405,34 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             }
             tree.groups.push_group(direct_parent, id);
         }
-        GroupKind::LogicalChild => {
-            if let GroupKind::LogicalParent(_) = tree.groups.get(semantic_parent).kind {
-                // `GroupKind::LogicalParent` handles inserting of children at
-                // its end, see above.
-            } else {
+        GroupKind::LogicalChild(inherit, logical_parent) => {
+            // `GroupKind::LogicalParent` handles inserting of children at its
+            // end, see above. Children of table/grid cells are always ordered
+            // correctly and are treated a little bit differently
+            if tree.groups.get(semantic_parent).kind.is_grid_layout_cell() {
                 tree.groups.push_group(direct_parent, id);
+            } else if *inherit == Inherit::No {
+                let logical_parent_is_in_artifact = 'artifact: {
+                    let mut current = tree.groups.get(*logical_parent).parent;
+                    while current != GroupId::INVALID {
+                        let group = tree.groups.get(current);
+                        if group.kind.is_artifact() {
+                            break 'artifact true;
+                        }
+                        current = group.parent;
+                    }
+                    false
+                };
+
+                // If this logical child is of kind `LogicalChildKind::Insert`
+                // and not inside of an artifact, inserting it into a parent
+                // that is inside of an artifact would mean the content will be
+                // discarded. If that's the case, ignore the logical parent
+                // structure and insert it wherever it appeared in the frame
+                // tree.
+                if tree.parent_artifact().is_none() && logical_parent_is_in_artifact {
+                    tree.groups.push_group(direct_parent, id);
+                }
             }
         }
         GroupKind::Outline(..) => {

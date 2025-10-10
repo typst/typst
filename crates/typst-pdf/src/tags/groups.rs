@@ -4,7 +4,7 @@ use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
-use typst_library::layout::GridCell;
+use typst_library::layout::{GridCell, Inherit};
 use typst_library::math::EquationElem;
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::text::Locale;
@@ -108,7 +108,7 @@ impl Groups {
             GroupKind::Root(..) => Never,
             GroupKind::Artifact(..) => Always(BreakPriority::Span),
             GroupKind::LogicalParent(..) => Never,
-            GroupKind::LogicalChild => Never,
+            GroupKind::LogicalChild(..) => Never,
             GroupKind::Outline(..) => Never,
             GroupKind::OutlineEntry(..) => Never,
             GroupKind::Table(..) => Never,
@@ -192,7 +192,7 @@ impl Groups {
             }
             GroupKind::Root(..)
             | GroupKind::LogicalParent(..)
-            | GroupKind::LogicalChild
+            | GroupKind::LogicalChild(..)
             | GroupKind::Outline(..)
             | GroupKind::OutlineEntry(..)
             | GroupKind::Table(..)
@@ -293,7 +293,16 @@ impl Groups {
     /// Check whether the child's [`Group::parent`] is either the `parent` or an
     /// ancestor of the `parent`.
     fn check_ancestor(&self, parent: GroupId, child: GroupId) -> bool {
-        let ancestor = self.get(child).parent;
+        let group = self.get(child);
+
+        // Logical children that don't inherit their parent's styles have their
+        // parent set to the the original location they appeared in the tree,
+        // but will be inserted into the correct logical parent.
+        if let GroupKind::LogicalChild(Inherit::No, _) = group.kind {
+            return true;
+        }
+
+        let ancestor = group.parent;
         let mut current = parent;
         while current != GroupId::INVALID {
             if current == ancestor {
@@ -403,7 +412,7 @@ pub enum GroupKind {
     Root(Option<Locale>),
     Artifact(ArtifactType),
     LogicalParent(Content),
-    LogicalChild,
+    LogicalChild(Inherit, GroupId),
     Outline(OutlineId, Option<Locale>),
     OutlineEntry(Packed<OutlineEntry>, Option<Locale>),
     Table(TableId, BBoxId, Option<Locale>),
@@ -459,10 +468,10 @@ impl InternalGridCellKind {
 impl std::fmt::Debug for GroupKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.pad(match self {
-            Self::Root(_) => "Root",
-            Self::Artifact(_) => "Artifact",
-            Self::LogicalParent(_) => "LogicalParent",
-            Self::LogicalChild => "LogicalChild",
+            Self::Root(..) => "Root",
+            Self::Artifact(..) => "Artifact",
+            Self::LogicalParent(..) => "LogicalParent",
+            Self::LogicalChild(..) => "LogicalChild",
             Self::Outline(..) => "Outline",
             Self::OutlineEntry(..) => "OutlineEntry",
             Self::Table(..) => "Table",
@@ -547,7 +556,7 @@ impl GroupKind {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
-            GroupKind::LogicalChild => return None,
+            GroupKind::LogicalChild(_, _) => return None,
             GroupKind::Outline(_, lang) => lang,
             GroupKind::OutlineEntry(_, lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
@@ -580,7 +589,7 @@ impl GroupKind {
             GroupKind::Root(lang) => lang,
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
-            GroupKind::LogicalChild => return None,
+            GroupKind::LogicalChild(_, _) => return None,
             GroupKind::Outline(_, lang) => lang,
             GroupKind::OutlineEntry(_, lang) => lang,
             GroupKind::Table(_, _, lang) => lang,

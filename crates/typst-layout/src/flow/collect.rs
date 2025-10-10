@@ -14,8 +14,8 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{
     Abs, AlignElem, Alignment, Axes, BlockElem, ColbreakElem, FixedAlignment, FlushElem,
-    Fr, Fragment, Frame, PagebreakElem, PlaceElem, PlacementScope, Ratio, Region,
-    Regions, Rel, Size, Sizing, Spacing, VElem,
+    Fr, Fragment, Frame, FrameParent, Inherit, PagebreakElem, PlaceElem, PlacementScope,
+    Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
 };
 use typst_library::model::ParElem;
 use typst_library::routines::{Pair, Routines};
@@ -650,7 +650,10 @@ impl PlacedChild<'_> {
             })?;
 
             if self.float {
-                frame.set_parent(self.elem.location().unwrap());
+                frame.set_parent(FrameParent::new(
+                    self.elem.location().unwrap(),
+                    Inherit::Yes,
+                ));
             }
 
             Ok(frame)

@@ -22,8 +22,8 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::foundations::Content;
 use typst_library::introspection::Location;
 use typst_library::layout::{
-    Frame, FrameItem, GridCell, GridElem, GroupItem, HideElem, PagedDocument, PlaceElem,
-    RepeatElem,
+    Frame, FrameItem, FrameParent, GridCell, GridElem, GroupItem, HideElem, Inherit,
+    PagedDocument, PlaceElem, RepeatElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
@@ -203,7 +203,18 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         }
 
         for child in children.iter() {
-            tree.groups.get_mut(*child).parent = located.id;
+            let child = tree.groups.get_mut(*child);
+
+            let GroupKind::LogicalChild(inherit, logical_parent) = &mut child.kind else {
+                unreachable!()
+            };
+            *logical_parent = located.id;
+
+            // Move the child into its logical parent, so artifact, bbox, and
+            // text attributes are inherited.
+            if *inherit == Inherit::Yes {
+                child.parent = located.id;
+            }
         }
     }
 
@@ -248,39 +259,55 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 /// - footnote entries [`FootnoteEntry`]
 /// - broken table/grid cells [`TableCell`]/[`GridCell`]
 fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<()> {
-    let Some(parent_loc) = group.parent else {
+    let Some(parent) = group.parent else {
         return visit_frame(tree, &group.frame);
     };
 
+    // Push the logical child.
     let prev = tree.current();
-
-    let id = tree.groups.new_virtual(
-        GroupId::INVALID,
-        Span::detached(),
-        GroupKind::LogicalChild,
-    );
-    tree.logical_children.entry(parent_loc).or_default().push(id);
-
     let stack_idx = tree.stack.len();
+    let id = push_logical_child(tree, parent);
+    tree.progressions.push(id);
+
+    // Handle the group frame.
+    visit_frame(tree, &group.frame)?;
+
+    // Pop logical child.
+    pop_logical_child(tree, parent, stack_idx);
+    tree.progressions.push(prev);
+
+    Ok(())
+}
+
+fn push_logical_child(tree: &mut TreeBuilder, parent: FrameParent) -> GroupId {
+    let id = tree.groups.new_virtual(
+        match parent.inherit {
+            Inherit::Yes => GroupId::INVALID,
+            Inherit::No => tree.current(),
+        },
+        Span::detached(),
+        GroupKind::LogicalChild(parent.inherit, GroupId::INVALID),
+    );
+
+    tree.logical_children.entry(parent.location).or_default().push(id);
+
     push_stack_entry(tree, None, id);
-    if let Some(stack) = tree.unfinished_stacks.remove(&parent_loc) {
+    if let Some(stack) = tree.unfinished_stacks.remove(&parent.location) {
         tree.stack.extend(stack);
     }
     // Move to the top of the stack, including the pushed on unfinished stack.
-    tree.progressions.push(tree.stack.last().unwrap().id);
+    tree.stack.last().unwrap().id
+}
 
-    visit_frame(tree, &group.frame)?;
-
+fn pop_logical_child(tree: &mut TreeBuilder, parent: FrameParent, stack_idx: usize) {
     if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-        tree.unfinished_stacks.insert(parent_loc, stack);
+        tree.unfinished_stacks.insert(parent.location, stack);
         tree.unfinished.push(Unfinished {
             prog_idx: tree.progressions.len() as u32,
-            group_to_close: id,
+            group_to_close: tree.stack[stack_idx].id,
         });
     }
     tree.stack.pop().expect("stack entry");
-    tree.progressions.push(prev);
-    Ok(())
 }
 
 fn visit_start_tag(tree: &mut TreeBuilder, elem: &Content) {
