@@ -28,7 +28,7 @@ use crate::model::{TableCell, TableElem};
 /// artifact, you may need to use this function multiple times.
 ///
 /// If you are unsure what constitutes an artifact, check the [Accessibility
-/// Guide]($guides/accessibility#artifacts).
+/// Guide]($guides/accessibility/#artifacts).
 ///
 /// In the future, this function may be moved out of the `pdf` module, making it
 /// possible to hide content in HTML export from AT.
