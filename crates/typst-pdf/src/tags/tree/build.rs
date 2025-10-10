@@ -43,6 +43,7 @@ use crate::PdfOptions;
 use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
 use crate::tags::groups::{
     BreakOpportunity, BreakPriority, GroupKind, Groups, InternalGridCellKind,
+    LogicalChildKind,
 };
 use crate::tags::tree::text::{Script, TextAttr, TextDeco, TextDecoKind};
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
@@ -203,7 +204,18 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
         }
 
         for child in children.iter() {
-            tree.groups.get_mut(*child).parent = located.id;
+            let child = tree.groups.get_mut(*child);
+
+            let GroupKind::LogicalChild(kind, logical_parent) = &mut child.kind else {
+                unreachable!()
+            };
+            *logical_parent = located.id;
+
+            // Move the child into its logical parent, so artifact, bbox, and
+            // text attributes are inherited.
+            if *kind == LogicalChildKind::Inherit {
+                child.parent = located.id;
+            }
         }
     }
 
@@ -248,22 +260,27 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 /// - footnote entries [`FootnoteEntry`]
 /// - broken table/grid cells [`TableCell`]/[`GridCell`]
 fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<()> {
-    let Some(parent_loc) = group.parent else {
+    let Some(parent) = group.parent else {
         return visit_frame(tree, &group.frame);
     };
 
     let prev = tree.current();
 
+    let kind = LogicalChildKind::from(parent);
     let id = tree.groups.new_virtual(
-        GroupId::INVALID,
+        match kind {
+            LogicalChildKind::Inherit => GroupId::INVALID,
+            LogicalChildKind::Insert => tree.current(),
+        },
         Span::detached(),
-        GroupKind::LogicalChild,
+        GroupKind::LogicalChild(kind, GroupId::INVALID),
     );
-    tree.logical_children.entry(parent_loc).or_default().push(id);
+
+    tree.logical_children.entry(parent.location()).or_default().push(id);
 
     let stack_idx = tree.stack.len();
     push_stack_entry(tree, None, id);
-    if let Some(stack) = tree.unfinished_stacks.remove(&parent_loc) {
+    if let Some(stack) = tree.unfinished_stacks.remove(&parent.location()) {
         tree.stack.extend(stack);
     }
     // Move to the top of the stack, including the pushed on unfinished stack.
@@ -272,7 +289,7 @@ fn visit_group_frame(tree: &mut TreeBuilder, group: &GroupItem) -> SourceResult<
     visit_frame(tree, &group.frame)?;
 
     if let Some(stack) = tree.stack.take_unfinished_stack(stack_idx) {
-        tree.unfinished_stacks.insert(parent_loc, stack);
+        tree.unfinished_stacks.insert(parent.location(), stack);
         tree.unfinished.push(Unfinished {
             prog_idx: tree.progressions.len() as u32,
             group_to_close: id,

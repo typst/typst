@@ -1,7 +1,9 @@
 use crate::PdfOptions;
 use crate::tags::GroupId;
 use crate::tags::context::{self, BBoxCtx, BBoxId, Ctx};
-use crate::tags::groups::{Group, GroupKind, Groups, InternalGridCellKind};
+use crate::tags::groups::{
+    Group, GroupKind, Groups, InternalGridCellKind, LogicalChildKind,
+};
 use crate::tags::tree::build::TreeBuilder;
 use crate::tags::tree::text::TextAttrs;
 use ecow::EcoVec;
@@ -405,12 +407,34 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             }
             tree.groups.push_group(direct_parent, id);
         }
-        GroupKind::LogicalChild => {
-            if let GroupKind::LogicalParent(_) = tree.groups.get(semantic_parent).kind {
-                // `GroupKind::LogicalParent` handles inserting of children at
-                // its end, see above.
-            } else {
+        GroupKind::LogicalChild(kind, logical_parent) => {
+            // `GroupKind::LogicalParent` handles inserting of children at its
+            // end, see above. Children of table/grid cells are always ordered
+            // correctly and are treated a little bit differently
+            if tree.groups.get(semantic_parent).kind.is_grid_layout_cell() {
                 tree.groups.push_group(direct_parent, id);
+            } else if *kind == LogicalChildKind::Insert {
+                let logical_parent_is_in_artifact = 'artifact: {
+                    let mut current = tree.groups.get(*logical_parent).parent;
+                    while current != GroupId::INVALID {
+                        let group = tree.groups.get(current);
+                        if group.kind.is_artifact() {
+                            break 'artifact true;
+                        }
+                        current = group.parent;
+                    }
+                    false
+                };
+
+                // If this logical child is of kind `LogicalChildKind::Insert`
+                // and not inside of an artifact inserting it into a parent that
+                // is inside of an artifact would mean the content would be
+                // discarded. If that's the case, ignore the logical parent
+                // structure and insert it wherever it appeared in the frame
+                // tree.
+                if tree.parent_artifact().is_none() && logical_parent_is_in_artifact {
+                    tree.groups.push_group(direct_parent, id);
+                }
             }
         }
         GroupKind::Outline(..) => {

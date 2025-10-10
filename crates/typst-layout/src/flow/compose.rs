@@ -613,7 +613,7 @@ fn layout_footnote(
     )
     .map(|mut fragment| {
         for frame in &mut fragment {
-            frame.set_parent(loc);
+            frame.set_parent(typst_library::layout::FrameParent::Insert(loc));
         }
         fragment
     })

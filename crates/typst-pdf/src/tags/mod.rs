@@ -3,8 +3,7 @@ use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{ArtifactType, ContentTag, SpanTag};
 use typst_library::diag::SourceResult;
-use typst_library::introspection::Location;
-use typst_library::layout::{PagedDocument, Point, Rect, Size};
+use typst_library::layout::{FrameParent, PagedDocument, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
 
@@ -51,7 +50,7 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface) {
 pub fn group<T>(
     gc: &mut GlobalContext,
     surface: &mut Surface,
-    parent: Option<Location>,
+    parent: Option<FrameParent>,
     group_fn: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
 ) -> T {
     if disabled(gc) || parent.is_none() {

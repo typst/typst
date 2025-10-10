@@ -346,7 +346,7 @@ impl Frame {
 
     /// Set a parent for the frame. As a result, all elements in the frame
     /// become logically ordered immediately after the given location.
-    pub fn set_parent(&mut self, parent: Location) {
+    pub fn set_parent(&mut self, parent: FrameParent) {
         if !self.is_empty() {
             self.group(|g| g.parent = Some(parent));
         }
@@ -504,7 +504,7 @@ pub struct GroupItem {
     pub label: Option<Label>,
     /// The group's logical parent. All elements in this group are logically
     /// ordered immediately after the parent's start location.
-    pub parent: Option<Location>,
+    pub parent: Option<FrameParent>,
 }
 
 impl GroupItem {
@@ -524,6 +524,24 @@ impl Debug for GroupItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Group ")?;
         self.frame.fmt(f)
+    }
+}
+
+/// The parent of a [`GroupItem`].
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum FrameParent {
+    /// The frame is inserted into the parent, but doesn't inherit its styles.
+    Insert(Location),
+    /// The frame is inserted into the parent and will inherit its styles.
+    Inherit(Location),
+}
+
+impl FrameParent {
+    pub const fn location(self) -> Location {
+        match self {
+            FrameParent::Insert(loc) => loc,
+            FrameParent::Inherit(loc) => loc,
+        }
     }
 }
 

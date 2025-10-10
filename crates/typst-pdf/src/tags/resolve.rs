@@ -266,7 +266,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
         GroupKind::Root(_) => unreachable!(),
         GroupKind::Artifact(_) => return None,
         GroupKind::LogicalParent(_) => return None,
-        GroupKind::LogicalChild => return None,
+        GroupKind::LogicalChild(_, _) => return None,
         GroupKind::Outline(_, _) => Tag::TOC.into(),
         GroupKind::OutlineEntry(_, _) => Tag::TOCI.into(),
         GroupKind::Table(id, _, _) => rs.ctx.tables.get(*id).build_tag(),
