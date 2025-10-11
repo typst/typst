@@ -67,8 +67,11 @@ use crate::visualize::Color;
 ///
 /// # Syntax
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
-/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
-/// This works both in markup and code.
+/// backticks (`` ` ``) to make it raw. Two backticks is equivalent to 2
+/// separate empty raw elements (putting them together in markup mode will
+/// produce an error). Using 4+ backticks makes it possible to write 3+
+/// backticks inside of it (i.e., nested code blocks). This works both in markup
+/// and code.
 ///
 /// When you use three or more backticks, you can additionally specify a
 /// language tag for syntax highlighting directly after the opening backticks.
