@@ -135,7 +135,7 @@ There are [tools to compare how much contrast a pair of colors has][wcag-contras
 
 | Content                                | AA Ratio | AAA Ratio |
 |----------------------------------------|---------:|----------:|
-| Large text (>=18pt or bold and >=14pt) | 3:1      | 4.5:1     |
+| Large text (≥18pt, or bold and ≥14pt)  | 3:1      | 4.5:1     |
 | Small text                             | 4.5:1    | 7:1       |
 | Non-text content                       | 3:1      | 3:1       |
 

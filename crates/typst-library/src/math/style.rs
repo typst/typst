@@ -83,7 +83,8 @@ pub fn cal(
 /// Script (roundhand) font style in math.
 ///
 /// ```example
-/// $ scr(S) $
+/// $scr(L)$ is not the set of linear
+/// maps $cal(L)$.
 /// ```
 ///
 /// There are two ways that fonts can support differentiating `cal` and `scr`.
@@ -93,9 +94,10 @@ pub fn cal(
 /// The other way is using [font features]($text.features). For example, the
 /// roundhand style might be available in a font through the
 /// _[stylistic set]($text.stylistic-set) 1_ (`ss01`) feature. To use it in
-/// Typst, you could then define your own version of `scr` like this:
+/// Typst, you could then define your own version of `scr` like in the example
+/// below.
 ///
-/// ```example
+/// ```example:"Creating a custom `scr` function using stylistic set 1"
 /// #let scr(it) = text(
 ///   stylistic-set: 1,
 ///   $cal(it)$,

@@ -104,7 +104,7 @@ pub struct EquationElem {
     /// An alternative description of the mathematical equation.
     ///
     /// This should describe the full equation in natural language and will be
-    /// made available to Assisitve Technology. You can learn more in the
+    /// made available to Assistive Technology. You can learn more in the
     /// [Textual Representations section of the Accessibility
     /// Guide]($guides/accessibility/#textual-representations).
     ///
