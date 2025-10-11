@@ -181,8 +181,10 @@ impl<T> Bucket<T> {
 
 /// The initial HTML before compilation is finished.
 const PLACEHOLDER_HTML: &str = "\
+<!DOCTYPE html>
 <html>
   <head>
+    <meta charset='utf-8'>
     <title>Waiting for {INPUT}</title>
     <style>
       body {
