@@ -99,7 +99,10 @@ $ sum_(i in NN) 1 + i $
 ```
 
 ```example:"Change the font for a specific character"
-#show "{": set text(font: "STIX Two Math", fill: maroon)
+#show math.equation: it => {
+  show "{": set text(font: "STIX Two Math", fill: maroon)
+  it
+}
 $ f(x, y) := cases(0 "if" x < 0, x "otherwise") $
 ```
 
@@ -110,6 +113,13 @@ $ f(x, y) := cases(0 "if" x < 0, x "otherwise") $
 ))
 $ 2A + B = C. $
 ```
+
+In the above example, the [regex] `[𝐴-𝑍]` matches capital serif italic
+[mathematical alphanumeric symbols](https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols)
+defined in the Unicode standard. They are not the regular `A` and `Z` in ASCII.
+Also, some characters do not belong to this Unicode block for historic reasons,
+making it harder to match other ranges. For example, `[𝑎-𝑧]` does not match `ℎ`
+and the dotless `𝚤` and `𝚥`.
 
 ```example:"Configure OpenType features"
 #show math.equation: set text(
